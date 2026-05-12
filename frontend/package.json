@@ -1,0 +1,37 @@
+{
+  "name": "travelgrin-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.13.0",
+    "bcryptjs": "^2.4.3",
+    "country-flag-icons": "^1.5.19",
+    "jose": "^5.9.6",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.536.0",
+    "next": "15.4.8",
+    "openai": "^5.16.0",
+    "react": "19.1.2",
+    "react-dom": "19.1.2",
+    "react-hot-toast": "^2.6.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20.19.27",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.4.5",
+    "prisma": "^6.13.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

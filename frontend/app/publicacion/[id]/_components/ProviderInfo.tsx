@@ -1,0 +1,134 @@
+"use client";
+
+import { useTranslation } from "@/app/hooks/useTranslation";
+import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
+import RichText from "@/components/RichText";
+
+type ProviderInfoProps = {
+  value?: I18nRecord | null;
+  rating?: number | null;
+  reviewCount?: number | null;
+  commentsUrl?: string | null;
+  startYear?: string | null;
+  activity?: string | null;
+  providerType?: string | null;
+  activityList?: string[];
+  providerTypeList?: string[];
+  origin?: string | null;
+  logo?: string | null;
+  headquartersInfo?: string | null;
+  headquarterLocations?: Array<{ country: string; city: string; mapUrl: string }>;
+};
+
+export default function ProviderInfo({
+  value,
+  rating,
+  reviewCount,
+  commentsUrl,
+  startYear,
+  activity,
+  providerType,
+  activityList = [],
+  providerTypeList = [],
+  origin,
+  logo,
+  headquartersInfo,
+  headquarterLocations = [],
+}: ProviderInfoProps) {
+  const { t, locale } = useTranslation();
+  const description = pickI18nText(value ?? null, locale, t("oferente_info_descripcion"));
+  const safeRating = Number.isFinite(Number(rating)) ? Number(rating) : null;
+  const roundedRating = safeRating != null ? Math.round(safeRating * 2) / 2 : null;
+  const stars = Array.from({ length: 5 }, (_, idx) => {
+    if (roundedRating == null) return "empty";
+    if (roundedRating >= idx + 1) return "full";
+    if (roundedRating >= idx + 0.5) return "half";
+    return "empty";
+  });
+
+  const normalizedActivityList = (activityList ?? []).map((entry) => String(entry ?? "").trim()).filter(Boolean);
+  const normalizedTypeList = (providerTypeList ?? []).map((entry) => String(entry ?? "").trim()).filter(Boolean);
+  const activityDisplay = normalizedActivityList.length ? normalizedActivityList.join(", ") : (activity ?? "");
+  const providerTypeDisplay = normalizedTypeList.length ? normalizedTypeList.join(", ") : (providerType ?? "");
+
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-5">
+      <div className="flex items-center gap-3">
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logo} alt={t("oferente_info_titulo")} className="h-11 w-11 rounded-full object-cover" />
+        ) : null}
+        <h3 className="text-xl font-semibold text-gray-900">{t("oferente_info_titulo")}</h3>
+      </div>
+      <RichText value={description} className="mt-1.5 text-base leading-7 text-gray-700" />
+
+      {(roundedRating != null || reviewCount || commentsUrl) ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-[#2C3E50]">
+          <span className="font-semibold">{t("oferente_valoracion")}</span>
+          <div className="flex items-center gap-1">
+            {stars.map((s, idx) => (
+              <span key={`${s}-${idx}`} className={s === "full" ? "text-[#F4C542]" : s === "half" ? "text-[#F4C542]" : "text-gray-300"}>
+                ★
+              </span>
+            ))}
+          </div>
+          {reviewCount ? <span>({reviewCount})</span> : null}
+          {commentsUrl ? (
+            <a className="text-[#2B7CAB] underline" href={commentsUrl} target="_blank" rel="noreferrer">
+              {t("oferente_comentarios")}
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
+      {(startYear || activityDisplay || providerTypeDisplay || origin) ? (
+        <div className="mt-3 space-y-1.5 text-sm text-[#2C3E50]">
+          {startYear ? (
+            <div>
+              <span className="font-semibold">{t("oferente_inicio_actividad")}:</span> {startYear}
+            </div>
+          ) : null}
+          {activityDisplay ? (
+            <div>
+              <span className="font-semibold">{t("oferente_actividad")}:</span> {activityDisplay}
+            </div>
+          ) : null}
+          {providerTypeDisplay ? (
+            <div>
+              <span className="font-semibold">{t("oferente_tipo")}:</span> {providerTypeDisplay}
+            </div>
+          ) : null}
+          {origin ? (
+            <div>
+              <span className="font-semibold">{t("oferente_origen")}:</span> {origin}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {(headquarterLocations.length || headquartersInfo) ? (
+        <div className="mt-3 space-y-2 text-sm text-[#2C3E50]">
+          <div className="font-semibold">{t("sede_oficinas")}</div>
+          {headquarterLocations.length ? (
+            <div className="space-y-2">
+              {headquarterLocations.map((loc, idx) => {
+                const label = [loc.city, loc.country].filter(Boolean).join(" · ");
+                return (
+                  <div key={`hq-${idx}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
+                    <span>{label || loc.country}</span>
+                    {loc.mapUrl ? (
+                      <a className="text-[#2B7CAB] underline" href={loc.mapUrl} target="_blank" rel="noreferrer">
+                        {t("ver_mapa")}
+                      </a>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+          {headquartersInfo ? <div className="text-xs text-gray-600">{headquartersInfo}</div> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}

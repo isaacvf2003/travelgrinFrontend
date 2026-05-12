@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+.env*.local
+.env
+*.log
+.DS_Store
+prisma/dev.db
+backend/prisma/dev.db
+frontend/.next/
+backend/.next/
+frontend/node_modules/
+backend/node_modules/
