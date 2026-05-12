@@ -10,10 +10,12 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "i.ibb.co" },
-    ],
-  },
+  remotePatterns: [
+    { protocol: "https", hostname: "i.ibb.co" },
+    { protocol: "https", hostname: "res.cloudinary.com" },
+  ],
+},
+
   async rewrites() {
     if (!apiProxyTarget) return [];
 
