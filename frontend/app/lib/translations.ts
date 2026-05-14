@@ -3,7 +3,7 @@ export const translations = {
 
         // onboarding
         bienvenido: "¡Bienvenido!",
-        cuentanos_el_pais: `Cuéntanos el país de tu pasaporte \n para acompañarte y personalizar tu experiencia de viajar.`,
+        cuentanos_el_pais: `Cuéntanos el país de tu pasaporte o país de origen \n para acompañarte y personalizar tu experiencia de viajar.`,
         continuar: "Continuar",
         este_dato_es: `Este dato es privado y está protegido. \n Podrás cambiarlo si deseas.`,
         no_hay_paises: "No se encontraron países",

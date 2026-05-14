@@ -112,7 +112,7 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
         className="flex w-full items-center justify-between text-left"
       >
         <span className="text-sm font-semibold text-[#0B2B30]">{title}</span>
-        <span className="grid h-8 w-8 place-items-center rounded-lg border border-[#00A9C6]/30 bg-[#00A9C6]/10 text-[#0097B4] shadow-sm transition hover:bg-[#00A9C6]/20">
+        <span className="grid h-8 w-8 place-items-center text-[#0097B4] transition">
           {open ? <ChevronDown className="h-[22px] w-[22px]" strokeWidth={2.4} /> : <ChevronRight className="h-[22px] w-[22px]" strokeWidth={2.4} />}
         </span>
       </button>
@@ -160,7 +160,7 @@ function OptionRow({
             event.stopPropagation();
             onToggleChildren?.();
           }}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#00A9C6]/30 bg-[#00A9C6]/10 text-[#0097B4] shadow-sm transition hover:bg-[#00A9C6]/20"
+          className="grid h-8 w-8 shrink-0 place-items-center text-[#0097B4] transition"
         >
           {childrenOpen ? <ChevronDown className="h-[22px] w-[22px]" strokeWidth={2.4} /> : <ChevronRight className="h-[22px] w-[22px]" strokeWidth={2.4} />}
         </button>
