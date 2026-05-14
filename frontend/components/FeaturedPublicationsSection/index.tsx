@@ -343,13 +343,13 @@ export default function FeaturedPublicationsSection() {
 
   return (
     <section ref={sectionRef} className="mt-6 px-4 sm:px-5 md:mt-8 md:px-6 lg:px-0">
-      <div className="mb-5 overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-10">
+      <div className="mb-10 overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-10">
         <p className="text-2xl font-bold leading-tight md:text-3xl">
           <span className="text-[#273166]">{t("formacion_banner_emphasis")}</span> {t("formacion_banner_rest")}
         </p>
       </div>
 
-      <div className="mb-3 flex items-center justify-center gap-3 text-center md:mb-4">
+      <div className="mb-8 flex items-center justify-center gap-3 text-center md:mb-10">
         <h2 className="text-[22px] font-bold leading-tight text-[#273166] md:text-[25.76px]">
           {t("oportunidades_destacadas_soluciones_activas")}
         </h2>
@@ -465,12 +465,12 @@ export default function FeaturedPublicationsSection() {
         ) : null}
       </div>
 
-      <div className="mt-8 overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-10">
+      <div className="mt-12 overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-10">
         <p className="text-2xl font-bold leading-tight md:text-3xl"><span className="text-[#273166]">{t("ciudadano_banner_line1")}</span><br/>{t("ciudadano_banner_line2")}</p>
       </div>
 
       {showPrestacionesSection ? (
-      <section className="mt-8 rounded-[28px] border border-[#DDEAF5] bg-gradient-to-b from-[#F5F8FD] to-[#F8FAFC] p-4 shadow-[0_10px_30px_rgba(39,49,102,0.06)] md:p-8">
+      <section className="mt-12 rounded-[28px] border border-[#DDEAF5] bg-gradient-to-b from-[#F5F8FD] to-[#F8FAFC] p-4 shadow-[0_10px_30px_rgba(39,49,102,0.06)] md:p-8">
         <div className="text-center">
           <h3 className="text-2xl font-bold text-[#273166]">{t("suma_prestaciones_plan_viaje")}</h3>
           <p className="mt-1 text-sm text-slate-500">{t("explorar_prestaciones_subtitulo")}</p>
