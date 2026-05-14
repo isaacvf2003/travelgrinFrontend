@@ -23,8 +23,6 @@ const CountrySelectionModal = ({
   const [countries, setCountries] = useState([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedOriginCountry, setSelectedOriginCountry] = useState<{ spanishName?: string; name?: { common?: string } } | null>(null);
-  const [activePicker, setActivePicker] = useState<"passport" | "origin">("passport");
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const isClient = useIsClient();
@@ -251,9 +249,10 @@ const CountrySelectionModal = ({
     setShowModal(false);
     if (isClient) {
       setTimeout(() => {
-        const effectiveCountry = selectedCountry || selectedOriginCountry?.spanishName || selectedOriginCountry?.name?.common || "";
-        if (effectiveCountry && !selectedCountry) setSelectedCountry(effectiveCountry);
-        localStorage.setItem("travelgrin_country_selected", JSON.stringify({ country: effectiveCountry, originCountry: selectedOriginCountry || null, skipped: !effectiveCountry, timestamp: Date.now() }));
+        const effectiveCountry = selectedCountry || "";
+        if (effectiveCountry) {
+          localStorage.setItem("travelgrin_country_selected", JSON.stringify({ country: effectiveCountry, timestamp: Date.now() }));
+        }
         setIsOpen(false);
       }, 300);
     }
@@ -266,8 +265,7 @@ const CountrySelectionModal = ({
   const selectCountry = (country: { spanishName?: string; name?: { common?: string } }) => {
     const label = country.spanishName || country.name?.common || "";
     if (!label) return;
-    if (activePicker === "passport") setSelectedCountry(label);
-    else setSelectedOriginCountry(country);
+    setSelectedCountry(label);
     setIsDropdownOpen(false);
     setSearchTerm("");
     setInputFocused(false);
@@ -357,9 +355,6 @@ const CountrySelectionModal = ({
         }}
       >
         {/* Logo y título */}
-        <div className="flex flex-row justify-end">
-          <SelectCountry isBorderBlack={true} isWelcome />
-        </div>
         <div className="text-center mb-8">
           <div className="mb-6 flex justify-center">
             <Image
@@ -405,7 +400,7 @@ const CountrySelectionModal = ({
           />
 
           <button
-            onClick={() => { setActivePicker("passport"); handleDropdownToggle(); }}
+            onClick={handleDropdownToggle}
             className="w-full flex items-center justify-between p-4 pl-12 border border-gray-300 rounded-lg hover:border-teal-500 transition-colors bg-white relative"
             style={{
               backgroundColor: "#ffffff",
@@ -600,20 +595,14 @@ const CountrySelectionModal = ({
           )}
         </div>
 
-        <div className="mb-4 relative">
-          <label className="mb-1 block text-sm text-slate-600">País de origen (opcional)</label>
-          <button
-            onClick={() => { setActivePicker("origin"); handleDropdownToggle(); }}
-            className="w-full flex items-center justify-between p-4 border border-gray-300 rounded-lg hover:border-teal-500 transition-colors bg-white"
-          >
-            <span className="text-gray-700">{selectedOriginCountry?.spanishName || selectedOriginCountry?.name?.common || "Selecciona país de origen"}</span>
-            <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
-          </button>
+
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex flex-row justify-start">
+            <SelectCountry isBorderBlack={true} isWelcome />
+          </div>
+          <button type="button" onClick={closeAndSave} className="rounded-full border border-[#00A9C6]/30 bg-[#00A9C6]/10 px-4 py-1.5 text-sm font-semibold text-[#0B5E6B] hover:bg-[#00A9C6]/20">Omitir por ahora</button>
         </div>
 
-        <div className="mb-3 flex justify-end">
-          <button type="button" onClick={closeAndSave} className="text-sm font-medium text-slate-500 hover:text-slate-700">Omitir por ahora</button>
-        </div>
 
         <ButtonSolid
           onSubmit={handleContinue}
