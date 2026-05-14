@@ -46,7 +46,7 @@ export default function MobileFiltersDrawer({
           />
 
           {/* drawer */}
-          <div className="absolute bottom-0 left-0 right-0 z-[10000] max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white p-4 shadow-2xl">
+          <div className="absolute bottom-0 left-0 right-0 z-[10000]  rounded-t-2xl bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <div className="text-base font-semibold text-[#0B2B30]">Filtros</div>
               <button

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { publicationPath } from "@/app/lib/publicationSlug";
-import { CheckCircle2, Share2 } from "lucide-react";
+import { Share2 } from "lucide-react";
 
 import type { Publication } from "@/app/lib/types";
 import { usePlan } from "./PlanStore";
@@ -286,12 +286,6 @@ export function PublicationCard({ item }: { item: Publication }) {
     return t("oferente_nombre_placeholder") || "Nombre completo del oferente";
   }, [item.publisherName, item.primaryGroupKey, t]);
   const isPrestacion = item.primaryGroupKey === "prestacion";
-  const linkedPrestaciones = useMemo(() => resolveLinkedPrestaciones(item, locale), [item, locale]);
-  const linkedPrestacionesLabel = linkedPrestaciones.length > 1
-    ? t("incluye_prestacion_many").replace("{count}", String(linkedPrestaciones.length))
-    : linkedPrestaciones.length === 1
-      ? t("incluye_prestacion_one")
-      : "";
   const isPartner = Boolean((item as any)?.partner ?? (item as any)?.fields?.partner);
   const destinationCity = String(item.city ?? "").trim();
   const prestacionDestinations = Array.isArray((item as any)?.fields?.travelDestinations) ? (item as any).fields.travelDestinations : [];
@@ -313,14 +307,17 @@ export function PublicationCard({ item }: { item: Publication }) {
     it: "Da confermare",
   };
   const destinationFallback = destinationFallbackByLocale[locale] ?? "A confirmar";
-  const cardHighlights = useMemo(() => {
+  const cardHighlights = useMemo<string[]>(() => {
     const blocks = Array.isArray((item as any)?.fields?.extraDescriptions) ? (item as any).fields.extraDescriptions : [];
     return blocks
       .filter((block: any) => Boolean(block?.visibleInCard))
-      .map((block: any) => pickI18nText(block?.titleI18n ?? null, locale, String(block?.title ?? "").trim()))
+      .map((block: any) => {
+        const title = pickI18nText(block?.titleI18n ?? null, locale, String(block?.title ?? "").trim());
+        return normalizeTagKey(title) === "lo que incluye" ? t("observaciones_label") : title;
+      })
       .filter(Boolean)
       .slice(0, 2);
-  }, [item, locale]);
+  }, [item, locale, t]);
 
   const tags = useMemo(() => {
     const fieldCategoryTags = Array.isArray((item as any)?.fields?.categorySelections)
@@ -431,13 +428,6 @@ export function PublicationCard({ item }: { item: Publication }) {
         <div className="flex-1 p-4 md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              {linkedPrestacionesLabel ? (
-                <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#2C7BE5]/20 bg-[#EEF5FF] px-3 py-1 text-xs font-semibold text-[#1A4B8C] shadow-sm">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-[#2C7BE5]" />
-                  <span>{linkedPrestacionesLabel}</span>
-                </div>
-              ) : null}
-
               {isPrestacion ? (
                 <span className="inline-flex items-center gap-2 rounded-full border border-[#2C7BE5]/20 bg-[#EEF5FF] px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#1A4B8C] shadow-sm">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#2C7BE5]" />
@@ -489,7 +479,7 @@ export function PublicationCard({ item }: { item: Publication }) {
 
               {cardHighlights.length ? (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {cardHighlights.map((highlight) => (
+                  {cardHighlights.map((highlight: string) => (
                     <span key={highlight} className={`rounded-full border px-2 py-0.5 text-xs ${isPrestacion ? "border-[#2C7BE5]/25 text-[#1A4B8C]" : "border-black/10 text-black/70"}`}>
                       {highlight}
                     </span>

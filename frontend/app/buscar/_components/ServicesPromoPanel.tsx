@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckSquare } from "lucide-react";
+import { Check } from "lucide-react";
 import type { FilterGroup, Publication } from "@/app/lib/types";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText } from "@/app/lib/i18nContent";
@@ -84,9 +84,9 @@ export default function ServicesPromoPanel({ filterGroups, publications }: { fil
   const selectedValues = splitCsv(params.get(queryKey));
 
   return (
-    <div className="rounded-2xl border border-[#B9D8FF] bg-[#EAF4FF] p-4">
-      <p className="text-sm font-semibold leading-5 text-[#123F73]">{t("servicios_promo_panel_title")}</p>
-      <div className="tg-hide-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+    <div className="overflow-hidden rounded-3xl border border-[#2C7BE5]/20 bg-gradient-to-r from-[#08D9BD] via-[#04B5BD] to-[#009ABC] p-6 text-center shadow-[0_14px_40px_rgba(0,154,188,0.18)]">
+      <p className="mx-auto max-w-3xl text-xl font-bold leading-tight text-white md:text-2xl">{t("servicios_promo_panel_title")}</p>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
         {visibleOptions.map((option) => {
             const selected = hasCsvValue(selectedValues, option.value);
             return (
@@ -103,13 +103,19 @@ export default function ServicesPromoPanel({ filterGroups, publications }: { fil
                     next.delete("prestacionesPage");
                   })
                 }
-                className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                className={`relative inline-flex items-center gap-2 whitespace-nowrap overflow-hidden rounded-full border px-3 py-1.5 text-xs font-semibold shadow-[0_0_24px_rgba(255,255,255,0.25)] transition before:absolute before:inset-y-[-60%] before:left-[-45%] before:w-1/2 before:skew-x-12 before:bg-white/40 before:opacity-0 before:transition-all before:duration-700 hover:before:left-[120%] hover:before:opacity-100 ${
                   selected
-                    ? "border-[#2C7BE5] bg-[#2C7BE5] text-white shadow-sm"
-                    : "border-[#2C7BE5]/30 bg-white text-[#2C7BE5] shadow-sm hover:bg-[#2C7BE5]/10"
+                    ? "border-white/70 bg-white text-[#0D6E86]"
+                    : "border-white/45 bg-white/90 text-[#0D6E86] hover:bg-white"
                 }`}
               >
-                <CheckSquare className="h-3.5 w-3.5" />
+                <span
+                  className={`grid h-4 w-4 shrink-0 place-items-center rounded border ${
+                    selected ? "border-white bg-white text-[#2C7BE5]" : "border-[#2C7BE5]/55 bg-white text-transparent"
+                  }`}
+                >
+                  <Check className="h-3 w-3" strokeWidth={3} />
+                </span>
                 {pickI18nText(option.labelI18n ?? null, locale, option.label)}
               </button>
             );

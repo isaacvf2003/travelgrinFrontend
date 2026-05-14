@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 
 import type { Category, FilterGroup, FilterOption } from "@/app/lib/types";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -112,7 +112,9 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
         className="flex w-full items-center justify-between text-left"
       >
         <span className="text-sm font-semibold text-[#0B2B30]">{title}</span>
-        <span className="text-[#00A9C6]">{open ? "▾" : "▸"}</span>
+        <span className="grid h-9 w-9 place-items-center rounded-lg border border-[#00A9C6]/35 bg-[#00A9C6]/12 text-[#008EAA] shadow-sm transition hover:bg-[#00A9C6]/20">
+          {open ? <ChevronDown className="h-6 w-6" strokeWidth={2.5} /> : <ChevronRight className="h-6 w-6" strokeWidth={2.5} />}
+        </span>
       </button>
       {open ? <div className="mt-3 space-y-2">{children}</div> : null}
     </div>
@@ -125,12 +127,16 @@ function OptionRow({
   onChange,
   indent = false,
   hasChildren = false,
+  childrenOpen = false,
+  onToggleChildren,
 }: {
   checked: boolean;
   label: string;
   onChange: (next: boolean) => void;
   indent?: boolean;
   hasChildren?: boolean;
+  childrenOpen?: boolean;
+  onToggleChildren?: () => void;
 }) {
   return (
     <label
@@ -145,7 +151,20 @@ function OptionRow({
         className="h-4 w-4 rounded border-black/20 accent-[#00A9C6]"
       />
       <span className="flex-1">{label}</span>
-      {hasChildren ? <span className="text-[#00A9C6] text-xs">▸</span> : null}
+      {hasChildren ? (
+        <button
+          type="button"
+          aria-label={childrenOpen ? "Ocultar subcategorias" : "Mostrar subcategorias"}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggleChildren?.();
+          }}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#00A9C6]/35 bg-[#00A9C6]/12 text-[#008EAA] shadow-sm transition hover:bg-[#00A9C6]/20"
+        >
+          {childrenOpen ? <ChevronDown className="h-6 w-6" strokeWidth={2.5} /> : <ChevronRight className="h-6 w-6" strokeWidth={2.5} />}
+        </button>
+      ) : null}
     </label>
   );
 }
@@ -412,7 +431,7 @@ export default function Filters({
 
 
   return (
-    <div className="flex max-h-[calc(100vh-190px)] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_14px_50px_rgba(0,0,0,0.06)]">
+    <div className="flex flex-col rounded-2xl border border-black/10 bg-white shadow-[0_14px_50px_rgba(0,0,0,0.06)]">
       <div className="shrink-0 border-b border-[#D8E2E5] bg-white p-5 pb-4">
         <div className="flex items-start justify-between gap-3">
         <div>
@@ -448,7 +467,7 @@ export default function Filters({
         </button>
         </div>
       </div>
-      <div className="tg-hide-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 pb-5 pt-4">
+      <div className="space-y-4 px-5 pb-5 pt-4">
       {isApplying ? (
         <div className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-[#00A9C6]">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -479,10 +498,10 @@ export default function Filters({
                 const childSelections = (tree.childrenBy.get(root.id) ?? []).filter((child) =>
                   hasCsvValue(splitCategoryCsv(optimisticParams.get("subcategory")), child.description)
                 );
-                const showChildren = rootSelected || childSelections.length > 0;
                 const subRowKey = `${group.id}:${root.id}`;
                 const childOptions = tree.childrenBy.get(root.id) ?? [];
                 const isSubExpanded = expandedSubcategoryRows[subRowKey] === true;
+                const showChildren = rootSelected || childSelections.length > 0 || isSubExpanded;
                 const visibleChildren = isSubExpanded ? childOptions : childOptions.slice(0, 2);
                 return (
                   <div key={root.id} className="space-y-2">
@@ -490,6 +509,8 @@ export default function Filters({
                       checked={rootSelected}
                       label={pickI18nText(root.descriptionI18n ?? null, locale, root.description)}
                       hasChildren={rootHasChildren}
+                      childrenOpen={showChildren}
+                      onToggleChildren={() => setExpandedSubcategoryRows((prev) => ({ ...prev, [subRowKey]: !isSubExpanded }))}
                       onChange={(ck) => setParamCsv("category", root.description, ck)}
                     />
                     {showChildren
@@ -546,7 +567,7 @@ export default function Filters({
           ];
           const presets = (basePresets.length ? basePresets : fallbackPresets).map((preset) => {
             const raw = String(preset.value ?? "");
-            const baseLabel = pickI18nText(preset.labelI18n ?? null, locale, preset.label ?? raw);
+            const baseLabel = pickI18nText("labelI18n" in preset ? preset.labelI18n ?? null : null, locale, preset.label ?? raw);
             return { ...preset, label: formatPricePresetLabel(raw, baseLabel, selectedCurrency) };
           });
           const optionCurrencies = options
@@ -662,6 +683,8 @@ export default function Filters({
               const childRowKey = `${group.id}:${o.id}`;
               const children = tree.get(o.id) ?? [];
               const isChildExpanded = expandedFilterChildrenRows[childRowKey] === true;
+              const childSelections = children.filter((child) => hasCsvValue(splitCsv(optimisticParams.get(queryKey)), child.value));
+              const showChildren = selected || childSelections.length > 0 || isChildExpanded;
               const visibleChildren = isChildExpanded ? children : children.slice(0, 2);
               return (
                 <div key={o.id} className="space-y-2">
@@ -669,9 +692,11 @@ export default function Filters({
                     checked={selected}
                     label={pickI18nText(o.labelI18n ?? null, locale, o.label)}
                     hasChildren={hasChildren}
+                    childrenOpen={showChildren}
+                    onToggleChildren={() => setExpandedFilterChildrenRows((prev) => ({ ...prev, [childRowKey]: !isChildExpanded }))}
                     onChange={(ck) => setParamCsv(queryKey, o.value, ck)}
                   />
-                  {visibleChildren.map((child) => {
+                  {showChildren ? visibleChildren.map((child) => {
                     const childSelected = hasCsvValue(splitCsv(optimisticParams.get(queryKey)), child.value);
                     return (
                       <OptionRow
@@ -682,8 +707,8 @@ export default function Filters({
                         onChange={(ck) => setParamCsv(queryKey, child.value, ck)}
                       />
                     );
-                  })}
-                  {children.length > 2 ? (
+                  }) : null}
+                  {showChildren && children.length > 2 ? (
                     <button
                       type="button"
                       onClick={() => setExpandedFilterChildrenRows((prev) => ({ ...prev, [childRowKey]: !isChildExpanded }))}
