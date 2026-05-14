@@ -84,9 +84,9 @@ export default function ServicesPromoPanel({ filterGroups, publications }: { fil
   const selectedValues = splitCsv(params.get(queryKey));
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-[#2C7BE5]/20 bg-gradient-to-r from-[#08D9BD] via-[#04B5BD] to-[#009ABC] p-6 text-center shadow-[0_14px_40px_rgba(0,154,188,0.18)]">
-      <p className="mx-auto max-w-3xl text-xl font-bold leading-tight text-white md:text-2xl">{t("servicios_promo_panel_title")}</p>
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
+    <div className="overflow-hidden rounded-2xl border border-[#2C7BE5]/15 bg-gradient-to-br from-[#F3F8FF] via-white to-[#EAF7FA] p-5 shadow-[0_18px_45px_rgba(11,143,163,0.10)]">
+      <p className="mx-auto max-w-3xl text-base font-bold leading-6 text-[#1A4B8C]">{t("servicios_promo_panel_title")}</p>
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
         {visibleOptions.map((option) => {
             const selected = hasCsvValue(selectedValues, option.value);
             return (
@@ -105,8 +105,8 @@ export default function ServicesPromoPanel({ filterGroups, publications }: { fil
                 }
                 className={`relative inline-flex items-center gap-2 whitespace-nowrap overflow-hidden rounded-full border px-3 py-1.5 text-xs font-semibold shadow-[0_0_24px_rgba(255,255,255,0.25)] transition before:absolute before:inset-y-[-60%] before:left-[-45%] before:w-1/2 before:skew-x-12 before:bg-white/40 before:opacity-0 before:transition-all before:duration-700 hover:before:left-[120%] hover:before:opacity-100 ${
                   selected
-                    ? "border-white/70 bg-white text-[#0D6E86]"
-                    : "border-white/45 bg-white/90 text-[#0D6E86] hover:bg-white"
+                    ? "border-[#2C7BE5] bg-[#2C7BE5] text-white"
+                    : "border-[#2C7BE5]/30 bg-white text-[#2C7BE5] hover:bg-[#2C7BE5]/10"
                 }`}
               >
                 <span

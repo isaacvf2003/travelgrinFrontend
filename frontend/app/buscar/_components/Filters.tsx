@@ -112,8 +112,8 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
         className="flex w-full items-center justify-between text-left"
       >
         <span className="text-sm font-semibold text-[#0B2B30]">{title}</span>
-        <span className="grid h-9 w-9 place-items-center rounded-lg border border-[#00A9C6]/35 bg-[#00A9C6]/12 text-[#008EAA] shadow-sm transition hover:bg-[#00A9C6]/20">
-          {open ? <ChevronDown className="h-6 w-6" strokeWidth={2.5} /> : <ChevronRight className="h-6 w-6" strokeWidth={2.5} />}
+        <span className="grid h-8 w-8 place-items-center rounded-lg border border-[#00A9C6]/30 bg-[#00A9C6]/10 text-[#0097B4] shadow-sm transition hover:bg-[#00A9C6]/20">
+          {open ? <ChevronDown className="h-[22px] w-[22px]" strokeWidth={2.4} /> : <ChevronRight className="h-[22px] w-[22px]" strokeWidth={2.4} />}
         </span>
       </button>
       {open ? <div className="mt-3 space-y-2">{children}</div> : null}
@@ -160,9 +160,9 @@ function OptionRow({
             event.stopPropagation();
             onToggleChildren?.();
           }}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#00A9C6]/35 bg-[#00A9C6]/12 text-[#008EAA] shadow-sm transition hover:bg-[#00A9C6]/20"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#00A9C6]/30 bg-[#00A9C6]/10 text-[#0097B4] shadow-sm transition hover:bg-[#00A9C6]/20"
         >
-          {childrenOpen ? <ChevronDown className="h-6 w-6" strokeWidth={2.5} /> : <ChevronRight className="h-6 w-6" strokeWidth={2.5} />}
+          {childrenOpen ? <ChevronDown className="h-[22px] w-[22px]" strokeWidth={2.4} /> : <ChevronRight className="h-[22px] w-[22px]" strokeWidth={2.4} />}
         </button>
       ) : null}
     </label>
