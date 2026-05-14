@@ -355,6 +355,12 @@ const CountrySelectionModal = ({
         }}
       >
         {/* Logo y título */}
+        <div className="mb-4 flex items-center justify-between">
+          <button type="button" onClick={closeAndSave} className="rounded-full border border-[#00A9C6]/30 bg-[#00A9C6]/10 px-4 py-1.5 text-sm font-semibold text-[#0B5E6B] hover:bg-[#00A9C6]/20">Omitir por ahora</button>
+          <div className="flex flex-row justify-end">
+            <SelectCountry isBorderBlack={true} isWelcome />
+          </div>
+        </div>
         <div className="text-center mb-8">
           <div className="mb-6 flex justify-center">
             <Image
@@ -593,14 +599,6 @@ const CountrySelectionModal = ({
               </div>
             </div>
           )}
-        </div>
-
-
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex flex-row justify-start">
-            <SelectCountry isBorderBlack={true} isWelcome />
-          </div>
-          <button type="button" onClick={closeAndSave} className="rounded-full border border-[#00A9C6]/30 bg-[#00A9C6]/10 px-4 py-1.5 text-sm font-semibold text-[#0B5E6B] hover:bg-[#00A9C6]/20">Omitir por ahora</button>
         </div>
 
 
