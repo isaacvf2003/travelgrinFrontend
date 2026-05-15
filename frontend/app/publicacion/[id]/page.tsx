@@ -586,13 +586,6 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
             <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
               {/* Meta */}
               <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                {item.createdAt ? (
-                  <span>
-                    <TranslatedText id="fecha_publicacion" />:{" "}
-                    {new Date(item.createdAt as any).toLocaleDateString("es-AR")}
-                  </span>
-                ) : null}
-                <span className="text-gray-300">|</span>
                 <span title={String(item.id)}>
                   <TranslatedText id="id_publicacion" />: {publicationCode}
                 </span>

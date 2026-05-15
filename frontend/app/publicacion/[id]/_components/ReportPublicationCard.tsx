@@ -158,13 +158,13 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
             <h3 className="mb-3 text-lg font-semibold text-slate-900">{labels.title}</h3>
             <div className="grid gap-2">
               <label className="text-sm font-medium text-black">{labels.fullName}</label>
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm" placeholder={labels.fullNamePlaceholder} />
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400" placeholder={labels.fullNamePlaceholder} />
               <label className="text-sm font-medium text-black">{labels.email}</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm" placeholder={labels.emailPlaceholder} />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400" placeholder={labels.emailPlaceholder} />
               <label className="text-sm font-medium text-black">{labels.phone}</label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm" placeholder={labels.phonePlaceholder} />
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400" placeholder={labels.phonePlaceholder} />
               <label className="text-sm font-medium text-black">{labels.detailsLabel}</label>
-              <textarea value={details} onChange={(e) => setDetails(e.target.value)} className="min-h-[110px] rounded-lg border border-slate-200 p-3 text-sm" placeholder={labels.details} />
+              <textarea value={details} onChange={(e) => setDetails(e.target.value)} className="min-h-[110px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-400" placeholder={labels.details} />
               <button disabled={sending || sent} onClick={submit} className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
                 {sent ? labels.sent : sending ? "..." : labels.send}
               </button>

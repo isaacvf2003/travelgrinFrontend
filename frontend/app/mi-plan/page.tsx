@@ -327,27 +327,27 @@ function PlanContent() {
             items.map((item) => (
               <div
                 key={item.publicationId}
-                className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                className="flex flex-wrap items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
               >
-                <div className="h-20 w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                <div className="flex w-20 shrink-0 flex-col gap-2">
+                  <div className="h-20 w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={item.imageUrl ?? FALLBACK_IMAGE}
-                    alt={item.title}
-                    className="h-full w-full object-cover"
-                  />
+                    <img
+                      src={item.imageUrl ?? FALLBACK_IMAGE}
+                      alt={item.title}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <Link
+                    href={`/${publicationInfoById[item.publicationId]?.basePath ?? "publicacion"}/${item.publicationId}`}
+                    className="w-full rounded-xl border border-[#0B8FA3]/30 bg-[#EAF9FB] px-2 py-1.5 text-center text-[11px] font-semibold text-[#0B6B7A]"
+                  >
+                    {copy.details}
+                  </Link>
                 </div>
                 <div className="flex-1">
                   <div className="text-sm font-semibold text-gray-900">{item.title}</div>
                   <div className="mt-1 text-xs text-gray-500">{formatItemPrice(item)}</div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Link
-                      href={`/${publicationInfoById[item.publicationId]?.basePath ?? "publicacion"}/${item.publicationId}`}
-                      className="rounded-xl border border-[#0B8FA3]/30 bg-[#EAF9FB] px-3 py-1.5 text-xs font-semibold text-[#0B6B7A]"
-                    >
-                      {copy.details}
-                    </Link>
-                  </div>
                   <div className="mt-3">
                     <button
                       type="button"
@@ -365,7 +365,7 @@ function PlanContent() {
                           value={notesById[item.publicationId] ?? ""}
                           onChange={(e) => setNotesById((prev) => ({ ...prev, [item.publicationId]: e.target.value }))}
                           placeholder={copy.notePlaceholder}
-                          className="mt-1 min-h-[70px] w-full rounded-xl border border-slate-200 p-2 text-xs outline-none focus:border-[#0B8FA3]"
+                          className="mt-1 min-h-[70px] w-full rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#0B8FA3]"
                         />
                       </div>
                     ) : null}

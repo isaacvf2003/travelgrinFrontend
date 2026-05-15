@@ -6091,6 +6091,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold text-slate-900">{report.publicationTitle || "Publicación sin título"}</div>
+                        <div className="mt-1 text-xs text-slate-500">Publicación ID: {report.publicationId || "-"}</div>
                         <div className="mt-1 text-xs text-slate-500">Denunciante: {report.fullName || "-"} · {report.email || "-"} · {report.contact || "-"}</div>
                       </div>
                       <span className="text-xs font-semibold text-rose-600">{isOpen ? "Ocultar" : "Ver detalle"}</span>
