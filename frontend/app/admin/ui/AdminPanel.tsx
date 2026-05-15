@@ -662,6 +662,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [blockTaxonomyType, setBlockTaxonomyType] = useState("categoria");
   const [blockIsPublicVisible, setBlockIsPublicVisible] = useState(true);
   const [blockVisibleInCard, setBlockVisibleInCard] = useState(false);
+  const [initialBlockVisibleInCard, setInitialBlockVisibleInCard] = useState(false);
   const [blockError, setBlockError] = useState("");
   type BlockCategoryDraft = {
     id: string;
@@ -1281,6 +1282,27 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           }),
         });
         savedBlockId = editingBlockId;
+        if (blockVisibleInCard !== initialBlockVisibleInCard) {
+          const blockCategories = categories.filter((category) => category.blockId === savedBlockId);
+          await Promise.all(blockCategories.map((category) =>
+            api(`/api/admin/categories/${encodeURIComponent(category.id)}`, {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                description: category.description,
+                descriptionI18n: category.descriptionI18n ?? { es: category.description },
+                taxonomyType: category.taxonomyType || "inherit",
+                parentId: category.parentId ?? null,
+                blockId: category.blockId ?? savedBlockId,
+                isPublicVisible: category.isPublicVisible !== false,
+                isPrimaryCategory: blockVisibleInCard,
+                iconImageUrl: blockVisibleInCard ? (category.iconImageUrl ?? null) : null,
+                cardImageUrl: blockVisibleInCard ? (category.cardImageUrl ?? null) : null,
+                order: category.order ?? 0,
+              }),
+            })
+          ));
+        }
       } else {
         const maxOrder = filterGroups.reduce((acc, group) => Math.max(acc, group.order ?? 0), 0);
         const createdGroup = await api<{ ok: true; group: FilterGroup }>("/api/admin/filters", {
@@ -1411,6 +1433,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setBlockTaxonomyType("categoria");
       setBlockIsPublicVisible(true);
       setBlockVisibleInCard(false);
+      setInitialBlockVisibleInCard(false);
       setBlockCategoryDrafts([]);
       setEditingBlockId(null);
       setShowCategoryModal(false);
@@ -1458,6 +1481,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setBlockTaxonomyType("categoria");
     setBlockIsPublicVisible(true);
     setBlockVisibleInCard(false);
+    setInitialBlockVisibleInCard(false);
     setBlockCategoryDrafts([]);
     setShowCategoryModal(true);
   };
@@ -1491,7 +1515,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setBlockImageUrl(group.imageUrl ?? "");
     setBlockTaxonomyType(group.taxonomyType ?? "categoria");
     setBlockIsPublicVisible(group.isPublicVisible !== false);
-    setBlockVisibleInCard(false);
+    const hasPrimaryCategory = categories.some((category) => category.blockId === group.id && category.isPrimaryCategory === true);
+    setBlockVisibleInCard(hasPrimaryCategory);
+    setInitialBlockVisibleInCard(hasPrimaryCategory);
     setBlockCategoryDrafts([]);
     setShowCategoryModal(true);
   };
@@ -1763,9 +1789,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const existingImageAssets = Array.isArray((pFieldsBase as any).imageAssets)
       ? ((pFieldsBase as any).imageAssets as ImageAsset[])
       : [];
-    const uploadedAssetsByUrl = new Map(pImageUploadAssets.map((asset) => [asset.url, asset]));
-    const existingAssetsByUrl = new Map(existingImageAssets.map((asset) => [imageAssetToUrl(asset), asset]).filter(([url]) => url));
-    const optimizedImageAssets = imageList.length
+    const uploadedAssetsByUrl = new Map<string, ImageAsset>(pImageUploadAssets.map((asset) => [asset.url, asset] as const));
+    const existingAssetsByUrl = new Map<string, ImageAsset>(
+      existingImageAssets
+        .map((asset) => [imageAssetToUrl(asset), asset] as const)
+        .filter((entry): entry is readonly [string, ImageAsset] => Boolean(entry[0]))
+    );
+    const optimizedImageAssets: ImageAsset[] = imageList.length
       ? await Promise.all(imageList.map(async (url) => {
           const existingUpload = uploadedAssetsByUrl.get(url) || existingAssetsByUrl.get(url);
           return existingUpload || uploadRemoteImageAssetToCloudinary(url, { folder: "admin/publications" });
@@ -3111,11 +3141,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (exact) return exact.raw;
       const partial = normalizedCatalog.find((entry) => entry.norm.includes(normalizedInput) || normalizedInput.includes(entry.norm));
       if (partial) return partial.raw;
-      let best: { raw: string; distance: number } | null = null;
-      normalizedCatalog.forEach((entry) => {
+      const best = normalizedCatalog.reduce<{ raw: string; distance: number } | null>((current, entry) => {
         const distance = levenshteinDistance(normalizedInput, entry.norm);
-        if (!best || distance < best.distance) best = { raw: entry.raw, distance };
-      });
+        return !current || distance < current.distance ? { raw: entry.raw, distance } : current;
+      }, null);
       if (!best) return null;
       const tolerance = Math.max(2, Math.floor(normalizedInput.length * 0.3));
       return best.distance <= tolerance ? best.raw : null;
@@ -3314,6 +3343,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       current.push(publication);
       map.set(providerEmail, current);
     });
+    return map;
+  }, [publications]);
+
+  const publicationsById = useMemo(() => {
+    const map = new Map<string, Publication>();
+    publications.forEach((publication) => map.set(String(publication.id), publication));
     return map;
   }, [publications]);
 
@@ -4440,7 +4475,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                 />
                                 <button type="button" onClick={() => removeBlockCategoryDraft(draft.id)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Eliminar</button>
                               </div>
-                              <div className="grid gap-2 sm:grid-cols-1">
+                              <div className={`grid gap-2 ${blockVisibleInCard ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
                                 <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
                                   <input
                                     type="checkbox"
@@ -4452,6 +4487,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   />
                                   Visible al público
                                 </label>
+                                {blockVisibleInCard ? (
+                                  <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                                    <input
+                                      type="checkbox"
+                                      checked={draft.isPrimaryCategory}
+                                      onChange={(e) =>
+                                        updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
+                                      }
+                                      className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                                    />
+                                    Visible en la tarjeta
+                                  </label>
+                                ) : null}
                               </div>
                               {draft.isPrimaryCategory ? (
                                 <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
@@ -4587,7 +4635,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                         />
                                         <button type="button" onClick={() => removeBlockCategoryDraft(subDraft.id)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Eliminar</button>
                                       </div>
-                                      <div className="mt-2 grid gap-2 sm:grid-cols-1">
+                                      <div className={`mt-2 grid gap-2 ${blockVisibleInCard ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
                                         <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
                                           <input
                                             type="checkbox"
@@ -4599,6 +4647,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                           />
                                           Visible al público
                                         </label>
+                                        {blockVisibleInCard ? (
+                                          <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                                            <input
+                                              type="checkbox"
+                                              checked={subDraft.isPrimaryCategory}
+                                              onChange={(e) =>
+                                                updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
+                                              }
+                                              className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                                            />
+                                            Visible en la tarjeta
+                                          </label>
+                                        ) : null}
                                       </div>
                                       {subDraft.isPrimaryCategory ? (
                                         <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
@@ -5560,6 +5621,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {pEditorMode === "prestacion" ? (
             <div className="grid gap-5">
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <label className="text-sm font-semibold text-slate-900">Estado de la prestaciÃ³n</label>
+                <select
+                  value={pStatus}
+                  onChange={(e) => setPStatus(e.target.value)}
+                  className="mt-3 h-10 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                >
+                  <option value="active">Activo</option>
+                  <option value="draft">Borrador</option>
+                  <option value="paused">Pausado</option>
+                  <option value="hidden">Oculto</option>
+                </select>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="text-sm font-semibold text-slate-900">Prestación vinculada a la publicación</div>
                 <p className="mt-1 text-xs text-slate-500">Elegí a qué categoría con tipo de filtro prestación pertenece esta publicación.</p>
                 <div className="mt-3 grid gap-2">
@@ -6076,6 +6150,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div className="mt-3 space-y-3">
             {publicationTab === "denuncias" ? filteredReports.map((report) => {
               const isOpen = Boolean(expandedReports[report.id]);
+              const reportedPublication = publicationsById.get(String(report.publicationId ?? ""));
+              const reportedPath = reportedPublication?.primaryGroupKey === "prestacion"
+                ? `/prestaciones/${encodeURIComponent(report.publicationId)}`
+                : `/publicacion/${encodeURIComponent(report.publicationId)}`;
               return (
                 <div key={report.id} className="rounded-2xl border border-rose-100 bg-white p-4">
                   <button
@@ -6096,6 +6174,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   {isOpen ? (
                     <>
                       <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">{report.details || "-"}</div>
+                      {report.publicationId ? (
+                        <a
+                          href={reportedPath}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                        >
+                          Abrir publicacion denunciada
+                        </a>
+                      ) : null}
                       <div className="mt-2 text-xs text-rose-600">{report.reason || "Denuncia"} · {report.createdAt ? new Date(report.createdAt).toLocaleString("es-AR") : ""}</div>
                     </>
                   ) : null}

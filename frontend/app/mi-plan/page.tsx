@@ -183,7 +183,13 @@ function PlanContent() {
       const raw = window.localStorage.getItem(PLAN_NOTES_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") setNotesById(parsed);
+      if (parsed && typeof parsed === "object") {
+        setNotesById(parsed);
+        const expanded = Object.fromEntries(
+          Object.entries(parsed).filter(([, value]) => String(value ?? "").trim()).map(([id]) => [id, true])
+        );
+        setExpandedNotesById(expanded);
+      }
     } catch {
       // ignore
     }
@@ -365,7 +371,8 @@ function PlanContent() {
                           value={notesById[item.publicationId] ?? ""}
                           onChange={(e) => setNotesById((prev) => ({ ...prev, [item.publicationId]: e.target.value }))}
                           placeholder={copy.notePlaceholder}
-                          className="mt-1 min-h-[70px] w-full rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#0B8FA3]"
+                          className="mt-1 min-h-[70px] w-full rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#0B8FA3] dark:bg-white dark:text-slate-900"
+                          style={{ colorScheme: "light" }}
                         />
                       </div>
                     ) : null}

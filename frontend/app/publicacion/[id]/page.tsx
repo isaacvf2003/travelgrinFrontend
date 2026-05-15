@@ -24,6 +24,15 @@ type PageProps = {
   searchParams?: { img?: string; priceCurrency?: string; returnTo?: string; country?: string; destinationCountry?: string };
 };
 
+type DetailCategory = {
+  id?: string | number | null;
+  description?: string | null;
+  descriptionI18n?: Record<string, string> | null;
+  parentId?: string | number | null;
+  isPrimaryCategory?: boolean | null;
+  taxonomyType?: string | null;
+};
+
 function safeUrl(src: any) {
   if (!src) return null;
   const s = String(src);
@@ -40,14 +49,14 @@ function normalizeTaxonomyType(value: unknown) {
     .trim();
 }
 
-function resolvePublicationLanguages(item: any) {
-  const fromField = Array.isArray(item?.languages)
+function resolvePublicationLanguages(item: any): string[] {
+  const fromField: string[] = Array.isArray(item?.languages)
     ? item.languages
     : item?.languages
       ? [item.languages]
       : [];
 
-  const fromIdiomaTaxonomyType = Array.isArray(item?.filterOptions)
+  const fromIdiomaTaxonomyType: string[] = Array.isArray(item?.filterOptions)
     ? item.filterOptions
         .filter((entry: any) => {
           const taxonomyType = normalizeTaxonomyType(entry?.filterOption?.group?.taxonomyType);
@@ -59,7 +68,7 @@ function resolvePublicationLanguages(item: any) {
 
   const preferred = fromIdiomaTaxonomyType.length ? fromIdiomaTaxonomyType : fromField;
 
-  return Array.from(new Set(preferred.map((lang) => String(lang).trim()).filter(Boolean)));
+  return Array.from(new Set(preferred.map((lang: string) => String(lang).trim()).filter(Boolean)));
 }
 
 const COUNTRY_FLAG_MAP: Record<string, string> = {
@@ -186,7 +195,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
   const payload = (await res.json()) as { item?: Publication } | Publication;
   const item = ("item" in payload ? payload.item : payload) as Publication;
 
-  const locale = item.contentLanguage ?? "es";
+  const locale = (item.contentLanguage ?? "es") as Parameters<typeof pickI18nText>[1];
   const [filtersRes, categoriesRes] = await Promise.all([
     fetch(`${base}/api/filters`, { cache: "no-store" }),
     fetch(`${base}/api/categories`, { cache: "no-store" }),
@@ -194,7 +203,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
   const filtersPayload = filtersRes.ok ? await filtersRes.json() : { groups: [] };
   const filterGroups = Array.isArray(filtersPayload?.groups) ? filtersPayload.groups : [];
   const categoriesPayload = categoriesRes.ok ? await categoriesRes.json() : { items: [] };
-  const categories = Array.isArray(categoriesPayload?.items) ? categoriesPayload.items : [];
+  const categories = (Array.isArray(categoriesPayload?.items) ? categoriesPayload.items : []) as DetailCategory[];
   const normalize = (value: string) =>
     value
       .toLowerCase()
@@ -220,7 +229,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
   );
   const selectedPrestacionesNormalized = new Set(
     [...Array.from(selectedPrestacionesLabels), ...Array.from(selectedPrestacionesFromFields)]
-      .map((entry) => normalize(entry))
+      .map((entry) => normalize(String(entry ?? "")))
       .filter(Boolean)
   );
   const includedPrestacionesChips = Array.from(
@@ -251,7 +260,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
     .filter((chip: any, index: number, arr: any[]) => arr.findIndex((it) => normalize(it.value) === normalize(chip.value)) === index);
 
   const imgsRaw = (item.images as any) ?? [];
-  const imgs = Array.isArray(imgsRaw) ? imgsRaw.map(safeUrl).filter(Boolean) : [];
+  const imgs = Array.isArray(imgsRaw) ? imgsRaw.map(safeUrl).filter((url): url is string => Boolean(url)) : [];
   const planImageUrl = imgs[0] ?? null;
 
   const socialLinks = (item.socialLinks ?? {}) as Record<string, string>;
@@ -381,6 +390,15 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
     )
   );
   const mergedSubcategoryLabels = Array.from(new Set([...subcategoryLabels, ...fieldSubcategoryLabels].filter(Boolean)));
+  const categoryById = new Map<string, DetailCategory>(
+    categories.filter((cat) => cat.id != null).map((cat) => [String(cat.id), cat])
+  );
+  const categoryByLabel = new Map<string, DetailCategory>();
+  categories.forEach((cat) => {
+    const raw = String(cat?.description ?? "").trim();
+    const label = pickI18nText(cat?.descriptionI18n ?? null, locale, raw);
+    [raw, label].filter(Boolean).forEach((value) => categoryByLabel.set(normalize(String(value)), cat));
+  });
   const primaryDestination =
     travelDestinations[0] ??
     normalizeLocation({
@@ -399,10 +417,33 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
   ).trim();
   const breadcrumbCountry = selectedDestinationCountry || String(primaryDestination.country ?? "").trim();
   const breadcrumbCountryLabel = breadcrumbCountry.replace(/^[A-Za-z]{2}\s+/, "").trim() || breadcrumbCountry;
-  const breadcrumbCategories = [
+  const breadcrumbSources = [
     ...categoryLabels.map((label) => ({ label, param: "category" as const, value: String(item.category ?? label) })),
     ...mergedSubcategoryLabels.map((label) => ({ label, param: "subcategory" as const, value: String(item.subcategory ?? label) })),
-  ].filter((entry, index, arr) => entry.label && arr.findIndex((it) => normalize(it.label)) === index);
+  ].filter((entry) => entry.label);
+  const primaryBreadcrumbSources = breadcrumbSources
+    .map((entry) => {
+      const matched = categoryByLabel.get(normalize(entry.value)) ?? categoryByLabel.get(normalize(entry.label));
+      if (matched?.isPrimaryCategory === true) {
+        return {
+          label: pickI18nText(matched.descriptionI18n ?? null, locale, String(matched.description ?? entry.label)),
+          param: entry.param,
+          value: String(matched.description ?? entry.value),
+        };
+      }
+      const parent = matched?.parentId ? categoryById.get(String(matched.parentId)) : null;
+      if (parent?.isPrimaryCategory === true) {
+        return {
+          label: pickI18nText(parent.descriptionI18n ?? null, locale, String(parent.description ?? entry.label)),
+          param: "category" as const,
+          value: String(parent.description ?? entry.value),
+        };
+      }
+      return null;
+    })
+    .filter(Boolean) as Array<{ label: string; param: "category" | "subcategory"; value: string }>;
+  const breadcrumbCategories = (primaryBreadcrumbSources.length ? primaryBreadcrumbSources : breadcrumbSources)
+    .filter((entry, index, arr) => entry.label && arr.findIndex((it) => normalize(it.label)) === index);
   const publicationCode = `PUB-${String(item.id ?? "").replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase() || "000000"}`;
 
   const primaryGroup =

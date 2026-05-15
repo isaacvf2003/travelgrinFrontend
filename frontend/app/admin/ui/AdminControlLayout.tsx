@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 
-export type AdminSection = "panel" | "usuarios" | "categorias" | "publicaciones";
+export type AdminSection = "panel" | "usuarios" | "categorias" | "publicaciones" | "configuracion" | "contacto";
 
 type AdminControlLayoutProps = {
   children: ReactNode;
