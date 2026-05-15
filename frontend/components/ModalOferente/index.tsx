@@ -250,6 +250,7 @@ export default function ModalOferente({ onClose }: Props) {
   const [isEmptyProposalCategory, setIsEmptyProposalCategory] = useState(false);
   const [isEmptyEmail, setIsEmptyEmail] = useState(false);
   const [isEmptyTerms, setIsEmptyTerms] = useState(false);
+  const [featuredTypeFocusKey, setFeaturedTypeFocusKey] = useState(0);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -365,6 +366,26 @@ export default function ModalOferente({ onClose }: Props) {
       toast.error(t("seleccionar_como_actuas"));
       return false;
     }
+    if (!destinationCountry.trim()) {
+      toast.error("Elegí un país destino");
+      return false;
+    }
+    if (!languages.length) {
+      toast.error("Elegí al menos un idioma");
+      return false;
+    }
+    if (!primaryVenue.country.trim() || !primaryVenue.city.trim() || !primaryVenue.mapUrl.trim()) {
+      toast.error("Completá todos los campos de sede principal");
+      return false;
+    }
+    if (!description.trim()) {
+      toast.error("Completá la descripción");
+      return false;
+    }
+    if (!website.trim()) {
+      toast.error("Completá el sitio web");
+      return false;
+    }
 
     if (!acceptedTerms) {
       setIsEmptyTerms(true);
@@ -463,7 +484,18 @@ export default function ModalOferente({ onClose }: Props) {
   const goFeatured = () => {
     if (!validateBasic()) return;
     setStep("featured");
+    setFeaturedTypeFocusKey((prev) => prev + 1);
   };
+
+  useEffect(() => {
+    if (step !== "featured") return;
+    const frame = window.requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>("[data-featured-type='1'] select, [data-featured-type='1'] button");
+      el?.focus();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [step, featuredTypeFocusKey]);
 
   const handleProviderLogoUpload = async (file: File | null) => {
     if (!file) return;
@@ -619,7 +651,10 @@ export default function ModalOferente({ onClose }: Props) {
   const featuredStep = (
     <>
       <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900">
-        Completá más información para destacarte y aumentar tus consultas. No se borra nada de lo que ya cargaste.
+        <div className="flex items-start justify-between gap-3">
+          <span>Completá más información para destacarte y aumentar tus consultas. No se borra nada de lo que ya cargaste.</span>
+          <button type="button" onClick={() => setStep("basic")} className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Volver atrás</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -643,7 +678,7 @@ export default function ModalOferente({ onClose }: Props) {
             </div>
           </div>
         </div>
-        <div style={{ position: "relative", zIndex: 9999995 }}>
+        <div data-featured-type="1" key={featuredTypeFocusKey} style={{ position: "relative", zIndex: 9999995 }}>
           <SingleOptionSelect selectedValue={providerType} setSelectedValue={setProviderType} options={typeOptions} placeholder="Tipo" />
         </div>
       </div>
@@ -749,9 +784,6 @@ export default function ModalOferente({ onClose }: Props) {
           promoCode={promoCode}
           onPromoCodeChange={setPromoCode}
         />
-      </div>
-      <div className="flex justify-center">
-        <button type="button" onClick={() => setStep("basic")} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Volver atrás</button>
       </div>
     </>
   );
