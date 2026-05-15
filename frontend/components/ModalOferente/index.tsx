@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import toast from "react-hot-toast";
@@ -177,20 +177,21 @@ function PlanCard({
 }) {
   const isFeatured = tone === "featured";
   return (
-    <div className={`flex h-full flex-col rounded-[1.35rem] border bg-white/95 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] ${isFeatured ? "border-amber-300" : "border-emerald-300"}`}>
-      <div className="flex items-center gap-2 text-sm font-bold text-[#273166]">
-        <span className={`h-3 w-3 rounded-full ${isFeatured ? "bg-amber-400" : "bg-emerald-500"}`} />
+    <div className={`flex h-full flex-col rounded-[1.35rem] border p-5 text-sm shadow-[0_18px_45px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.16)] ${isFeatured ? "border-[#67E8F9] bg-gradient-to-br from-[#102A6B] via-[#0B8FA3] to-[#00A9C6] text-white" : "border-emerald-300 bg-white/95 text-slate-800"}`}>
+      <div className={`flex items-center gap-2 text-sm font-bold ${isFeatured ? "text-white" : "text-[#273166]"}`}>
+        <span className={`h-3 w-3 rounded-full ${isFeatured ? "bg-cyan-200 shadow-[0_0_18px_rgba(165,243,252,0.95)]" : "bg-emerald-500"}`} />
         {title}
       </div>
-      <ul className="mt-4 flex-1 space-y-1.5 text-sm text-slate-700">
+      <ul className={`mt-4 flex-1 space-y-1.5 text-sm leading-6 ${isFeatured ? "text-cyan-50" : "text-slate-700"}`}>
         {items.map((item) => <li key={item}>• {item}</li>)}
       </ul>
-      <div className="mt-5 text-center text-2xl font-extrabold text-slate-900">{price}</div>
+      <div className={`mt-5 text-center text-2xl font-extrabold ${isFeatured ? "text-white" : "text-slate-900"}`}>{price}</div>
       {showPromo ? (
         <input
           value={promoCode}
           onChange={(event) => onPromoCodeChange?.(event.target.value)}
-          className="mt-3 h-9 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+          className="mt-3 h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+          style={{ colorScheme: "light" }}
           placeholder="Código promocional"
         />
       ) : null}
@@ -198,7 +199,7 @@ function PlanCard({
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className={`mt-3 rounded-xl px-4 py-2 text-sm font-bold text-white shadow transition disabled:cursor-not-allowed disabled:opacity-60 ${isFeatured ? "bg-[#D99A00] hover:bg-[#B98200]" : "bg-[#273166] hover:bg-[#1d2550]"}`}
+        className={`mt-3 rounded-xl px-4 py-2 text-sm font-bold shadow transition disabled:cursor-not-allowed disabled:opacity-60 ${isFeatured ? "bg-white text-[#102A6B] shadow-[0_0_26px_rgba(255,255,255,0.65)] hover:shadow-[0_0_36px_rgba(255,255,255,0.9)]" : "bg-[#273166] text-white hover:bg-[#1d2550]"}`}
       >
         {buttonLabel}
       </button>
@@ -216,6 +217,7 @@ export default function ModalOferente({ onClose }: Props) {
   const [step, setStep] = useState<Step>("basic");
   const [isLoading, setIsLoading] = useState(false);
   const [isOpenModalAI, setIsOpenModalAI] = useState(false);
+  const modalBodyRef = useRef<HTMLDivElement | null>(null);
 
   const [profileName, setProfileName] = useState("");
   const [proposalCategories, setProposalCategories] = useState<string[]>([]);
@@ -374,10 +376,6 @@ export default function ModalOferente({ onClose }: Props) {
       toast.error("Elegí al menos un idioma");
       return false;
     }
-    if (!primaryVenue.country.trim() || !primaryVenue.city.trim() || !primaryVenue.mapUrl.trim()) {
-      toast.error("Completá todos los campos de sede principal");
-      return false;
-    }
     if (!description.trim()) {
       toast.error("Completá la descripción");
       return false;
@@ -393,6 +391,14 @@ export default function ModalOferente({ onClose }: Props) {
       return false;
     }
     setIsEmptyTerms(false);
+    return true;
+  };
+
+  const validateFeatured = () => {
+    if (!primaryVenue.country.trim() || !primaryVenue.city.trim() || !primaryVenue.mapUrl.trim()) {
+      toast.error("Completá todos los campos de sede principal");
+      return false;
+    }
     return true;
   };
 
@@ -464,6 +470,7 @@ export default function ModalOferente({ onClose }: Props) {
 
   const submit = async (publicationPlan: "basic_free" | "featured") => {
     if (!validateBasic()) return;
+    if (publicationPlan === "featured" && !validateFeatured()) return;
     setIsLoading(true);
     try {
       const response = await fetch("/api/travel-services", {
@@ -492,7 +499,7 @@ export default function ModalOferente({ onClose }: Props) {
     const frame = window.requestAnimationFrame(() => {
       const el = document.querySelector<HTMLElement>("[data-featured-type='1'] select, [data-featured-type='1'] button");
       el?.focus();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      modalBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [step, featuredTypeFocusKey]);
@@ -569,9 +576,9 @@ export default function ModalOferente({ onClose }: Props) {
       <div className="rounded-2xl bg-white/60 p-4 shadow-inner">
         <p className="text-black text-md text-center">*{t("como_actuas")}</p>
         <div className="mt-4 flex flex-col items-start justify-start space-y-4 w-full lg:px-4">
-          <RoundedCheckbox id="ofrezco" checked={isOfrezco} onChange={(e) => { setIsOfrezco(e.target.checked); setIsIntermediario(false); }} label={t("ofrezco_directamente")} />
+          <RoundedCheckbox id="ofrezco" checked={isOfrezco} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setIsOfrezco(e.target.checked); setIsIntermediario(false); }} label={t("ofrezco_directamente")} />
           <div className="ml-5 md:-ml-0">
-            <RoundedCheckbox id="intermediario" checked={isIntermediario} onChange={(e) => { setIsIntermediario(e.target.checked); setIsOfrezco(false); }} label={t("intermediario")} />
+            <RoundedCheckbox id="intermediario" checked={isIntermediario} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setIsIntermediario(e.target.checked); setIsOfrezco(false); }} label={t("intermediario")} />
           </div>
         </div>
       </div>
@@ -582,30 +589,6 @@ export default function ModalOferente({ onClose }: Props) {
         </div>
         <div style={{ position: "relative", zIndex: 9999996 }}>
           <MultiOptionSelect selectedValues={languages} setSelectedValues={setLanguages} options={languageOptions} placeholder="Idiomas que te comunicas" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
-        <div style={{ position: "relative", zIndex: 9999995 }}>
-          <label className="mb-1 block text-sm font-medium text-slate-700">{locale === "en" ? "Headquarters" : locale === "pt" ? "Sede" : "Sede"}</label>
-          <DestinationSelect
-            destinationCountry={primaryVenue.country}
-            setDestinationCountry={(country) => setPrimaryVenue((prev) => ({ ...prev, country }))}
-            label="País de la sede principal"
-            customClass="mb-0"
-            isInModal
-            textBuscarPais={t("buscar_pais")}
-            noHayPaises={t("no_hay_paises")}
-          />
-        </div>
-        <div className="rounded-2xl bg-white p-3 shadow-[0_12px_36px_-18px_rgba(8,217,189,0.55),0_6px_18px_-9px_rgba(4,181,189,0.35)]">
-          <input value={primaryVenue.city} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, city: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30" placeholder={locale === "en" ? "Headquarter city" : locale === "pt" ? "Cidade da sede principal" : "Ciudad de la sede principal"} />
-        </div>
-        <div className="rounded-2xl bg-white p-3 shadow-[0_12px_36px_-18px_rgba(8,217,189,0.55),0_6px_18px_-9px_rgba(4,181,189,0.35)]">
-          <div className="relative">
-            <MapPin className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#0B8FA3]" />
-            <input value={primaryVenue.mapUrl} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, mapUrl: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30" placeholder={locale === "en" ? "Google Maps URL" : locale === "pt" ? "URL do Google Maps" : "URL de Google Maps"} />
-          </div>
         </div>
       </div>
 
@@ -651,10 +634,7 @@ export default function ModalOferente({ onClose }: Props) {
   const featuredStep = (
     <>
       <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900">
-        <div className="flex items-start justify-between gap-3">
-          <span>Completá más información para destacarte y aumentar tus consultas. No se borra nada de lo que ya cargaste.</span>
-          <button type="button" onClick={() => setStep("basic")} className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Volver atrás</button>
-        </div>
+        Completá más información para destacarte y aumentar tus consultas. No se borra nada de lo que ya cargaste.
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -680,6 +660,33 @@ export default function ModalOferente({ onClose }: Props) {
         </div>
         <div data-featured-type="1" key={featuredTypeFocusKey} style={{ position: "relative", zIndex: 9999995 }}>
           <SingleOptionSelect selectedValue={providerType} setSelectedValue={setProviderType} options={typeOptions} placeholder="Tipo" />
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
+        <div className="mb-3 text-sm font-semibold text-[#273166]">Sede</div>
+        <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
+          <div style={{ position: "relative", zIndex: 9999995 }}>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{locale === "en" ? "Headquarters" : locale === "pt" ? "Sede" : "Sede"}</label>
+            <DestinationSelect
+              destinationCountry={primaryVenue.country}
+              setDestinationCountry={(country) => setPrimaryVenue((prev) => ({ ...prev, country }))}
+              label="País de la sede principal"
+              customClass="mb-0"
+              isInModal
+              textBuscarPais={t("buscar_pais")}
+              noHayPaises={t("no_hay_paises")}
+            />
+          </div>
+          <div className="rounded-2xl bg-white p-3 shadow-[0_12px_36px_-18px_rgba(8,217,189,0.55),0_6px_18px_-9px_rgba(4,181,189,0.35)]">
+            <input value={primaryVenue.city} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, city: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={locale === "en" ? "Headquarter city" : locale === "pt" ? "Cidade da sede principal" : "Ciudad de la sede principal"} />
+          </div>
+          <div className="rounded-2xl bg-white p-3 shadow-[0_12px_36px_-18px_rgba(8,217,189,0.55),0_6px_18px_-9px_rgba(4,181,189,0.35)]">
+            <div className="relative">
+              <MapPin className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#0B8FA3]" />
+              <input value={primaryVenue.mapUrl} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, mapUrl: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={locale === "en" ? "Google Maps URL" : locale === "pt" ? "URL do Google Maps" : "URL de Google Maps"} />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -800,13 +807,20 @@ export default function ModalOferente({ onClose }: Props) {
           <div className="flex-shrink-0 p-6 pb-4 border-b border-gray-100 bg-white">
             <div className="flex flex-row items-start justify-between">
               <Image src="/logo-degrade.png" width={200} height={200} className="object-cover w-[10rem] h-[5rem] mb-4" alt="logo degrade" />
-              <button onClick={onClose} className="ml-4 p-2 hover:bg-gray-100 rounded-full transition-colors duration-200 flex-shrink-0">
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
+              <div className="flex items-center gap-2">
+                {step === "featured" ? (
+                  <button type="button" onClick={() => setStep("basic")} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                    Volver atrás
+                  </button>
+                ) : null}
+                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200 flex-shrink-0">
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#F5FBFB] via-[#EEEEEE] to-[#F8FAFC] p-6 space-y-6">
+          <div ref={modalBodyRef} className="flex-1 overflow-y-auto bg-gradient-to-b from-[#F5FBFB] via-[#EEEEEE] to-[#F8FAFC] p-6 space-y-6">
             <div className="flex items-center justify-center flex-col text-center">
               <h1 style={{ color: "#273166" }} className="text-xl font-semibold text-gray-800 leading-tight">{t("conecta_con_viajeros")}</h1>
               <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? "Completá más información para destacar y aumentar tus consultas" : t("cambiamos_la_manera")}</h2>
@@ -829,8 +843,8 @@ export default function ModalOferente({ onClose }: Props) {
       {isOpenModalAI ? (
         <ModalAI
           onClose={() => setIsOpenModalAI(false)}
-          description={description}
-          setDescription={setDescription}
+          description={step === "featured" ? included : description}
+          setDescription={step === "featured" ? setIncluded : setDescription}
           typeProfile={providerType}
           selectedCategory={proposalCategories[0] ?? ""}
           isOfrezco={isOfrezco}

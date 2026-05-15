@@ -32,6 +32,7 @@ type PublicationLite = {
 
 type MoreCardLite = {
   id: "__more__";
+  featured?: false;
 };
 type PrestCategoryLite = { id: string; description: string };
 type CategoryApiLite = { id?: string | number; description?: string; taxonomyType?: string | null };
@@ -208,6 +209,14 @@ export default function FeaturedPublicationsSection() {
   const start = safeSlide * cardsPerView;
   const pageItems = listWithMore.slice(start, start + cardsPerView);
   const showCarousel = listWithMore.length > cardsPerView;
+  const visualFocusIndex = (entries: Array<{ id: string }>) => {
+    if (!entries.length) return -1;
+    const centerIndex = Math.floor((entries.length - 1) / 2);
+    if (entries[centerIndex]?.id !== "__more__") return centerIndex;
+    const previousReal = entries.slice(0, centerIndex).map((entry, index) => ({ entry, index })).reverse().find(({ entry }) => entry.id !== "__more__");
+    return previousReal?.index ?? centerIndex;
+  };
+  const featuredFocusIndex = visualFocusIndex(pageItems);
 
   useEffect(() => {
     setCurrentSlide(0);
@@ -291,6 +300,7 @@ export default function FeaturedPublicationsSection() {
   const prestStart = safePrestSlide * prestCardsPerView;
   const prestPageItems = prestacionesToShow.slice(prestStart, prestStart + prestCardsPerView);
   const showPrestCarousel = prestacionesToShow.length > prestCardsPerView;
+  const prestFocusIndex = visualFocusIndex(prestPageItems);
 
   useEffect(() => {
     setPrestacionesSlide(0);
@@ -356,16 +366,17 @@ export default function FeaturedPublicationsSection() {
       </div>
 
       <div className="relative" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {pageItems.map((item) => {
+        <div className="flex flex-wrap items-stretch justify-center gap-4">
+          {pageItems.map((item, index) => {
+            const isFocused = index === featuredFocusIndex && item.id !== "__more__";
             if (item.id === "__more__") {
               return (
                 <Link
                   key={item.id}
                   href={selectedCountry ? `/buscar?country=${encodeURIComponent(selectedCountry)}` : "/buscar"}
-                  className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  className="group relative w-full max-w-[14rem] overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 opacity-65 shadow-sm grayscale transition-all duration-300 hover:-translate-y-0.5 hover:opacity-80 hover:shadow-md"
                 >
-                  <div className="relative h-full min-h-[22rem] w-full bg-slate-100">
+                  <div className="relative h-full min-h-[18rem] w-full bg-slate-100">
                     <Image
                       src="https://i.ibb.co/VmrmGrx/sin-foto.jpg"
                       alt="Travelgrin"
@@ -376,44 +387,49 @@ export default function FeaturedPublicationsSection() {
                     <div className="absolute inset-0 bg-gradient-to-b from-slate-900/20 via-slate-900/40 to-slate-900/60" />
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
-                    <span className="rounded-full bg-white/90 px-7 py-3 text-xl md:text-2xl font-extrabold leading-tight text-[#273166] shadow-lg transition group-hover:scale-105">
+                    <span className="rounded-full bg-white/90 px-5 py-2.5 text-base font-extrabold leading-tight text-[#273166] shadow transition group-hover:scale-105">
                       {t("ver_mas")}
                     </span>
                   </div>
                 </Link>
               );
             }
-            const title = pickI18nText(item.titleI18n ?? null, locale, item.title);
-            const fields = (item.fields ?? {}) as Record<string, unknown>;
+            const pub = item as PublicationLite;
+            const title = pickI18nText(pub.titleI18n ?? null, locale, pub.title);
+            const fields = (pub.fields ?? {}) as Record<string, unknown>;
             const categorySelections = Array.isArray(fields?.categorySelections)
               ? (fields.categorySelections as unknown[]).map((value) => String(value ?? "").trim()).filter(Boolean)
               : [];
             const categoryLabel = categorySelections[0]
-              || (item.category ? pickI18nText(item.categoryI18n ?? null, locale, item.category) : "");
-            const subcategoryLabel = item.subcategory ? pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory) : "";
-            const location = [String(item.city ?? "").trim(), String(item.country ?? "").trim()].filter(Boolean).join(", ");
+              || (pub.category ? pickI18nText(pub.categoryI18n ?? null, locale, pub.category) : "");
+            const subcategoryLabel = pub.subcategory ? pickI18nText(pub.subcategoryI18n ?? null, locale, pub.subcategory) : "";
+            const location = [String(pub.city ?? "").trim(), String(pub.country ?? "").trim()].filter(Boolean).join(", ");
             const isPartner = Boolean(fields.partner);
             const providerType = String(fields?.providerType ?? "").trim();
             const destination = Array.isArray(fields?.destinationCountries)
               ? String((fields.destinationCountries as unknown[])[0] ?? "").trim()
               : "";
-            const isPrestacion = item.primaryGroupKey === "prestacion";
-            const detailPath = isPrestacion ? `/prestaciones/${item.id}` : `/publicacion/${item.id}`;
+            const isPrestacion = pub.primaryGroupKey === "prestacion";
+            const detailPath = isPrestacion ? `/prestaciones/${pub.id}` : `/publicacion/${pub.id}`;
             return (
               <Link
-                key={item.id}
+                key={pub.id}
                 href={detailPath}
-                className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                className={`group w-full overflow-hidden rounded-3xl border bg-white transition-all duration-300 hover:-translate-y-0.5 ${
+                  isFocused
+                    ? "max-w-[23rem] border-[#0B8FA3]/50 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]"
+                    : "max-w-[18rem] border-slate-200 bg-slate-50 opacity-60 grayscale shadow-sm hover:opacity-75"
+                }`}
               >
-                <div className="relative h-44 w-full bg-slate-100">
-                  <Image src={firstImage(item)} alt={title} fill className="object-cover" sizes="(max-width: 1280px) 50vw, 25vw" />
+                <div className={`relative w-full bg-slate-100 ${isFocused ? "h-48" : "h-40"}`}>
+                  <Image src={firstImage(pub)} alt={title} fill className="object-cover" sizes="(max-width: 1280px) 50vw, 25vw" />
                 </div>
                 <div className="space-y-2 p-4">
                   <div className="flex flex-wrap gap-1">
                     {item.featured ? <span className="rounded-full bg-[#00A9C6] px-2 py-0.5 text-[11px] font-semibold text-white">★ Destacado</span> : null}
                     {isPartner ? <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">🤝 Partner</span> : null}
                   </div>
-                  <p className="text-xs text-slate-500">{item.publisherName || t("oferente_nombre_placeholder")}</p>
+                  <p className="text-xs text-slate-500">{pub.publisherName || t("oferente_nombre_placeholder")}</p>
                   <h3 className="line-clamp-2 text-lg md:text-xl font-semibold leading-tight text-[#273166]">{title}</h3>
                   <p className="text-sm text-slate-600">{categoryLabel || subcategoryLabel || "-"}</p>
                   <p className="flex items-center gap-1 text-sm text-slate-600">
@@ -424,9 +440,9 @@ export default function FeaturedPublicationsSection() {
                   <p className="flex items-center gap-1 text-sm text-slate-600">
                     <span>🏳️</span>{location || destination || "-"}
                   </p>
-                  <p className="text-sm font-semibold text-[#0B8FA3]">{item.price ? `${item.currency ? `${item.currency} ` : ""}${item.price}` : t("precio_convenir")}</p>
+                  <p className="text-sm font-semibold text-[#0B8FA3]">{pub.price ? `${pub.currency ? `${pub.currency} ` : ""}${pub.price}` : t("precio_convenir")}</p>
                   <div className="pt-1">
-                    <span className="inline-flex w-full items-center justify-center rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                    <span className={`inline-flex w-full items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold ${isFocused ? "bg-[#EAF9FB] text-[#0B6B7A]" : "bg-slate-200 text-slate-600"}`}>
                       {isPrestacion ? t("ver_prestacion") : t("ver_mas")}
                     </span>
                   </div>
@@ -509,8 +525,9 @@ export default function FeaturedPublicationsSection() {
           </button>
         </div>
         <div className="mt-5" onTouchStart={onPrestTouchStart} onTouchMove={onPrestTouchMove} onTouchEnd={onPrestTouchEnd}>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {prestPageItems.map((item) => {
+          <div className="flex flex-wrap items-stretch justify-center gap-4">
+          {prestPageItems.map((item, index) => {
+            const isFocused = index === prestFocusIndex;
             const title = pickI18nText(item.titleI18n ?? null, locale, item.title);
             const desc = item.subcategory
               ? pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory)
@@ -519,15 +536,19 @@ export default function FeaturedPublicationsSection() {
               <Link
                 key={`prest-${item.id}`}
                 href={`/prestaciones/${item.id}`}
-                className="group overflow-hidden rounded-2xl border border-[#BFEAF3] bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                className={`group w-full overflow-hidden rounded-2xl border bg-white transition-all duration-300 hover:-translate-y-0.5 ${
+                  isFocused
+                    ? "max-w-[22rem] border-[#0B8FA3]/45 opacity-100 shadow-[0_18px_45px_rgba(11,143,163,0.16)]"
+                    : "max-w-[17rem] border-slate-200 bg-slate-50 opacity-60 grayscale shadow-sm hover:opacity-75"
+                }`}
               >
-                <div className="relative h-32 w-full bg-slate-100">
+                <div className={`relative w-full bg-slate-100 ${isFocused ? "h-36" : "h-28"}`}>
                   <Image src={firstPrestacionImage(item, locale)} alt={title} fill className="object-cover" />
                 </div>
                 <div className="space-y-2 p-4">
                   <h4 className="line-clamp-2 text-base font-bold text-[#273166]">{title}</h4>
                   <p className="line-clamp-1 text-sm text-slate-500">{desc || t("prestacion_disponible")}</p>
-                  <span className="inline-flex w-full items-center justify-center rounded-lg bg-[#EAF9FB] px-3 py-2 text-sm font-semibold text-[#0B6B7A]">
+                  <span className={`inline-flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold ${isFocused ? "bg-[#EAF9FB] text-[#0B6B7A]" : "bg-slate-200 text-slate-600"}`}>
                     {t("ver_mas")}
                   </span>
                 </div>
