@@ -661,6 +661,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [blockImageUrl, setBlockImageUrl] = useState("");
   const [blockTaxonomyType, setBlockTaxonomyType] = useState("categoria");
   const [blockIsPublicVisible, setBlockIsPublicVisible] = useState(true);
+  const [blockVisibleInCard, setBlockVisibleInCard] = useState(false);
   const [blockError, setBlockError] = useState("");
   type BlockCategoryDraft = {
     id: string;
@@ -1023,7 +1024,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     parentDraftId,
     taxonomyType: "inherit",
     isPublicVisible: true,
-    isPrimaryCategory: false,
+    isPrimaryCategory: blockVisibleInCard,
     iconImageUrl: "",
     cardImageUrl: "",
     nameI18n: { es: "", en: "", pt: "", it: "" },
@@ -1409,6 +1410,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setBlockImageUrl("");
       setBlockTaxonomyType("categoria");
       setBlockIsPublicVisible(true);
+      setBlockVisibleInCard(false);
       setBlockCategoryDrafts([]);
       setEditingBlockId(null);
       setShowCategoryModal(false);
@@ -1455,6 +1457,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setBlockImageUrl("");
     setBlockTaxonomyType("categoria");
     setBlockIsPublicVisible(true);
+    setBlockVisibleInCard(false);
     setBlockCategoryDrafts([]);
     setShowCategoryModal(true);
   };
@@ -1488,6 +1491,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setBlockImageUrl(group.imageUrl ?? "");
     setBlockTaxonomyType(group.taxonomyType ?? "categoria");
     setBlockIsPublicVisible(group.isPublicVisible !== false);
+    setBlockVisibleInCard(false);
     setBlockCategoryDrafts([]);
     setShowCategoryModal(true);
   };
@@ -4386,6 +4390,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <input type="checkbox" checked={blockIsPublicVisible} onChange={(e) => setBlockIsPublicVisible(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
                     <span>Visible al público</span>
                   </label>
+                  <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={blockVisibleInCard}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setBlockVisibleInCard(checked);
+                        setBlockCategoryDrafts((prev) => prev.map((draft) => ({ ...draft, isPrimaryCategory: checked })));
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                    />
+                    <span>Visible en la tarjeta (aplica al bloque completo)</span>
+                  </label>
                   {!editingBlockId ? (
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="mb-3 flex items-center justify-between gap-2">
@@ -4423,7 +4440,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                 />
                                 <button type="button" onClick={() => removeBlockCategoryDraft(draft.id)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Eliminar</button>
                               </div>
-                              <div className="grid gap-2 sm:grid-cols-2">
+                              <div className="grid gap-2 sm:grid-cols-1">
                                 <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
                                   <input
                                     type="checkbox"
@@ -4434,17 +4451,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                     className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
                                   />
                                   Visible al público
-                                </label>
-                                <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={draft.isPrimaryCategory}
-                                    onChange={(e) =>
-                                      updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
-                                    }
-                                    className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                                  />
-                                  Visible en la tarjeta
                                 </label>
                               </div>
                               {draft.isPrimaryCategory ? (
@@ -4581,7 +4587,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                         />
                                         <button type="button" onClick={() => removeBlockCategoryDraft(subDraft.id)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Eliminar</button>
                                       </div>
-                                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                      <div className="mt-2 grid gap-2 sm:grid-cols-1">
                                         <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
                                           <input
                                             type="checkbox"
@@ -4592,17 +4598,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                             className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
                                           />
                                           Visible al público
-                                        </label>
-                                        <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
-                                          <input
-                                            type="checkbox"
-                                            checked={subDraft.isPrimaryCategory}
-                                            onChange={(e) =>
-                                              updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
-                                            }
-                                            className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                                          />
-                                          Visible en la tarjeta
                                         </label>
                                       </div>
                                       {subDraft.isPrimaryCategory ? (
