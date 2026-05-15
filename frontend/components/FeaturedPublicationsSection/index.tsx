@@ -384,10 +384,14 @@ export default function FeaturedPublicationsSection() {
               );
             }
             const title = pickI18nText(item.titleI18n ?? null, locale, item.title);
-            const categoryLabel = item.category ? pickI18nText(item.categoryI18n ?? null, locale, item.category) : "";
+            const fields = (item.fields ?? {}) as Record<string, unknown>;
+            const categorySelections = Array.isArray(fields?.categorySelections)
+              ? (fields.categorySelections as unknown[]).map((value) => String(value ?? "").trim()).filter(Boolean)
+              : [];
+            const categoryLabel = categorySelections[0]
+              || (item.category ? pickI18nText(item.categoryI18n ?? null, locale, item.category) : "");
             const subcategoryLabel = item.subcategory ? pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory) : "";
             const location = [String(item.city ?? "").trim(), String(item.country ?? "").trim()].filter(Boolean).join(", ");
-            const fields = (item.fields ?? {}) as Record<string, unknown>;
             const isPartner = Boolean(fields.partner);
             const providerType = String(fields?.providerType ?? "").trim();
             const destination = Array.isArray(fields?.destinationCountries)

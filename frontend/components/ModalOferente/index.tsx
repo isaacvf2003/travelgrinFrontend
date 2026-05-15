@@ -549,7 +549,7 @@ export default function ModalOferente({ onClose }: Props) {
           <DestinationSelect destinationCountry={destinationCountry} setDestinationCountry={setDestinationCountry} label="País destino que aplica tu propuesta" customClass="mb-0" isInModal textBuscarPais={t("buscar_pais")} noHayPaises={t("no_hay_paises")} />
         </div>
         <div style={{ position: "relative", zIndex: 9999996 }}>
-          <MultiOptionSelect selectedValues={languages} setSelectedValues={setLanguages} options={languageOptions} placeholder="Elegir idioma" />
+          <MultiOptionSelect selectedValues={languages} setSelectedValues={setLanguages} options={languageOptions} placeholder="Idiomas que te comunicas" />
         </div>
       </div>
 
