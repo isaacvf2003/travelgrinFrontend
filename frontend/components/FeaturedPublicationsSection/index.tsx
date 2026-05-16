@@ -35,7 +35,11 @@ type MoreCardLite = {
   featured?: false;
 };
 type PrestCategoryLite = { id: string; description: string };
-type CategoryApiLite = { id?: string | number; description?: string; taxonomyType?: string | null };
+type CategoryApiLite = {
+  id?: string | number;
+  description?: string;
+  taxonomyType?: string | null;
+};
 
 function firstImage(item: PublicationLite) {
   const raw = item.images;
@@ -52,17 +56,30 @@ function normalizeKey(value: unknown) {
     .trim();
 }
 
-function firstPrestacionImage(item: PublicationLite, locale: "es" | "en" | "pt" | "it") {
+function firstPrestacionImage(
+  item: PublicationLite,
+  locale: "es" | "en" | "pt" | "it",
+) {
   const fields = (item.fields ?? {}) as Record<string, unknown>;
-  const hero = pickI18nText((fields.prestationHeroImageI18n as I18nRecord | null) ?? null, locale, String(fields.prestationHeroImage ?? "").trim());
+  const hero = pickI18nText(
+    (fields.prestationHeroImageI18n as I18nRecord | null) ?? null,
+    locale,
+    String(fields.prestationHeroImage ?? "").trim(),
+  );
   if (hero) return hero;
-  const resources = Array.isArray(fields.prestationResources) ? fields.prestationResources : [];
+  const resources = Array.isArray(fields.prestationResources)
+    ? fields.prestationResources
+    : [];
   const firstWithImage = resources.find((entry) => {
     const e = (entry ?? {}) as Record<string, unknown>;
     return String(e.image ?? "").trim();
   }) as Record<string, unknown> | undefined;
   if (firstWithImage) {
-    const localized = pickI18nText((firstWithImage.imageI18n as I18nRecord | null) ?? null, locale, String(firstWithImage.image ?? "").trim());
+    const localized = pickI18nText(
+      (firstWithImage.imageI18n as I18nRecord | null) ?? null,
+      locale,
+      String(firstWithImage.image ?? "").trim(),
+    );
     if (localized) return localized;
   }
   return firstImage(item);
@@ -101,10 +118,42 @@ function publicationScore(item: PublicationLite) {
   return featuredBoost + safeVisits + safeContracts * 3;
 }
 
-function samePassportPrestacionScore(item: PublicationLite, selectedCountry: string) {
+function samePassportPrestacionScore(
+  item: PublicationLite,
+  selectedCountry: string,
+) {
   const base = publicationScore(item);
-  const match = normalizeKey(item.country) === normalizeKey(selectedCountry) ? 500 : 0;
+  const match =
+    normalizeKey(item.country) === normalizeKey(selectedCountry) ? 500 : 0;
   return base + match;
+}
+
+function positiveModulo(value: number, length: number) {
+  if (length <= 0) return 0;
+  return ((value % length) + length) % length;
+}
+
+function carouselWindow<T>(
+  entries: T[],
+  activeIndex: number,
+  requestedSize: number,
+) {
+  if (!entries.length) return [];
+  const windowSize = Math.min(entries.length, Math.max(1, requestedSize));
+  const centerOffset = Math.floor(windowSize / 2);
+  return Array.from({ length: windowSize }, (_, position) => {
+    const sourceIndex = positiveModulo(
+      activeIndex + position - centerOffset,
+      entries.length,
+    );
+    return { entry: entries[sourceIndex], sourceIndex, position, centerOffset };
+  });
+}
+
+function carouselWindowSize(cardsPerView: number) {
+  if (cardsPerView >= 4) return 5;
+  if (cardsPerView >= 2) return 3;
+  return 1;
 }
 
 export default function FeaturedPublicationsSection() {
@@ -120,9 +169,12 @@ export default function FeaturedPublicationsSection() {
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInView, setIsInView] = useState(false);
-  const [prestacionCategories, setPrestacionCategories] = useState<PrestCategoryLite[]>([]);
+  const [prestacionCategories, setPrestacionCategories] = useState<
+    PrestCategoryLite[]
+  >([]);
   const [prestacionItems, setPrestacionItems] = useState<PublicationLite[]>([]);
-  const [selectedPrestCategory, setSelectedPrestCategory] = useState<string>("");
+  const [selectedPrestCategory, setSelectedPrestCategory] =
+    useState<string>("");
   const sectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -135,7 +187,7 @@ export default function FeaturedPublicationsSection() {
           observer.disconnect();
         }
       },
-      { rootMargin: "200px 0px" }
+      { rootMargin: "200px 0px" },
     );
     observer.observe(node);
     return () => observer.disconnect();
@@ -153,32 +205,62 @@ export default function FeaturedPublicationsSection() {
       });
       if (selectedCountry) params.set("country", selectedCountry);
 
-      const byPassport = await fetch(`/api/publications?${params.toString()}`, { cache: "no-store" })
+      const byPassport = await fetch(`/api/publications?${params.toString()}`, {
+        cache: "no-store",
+      })
         .then((r) => (r.ok ? r.json() : { items: [] }))
         .catch(() => ({ items: [] }));
       const list = Array.isArray(byPassport?.items) ? byPassport.items : [];
 
-      const nonPrestaciones = list.filter((pub: PublicationLite) => pub?.primaryGroupKey !== "prestacion");
-      const featured = nonPrestaciones.filter((pub: PublicationLite) => Boolean(pub.featured));
-      const partners = nonPrestaciones.filter((pub: PublicationLite) => !pub.featured && isPartnerPublication(pub));
+      const nonPrestaciones = list.filter(
+        (pub: PublicationLite) => pub?.primaryGroupKey !== "prestacion",
+      );
+      const featured = nonPrestaciones.filter((pub: PublicationLite) =>
+        Boolean(pub.featured),
+      );
+      const partners = nonPrestaciones.filter(
+        (pub: PublicationLite) => !pub.featured && isPartnerPublication(pub),
+      );
       const rest = nonPrestaciones
-        .filter((pub: PublicationLite) => !pub.featured && !isPartnerPublication(pub))
-        .sort((a: PublicationLite, b: PublicationLite) => publicationScore(b) - publicationScore(a));
+        .filter(
+          (pub: PublicationLite) => !pub.featured && !isPartnerPublication(pub),
+        )
+        .sort(
+          (a: PublicationLite, b: PublicationLite) =>
+            publicationScore(b) - publicationScore(a),
+        );
       const ordered = [...featured, ...partners, ...rest].slice(0, MAX_ITEMS);
 
       if (mounted) setItems(ordered);
       const [catsPayload, prestacionesPayload] = await Promise.all([
-        fetch("/api/categories", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { items: [] })).catch(() => ({ items: [] })),
-        fetch(`/api/publications?status=active&page=1&perPage=48`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : { items: [] })).catch(() => ({ items: [] })),
+        fetch("/api/categories", { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : { items: [] }))
+          .catch(() => ({ items: [] })),
+        fetch(`/api/publications?status=active&page=1&perPage=48`, {
+          cache: "no-store",
+        })
+          .then((r) => (r.ok ? r.json() : { items: [] }))
+          .catch(() => ({ items: [] })),
       ]);
-      const categoryItems = (Array.isArray(catsPayload?.items) ? catsPayload.items : []) as CategoryApiLite[];
+      const categoryItems = (
+        Array.isArray(catsPayload?.items) ? catsPayload.items : []
+      ) as CategoryApiLite[];
       const categories = categoryItems
-        .filter((c) => String(c?.taxonomyType ?? "").toLowerCase().includes("prestacion"))
-        .map((c) => ({ id: String(c.id), description: String(c.description ?? "").trim() }))
+        .filter((c) =>
+          String(c?.taxonomyType ?? "")
+            .toLowerCase()
+            .includes("prestacion"),
+        )
+        .map((c) => ({
+          id: String(c.id),
+          description: String(c.description ?? "").trim(),
+        }))
         .filter((c: PrestCategoryLite) => c.description);
-      const prestationsList = (Array.isArray(prestacionesPayload?.items) ? prestacionesPayload.items : []).filter(
-        (pub: PublicationLite) => pub?.primaryGroupKey === "prestacion"
-      );
+      const prestationsList = (
+        Array.isArray(prestacionesPayload?.items)
+          ? prestacionesPayload.items
+          : []
+      ).filter((pub: PublicationLite) => pub?.primaryGroupKey === "prestacion");
       if (mounted) {
         setPrestacionCategories(categories);
         setPrestacionItems(prestationsList.slice(0, 40));
@@ -202,25 +284,25 @@ export default function FeaturedPublicationsSection() {
   const list = useMemo(() => items.slice(0, MAX_ITEMS), [items]);
   const listWithMore = useMemo<(PublicationLite | MoreCardLite)[]>(
     () => [...list, { id: "__more__" }],
-    [list]
+    [list],
   );
-  const totalPages = Math.max(1, Math.ceil(listWithMore.length / cardsPerView));
-  const safeSlide = Math.min(currentSlide, totalPages - 1);
-  const start = safeSlide * cardsPerView;
-  const pageItems = listWithMore.slice(start, start + cardsPerView);
-  const showCarousel = listWithMore.length > cardsPerView;
-  const visualFocusIndex = (entries: Array<{ id: string }>) => {
-    if (!entries.length) return -1;
-    const centerIndex = Math.floor((entries.length - 1) / 2);
-    if (entries[centerIndex]?.id !== "__more__") return centerIndex;
-    const previousReal = entries.slice(0, centerIndex).map((entry, index) => ({ entry, index })).reverse().find(({ entry }) => entry.id !== "__more__");
-    return previousReal?.index ?? centerIndex;
-  };
-  const featuredFocusIndex = visualFocusIndex(pageItems);
+  const featuredVisibleCount = carouselWindowSize(cardsPerView);
+  const featuredActiveIndex = positiveModulo(currentSlide, listWithMore.length);
+  const featuredWindowItems = carouselWindow(
+    listWithMore,
+    featuredActiveIndex,
+    featuredVisibleCount,
+  );
+  const showCarousel = listWithMore.length > 1;
 
   useEffect(() => {
     setCurrentSlide(0);
   }, [cardsPerView, list.length]);
+
+  useEffect(() => {
+    if (listWithMore.length)
+      setCurrentSlide((prev) => positiveModulo(prev, listWithMore.length));
+  }, [listWithMore.length]);
 
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (!showCarousel) return;
@@ -237,8 +319,10 @@ export default function FeaturedPublicationsSection() {
     if (!showCarousel || touchStartX == null || touchEndX == null) return;
     const deltaX = touchStartX - touchEndX;
     const minSwipe = 45;
-    if (deltaX > minSwipe) setCurrentSlide((prev) => (prev + 1) % totalPages);
-    if (deltaX < -minSwipe) setCurrentSlide((prev) => (prev - 1 + totalPages) % totalPages);
+    if (deltaX > minSwipe)
+      setCurrentSlide((prev) => positiveModulo(prev + 1, listWithMore.length));
+    if (deltaX < -minSwipe)
+      setCurrentSlide((prev) => positiveModulo(prev - 1, listWithMore.length));
     setTouchStartX(null);
     setTouchEndX(null);
   };
@@ -253,62 +337,84 @@ export default function FeaturedPublicationsSection() {
       ? fields.prestaciones.map((entry) => normalizeKey(entry)).filter(Boolean)
       : [];
     const selectedCategories = Array.isArray(fields.categorySelections)
-      ? fields.categorySelections.map((entry) => normalizeKey(entry)).filter(Boolean)
+      ? fields.categorySelections
+          .map((entry) => normalizeKey(entry))
+          .filter(Boolean)
       : [];
     const selectedSubcategories = Array.isArray(fields.subcategorySelections)
-      ? fields.subcategorySelections.map((entry) => normalizeKey(entry)).filter(Boolean)
+      ? fields.subcategorySelections
+          .map((entry) => normalizeKey(entry))
+          .filter(Boolean)
       : [];
 
     return (
-      categoryLabel === selected
-      || subcategoryLabel === selected
-      || selectedPrestaciones.includes(selected)
-      || selectedCategories.includes(selected)
-      || selectedSubcategories.includes(selected)
+      categoryLabel === selected ||
+      subcategoryLabel === selected ||
+      selectedPrestaciones.includes(selected) ||
+      selectedCategories.includes(selected) ||
+      selectedSubcategories.includes(selected)
     );
   });
-  const rankedPrestaciones = [...(filteredPrestaciones.length ? filteredPrestaciones : prestacionItems)]
-    .sort((a, b) => samePassportPrestacionScore(b, selectedCountry) - samePassportPrestacionScore(a, selectedCountry));
+  const rankedPrestaciones = [
+    ...(filteredPrestaciones.length ? filteredPrestaciones : prestacionItems),
+  ].sort(
+    (a, b) =>
+      samePassportPrestacionScore(b, selectedCountry) -
+      samePassportPrestacionScore(a, selectedCountry),
+  );
   const prestacionesToShow = rankedPrestaciones.slice(0, 5);
   const categoriesWithPublications = prestacionCategories.filter((category) => {
     const key = normalizeKey(category.description);
     return prestacionItems.some((item) => {
       const fields = (item.fields ?? {}) as Record<string, unknown>;
       const selectedPrestaciones = Array.isArray(fields.prestaciones)
-        ? fields.prestaciones.map((entry) => normalizeKey(entry)).filter(Boolean)
+        ? fields.prestaciones
+            .map((entry) => normalizeKey(entry))
+            .filter(Boolean)
         : [];
       const selectedCategories = Array.isArray(fields.categorySelections)
-        ? fields.categorySelections.map((entry) => normalizeKey(entry)).filter(Boolean)
+        ? fields.categorySelections
+            .map((entry) => normalizeKey(entry))
+            .filter(Boolean)
         : [];
       const selectedSubcategories = Array.isArray(fields.subcategorySelections)
-        ? fields.subcategorySelections.map((entry) => normalizeKey(entry)).filter(Boolean)
+        ? fields.subcategorySelections
+            .map((entry) => normalizeKey(entry))
+            .filter(Boolean)
         : [];
       return (
-        normalizeKey(item.category) === key
-        || normalizeKey(item.subcategory) === key
-        || selectedPrestaciones.includes(key)
-        || selectedCategories.includes(key)
-        || selectedSubcategories.includes(key)
+        normalizeKey(item.category) === key ||
+        normalizeKey(item.subcategory) === key ||
+        selectedPrestaciones.includes(key) ||
+        selectedCategories.includes(key) ||
+        selectedSubcategories.includes(key)
       );
     });
   });
   const showPrestacionesSection = categoriesWithPublications.length > 0;
 
-  const prestCardsPerView = cardsPerView >= 4 ? 4 : cardsPerView >= 2 ? 2 : 1;
-  const prestTotalPages = Math.max(1, Math.ceil(prestacionesToShow.length / prestCardsPerView));
-  const safePrestSlide = Math.min(prestacionesSlide, prestTotalPages - 1);
-  const prestStart = safePrestSlide * prestCardsPerView;
-  const prestPageItems = prestacionesToShow.slice(prestStart, prestStart + prestCardsPerView);
-  const showPrestCarousel = prestacionesToShow.length > prestCardsPerView;
-  const prestFocusIndex = visualFocusIndex(prestPageItems);
+  const prestVisibleCount = carouselWindowSize(cardsPerView);
+  const safePrestSlide = positiveModulo(
+    prestacionesSlide,
+    prestacionesToShow.length,
+  );
+  const prestWindowItems = carouselWindow(
+    prestacionesToShow,
+    safePrestSlide,
+    prestVisibleCount,
+  );
+  const showPrestCarousel = prestacionesToShow.length > 1;
 
   useEffect(() => {
     setPrestacionesSlide(0);
   }, [selectedPrestCategory, cardsPerView, prestacionesToShow.length]);
 
   useEffect(() => {
-    if (prestacionesSlide > prestTotalPages - 1) setPrestacionesSlide(0);
-  }, [prestacionesSlide, prestTotalPages]);
+    if (prestacionesToShow.length)
+      setPrestacionesSlide((prev) =>
+        positiveModulo(prev, prestacionesToShow.length),
+      );
+  }, [prestacionesToShow.length]);
 
   const onPrestTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (!showPrestCarousel) return;
@@ -322,28 +428,49 @@ export default function FeaturedPublicationsSection() {
   };
 
   const onPrestTouchEnd = () => {
-    if (!showPrestCarousel || prestTouchStartX == null || prestTouchEndX == null) return;
+    if (
+      !showPrestCarousel ||
+      prestTouchStartX == null ||
+      prestTouchEndX == null
+    )
+      return;
     const deltaX = prestTouchStartX - prestTouchEndX;
-    if (deltaX > 45) setPrestacionesSlide((prev) => (prev + 1) % prestTotalPages);
-    if (deltaX < -45) setPrestacionesSlide((prev) => (prev - 1 + prestTotalPages) % prestTotalPages);
+    if (deltaX > 45)
+      setPrestacionesSlide((prev) =>
+        positiveModulo(prev + 1, prestacionesToShow.length),
+      );
+    if (deltaX < -45)
+      setPrestacionesSlide((prev) =>
+        positiveModulo(prev - 1, prestacionesToShow.length),
+      );
     setPrestTouchStartX(null);
     setPrestTouchEndX(null);
   };
 
   useEffect(() => {
     if (!categoriesWithPublications.length) return;
-    if (!categoriesWithPublications.some((category) => category.description === selectedPrestCategory)) {
+    if (
+      !categoriesWithPublications.some(
+        (category) => category.description === selectedPrestCategory,
+      )
+    ) {
       setSelectedPrestCategory(categoriesWithPublications[0].description);
     }
   }, [categoriesWithPublications, selectedPrestCategory]);
 
   if (isLoading || !isInView) {
     return (
-      <section ref={sectionRef} className="mt-6 px-4 sm:px-5 md:mt-8 md:px-6 lg:px-0">
+      <section
+        ref={sectionRef}
+        className="mt-6 px-4 sm:px-5 md:mt-8 md:px-6 lg:px-0"
+      >
         <div className="mb-4 h-8 w-96 max-w-full animate-pulse rounded-full bg-slate-200/80" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: cardsPerView }).map((_, idx) => (
-            <div key={`featured-skeleton-${idx}`} className="h-[22rem] animate-pulse rounded-3xl bg-slate-200/70" />
+            <div
+              key={`featured-skeleton-${idx}`}
+              className="h-[22rem] animate-pulse rounded-3xl bg-slate-200/70"
+            />
           ))}
         </div>
       </section>
@@ -352,10 +479,16 @@ export default function FeaturedPublicationsSection() {
   if (!list.length) return null;
 
   return (
-    <section ref={sectionRef} className="mt-6 px-4 sm:px-5 md:mt-8 md:px-6 lg:px-0">
+    <section
+      ref={sectionRef}
+      className="mt-6 px-4 sm:px-5 md:mt-8 md:px-6 lg:px-0"
+    >
       <div className="mb-10 overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-10">
         <p className="text-2xl font-bold leading-tight md:text-3xl">
-          <span className="text-[#273166]">{t("formacion_banner_emphasis")}</span> {t("formacion_banner_rest")}
+          <span className="text-[#273166]">
+            {t("formacion_banner_emphasis")}
+          </span>{" "}
+          {t("formacion_banner_rest")}
         </p>
       </div>
 
@@ -365,91 +498,170 @@ export default function FeaturedPublicationsSection() {
         </h2>
       </div>
 
-      <div className="relative" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-        <div className="flex flex-wrap items-stretch justify-center gap-4">
-          {pageItems.map((item, index) => {
-            const isFocused = index === featuredFocusIndex && item.id !== "__more__";
-            if (item.id === "__more__") {
+      <div
+        className="relative"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <div className="flex items-stretch justify-center gap-3 overflow-hidden px-8 py-3 md:gap-4 md:px-12">
+          {featuredWindowItems.map(
+            ({ entry: item, sourceIndex, position, centerOffset }) => {
+              const isFocused = position === centerOffset;
+              const distanceFromCenter = Math.abs(position - centerOffset);
+              const sideClass =
+                distanceFromCenter > 1
+                  ? "hidden xl:block"
+                  : featuredVisibleCount > 1
+                    ? "hidden md:block"
+                    : "";
+              if (item.id === "__more__") {
+                return (
+                  <Link
+                    key={`${item.id}-${sourceIndex}`}
+                    href={
+                      selectedCountry
+                        ? `/buscar?country=${encodeURIComponent(selectedCountry)}`
+                        : "/buscar"
+                    }
+                    className={`group relative w-full shrink-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]" : distanceFromCenter > 1 ? "max-w-[11rem] scale-90 opacity-45 blur-[2px] grayscale hover:opacity-65 hover:blur-0" : "max-w-[15rem] scale-95 opacity-60 blur-[1px] grayscale hover:opacity-75 hover:blur-0"}`}
+                  >
+                    <div className="relative h-full min-h-[18rem] w-full bg-slate-100">
+                      <Image
+                        src="https://i.ibb.co/VmrmGrx/sin-foto.jpg"
+                        alt="Travelgrin"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 1280px) 50vw, 25vw"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-b from-slate-900/20 via-slate-900/40 to-slate-900/60" />
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
+                      <span className="rounded-full bg-white/90 px-5 py-2.5 text-base font-extrabold leading-tight text-[#273166] shadow transition group-hover:scale-105">
+                        {t("ver_mas")}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              }
+              const pub = item as PublicationLite;
+              const title = pickI18nText(
+                pub.titleI18n ?? null,
+                locale,
+                pub.title,
+              );
+              const fields = (pub.fields ?? {}) as Record<string, unknown>;
+              const categorySelections = Array.isArray(
+                fields?.categorySelections,
+              )
+                ? (fields.categorySelections as unknown[])
+                    .map((value) => String(value ?? "").trim())
+                    .filter(Boolean)
+                : [];
+              const categoryLabel =
+                categorySelections[0] ||
+                (pub.category
+                  ? pickI18nText(pub.categoryI18n ?? null, locale, pub.category)
+                  : "");
+              const subcategoryLabel = pub.subcategory
+                ? pickI18nText(
+                    pub.subcategoryI18n ?? null,
+                    locale,
+                    pub.subcategory,
+                  )
+                : "";
+              const location = [
+                String(pub.city ?? "").trim(),
+                String(pub.country ?? "").trim(),
+              ]
+                .filter(Boolean)
+                .join(", ");
+              const isPartner = Boolean(fields.partner);
+              const providerType = String(fields?.providerType ?? "").trim();
+              const destination = Array.isArray(fields?.destinationCountries)
+                ? String(
+                    (fields.destinationCountries as unknown[])[0] ?? "",
+                  ).trim()
+                : "";
+              const isPrestacion = pub.primaryGroupKey === "prestacion";
+              const detailPath = isPrestacion
+                ? `/prestaciones/${pub.id}`
+                : `/publicacion/${pub.id}`;
               return (
                 <Link
-                  key={item.id}
-                  href={selectedCountry ? `/buscar?country=${encodeURIComponent(selectedCountry)}` : "/buscar"}
-                  className="group relative w-full max-w-[14rem] overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 opacity-65 shadow-sm grayscale transition-all duration-300 hover:-translate-y-0.5 hover:opacity-80 hover:shadow-md"
+                  key={`${pub.id}-${sourceIndex}`}
+                  href={detailPath}
+                  className={`group w-full shrink-0 overflow-hidden rounded-3xl border bg-white transition-all duration-300 hover:-translate-y-0.5 ${sideClass} ${
+                    isFocused
+                      ? "max-w-[23rem] scale-100 border-[#0B8FA3]/50 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]"
+                      : distanceFromCenter > 1
+                        ? "max-w-[11rem] scale-90 border-slate-200 bg-slate-50 opacity-45 blur-[2px] grayscale shadow-sm hover:opacity-65 hover:blur-0"
+                        : "max-w-[16rem] scale-95 border-slate-200 bg-slate-50 opacity-60 blur-[1px] grayscale shadow-sm hover:opacity-75 hover:blur-0"
+                  }`}
                 >
-                  <div className="relative h-full min-h-[18rem] w-full bg-slate-100">
+                  <div
+                    className={`relative w-full bg-slate-100 ${isFocused ? "h-48" : "h-40"}`}
+                  >
                     <Image
-                      src="https://i.ibb.co/VmrmGrx/sin-foto.jpg"
-                      alt="Travelgrin"
+                      src={firstImage(pub)}
+                      alt={title}
                       fill
                       className="object-cover"
                       sizes="(max-width: 1280px) 50vw, 25vw"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-slate-900/20 via-slate-900/40 to-slate-900/60" />
                   </div>
-                  <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
-                    <span className="rounded-full bg-white/90 px-5 py-2.5 text-base font-extrabold leading-tight text-[#273166] shadow transition group-hover:scale-105">
-                      {t("ver_mas")}
-                    </span>
+                  <div className="space-y-2 p-4">
+                    <div className="flex flex-wrap gap-1">
+                      {item.featured ? (
+                        <span className="rounded-full bg-[#00A9C6] px-2 py-0.5 text-[11px] font-semibold text-white">
+                          ★ Destacado
+                        </span>
+                      ) : null}
+                      {isPartner ? (
+                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
+                          🤝 Partner
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {pub.publisherName || t("oferente_nombre_placeholder")}
+                    </p>
+                    <h3 className="line-clamp-2 text-lg md:text-xl font-semibold leading-tight text-[#273166]">
+                      {title}
+                    </h3>
+                    <p className="text-sm text-slate-600">
+                      {categoryLabel || subcategoryLabel || "-"}
+                    </p>
+                    <p className="flex items-center gap-1 text-sm text-slate-600">
+                      <MapPin className="h-4 w-4 text-[#0B8FA3]" />
+                      {location || destination || "-"}
+                    </p>
+                    {providerType ? (
+                      <p className="text-xs font-medium text-slate-500">
+                        Tipo: {providerType}
+                      </p>
+                    ) : null}
+                    <p className="flex items-center gap-1 text-sm text-slate-600">
+                      <span>🏳️</span>
+                      {location || destination || "-"}
+                    </p>
+                    <p className="text-sm font-semibold text-[#0B8FA3]">
+                      {pub.price
+                        ? `${pub.currency ? `${pub.currency} ` : ""}${pub.price}`
+                        : t("precio_convenir")}
+                    </p>
+                    <div className="pt-1">
+                      <span
+                        className={`inline-flex w-full items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold ${isFocused ? "bg-[#EAF9FB] text-[#0B6B7A]" : "bg-slate-200 text-slate-600"}`}
+                      >
+                        {isPrestacion ? t("ver_prestacion") : t("ver_mas")}
+                      </span>
+                    </div>
                   </div>
                 </Link>
               );
-            }
-            const pub = item as PublicationLite;
-            const title = pickI18nText(pub.titleI18n ?? null, locale, pub.title);
-            const fields = (pub.fields ?? {}) as Record<string, unknown>;
-            const categorySelections = Array.isArray(fields?.categorySelections)
-              ? (fields.categorySelections as unknown[]).map((value) => String(value ?? "").trim()).filter(Boolean)
-              : [];
-            const categoryLabel = categorySelections[0]
-              || (pub.category ? pickI18nText(pub.categoryI18n ?? null, locale, pub.category) : "");
-            const subcategoryLabel = pub.subcategory ? pickI18nText(pub.subcategoryI18n ?? null, locale, pub.subcategory) : "";
-            const location = [String(pub.city ?? "").trim(), String(pub.country ?? "").trim()].filter(Boolean).join(", ");
-            const isPartner = Boolean(fields.partner);
-            const providerType = String(fields?.providerType ?? "").trim();
-            const destination = Array.isArray(fields?.destinationCountries)
-              ? String((fields.destinationCountries as unknown[])[0] ?? "").trim()
-              : "";
-            const isPrestacion = pub.primaryGroupKey === "prestacion";
-            const detailPath = isPrestacion ? `/prestaciones/${pub.id}` : `/publicacion/${pub.id}`;
-            return (
-              <Link
-                key={pub.id}
-                href={detailPath}
-                className={`group w-full overflow-hidden rounded-3xl border bg-white transition-all duration-300 hover:-translate-y-0.5 ${
-                  isFocused
-                    ? "max-w-[23rem] border-[#0B8FA3]/50 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]"
-                    : "max-w-[18rem] border-slate-200 bg-slate-50 opacity-60 grayscale shadow-sm hover:opacity-75"
-                }`}
-              >
-                <div className={`relative w-full bg-slate-100 ${isFocused ? "h-48" : "h-40"}`}>
-                  <Image src={firstImage(pub)} alt={title} fill className="object-cover" sizes="(max-width: 1280px) 50vw, 25vw" />
-                </div>
-                <div className="space-y-2 p-4">
-                  <div className="flex flex-wrap gap-1">
-                    {item.featured ? <span className="rounded-full bg-[#00A9C6] px-2 py-0.5 text-[11px] font-semibold text-white">★ Destacado</span> : null}
-                    {isPartner ? <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">🤝 Partner</span> : null}
-                  </div>
-                  <p className="text-xs text-slate-500">{pub.publisherName || t("oferente_nombre_placeholder")}</p>
-                  <h3 className="line-clamp-2 text-lg md:text-xl font-semibold leading-tight text-[#273166]">{title}</h3>
-                  <p className="text-sm text-slate-600">{categoryLabel || subcategoryLabel || "-"}</p>
-                  <p className="flex items-center gap-1 text-sm text-slate-600">
-                    <MapPin className="h-4 w-4 text-[#0B8FA3]" />
-                    {location || destination || "-"}
-                  </p>
-                  {providerType ? <p className="text-xs font-medium text-slate-500">Tipo: {providerType}</p> : null}
-                  <p className="flex items-center gap-1 text-sm text-slate-600">
-                    <span>🏳️</span>{location || destination || "-"}
-                  </p>
-                  <p className="text-sm font-semibold text-[#0B8FA3]">{pub.price ? `${pub.currency ? `${pub.currency} ` : ""}${pub.price}` : t("precio_convenir")}</p>
-                  <div className="pt-1">
-                    <span className={`inline-flex w-full items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold ${isFocused ? "bg-[#EAF9FB] text-[#0B6B7A]" : "bg-slate-200 text-slate-600"}`}>
-                      {isPrestacion ? t("ver_prestacion") : t("ver_mas")}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+            },
+          )}
         </div>
 
         {showCarousel ? (
@@ -457,27 +669,35 @@ export default function FeaturedPublicationsSection() {
             <button
               type="button"
               aria-label="Anterior"
-              onClick={() => setCurrentSlide((prev) => (prev - 1 + totalPages) % totalPages)}
-              className="absolute -left-2 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow lg:flex md:-left-4"
+              onClick={() =>
+                setCurrentSlide((prev) =>
+                  positiveModulo(prev - 1, listWithMore.length),
+                )
+              }
+              className="absolute left-1 top-1/2 z-10 flex -translate-y-1/2 rounded-full bg-white p-2 shadow transition hover:scale-105 md:-left-4"
             >
               <ChevronLeft className="h-5 w-5 text-slate-600" />
             </button>
             <button
               type="button"
               aria-label="Siguiente"
-              onClick={() => setCurrentSlide((prev) => (prev + 1) % totalPages)}
-              className="absolute -right-2 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white p-2 shadow lg:flex md:-right-4"
+              onClick={() =>
+                setCurrentSlide((prev) =>
+                  positiveModulo(prev + 1, listWithMore.length),
+                )
+              }
+              className="absolute right-1 top-1/2 z-10 flex -translate-y-1/2 rounded-full bg-white p-2 shadow transition hover:scale-105 md:-right-4"
             >
               <ChevronRight className="h-5 w-5 text-slate-600" />
             </button>
             <div className="mt-4 flex justify-center gap-2">
-              {Array.from({ length: totalPages }).map((_, idx) => (
+              {Array.from({ length: listWithMore.length }).map((_, idx) => (
                 <button
                   key={idx}
                   type="button"
                   aria-label={`Ir a página ${idx + 1}`}
                   onClick={() => setCurrentSlide(idx)}
-                  className={`h-2.5 w-2.5 rounded-full ${safeSlide === idx ? "bg-[#0B8FA3]" : "bg-slate-300"}`}
+                  className={`h-2.5 w-2.5 rounded-full ${featuredActiveIndex === idx ? "bg-[#0B8FA3]" : "bg-slate-300"}`}
                 />
               ))}
             </div>
@@ -486,90 +706,203 @@ export default function FeaturedPublicationsSection() {
       </div>
 
       <div className="mt-12 overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-10">
-        <p className="text-2xl font-bold leading-tight md:text-3xl"><span className="text-[#273166]">{t("ciudadano_banner_line1")}</span><br/>{t("ciudadano_banner_line2")}</p>
+        <p className="text-2xl font-bold leading-tight md:text-3xl">
+          <span className="text-[#273166]">{t("ciudadano_banner_line1")}</span>
+          <br />
+          {t("ciudadano_banner_line2")}
+        </p>
       </div>
 
       {showPrestacionesSection ? (
-      <section className="mt-12 rounded-[28px] border border-[#DDEAF5] bg-gradient-to-b from-[#F5F8FD] to-[#F8FAFC] p-4 shadow-[0_10px_30px_rgba(39,49,102,0.06)] md:p-8">
-        <div className="text-center">
-          <h3 className="text-2xl font-bold text-[#273166]">{t("suma_prestaciones_plan_viaje")}</h3>
-          <p className="mt-1 text-sm text-slate-500">{t("explorar_prestaciones_subtitulo")}</p>
-          <p className="mt-2 text-sm text-slate-600">{t("explorar_prestaciones_que_son")}</p>
-        </div>
-        <div className="mt-4 flex items-center gap-2">
-          <button type="button" aria-label="Categorías anteriores" onClick={() => document.getElementById("prest-cats")?.scrollBy({ left: -180, behavior: "smooth" })} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <div id="prest-cats" className="flex flex-1 gap-2 overflow-x-auto pb-1">
-          {categoriesWithPublications.map((category) => {
-            const active = selectedPrestCategory === category.description;
-            return (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => setSelectedPrestCategory(category.description)}
-                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  active
-                    ? "bg-[#0B8FA3] text-white shadow-[0_8px_18px_rgba(11,143,163,0.25)]"
-                    : "bg-slate-100 text-slate-700"
-                }`}
-              >
-                <Compass className="h-4 w-4" />
-                {category.description}
-              </button>
-            );
-          })}
+        <section className="mt-12 rounded-[28px] border border-[#DDEAF5] bg-gradient-to-b from-[#F5F8FD] to-[#F8FAFC] p-4 shadow-[0_10px_30px_rgba(39,49,102,0.06)] md:p-8">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold text-[#273166]">
+              {t("suma_prestaciones_plan_viaje")}
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              {t("explorar_prestaciones_subtitulo")}
+            </p>
+            <p className="mt-2 text-sm text-slate-600">
+              {t("explorar_prestaciones_que_son")}
+            </p>
           </div>
-          <button type="button" aria-label="Más categorías" onClick={() => document.getElementById("prest-cats")?.scrollBy({ left: 180, behavior: "smooth" })} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="mt-5" onTouchStart={onPrestTouchStart} onTouchMove={onPrestTouchMove} onTouchEnd={onPrestTouchEnd}>
-          <div className="flex flex-wrap items-stretch justify-center gap-4">
-          {prestPageItems.map((item, index) => {
-            const isFocused = index === prestFocusIndex;
-            const title = pickI18nText(item.titleI18n ?? null, locale, item.title);
-            const desc = item.subcategory
-              ? pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory)
-              : pickI18nText(item.descriptionI18n ?? null, locale, item.category ?? "");
-            return (
-              <Link
-                key={`prest-${item.id}`}
-                href={`/prestaciones/${item.id}`}
-                className={`group w-full overflow-hidden rounded-2xl border bg-white transition-all duration-300 hover:-translate-y-0.5 ${
-                  isFocused
-                    ? "max-w-[22rem] border-[#0B8FA3]/45 opacity-100 shadow-[0_18px_45px_rgba(11,143,163,0.16)]"
-                    : "max-w-[17rem] border-slate-200 bg-slate-50 opacity-60 grayscale shadow-sm hover:opacity-75"
-                }`}
-              >
-                <div className={`relative w-full bg-slate-100 ${isFocused ? "h-36" : "h-28"}`}>
-                  <Image src={firstPrestacionImage(item, locale)} alt={title} fill className="object-cover" />
-                </div>
-                <div className="space-y-2 p-4">
-                  <h4 className="line-clamp-2 text-base font-bold text-[#273166]">{title}</h4>
-                  <p className="line-clamp-1 text-sm text-slate-500">{desc || t("prestacion_disponible")}</p>
-                  <span className={`inline-flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold ${isFocused ? "bg-[#EAF9FB] text-[#0B6B7A]" : "bg-slate-200 text-slate-600"}`}>
-                    {t("ver_mas")}
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
-          </div>
-          {showPrestCarousel ? (
-            <div className="mt-4 flex justify-center gap-2">
-              {Array.from({ length: prestTotalPages }).map((_, idx) => (
-                <button key={`prest-dot-${idx}`} type="button" aria-label={`Prestaciones página ${idx + 1}`} onClick={() => setPrestacionesSlide(idx)} className={`h-2.5 w-2.5 rounded-full ${safePrestSlide === idx ? "bg-[#0B8FA3]" : "bg-slate-300"}`} />
-              ))}
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Categorías anteriores"
+              onClick={() =>
+                document
+                  .getElementById("prest-cats")
+                  ?.scrollBy({ left: -180, behavior: "smooth" })
+              }
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div
+              id="prest-cats"
+              className="flex flex-1 gap-2 overflow-x-auto pb-1"
+            >
+              {categoriesWithPublications.map((category) => {
+                const active = selectedPrestCategory === category.description;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedPrestCategory(category.description)
+                    }
+                    className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      active
+                        ? "bg-[#0B8FA3] text-white shadow-[0_8px_18px_rgba(11,143,163,0.25)]"
+                        : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    <Compass className="h-4 w-4" />
+                    {category.description}
+                  </button>
+                );
+              })}
             </div>
-          ) : null}
-        </div>
-        <div className="mt-4 flex justify-end">
-          <Link href={selectedPrestCategory ? `/buscar?primaryGroupKey=prestacion&prestacion=${encodeURIComponent(selectedPrestCategory)}` : "/buscar?primaryGroupKey=prestacion"} className="text-sm font-semibold text-[#0B8FA3] hover:underline">
-            {t("ver_todas_las_prestaciones")} →
-          </Link>
-        </div>
-      </section>
+            <button
+              type="button"
+              aria-label="Más categorías"
+              onClick={() =>
+                document
+                  .getElementById("prest-cats")
+                  ?.scrollBy({ left: 180, behavior: "smooth" })
+              }
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <div
+            className="relative mt-5"
+            onTouchStart={onPrestTouchStart}
+            onTouchMove={onPrestTouchMove}
+            onTouchEnd={onPrestTouchEnd}
+          >
+            <div className="relative flex items-stretch justify-center gap-3 overflow-hidden px-8 py-3 md:gap-4 md:px-12">
+              {prestWindowItems.map(
+                ({ entry: item, sourceIndex, position, centerOffset }) => {
+                  const isFocused = position === centerOffset;
+                  const distanceFromCenter = Math.abs(position - centerOffset);
+                  const sideClass =
+                    distanceFromCenter > 1
+                      ? "hidden xl:block"
+                      : prestVisibleCount > 1
+                        ? "hidden md:block"
+                        : "";
+                  const title = pickI18nText(
+                    item.titleI18n ?? null,
+                    locale,
+                    item.title,
+                  );
+                  const desc = item.subcategory
+                    ? pickI18nText(
+                        item.subcategoryI18n ?? null,
+                        locale,
+                        item.subcategory,
+                      )
+                    : pickI18nText(
+                        item.descriptionI18n ?? null,
+                        locale,
+                        item.category ?? "",
+                      );
+                  return (
+                    <Link
+                      key={`prest-${item.id}-${sourceIndex}`}
+                      href={`/prestaciones/${item.id}`}
+                      className={`group w-full shrink-0 overflow-hidden rounded-2xl border bg-white transition-all duration-300 hover:-translate-y-0.5 ${sideClass} ${
+                        isFocused
+                          ? "max-w-[22rem] scale-100 border-[#0B8FA3]/45 opacity-100 shadow-[0_18px_45px_rgba(11,143,163,0.16)]"
+                          : distanceFromCenter > 1
+                            ? "max-w-[10rem] scale-90 border-slate-200 bg-slate-50 opacity-45 blur-[2px] grayscale shadow-sm hover:opacity-65 hover:blur-0"
+                            : "max-w-[15rem] scale-95 border-slate-200 bg-slate-50 opacity-60 blur-[1px] grayscale shadow-sm hover:opacity-75 hover:blur-0"
+                      }`}
+                    >
+                      <div
+                        className={`relative w-full bg-slate-100 ${isFocused ? "h-36" : "h-28"}`}
+                      >
+                        <Image
+                          src={firstPrestacionImage(item, locale)}
+                          alt={title}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="space-y-2 p-4">
+                        <h4 className="line-clamp-2 text-base font-bold text-[#273166]">
+                          {title}
+                        </h4>
+                        <p className="line-clamp-1 text-sm text-slate-500">
+                          {desc || t("prestacion_disponible")}
+                        </p>
+                        <span
+                          className={`inline-flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold ${isFocused ? "bg-[#EAF9FB] text-[#0B6B7A]" : "bg-slate-200 text-slate-600"}`}
+                        >
+                          {t("ver_mas")}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                },
+              )}
+            </div>
+            {showPrestCarousel ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="Prestación anterior"
+                  onClick={() =>
+                    setPrestacionesSlide((prev) =>
+                      positiveModulo(prev - 1, prestacionesToShow.length),
+                    )
+                  }
+                  className="absolute left-1 top-1/2 z-10 flex -translate-y-1/2 rounded-full bg-white p-2 shadow transition hover:scale-105 md:left-4"
+                >
+                  <ChevronLeft className="h-5 w-5 text-slate-600" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Prestación siguiente"
+                  onClick={() =>
+                    setPrestacionesSlide((prev) =>
+                      positiveModulo(prev + 1, prestacionesToShow.length),
+                    )
+                  }
+                  className="absolute right-1 top-1/2 z-10 flex -translate-y-1/2 rounded-full bg-white p-2 shadow transition hover:scale-105 md:right-4"
+                >
+                  <ChevronRight className="h-5 w-5 text-slate-600" />
+                </button>
+                <div className="mt-4 flex justify-center gap-2">
+                  {prestacionesToShow.map((_, idx) => (
+                    <button
+                      key={`prest-dot-${idx}`}
+                      type="button"
+                      aria-label={`Prestaciones página ${idx + 1}`}
+                      onClick={() => setPrestacionesSlide(idx)}
+                      className={`h-2.5 w-2.5 rounded-full ${safePrestSlide === idx ? "bg-[#0B8FA3]" : "bg-slate-300"}`}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Link
+              href={
+                selectedPrestCategory
+                  ? `/buscar?primaryGroupKey=prestacion&prestacion=${encodeURIComponent(selectedPrestCategory)}`
+                  : "/buscar?primaryGroupKey=prestacion"
+              }
+              className="text-sm font-semibold text-[#0B8FA3] hover:underline"
+            >
+              {t("ver_todas_las_prestaciones")} →
+            </Link>
+          </div>
+        </section>
       ) : null}
     </section>
   );
