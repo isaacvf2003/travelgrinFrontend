@@ -516,7 +516,7 @@ export default function FeaturedPublicationsSection() {
                     ? "hidden md:block"
                     : "";
               if (item.id === "__more__") {
-                const moreCardClass = `group relative w-full shrink-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]" : distanceFromCenter > 1 ? "max-w-[11rem] scale-90 opacity-45 blur-[2px] grayscale hover:opacity-65 hover:blur-0" : "max-w-[15rem] scale-95 opacity-60 blur-[1px] grayscale hover:opacity-75 hover:blur-0"}`;
+                const moreCardClass = `group relative w-full shrink-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-500 ease-out hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]" : distanceFromCenter > 1 ? "max-w-[11rem] scale-90 opacity-45 blur-[2px] grayscale hover:opacity-65 hover:blur-0" : "max-w-[15rem] scale-95 opacity-60 blur-[1px] grayscale hover:opacity-75 hover:blur-0"}`;
                 const moreCardContent = (
                   <>
                     <div className="relative h-full min-h-[18rem] w-full bg-slate-100">
@@ -536,18 +536,6 @@ export default function FeaturedPublicationsSection() {
                     </div>
                   </>
                 );
-                if (!isFocused) {
-                  return (
-                    <button
-                      key={`${item.id}-${sourceIndex}`}
-                      type="button"
-                      onClick={() => setCurrentSlide(sourceIndex)}
-                      className={moreCardClass}
-                    >
-                      {moreCardContent}
-                    </button>
-                  );
-                }
                 return (
                   <Link
                     key={`${item.id}-${sourceIndex}`}
@@ -556,6 +544,12 @@ export default function FeaturedPublicationsSection() {
                         ? `/buscar?country=${encodeURIComponent(selectedCountry)}`
                         : "/buscar"
                     }
+                    onClick={(event) => {
+                      if (!isFocused) {
+                        event.preventDefault();
+                        setCurrentSlide(sourceIndex);
+                      }
+                    }}
                     className={moreCardClass}
                   >
                     {moreCardContent}
@@ -605,7 +599,7 @@ export default function FeaturedPublicationsSection() {
               const detailPath = isPrestacion
                 ? `/prestaciones/${pub.id}`
                 : `/publicacion/${pub.id}`;
-              const featuredCardClass = `group w-full shrink-0 overflow-hidden rounded-3xl border bg-white text-left transition-all duration-300 hover:-translate-y-0.5 ${sideClass} ${
+              const featuredCardClass = `group w-full shrink-0 overflow-hidden rounded-3xl border bg-white text-left transition-all duration-500 ease-out hover:-translate-y-0.5 ${sideClass} ${
                 isFocused
                   ? "max-w-[23rem] scale-100 border-[#0B8FA3]/50 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]"
                   : distanceFromCenter > 1
@@ -675,22 +669,16 @@ export default function FeaturedPublicationsSection() {
                   </div>
                 </>
               );
-              if (!isFocused) {
-                return (
-                  <button
-                    key={`${pub.id}-${sourceIndex}`}
-                    type="button"
-                    onClick={() => setCurrentSlide(sourceIndex)}
-                    className={featuredCardClass}
-                  >
-                    {featuredCardContent}
-                  </button>
-                );
-              }
               return (
                 <Link
                   key={`${pub.id}-${sourceIndex}`}
                   href={detailPath}
+                  onClick={(event) => {
+                    if (!isFocused) {
+                      event.preventDefault();
+                      setCurrentSlide(sourceIndex);
+                    }
+                  }}
                   className={featuredCardClass}
                 >
                   {featuredCardContent}
@@ -846,7 +834,7 @@ export default function FeaturedPublicationsSection() {
                         locale,
                         item.category ?? "",
                       );
-                  const prestacionCardClass = `group w-full shrink-0 overflow-hidden rounded-2xl border bg-white text-left transition-all duration-300 hover:-translate-y-0.5 ${sideClass} ${
+                  const prestacionCardClass = `group w-full shrink-0 overflow-hidden rounded-2xl border bg-white text-left transition-all duration-500 ease-out hover:-translate-y-0.5 ${sideClass} ${
                     isFocused
                       ? "max-w-[22rem] scale-100 border-[#0B8FA3]/45 opacity-100 shadow-[0_18px_45px_rgba(11,143,163,0.16)]"
                       : distanceFromCenter > 1
@@ -880,22 +868,16 @@ export default function FeaturedPublicationsSection() {
                       </div>
                     </>
                   );
-                  if (!isFocused) {
-                    return (
-                      <button
-                        key={`prest-${item.id}-${sourceIndex}`}
-                        type="button"
-                        onClick={() => setPrestacionesSlide(sourceIndex)}
-                        className={prestacionCardClass}
-                      >
-                        {prestacionCardContent}
-                      </button>
-                    );
-                  }
                   return (
                     <Link
                       key={`prest-${item.id}-${sourceIndex}`}
                       href={`/prestaciones/${item.id}`}
+                      onClick={(event) => {
+                        if (!isFocused) {
+                          event.preventDefault();
+                          setPrestacionesSlide(sourceIndex);
+                        }
+                      }}
                       className={prestacionCardClass}
                     >
                       {prestacionCardContent}
