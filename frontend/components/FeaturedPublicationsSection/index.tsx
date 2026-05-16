@@ -516,16 +516,9 @@ export default function FeaturedPublicationsSection() {
                     ? "hidden md:block"
                     : "";
               if (item.id === "__more__") {
-                return (
-                  <Link
-                    key={`${item.id}-${sourceIndex}`}
-                    href={
-                      selectedCountry
-                        ? `/buscar?country=${encodeURIComponent(selectedCountry)}`
-                        : "/buscar"
-                    }
-                    className={`group relative w-full shrink-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]" : distanceFromCenter > 1 ? "max-w-[11rem] scale-90 opacity-45 blur-[2px] grayscale hover:opacity-65 hover:blur-0" : "max-w-[15rem] scale-95 opacity-60 blur-[1px] grayscale hover:opacity-75 hover:blur-0"}`}
-                  >
+                const moreCardClass = `group relative w-full shrink-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]" : distanceFromCenter > 1 ? "max-w-[11rem] scale-90 opacity-45 blur-[2px] grayscale hover:opacity-65 hover:blur-0" : "max-w-[15rem] scale-95 opacity-60 blur-[1px] grayscale hover:opacity-75 hover:blur-0"}`;
+                const moreCardContent = (
+                  <>
                     <div className="relative h-full min-h-[18rem] w-full bg-slate-100">
                       <Image
                         src="https://i.ibb.co/VmrmGrx/sin-foto.jpg"
@@ -541,6 +534,31 @@ export default function FeaturedPublicationsSection() {
                         {t("ver_mas")}
                       </span>
                     </div>
+                  </>
+                );
+                if (!isFocused) {
+                  return (
+                    <button
+                      key={`${item.id}-${sourceIndex}`}
+                      type="button"
+                      onClick={() => setCurrentSlide(sourceIndex)}
+                      className={moreCardClass}
+                    >
+                      {moreCardContent}
+                    </button>
+                  );
+                }
+                return (
+                  <Link
+                    key={`${item.id}-${sourceIndex}`}
+                    href={
+                      selectedCountry
+                        ? `/buscar?country=${encodeURIComponent(selectedCountry)}`
+                        : "/buscar"
+                    }
+                    className={moreCardClass}
+                  >
+                    {moreCardContent}
                   </Link>
                 );
               }
@@ -587,18 +605,15 @@ export default function FeaturedPublicationsSection() {
               const detailPath = isPrestacion
                 ? `/prestaciones/${pub.id}`
                 : `/publicacion/${pub.id}`;
-              return (
-                <Link
-                  key={`${pub.id}-${sourceIndex}`}
-                  href={detailPath}
-                  className={`group w-full shrink-0 overflow-hidden rounded-3xl border bg-white transition-all duration-300 hover:-translate-y-0.5 ${sideClass} ${
-                    isFocused
-                      ? "max-w-[23rem] scale-100 border-[#0B8FA3]/50 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]"
-                      : distanceFromCenter > 1
-                        ? "max-w-[11rem] scale-90 border-slate-200 bg-slate-50 opacity-45 blur-[2px] grayscale shadow-sm hover:opacity-65 hover:blur-0"
-                        : "max-w-[16rem] scale-95 border-slate-200 bg-slate-50 opacity-60 blur-[1px] grayscale shadow-sm hover:opacity-75 hover:blur-0"
-                  }`}
-                >
+              const featuredCardClass = `group w-full shrink-0 overflow-hidden rounded-3xl border bg-white text-left transition-all duration-300 hover:-translate-y-0.5 ${sideClass} ${
+                isFocused
+                  ? "max-w-[23rem] scale-100 border-[#0B8FA3]/50 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]"
+                  : distanceFromCenter > 1
+                    ? "max-w-[11rem] scale-90 border-slate-200 bg-slate-50 opacity-45 blur-[2px] grayscale shadow-sm hover:opacity-65 hover:blur-0"
+                    : "max-w-[16rem] scale-95 border-slate-200 bg-slate-50 opacity-60 blur-[1px] grayscale shadow-sm hover:opacity-75 hover:blur-0"
+              }`;
+              const featuredCardContent = (
+                <>
                   <div
                     className={`relative w-full bg-slate-100 ${isFocused ? "h-48" : "h-40"}`}
                   >
@@ -658,6 +673,27 @@ export default function FeaturedPublicationsSection() {
                       </span>
                     </div>
                   </div>
+                </>
+              );
+              if (!isFocused) {
+                return (
+                  <button
+                    key={`${pub.id}-${sourceIndex}`}
+                    type="button"
+                    onClick={() => setCurrentSlide(sourceIndex)}
+                    className={featuredCardClass}
+                  >
+                    {featuredCardContent}
+                  </button>
+                );
+              }
+              return (
+                <Link
+                  key={`${pub.id}-${sourceIndex}`}
+                  href={detailPath}
+                  className={featuredCardClass}
+                >
+                  {featuredCardContent}
                 </Link>
               );
             },
@@ -810,18 +846,15 @@ export default function FeaturedPublicationsSection() {
                         locale,
                         item.category ?? "",
                       );
-                  return (
-                    <Link
-                      key={`prest-${item.id}-${sourceIndex}`}
-                      href={`/prestaciones/${item.id}`}
-                      className={`group w-full shrink-0 overflow-hidden rounded-2xl border bg-white transition-all duration-300 hover:-translate-y-0.5 ${sideClass} ${
-                        isFocused
-                          ? "max-w-[22rem] scale-100 border-[#0B8FA3]/45 opacity-100 shadow-[0_18px_45px_rgba(11,143,163,0.16)]"
-                          : distanceFromCenter > 1
-                            ? "max-w-[10rem] scale-90 border-slate-200 bg-slate-50 opacity-45 blur-[2px] grayscale shadow-sm hover:opacity-65 hover:blur-0"
-                            : "max-w-[15rem] scale-95 border-slate-200 bg-slate-50 opacity-60 blur-[1px] grayscale shadow-sm hover:opacity-75 hover:blur-0"
-                      }`}
-                    >
+                  const prestacionCardClass = `group w-full shrink-0 overflow-hidden rounded-2xl border bg-white text-left transition-all duration-300 hover:-translate-y-0.5 ${sideClass} ${
+                    isFocused
+                      ? "max-w-[22rem] scale-100 border-[#0B8FA3]/45 opacity-100 shadow-[0_18px_45px_rgba(11,143,163,0.16)]"
+                      : distanceFromCenter > 1
+                        ? "max-w-[10rem] scale-90 border-slate-200 bg-slate-50 opacity-45 blur-[2px] grayscale shadow-sm hover:opacity-65 hover:blur-0"
+                        : "max-w-[15rem] scale-95 border-slate-200 bg-slate-50 opacity-60 blur-[1px] grayscale shadow-sm hover:opacity-75 hover:blur-0"
+                  }`;
+                  const prestacionCardContent = (
+                    <>
                       <div
                         className={`relative w-full bg-slate-100 ${isFocused ? "h-36" : "h-28"}`}
                       >
@@ -845,6 +878,27 @@ export default function FeaturedPublicationsSection() {
                           {t("ver_mas")}
                         </span>
                       </div>
+                    </>
+                  );
+                  if (!isFocused) {
+                    return (
+                      <button
+                        key={`prest-${item.id}-${sourceIndex}`}
+                        type="button"
+                        onClick={() => setPrestacionesSlide(sourceIndex)}
+                        className={prestacionCardClass}
+                      >
+                        {prestacionCardContent}
+                      </button>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={`prest-${item.id}-${sourceIndex}`}
+                      href={`/prestaciones/${item.id}`}
+                      className={prestacionCardClass}
+                    >
+                      {prestacionCardContent}
                     </Link>
                   );
                 },
