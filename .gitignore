@@ -1,15 +1,66 @@
-node_modules/
-.next/
-out/
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
 dist/
 build/
-.env*.local
+target/
+
+# Dependencies
+node_modules/
+venv/
+.venv/
 .env
+.env.local
+*.env.*
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and temporary files
 *.log
+*.tmp
+*.temp
+
+# System files
 .DS_Store
-prisma/dev.db
-backend/prisma/dev.db
-frontend/.next/
-backend/.next/
-frontend/node_modules/
-backend/node_modules/
+Thumbs.db
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Python specific
+.mypy_cache/
+.pytest_cache/
+*.pyc
+__pycache__/
+
+# Compression and archives
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
