@@ -82,12 +82,22 @@ function resolveLanguages(item: Publication) {
   return Array.from(new Set(preferred.map((lang) => String(lang).trim()).filter(Boolean)));
 }
 
+function stripHtml(value: string) {
+  if (typeof window !== "undefined") {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = value;
+    return tmp.textContent || tmp.innerText || "";
+  }
+  return value.replace(/<[^>]*>/g, "");
+}
+
 function pickPrestacionResourceData(p: Publication, locale: "es" | "en" | "pt" | "it") {
   if (p.primaryGroupKey !== "prestacion") return null;
   const fields = (p.fields ?? {}) as Record<string, unknown>;
   const heroImage = pickI18nText((fields.prestationHeroImageI18n as I18nRecord | null) ?? null, locale, String(fields.prestationHeroImage ?? "").trim());
   const heroTitle = pickI18nText((fields.prestationHeroTitleI18n as I18nRecord | null) ?? null, locale, String(fields.prestationHeroTitle ?? "").trim());
-  const heroSubtitle = pickI18nText((fields.prestationHeroSubtitleI18n as I18nRecord | null) ?? null, locale, String(fields.prestationHeroSubtitle ?? "").trim());
+  const rawHeroSubtitle = pickI18nText((fields.prestationHeroSubtitleI18n as I18nRecord | null) ?? null, locale, String(fields.prestationHeroSubtitle ?? "").trim());
+  const heroSubtitle = stripHtml(rawHeroSubtitle);
   const resources = Array.isArray(fields.prestationResources) ? fields.prestationResources : [];
   const first = resources.find((entry) => {
     const r = (entry ?? {}) as Record<string, unknown>;
