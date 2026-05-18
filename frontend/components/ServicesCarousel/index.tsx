@@ -340,13 +340,14 @@ function ServiceCard({
       className="group relative h-72 w-full cursor-pointer overflow-hidden rounded-[36px] shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
     >
       <div
-        className="absolute inset-0 scale-105 bg-cover bg-center blur-[2px] brightness-110 saturate-105 transition-transform duration-300 group-hover:scale-110"
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
         style={{
           backgroundImage: image ? `url('${image}')` : "linear-gradient(180deg,#0f172a 0%, #1e293b 100%)",
         }}
-      />
-      <div className="absolute inset-0 bg-white/25" />
-      <div className="absolute inset-0 bg-gradient-to-t from-white/35 via-white/10 to-transparent" />
+      >
+        <div className="absolute inset-0 bg-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+      </div>
 
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6">
         {icon ? (
