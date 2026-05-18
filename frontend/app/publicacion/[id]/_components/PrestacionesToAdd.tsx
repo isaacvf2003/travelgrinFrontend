@@ -6,11 +6,14 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 
 type PublicationLite = {
   id: string;
   title?: string | null;
+  titleI18n?: I18nRecord | null;
   description?: string | null;
+  descriptionI18n?: I18nRecord | null;
   images?: unknown;
   category?: string | null;
   subcategory?: string | null;
@@ -30,7 +33,7 @@ type Props = {
 };
 
 export default function PrestacionesToAdd({ chips, currentPublicationId }: Props) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [openValue, setOpenValue] = useState<string | null>(null);
@@ -219,17 +222,31 @@ export default function PrestacionesToAdd({ chips, currentPublicationId }: Props
                 className="no-scrollbar flex min-w-0 snap-x snap-mandatory gap-2 overflow-x-auto px-2 pb-1 [scroll-padding-inline:0.5rem] before:block before:w-0.5 before:shrink-0 before:content-[''] after:block after:w-0.5 after:shrink-0 after:content-[''] sm:px-3 sm:[scroll-padding-inline:0.75rem] md:px-0 md:before:hidden md:after:hidden"
               >
                 {openItems.map((entry) => {
-                  const resource = Array.isArray((entry.fields as Record<string, unknown> | null)?.prestationResources)
-                    ? ((entry.fields as Record<string, unknown>).prestationResources as Array<Record<string, unknown>>).find(
-                        (r) => String(r?.image ?? "").trim() || String(r?.title ?? "").trim()
-                      )
-                    : null;
-
+                  const fields = (entry.fields ?? {}) as Record<string, unknown>;
                   const image =
-                    String((resource?.image ?? (Array.isArray(entry.images) ? entry.images[0] : "")) ?? "").trim() ||
+                    pickI18nText(
+                      (fields.prestationHeroImageI18n as I18nRecord | null) ?? null,
+                      locale,
+                      String(fields.prestationHeroImage ?? "").trim()
+                    ) ||
+                    String((Array.isArray(entry.images) ? entry.images[0] : "") ?? "").trim() ||
                     "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
-                  const title = String(resource?.title ?? entry.title ?? "Prestación").trim() || "Prestación";
-                  const description = String(entry.description ?? "").trim();
+                  const title =
+                    pickI18nText(
+                      (fields.prestationHeroTitleI18n as I18nRecord | null) ?? null,
+                      locale,
+                      String(fields.prestationHeroTitle ?? "").trim()
+                    ) ||
+                    pickI18nText(entry.titleI18n ?? null, locale, String(entry.title ?? "").trim()) ||
+                    "Prestación";
+                  const rawDescription =
+                    pickI18nText(
+                      (fields.prestationHeroSubtitleI18n as I18nRecord | null) ?? null,
+                      locale,
+                      String(fields.prestationHeroSubtitle ?? "").trim()
+                    ) ||
+                    pickI18nText(entry.descriptionI18n ?? null, locale, String(entry.description ?? "").trim());
+                  const description = rawDescription.replace(/<[^>]*>/g, "").trim();
 
                   const badges = Array.from(
                     new Set(
