@@ -33,26 +33,26 @@ export default function TermsAndConditions() {
   }, []);
 
   return (
-    
-    <div className="min-h-screen bg-background">
-     <NavBar />
+    <div className="min-h-screen overflow-x-hidden bg-[#f5fbfb] text-[#173238]">
+      <NavBar />
       <TermsHeader />
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-10 lg:py-14">
-        <div className="flex gap-12">
+      <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 md:px-8 lg:py-14">
+        <div className="pointer-events-none absolute inset-x-4 top-8 -z-0 h-72 rounded-full bg-[#08d9bd]/10 blur-3xl" />
+        <div className="relative grid items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)]">
           {/* Sidebar nav */}
-          <aside className="hidden lg:block w-64 flex-shrink-0">
+          <aside className="hidden lg:block">
             <TermsNav />
           </aside>
 
           {/* Main content */}
-          <main className="flex-1 min-w-0 max-w-3xl">
+          <main className="min-w-0 rounded-[2rem] border border-white/80 bg-white/92 p-5 shadow-[0_24px_70px_rgba(9,93,104,0.12)] backdrop-blur sm:p-8 lg:p-10 xl:p-12 [&_a]:text-[#0799aa] [&_a]:underline-offset-4 [&_a:hover]:underline [&_p]:text-[#40535a] [&_p]:leading-8">
             {/* Intro - ¿Qué es Travelgrin? */}
             <div id="que-es" className="scroll-mt-8">
-              <h2 className="font-heading text-2xl md:text-3xl font-bold text-primary mb-4">
+              <h2 className="text-2xl font-extrabold tracking-tight text-[#075965] md:text-3xl">
                 ¿Qué es Travelgrin?
               </h2>
-              <p className="text-muted-foreground leading-relaxed mb-4">
+              <p className="mb-5 text-base">
                 Travelgrin es una plataforma digital que conecta a personas interesadas en viajes no vacacionales —migración, educación, trabajo temporal, salud, voluntariado y más— con oferentes que publican oportunidades y recursos relevantes. En esta etapa actuamos como plataforma de difusión y visibilidad, no como proveedor directo de los servicios publicados.
               </p>
 
@@ -60,14 +60,14 @@ export default function TermsAndConditions() {
                 Al acceder, navegar, registrarte o utilizar Travelgrin aceptás la totalidad de este documento. Si no estás de acuerdo con alguna de sus disposiciones, por favor no utilices la plataforma.
               </CalloutBox>
 
-              <p className="text-sm text-muted-foreground leading-relaxed italic bg-muted/50 rounded-lg p-4 border border-border/60">
+              <p className="rounded-2xl border border-[#bfeeed] bg-[#f0fbfa] p-5 text-sm italic shadow-sm">
                 Travelgrin se encuentra en etapa de producto mínimo viable (MVP). Sus funcionalidades, categorías, flujos y condiciones podrán evolucionar conforme al desarrollo del proyecto y la validación de mercado.
               </p>
             </div>
 
             {/* 1 DEFINICIONES CLAVE */}
             <SectionHeading number="1" title="Definiciones Clave" id="definiciones" />
-            <p className="text-muted-foreground leading-relaxed mb-4">
+            <p className="mb-5 text-base">
               Para que todos entendamos lo mismo, usamos estos términos a lo largo del documento:
             </p>
             <DefinitionTable items={definitions} />
@@ -77,14 +77,14 @@ export default function TermsAndConditions() {
             <p className="text-muted-foreground leading-relaxed mb-4">
               Travelgrin actúa como intermediario digital de difusión. Esto significa que:
             </p>
-            <ul className="space-y-3 mb-4">
+            <ul className="mb-6 space-y-3 rounded-2xl border border-[#d7f1f0] bg-[#f7fdfd] p-5">
               {[
                 'No somos proveedor directo de los servicios publicados por terceros.',
                 'No garantizamos el contenido publicado por oferentes ni somos responsables de los acuerdos entre partes.',
                 'No actuamos como representante legal de los oferentes.',
               ].map((item, i) => (
-                <li key={i} className="flex items-start gap-3 text-muted-foreground text-sm leading-relaxed">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-secondary flex-shrink-0" />
+                <li key={i} className="flex items-start gap-3 text-sm leading-7 text-[#40535a]">
+                  <span className="mt-2.5 h-2 w-2 flex-shrink-0 rounded-full bg-[#08d9bd] shadow-[0_0_0_4px_rgba(8,217,189,0.12)]" />
                   {item}
                 </li>
               ))}
@@ -108,20 +108,20 @@ export default function TermsAndConditions() {
             <p className="text-muted-foreground leading-relaxed mb-4">
               Si publicás contenido en Travelgrin, te comprometés a:
             </p>
-            <ul className="space-y-3 mb-6">
+            <ul className="mb-6 space-y-3 rounded-2xl border border-[#d7f1f0] bg-[#f7fdfd] p-5">
               {[
                 'Proporcionar información veraz, clara y suficientemente precisa sobre la oportunidad o servicio ofrecido.',
                 'Contar con las licencias, habilitaciones y autorizaciones legales necesarias para publicar y prestar el servicio anunciado.',
                 'No incorporar contenido ilícito, discriminatorio, engañoso, fraudulento o incompatible con la finalidad de la plataforma.',
                 'Colaborar con las verificaciones o rectificaciones que Travelgrin pueda solicitar razonablemente.',
               ].map((item, i) => (
-                <li key={i} className="flex items-start gap-3 text-muted-foreground text-sm leading-relaxed">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-secondary flex-shrink-0" />
+                <li key={i} className="flex items-start gap-3 text-sm leading-7 text-[#40535a]">
+                  <span className="mt-2.5 h-2 w-2 flex-shrink-0 rounded-full bg-[#08d9bd] shadow-[0_0_0_4px_rgba(8,217,189,0.12)]" />
                   {item}
                 </li>
               ))}
             </ul>
-            <p className="text-sm text-muted-foreground leading-relaxed bg-muted/50 rounded-lg p-4 border border-border/60">
+            <p className="rounded-2xl border border-[#bfeeed] bg-[#f0fbfa] p-5 text-sm shadow-sm">
               Travelgrin podrá moderar, pausar, editar, desindexar o eliminar publicaciones cuando lo considere necesario por razones técnicas, operativas, de calidad o de cumplimiento normativo, lo que incluye la facultad de aplicar procesos de curaduría, selección o verificación previa de la idoneidad de las ofertas, con o sin previo aviso.
             </p>
 
@@ -130,14 +130,14 @@ export default function TermsAndConditions() {
             <p className="text-muted-foreground leading-relaxed mb-4">
               Como usuario viajero podés explorar publicaciones, usar filtros, completar formularios, manifestar intereses y contactar a terceros a través de los canales habilitados. Al hacerlo, te comprometés a:
             </p>
-            <ul className="space-y-3 mb-4">
+            <ul className="mb-6 space-y-3 rounded-2xl border border-[#d7f1f0] bg-[#f7fdfd] p-5">
               {[
                 'Utilizar la plataforma de buena fe, sin afectar la seguridad ni la experiencia de otros usuarios.',
                 'No recopilar datos de terceros sin autorización, hacer scraping no autorizado ni enviar comunicaciones masivas no solicitadas.',
                 'No suplantar identidades, manipular métricas ni distribuir software malicioso.',
               ].map((item, i) => (
-                <li key={i} className="flex items-start gap-3 text-muted-foreground text-sm leading-relaxed">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-secondary flex-shrink-0" />
+                <li key={i} className="flex items-start gap-3 text-sm leading-7 text-[#40535a]">
+                  <span className="mt-2.5 h-2 w-2 flex-shrink-0 rounded-full bg-[#08d9bd] shadow-[0_0_0_4px_rgba(8,217,189,0.12)]" />
                   {item}
                 </li>
               ))}
@@ -150,21 +150,21 @@ export default function TermsAndConditions() {
             <SectionHeading number="6" title="Privacidad y Tratamiento de Datos" id="privacidad" />
 
             <SubHeading>¿Qué información recopilamos?</SubHeading>
-            <ul className="space-y-3 mb-4">
+            <ul className="mb-6 space-y-3 rounded-2xl border border-[#d7f1f0] bg-[#f7fdfd] p-5">
               {[
                 { label: 'Datos de identificación y contacto:', detail: 'nombre, correo, teléfono, país, ciudad, organización.' },
                 { label: 'Datos de contexto del viajero:', detail: 'país de pasaporte, destino de interés, categorías consultadas.' },
                 { label: 'Datos de uso:', detail: 'páginas visitadas, filtros aplicados, tiempos de permanencia, interacciones con formularios.' },
               ].map((item, i) => (
-                <li key={i} className="flex items-start gap-3 text-muted-foreground text-sm leading-relaxed">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-secondary flex-shrink-0" />
-                  <span><strong className="text-foreground">{item.label}</strong> {item.detail}</span>
+                <li key={i} className="flex items-start gap-3 text-sm leading-7 text-[#40535a]">
+                  <span className="mt-2.5 h-2 w-2 flex-shrink-0 rounded-full bg-[#08d9bd] shadow-[0_0_0_4px_rgba(8,217,189,0.12)]" />
+                  <span><strong className="text-[#173238]">{item.label}</strong> {item.detail}</span>
                 </li>
               ))}
             </ul>
 
             <SubHeading>¿Para qué usamos esa información?</SubHeading>
-            <ul className="space-y-3 mb-4">
+            <ul className="mb-6 space-y-3 rounded-2xl border border-[#d7f1f0] bg-[#f7fdfd] p-5">
               {[
                 'Operar la plataforma y gestionar publicaciones.',
                 'Personalizar la experiencia según perfil y preferencias.',
@@ -172,8 +172,8 @@ export default function TermsAndConditions() {
                 'Mejorar el producto a partir del comportamiento de uso.',
                 'Enviar comunicaciones operativas, informativas o promocionales relevantes.',
               ].map((item, i) => (
-                <li key={i} className="flex items-start gap-3 text-muted-foreground text-sm leading-relaxed">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-secondary flex-shrink-0" />
+                <li key={i} className="flex items-start gap-3 text-sm leading-7 text-[#40535a]">
+                  <span className="mt-2.5 h-2 w-2 flex-shrink-0 rounded-full bg-[#08d9bd] shadow-[0_0_0_4px_rgba(8,217,189,0.12)]" />
                   {item}
                 </li>
               ))}
@@ -245,19 +245,18 @@ export default function TermsAndConditions() {
             </p>
 
             <TermsFooter />
-            
+
           </main>
-          <footer>
-                    <Footer />
-                  </footer>
         </div>
       </div>
+
+      <Footer />
 
       {/* Back to top */}
       {showTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-6 right-6 w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-300 hover:scale-105 z-50"
+          className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#075965] text-white shadow-[0_14px_30px_rgba(7,89,101,0.28)] transition-all duration-300 hover:-translate-y-1 hover:scale-105 hover:bg-[#08aeba]"
         >
           <ArrowUp className="w-5 h-5" />
         </button>
