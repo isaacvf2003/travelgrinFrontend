@@ -30,6 +30,21 @@ type ContactEntry = { label: string; href: string; icon: keyof typeof ICONS };
 type PublicationInfo = { basePath: "publicacion" | "prestaciones"; contacts: ContactEntry[] };
 type SocialLinkDetail = { kind?: string; label?: string; url?: string };
 
+function normalizeContactHref(href: string) {
+  return String(href ?? "")
+    .trim()
+    .replace(/^mailto:/i, "")
+    .replace(/\/+$/, "")
+    .toLowerCase();
+}
+
+function addUniqueContact(target: ContactEntry[], entry: ContactEntry | null) {
+  if (!entry?.href) return;
+  const key = `${entry.icon}:${normalizeContactHref(entry.href)}`;
+  const exists = target.some((current) => `${current.icon}:${normalizeContactHref(current.href)}` === key);
+  if (!exists) target.push(entry);
+}
+
 function PlanContent() {
   const { items, toggle, totalLabel } = usePlan();
   const { t, locale } = useTranslation();
@@ -223,21 +238,26 @@ function PlanContent() {
                   }))
                   .filter((entry: { kind: string; label: string; url: string }) => entry.kind && entry.url)
               : [];
-            const contacts: ContactEntry[] = [
-              socialLinks.whatsapp ? { label: "WhatsApp", href: socialLinks.whatsapp, icon: "whatsapp" } : null,
-              socialLinks.facebook ? { label: "Facebook", href: socialLinks.facebook, icon: "facebook" } : null,
-              socialLinks.instagram ? { label: "Instagram", href: socialLinks.instagram, icon: "instagram" } : null,
-              socialLinks.linkedin ? { label: "LinkedIn", href: socialLinks.linkedin, icon: "linkedin" } : null,
-              socialLinks.email
-                ? { label: "Email", href: socialLinks.email.includes("mailto:") ? socialLinks.email : `mailto:${socialLinks.email}`, icon: "email" }
-                : null,
-              socialLinks.website ? { label: "Web", href: socialLinks.website, icon: "web" } : null,
-              ...detailedLinks.map((entry: { kind: string; label: string; url: string }) => ({
+            const contacts: ContactEntry[] = [];
+            detailedLinks.forEach((entry: { kind: string; label: string; url: string }) => {
+              const icon = (entry.kind === "web" ? "web" : entry.kind) as keyof typeof ICONS;
+              addUniqueContact(contacts, {
                 label: entry.label || entry.kind || "Enlace",
                 href: entry.kind === "email" && !entry.url.includes("mailto:") ? `mailto:${entry.url}` : entry.url,
-                icon: (entry.kind === "web" ? "web" : entry.kind) as keyof typeof ICONS,
-              })),
-            ].filter(Boolean) as ContactEntry[];
+                icon: ICONS[icon] ? icon : "other",
+              });
+            });
+            addUniqueContact(contacts, socialLinks.whatsapp ? { label: "WhatsApp", href: socialLinks.whatsapp, icon: "whatsapp" } : null);
+            addUniqueContact(contacts, socialLinks.facebook ? { label: "Facebook", href: socialLinks.facebook, icon: "facebook" } : null);
+            addUniqueContact(contacts, socialLinks.instagram ? { label: "Instagram", href: socialLinks.instagram, icon: "instagram" } : null);
+            addUniqueContact(contacts, socialLinks.linkedin ? { label: "LinkedIn", href: socialLinks.linkedin, icon: "linkedin" } : null);
+            addUniqueContact(
+              contacts,
+              socialLinks.email
+                ? { label: "Email", href: socialLinks.email.includes("mailto:") ? socialLinks.email : `mailto:${socialLinks.email}`, icon: "email" }
+                : null
+            );
+            addUniqueContact(contacts, socialLinks.website ? { label: "Web", href: socialLinks.website, icon: "web" } : null);
 
             const basePath = pub?.primaryGroupKey === "prestacion" ? "prestaciones" : "publicacion";
             return [item.publicationId, { basePath, contacts }] as const;
