@@ -98,7 +98,7 @@ export default function Footer() {
               </li>
               <li className="cursor-pointer"><Link href="/quienes-somos#HowDoesItWork">{t("como_funciona_publicar")}</Link></li>
               <li className="cursor-pointer"><Link href="/quienes-somos">{t("sobre_travelgrin")}</Link></li>
-              <li className="cursor-pointer text-white/90">{t("terminos_condiciones")}</li>
+              <li className="cursor-pointer text-white/90"><Link href="/term-condicion">{t("terminos_condiciones")}</Link></li>
             </ul>
           </div>
           <div className="flex flex-col items-start justify-center ">
