@@ -2,15 +2,15 @@ import React from 'react';
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import { ArrowUp } from 'lucide-react';
-import TermsHeader from '../components/terms/TermsHeader';
-import TermsNav from '../components/terms/TermsNav';
-import SectionHeading from '../components/terms/SectionHeading';
-import SubHeading from '../components/terms/SubHeading';
-import CalloutBox from '../components/terms/CalloutBox';
-import DefinitionTable from '../components/terms/DefinitionTable';
-import PassportTable from '../components/terms/PassportTable';
-import ImportantBox from '../components/terms/ImportantBox';
-import TermsFooter from '../components/terms/TermsFooter';
+import TermsHeader from '@/components/terms/TermsHeader';
+import TermsNav from '@/components/terms/TermsNav';
+import SectionHeading from '@/components/terms/SectionHeading';
+import SubHeading from '@/components/terms/SubHeading';
+import CalloutBox from '@/components/terms/CalloutBox';
+import DefinitionTable from '@/components/terms/DefinitionTable';
+import PassportTable from '@/components/terms/PassportTable';
+import ImportantBox from '@/components/terms/ImportantBox';
+import TermsFooter from '@/components/terms/TermsFooter';
 
 const definitions = [
   { term: 'Plataforma', definition: 'El entorno digital de Travelgrin, incluyendo sitio web, formularios, canales y futuras integraciones.' },
