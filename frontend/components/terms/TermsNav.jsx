@@ -16,17 +16,18 @@ const sections = [
 
 export default function TermsNav() {
   return (
-    <nav className="hidden lg:block sticky top-8">
-      <p className="text-xs font-bold tracking-[0.2em] uppercase text-muted-foreground mb-4 px-4">
+    <nav className="sticky top-24 rounded-[1.75rem] border border-white/80 bg-white/90 p-4 shadow-[0_18px_45px_rgba(9,93,104,0.10)] backdrop-blur">
+      <p className="mb-4 px-3 text-xs font-extrabold uppercase tracking-[0.24em] text-[#08aeba]">
         Contenido
       </p>
-      <ul className="space-y-1">
+      <ul className="space-y-1.5">
         {sections.map((section) => (
           <li key={section.id}>
             <a
               href={`#${section.id}`}
-              className="block text-sm text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-lg px-4 py-2 transition-all duration-200"
+              className="group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-[#52676e] transition-all duration-200 hover:translate-x-1 hover:bg-[#e9fbfa] hover:text-[#075965]"
             >
+              <span className="h-1.5 w-1.5 rounded-full bg-[#08d9bd]/45 transition-all group-hover:bg-[#08aeba] group-hover:shadow-[0_0_0_4px_rgba(8,217,189,0.14)]" />
               {section.label}
             </a>
           </li>
