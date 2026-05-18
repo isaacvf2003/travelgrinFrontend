@@ -40,6 +40,11 @@ type CategoryApiLite = {
   description?: string;
   taxonomyType?: string | null;
 };
+type CountryFlagItem = {
+  cca2?: string;
+  name?: { common?: string; official?: string };
+  translations?: { spa?: { common?: string; official?: string } };
+};
 
 function firstImage(item: PublicationLite) {
   const raw = item.images;
@@ -54,6 +59,42 @@ function normalizeKey(value: unknown) {
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .trim();
+}
+
+const COUNTRY_CODE_MAP: Record<string, string> = {
+  alandia: "AX",
+  albania: "AL",
+  alemania: "DE",
+  andorra: "AD",
+  argentina: "AR",
+  brasil: "BR",
+  brazil: "BR",
+  canada: "CA",
+  chile: "CL",
+  colombia: "CO",
+  espana: "ES",
+  francia: "FR",
+  france: "FR",
+  germany: "DE",
+  italia: "IT",
+  mexico: "MX",
+  paraguay: "PY",
+  peru: "PE",
+  uruguay: "UY",
+};
+
+function getCountryCode(country: unknown, catalog: Record<string, string> = {}) {
+  const raw = String(country ?? "").trim();
+  const normalized = normalizeKey(raw);
+  const tokenized = raw.split(/\s+/).map((token) => normalizeKey(token));
+  const candidates = [normalized, ...tokenized].filter(Boolean);
+
+  for (const key of candidates) {
+    if (/^[a-z]{2}$/i.test(key)) return key.toUpperCase();
+    if (catalog[key]) return catalog[key];
+    if (COUNTRY_CODE_MAP[key]) return COUNTRY_CODE_MAP[key];
+  }
+  return "";
 }
 
 function firstPrestacionImage(
@@ -175,6 +216,7 @@ export default function FeaturedPublicationsSection() {
   const [prestacionItems, setPrestacionItems] = useState<PublicationLite[]>([]);
   const [selectedPrestCategory, setSelectedPrestCategory] =
     useState<string>("");
+  const [countryCodeCatalog, setCountryCodeCatalog] = useState<Record<string, string>>({});
   const sectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -274,6 +316,35 @@ export default function FeaturedPublicationsSection() {
       mounted = false;
     };
   }, [selectedCountry, isInView]);
+
+  useEffect(() => {
+    if (!isInView || Object.keys(countryCodeCatalog).length) return;
+    let mounted = true;
+    fetch("https://restcountries.com/v3.1/all?fields=name,cca2,translations", { cache: "force-cache" })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((payload) => {
+        if (!mounted || !Array.isArray(payload)) return;
+        const next: Record<string, string> = {};
+        (payload as CountryFlagItem[]).forEach((country) => {
+          const code = String(country.cca2 ?? "").trim().toUpperCase();
+          if (!/^[A-Z]{2}$/.test(code)) return;
+          [
+            country.name?.common,
+            country.name?.official,
+            country.translations?.spa?.common,
+            country.translations?.spa?.official,
+          ].forEach((label) => {
+            const key = normalizeKey(label);
+            if (key) next[key] = code;
+          });
+        });
+        setCountryCodeCatalog(next);
+      })
+      .catch(() => null);
+    return () => {
+      mounted = false;
+    };
+  }, [countryCodeCatalog, isInView]);
 
   useEffect(() => {
     if (!selectedPrestCategory && prestacionCategories.length) {
@@ -595,6 +666,7 @@ export default function FeaturedPublicationsSection() {
                     (fields.destinationCountries as unknown[])[0] ?? "",
                   ).trim()
                 : "";
+              const flagCountryCode = getCountryCode(destination || pub.country, countryCodeCatalog);
               const isPrestacion = pub.primaryGroupKey === "prestacion";
               const detailPath = isPrestacion
                 ? `/prestaciones/${pub.id}`
@@ -651,7 +723,16 @@ export default function FeaturedPublicationsSection() {
                       </p>
                     ) : null}
                     <p className="flex items-center gap-1 text-sm text-slate-600">
-                      <span>🏳️</span>
+                      {flagCountryCode ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`https://flagcdn.com/20x15/${flagCountryCode.toLowerCase()}.png`}
+                          alt={destination || pub.country || "flag"}
+                          className="h-[12px] w-[16px] rounded-[2px] object-cover"
+                        />
+                      ) : (
+                        <span>📍</span>
+                      )}
                       {location || destination || "-"}
                     </p>
                     <p className="text-sm font-semibold text-[#0B8FA3]">
