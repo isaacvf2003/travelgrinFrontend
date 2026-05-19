@@ -608,6 +608,7 @@ type AdminPanelProps = {
 };
 
 type EditorSectionTone = "sky" | "indigo" | "emerald" | "amber" | "slate";
+type OferenteDestinationMode = "all" | "some";
 
 function AdminEditorSection({
   id,
@@ -872,6 +873,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [savingFilterGroup, setSavingFilterGroup] = useState(false);
   const [savingPublication, setSavingPublication] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [oferenteDestinationMode, setOferenteDestinationMode] = useState<OferenteDestinationMode>("all");
+  const [oferenteDestinationCountries, setOferenteDestinationCountries] = useState<string[]>([]);
+  const [oferenteDestinationSaving, setOferenteDestinationSaving] = useState(false);
+  const [oferenteDestinationSaved, setOferenteDestinationSaved] = useState(false);
   const [filterOptionError, setFilterOptionError] = useState<Record<string, string>>({});
 
   const categoryLockRef = useRef(false);
@@ -997,12 +1002,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [catParentId, categories]);
 
   async function refresh() {
-    const [cats, groups, pubs, services, reportsData] = await Promise.all([
+    const [cats, groups, pubs, services, reportsData, oferenteDestinations] = await Promise.all([
       api<{ ok: true; items: Category[] }>("/api/categories").then((d) => d.items),
       api<{ ok: true; groups: FilterGroup[] }>("/api/admin/filters").then((d) => d.groups),
       api<{ ok: true; items: Publication[] }>("/api/admin/publications").then((d) => d.items),
       api<{ ok: true; items: TravelService[] }>("/api/travel-services").then((d) => d.items),
       api<{ ok: true; items: ReportItem[] }>("/api/reports").then((d) => d.items),
+      api<{ ok: true; mode?: OferenteDestinationMode; countries?: string[] }>("/api/admin/oferente-destinations").catch(() => ({ ok: true, mode: "all", countries: [] })),
     ]);
 
     setCategories(cats);
@@ -1010,6 +1016,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPublications(pubs);
     setTravelServices(services);
     setReports(reportsData);
+    setOferenteDestinationMode(oferenteDestinations?.mode === "some" ? "some" : "all");
+    setOferenteDestinationCountries(
+      Array.isArray(oferenteDestinations?.countries)
+        ? oferenteDestinations.countries.map((entry) => String(entry ?? "").trim()).filter(Boolean)
+        : []
+    );
     setExpandedBlocks({});
     setExpandedCategories({});
   }
@@ -1052,6 +1064,38 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       active = false;
     };
   }, []);
+
+  async function applyOferenteDestinationConfig() {
+    try {
+      setOferenteDestinationSaving(true);
+      setOferenteDestinationSaved(false);
+      const payload = {
+        mode: oferenteDestinationMode,
+        countries: oferenteDestinationMode === "some" ? oferenteDestinationCountries : [],
+      };
+      const response = await api<{ ok: true; mode?: OferenteDestinationMode; countries?: string[] }>(
+        "/api/admin/oferente-destinations",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      setOferenteDestinationMode(response?.mode === "some" ? "some" : "all");
+      setOferenteDestinationCountries(
+        Array.isArray(response?.countries)
+          ? response.countries.map((entry) => String(entry ?? "").trim()).filter(Boolean)
+          : []
+      );
+      setOferenteDestinationSaved(true);
+      window.setTimeout(() => setOferenteDestinationSaved(false), 3500);
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "No se pudo aplicar la configuración.");
+      window.setTimeout(() => setSaveMessage(""), 3500);
+    } finally {
+      setOferenteDestinationSaving(false);
+    }
+  }
 
   const normalizeBlockKey = (input: string) => {
     const clean = input
@@ -5055,6 +5099,60 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               )}
             </div>
 
+          </AdminEditorSection>
+
+          <AdminEditorSection
+            id="admin-oferente-destinos"
+            tone="slate"
+            icon={<MapPinned className="h-5 w-5" />}
+            title="Seleccionar los destino disponible para el registro del oferente"
+            description="Solo aplica al campo País destino que aplica tu propuesta del registro de oferentes."
+          >
+            <div className="grid gap-4 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+              <div className="grid gap-2 md:grid-cols-2">
+                <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name="oferente-destination-mode"
+                    checked={oferenteDestinationMode === "all"}
+                    onChange={() => setOferenteDestinationMode("all")}
+                  />
+                  Habilitar todos los destinos
+                </label>
+                <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name="oferente-destination-mode"
+                    checked={oferenteDestinationMode === "some"}
+                    onChange={() => setOferenteDestinationMode("some")}
+                  />
+                  Habilitar algunos
+                </label>
+              </div>
+
+              {oferenteDestinationMode === "some" ? (
+                <CountryMultiSelect
+                  label="Destinos habilitados"
+                  selected={oferenteDestinationCountries}
+                  onChange={setOferenteDestinationCountries}
+                  placeholder="Seleccioná uno o más países destino"
+                />
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={applyOferenteDestinationConfig}
+                  disabled={oferenteDestinationSaving}
+                  className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0193ab] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {oferenteDestinationSaving ? "Aplicando..." : "Aplicar cambios"}
+                </button>
+                {oferenteDestinationSaved ? (
+                  <span className="text-sm font-medium text-emerald-600">Cambios aplicado</span>
+                ) : null}
+              </div>
+            </div>
           </AdminEditorSection>
 
           <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm shadow-slate-200/60">
