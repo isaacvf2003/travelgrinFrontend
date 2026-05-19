@@ -5738,8 +5738,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           </div>
           </AdminEditorSection>
 
-          </div>
-
+            
           </>
           ) : null}
 
