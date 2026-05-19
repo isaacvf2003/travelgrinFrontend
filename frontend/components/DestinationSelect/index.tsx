@@ -14,6 +14,7 @@ type CountryApi = {
 };
 
 type Country = CountryApi & { spanishName: string };
+const EMPTY_ALLOWED_COUNTRIES: string[] = [];
 
 type Props = {
   destinationCountry: string;
@@ -51,7 +52,7 @@ export default function DestinationSelect({
   textBuscarPais = "",
   noHayPaises = "",
   publishedOnly = false,
-  allowedCountries = [],
+  allowedCountries = EMPTY_ALLOWED_COUNTRIES,
   error = false,
 }: Props) {
   const { t } = useTranslation();
@@ -64,14 +65,20 @@ export default function DestinationSelect({
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
+  const allowedCountrySignature = useMemo(
+    () => (Array.isArray(allowedCountries) ? allowedCountries : []).map((entry) => String(entry ?? "").trim()).filter(Boolean).join("|"),
+    [allowedCountries]
+  );
+
   const allowedCountryKeys = useMemo(
     () =>
       new Set(
-        (Array.isArray(allowedCountries) ? allowedCountries : [])
+        allowedCountrySignature
+          .split("|")
           .map((entry) => normalize(String(entry ?? "")))
           .filter(Boolean)
       ),
-    [allowedCountries]
+    [allowedCountrySignature]
   );
 
   useEffect(() => {
