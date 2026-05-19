@@ -264,6 +264,17 @@ export default function SearchBar() {
       setDestinationError(true);
       return;
     }
+    fetch("/api/destination-searches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        destinationCountry: destinationCountry.trim(),
+        passportCountry: selectedCountry || "",
+        category: selectedCategory || selectedSubcategory || "",
+        source: "buscar-search",
+      }),
+      keepalive: true,
+    }).catch(() => null);
     applySearchBarSelection();
   };
 

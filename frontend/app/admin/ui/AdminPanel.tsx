@@ -100,6 +100,50 @@ type ReportItem = {
   createdAt?: string;
 };
 
+type DashboardServiceHistory = {
+  sourceId: string;
+  taxonomyType: string;
+  lifecycleStatus: string;
+  isDeleted: boolean;
+  country?: string;
+  destinationCountry?: string;
+  headquarterCountry?: string;
+  publicationPlan?: string;
+  categories?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string;
+};
+
+type DashboardPublicationHistory = {
+  sourceId: string;
+  status: string;
+  isDeleted: boolean;
+  featured: boolean;
+  price?: string;
+  country?: string;
+  headquarterCountry?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string;
+};
+
+type DashboardPassportSelection = {
+  id: string;
+  country: string;
+  source?: string;
+  createdAt?: string;
+};
+
+type DashboardDestinationSearch = {
+  id: string;
+  passportCountry?: string;
+  destinationCountry: string;
+  category?: string;
+  source?: string;
+  createdAt?: string;
+};
+
 type Publication = {
   id: string;
   title: string;
@@ -263,6 +307,20 @@ function parseTravelServiceExtra(service: TravelService): Record<string, unknown
 function serviceEffectiveStatus(service: TravelService): string {
   const raw = String(service.status ?? service.whatStop ?? "").trim().toLowerCase();
   return raw || "pendiente";
+}
+
+function normalizeLifecycleStatus(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isActiveServiceLifecycle(status: unknown) {
+  const normalized = normalizeLifecycleStatus(status);
+  return ["aprobado", "active", "activo"].includes(normalized);
+}
+
+function isActivePublicationLifecycle(status: unknown) {
+  const normalized = normalizeLifecycleStatus(status);
+  return ["active", "activo", "published", "publicado"].includes(normalized);
 }
 
 function receivingModeLabel(mode: unknown): string {
@@ -712,6 +770,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [publications, setPublications] = useState<Publication[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [travelServices, setTravelServices] = useState<TravelService[]>([]);
+  const [dashboardServiceHistory, setDashboardServiceHistory] = useState<DashboardServiceHistory[]>([]);
+  const [dashboardPublicationHistory, setDashboardPublicationHistory] = useState<DashboardPublicationHistory[]>([]);
+  const [dashboardPassportSelections, setDashboardPassportSelections] = useState<DashboardPassportSelection[]>([]);
+  const [dashboardDestinationSearches, setDashboardDestinationSearches] = useState<DashboardDestinationSearch[]>([]);
   const [countryCatalog, setCountryCatalog] = useState<string[]>([]);
   const [userTab, setUserTab] = useState<"oferentes" | "demandantes">("oferentes");
   const [userSearch, setUserSearch] = useState("");
@@ -1023,13 +1085,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [catParentId, categories]);
 
   async function refresh() {
-    const [cats, groups, pubs, services, reportsData, oferenteDestinations] = await Promise.all([
+    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory] = await Promise.all([
       api<{ ok: true; items: Category[] }>("/api/categories").then((d) => d.items),
       api<{ ok: true; groups: FilterGroup[] }>("/api/admin/filters").then((d) => d.groups),
       api<{ ok: true; items: Publication[] }>("/api/admin/publications").then((d) => d.items),
       api<{ ok: true; items: TravelService[] }>("/api/travel-services").then((d) => d.items),
       api<{ ok: true; items: ReportItem[] }>("/api/reports").then((d) => d.items),
       api<{ ok: true; mode?: OferenteDestinationMode; countries?: string[] }>("/api/admin/oferente-destinations").catch(() => ({ ok: true, mode: "all", countries: [] })),
+      api<{
+        ok: true;
+        serviceHistory?: DashboardServiceHistory[];
+        publicationHistory?: DashboardPublicationHistory[];
+        passportSelections?: DashboardPassportSelection[];
+        destinationSearches?: DashboardDestinationSearch[];
+      }>("/api/admin/dashboard-history").catch(() => ({ ok: true, serviceHistory: [], publicationHistory: [], passportSelections: [], destinationSearches: [] })),
     ]);
 
     setCategories(cats);
@@ -1041,6 +1110,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPublications(pubs);
     setTravelServices(services);
     setReports(reportsData);
+    setDashboardServiceHistory(Array.isArray(dashboardHistory?.serviceHistory) ? dashboardHistory.serviceHistory : []);
+    setDashboardPublicationHistory(Array.isArray(dashboardHistory?.publicationHistory) ? dashboardHistory.publicationHistory : []);
+    setDashboardPassportSelections(Array.isArray(dashboardHistory?.passportSelections) ? dashboardHistory.passportSelections : []);
+    setDashboardDestinationSearches(Array.isArray(dashboardHistory?.destinationSearches) ? dashboardHistory.destinationSearches : []);
     setOferenteDestinationMode(oferenteDestinations?.mode === "some" ? "some" : "all");
     setOferenteDestinationCountries(
       Array.isArray(oferenteDestinations?.countries)
@@ -3186,20 +3259,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     );
   };
 
+  const today = new Date();
+  const isCurrentMonthDate = (value?: string | null) => {
+    if (!value) return false;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+    return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+  };
+
   const activePublications = publications.filter((item) => item.status === "active");
-  const featuredPublications = publications.filter((item) => item.featured);
-  const monthlyPublications = publications.filter((item) => {
-    if (!item.createdAt) return false;
-    const created = new Date(item.createdAt);
-    const today = new Date();
-    return created.getMonth() === today.getMonth() && created.getFullYear() === today.getFullYear();
-  }).length;
-  const monthlyServices = travelServices.filter((item) => {
-    if (!item.createdAt) return false;
-    const created = new Date(item.createdAt);
-    const today = new Date();
-    return created.getMonth() === today.getMonth() && created.getFullYear() === today.getFullYear();
-  }).length;
+  const activePublicationHistory = dashboardPublicationHistory.filter(
+    (item) => !item.isDeleted && isActivePublicationLifecycle(item.status)
+  );
+  const monthlyActivePublications = activePublicationHistory.filter((item) => isCurrentMonthDate(item.createdAt)).length;
 
   const isPanelSection = section === "panel";
   const isUsersSection = section === "usuarios";
@@ -3217,6 +3289,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const userOferentes = travelServices.filter((item) => String(item.taxonomyType ?? "").toLowerCase() === "oferente");
   const userDemandantes = travelServices.filter((item) => String(item.taxonomyType ?? "").toLowerCase() !== "oferente");
+  const activeUserOferentes = userOferentes.filter((item) => isActiveServiceLifecycle(serviceEffectiveStatus(item))).length;
+  const inactiveUserOferentes = Math.max(userOferentes.length - activeUserOferentes, 0);
+  const activeUserDemandantes = userDemandantes.filter((item) => isActiveServiceLifecycle(serviceEffectiveStatus(item))).length;
+  const inactiveUserDemandantes = Math.max(userDemandantes.length - activeUserDemandantes, 0);
   const oferentesPendientes = userOferentes.filter((item) => serviceEffectiveStatus(item) === "pendiente").length;
   const oferentesAprobados = userOferentes.filter((item) => serviceEffectiveStatus(item) === "aprobado").length;
   const oferentesRechazados = userOferentes.filter((item) => serviceEffectiveStatus(item) === "rechazado").length;
@@ -3309,67 +3385,103 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const map = new Map<string, { total: number; paid: number; free: number; visits: number }>();
     const countriesBase = countryCatalog.length ? countryCatalog : [];
     countriesBase.forEach((country) => map.set(country, { total: 0, paid: 0, free: 0, visits: 0 }));
+
     publications.forEach((publication) => {
       const key = resolveCountryName(publication.country);
       if (!key) return;
       const current = map.get(key) ?? { total: 0, paid: 0, free: 0, visits: 0 };
-      current.total += 1;
       if (String(publication.price ?? "").trim() && publication.price !== "0") current.paid += 1;
       else current.free += 1;
-      current.visits += Math.max(1, Math.round((publication.filterOptions?.length ?? 0) / 2));
       map.set(key, current);
     });
+
+    dashboardDestinationSearches.forEach((search) => {
+      const key = resolveCountryName(search.destinationCountry);
+      if (!key) return;
+      const current = map.get(key) ?? { total: 0, paid: 0, free: 0, visits: 0 };
+      current.total += 1;
+      current.visits += 1;
+      map.set(key, current);
+    });
+
     return Array.from(map.entries())
       .map(([country, values]) => ({ country, ...values }))
-      .sort((a, b) => b.total - a.total || a.country.localeCompare(b.country));
-  }, [countryCatalog, publications, resolveCountryName]);
+      .sort((a, b) => b.visits - a.visits || b.total - a.total || a.country.localeCompare(b.country));
+  }, [countryCatalog, dashboardDestinationSearches, publications, resolveCountryName]);
 
   const originRows = useMemo(() => {
-    const map = new Map<string, { publications: number; paid: number; free: number; categories: number; destinations: number }>();
+    const map = new Map<string, { publications: number; paid: number; free: number; categories: number; destinations: number; categorySet: Set<string>; destinationSet: Set<string> }>();
     const countriesBase = countryCatalog.length ? countryCatalog : [];
-    countriesBase.forEach((country) => map.set(country, { publications: 0, paid: 0, free: 0, categories: 0, destinations: 0 }));
-    countriesBase.forEach((country) => {
-      const current = map.get(country) ?? { publications: 0, paid: 0, free: 0, categories: 0, destinations: 0 };
-      const related = publications.filter((publication) => resolveCountryName(publication.headquarterCountry) === country);
-      current.publications = related.length;
-      current.paid = related.filter((publication) => String(publication.price ?? "").trim() && publication.price !== "0").length;
-      current.free = Math.max(related.length - current.paid, 0);
-      current.categories = new Set(related.map((publication) => publication.category).filter(Boolean)).size;
-      current.destinations = new Set(
-        related
-          .map((publication) => resolveCountryName(publication.country))
-          .filter(Boolean)
-      ).size;
-      map.set(country, current);
-    });
+    countriesBase.forEach((country) =>
+      map.set(country, { publications: 0, paid: 0, free: 0, categories: 0, destinations: 0, categorySet: new Set(), destinationSet: new Set() })
+    );
+
+    dashboardServiceHistory
+      .filter((entry) => normalizeLifecycleStatus(entry.taxonomyType) === "oferente")
+      .forEach((entry) => {
+        const key = resolveCountryName(firstNonEmpty(entry.country, entry.headquarterCountry));
+        if (!key) return;
+        const current = map.get(key) ?? { publications: 0, paid: 0, free: 0, categories: 0, destinations: 0, categorySet: new Set(), destinationSet: new Set() };
+        current.publications += 1;
+        if (normalizeLifecycleStatus(entry.publicationPlan) === "featured") current.paid += 1;
+        else current.free += 1;
+        (entry.categories ?? []).forEach((category) => {
+          if (category) current.categorySet.add(category);
+        });
+        const destination = resolveCountryName(entry.destinationCountry);
+        if (destination) current.destinationSet.add(destination);
+        current.categories = current.categorySet.size;
+        current.destinations = current.destinationSet.size;
+        map.set(key, current);
+      });
+
     return Array.from(map.entries())
-      .map(([country, values]) => ({ country, ...values }))
+      .map(([country, values]) => ({
+        country,
+        publications: values.publications,
+        paid: values.paid,
+        free: values.free,
+        categories: values.categories,
+        destinations: values.destinations,
+      }))
       .sort((a, b) => b.publications - a.publications || a.country.localeCompare(b.country));
-  }, [countryCatalog, publications, resolveCountryName]);
+  }, [countryCatalog, dashboardServiceHistory, resolveCountryName]);
 
   const passportVisitsRows = useMemo(() => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const grouped = new Map<string, { total: number; monthly: number; destinations: number }>();
+    const grouped = new Map<string, { total: number; monthly: number; destinationSet: Set<string> }>();
     const countriesBase = countryCatalog.length ? countryCatalog : [];
-    countriesBase.forEach((country) => grouped.set(country, { total: 0, monthly: 0, destinations: 0 }));
-    travelServices.forEach((service) => {
-      const passport = resolveCountryName(service.country);
+    countriesBase.forEach((country) => grouped.set(country, { total: 0, monthly: 0, destinationSet: new Set() }));
+
+    dashboardPassportSelections.forEach((selection) => {
+      const passport = resolveCountryName(selection.country);
       if (!passport) return;
-      const current = grouped.get(passport) ?? { total: 0, monthly: 0, destinations: 0 };
+      const current = grouped.get(passport) ?? { total: 0, monthly: 0, destinationSet: new Set() };
       current.total += 1;
-      if (service.createdAt && new Date(service.createdAt) >= monthStart) current.monthly += 1;
-      if (resolveCountryName(service.destinationCountry)) current.destinations += 1;
+      if (selection.createdAt && new Date(selection.createdAt) >= monthStart) current.monthly += 1;
       grouped.set(passport, current);
     });
-    return Array.from(grouped.entries()).map(([country, values]) => ({
-      country,
-      total: values.total,
-      perDay: Math.round(values.monthly / Math.max(now.getDate(), 1)),
-      perMonth: values.monthly,
-      avgDestinations: values.total ? Math.round(values.destinations / values.total) : 0,
-    })).sort((a, b) => b.total - a.total || a.country.localeCompare(b.country));
-  }, [countryCatalog, resolveCountryName, travelServices]);
+
+    dashboardDestinationSearches.forEach((search) => {
+      const passport = resolveCountryName(search.passportCountry);
+      const destination = resolveCountryName(search.destinationCountry);
+      if (!passport || !destination) return;
+      const current = grouped.get(passport) ?? { total: 0, monthly: 0, destinationSet: new Set() };
+      current.destinationSet.add(destination);
+      grouped.set(passport, current);
+    });
+
+    return Array.from(grouped.entries())
+      .map(([country, values]) => ({
+        country,
+        total: values.total,
+        perDay: Math.round(values.monthly / Math.max(now.getDate(), 1)),
+        perMonth: values.monthly,
+        avgDestinations: values.destinationSet.size,
+      }))
+      .sort((a, b) => b.total - a.total || a.country.localeCompare(b.country));
+  }, [countryCatalog, dashboardDestinationSearches, dashboardPassportSelections, resolveCountryName]);
 
   const visibleDestinationRows = useMemo(() => {
     const term = normalizeCountryText(destinationCountrySearch);
@@ -3439,17 +3551,53 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     return base.map((label, index) => ({ label, a: countsA[index], b: bDates.length ? countsB[index] : undefined }));
   };
 
+  const oferenteHistoryRows = useMemo(
+    () => dashboardServiceHistory.filter((item) => normalizeLifecycleStatus(item.taxonomyType) === "oferente"),
+    [dashboardServiceHistory]
+  );
+  const demandanteHistoryRows = useMemo(
+    () => dashboardServiceHistory.filter((item) => normalizeLifecycleStatus(item.taxonomyType) !== "oferente"),
+    [dashboardServiceHistory]
+  );
+  const monthlyUserOferentes = oferenteHistoryRows.filter((item) => isCurrentMonthDate(item.createdAt)).length;
+  const monthlyActiveUserOferentes = oferenteHistoryRows.filter(
+    (item) => !item.isDeleted && isActiveServiceLifecycle(item.lifecycleStatus) && isCurrentMonthDate(item.createdAt)
+  ).length;
+  const monthlyUserDemandantes = demandanteHistoryRows.filter((item) => isCurrentMonthDate(item.createdAt)).length;
+  const monthlyActiveUserDemandantes = demandanteHistoryRows.filter(
+    (item) => !item.isDeleted && isActiveServiceLifecycle(item.lifecycleStatus) && isCurrentMonthDate(item.createdAt)
+  ).length;
   const oferentesData = useMemo(
-    () => seriesFromDates(toDates(userOferentes.map((item) => item.createdAt)), toDates(userDemandantes.map((item) => item.createdAt))),
-    [userDemandantes, userOferentes]
+    () =>
+      seriesFromDates(
+        toDates(oferenteHistoryRows.filter((item) => !item.isDeleted && isActiveServiceLifecycle(item.lifecycleStatus)).map((item) => item.createdAt)),
+        toDates(oferenteHistoryRows.filter((item) => item.isDeleted || !isActiveServiceLifecycle(item.lifecycleStatus)).map((item) => item.createdAt))
+      ),
+    [oferenteHistoryRows]
   );
   const demandantesData = useMemo(
-    () => seriesFromDates(toDates(userDemandantes.map((item) => item.createdAt)), toDates(userOferentes.map((item) => item.createdAt))),
-    [userDemandantes, userOferentes]
+    () =>
+      seriesFromDates(
+        toDates(demandanteHistoryRows.filter((item) => !item.isDeleted && isActiveServiceLifecycle(item.lifecycleStatus)).map((item) => item.createdAt)),
+        toDates(demandanteHistoryRows.filter((item) => item.isDeleted || !isActiveServiceLifecycle(item.lifecycleStatus)).map((item) => item.createdAt))
+      ),
+    [demandanteHistoryRows]
   );
   const publicationsData = useMemo(
-    () => seriesFromDates(toDates(paidPublications.map((item) => item.createdAt)), toDates(freePublicationsList.map((item) => item.createdAt))),
-    [freePublicationsList, paidPublications]
+    () =>
+      seriesFromDates(
+        toDates(
+          dashboardPublicationHistory
+            .filter((item) => Boolean(String(item.price ?? "").trim()) && item.price !== "0")
+            .map((item) => item.createdAt)
+        ),
+        toDates(
+          dashboardPublicationHistory
+            .filter((item) => !String(item.price ?? "").trim() || item.price === "0")
+            .map((item) => item.createdAt)
+        )
+      ),
+    [dashboardPublicationHistory]
   );
   const reportsData = useMemo(
     () => seriesFromDates(toDates(reports.map((item) => item.createdAt))),
@@ -3736,17 +3884,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <DashboardStatCard
           label="Total Oferentes"
           total={userOferentes.length}
-          active={Math.max(1, Math.round(userOferentes.length * 0.8))}
-          monthly={monthlyServices}
-          activeMonthly={Math.max(1, Math.round(userOferentes.length * 0.2))}
+          active={activeUserOferentes}
+          monthly={monthlyUserOferentes}
+          activeMonthly={monthlyActiveUserOferentes}
           tone="blue"
         />
         <DashboardStatCard
           label="Total Demandantes"
           total={userDemandantes.length}
-          active={Math.max(1, Math.round(userDemandantes.length * 0.37))}
-          monthly={monthlyServices}
-          activeMonthly={Math.max(1, Math.round(userDemandantes.length * 0.4))}
+          active={activeUserDemandantes}
+          monthly={monthlyUserDemandantes}
+          activeMonthly={monthlyActiveUserDemandantes}
           tone="violet"
         />
       </div>
@@ -3919,25 +4067,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <DashboardStatCard
           label="Usuarios Oferentes"
           total={userOferentes.length}
-          active={Math.max(1, Math.round(userOferentes.length * 0.8))}
-          monthly={monthlyServices}
-          activeMonthly={Math.max(monthlyServices, 1)}
+          active={activeUserOferentes}
+          monthly={monthlyUserOferentes}
+          activeMonthly={monthlyActiveUserOferentes}
           tone="blue"
         />
         <DashboardStatCard
           label="Usuarios Demandantes"
           total={userDemandantes.length}
-          active={Math.max(1, Math.round(userDemandantes.length * 0.37))}
-          monthly={monthlyServices}
-          activeMonthly={Math.max(1, Math.round(userDemandantes.length * 0.2))}
+          active={activeUserDemandantes}
+          monthly={monthlyUserDemandantes}
+          activeMonthly={monthlyActiveUserDemandantes}
           tone="violet"
         />
         <DashboardStatCard
           label="Publicaciones Activas"
-          total={publications.length}
+          total={activePublications.length}
           active={activePublications.length}
-          monthly={monthlyPublications}
-          activeMonthly={Math.max(monthlyPublications, featuredPublications.length)}
+          monthly={monthlyActivePublications}
+          activeMonthly={monthlyActivePublications}
           tone="emerald"
         />
         <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 to-rose-100 p-5 text-rose-700 shadow-sm">

@@ -66,6 +66,13 @@ export const CountryProvider = ({ children }: { children: React.ReactNode }) => 
     try {
       window.localStorage.setItem("tg_country", normalized);
     } catch {}
+    if (!normalized || normalized === selectedCountry) return;
+    fetch("/api/passport-selections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ country: normalized, source: "country-provider" }),
+      keepalive: true,
+    }).catch(() => null);
   };
 
   return (
