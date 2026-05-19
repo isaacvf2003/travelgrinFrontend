@@ -147,6 +147,17 @@ export default function SearchDestination() {
       setDestinationError(true);
       return;
     }
+    fetch("/api/destination-searches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        destinationCountry: destinationCountry.trim(),
+        passportCountry: selectedCountry || "",
+        category: selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE ? selectedCategory : "",
+        source: "home-search",
+      }),
+      keepalive: true,
+    }).catch(() => null);
     const params = new URLSearchParams();
     if (selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE) params.set("category", selectedCategory);
     if (selectedCountry) params.set("country", selectedCountry);
