@@ -23,16 +23,6 @@ type FilterGroupLite = { key?: string; label?: string; taxonomyType?: string | n
 type SelectOption = { value: string; label: string };
 type Step = "basic" | "featured";
 
-const FEATURED_ITEMS = [
-  "Aparece primero en resultados",
-  "Duración 120 días",
-  "Sello destacado",
-  "Descripción ampliada",
-  "Varios link de contacto",
-  "Disponible en 4 idiomas",
-  "Galería hasta 5 imágenes",
-];
-
 const CURRENCY_OPTIONS = ["ARS", "USD", "EUR", "BRL", "CLP", "COP", "MXN", "PEN", "UYU", "JPY"];
 type PriceEntry = { currency: string; amount: string };
 type VenueEntry = { country: string; city: string; mapUrl: string };
@@ -62,6 +52,7 @@ function MultiOptionSelect({
   placeholder,
   icon = "languages",
   isEmpty = false,
+  emptyText,
 }: {
   selectedValues: string[];
   setSelectedValues: (values: string[]) => void;
@@ -69,6 +60,7 @@ function MultiOptionSelect({
   placeholder: string;
   icon?: "languages" | "tag" | "user";
   isEmpty?: boolean;
+  emptyText: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const selectedLabels = selectedValues
@@ -120,7 +112,7 @@ function MultiOptionSelect({
                   <span>{option.label}</span>
                 </button>
               );
-            }) : <div className="p-3 text-center text-sm text-gray-500">No hay opciones disponibles</div>}
+            }) : <div className="p-3 text-center text-sm text-gray-500">{emptyText}</div>}
           </div>
         </div>
       ) : null}
@@ -135,11 +127,13 @@ function SingleOptionSelect({
   setSelectedValue,
   options,
   placeholder,
+  emptyText,
 }: {
   selectedValue: string;
   setSelectedValue: (value: string) => void;
   options: SelectOption[];
   placeholder: string;
+  emptyText: string;
 }) {
   return (
     <MultiOptionSelect
@@ -148,6 +142,7 @@ function SingleOptionSelect({
       options={options}
       placeholder={placeholder}
       icon="user"
+      emptyText={emptyText}
     />
   );
 }
@@ -163,6 +158,7 @@ function PlanCard({
   showPromo = false,
   promoCode = "",
   onPromoCodeChange,
+  promoPlaceholder,
 }: {
   title: string;
   tone: "free" | "featured";
@@ -174,6 +170,7 @@ function PlanCard({
   showPromo?: boolean;
   promoCode?: string;
   onPromoCodeChange?: (value: string) => void;
+  promoPlaceholder: string;
 }) {
   const isFeatured = tone === "featured";
   return (
@@ -192,7 +189,7 @@ function PlanCard({
           onChange={(event) => onPromoCodeChange?.(event.target.value)}
           className="mt-3 h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
           style={{ colorScheme: "light" }}
-          placeholder="Código promocional"
+          placeholder={promoPlaceholder}
         />
       ) : null}
       <button
@@ -210,6 +207,21 @@ function PlanCard({
 export default function ModalOferente({ onClose }: Props) {
   const { t, locale } = useTranslation();
   const { selectedCountry } = useCountry();
+  const featuredItems = [
+    t("oferente_featured_item_results"),
+    t("oferente_featured_item_duration"),
+    t("oferente_featured_item_badge"),
+    t("oferente_featured_item_description"),
+    t("oferente_featured_item_links"),
+    t("oferente_featured_item_languages"),
+    t("oferente_featured_item_gallery"),
+  ];
+  const basicItems = [
+    t("oferente_plan_visible_listado"),
+    t("oferente_plan_duracion_60"),
+    t("oferente_plan_descripcion_breve"),
+    t("oferente_plan_link_contacto"),
+  ];
 
   const [mounted, setMounted] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -364,7 +376,7 @@ export default function ModalOferente({ onClose }: Props) {
     }
     if (!profileName.trim()) {
       setIsEmptyProfileName(true);
-      toast.error("Completá el nombre de tu perfil o marca");
+      toast.error(t("oferente_toast_nombre"));
       return false;
     }
     setIsEmptyProfileName(false);
@@ -388,25 +400,25 @@ export default function ModalOferente({ onClose }: Props) {
       return false;
     }
     if (!destinationCountry.trim()) {
-      toast.error("Elegí un país destino");
+      toast.error(t("oferente_toast_destino"));
       return false;
     }
     if (!languages.length) {
-      toast.error("Elegí al menos un idioma");
+      toast.error(t("oferente_toast_idioma"));
       return false;
     }
     if (!description.trim()) {
-      toast.error("Completá la descripción");
+      toast.error(t("oferente_toast_descripcion"));
       return false;
     }
     if (!website.trim()) {
-      toast.error("Completá el sitio web");
+      toast.error(t("oferente_toast_web"));
       return false;
     }
 
     if (!acceptedTerms) {
       setIsEmptyTerms(true);
-      toast.error("Debés aceptar términos y condiciones");
+      toast.error(t("oferente_toast_terminos"));
       return false;
     }
     setIsEmptyTerms(false);
@@ -415,7 +427,7 @@ export default function ModalOferente({ onClose }: Props) {
 
   const validateFeatured = () => {
     if (!primaryVenue.country.trim() || !primaryVenue.city.trim() || !primaryVenue.mapUrl.trim()) {
-      toast.error("Completá todos los campos de sede principal");
+      toast.error(t("oferente_toast_sede"));
       return false;
     }
     return true;
@@ -498,7 +510,7 @@ export default function ModalOferente({ onClose }: Props) {
         body: JSON.stringify(buildPayload(publicationPlan)),
       });
       if (!response.ok) throw new Error();
-      toast.success("Tu publicación está en revisión", { duration: 6000 });
+      toast.success(t("oferente_toast_revision"), { duration: 6000 });
       onClose();
     } catch {
       toast.error(t("error_form"));
@@ -526,7 +538,7 @@ export default function ModalOferente({ onClose }: Props) {
   const handleProviderLogoUpload = async (file: File | null) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Subí una imagen válida");
+      toast.error(t("oferente_toast_imagen_valida"));
       return;
     }
     try {
@@ -535,7 +547,7 @@ export default function ModalOferente({ onClose }: Props) {
       setProviderLogoAsset(optimized);
       setProviderLogoName(file.name.replace(/\.[^.]+$/, ".webp"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo comprimir la imagen");
+      toast.error(error instanceof Error ? error.message : t("oferente_toast_comprimir_imagenes"));
     }
   };
 
@@ -544,11 +556,11 @@ export default function ModalOferente({ onClose }: Props) {
     const remaining = Math.max(0, 5 - serviceImages.length);
     const fileList = Array.from(files);
     if (!remaining || fileList.length > remaining) {
-      toast.error(`Podés subir hasta 5 imágenes. Te quedan ${remaining}.`);
+      toast.error(t("oferente_toast_imagen_limite").replace("{remaining}", String(remaining)));
       return;
     }
     if (fileList.some((file) => !file.type.startsWith("image/"))) {
-      toast.error("Solo se permiten imágenes válidas");
+      toast.error(t("oferente_toast_imagen_tipo"));
       return;
     }
     try {
@@ -557,7 +569,7 @@ export default function ModalOferente({ onClose }: Props) {
       setServiceImageAssets((prev) => [...prev, ...encoded]);
       setServiceImageNames((prev) => [...prev, ...fileList.map((file) => file.name.replace(/\.[^.]+$/, ".webp"))]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudieron comprimir las imágenes");
+      toast.error(error instanceof Error ? error.message : t("oferente_toast_comprimir_imagenes"));
     }
   };
 
@@ -577,7 +589,7 @@ export default function ModalOferente({ onClose }: Props) {
                 ? "0 8px 25px -8px rgba(220, 38, 38, 0.4), 0 4px 12px -4px rgba(220, 38, 38, 0.2)"
                 : "0 12px 36px -18px rgba(8, 217, 189, 0.55), 0 6px 18px -9px rgba(4, 181, 189, 0.35)",
             }}
-            placeholder="* Nombre de tu perfil o marca"
+            placeholder={t("oferente_nombre_perfil")}
           />
         </div>
         <div style={{ position: "relative", zIndex: 9999998 }}>
@@ -585,9 +597,10 @@ export default function ModalOferente({ onClose }: Props) {
             selectedValues={proposalCategories}
             setSelectedValues={setProposalCategories}
             options={categoriaOptions}
-            placeholder="¿En qué categoría encaja tu propuesta?"
+            placeholder={t("oferente_categoria_placeholder")}
             icon="tag"
             isEmpty={isEmptyProposalCategory}
+            emptyText={t("oferente_sin_opciones")}
           />
         </div>
       </div>
@@ -604,10 +617,10 @@ export default function ModalOferente({ onClose }: Props) {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div style={{ position: "relative", zIndex: 9999997, isolation: "isolate" }}>
-          <DestinationSelect destinationCountry={destinationCountry} setDestinationCountry={setDestinationCountry} label="País destino que aplica tu propuesta" customClass="mb-0" isInModal textBuscarPais={t("buscar_pais")} noHayPaises={t("no_hay_paises")} allowedCountries={destinationAvailabilityMode === "some" ? destinationAvailabilityCountries : []} />
+          <DestinationSelect destinationCountry={destinationCountry} setDestinationCountry={setDestinationCountry} label={t("oferente_destino_label")} customClass="mb-0" isInModal textBuscarPais={t("buscar_pais")} noHayPaises={t("no_hay_paises")} allowedCountries={destinationAvailabilityMode === "some" ? destinationAvailabilityCountries : []} />
         </div>
         <div style={{ position: "relative", zIndex: 9999996 }}>
-          <MultiOptionSelect selectedValues={languages} setSelectedValues={setLanguages} options={languageOptions} placeholder="Idiomas que te comunicas" />
+          <MultiOptionSelect selectedValues={languages} setSelectedValues={setLanguages} options={languageOptions} placeholder={t("oferente_idiomas_placeholder")} emptyText={t("oferente_sin_opciones")} />
         </div>
       </div>
 
@@ -617,34 +630,36 @@ export default function ModalOferente({ onClose }: Props) {
       </div>
 
       <div>
-        <MaterialInputs required label="Tu email de contacto con Travelgrin" value={email} setValue={setEmail} isEmpty={isEmptyEmail} setEmailError={setEmailError} emailError={emailError} textPorfavor={t("por_favor")} textCampoRequerido={t("campo_requerido")} />
+        <MaterialInputs required label={t("oferente_email_label")} value={email} setValue={setEmail} isEmpty={isEmptyEmail} setEmailError={setEmailError} emailError={emailError} textPorfavor={t("por_favor")} textCampoRequerido={t("campo_requerido")} />
       </div>
 
       <label className={`flex items-center gap-3 rounded-xl bg-white/80 p-3 text-sm shadow-sm ${isEmptyTerms ? "text-red-600 ring-1 ring-red-300" : "text-[#273166]"}`}>
         <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="h-4 w-4 rounded border-gray-300 accent-[#00A9C6]" />
-        <span>* Aceptar términos y condiciones</span>
+        <span>{t("oferente_aceptar_terminos")}</span>
       </label>
 
       <div className="grid gap-4 md:grid-cols-2">
         <PlanCard
-          title="Publicación Básica (gratis)"
+          title={t("oferente_publicacion_basica")}
           tone="free"
           price="$ 0"
-          items={["Visible en el listado general", "Duración 60 días", "Descripción breve", "1 link contacto"]}
-          buttonLabel={isLoading ? t("guardando") : "Publicar Gratis"}
+          items={basicItems}
+          buttonLabel={isLoading ? t("guardando") : t("oferente_publicar_gratis")}
           onClick={() => submit("basic_free")}
           disabled={isLoading}
+          promoPlaceholder={t("oferente_codigo_promocional")}
         />
         <PlanCard
-          title="Publicación Destacada"
+          title={t("oferente_publicacion_destacada")}
           tone="featured"
           price="$ XX"
-          items={FEATURED_ITEMS}
-          buttonLabel="Continuar con destacado"
+          items={featuredItems}
+          buttonLabel={t("oferente_continuar_destacado")}
           onClick={goFeatured}
           showPromo
           promoCode={promoCode}
           onPromoCodeChange={setPromoCode}
+          promoPlaceholder={t("oferente_codigo_promocional")}
         />
       </div>
     </>
@@ -653,44 +668,44 @@ export default function ModalOferente({ onClose }: Props) {
   const featuredStep = (
     <>
       <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900">
-        Completá más información para destacarte y aumentar tus consultas. No se borra nada de lo que ya cargaste.
+        {t("oferente_destacado_intro")}
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
-          <label className="text-sm font-semibold text-[#273166]">Foto o logo del perfil</label>
+          <label className="text-sm font-semibold text-[#273166]">{t("oferente_logo_label")}</label>
           <div className="mt-3 flex items-center gap-3">
             <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#BFEAF3] bg-[#F4FCFD]">
               {providerLogo ? (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={providerLogo} alt="Logo del perfil" className="h-full w-full object-cover" />
+                  <img src={providerLogo} alt={t("oferente_logo_label")} className="h-full w-full object-cover" />
                 </>
               ) : <Upload className="h-7 w-7 text-[#0B8FA3]" />}
             </div>
             <div className="min-w-0 flex-1">
               <input id="provider-logo-upload" type="file" accept="image/*" onChange={(event) => handleProviderLogoUpload(event.target.files?.[0] ?? null)} className="sr-only" />
               <label htmlFor="provider-logo-upload" className="inline-flex cursor-pointer items-center rounded-xl bg-[#EAF9FB] px-4 py-2 text-sm font-bold text-[#007D92] transition hover:bg-[#D8F3F0]">
-                Seleccionar imagen
+                {t("oferente_seleccionar_imagen")}
               </label>
-              <p className="mt-2 truncate text-xs text-slate-500">{providerLogoName || "Ninguna imagen seleccionada"}</p>
+              <p className="mt-2 truncate text-xs text-slate-500">{providerLogoName || t("oferente_ninguna_imagen")}</p>
             </div>
           </div>
         </div>
         <div data-featured-type="1" key={featuredTypeFocusKey} style={{ position: "relative", zIndex: 9999995 }}>
-          <SingleOptionSelect selectedValue={providerType} setSelectedValue={setProviderType} options={typeOptions} placeholder="Tipo" />
+          <SingleOptionSelect selectedValue={providerType} setSelectedValue={setProviderType} options={typeOptions} placeholder={t("tipo_perfil")} emptyText={t("oferente_sin_opciones")} />
         </div>
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
-        <div className="mb-3 text-sm font-semibold text-[#273166]">Sede</div>
+        <div className="mb-3 text-sm font-semibold text-[#273166]">{t("oferente_sede")}</div>
         <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
           <div style={{ position: "relative", zIndex: 9999995 }}>
-            <label className="mb-1 block text-sm font-medium text-slate-700">{locale === "en" ? "Headquarters" : locale === "pt" ? "Sede" : "Sede"}</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("oferente_sede")}</label>
             <DestinationSelect
               destinationCountry={primaryVenue.country}
               setDestinationCountry={(country) => setPrimaryVenue((prev) => ({ ...prev, country }))}
-              label="País de la sede principal"
+              label={t("oferente_pais_sede")}
               customClass="mb-0"
               isInModal
               textBuscarPais={t("buscar_pais")}
@@ -698,12 +713,12 @@ export default function ModalOferente({ onClose }: Props) {
             />
           </div>
           <div className="rounded-2xl bg-white p-3 shadow-[0_12px_36px_-18px_rgba(8,217,189,0.55),0_6px_18px_-9px_rgba(4,181,189,0.35)]">
-            <input value={primaryVenue.city} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, city: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={locale === "en" ? "Headquarter city" : locale === "pt" ? "Cidade da sede principal" : "Ciudad de la sede principal"} />
+            <input value={primaryVenue.city} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, city: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={t("oferente_ciudad_sede")} />
           </div>
           <div className="rounded-2xl bg-white p-3 shadow-[0_12px_36px_-18px_rgba(8,217,189,0.55),0_6px_18px_-9px_rgba(4,181,189,0.35)]">
             <div className="relative">
               <MapPin className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#0B8FA3]" />
-              <input value={primaryVenue.mapUrl} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, mapUrl: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={locale === "en" ? "Google Maps URL" : locale === "pt" ? "URL do Google Maps" : "URL de Google Maps"} />
+              <input value={primaryVenue.mapUrl} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, mapUrl: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={t("oferente_url_maps")} />
             </div>
           </div>
         </div>
@@ -711,61 +726,61 @@ export default function ModalOferente({ onClose }: Props) {
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <div className="flex items-center justify-between gap-3">
-          <label className="text-sm font-semibold text-[#273166]">Imágenes del servicio (hasta 5)</label>
+          <label className="text-sm font-semibold text-[#273166]">{t("oferente_imagenes_servicio")}</label>
           <span className="text-xs text-slate-500">{serviceImages.length}/5</span>
         </div>
         <input id="service-images-upload" type="file" accept="image/*" multiple onChange={(event) => { handleServiceImagesUpload(event.target.files); event.currentTarget.value = ""; }} className="sr-only" />
         <label htmlFor="service-images-upload" className="mt-3 inline-flex cursor-pointer items-center rounded-xl bg-[#EAF9FB] px-4 py-2 text-sm font-bold text-[#007D92] transition hover:bg-[#D8F3F0]">
-          Elegir imágenes
+          {t("oferente_elegir_imagenes")}
         </label>
-        <p className="mt-2 text-xs text-slate-500">Seleccioná únicamente la cantidad restante; el límite es estricto de 5 imágenes.</p>
+        <p className="mt-2 text-xs text-slate-500">{t("oferente_limite_imagenes")}</p>
         {serviceImages.length ? (
           <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-5">
             {serviceImages.map((image, index) => (
               <button key={`${index}-${image.slice(0, 20)}`} type="button" onClick={() => { setServiceImages((prev) => prev.filter((_, idx) => idx !== index)); setServiceImageAssets((prev) => prev.filter((_, idx) => idx !== index)); setServiceImageNames((prev) => prev.filter((_, idx) => idx !== index)); }} className="group relative h-20 overflow-hidden rounded-xl border border-slate-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={image} alt={`Servicio ${index + 1}`} className="h-full w-full object-cover" />
-                <span className="absolute inset-0 hidden place-items-center bg-black/50 text-xs font-semibold text-white group-hover:grid">Quitar</span>
+                <img src={image} alt={`${t("oferente_servicio_alt")} ${index + 1}`} className="h-full w-full object-cover" />
+                <span className="absolute inset-0 hidden place-items-center bg-black/50 text-xs font-semibold text-white group-hover:grid">{t("oferente_quitar")}</span>
               </button>
             ))}
           </div>
         ) : (
-          <div className="mt-3 flex items-center gap-2 text-sm text-slate-500"><ImagePlus className="h-4 w-4" /> Todavía no cargaste imágenes.</div>
+          <div className="mt-3 flex items-center gap-2 text-sm text-slate-500"><ImagePlus className="h-4 w-4" /> {t("oferente_sin_imagenes")}</div>
         )}
         {serviceImageNames.length ? <p className="mt-2 text-xs text-slate-500">{serviceImageNames.join(", ")}</p> : null}
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <CountryMultiSelect
-          label="¿Para viajeros de qué países querés aparecer?"
+          label={t("oferente_pasaportes_label")}
           selected={passportCountries}
           onChange={setPassportCountries}
-          placeholder="Si no elegís ninguno, aparece para todos"
+          placeholder={t("oferente_pasaportes_placeholder")}
         />
-        <p className="mt-2 text-xs text-slate-500">Si no elegís países, tu publicación aparece para todos. Si elegís uno o más, solo aparece para esos pasaportes.</p>
+        <p className="mt-2 text-xs text-slate-500">{t("oferente_pasaportes_helper")}</p>
       </div>
 
       <div className="space-y-4">
-        <MaterialTextarea value={included} setValue={setIncluded} placeholder="* ¿Qué incluye tu servicio o qué te diferencia?" textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
-        <MaterialTextarea value={notIncluded} setValue={setNotIncluded} placeholder="¿Qué no incluye o qué debe tener en cuenta el viajero?" textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        <MaterialTextarea value={included} setValue={setIncluded} placeholder={t("oferente_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        <MaterialTextarea value={notIncluded} setValue={setNotIncluded} placeholder={t("oferente_no_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <div className="mb-3 flex items-center justify-between">
-          <label className="text-sm font-semibold text-[#273166]">Links de contacto</label>
-          <button type="button" onClick={() => setContactLinks((prev) => [...prev, { kind: "web", url: "", label: "" }])} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">+ Añadir link</button>
+          <label className="text-sm font-semibold text-[#273166]">{t("oferente_links_contacto")}</label>
+          <button type="button" onClick={() => setContactLinks((prev) => [...prev, { kind: "web", url: "", label: "" }])} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">{t("oferente_anadir_link")}</button>
         </div>
         <div className="space-y-2">
           {contactLinks.map((entry, index) => (
             <div key={`contact-${index}`} className="grid grid-cols-1 gap-2 md:grid-cols-[140px_1fr_auto]">
               <select value={entry.kind} onChange={(event) => setContactLinks((prev) => prev.map((item, idx) => idx === index ? { ...item, kind: event.target.value as ContactKind } : item))} className="h-11 rounded-xl border border-slate-200 bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30">
-                <option value="web">Web</option><option value="email">Email</option><option value="youtube">YouTube</option><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="whatsapp">WhatsApp</option><option value="cellphone">Celular</option><option value="linkedin">LinkedIn</option><option value="other">Otro</option>
+                <option value="web">Web</option><option value="email">Email</option><option value="youtube">YouTube</option><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="whatsapp">WhatsApp</option><option value="cellphone">{t("oferente_contact_cellphone")}</option><option value="linkedin">LinkedIn</option><option value="other">{t("oferente_contact_other")}</option>
               </select>
               <div className="relative">
                 <LinkIcon className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[#0B8FA3]" />
-                <input value={entry.url} onChange={(event) => setContactLinks((prev) => prev.map((item, idx) => idx === index ? { ...item, url: event.target.value } : item))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30" placeholder="Link o email" />
+                <input value={entry.url} onChange={(event) => setContactLinks((prev) => prev.map((item, idx) => idx === index ? { ...item, url: event.target.value } : item))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30" placeholder={t("oferente_link_email_placeholder")} />
               </div>
-              <button type="button" onClick={() => setContactLinks((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== index) : prev)} disabled={contactLinks.length <= 1} className="rounded-xl border border-slate-200 px-3 text-xs text-slate-600 disabled:opacity-40">Quitar</button>
+              <button type="button" onClick={() => setContactLinks((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== index) : prev)} disabled={contactLinks.length <= 1} className="rounded-xl border border-slate-200 px-3 text-xs text-slate-600 disabled:opacity-40">{t("oferente_quitar")}</button>
             </div>
           ))}
         </div>
@@ -773,42 +788,43 @@ export default function ModalOferente({ onClose }: Props) {
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <label className="text-sm font-semibold text-[#273166]">Precio de tu propuesta por moneda</label>
-          <button type="button" onClick={() => setPriceEntries((prev) => [...prev, { currency: "", amount: "" }])} disabled={priceNegotiable} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">+ Agregar moneda</button>
+          <label className="text-sm font-semibold text-[#273166]">{t("oferente_precio_moneda")}</label>
+          <button type="button" onClick={() => setPriceEntries((prev) => [...prev, { currency: "", amount: "" }])} disabled={priceNegotiable} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{t("oferente_agregar_moneda")}</button>
         </div>
         <div className="space-y-2">
           {priceEntries.map((entry, index) => (
             <div key={`price-entry-${index}`} className="grid grid-cols-[110px_1fr_auto] gap-2">
               <select value={entry.currency} onChange={(event) => setPriceEntries((prev) => prev.map((item, idx) => idx === index ? { ...item, currency: event.target.value } : item))} disabled={priceNegotiable} className="h-11 rounded-xl border border-slate-200 bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30 disabled:bg-slate-100">
-                <option value="">Moneda</option>
+                <option value="">{t("oferente_moneda")}</option>
                 {CURRENCY_OPTIONS.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
               </select>
-              <input value={entry.amount} onChange={(event) => setPriceEntries((prev) => prev.map((item, idx) => idx === index ? { ...item, amount: event.target.value } : item))} disabled={priceNegotiable} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30 disabled:bg-slate-100" placeholder="Monto" />
-              <button type="button" onClick={() => setPriceEntries((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== index) : prev)} disabled={priceNegotiable || priceEntries.length <= 1} className="rounded-xl border border-slate-200 px-3 text-xs text-slate-600 disabled:opacity-40">Quitar</button>
+              <input value={entry.amount} onChange={(event) => setPriceEntries((prev) => prev.map((item, idx) => idx === index ? { ...item, amount: event.target.value } : item))} disabled={priceNegotiable} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30 disabled:bg-slate-100" placeholder={t("oferente_monto")} />
+              <button type="button" onClick={() => setPriceEntries((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== index) : prev)} disabled={priceNegotiable || priceEntries.length <= 1} className="rounded-xl border border-slate-200 px-3 text-xs text-slate-600 disabled:opacity-40">{t("oferente_quitar")}</button>
             </div>
           ))}
         </div>
-        <label className="mt-3 flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={priceNegotiable} onChange={(event) => setPriceNegotiable(event.target.checked)} className="h-4 w-4 accent-[#00A9C6]" /> *A convenir</label>
+        <label className="mt-3 flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={priceNegotiable} onChange={(event) => setPriceNegotiable(event.target.checked)} className="h-4 w-4 accent-[#00A9C6]" /> {t("oferente_a_convenir")}</label>
         <div className="mt-3">
-          <label className="mb-1 block text-sm font-medium text-slate-700">Periodo del precio</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">{t("oferente_periodo_precio")}</label>
           <select value={pricePeriod} onChange={(event) => setPricePeriod(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30">
-            <option value="month">Por mes</option><option value="week">Por semana</option><option value="day">Por día</option><option value="year">Por año</option><option value="once">Único</option>
+            <option value="month">{t("oferente_periodo_mes")}</option><option value="week">{t("oferente_periodo_semana")}</option><option value="day">{t("oferente_periodo_dia")}</option><option value="year">{t("oferente_periodo_anio")}</option><option value="once">{t("oferente_periodo_unico")}</option>
           </select>
         </div>
       </div>
 
       <div className="mx-auto w-full max-w-sm">
         <PlanCard
-          title="Publicación Destacada"
+          title={t("oferente_publicacion_destacada")}
           tone="featured"
           price="$ XX"
-          items={FEATURED_ITEMS}
-          buttonLabel={isLoading ? t("guardando") : "Publicar Destacado"}
+          items={featuredItems}
+          buttonLabel={isLoading ? t("guardando") : t("oferente_publicar_destacado")}
           onClick={() => submit("featured")}
           disabled={isLoading}
           showPromo
           promoCode={promoCode}
           onPromoCodeChange={setPromoCode}
+          promoPlaceholder={t("oferente_codigo_promocional")}
         />
       </div>
     </>
@@ -829,7 +845,7 @@ export default function ModalOferente({ onClose }: Props) {
               <div className="flex items-center gap-2">
                 {step === "featured" ? (
                   <button type="button" onClick={() => setStep("basic")} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
-                    Volver atrás
+                    {t("oferente_volver_atras")}
                   </button>
                 ) : null}
                 <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200 flex-shrink-0">
@@ -842,12 +858,12 @@ export default function ModalOferente({ onClose }: Props) {
           <div ref={modalBodyRef} className="flex-1 overflow-y-auto bg-gradient-to-b from-[#F5FBFB] via-[#EEEEEE] to-[#F8FAFC] p-6 space-y-6">
             <div className="flex items-center justify-center flex-col text-center">
               <h1 style={{ color: "#273166" }} className="text-xl font-semibold text-gray-800 leading-tight">{t("conecta_con_viajeros")}</h1>
-              <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? "Completá más información para destacar y aumentar tus consultas" : t("cambiamos_la_manera")}</h2>
+              <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? t("oferente_destacado_heading") : t("cambiamos_la_manera")}</h2>
             </div>
             {step === "basic" ? basicStep : featuredStep}
             <div className="flex items-center justify-center gap-2 text-xs text-slate-600">
               <Globe2 className="h-4 w-4" />
-              Tus datos están seguros.
+              {t("oferente_datos_seguros")}
             </div>
           </div>
 
