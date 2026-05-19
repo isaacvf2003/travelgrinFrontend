@@ -771,10 +771,7 @@ export default function FeaturedPublicationsSection() {
 
         {showCarousel ? (
           <>
-            {showPrestCategoryScrollButtons ? (
-            {showPrestCategoryScrollButtons ? (
-            {showPrestCategoryScrollButtons ? (
-              <button
+            <button
               type="button"
               aria-label="Anterior"
               onClick={() =>
@@ -786,8 +783,7 @@ export default function FeaturedPublicationsSection() {
             >
               <ChevronLeft className="h-5 w-5 text-slate-600" />
             </button>
-            {showPrestCategoryScrollButtons ? (
-              <button
+            <button
               type="button"
               aria-label="Siguiente"
               onClick={() =>
