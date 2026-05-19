@@ -27,6 +27,7 @@ type Props = {
   textBuscarPais?: string;
   noHayPaises?: string;
   publishedOnly?: boolean;
+  allowedCountries?: string[];
   error?: boolean;
 };
 
@@ -50,6 +51,7 @@ export default function DestinationSelect({
   textBuscarPais = "",
   noHayPaises = "",
   publishedOnly = false,
+  allowedCountries = [],
   error = false,
 }: Props) {
   const { t } = useTranslation();
@@ -61,6 +63,16 @@ export default function DestinationSelect({
 
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const allowedCountryKeys = useMemo(
+    () =>
+      new Set(
+        (Array.isArray(allowedCountries) ? allowedCountries : [])
+          .map((entry) => normalize(String(entry ?? "")))
+          .filter(Boolean)
+      ),
+    [allowedCountries]
+  );
 
   useEffect(() => {
     setIsClient(true);
@@ -92,6 +104,13 @@ export default function DestinationSelect({
             spanishName: c.translations?.spa?.common || c.name.common,
           }))
           .filter((country) => {
+            if (allowedCountryKeys.size) {
+              const isAllowed =
+                allowedCountryKeys.has(normalize(country.spanishName)) ||
+                allowedCountryKeys.has(normalize(country.name.common)) ||
+                allowedCountryKeys.has(normalize(country.cca2));
+              if (!isAllowed) return false;
+            }
             if (!publishedOnly) return true;
             return (
               destinationKeys.has(normalize(country.spanishName)) ||
@@ -106,7 +125,7 @@ export default function DestinationSelect({
         console.error("Error fetching countries:", e);
       }
     })();
-  }, [publishedOnly]);
+  }, [publishedOnly, allowedCountryKeys]);
 
   const selectedCountryObj = useMemo(() => {
     if (!destinationCountry) return null;

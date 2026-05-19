@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -25,12 +25,12 @@ type Step = "basic" | "featured";
 
 const FEATURED_ITEMS = [
   "Aparece primero en resultados",
-  "Duración 120 días",
+  "DuraciÃ³n 120 dÃ­as",
   "Sello destacado",
-  "Descripción ampliada",
+  "DescripciÃ³n ampliada",
   "Varios link de contacto",
   "Disponible en 4 idiomas",
-  "Galería hasta 5 imágenes",
+  "GalerÃ­a hasta 5 imÃ¡genes",
 ];
 
 const CURRENCY_OPTIONS = ["ARS", "USD", "EUR", "BRL", "CLP", "COP", "MXN", "PEN", "UYU", "JPY"];
@@ -183,7 +183,7 @@ function PlanCard({
         {title}
       </div>
       <ul className={`mt-4 flex-1 space-y-1.5 text-sm leading-6 ${isFeatured ? "text-cyan-50" : "text-slate-700"}`}>
-        {items.map((item) => <li key={item}>• {item}</li>)}
+        {items.map((item) => <li key={item}>â€¢ {item}</li>)}
       </ul>
       <div className={`mt-5 text-center text-2xl font-extrabold ${isFeatured ? "text-white" : "text-slate-900"}`}>{price}</div>
       {showPromo ? (
@@ -192,7 +192,7 @@ function PlanCard({
           onChange={(event) => onPromoCodeChange?.(event.target.value)}
           className="mt-3 h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
           style={{ colorScheme: "light" }}
-          placeholder="Código promocional"
+          placeholder="CÃ³digo promocional"
         />
       ) : null}
       <button
@@ -224,6 +224,8 @@ export default function ModalOferente({ onClose }: Props) {
   const [isOfrezco, setIsOfrezco] = useState(false);
   const [isIntermediario, setIsIntermediario] = useState(false);
   const [destinationCountry, setDestinationCountry] = useState("");
+  const [destinationAvailabilityMode, setDestinationAvailabilityMode] = useState<"all" | "some">("all");
+  const [destinationAvailabilityCountries, setDestinationAvailabilityCountries] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [primaryVenue, setPrimaryVenue] = useState<VenueEntry>({ country: "", city: "", mapUrl: "" });
   const [description, setDescription] = useState("");
@@ -283,16 +285,33 @@ export default function ModalOferente({ onClose }: Props) {
     Promise.all([
       fetch("/api/categories").then((res) => res.json()).catch(() => ({ items: [] })),
       fetch("/api/filters").then((res) => res.json()).catch(() => ({ groups: [] })),
+      fetch("/api/oferente-destinations").then((res) => res.json()).catch(() => ({ mode: "all", countries: [] })),
     ])
-      .then(([categoryData, filterData]) => {
+      .then(([categoryData, filterData, destinationData]) => {
         setCategories(Array.isArray(categoryData?.items) ? categoryData.items : []);
         setFilterGroups(Array.isArray(filterData?.groups) ? filterData.groups : []);
+        const mode = destinationData?.mode === "some" ? "some" : "all";
+        const countries = Array.isArray(destinationData?.countries)
+          ? destinationData.countries.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+          : [];
+        setDestinationAvailabilityMode(mode);
+        setDestinationAvailabilityCountries(countries);
       })
       .catch(() => {
         setCategories([]);
         setFilterGroups([]);
+        setDestinationAvailabilityMode("all");
+        setDestinationAvailabilityCountries([]);
       });
   }, []);
+
+  useEffect(() => {
+    if (destinationAvailabilityMode !== "some") return;
+    if (!destinationCountry.trim()) return;
+    const normalized = destinationCountry.trim().toLowerCase();
+    const allowed = new Set(destinationAvailabilityCountries.map((country) => country.trim().toLowerCase()));
+    if (!allowed.has(normalized)) setDestinationCountry("");
+  }, [destinationAvailabilityMode, destinationAvailabilityCountries, destinationCountry]);
 
   const taxonomyFor = (category: Category, byId: Map<string, Category>): string => {
     let current: Category | undefined = category;
@@ -345,7 +364,7 @@ export default function ModalOferente({ onClose }: Props) {
     }
     if (!profileName.trim()) {
       setIsEmptyProfileName(true);
-      toast.error("Completá el nombre de tu perfil o marca");
+      toast.error("CompletÃ¡ el nombre de tu perfil o marca");
       return false;
     }
     setIsEmptyProfileName(false);
@@ -369,25 +388,25 @@ export default function ModalOferente({ onClose }: Props) {
       return false;
     }
     if (!destinationCountry.trim()) {
-      toast.error("Elegí un país destino");
+      toast.error("ElegÃ­ un paÃ­s destino");
       return false;
     }
     if (!languages.length) {
-      toast.error("Elegí al menos un idioma");
+      toast.error("ElegÃ­ al menos un idioma");
       return false;
     }
     if (!description.trim()) {
-      toast.error("Completá la descripción");
+      toast.error("CompletÃ¡ la descripciÃ³n");
       return false;
     }
     if (!website.trim()) {
-      toast.error("Completá el sitio web");
+      toast.error("CompletÃ¡ el sitio web");
       return false;
     }
 
     if (!acceptedTerms) {
       setIsEmptyTerms(true);
-      toast.error("Debés aceptar términos y condiciones");
+      toast.error("DebÃ©s aceptar tÃ©rminos y condiciones");
       return false;
     }
     setIsEmptyTerms(false);
@@ -396,7 +415,7 @@ export default function ModalOferente({ onClose }: Props) {
 
   const validateFeatured = () => {
     if (!primaryVenue.country.trim() || !primaryVenue.city.trim() || !primaryVenue.mapUrl.trim()) {
-      toast.error("Completá todos los campos de sede principal");
+      toast.error("CompletÃ¡ todos los campos de sede principal");
       return false;
     }
     return true;
@@ -479,7 +498,7 @@ export default function ModalOferente({ onClose }: Props) {
         body: JSON.stringify(buildPayload(publicationPlan)),
       });
       if (!response.ok) throw new Error();
-      toast.success("Tu publicación está en revisión", { duration: 6000 });
+      toast.success("Tu publicaciÃ³n estÃ¡ en revisiÃ³n", { duration: 6000 });
       onClose();
     } catch {
       toast.error(t("error_form"));
@@ -507,7 +526,7 @@ export default function ModalOferente({ onClose }: Props) {
   const handleProviderLogoUpload = async (file: File | null) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Subí una imagen válida");
+      toast.error("SubÃ­ una imagen vÃ¡lida");
       return;
     }
     try {
@@ -525,11 +544,11 @@ export default function ModalOferente({ onClose }: Props) {
     const remaining = Math.max(0, 5 - serviceImages.length);
     const fileList = Array.from(files);
     if (!remaining || fileList.length > remaining) {
-      toast.error(`Podés subir hasta 5 imágenes. Te quedan ${remaining}.`);
+      toast.error(`PodÃ©s subir hasta 5 imÃ¡genes. Te quedan ${remaining}.`);
       return;
     }
     if (fileList.some((file) => !file.type.startsWith("image/"))) {
-      toast.error("Solo se permiten imágenes válidas");
+      toast.error("Solo se permiten imÃ¡genes vÃ¡lidas");
       return;
     }
     try {
@@ -538,7 +557,7 @@ export default function ModalOferente({ onClose }: Props) {
       setServiceImageAssets((prev) => [...prev, ...encoded]);
       setServiceImageNames((prev) => [...prev, ...fileList.map((file) => file.name.replace(/\.[^.]+$/, ".webp"))]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudieron comprimir las imágenes");
+      toast.error(error instanceof Error ? error.message : "No se pudieron comprimir las imÃ¡genes");
     }
   };
 
@@ -566,7 +585,7 @@ export default function ModalOferente({ onClose }: Props) {
             selectedValues={proposalCategories}
             setSelectedValues={setProposalCategories}
             options={categoriaOptions}
-            placeholder="¿En qué categoría encaja tu propuesta?"
+            placeholder="Â¿En quÃ© categorÃ­a encaja tu propuesta?"
             icon="tag"
             isEmpty={isEmptyProposalCategory}
           />
@@ -585,7 +604,7 @@ export default function ModalOferente({ onClose }: Props) {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div style={{ position: "relative", zIndex: 9999997, isolation: "isolate" }}>
-          <DestinationSelect destinationCountry={destinationCountry} setDestinationCountry={setDestinationCountry} label="País destino que aplica tu propuesta" customClass="mb-0" isInModal textBuscarPais={t("buscar_pais")} noHayPaises={t("no_hay_paises")} />
+          <DestinationSelect destinationCountry={destinationCountry} setDestinationCountry={setDestinationCountry} label="PaÃ­s destino que aplica tu propuesta" customClass="mb-0" isInModal textBuscarPais={t("buscar_pais")} noHayPaises={t("no_hay_paises")} allowedCountries={destinationAvailabilityMode === "some" ? destinationAvailabilityCountries : []} />
         </div>
         <div style={{ position: "relative", zIndex: 9999996 }}>
           <MultiOptionSelect selectedValues={languages} setSelectedValues={setLanguages} options={languageOptions} placeholder="Idiomas que te comunicas" />
@@ -603,21 +622,21 @@ export default function ModalOferente({ onClose }: Props) {
 
       <label className={`flex items-center gap-3 rounded-xl bg-white/80 p-3 text-sm shadow-sm ${isEmptyTerms ? "text-red-600 ring-1 ring-red-300" : "text-[#273166]"}`}>
         <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="h-4 w-4 rounded border-gray-300 accent-[#00A9C6]" />
-        <span>* Aceptar términos y condiciones</span>
+        <span>* Aceptar tÃ©rminos y condiciones</span>
       </label>
 
       <div className="grid gap-4 md:grid-cols-2">
         <PlanCard
-          title="Publicación Básica (gratis)"
+          title="PublicaciÃ³n BÃ¡sica (gratis)"
           tone="free"
           price="$ 0"
-          items={["Visible en el listado general", "Duración 60 días", "Descripción breve", "1 link contacto"]}
+          items={["Visible en el listado general", "DuraciÃ³n 60 dÃ­as", "DescripciÃ³n breve", "1 link contacto"]}
           buttonLabel={isLoading ? t("guardando") : "Publicar Gratis"}
           onClick={() => submit("basic_free")}
           disabled={isLoading}
         />
         <PlanCard
-          title="Publicación Destacada"
+          title="PublicaciÃ³n Destacada"
           tone="featured"
           price="$ XX"
           items={FEATURED_ITEMS}
@@ -634,7 +653,7 @@ export default function ModalOferente({ onClose }: Props) {
   const featuredStep = (
     <>
       <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900">
-        Completá más información para destacarte y aumentar tus consultas. No se borra nada de lo que ya cargaste.
+        CompletÃ¡ mÃ¡s informaciÃ³n para destacarte y aumentar tus consultas. No se borra nada de lo que ya cargaste.
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -671,7 +690,7 @@ export default function ModalOferente({ onClose }: Props) {
             <DestinationSelect
               destinationCountry={primaryVenue.country}
               setDestinationCountry={(country) => setPrimaryVenue((prev) => ({ ...prev, country }))}
-              label="País de la sede principal"
+              label="PaÃ­s de la sede principal"
               customClass="mb-0"
               isInModal
               textBuscarPais={t("buscar_pais")}
@@ -692,14 +711,14 @@ export default function ModalOferente({ onClose }: Props) {
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <div className="flex items-center justify-between gap-3">
-          <label className="text-sm font-semibold text-[#273166]">Imágenes del servicio (hasta 5)</label>
+          <label className="text-sm font-semibold text-[#273166]">ImÃ¡genes del servicio (hasta 5)</label>
           <span className="text-xs text-slate-500">{serviceImages.length}/5</span>
         </div>
         <input id="service-images-upload" type="file" accept="image/*" multiple onChange={(event) => { handleServiceImagesUpload(event.target.files); event.currentTarget.value = ""; }} className="sr-only" />
         <label htmlFor="service-images-upload" className="mt-3 inline-flex cursor-pointer items-center rounded-xl bg-[#EAF9FB] px-4 py-2 text-sm font-bold text-[#007D92] transition hover:bg-[#D8F3F0]">
-          Elegir imágenes
+          Elegir imÃ¡genes
         </label>
-        <p className="mt-2 text-xs text-slate-500">Seleccioná únicamente la cantidad restante; el límite es estricto de 5 imágenes.</p>
+        <p className="mt-2 text-xs text-slate-500">SeleccionÃ¡ Ãºnicamente la cantidad restante; el lÃ­mite es estricto de 5 imÃ¡genes.</p>
         {serviceImages.length ? (
           <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-5">
             {serviceImages.map((image, index) => (
@@ -711,30 +730,30 @@ export default function ModalOferente({ onClose }: Props) {
             ))}
           </div>
         ) : (
-          <div className="mt-3 flex items-center gap-2 text-sm text-slate-500"><ImagePlus className="h-4 w-4" /> Todavía no cargaste imágenes.</div>
+          <div className="mt-3 flex items-center gap-2 text-sm text-slate-500"><ImagePlus className="h-4 w-4" /> TodavÃ­a no cargaste imÃ¡genes.</div>
         )}
         {serviceImageNames.length ? <p className="mt-2 text-xs text-slate-500">{serviceImageNames.join(", ")}</p> : null}
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <CountryMultiSelect
-          label="¿Para viajeros de qué países querés aparecer?"
+          label="Â¿Para viajeros de quÃ© paÃ­ses querÃ©s aparecer?"
           selected={passportCountries}
           onChange={setPassportCountries}
-          placeholder="Si no elegís ninguno, aparece para todos"
+          placeholder="Si no elegÃ­s ninguno, aparece para todos"
         />
-        <p className="mt-2 text-xs text-slate-500">Si no elegís países, tu publicación aparece para todos. Si elegís uno o más, solo aparece para esos pasaportes.</p>
+        <p className="mt-2 text-xs text-slate-500">Si no elegÃ­s paÃ­ses, tu publicaciÃ³n aparece para todos. Si elegÃ­s uno o mÃ¡s, solo aparece para esos pasaportes.</p>
       </div>
 
       <div className="space-y-4">
-        <MaterialTextarea value={included} setValue={setIncluded} placeholder="* ¿Qué incluye tu servicio o qué te diferencia?" textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
-        <MaterialTextarea value={notIncluded} setValue={setNotIncluded} placeholder="¿Qué no incluye o qué debe tener en cuenta el viajero?" textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        <MaterialTextarea value={included} setValue={setIncluded} placeholder="* Â¿QuÃ© incluye tu servicio o quÃ© te diferencia?" textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        <MaterialTextarea value={notIncluded} setValue={setNotIncluded} placeholder="Â¿QuÃ© no incluye o quÃ© debe tener en cuenta el viajero?" textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <div className="mb-3 flex items-center justify-between">
           <label className="text-sm font-semibold text-[#273166]">Links de contacto</label>
-          <button type="button" onClick={() => setContactLinks((prev) => [...prev, { kind: "web", url: "", label: "" }])} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">+ Añadir link</button>
+          <button type="button" onClick={() => setContactLinks((prev) => [...prev, { kind: "web", url: "", label: "" }])} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">+ AÃ±adir link</button>
         </div>
         <div className="space-y-2">
           {contactLinks.map((entry, index) => (
@@ -773,14 +792,14 @@ export default function ModalOferente({ onClose }: Props) {
         <div className="mt-3">
           <label className="mb-1 block text-sm font-medium text-slate-700">Periodo del precio</label>
           <select value={pricePeriod} onChange={(event) => setPricePeriod(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30">
-            <option value="month">Por mes</option><option value="week">Por semana</option><option value="day">Por día</option><option value="year">Por año</option><option value="once">Único</option>
+            <option value="month">Por mes</option><option value="week">Por semana</option><option value="day">Por dÃ­a</option><option value="year">Por aÃ±o</option><option value="once">Ãšnico</option>
           </select>
         </div>
       </div>
 
       <div className="mx-auto w-full max-w-sm">
         <PlanCard
-          title="Publicación Destacada"
+          title="PublicaciÃ³n Destacada"
           tone="featured"
           price="$ XX"
           items={FEATURED_ITEMS}
@@ -810,7 +829,7 @@ export default function ModalOferente({ onClose }: Props) {
               <div className="flex items-center gap-2">
                 {step === "featured" ? (
                   <button type="button" onClick={() => setStep("basic")} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
-                    Volver atrás
+                    Volver atrÃ¡s
                   </button>
                 ) : null}
                 <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200 flex-shrink-0">
@@ -823,12 +842,12 @@ export default function ModalOferente({ onClose }: Props) {
           <div ref={modalBodyRef} className="flex-1 overflow-y-auto bg-gradient-to-b from-[#F5FBFB] via-[#EEEEEE] to-[#F8FAFC] p-6 space-y-6">
             <div className="flex items-center justify-center flex-col text-center">
               <h1 style={{ color: "#273166" }} className="text-xl font-semibold text-gray-800 leading-tight">{t("conecta_con_viajeros")}</h1>
-              <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? "Completá más información para destacar y aumentar tus consultas" : t("cambiamos_la_manera")}</h2>
+              <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? "CompletÃ¡ mÃ¡s informaciÃ³n para destacar y aumentar tus consultas" : t("cambiamos_la_manera")}</h2>
             </div>
             {step === "basic" ? basicStep : featuredStep}
             <div className="flex items-center justify-center gap-2 text-xs text-slate-600">
               <Globe2 className="h-4 w-4" />
-              Tus datos están seguros.
+              Tus datos estÃ¡n seguros.
             </div>
           </div>
 
@@ -860,3 +879,4 @@ export default function ModalOferente({ onClose }: Props) {
 
   return createPortal(modalContent, document.body);
 }
+
