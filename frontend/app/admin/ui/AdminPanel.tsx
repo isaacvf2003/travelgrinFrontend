@@ -5254,6 +5254,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </p>
               )}
             </div>
+          </div>
           </AdminEditorSection>
 
           <AdminEditorSection
@@ -5423,6 +5424,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 + Agregar precio
               </button>
             </div>
+          </div>
           </AdminEditorSection>
 
           <AdminEditorSection
