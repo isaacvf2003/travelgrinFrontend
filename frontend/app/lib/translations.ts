@@ -25,6 +25,8 @@ export const translations = {
         categoria_que_te_interesa: "Categoría que te interesa",
         categoria_de_mi_propuesta: "Categoría de mi propuesta",
         filtramos_para_ti: "Filtramos para ti, no para todos.",
+        elegir_destino_para_oportunidades: "Elegí un lugar de destino para ver oportunidades.",
+        destino_activa_publicaciones: "El listado de publicaciones y prestaciones se activa cuando seleccionás un destino.",
         resultados_pensados_para: "Resultados pensados para vos, no para todos",
         buscar_titulo_pre: "Encuentra la",
         buscar_titulo_highlight: "oportunidad perfecta",
@@ -389,6 +391,8 @@ export const translations = {
         categoria_que_te_interesa: "Category of interest",
         categoria_de_mi_propuesta: "Category of my proposal",
         filtramos_para_ti: "We filter for you, not for everyone.",
+        elegir_destino_para_oportunidades: "Choose a destination to view opportunities.",
+        destino_activa_publicaciones: "The list of publications and services becomes active when you select a destination.",
         resultados_pensados_para: "Results tailored for you, not for everyone.",
         buscar_titulo_pre: "Find the",
         buscar_titulo_highlight: "perfect opportunity",
@@ -752,6 +756,8 @@ export const translations = {
         categoria_de_mi_propuesta: "Categoria da minha proposta",
 
         filtramos_para_ti: "Filtramos para você, não para todos.",
+        elegir_destino_para_oportunidades: "Escolha um destino para ver oportunidades.",
+        destino_activa_publicaciones: "A lista de publicações e prestações é ativada quando você seleciona um destino.",
 
         resultados_pensados_para: "Resultados feitos para você, não para todos.",
         buscar_titulo_pre: "Encontre a",
@@ -1123,6 +1129,8 @@ export const translations = {
         categoria_que_te_interesa: "Categoria di interesse",
         categoria_de_mi_propuesta: "Categoria della mia proposta",
         filtramos_para_ti: "Filtriamo per te, non per tutti.",
+        elegir_destino_para_oportunidades: "Scegli una destinazione per vedere le opportunità.",
+        destino_activa_publicaciones: "L'elenco di pubblicazioni e prestazioni si attiva quando selezioni una destinazione.",
 
         resultados_pensados_para: "Risultati pensati per te, non per tutti",
         buscar_titulo_pre: "Trova la",

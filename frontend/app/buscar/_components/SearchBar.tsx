@@ -67,6 +67,28 @@ export default function SearchBar() {
 
   const initialCountrySyncDone = useRef(false);
 
+  useEffect(() => {
+    try {
+      const queryDestination = params.get("destinationCountry") || "";
+      if (queryDestination) {
+        window.localStorage.setItem("tg_destination", queryDestination);
+        return;
+      }
+      const savedDestination = window.localStorage.getItem("tg_destination");
+      if (savedDestination && !destinationCountry) {
+        setDestinationCountry(savedDestination);
+      }
+    } catch {}
+  }, [params, destinationCountry]);
+
+  useEffect(() => {
+    try {
+      if (destinationCountry.trim()) {
+        window.localStorage.setItem("tg_destination", destinationCountry.trim());
+      }
+    } catch {}
+  }, [destinationCountry]);
+
   const applySearchBarSelection = useCallback(() => {
     applySearchParams((next) => {
       if (selectedCategory) next.set("category", selectedCategory);

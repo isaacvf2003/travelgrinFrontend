@@ -19,6 +19,7 @@ import ServicesPromoPanel from "./_components/ServicesPromoPanel";
 import PrestacionesSectionHeader from "./_components/PrestacionesSectionHeader";
 import HideOnScroll from "./_components/HideOnScroll";
 import ScrollAwareFiltersAside from "./_components/ScrollAwareFiltersAside";
+import TranslatedText from "@/components/TranslatedText";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -490,9 +491,9 @@ export default async function BuscarPage({
                     </>
                   ) : (
                     <div className="rounded-3xl border border-[#BDECF2] bg-[#EFFBFD] p-6 text-center text-[#0B6B7A] shadow-sm">
-                      <h2 className="text-lg font-semibold">Elegí un lugar de destino para ver oportunidades.</h2>
+                      <h2 className="text-lg font-semibold"><TranslatedText id="elegir_destino_para_oportunidades" /></h2>
                       <p className="mt-2 text-sm text-slate-600">
-                        El listado de publicaciones y prestaciones se activa cuando seleccionás un destino.
+                        <TranslatedText id="destino_activa_publicaciones" />
                       </p>
                     </div>
                   )}
