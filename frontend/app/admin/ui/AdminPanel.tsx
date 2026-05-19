@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowUpRight, ChevronDown, ChevronRight, Plus, X } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, Plus, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
@@ -606,6 +606,78 @@ type AdminPanelProps = {
   section: AdminSection;
   publicationsView?: "overview" | "new";
 };
+
+type EditorSectionTone = "sky" | "indigo" | "emerald" | "amber" | "slate";
+
+function AdminEditorSection({
+  id,
+  tone,
+  icon,
+  title,
+  description,
+  children,
+}: {
+  id?: string;
+  tone: EditorSectionTone;
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  const tones: Record<EditorSectionTone, { shell: string; header: string; icon: string; text: string }> = {
+    sky: {
+      shell: "border-sky-200/80 bg-white shadow-[0_18px_45px_rgba(14,165,233,0.08)]",
+      header: "border-sky-100 bg-gradient-to-r from-sky-50 via-cyan-50 to-white",
+      icon: "bg-sky-500 text-white shadow-[0_10px_24px_rgba(14,165,233,0.22)]",
+      text: "text-sky-700",
+    },
+    indigo: {
+      shell: "border-indigo-200/80 bg-white shadow-[0_18px_45px_rgba(79,70,229,0.08)]",
+      header: "border-indigo-100 bg-gradient-to-r from-indigo-50 via-blue-50 to-white",
+      icon: "bg-indigo-600 text-white shadow-[0_10px_24px_rgba(79,70,229,0.22)]",
+      text: "text-indigo-700",
+    },
+    emerald: {
+      shell: "border-emerald-200/80 bg-white shadow-[0_18px_45px_rgba(16,185,129,0.08)]",
+      header: "border-emerald-100 bg-gradient-to-r from-emerald-50 via-teal-50 to-white",
+      icon: "bg-emerald-600 text-white shadow-[0_10px_24px_rgba(16,185,129,0.22)]",
+      text: "text-emerald-700",
+    },
+    amber: {
+      shell: "border-amber-200/80 bg-white shadow-[0_18px_45px_rgba(245,158,11,0.08)]",
+      header: "border-amber-100 bg-gradient-to-r from-amber-50 via-orange-50 to-white",
+      icon: "bg-amber-500 text-white shadow-[0_10px_24px_rgba(245,158,11,0.22)]",
+      text: "text-amber-700",
+    },
+    slate: {
+      shell: "border-slate-200/80 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]",
+      header: "border-slate-100 bg-gradient-to-r from-slate-50 via-white to-white",
+      icon: "bg-slate-700 text-white shadow-[0_10px_24px_rgba(15,23,42,0.16)]",
+      text: "text-slate-700",
+    },
+  };
+  const currentTone = tones[tone];
+
+  return (
+    <section id={id} className={`overflow-hidden rounded-[28px] border ${currentTone.shell}`}>
+      <div className={`border-b px-5 py-4 sm:px-6 ${currentTone.header}`}>
+        <div className="flex items-start gap-4">
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${currentTone.icon}`}>
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <div className={`text-[11px] font-bold uppercase tracking-[0.22em] ${currentTone.text}`}>
+              Bloque
+            </div>
+            <h3 className="mt-1 text-lg font-semibold text-slate-900">{title}</h3>
+            {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-4 p-4 sm:p-6">{children}</div>
+    </section>
+  );
+}
 
 export default function AdminPanel({ section, publicationsView = "overview" }: AdminPanelProps) {
   const { locale } = useTranslation();
@@ -4806,23 +4878,30 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
               <button type="button" onClick={() => (isNewPublicationPage ? router.push("/admin?section=publicaciones") : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
             </div>
-          <div className="grid gap-5 rounded-2xl bg-slate-50/60 p-3 sm:p-5">
-          <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3">
-            <label className="text-sm font-medium text-slate-700">Idioma de edición</label>
-            {renderLangTabs(pLang, setEditingLang)}
-            <p className="text-xs text-slate-500">
-              Cambia el idioma de todos los campos de texto traducibles (título, descripciones y textos). No modifica nombres propios, URLs ni valores numéricos.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setPEditorMode("publicacion")} className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold sm:flex-none ${pEditorMode === "publicacion" ? "bg-[#4F46E5] text-white" : "border border-slate-200 bg-white text-slate-700"}`}>Publicación</button>
-            <button type="button" onClick={() => { setPEditorMode("prestacion"); if (!pPrestacionResources.length) setPPrestacionResources([createEmptyPrestacionResource()]); if (!pPrestacionSteps.length) setPPrestacionSteps([createEmptyPrestacionStep()]); if (!pPrestacionFaqs.length) setPPrestacionFaqs([createEmptyPrestacionFaq()]); if (!pPrestacionColorBlocks.length) setPPrestacionColorBlocks([createEmptyPrestacionColorBlock()]); }} className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold sm:flex-none ${pEditorMode === "prestacion" ? "bg-[#4F46E5] text-white" : "border border-slate-200 bg-white text-slate-700"}`}>Prestaciones</button>
+          <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
+          {pEditorMode === "prestacion" ? (
+            <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60">
+              <label className="text-sm font-medium text-slate-700">Idioma de edición</label>
+              {renderLangTabs(pLang, setEditingLang)}
+              <p className="text-xs text-slate-500">
+                Cambia el idioma de todos los campos de texto traducibles (título, descripciones y textos). No modifica nombres propios, URLs ni valores numéricos.
+              </p>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap gap-3 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm shadow-slate-200/60">
+            <button type="button" onClick={() => setPEditorMode("publicacion")} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "publicacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Publicación</button>
+            <button type="button" onClick={() => { setPEditorMode("prestacion"); if (!pPrestacionResources.length) setPPrestacionResources([createEmptyPrestacionResource()]); if (!pPrestacionSteps.length) setPPrestacionSteps([createEmptyPrestacionStep()]); if (!pPrestacionFaqs.length) setPPrestacionFaqs([createEmptyPrestacionFaq()]); if (!pPrestacionColorBlocks.length) setPPrestacionColorBlocks([createEmptyPrestacionColorBlock()]); }} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "prestacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Prestaciones</button>
           </div>
 <div className="contents min-w-0">
           {pEditorMode !== "prestacion" ? (
           <>
-          <div className="grid min-w-0 gap-4 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-            <div className="text-sm font-semibold text-slate-900">Información del oferente</div>
+          <AdminEditorSection
+            id="admin-publicacion-oferente"
+            tone="slate"
+            icon={<UserRound className="h-5 w-5" />}
+            title="Información del oferente"
+            description="Completá primero los datos base del perfil que se mostrará junto a la publicación."
+          >
             <div className="grid gap-2">
               <label className="text-sm font-medium text-slate-700">Nombre del oferente (aprobado)</label>
               <input
@@ -4952,7 +5031,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-4">
+            <div className="mt-4 rounded-2xl border border-slate-200/80 bg-slate-50/75 p-4">
               <div className="text-sm font-semibold text-slate-900">Modalidad en que ofrece sus servicios</div>
               <div className="mt-1 text-xs text-slate-500">Marcá una o más modalidades (categorías con tipo de filtro modalidad).</div>
               {renderTaxonomyTypeDropdown(
@@ -4967,13 +5046,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               )}
             </div>
 
+          </AdminEditorSection>
+
+          <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm shadow-slate-200/60">
+            <a href="#admin-publicacion-propuesta" className="rounded-full bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100">Propuesta o publicación</a>
+            <a href="#admin-publicacion-ubicacion-precio" className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">Ubicación y precio</a>
+            <a href="#admin-publicacion-sedes" className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">Sedes y filtro por pasaporte</a>
+            <a href="#admin-publicacion-idiomas-contacto" className="rounded-full bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">Idiomas, expiración y contacto</a>
+            <a href="#admin-publicacion-imagenes" className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">Imágenes</a>
           </div>
 
-          <div className="grid min-w-0 gap-4 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-            <div className="text-sm font-semibold text-slate-900">Propuesta o publicación</div>
-
+          <AdminEditorSection
+            id="admin-publicacion-propuesta"
+            tone="indigo"
+            icon={<FileText className="h-5 w-5" />}
+            title="Propuesta o publicación"
+            description="Definí el contenido principal, cómo se clasifica y qué información verá primero la persona usuaria."
+          >
           <div className="grid gap-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
               <div className="text-sm font-semibold text-slate-900">Categorías y sub-categorías</div>
               <div className="mt-1 text-xs text-slate-500">Seleccioná categoría y subcategoría desde un único selector integrado.</div>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -4988,7 +5079,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
               {openPublicationPanel ? <div className="mt-3">{renderCategorySelection(openPublicationPanel)}</div> : null}
               {(pCategorySelections.length || pSubcategorySelections.length) ? (
-                <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <div className="mt-4 rounded-xl border border-indigo-100 bg-white/90 p-3">
                   <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Seleccionado</div>
                   <div className="mt-2 space-y-1 text-sm text-slate-700">
                     {pCategorySelections.length ? (
@@ -5006,7 +5097,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               ) : null}
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
               <div className="text-sm font-semibold text-slate-900">Añadir prestaciones</div>
               <div className="mt-1 text-xs text-slate-500">Seleccioná prestaciones (categorías con tipo de filtro prestación).</div>
               {renderTaxonomyTypeDropdown(
@@ -5021,25 +5112,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-5">
-              <input
-                id="featured"
-                type="checkbox"
-                checked={pFeatured}
-                onChange={(e) => setPFeatured(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]"
-              />
-              <label htmlFor="featured" className="text-sm font-medium text-slate-700">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-indigo-100 bg-white/90 p-3">
+              <label htmlFor="featured" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+                <input
+                  id="featured"
+                  type="checkbox"
+                  checked={pFeatured}
+                  onChange={(e) => setPFeatured(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]"
+                />
                 Destacado
               </label>
-              <input
-                id="partner"
-                type="checkbox"
-                checked={pPartner}
-                onChange={(e) => setPPartner(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-cyan-600"
-              />
-              <label htmlFor="partner" className="text-sm font-medium text-slate-700">
+              <label htmlFor="partner" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+                <input
+                  id="partner"
+                  type="checkbox"
+                  checked={pPartner}
+                  onChange={(e) => setPPartner(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-cyan-600"
+                />
                 🤝 Partner
               </label>
             </div>
@@ -5085,7 +5176,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               />
             </div>
 
-            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="grid gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-slate-900">Descripción opcional</div>
                 <button
@@ -5163,8 +5254,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </p>
               )}
             </div>
-          </div>
+          </AdminEditorSection>
 
+          <AdminEditorSection
+            id="admin-publicacion-ubicacion-precio"
+            tone="sky"
+            icon={<MapPinned className="h-5 w-5" />}
+            title="Ubicación y precio"
+            description="Agrupá destino, ciudad, mapa y la configuración comercial en un mismo bloque más fácil de completar."
+          >
           <div className="grid gap-4">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="grid gap-2">
@@ -5263,7 +5361,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 rounded-2xl border border-sky-100 bg-sky-50/45 p-4">
               <label className="text-sm font-medium text-slate-700">Precios por moneda</label>
               <div className="space-y-2">
                 {pExtraPrices.length ? (
@@ -5325,11 +5423,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 + Agregar precio
               </button>
             </div>
-          </div>
+          </AdminEditorSection>
 
-          <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="text-sm font-semibold text-slate-900">Sedes del oferente y filtro por pasaporte</div>
-            <div className="grid gap-3 rounded-xl border border-slate-100 p-3">
+          <AdminEditorSection
+            id="admin-publicacion-sedes"
+            tone="emerald"
+            icon={<Building2 className="h-5 w-5" />}
+            title="Sedes y filtro por pasaporte"
+            description="Separá claramente dónde opera el oferente y desde qué países puede recibir viajeros."
+          >
+            <div className="grid gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/45 p-4">
               <div className="text-xs font-semibold uppercase text-slate-500">Sede principal del oferente</div>
               <div className="grid gap-2 md:grid-cols-3">
                 <CountryMultiSelect
@@ -5355,7 +5458,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 />
               </div>
             </div>
-            <div className="grid gap-2">
+            <div className="grid gap-2 rounded-2xl border border-emerald-100 bg-white/90 p-4">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs font-semibold uppercase text-slate-500">Sedes adicionales</div>
                 <button
@@ -5426,7 +5529,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               )}
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 rounded-2xl border border-emerald-100 bg-white/90 p-4">
               <label className="text-sm font-medium text-slate-700">Filtro por pasaporte</label>
               <select
                 value={pReceivingCountriesMode}
@@ -5454,29 +5557,35 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               />
             )}
 
-          </div>
-
-          <div className="grid gap-3">
-            <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Idiomas que se hablan</label>
-              {renderTaxonomyTypeDropdown(
-                "idiomas",
-                idiomaRoots,
-                pLanguages.split(",").map((v) => v.trim()).filter(Boolean),
-                (value, checked) => {
-                  const current = pLanguages.split(",").map((v) => v.trim()).filter(Boolean);
-                  const next = checked
-                    ? Array.from(new Set([...current, value]))
-                    : current.filter((v) => v !== value);
-                  setPLanguages(next.join(", "));
-                },
-                "No hay categorías con tipo de filtro idiomas."
-              )}
             </div>
+          </AdminEditorSection>
+
+          <AdminEditorSection
+            id="admin-publicacion-idiomas-contacto"
+            tone="amber"
+            icon={<Languages className="h-5 w-5" />}
+            title="Idiomas, expiración y contacto"
+            description="Terminá la configuración pública y operativa de la publicación sin mezclarla con el material visual."
+          >
+          <div className="grid gap-3 rounded-2xl border border-amber-100 bg-amber-50/45 p-4">
+            <label className="text-sm font-medium text-slate-700">Idiomas que se hablan</label>
+            {renderTaxonomyTypeDropdown(
+              "idiomas",
+              idiomaRoots,
+              pLanguages.split(",").map((v) => v.trim()).filter(Boolean),
+              (value, checked) => {
+                const current = pLanguages.split(",").map((v) => v.trim()).filter(Boolean);
+                const next = checked
+                  ? Array.from(new Set([...current, value]))
+                  : current.filter((v) => v !== value);
+                setPLanguages(next.join(", "));
+              },
+              "No hay categorías con tipo de filtro idiomas."
+            )}
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="grid gap-2">
+            <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
               <label className="text-sm font-medium text-slate-700">Fecha y hora de expiración</label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
@@ -5495,7 +5604,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
               <p className="text-xs text-slate-500">La hora es opcional.</p>
             </div>
-            <div className="grid gap-2 md:col-span-2">
+            <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
               <label className="text-sm font-medium text-slate-700">Página web</label>
               <input
                 value={pWebsite}
@@ -5506,44 +5615,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
           </div>
 
-          <div className="grid gap-2">
-            <label className="text-sm font-medium text-slate-700">Imágenes (URLs o subida directa)</label>
-            <textarea
-              value={pImageUrls}
-              onChange={(e) => setPImageUrls(e.target.value)}
-              className="min-h-[70px] rounded-xl border border-slate-200 p-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-              placeholder="https://... \nhttps://..."
-            />
-            <input
-              type="file"
-              accept={IMAGE_FILE_ACCEPT}
-              multiple
-              onChange={(e) => handleImageUpload(e.target.files)}
-              className="w-full min-w-0 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#007D92] hover:file:bg-[#00A9C6]/20"
-            />
-            {imageList.length ? (
-              <div className="grid gap-3 md:grid-cols-4">
-                {imageList.map((img, idx) => (
-                  <div key={`${img}-${idx}`} className="rounded-xl border border-slate-200 bg-white p-2">
-                    <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => removeImage(img)}
-                        className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-xs font-semibold text-slate-600 shadow"
-                        aria-label="Quitar imagen"
-                      >
-                        ×
-                      </button>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img} alt={`preview-${idx}`} className="h-full w-full object-cover" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="grid gap-3 rounded-2xl border border-amber-100 bg-white p-4 shadow-sm shadow-amber-100/70">
             <div className="text-sm font-semibold text-slate-900">Redes sociales y contacto</div>
             <div className="space-y-3">
               {pSocialLinksDetailed.map((entry, idx) => (
@@ -5612,6 +5684,59 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </button>
             </div>
           </div>
+          <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
+            <label className="text-sm font-medium text-slate-700">Idioma de edición</label>
+            {renderLangTabs(pLang, setEditingLang)}
+            <p className="text-xs text-slate-500">
+              Cambia el idioma de todos los campos traducibles de esta publicación sin tocar URLs, nombres propios ni precios.
+            </p>
+          </div>
+          </AdminEditorSection>
+
+          <AdminEditorSection
+            id="admin-publicacion-imagenes"
+            tone="slate"
+            icon={<ImageIcon className="h-5 w-5" />}
+            title="Imágenes"
+            description="Cargá o pegá URLs de las imágenes en un bloque aparte para que el flujo del formulario sea más limpio."
+          >
+          <div className="grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/65 p-4">
+            <label className="text-sm font-medium text-slate-700">Imágenes (URLs o subida directa)</label>
+            <textarea
+              value={pImageUrls}
+              onChange={(e) => setPImageUrls(e.target.value)}
+              className="min-h-[90px] rounded-xl border border-slate-200 bg-white p-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+              placeholder="https://... \nhttps://..."
+            />
+            <input
+              type="file"
+              accept={IMAGE_FILE_ACCEPT}
+              multiple
+              onChange={(e) => handleImageUpload(e.target.files)}
+              className="w-full min-w-0 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#007D92] hover:file:bg-[#00A9C6]/20"
+            />
+            {imageList.length ? (
+              <div className="grid gap-3 md:grid-cols-4">
+                {imageList.map((img, idx) => (
+                  <div key={`${img}-${idx}`} className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/60">
+                    <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => removeImage(img)}
+                        className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-xs font-semibold text-slate-600 shadow"
+                        aria-label="Quitar imagen"
+                      >
+                        ×
+                      </button>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img} alt={`preview-${idx}`} className="h-full w-full object-cover" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          </AdminEditorSection>
 
           </div>
 
@@ -6074,14 +6199,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
             </div>
           ) : null}
-
-          <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3">
-            <label className="text-sm font-medium text-slate-700">Idioma de edición</label>
-            {renderLangTabs(pLang, setEditingLang)}
-            <p className="text-xs text-slate-500">
-              Tocá un idioma para volver arriba con ese idioma seleccionado y completar la publicación en ese idioma.
-            </p>
-          </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <button

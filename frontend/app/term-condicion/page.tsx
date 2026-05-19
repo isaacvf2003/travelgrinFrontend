@@ -41,7 +41,7 @@ export default function TermsAndConditions() {
         <div className="pointer-events-none absolute inset-x-4 top-8 -z-0 h-72 rounded-full bg-[#08d9bd]/10 blur-3xl" />
         <div className="relative grid items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)]">
           {/* Sidebar nav */}
-          <aside className="sticky top-24 hidden self-start lg:block">
+          <aside className="hidden lg:block">
             <TermsNav />
           </aside>
 
