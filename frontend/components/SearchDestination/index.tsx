@@ -47,6 +47,21 @@ export default function SearchDestination() {
   >([]);
 
   useEffect(() => {
+    try {
+      const savedDestination = window.localStorage.getItem("tg_destination");
+      if (savedDestination) setDestinationCountry(savedDestination);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (destinationCountry.trim()) {
+        window.localStorage.setItem("tg_destination", destinationCountry.trim());
+      }
+    } catch {}
+  }, [destinationCountry]);
+
+  useEffect(() => {
     let active = true;
 
     Promise.all([fetch("/api/categories"), fetch("/api/filters")])
