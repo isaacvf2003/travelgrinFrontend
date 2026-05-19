@@ -1012,7 +1012,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     ]);
 
     setCategories(cats);
-    setFilterGroups(groups.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+    setFilterGroups(
+      groups
+        .filter((group) => group.key !== "oferente_destination_availability")
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    );
     setPublications(pubs);
     setTravelServices(services);
     setReports(reportsData);
@@ -3952,6 +3956,66 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         </div>
       </div>
 
+      <div className="rounded-2xl border border-cyan-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <MapPinned className="h-4 w-4 text-[#00A9C6]" />
+              Seleccionar los destino disponible para el registro del oferente
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Solo modifica el campo País destino que aplica tu propuesta en el registro de oferentes.
+            </p>
+          </div>
+          {oferenteDestinationSaved ? (
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+              Cambios aplicado
+            </span>
+          ) : null}
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <input
+              type="radio"
+              name="oferente-destination-mode-dashboard"
+              checked={oferenteDestinationMode === "all"}
+              onChange={() => setOferenteDestinationMode("all")}
+            />
+            Habilitar todos los destinos
+          </label>
+          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <input
+              type="radio"
+              name="oferente-destination-mode-dashboard"
+              checked={oferenteDestinationMode === "some"}
+              onChange={() => setOferenteDestinationMode("some")}
+            />
+            Habilitar algunos
+          </label>
+        </div>
+
+        {oferenteDestinationMode === "some" ? (
+          <div className="mt-4">
+            <CountryMultiSelect
+              label="Destinos habilitados"
+              selected={oferenteDestinationCountries}
+              onChange={setOferenteDestinationCountries}
+              placeholder="Seleccioná uno o más países destino"
+            />
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={applyOferenteDestinationConfig}
+          disabled={oferenteDestinationSaving}
+          className="mt-4 rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0193ab] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {oferenteDestinationSaving ? "Aplicando..." : "Aplicar cambios"}
+        </button>
+      </div>
+
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100"><h3 className="text-sm font-semibold text-slate-700">Categorías</h3></div>
         <div className="overflow-x-auto">
@@ -5099,60 +5163,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               )}
             </div>
 
-          </AdminEditorSection>
-
-          <AdminEditorSection
-            id="admin-oferente-destinos"
-            tone="slate"
-            icon={<MapPinned className="h-5 w-5" />}
-            title="Seleccionar los destino disponible para el registro del oferente"
-            description="Solo aplica al campo País destino que aplica tu propuesta del registro de oferentes."
-          >
-            <div className="grid gap-4 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
-              <div className="grid gap-2 md:grid-cols-2">
-                <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                  <input
-                    type="radio"
-                    name="oferente-destination-mode"
-                    checked={oferenteDestinationMode === "all"}
-                    onChange={() => setOferenteDestinationMode("all")}
-                  />
-                  Habilitar todos los destinos
-                </label>
-                <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                  <input
-                    type="radio"
-                    name="oferente-destination-mode"
-                    checked={oferenteDestinationMode === "some"}
-                    onChange={() => setOferenteDestinationMode("some")}
-                  />
-                  Habilitar algunos
-                </label>
-              </div>
-
-              {oferenteDestinationMode === "some" ? (
-                <CountryMultiSelect
-                  label="Destinos habilitados"
-                  selected={oferenteDestinationCountries}
-                  onChange={setOferenteDestinationCountries}
-                  placeholder="Seleccioná uno o más países destino"
-                />
-              ) : null}
-
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={applyOferenteDestinationConfig}
-                  disabled={oferenteDestinationSaving}
-                  className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0193ab] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {oferenteDestinationSaving ? "Aplicando..." : "Aplicar cambios"}
-                </button>
-                {oferenteDestinationSaved ? (
-                  <span className="text-sm font-medium text-emerald-600">Cambios aplicado</span>
-                ) : null}
-              </div>
-            </div>
           </AdminEditorSection>
 
           <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm shadow-slate-200/60">
