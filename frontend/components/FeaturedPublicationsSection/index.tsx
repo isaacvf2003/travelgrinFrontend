@@ -127,12 +127,11 @@ function firstPrestacionImage(
 }
 
 function useCardsPerView() {
-  const [cardsPerView, setCardsPerView] = useState(4);
+  const [cardsPerView, setCardsPerView] = useState(3);
 
   useEffect(() => {
     const update = () => {
-      if (window.innerWidth >= 1280) setCardsPerView(4);
-      else if (window.innerWidth >= 1024) setCardsPerView(3);
+      if (window.innerWidth >= 1024) setCardsPerView(3);
       else if (window.innerWidth >= 768) setCardsPerView(2);
       else setCardsPerView(1);
     };
@@ -192,7 +191,6 @@ function carouselWindow<T>(
 }
 
 function carouselWindowSize(cardsPerView: number) {
-  if (cardsPerView >= 4) return 5;
   if (cardsPerView >= 2) return 3;
   return 1;
 }
@@ -463,6 +461,8 @@ export default function FeaturedPublicationsSection() {
     });
   });
   const showPrestacionesSection = categoriesWithPublications.length > 0;
+  const showPrestCategoryScrollButtons =
+    categoriesWithPublications.length > 5 && cardsPerView >= 2;
 
   const prestVisibleCount = carouselWindowSize(cardsPerView);
   const safePrestSlide = positiveModulo(
@@ -536,7 +536,7 @@ export default function FeaturedPublicationsSection() {
         className="mt-6 px-4 sm:px-5 md:mt-8 md:px-6 lg:px-0"
       >
         <div className="mb-4 h-8 w-96 max-w-full animate-pulse rounded-full bg-slate-200/80" />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
           {Array.from({ length: cardsPerView }).map((_, idx) => (
             <div
               key={`featured-skeleton-${idx}`}
@@ -771,7 +771,10 @@ export default function FeaturedPublicationsSection() {
 
         {showCarousel ? (
           <>
-            <button
+            {showPrestCategoryScrollButtons ? (
+            {showPrestCategoryScrollButtons ? (
+            {showPrestCategoryScrollButtons ? (
+              <button
               type="button"
               aria-label="Anterior"
               onClick={() =>
@@ -783,7 +786,8 @@ export default function FeaturedPublicationsSection() {
             >
               <ChevronLeft className="h-5 w-5 text-slate-600" />
             </button>
-            <button
+            {showPrestCategoryScrollButtons ? (
+              <button
               type="button"
               aria-label="Siguiente"
               onClick={() =>
@@ -831,8 +835,9 @@ export default function FeaturedPublicationsSection() {
               {t("explorar_prestaciones_que_son")}
             </p>
           </div>
-          <div className="mt-4 flex items-center gap-2">
-            <button
+          <div className={`mt-4 flex items-center ${showPrestCategoryScrollButtons ? "gap-2" : "justify-center"}`}>
+            {showPrestCategoryScrollButtons ? (
+              <button
               type="button"
               aria-label="Categorías anteriores"
               onClick={() =>
@@ -840,13 +845,14 @@ export default function FeaturedPublicationsSection() {
                   .getElementById("prest-cats")
                   ?.scrollBy({ left: -180, behavior: "smooth" })
               }
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600"
+              className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 md:inline-flex"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
+            ) : null}
             <div
               id="prest-cats"
-              className="flex flex-1 gap-2 overflow-x-auto pb-1"
+              className={`flex gap-2 overflow-x-auto pb-1 ${showPrestCategoryScrollButtons ? "flex-1 justify-start" : "mx-auto justify-center"}`}
             >
               {categoriesWithPublications.map((category) => {
                 const active = selectedPrestCategory === category.description;
@@ -869,7 +875,8 @@ export default function FeaturedPublicationsSection() {
                 );
               })}
             </div>
-            <button
+            {showPrestCategoryScrollButtons ? (
+              <button
               type="button"
               aria-label="Más categorías"
               onClick={() =>
@@ -877,10 +884,11 @@ export default function FeaturedPublicationsSection() {
                   .getElementById("prest-cats")
                   ?.scrollBy({ left: 180, behavior: "smooth" })
               }
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600"
+              className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 md:inline-flex"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+            ) : null}
           </div>
           <div
             className="relative mt-5"

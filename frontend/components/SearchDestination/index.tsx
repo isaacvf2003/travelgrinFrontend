@@ -37,6 +37,7 @@ export default function SearchDestination() {
   const { selectedCountry } = useCountry();
 
   const [destinationCountry, setDestinationCountry] = useState<string>("");
+  const [destinationError, setDestinationError] = useState(false);
   const ALL_CATEGORIES_VALUE = "__all_categories__";
   const [selectedCategory, setSelectedCategory] = useState("");
   const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false);
@@ -127,6 +128,10 @@ export default function SearchDestination() {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.description || "").localeCompare(b.description || ""));
 
   const handleSearch = () => {
+    if (!destinationCountry.trim()) {
+      setDestinationError(true);
+      return;
+    }
     const params = new URLSearchParams();
     if (selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE) params.set("category", selectedCategory);
     if (selectedCountry) params.set("country", selectedCountry);
@@ -134,6 +139,10 @@ export default function SearchDestination() {
     params.set("page", "1");
     router.push(`/buscar?${params.toString()}`);
   };
+
+  useEffect(() => {
+    if (destinationCountry.trim()) setDestinationError(false);
+  }, [destinationCountry]);
 
   useEffect(() => {
     if (!openCategoryDropdown) return;
@@ -242,6 +251,8 @@ export default function SearchDestination() {
               isInModal={false}
               textBuscarPais={t("buscar_pais")}
               noHayPaises={t("no_hay_paises")}
+              publishedOnly={true}
+              error={destinationError}
             />
           </div>
         </div>
@@ -256,7 +267,7 @@ export default function SearchDestination() {
       </div>
 
       <p className="text-gray-600 text-center mt-[12px] text-[14px]">
-        {t("filtramos_para_ti")}
+        {destinationError ? "Elegí un lugar de destino para continuar." : t("filtramos_para_ti")}
       </p>
 
       {openCategoryDropdown ? (
