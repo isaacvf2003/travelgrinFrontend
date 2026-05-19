@@ -23,6 +23,27 @@ function imageAssetToUrl(assetOrUrl: ImageAsset | string | null | undefined) {
   return String(assetOrUrl.url || assetOrUrl.secureUrl || "");
 }
 
+function isUsableImageUrl(value: string) {
+  const url = String(value ?? "").trim();
+  if (url.startsWith("data:image/")) return true;
+  if (!/^https?:\/\//i.test(url)) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.includes("res.cloudinary.com")) {
+      const parts = parsed.pathname.split("/").filter(Boolean);
+      const uploadIndex = parts.indexOf("upload");
+      if (uploadIndex >= 0) {
+        const afterUpload = parts.slice(uploadIndex + 1);
+        const last = afterUpload.at(-1) ?? "";
+        return afterUpload.length >= 2 && /\.[a-z0-9]+($|\?)/i.test(last);
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type Lang = (typeof LANGS)[number];
 
 type Category = {
@@ -2229,14 +2250,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPLanguages(
       Array.isArray(pub.languages) ? pub.languages.join(", ") : (pub.languages ?? "")
     );
-    const existingImages = Array.isArray(pub.images) ? pub.images : [];
+    const existingImages = Array.isArray(pub.images)
+      ? pub.images
+      : typeof pub.images === "string"
+        ? splitLines(pub.images)
+        : [];
     const imageAssets = Array.isArray((pub.fields as any)?.imageAssets) ? ((pub.fields as any).imageAssets as ImageAsset[]) : [];
     const existingImageEntries = Array.from(
       new Set(
         [
           ...existingImages.flatMap((img) => splitLines(String(img ?? ""))),
           ...imageAssets.map((asset) => imageAssetToUrl(asset)).map((url) => String(url ?? "").trim()).filter(Boolean),
-        ].filter(Boolean)
+        ].filter((url) => Boolean(url) && isUsableImageUrl(String(url)))
       )
     );
     const imageUrls = existingImageEntries.filter((img) => !String(img).startsWith("data:image"));
@@ -2793,7 +2818,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const splitLines = (v: string) =>
     v
-      .split(/[\r\n,]+/)
+      .split(/\r?\n+/)
       .map((s) => s.trim())
       .filter(Boolean);
   const normalizeLocation = <T extends { country: string; city: string; mapUrl: string }>(loc: T) => ({
@@ -2819,7 +2844,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const imageList = useMemo(() => {
     const urls = splitLines(pImageUrls);
     const uploads = pImageUploads.map((item) => String(item).trim()).filter(Boolean);
-    const all = [...urls, ...uploads].filter((item) => item.startsWith("http://") || item.startsWith("https://") || item.startsWith("data:image/"));
+    const all = [...urls, ...uploads].filter(isUsableImageUrl);
     return Array.from(new Set(all));
   }, [pImageUrls, pImageUploads]);
   const removeImage = (img: string) => {
