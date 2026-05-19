@@ -5558,8 +5558,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 placeholder="Seleccioná países para aplicar el filtro."
               />
             )}
-
-            </div>
           </AdminEditorSection>
 
           <AdminEditorSection
