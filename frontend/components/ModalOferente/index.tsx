@@ -23,6 +23,320 @@ type FilterGroupLite = { key?: string; label?: string; taxonomyType?: string | n
 type SelectOption = { value: string; label: string };
 type Step = "basic" | "featured";
 
+const OFERENTE_MODAL_TEXT = {
+  es: {
+    oferente_nombre_perfil: "* Nombre de tu perfil o marca",
+    oferente_categoria_placeholder: "¿En qué categoría encaja tu propuesta?",
+    oferente_destino_label: "País destino que aplica tu propuesta",
+    oferente_idiomas_placeholder: "Idiomas que te comunicas",
+    oferente_email_label: "Tu email de contacto con Travelgrin",
+    oferente_aceptar_terminos: "* Aceptar términos y condiciones",
+    oferente_publicacion_basica: "Publicación Básica (gratis)",
+    oferente_publicacion_destacada: "Publicación Destacada",
+    oferente_plan_visible_listado: "Visible en el listado general",
+    oferente_plan_duracion_60: "Duración 60 días",
+    oferente_plan_descripcion_breve: "Descripción breve",
+    oferente_plan_link_contacto: "1 link contacto",
+    oferente_featured_item_results: "Aparece primero en resultados",
+    oferente_featured_item_duration: "Duración 120 días",
+    oferente_featured_item_badge: "Sello destacado",
+    oferente_featured_item_description: "Descripción ampliada",
+    oferente_featured_item_links: "Varios link de contacto",
+    oferente_featured_item_languages: "Disponible en 4 idiomas",
+    oferente_featured_item_gallery: "Galería hasta 5 imágenes",
+    oferente_publicar_gratis: "Publicar Gratis",
+    oferente_continuar_destacado: "Continuar con destacado",
+    oferente_codigo_promocional: "Código promocional",
+    oferente_destacado_intro: "Completá más información para destacarte y aumentar tus consultas. No se borra nada de lo que ya cargaste.",
+    oferente_destacado_heading: "Completá más información para destacar y aumentar tus consultas",
+    oferente_logo_label: "Foto o logo del perfil",
+    oferente_tipo_perfil: "Tipo de perfil",
+    oferente_seleccionar_imagen: "Seleccionar imagen",
+    oferente_ninguna_imagen: "Ninguna imagen seleccionada",
+    oferente_sede: "Sede",
+    oferente_pais_sede: "País de la sede principal",
+    oferente_ciudad_sede: "Ciudad de la sede principal",
+    oferente_url_maps: "URL de Google Maps",
+    oferente_imagenes_servicio: "Imágenes del servicio (hasta 5)",
+    oferente_elegir_imagenes: "Elegir imágenes",
+    oferente_limite_imagenes: "Seleccioná únicamente la cantidad restante; el límite es estricto de 5 imágenes.",
+    oferente_sin_imagenes: "Todavía no cargaste imágenes.",
+    oferente_pasaportes_label: "¿Para viajeros de qué países querés aparecer?",
+    oferente_pasaportes_placeholder: "Si no elegís ninguno, aparece para todos",
+    oferente_pasaportes_helper: "Si no elegís países, tu publicación aparece para todos. Si elegís uno o más, solo aparece para esos pasaportes.",
+    oferente_incluye_placeholder: "* ¿Qué incluye tu servicio o qué te diferencia?",
+    oferente_no_incluye_placeholder: "¿Qué no incluye o qué debe tener en cuenta el viajero?",
+    oferente_links_contacto: "Links de contacto",
+    oferente_anadir_link: "+ Añadir link",
+    oferente_link_email_placeholder: "Link o email",
+    oferente_precio_moneda: "Precio de tu propuesta por moneda",
+    oferente_agregar_moneda: "+ Agregar moneda",
+    oferente_moneda: "Moneda",
+    oferente_monto: "Monto",
+    oferente_quitar: "Quitar",
+    oferente_a_convenir: "*A convenir",
+    oferente_periodo_precio: "Periodo del precio",
+    oferente_periodo_mes: "Por mes",
+    oferente_periodo_semana: "Por semana",
+    oferente_periodo_dia: "Por día",
+    oferente_periodo_anio: "Por año",
+    oferente_periodo_unico: "Único",
+    oferente_publicar_destacado: "Publicar Destacado",
+    oferente_volver_atras: "Volver atrás",
+    oferente_datos_seguros: "Tus datos están seguros.",
+    oferente_sin_opciones: "No hay opciones disponibles",
+    oferente_servicio_alt: "Servicio",
+    oferente_contact_cellphone: "Celular",
+    oferente_contact_other: "Otro",
+    oferente_toast_nombre: "Completá el nombre de tu perfil o marca",
+    oferente_toast_destino: "Elegí un país destino",
+    oferente_toast_idioma: "Elegí al menos un idioma",
+    oferente_toast_descripcion: "Completá la descripción",
+    oferente_toast_web: "Completá el sitio web",
+    oferente_toast_terminos: "Debés aceptar términos y condiciones",
+    oferente_toast_sede: "Completá todos los campos de sede principal",
+    oferente_toast_revision: "Tu publicación está en revisión",
+    oferente_toast_imagen_valida: "Subí una imagen válida",
+    oferente_toast_imagen_limite: "Podés subir hasta 5 imágenes. Te quedan {remaining}.",
+    oferente_toast_imagen_tipo: "Solo se permiten imágenes válidas",
+    oferente_toast_comprimir_imagenes: "No se pudieron comprimir las imágenes",
+  },
+  en: {
+    oferente_nombre_perfil: "* Profile or brand name",
+    oferente_categoria_placeholder: "Which category fits your proposal?",
+    oferente_destino_label: "Destination country for your proposal",
+    oferente_idiomas_placeholder: "Languages you communicate in",
+    oferente_email_label: "Your contact email with Travelgrin",
+    oferente_aceptar_terminos: "* Accept terms and conditions",
+    oferente_publicacion_basica: "Basic Publication (free)",
+    oferente_publicacion_destacada: "Featured Publication",
+    oferente_plan_visible_listado: "Visible in the general listing",
+    oferente_plan_duracion_60: "60-day duration",
+    oferente_plan_descripcion_breve: "Brief description",
+    oferente_plan_link_contacto: "1 contact link",
+    oferente_featured_item_results: "Appears first in results",
+    oferente_featured_item_duration: "120-day duration",
+    oferente_featured_item_badge: "Featured badge",
+    oferente_featured_item_description: "Expanded description",
+    oferente_featured_item_links: "Several contact links",
+    oferente_featured_item_languages: "Available in 4 languages",
+    oferente_featured_item_gallery: "Gallery up to 5 images",
+    oferente_publicar_gratis: "Post for Free",
+    oferente_continuar_destacado: "Continue with featured",
+    oferente_codigo_promocional: "Promo code",
+    oferente_destacado_intro: "Complete more information to stand out and increase your inquiries. Nothing you already entered will be deleted.",
+    oferente_destacado_heading: "Complete more information to stand out and increase your inquiries",
+    oferente_logo_label: "Profile photo or logo",
+    oferente_tipo_perfil: "Profile type",
+    oferente_seleccionar_imagen: "Select image",
+    oferente_ninguna_imagen: "No image selected",
+    oferente_sede: "Headquarters",
+    oferente_pais_sede: "Main headquarters country",
+    oferente_ciudad_sede: "Headquarter city",
+    oferente_url_maps: "Google Maps URL",
+    oferente_imagenes_servicio: "Service images (up to 5)",
+    oferente_elegir_imagenes: "Choose images",
+    oferente_limite_imagenes: "Select only the remaining amount; the limit is exactly 5 images.",
+    oferente_sin_imagenes: "You have not uploaded images yet.",
+    oferente_pasaportes_label: "Which travelers' countries do you want to appear for?",
+    oferente_pasaportes_placeholder: "If you do not choose any, it appears for everyone",
+    oferente_pasaportes_helper: "If you do not choose countries, your publication appears for everyone. If you choose one or more, it only appears for those passports.",
+    oferente_incluye_placeholder: "* What does your service include or what makes it different?",
+    oferente_no_incluye_placeholder: "What is not included or what should the traveler keep in mind?",
+    oferente_links_contacto: "Contact links",
+    oferente_anadir_link: "+ Add link",
+    oferente_link_email_placeholder: "Link or email",
+    oferente_precio_moneda: "Price of your proposal by currency",
+    oferente_agregar_moneda: "+ Add currency",
+    oferente_moneda: "Currency",
+    oferente_monto: "Amount",
+    oferente_quitar: "Remove",
+    oferente_a_convenir: "*To be agreed",
+    oferente_periodo_precio: "Price period",
+    oferente_periodo_mes: "Per month",
+    oferente_periodo_semana: "Per week",
+    oferente_periodo_dia: "Per day",
+    oferente_periodo_anio: "Per year",
+    oferente_periodo_unico: "One time",
+    oferente_publicar_destacado: "Post Featured",
+    oferente_volver_atras: "Go back",
+    oferente_datos_seguros: "Your data is safe.",
+    oferente_sin_opciones: "No options available",
+    oferente_servicio_alt: "Service",
+    oferente_contact_cellphone: "Mobile phone",
+    oferente_contact_other: "Other",
+    oferente_toast_nombre: "Complete your profile or brand name",
+    oferente_toast_destino: "Choose a destination country",
+    oferente_toast_idioma: "Choose at least one language",
+    oferente_toast_descripcion: "Complete the description",
+    oferente_toast_web: "Complete the website",
+    oferente_toast_terminos: "You must accept terms and conditions",
+    oferente_toast_sede: "Complete all main headquarters fields",
+    oferente_toast_revision: "Your publication is under review",
+    oferente_toast_imagen_valida: "Upload a valid image",
+    oferente_toast_imagen_limite: "You can upload up to 5 images. You have {remaining} left.",
+    oferente_toast_imagen_tipo: "Only valid images are allowed",
+    oferente_toast_comprimir_imagenes: "The images could not be compressed",
+  },
+  pt: {
+    oferente_nombre_perfil: "* Nome do seu perfil ou marca",
+    oferente_categoria_placeholder: "Em qual categoria sua proposta se encaixa?",
+    oferente_destino_label: "País de destino da sua proposta",
+    oferente_idiomas_placeholder: "Idiomas em que você se comunica",
+    oferente_email_label: "Seu email de contato com a Travelgrin",
+    oferente_aceptar_terminos: "* Aceitar termos e condições",
+    oferente_publicacion_basica: "Publicação Básica (grátis)",
+    oferente_publicacion_destacada: "Publicação em Destaque",
+    oferente_plan_visible_listado: "Visível na listagem geral",
+    oferente_plan_duracion_60: "Duração de 60 dias",
+    oferente_plan_descripcion_breve: "Descrição breve",
+    oferente_plan_link_contacto: "1 link de contato",
+    oferente_featured_item_results: "Aparece primeiro nos resultados",
+    oferente_featured_item_duration: "Duração de 120 dias",
+    oferente_featured_item_badge: "Selo de destaque",
+    oferente_featured_item_description: "Descrição ampliada",
+    oferente_featured_item_links: "Vários links de contato",
+    oferente_featured_item_languages: "Disponível em 4 idiomas",
+    oferente_featured_item_gallery: "Galeria de até 5 imagens",
+    oferente_publicar_gratis: "Publicar Grátis",
+    oferente_continuar_destacado: "Continuar com destaque",
+    oferente_codigo_promocional: "Código promocional",
+    oferente_destacado_intro: "Complete mais informações para se destacar e aumentar suas consultas. Nada do que você já preencheu será apagado.",
+    oferente_destacado_heading: "Complete mais informações para se destacar e aumentar suas consultas",
+    oferente_logo_label: "Foto ou logo do perfil",
+    oferente_tipo_perfil: "Tipo de perfil",
+    oferente_seleccionar_imagen: "Selecionar imagem",
+    oferente_ninguna_imagen: "Nenhuma imagem selecionada",
+    oferente_sede: "Sede",
+    oferente_pais_sede: "País da sede principal",
+    oferente_ciudad_sede: "Cidade da sede principal",
+    oferente_url_maps: "URL do Google Maps",
+    oferente_imagenes_servicio: "Imagens do serviço (até 5)",
+    oferente_elegir_imagenes: "Escolher imagens",
+    oferente_limite_imagenes: "Selecione apenas a quantidade restante; o limite é exatamente 5 imagens.",
+    oferente_sin_imagenes: "Você ainda não carregou imagens.",
+    oferente_pasaportes_label: "Para viajantes de quais países você quer aparecer?",
+    oferente_pasaportes_placeholder: "Se não escolher nenhum, aparece para todos",
+    oferente_pasaportes_helper: "Se não escolher países, sua publicação aparece para todos. Se escolher um ou mais, aparece apenas para esses passaportes.",
+    oferente_incluye_placeholder: "* O que seu serviço inclui ou o que o diferencia?",
+    oferente_no_incluye_placeholder: "O que não inclui ou o que o viajante deve considerar?",
+    oferente_links_contacto: "Links de contato",
+    oferente_anadir_link: "+ Adicionar link",
+    oferente_link_email_placeholder: "Link ou email",
+    oferente_precio_moneda: "Preço da sua proposta por moeda",
+    oferente_agregar_moneda: "+ Adicionar moeda",
+    oferente_moneda: "Moeda",
+    oferente_monto: "Valor",
+    oferente_quitar: "Remover",
+    oferente_a_convenir: "*A combinar",
+    oferente_periodo_precio: "Período do preço",
+    oferente_periodo_mes: "Por mês",
+    oferente_periodo_semana: "Por semana",
+    oferente_periodo_dia: "Por dia",
+    oferente_periodo_anio: "Por ano",
+    oferente_periodo_unico: "Único",
+    oferente_publicar_destacado: "Publicar em Destaque",
+    oferente_volver_atras: "Voltar",
+    oferente_datos_seguros: "Seus dados estão seguros.",
+    oferente_sin_opciones: "Não há opções disponíveis",
+    oferente_servicio_alt: "Serviço",
+    oferente_contact_cellphone: "Celular",
+    oferente_contact_other: "Outro",
+    oferente_toast_nombre: "Complete o nome do seu perfil ou marca",
+    oferente_toast_destino: "Escolha um país de destino",
+    oferente_toast_idioma: "Escolha pelo menos um idioma",
+    oferente_toast_descripcion: "Complete a descrição",
+    oferente_toast_web: "Complete o site",
+    oferente_toast_terminos: "Você deve aceitar os termos e condições",
+    oferente_toast_sede: "Complete todos os campos da sede principal",
+    oferente_toast_revision: "Sua publicação está em revisão",
+    oferente_toast_imagen_valida: "Carregue uma imagem válida",
+    oferente_toast_imagen_limite: "Você pode carregar até 5 imagens. Restam {remaining}.",
+    oferente_toast_imagen_tipo: "Somente imagens válidas são permitidas",
+    oferente_toast_comprimir_imagenes: "Não foi possível comprimir as imagens",
+  },
+  it: {
+    oferente_nombre_perfil: "* Nome del tuo profilo o brand",
+    oferente_categoria_placeholder: "In quale categoria rientra la tua proposta?",
+    oferente_destino_label: "Paese di destinazione della tua proposta",
+    oferente_idiomas_placeholder: "Lingue in cui comunichi",
+    oferente_email_label: "La tua email di contatto con Travelgrin",
+    oferente_aceptar_terminos: "* Accetta termini e condizioni",
+    oferente_publicacion_basica: "Pubblicazione Base (gratis)",
+    oferente_publicacion_destacada: "Pubblicazione in Evidenza",
+    oferente_plan_visible_listado: "Visibile nell'elenco generale",
+    oferente_plan_duracion_60: "Durata 60 giorni",
+    oferente_plan_descripcion_breve: "Descrizione breve",
+    oferente_plan_link_contacto: "1 link di contatto",
+    oferente_featured_item_results: "Appare per prima nei risultati",
+    oferente_featured_item_duration: "Durata 120 giorni",
+    oferente_featured_item_badge: "Badge in evidenza",
+    oferente_featured_item_description: "Descrizione ampliata",
+    oferente_featured_item_links: "Vari link di contatto",
+    oferente_featured_item_languages: "Disponibile in 4 lingue",
+    oferente_featured_item_gallery: "Galleria fino a 5 immagini",
+    oferente_publicar_gratis: "Pubblica Gratis",
+    oferente_continuar_destacado: "Continua in evidenza",
+    oferente_codigo_promocional: "Codice promozionale",
+    oferente_destacado_intro: "Completa più informazioni per distinguerti e aumentare le richieste. Nulla di ciò che hai già inserito verrà cancellato.",
+    oferente_destacado_heading: "Completa più informazioni per distinguerti e aumentare le richieste",
+    oferente_logo_label: "Foto o logo del profilo",
+    oferente_tipo_perfil: "Tipo di profilo",
+    oferente_seleccionar_imagen: "Seleziona immagine",
+    oferente_ninguna_imagen: "Nessuna immagine selezionata",
+    oferente_sede: "Sede",
+    oferente_pais_sede: "Paese della sede principale",
+    oferente_ciudad_sede: "Città della sede principale",
+    oferente_url_maps: "URL di Google Maps",
+    oferente_imagenes_servicio: "Immagini del servizio (fino a 5)",
+    oferente_elegir_imagenes: "Scegli immagini",
+    oferente_limite_imagenes: "Seleziona solo la quantità restante; il limite è esattamente 5 immagini.",
+    oferente_sin_imagenes: "Non hai ancora caricato immagini.",
+    oferente_pasaportes_label: "Per viaggiatori di quali paesi vuoi apparire?",
+    oferente_pasaportes_placeholder: "Se non scegli nessuno, appare per tutti",
+    oferente_pasaportes_helper: "Se non scegli paesi, la tua pubblicazione appare per tutti. Se ne scegli uno o più, appare solo per quei passaporti.",
+    oferente_incluye_placeholder: "* Cosa include il tuo servizio o cosa lo rende diverso?",
+    oferente_no_incluye_placeholder: "Cosa non include o cosa deve tenere presente il viaggiatore?",
+    oferente_links_contacto: "Link di contatto",
+    oferente_anadir_link: "+ Aggiungi link",
+    oferente_link_email_placeholder: "Link o email",
+    oferente_precio_moneda: "Prezzo della tua proposta per valuta",
+    oferente_agregar_moneda: "+ Aggiungi valuta",
+    oferente_moneda: "Valuta",
+    oferente_monto: "Importo",
+    oferente_quitar: "Rimuovi",
+    oferente_a_convenir: "*Da concordare",
+    oferente_periodo_precio: "Periodo del prezzo",
+    oferente_periodo_mes: "Al mese",
+    oferente_periodo_semana: "A settimana",
+    oferente_periodo_dia: "Al giorno",
+    oferente_periodo_anio: "All'anno",
+    oferente_periodo_unico: "Una volta",
+    oferente_publicar_destacado: "Pubblica in Evidenza",
+    oferente_volver_atras: "Torna indietro",
+    oferente_datos_seguros: "I tuoi dati sono al sicuro.",
+    oferente_sin_opciones: "Nessuna opzione disponibile",
+    oferente_servicio_alt: "Servizio",
+    oferente_contact_cellphone: "Cellulare",
+    oferente_contact_other: "Altro",
+    oferente_toast_nombre: "Completa il nome del profilo o del brand",
+    oferente_toast_destino: "Scegli un paese di destinazione",
+    oferente_toast_idioma: "Scegli almeno una lingua",
+    oferente_toast_descripcion: "Completa la descrizione",
+    oferente_toast_web: "Completa il sito web",
+    oferente_toast_terminos: "Devi accettare termini e condizioni",
+    oferente_toast_sede: "Completa tutti i campi della sede principale",
+    oferente_toast_revision: "La tua pubblicazione è in revisione",
+    oferente_toast_imagen_valida: "Carica un'immagine valida",
+    oferente_toast_imagen_limite: "Puoi caricare fino a 5 immagini. Ne restano {remaining}.",
+    oferente_toast_imagen_tipo: "Sono consentite solo immagini valide",
+    oferente_toast_comprimir_imagenes: "Non è stato possibile comprimere le immagini",
+  },
+} as const;
+
+type OferenteModalLocale = keyof typeof OFERENTE_MODAL_TEXT;
+type OferenteModalTextKey = keyof typeof OFERENTE_MODAL_TEXT.es;
+
 const CURRENCY_OPTIONS = ["ARS", "USD", "EUR", "BRL", "CLP", "COP", "MXN", "PEN", "UYU", "JPY"];
 type PriceEntry = { currency: string; amount: string };
 type VenueEntry = { country: string; city: string; mapUrl: string };
@@ -207,20 +521,22 @@ function PlanCard({
 export default function ModalOferente({ onClose }: Props) {
   const { t, locale } = useTranslation();
   const { selectedCountry } = useCountry();
+  const modalLocale: OferenteModalLocale = locale in OFERENTE_MODAL_TEXT ? (locale as OferenteModalLocale) : "es";
+  const mt = (key: OferenteModalTextKey) => OFERENTE_MODAL_TEXT[modalLocale][key] ?? OFERENTE_MODAL_TEXT.es[key];
   const featuredItems = [
-    t("oferente_featured_item_results"),
-    t("oferente_featured_item_duration"),
-    t("oferente_featured_item_badge"),
-    t("oferente_featured_item_description"),
-    t("oferente_featured_item_links"),
-    t("oferente_featured_item_languages"),
-    t("oferente_featured_item_gallery"),
+    mt("oferente_featured_item_results"),
+    mt("oferente_featured_item_duration"),
+    mt("oferente_featured_item_badge"),
+    mt("oferente_featured_item_description"),
+    mt("oferente_featured_item_links"),
+    mt("oferente_featured_item_languages"),
+    mt("oferente_featured_item_gallery"),
   ];
   const basicItems = [
-    t("oferente_plan_visible_listado"),
-    t("oferente_plan_duracion_60"),
-    t("oferente_plan_descripcion_breve"),
-    t("oferente_plan_link_contacto"),
+    mt("oferente_plan_visible_listado"),
+    mt("oferente_plan_duracion_60"),
+    mt("oferente_plan_descripcion_breve"),
+    mt("oferente_plan_link_contacto"),
   ];
 
   const [mounted, setMounted] = useState(false);
@@ -376,7 +692,7 @@ export default function ModalOferente({ onClose }: Props) {
     }
     if (!profileName.trim()) {
       setIsEmptyProfileName(true);
-      toast.error(t("oferente_toast_nombre"));
+      toast.error(mt("oferente_toast_nombre"));
       return false;
     }
     setIsEmptyProfileName(false);
@@ -400,25 +716,25 @@ export default function ModalOferente({ onClose }: Props) {
       return false;
     }
     if (!destinationCountry.trim()) {
-      toast.error(t("oferente_toast_destino"));
+      toast.error(mt("oferente_toast_destino"));
       return false;
     }
     if (!languages.length) {
-      toast.error(t("oferente_toast_idioma"));
+      toast.error(mt("oferente_toast_idioma"));
       return false;
     }
     if (!description.trim()) {
-      toast.error(t("oferente_toast_descripcion"));
+      toast.error(mt("oferente_toast_descripcion"));
       return false;
     }
     if (!website.trim()) {
-      toast.error(t("oferente_toast_web"));
+      toast.error(mt("oferente_toast_web"));
       return false;
     }
 
     if (!acceptedTerms) {
       setIsEmptyTerms(true);
-      toast.error(t("oferente_toast_terminos"));
+      toast.error(mt("oferente_toast_terminos"));
       return false;
     }
     setIsEmptyTerms(false);
@@ -427,7 +743,7 @@ export default function ModalOferente({ onClose }: Props) {
 
   const validateFeatured = () => {
     if (!primaryVenue.country.trim() || !primaryVenue.city.trim() || !primaryVenue.mapUrl.trim()) {
-      toast.error(t("oferente_toast_sede"));
+      toast.error(mt("oferente_toast_sede"));
       return false;
     }
     return true;
@@ -510,7 +826,7 @@ export default function ModalOferente({ onClose }: Props) {
         body: JSON.stringify(buildPayload(publicationPlan)),
       });
       if (!response.ok) throw new Error();
-      toast.success(t("oferente_toast_revision"), { duration: 6000 });
+      toast.success(mt("oferente_toast_revision"), { duration: 6000 });
       onClose();
     } catch {
       toast.error(t("error_form"));
@@ -538,7 +854,7 @@ export default function ModalOferente({ onClose }: Props) {
   const handleProviderLogoUpload = async (file: File | null) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error(t("oferente_toast_imagen_valida"));
+      toast.error(mt("oferente_toast_imagen_valida"));
       return;
     }
     try {
@@ -547,7 +863,7 @@ export default function ModalOferente({ onClose }: Props) {
       setProviderLogoAsset(optimized);
       setProviderLogoName(file.name.replace(/\.[^.]+$/, ".webp"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("oferente_toast_comprimir_imagenes"));
+      toast.error(error instanceof Error ? error.message : mt("oferente_toast_comprimir_imagenes"));
     }
   };
 
@@ -556,11 +872,11 @@ export default function ModalOferente({ onClose }: Props) {
     const remaining = Math.max(0, 5 - serviceImages.length);
     const fileList = Array.from(files);
     if (!remaining || fileList.length > remaining) {
-      toast.error(t("oferente_toast_imagen_limite").replace("{remaining}", String(remaining)));
+      toast.error(mt("oferente_toast_imagen_limite").replace("{remaining}", String(remaining)));
       return;
     }
     if (fileList.some((file) => !file.type.startsWith("image/"))) {
-      toast.error(t("oferente_toast_imagen_tipo"));
+      toast.error(mt("oferente_toast_imagen_tipo"));
       return;
     }
     try {
@@ -569,7 +885,7 @@ export default function ModalOferente({ onClose }: Props) {
       setServiceImageAssets((prev) => [...prev, ...encoded]);
       setServiceImageNames((prev) => [...prev, ...fileList.map((file) => file.name.replace(/\.[^.]+$/, ".webp"))]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("oferente_toast_comprimir_imagenes"));
+      toast.error(error instanceof Error ? error.message : mt("oferente_toast_comprimir_imagenes"));
     }
   };
 
@@ -589,7 +905,7 @@ export default function ModalOferente({ onClose }: Props) {
                 ? "0 8px 25px -8px rgba(220, 38, 38, 0.4), 0 4px 12px -4px rgba(220, 38, 38, 0.2)"
                 : "0 12px 36px -18px rgba(8, 217, 189, 0.55), 0 6px 18px -9px rgba(4, 181, 189, 0.35)",
             }}
-            placeholder={t("oferente_nombre_perfil")}
+            placeholder={mt("oferente_nombre_perfil")}
           />
         </div>
         <div style={{ position: "relative", zIndex: 9999998 }}>
@@ -597,10 +913,10 @@ export default function ModalOferente({ onClose }: Props) {
             selectedValues={proposalCategories}
             setSelectedValues={setProposalCategories}
             options={categoriaOptions}
-            placeholder={t("oferente_categoria_placeholder")}
+            placeholder={mt("oferente_categoria_placeholder")}
             icon="tag"
             isEmpty={isEmptyProposalCategory}
-            emptyText={t("oferente_sin_opciones")}
+            emptyText={mt("oferente_sin_opciones")}
           />
         </div>
       </div>
@@ -617,10 +933,10 @@ export default function ModalOferente({ onClose }: Props) {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div style={{ position: "relative", zIndex: 9999997, isolation: "isolate" }}>
-          <DestinationSelect destinationCountry={destinationCountry} setDestinationCountry={setDestinationCountry} label={t("oferente_destino_label")} customClass="mb-0" isInModal textBuscarPais={t("buscar_pais")} noHayPaises={t("no_hay_paises")} allowedCountries={destinationAvailabilityMode === "some" ? destinationAvailabilityCountries : []} />
+          <DestinationSelect destinationCountry={destinationCountry} setDestinationCountry={setDestinationCountry} label={mt("oferente_destino_label")} customClass="mb-0" isInModal textBuscarPais={t("buscar_pais")} noHayPaises={t("no_hay_paises")} allowedCountries={destinationAvailabilityMode === "some" ? destinationAvailabilityCountries : []} />
         </div>
         <div style={{ position: "relative", zIndex: 9999996 }}>
-          <MultiOptionSelect selectedValues={languages} setSelectedValues={setLanguages} options={languageOptions} placeholder={t("oferente_idiomas_placeholder")} emptyText={t("oferente_sin_opciones")} />
+          <MultiOptionSelect selectedValues={languages} setSelectedValues={setLanguages} options={languageOptions} placeholder={mt("oferente_idiomas_placeholder")} emptyText={mt("oferente_sin_opciones")} />
         </div>
       </div>
 
@@ -630,36 +946,36 @@ export default function ModalOferente({ onClose }: Props) {
       </div>
 
       <div>
-        <MaterialInputs required label={t("oferente_email_label")} value={email} setValue={setEmail} isEmpty={isEmptyEmail} setEmailError={setEmailError} emailError={emailError} textPorfavor={t("por_favor")} textCampoRequerido={t("campo_requerido")} />
+        <MaterialInputs required label={mt("oferente_email_label")} value={email} setValue={setEmail} isEmpty={isEmptyEmail} setEmailError={setEmailError} emailError={emailError} textPorfavor={t("por_favor")} textCampoRequerido={t("campo_requerido")} />
       </div>
 
       <label className={`flex items-center gap-3 rounded-xl bg-white/80 p-3 text-sm shadow-sm ${isEmptyTerms ? "text-red-600 ring-1 ring-red-300" : "text-[#273166]"}`}>
         <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="h-4 w-4 rounded border-gray-300 accent-[#00A9C6]" />
-        <span>{t("oferente_aceptar_terminos")}</span>
+        <span>{mt("oferente_aceptar_terminos")}</span>
       </label>
 
       <div className="grid gap-4 md:grid-cols-2">
         <PlanCard
-          title={t("oferente_publicacion_basica")}
+          title={mt("oferente_publicacion_basica")}
           tone="free"
           price="$ 0"
           items={basicItems}
-          buttonLabel={isLoading ? t("guardando") : t("oferente_publicar_gratis")}
+          buttonLabel={isLoading ? t("guardando") : mt("oferente_publicar_gratis")}
           onClick={() => submit("basic_free")}
           disabled={isLoading}
-          promoPlaceholder={t("oferente_codigo_promocional")}
+          promoPlaceholder={mt("oferente_codigo_promocional")}
         />
         <PlanCard
-          title={t("oferente_publicacion_destacada")}
+          title={mt("oferente_publicacion_destacada")}
           tone="featured"
           price="$ XX"
           items={featuredItems}
-          buttonLabel={t("oferente_continuar_destacado")}
+          buttonLabel={mt("oferente_continuar_destacado")}
           onClick={goFeatured}
           showPromo
           promoCode={promoCode}
           onPromoCodeChange={setPromoCode}
-          promoPlaceholder={t("oferente_codigo_promocional")}
+          promoPlaceholder={mt("oferente_codigo_promocional")}
         />
       </div>
     </>
@@ -668,44 +984,44 @@ export default function ModalOferente({ onClose }: Props) {
   const featuredStep = (
     <>
       <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900">
-        {t("oferente_destacado_intro")}
+        {mt("oferente_destacado_intro")}
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
-          <label className="text-sm font-semibold text-[#273166]">{t("oferente_logo_label")}</label>
+          <label className="text-sm font-semibold text-[#273166]">{mt("oferente_logo_label")}</label>
           <div className="mt-3 flex items-center gap-3">
             <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#BFEAF3] bg-[#F4FCFD]">
               {providerLogo ? (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={providerLogo} alt={t("oferente_logo_label")} className="h-full w-full object-cover" />
+                  <img src={providerLogo} alt={mt("oferente_logo_label")} className="h-full w-full object-cover" />
                 </>
               ) : <Upload className="h-7 w-7 text-[#0B8FA3]" />}
             </div>
             <div className="min-w-0 flex-1">
               <input id="provider-logo-upload" type="file" accept="image/*" onChange={(event) => handleProviderLogoUpload(event.target.files?.[0] ?? null)} className="sr-only" />
               <label htmlFor="provider-logo-upload" className="inline-flex cursor-pointer items-center rounded-xl bg-[#EAF9FB] px-4 py-2 text-sm font-bold text-[#007D92] transition hover:bg-[#D8F3F0]">
-                {t("oferente_seleccionar_imagen")}
+                {mt("oferente_seleccionar_imagen")}
               </label>
-              <p className="mt-2 truncate text-xs text-slate-500">{providerLogoName || t("oferente_ninguna_imagen")}</p>
+              <p className="mt-2 truncate text-xs text-slate-500">{providerLogoName || mt("oferente_ninguna_imagen")}</p>
             </div>
           </div>
         </div>
         <div data-featured-type="1" key={featuredTypeFocusKey} style={{ position: "relative", zIndex: 9999995 }}>
-          <SingleOptionSelect selectedValue={providerType} setSelectedValue={setProviderType} options={typeOptions} placeholder={t("tipo_perfil")} emptyText={t("oferente_sin_opciones")} />
+          <SingleOptionSelect selectedValue={providerType} setSelectedValue={setProviderType} options={typeOptions} placeholder={mt("oferente_tipo_perfil")} emptyText={mt("oferente_sin_opciones")} />
         </div>
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
-        <div className="mb-3 text-sm font-semibold text-[#273166]">{t("oferente_sede")}</div>
+        <div className="mb-3 text-sm font-semibold text-[#273166]">{mt("oferente_sede")}</div>
         <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
           <div style={{ position: "relative", zIndex: 9999995 }}>
-            <label className="mb-1 block text-sm font-medium text-slate-700">{t("oferente_sede")}</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{mt("oferente_sede")}</label>
             <DestinationSelect
               destinationCountry={primaryVenue.country}
               setDestinationCountry={(country) => setPrimaryVenue((prev) => ({ ...prev, country }))}
-              label={t("oferente_pais_sede")}
+              label={mt("oferente_pais_sede")}
               customClass="mb-0"
               isInModal
               textBuscarPais={t("buscar_pais")}
@@ -713,12 +1029,12 @@ export default function ModalOferente({ onClose }: Props) {
             />
           </div>
           <div className="rounded-2xl bg-white p-3 shadow-[0_12px_36px_-18px_rgba(8,217,189,0.55),0_6px_18px_-9px_rgba(4,181,189,0.35)]">
-            <input value={primaryVenue.city} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, city: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={t("oferente_ciudad_sede")} />
+            <input value={primaryVenue.city} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, city: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={mt("oferente_ciudad_sede")} />
           </div>
           <div className="rounded-2xl bg-white p-3 shadow-[0_12px_36px_-18px_rgba(8,217,189,0.55),0_6px_18px_-9px_rgba(4,181,189,0.35)]">
             <div className="relative">
               <MapPin className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#0B8FA3]" />
-              <input value={primaryVenue.mapUrl} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, mapUrl: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={t("oferente_url_maps")} />
+              <input value={primaryVenue.mapUrl} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, mapUrl: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={mt("oferente_url_maps")} />
             </div>
           </div>
         </div>
@@ -726,61 +1042,61 @@ export default function ModalOferente({ onClose }: Props) {
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <div className="flex items-center justify-between gap-3">
-          <label className="text-sm font-semibold text-[#273166]">{t("oferente_imagenes_servicio")}</label>
+          <label className="text-sm font-semibold text-[#273166]">{mt("oferente_imagenes_servicio")}</label>
           <span className="text-xs text-slate-500">{serviceImages.length}/5</span>
         </div>
         <input id="service-images-upload" type="file" accept="image/*" multiple onChange={(event) => { handleServiceImagesUpload(event.target.files); event.currentTarget.value = ""; }} className="sr-only" />
         <label htmlFor="service-images-upload" className="mt-3 inline-flex cursor-pointer items-center rounded-xl bg-[#EAF9FB] px-4 py-2 text-sm font-bold text-[#007D92] transition hover:bg-[#D8F3F0]">
-          {t("oferente_elegir_imagenes")}
+          {mt("oferente_elegir_imagenes")}
         </label>
-        <p className="mt-2 text-xs text-slate-500">{t("oferente_limite_imagenes")}</p>
+        <p className="mt-2 text-xs text-slate-500">{mt("oferente_limite_imagenes")}</p>
         {serviceImages.length ? (
           <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-5">
             {serviceImages.map((image, index) => (
               <button key={`${index}-${image.slice(0, 20)}`} type="button" onClick={() => { setServiceImages((prev) => prev.filter((_, idx) => idx !== index)); setServiceImageAssets((prev) => prev.filter((_, idx) => idx !== index)); setServiceImageNames((prev) => prev.filter((_, idx) => idx !== index)); }} className="group relative h-20 overflow-hidden rounded-xl border border-slate-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={image} alt={`${t("oferente_servicio_alt")} ${index + 1}`} className="h-full w-full object-cover" />
-                <span className="absolute inset-0 hidden place-items-center bg-black/50 text-xs font-semibold text-white group-hover:grid">{t("oferente_quitar")}</span>
+                <img src={image} alt={`${mt("oferente_servicio_alt")} ${index + 1}`} className="h-full w-full object-cover" />
+                <span className="absolute inset-0 hidden place-items-center bg-black/50 text-xs font-semibold text-white group-hover:grid">{mt("oferente_quitar")}</span>
               </button>
             ))}
           </div>
         ) : (
-          <div className="mt-3 flex items-center gap-2 text-sm text-slate-500"><ImagePlus className="h-4 w-4" /> {t("oferente_sin_imagenes")}</div>
+          <div className="mt-3 flex items-center gap-2 text-sm text-slate-500"><ImagePlus className="h-4 w-4" /> {mt("oferente_sin_imagenes")}</div>
         )}
         {serviceImageNames.length ? <p className="mt-2 text-xs text-slate-500">{serviceImageNames.join(", ")}</p> : null}
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <CountryMultiSelect
-          label={t("oferente_pasaportes_label")}
+          label={mt("oferente_pasaportes_label")}
           selected={passportCountries}
           onChange={setPassportCountries}
-          placeholder={t("oferente_pasaportes_placeholder")}
+          placeholder={mt("oferente_pasaportes_placeholder")}
         />
-        <p className="mt-2 text-xs text-slate-500">{t("oferente_pasaportes_helper")}</p>
+        <p className="mt-2 text-xs text-slate-500">{mt("oferente_pasaportes_helper")}</p>
       </div>
 
       <div className="space-y-4">
-        <MaterialTextarea value={included} setValue={setIncluded} placeholder={t("oferente_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
-        <MaterialTextarea value={notIncluded} setValue={setNotIncluded} placeholder={t("oferente_no_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        <MaterialTextarea value={included} setValue={setIncluded} placeholder={mt("oferente_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        <MaterialTextarea value={notIncluded} setValue={setNotIncluded} placeholder={mt("oferente_no_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <div className="mb-3 flex items-center justify-between">
-          <label className="text-sm font-semibold text-[#273166]">{t("oferente_links_contacto")}</label>
-          <button type="button" onClick={() => setContactLinks((prev) => [...prev, { kind: "web", url: "", label: "" }])} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">{t("oferente_anadir_link")}</button>
+          <label className="text-sm font-semibold text-[#273166]">{mt("oferente_links_contacto")}</label>
+          <button type="button" onClick={() => setContactLinks((prev) => [...prev, { kind: "web", url: "", label: "" }])} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">{mt("oferente_anadir_link")}</button>
         </div>
         <div className="space-y-2">
           {contactLinks.map((entry, index) => (
             <div key={`contact-${index}`} className="grid grid-cols-1 gap-2 md:grid-cols-[140px_1fr_auto]">
               <select value={entry.kind} onChange={(event) => setContactLinks((prev) => prev.map((item, idx) => idx === index ? { ...item, kind: event.target.value as ContactKind } : item))} className="h-11 rounded-xl border border-slate-200 bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30">
-                <option value="web">Web</option><option value="email">Email</option><option value="youtube">YouTube</option><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="whatsapp">WhatsApp</option><option value="cellphone">{t("oferente_contact_cellphone")}</option><option value="linkedin">LinkedIn</option><option value="other">{t("oferente_contact_other")}</option>
+                <option value="web">Web</option><option value="email">Email</option><option value="youtube">YouTube</option><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="whatsapp">WhatsApp</option><option value="cellphone">{mt("oferente_contact_cellphone")}</option><option value="linkedin">LinkedIn</option><option value="other">{mt("oferente_contact_other")}</option>
               </select>
               <div className="relative">
                 <LinkIcon className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[#0B8FA3]" />
-                <input value={entry.url} onChange={(event) => setContactLinks((prev) => prev.map((item, idx) => idx === index ? { ...item, url: event.target.value } : item))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30" placeholder={t("oferente_link_email_placeholder")} />
+                <input value={entry.url} onChange={(event) => setContactLinks((prev) => prev.map((item, idx) => idx === index ? { ...item, url: event.target.value } : item))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30" placeholder={mt("oferente_link_email_placeholder")} />
               </div>
-              <button type="button" onClick={() => setContactLinks((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== index) : prev)} disabled={contactLinks.length <= 1} className="rounded-xl border border-slate-200 px-3 text-xs text-slate-600 disabled:opacity-40">{t("oferente_quitar")}</button>
+              <button type="button" onClick={() => setContactLinks((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== index) : prev)} disabled={contactLinks.length <= 1} className="rounded-xl border border-slate-200 px-3 text-xs text-slate-600 disabled:opacity-40">{mt("oferente_quitar")}</button>
             </div>
           ))}
         </div>
@@ -788,43 +1104,43 @@ export default function ModalOferente({ onClose }: Props) {
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <label className="text-sm font-semibold text-[#273166]">{t("oferente_precio_moneda")}</label>
-          <button type="button" onClick={() => setPriceEntries((prev) => [...prev, { currency: "", amount: "" }])} disabled={priceNegotiable} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{t("oferente_agregar_moneda")}</button>
+          <label className="text-sm font-semibold text-[#273166]">{mt("oferente_precio_moneda")}</label>
+          <button type="button" onClick={() => setPriceEntries((prev) => [...prev, { currency: "", amount: "" }])} disabled={priceNegotiable} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{mt("oferente_agregar_moneda")}</button>
         </div>
         <div className="space-y-2">
           {priceEntries.map((entry, index) => (
             <div key={`price-entry-${index}`} className="grid grid-cols-[110px_1fr_auto] gap-2">
               <select value={entry.currency} onChange={(event) => setPriceEntries((prev) => prev.map((item, idx) => idx === index ? { ...item, currency: event.target.value } : item))} disabled={priceNegotiable} className="h-11 rounded-xl border border-slate-200 bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30 disabled:bg-slate-100">
-                <option value="">{t("oferente_moneda")}</option>
+                <option value="">{mt("oferente_moneda")}</option>
                 {CURRENCY_OPTIONS.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
               </select>
-              <input value={entry.amount} onChange={(event) => setPriceEntries((prev) => prev.map((item, idx) => idx === index ? { ...item, amount: event.target.value } : item))} disabled={priceNegotiable} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30 disabled:bg-slate-100" placeholder={t("oferente_monto")} />
-              <button type="button" onClick={() => setPriceEntries((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== index) : prev)} disabled={priceNegotiable || priceEntries.length <= 1} className="rounded-xl border border-slate-200 px-3 text-xs text-slate-600 disabled:opacity-40">{t("oferente_quitar")}</button>
+              <input value={entry.amount} onChange={(event) => setPriceEntries((prev) => prev.map((item, idx) => idx === index ? { ...item, amount: event.target.value } : item))} disabled={priceNegotiable} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30 disabled:bg-slate-100" placeholder={mt("oferente_monto")} />
+              <button type="button" onClick={() => setPriceEntries((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== index) : prev)} disabled={priceNegotiable || priceEntries.length <= 1} className="rounded-xl border border-slate-200 px-3 text-xs text-slate-600 disabled:opacity-40">{mt("oferente_quitar")}</button>
             </div>
           ))}
         </div>
-        <label className="mt-3 flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={priceNegotiable} onChange={(event) => setPriceNegotiable(event.target.checked)} className="h-4 w-4 accent-[#00A9C6]" /> {t("oferente_a_convenir")}</label>
+        <label className="mt-3 flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={priceNegotiable} onChange={(event) => setPriceNegotiable(event.target.checked)} className="h-4 w-4 accent-[#00A9C6]" /> {mt("oferente_a_convenir")}</label>
         <div className="mt-3">
-          <label className="mb-1 block text-sm font-medium text-slate-700">{t("oferente_periodo_precio")}</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">{mt("oferente_periodo_precio")}</label>
           <select value={pricePeriod} onChange={(event) => setPricePeriod(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30">
-            <option value="month">{t("oferente_periodo_mes")}</option><option value="week">{t("oferente_periodo_semana")}</option><option value="day">{t("oferente_periodo_dia")}</option><option value="year">{t("oferente_periodo_anio")}</option><option value="once">{t("oferente_periodo_unico")}</option>
+            <option value="month">{mt("oferente_periodo_mes")}</option><option value="week">{mt("oferente_periodo_semana")}</option><option value="day">{mt("oferente_periodo_dia")}</option><option value="year">{mt("oferente_periodo_anio")}</option><option value="once">{mt("oferente_periodo_unico")}</option>
           </select>
         </div>
       </div>
 
       <div className="mx-auto w-full max-w-sm">
         <PlanCard
-          title={t("oferente_publicacion_destacada")}
+          title={mt("oferente_publicacion_destacada")}
           tone="featured"
           price="$ XX"
           items={featuredItems}
-          buttonLabel={isLoading ? t("guardando") : t("oferente_publicar_destacado")}
+          buttonLabel={isLoading ? t("guardando") : mt("oferente_publicar_destacado")}
           onClick={() => submit("featured")}
           disabled={isLoading}
           showPromo
           promoCode={promoCode}
           onPromoCodeChange={setPromoCode}
-          promoPlaceholder={t("oferente_codigo_promocional")}
+          promoPlaceholder={mt("oferente_codigo_promocional")}
         />
       </div>
     </>
@@ -845,7 +1161,7 @@ export default function ModalOferente({ onClose }: Props) {
               <div className="flex items-center gap-2">
                 {step === "featured" ? (
                   <button type="button" onClick={() => setStep("basic")} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
-                    {t("oferente_volver_atras")}
+                    {mt("oferente_volver_atras")}
                   </button>
                 ) : null}
                 <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200 flex-shrink-0">
@@ -858,12 +1174,12 @@ export default function ModalOferente({ onClose }: Props) {
           <div ref={modalBodyRef} className="flex-1 overflow-y-auto bg-gradient-to-b from-[#F5FBFB] via-[#EEEEEE] to-[#F8FAFC] p-6 space-y-6">
             <div className="flex items-center justify-center flex-col text-center">
               <h1 style={{ color: "#273166" }} className="text-xl font-semibold text-gray-800 leading-tight">{t("conecta_con_viajeros")}</h1>
-              <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? t("oferente_destacado_heading") : t("cambiamos_la_manera")}</h2>
+              <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? mt("oferente_destacado_heading") : t("cambiamos_la_manera")}</h2>
             </div>
             {step === "basic" ? basicStep : featuredStep}
             <div className="flex items-center justify-center gap-2 text-xs text-slate-600">
               <Globe2 className="h-4 w-4" />
-              {t("oferente_datos_seguros")}
+              {mt("oferente_datos_seguros")}
             </div>
           </div>
 
