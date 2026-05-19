@@ -294,6 +294,8 @@ export default async function BuscarPage({
   searchParams: SearchParams | Promise<SearchParams>;
 }) {
   const sp = await Promise.resolve(searchParams);
+  const destinationCountry = spGet(sp, "destinationCountry") ?? "";
+  const hasDestinationSelected = Boolean(destinationCountry.trim());
   const [categories, filterGroups] = await Promise.all([
     loadCategories(),
     loadFilterGroups(),
@@ -301,12 +303,16 @@ export default async function BuscarPage({
   const hasPrestacionFilter = hasSelectedPrestacionFilter(sp, filterGroups);
   const normalPage = spGet(sp, "page") ?? "1";
   const prestacionesPage = spGet(sp, "prestacionesPage") ?? "1";
-  const [publicationsPayload, prestacionesPayload] = hasPrestacionFilter
-    ? [await loadPublications(sp, { page: normalPage, perPage: "15", prestacionesPage: undefined }), null]
-    : await Promise.all([
-        loadPublications(sp, { page: normalPage, perPage: "15", excludePrimaryGroupKey: "prestacion", prestacionesPage: undefined }),
-        loadPublications(sp, { page: prestacionesPage, perPage: "10", primaryGroupKey: "prestacion", prestacionesPage: undefined }),
-      ]);
+  const emptyPublicationsPayload = { items: [], total: 0, page: 1, perPage: 15, totalPages: 1 };
+  const emptyPrestacionesPayload = { items: [], total: 0, page: 1, perPage: 10, totalPages: 1 };
+  const [publicationsPayload, prestacionesPayload] = hasDestinationSelected
+    ? hasPrestacionFilter
+      ? [await loadPublications(sp, { page: normalPage, perPage: "15", prestacionesPage: undefined }), null]
+      : await Promise.all([
+          loadPublications(sp, { page: normalPage, perPage: "15", excludePrimaryGroupKey: "prestacion", prestacionesPage: undefined }),
+          loadPublications(sp, { page: prestacionesPage, perPage: "10", primaryGroupKey: "prestacion", prestacionesPage: undefined }),
+        ])
+    : [emptyPublicationsPayload, hasPrestacionFilter ? null : emptyPrestacionesPayload];
   const visibleBlockIds = new Set(filterGroups.map((group) => group.id));
   const publicCategories = categories.filter(
     (category) => category.isPublicVisible !== false && (!category.blockId || visibleBlockIds.has(category.blockId))
@@ -321,7 +327,6 @@ export default async function BuscarPage({
   const prestacionesItems = prestacionesPayload ? sortPublications(prestacionesPayload.items, sort, priceCurrency, hasActivePriceFilter) : [];
 
   const q = spGet(sp, "q") ?? "";
-  const destinationCountry = spGet(sp, "destinationCountry") ?? "";
   const city = spGet(sp, "city") ?? "";
   const categoryId = spGet(sp, "category") ?? "";
   const preservedEntries = Object.entries(sp).filter(([key]) => key !== "q");
@@ -429,6 +434,7 @@ export default async function BuscarPage({
               </ScrollAwareFiltersAside>
 
               <section id="resultados">
+                {hasDestinationSelected ? (
                 <HideOnScroll
                   className="sticky top-[5.25rem] z-30 mb-6 bg-white py-2 md:top-[190px] md:py-3"
                   hiddenClassName="-translate-y-full opacity-0 pointer-events-none md:-translate-y-8"
@@ -439,8 +445,11 @@ export default async function BuscarPage({
                   </div>
                   <SearchForm q={q} preservedEntries={preservedEntries} />
                 </HideOnScroll>
+                ) : null}
 
                 <div>
+                  {hasDestinationSelected ? (
+                    <>
                   <div id="publicaciones-normales">
                   <ResultsGrid items={sortedItems} />
 
@@ -478,6 +487,15 @@ export default async function BuscarPage({
                     />
                   </section>
                 ) : null}
+                    </>
+                  ) : (
+                    <div className="rounded-3xl border border-[#BDECF2] bg-[#EFFBFD] p-6 text-center text-[#0B6B7A] shadow-sm">
+                      <h2 className="text-lg font-semibold">Elegí un lugar de destino para ver oportunidades.</h2>
+                      <p className="mt-2 text-sm text-slate-600">
+                        El listado de publicaciones y prestaciones se activa cuando seleccionás un destino.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </section>
             </div>

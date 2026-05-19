@@ -641,21 +641,6 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
                 </div>
               </div>
 
-              {includedPrestacionesChips.length ? (
-                <div className="mt-5 rounded-2xl border border-[#BDECF2] bg-[#EFFBFD] p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#0B8FA3]">
-                    <TranslatedText id="publicacion_incluye_siguiente_recurso" />
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {includedPrestacionesChips.map((label) => (
-                      <span key={label} className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[#0B8FA3] ring-1 ring-[#BDECF2]">
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
               {extraDescriptions.length ? (
                 <div className="mt-5 space-y-4">
                   {extraDescriptions.map((desc: any, idx: number) => (
@@ -672,6 +657,21 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
                       ) : null}
                     </div>
                   ))}
+                </div>
+              ) : null}
+
+              {includedPrestacionesChips.length ? (
+                <div className="mt-5 rounded-2xl border border-[#BDECF2] bg-[#EFFBFD] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#0B8FA3]">
+                    <TranslatedText id="publicacion_incluye_siguiente_recurso" />
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {includedPrestacionesChips.map((label) => (
+                      <span key={label} className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[#0B8FA3] ring-1 ring-[#BDECF2]">
+                        {label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               ) : null}
 

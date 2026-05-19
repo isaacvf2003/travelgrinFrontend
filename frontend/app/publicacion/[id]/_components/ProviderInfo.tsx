@@ -20,6 +20,68 @@ type ProviderInfoProps = {
   headquarterLocations?: Array<{ country: string; city: string; mapUrl: string }>;
 };
 
+const COUNTRY_FLAG_MAP: Record<string, string> = {
+  ar: "🇦🇷",
+  argentina: "🇦🇷",
+  cl: "🇨🇱",
+  chile: "🇨🇱",
+  uy: "🇺🇾",
+  uruguay: "🇺🇾",
+  py: "🇵🇾",
+  paraguay: "🇵🇾",
+  br: "🇧🇷",
+  brasil: "🇧🇷",
+  brazil: "🇧🇷",
+  pe: "🇵🇪",
+  peru: "🇵🇪",
+  bo: "🇧🇴",
+  bolivia: "🇧🇴",
+  co: "🇨🇴",
+  colombia: "🇨🇴",
+  mx: "🇲🇽",
+  mexico: "🇲🇽",
+  es: "🇪🇸",
+  espana: "🇪🇸",
+  it: "🇮🇹",
+  italia: "🇮🇹",
+  fr: "🇫🇷",
+  francia: "🇫🇷",
+  de: "🇩🇪",
+  alemania: "🇩🇪",
+  us: "🇺🇸",
+  ca: "🇨🇦",
+  canada: "🇨🇦",
+};
+
+function flagFromAlpha2Code(alpha2Code: string) {
+  const code = alpha2Code.toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return "";
+  return String.fromCodePoint(...[...code].map((char) => 127397 + char.charCodeAt(0)));
+}
+
+function getCountryFlag(country: string) {
+  const raw = String(country ?? "").trim();
+  const normalized = raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim();
+  const tokenized = raw.split(/\s+/).map((token) =>
+    token
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .trim()
+  );
+  const candidates = [normalized, ...tokenized].filter(Boolean);
+  for (const key of candidates) {
+    const fromCode = flagFromAlpha2Code(key);
+    if (fromCode) return fromCode;
+    if (COUNTRY_FLAG_MAP[key]) return COUNTRY_FLAG_MAP[key];
+  }
+  return "";
+}
+
 export default function ProviderInfo({
   value,
   rating,
@@ -115,7 +177,10 @@ export default function ProviderInfo({
                 const label = [loc.city, loc.country].filter(Boolean).join(" · ");
                 return (
                   <div key={`hq-${idx}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
-                    <span>{label || loc.country}</span>
+                    <span className="inline-flex items-center gap-2">
+                      <span>{getCountryFlag(loc.country)}</span>
+                      <span>{label || loc.country}</span>
+                    </span>
                     {loc.mapUrl ? (
                       <a className="text-[#2B7CAB] underline" href={loc.mapUrl} target="_blank" rel="noreferrer">
                         {t("ver_mapa")}

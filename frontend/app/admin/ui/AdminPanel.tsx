@@ -2183,11 +2183,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     );
     const existingImages = Array.isArray(pub.images) ? pub.images : [];
     const imageAssets = Array.isArray((pub.fields as any)?.imageAssets) ? ((pub.fields as any).imageAssets as ImageAsset[]) : [];
-    const imageUrls = existingImages.filter((img) => !String(img).startsWith("data:image"));
-    const imageUploads = existingImages.filter((img) => String(img).startsWith("data:image"));
+    const existingImageEntries = Array.from(
+      new Set(
+        [
+          ...existingImages.flatMap((img) => splitLines(String(img ?? ""))),
+          ...imageAssets.map((asset) => imageAssetToUrl(asset)).map((url) => String(url ?? "").trim()).filter(Boolean),
+        ].filter(Boolean)
+      )
+    );
+    const imageUrls = existingImageEntries.filter((img) => !String(img).startsWith("data:image"));
+    const imageUploads = existingImageEntries.filter((img) => String(img).startsWith("data:image"));
     setPImageUrls(imageUrls.join("\n"));
     setPImageUploads(imageUploads);
-    setPImageUploadAssets(imageAssets.filter((asset) => imageUploads.includes(imageAssetToUrl(asset))));
+    setPImageUploadAssets(imageAssets);
     setPWebsite(pub.website ?? "");
     setPFieldsBase((pub.fields as Record<string, any>) ?? {});
     setPLocationAddress((pub.fields as any)?.locationAddress ?? "");
@@ -2769,6 +2777,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const removeImage = (img: string) => {
     setPImageUploads((prev) => prev.filter((item) => item !== img));
     setPImageUrls((prev) => splitLines(prev).filter((item) => item !== img).join("\n"));
+    setPImageUploadAssets((prev) => prev.filter((asset) => imageAssetToUrl(asset) !== img));
   };
   const [draggingFilterGroupId, setDraggingFilterGroupId] = useState<string | null>(null);
   const orderedFilterGroups = useMemo(
@@ -5738,7 +5747,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           </div>
           </AdminEditorSection>
 
-            
           </>
           ) : null}
 

@@ -56,6 +56,7 @@ export default function SearchBar() {
           : "Buscando...";
 
   const [destinationCountry, setDestinationCountry] = useState(params.get("destinationCountry") || "");
+  const [destinationError, setDestinationError] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(params.get("category") || "");
   const [selectedSubcategory, setSelectedSubcategory] = useState(params.get("subcategory") || "");
   const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false);
@@ -237,8 +238,16 @@ export default function SearchBar() {
   const selectedLabels = [...selectedCategoryValues];
 
   const onSearch = () => {
+    if (!destinationCountry.trim()) {
+      setDestinationError(true);
+      return;
+    }
     applySearchBarSelection();
   };
+
+  useEffect(() => {
+    if (destinationCountry.trim()) setDestinationError(false);
+  }, [destinationCountry]);
 
   return (
     <div className="relative isolate z-[60] w-full max-w-6xl mx-auto px-4">
@@ -311,6 +320,8 @@ export default function SearchBar() {
             customClass="mb-0 text-black"
             buttonClass="h-[3rem] pl-10"
             noHayPaises={t("no_hay_paises")}
+            publishedOnly={true}
+            error={destinationError}
           />
         </div>
 
