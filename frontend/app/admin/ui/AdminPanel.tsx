@@ -377,7 +377,7 @@ function parseProviderLinks(raw: string): { website: string; socialLinks: Social
 }
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+  const res = await fetch(url, { cache: "no-store", ...init });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data?.ok === false) {
     if (res.status === 401 && typeof window !== "undefined") {
@@ -3267,10 +3267,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
   };
 
-  const activePublications = publications.filter((item) => item.status === "active");
   const activePublicationHistory = dashboardPublicationHistory.filter(
     (item) => !item.isDeleted && isActivePublicationLifecycle(item.status)
   );
+  const activePublications = activePublicationHistory;
   const monthlyActivePublications = activePublicationHistory.filter((item) => isCurrentMonthDate(item.createdAt)).length;
 
   const isPanelSection = section === "panel";

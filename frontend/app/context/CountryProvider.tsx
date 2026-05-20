@@ -26,12 +26,29 @@ export const CountryProvider = ({ children }: { children: React.ReactNode }) => 
   const [isOpenModalOferente, setIsOpenModalOferente] = useState(false);
   const [isOpenModalDemandante, setIsOpenModalDemandante] = useState(false);
 
+  const trackPassportVisit = (country: string, source: string) => {
+    const normalized = String(country || "").trim();
+    if (!normalized) return;
+    try {
+      const sessionKey = `tg_country_visit_logged:${normalized.toLowerCase()}`;
+      if (window.sessionStorage.getItem(sessionKey)) return;
+      window.sessionStorage.setItem(sessionKey, "1");
+    } catch {}
+    fetch("/api/passport-selections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ country: normalized, source }),
+      keepalive: true,
+    }).catch(() => null);
+  };
+
   // Load saved country (client-only)
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem("tg_country");
       if (saved) {
         _setSelectedCountry(saved);
+        trackPassportVisit(saved, "country-provider-hydration");
         setIsCountryHydrated(true);
         return;
       }
@@ -43,6 +60,7 @@ export const CountryProvider = ({ children }: { children: React.ReactNode }) => 
       const parsed = JSON.parse(legacy);
       if (typeof parsed === "string") {
         _setSelectedCountry(parsed);
+        trackPassportVisit(parsed, "country-provider-legacy");
         setIsCountryHydrated(true);
         return;
       }
@@ -55,7 +73,10 @@ export const CountryProvider = ({ children }: { children: React.ReactNode }) => 
         parsed?.spanishName ||
         parsed?.name?.common ||
         "";
-      if (value) _setSelectedCountry(String(value));
+      if (value) {
+        _setSelectedCountry(String(value));
+        trackPassportVisit(String(value), "country-provider-legacy");
+      }
     } catch {}
     setIsCountryHydrated(true);
   }, []);
@@ -67,12 +88,7 @@ export const CountryProvider = ({ children }: { children: React.ReactNode }) => 
       window.localStorage.setItem("tg_country", normalized);
     } catch {}
     if (!normalized || normalized === selectedCountry) return;
-    fetch("/api/passport-selections", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ country: normalized, source: "country-provider" }),
-      keepalive: true,
-    }).catch(() => null);
+    trackPassportVisit(normalized, "country-provider");
   };
 
   return (
