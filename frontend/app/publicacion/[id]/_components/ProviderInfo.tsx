@@ -99,7 +99,7 @@ export default function ProviderInfo({
 }: ProviderInfoProps) {
   const { t, locale } = useTranslation();
   const description = pickI18nText(value ?? null, locale, t("oferente_info_descripcion"));
-  const safeRating = Number.isFinite(Number(rating)) ? Number(rating) : null;
+  const safeRating = Number.isFinite(Number(rating)) && Number(rating) > 0 ? Number(rating) : null;
   const roundedRating = safeRating != null ? Math.round(safeRating * 2) / 2 : null;
   const stars = Array.from({ length: 5 }, (_, idx) => {
     if (roundedRating == null) return "empty";

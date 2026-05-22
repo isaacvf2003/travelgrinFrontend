@@ -1239,7 +1239,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     parentDraftId,
     taxonomyType: "inherit",
     isPublicVisible: true,
-    isPrimaryCategory: blockVisibleInCard,
+    isPrimaryCategory: false,
     iconImageUrl: "",
     cardImageUrl: "",
     nameI18n: { es: "", en: "", pt: "", it: "" },
@@ -1509,9 +1509,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 parentId: category.parentId ?? null,
                 blockId: category.blockId ?? savedBlockId,
                 isPublicVisible: category.isPublicVisible !== false,
-                isPrimaryCategory: blockVisibleInCard,
-                iconImageUrl: blockVisibleInCard ? (category.iconImageUrl ?? null) : null,
-                cardImageUrl: blockVisibleInCard ? (category.cardImageUrl ?? null) : null,
+                isPrimaryCategory: blockVisibleInCard ? Boolean(category.isPrimaryCategory) : false,
+                iconImageUrl: blockVisibleInCard && category.isPrimaryCategory ? (category.iconImageUrl ?? null) : null,
+                cardImageUrl: blockVisibleInCard && category.isPrimaryCategory ? (category.cardImageUrl ?? null) : null,
                 order: category.order ?? 0,
               }),
             })
@@ -4345,6 +4345,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   });
                   const isBlockOpen = expandedBlocks[block.id] ?? false;
                   const hasBlockContent = rootsInBlock.length > 0 || optionRoots.length > 0;
+                  const blockHasVisibleCardCategory = rootsInBlock.some((category) => {
+                    if (category.isPrimaryCategory) return true;
+                    return (childrenBy.get(category.id) ?? []).some((child) => child.isPrimaryCategory);
+                  });
                   return (
                     <div key={block.id} className="rounded-2xl border border-slate-100 bg-white">
                       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-3 py-3 sm:px-4">
@@ -4359,6 +4363,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           <span>
                             <p className="text-sm font-semibold text-slate-900">{pickI18nText(block.labelI18n ?? null, catLang, block.label)}</p>
                             <p className="text-xs text-slate-500">Tipo de filtro: {normalizeTaxonomyTypeAlias(block.taxonomyType ?? "categoria")}</p>{block.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Este bloque es invisible</p> : null}
+                            {blockHasVisibleCardCategory ? <p className="mt-1 text-xs font-semibold text-indigo-600">Visible en tarjeta</p> : null}
                           </span>
                         </button>
                         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -4791,11 +4796,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <input
                       type="checkbox"
                       checked={blockVisibleInCard}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setBlockVisibleInCard(checked);
-                        setBlockCategoryDrafts((prev) => prev.map((draft) => ({ ...draft, isPrimaryCategory: checked })));
-                      }}
+                      onChange={(e) => setBlockVisibleInCard(e.target.checked)}
                       className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
                     />
                     <span>Visible en la tarjeta (aplica al bloque completo)</span>

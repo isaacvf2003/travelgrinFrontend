@@ -401,7 +401,7 @@ export function PublicationCard({ item }: { item: Publication }) {
   return (
     <Link
       href={detailUrl}
-      className={`group relative block overflow-hidden rounded-[14px] border bg-white shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition hover:shadow-[0_14px_40px_rgba(0,0,0,0.08)] ${
+      className={`group relative block overflow-hidden rounded-[14px] border bg-white shadow-[0_14px_38px_rgba(15,23,42,0.12)] transition hover:shadow-[0_18px_46px_rgba(15,23,42,0.16)] md:shadow-[0_8px_30px_rgba(0,0,0,0.06)] md:hover:shadow-[0_14px_40px_rgba(0,0,0,0.08)] ${
         isPrestacion
           ? "border-[#2C7BE5]/25 bg-gradient-to-r from-[#EEF5FF] via-white to-white ring-1 ring-[#2C7BE5]/20"
           : "border-black/10"

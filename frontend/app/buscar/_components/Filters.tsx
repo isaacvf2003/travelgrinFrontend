@@ -431,7 +431,7 @@ export default function Filters({
 
 
   return (
-    <div className="flex flex-col rounded-2xl border border-black/10 bg-white shadow-[0_14px_50px_rgba(0,0,0,0.06)]">
+    <div className="flex max-h-[calc(100svh-7rem)] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_14px_50px_rgba(0,0,0,0.06)] lg:max-h-none">
       <div className="shrink-0 border-b border-[#D8E2E5] bg-white p-5 pb-4">
         <div className="flex items-start justify-between gap-3">
         <div>
@@ -467,7 +467,7 @@ export default function Filters({
         </button>
         </div>
       </div>
-      <div className="space-y-4 px-5 pb-5 pt-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-5 pt-4 overscroll-contain lg:overflow-visible">
       {isApplying ? (
         <div className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-[#00A9C6]">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />

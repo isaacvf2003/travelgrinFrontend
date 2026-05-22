@@ -121,6 +121,25 @@ function safeBuscarHref(returnTo?: string) {
   }
 }
 
+function normalizeContactHref(kind: string, rawHref: string) {
+  const raw = String(rawHref ?? "").trim();
+  if (!raw) return "#";
+  const normalizedKind = kind.toLowerCase();
+
+  if (normalizedKind === "email") {
+    return raw.includes("mailto:") ? raw : `mailto:${raw.replace(/^mailto:/i, "")}`;
+  }
+
+  if (normalizedKind === "whatsapp") {
+    if (/^https?:\/\//i.test(raw)) return raw;
+    const digits = raw.replace(/[^\d+]/g, "").replace(/^\+/, "");
+    return digits ? `https://wa.me/${digits}` : "#";
+  }
+
+  if (/^(https?:|mailto:|tel:)/i.test(raw)) return raw;
+  return `https://${raw.replace(/^\/+/, "")}`;
+}
+
 function searchParamsFromBuscarHref(href: string) {
   const query = href.includes("?") ? href.slice(href.indexOf("?") + 1).split("#")[0] : "";
   return new URLSearchParams(query);
@@ -480,10 +499,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
   };
   const detailedEntries = detailedLinks.map((entry: any) => {
     const label = entry.label || kindLabels[entry.kind] || "Enlace";
-    const href =
-      entry.kind === "email" && !entry.url.includes("mailto:")
-        ? `mailto:${entry.url}`
-        : entry.url;
+    const href = normalizeContactHref(entry.kind, entry.url);
     return {
       label,
       href,
@@ -493,35 +509,35 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
   const contactEntries = [
     ...detailedEntries,
     item.website
-      ? { label: "Web", href: item.website, icon: "web" }
+      ? { label: "Web", href: normalizeContactHref("web", item.website), icon: "web" }
       : null,
     socialLinks.linkedin
-      ? { label: "LinkedIn", href: socialLinks.linkedin, icon: "linkedin" }
+      ? { label: "LinkedIn", href: normalizeContactHref("linkedin", socialLinks.linkedin), icon: "linkedin" }
       : null,
     socialLinks.facebook
-      ? { label: "Facebook", href: socialLinks.facebook, icon: "facebook" }
+      ? { label: "Facebook", href: normalizeContactHref("facebook", socialLinks.facebook), icon: "facebook" }
       : null,
     socialLinks.instagram
-      ? { label: "Instagram", href: socialLinks.instagram, icon: "instagram" }
+      ? { label: "Instagram", href: normalizeContactHref("instagram", socialLinks.instagram), icon: "instagram" }
       : null,
     socialLinks.tiktok
-      ? { label: "TikTok", href: socialLinks.tiktok, icon: "tiktok" }
+      ? { label: "TikTok", href: normalizeContactHref("tiktok", socialLinks.tiktok), icon: "tiktok" }
       : null,
     socialLinks.youtube
-      ? { label: "YouTube", href: socialLinks.youtube, icon: "youtube" }
+      ? { label: "YouTube", href: normalizeContactHref("youtube", socialLinks.youtube), icon: "youtube" }
       : null,
     socialLinks.whatsapp
-      ? { label: "WhatsApp", href: socialLinks.whatsapp, icon: "whatsapp" }
+      ? { label: "WhatsApp", href: normalizeContactHref("whatsapp", socialLinks.whatsapp), icon: "whatsapp" }
       : null,
     socialLinks.email
       ? {
           label: "Email",
-          href: socialLinks.email.includes("mailto:") ? socialLinks.email : `mailto:${socialLinks.email}`,
+          href: normalizeContactHref("email", socialLinks.email),
           icon: "email",
         }
       : null,
     socialLinks.other
-      ? { label: "Enlace", href: socialLinks.other, icon: "other" }
+      ? { label: "Enlace", href: normalizeContactHref("other", socialLinks.other), icon: "other" }
       : null,
   ].filter(Boolean).filter((entry, index, arr) => {
     const key = `${entry.icon}|${entry.href}`.toLowerCase();

@@ -81,7 +81,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
     ? {
         report: "Report",
         suspicious: "Something seems off",
-        title: "Report publication",
+        title: "Thanks for notifying us",
         fullName: "Full name",
         fullNamePlaceholder: "Enter your full name",
         email: "Email",
@@ -97,7 +97,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
       ? {
           report: "Denunciar",
           suspicious: "Parece estranho",
-          title: "Denunciar publicacao",
+          title: "Obrigado por notificar",
           fullName: "Nome e sobrenome",
           fullNamePlaceholder: "Digite seu nome e sobrenome",
           email: "Email",
@@ -113,7 +113,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
         ? {
             report: "Segnala",
             suspicious: "Sembra strano",
-            title: "Segnala pubblicazione",
+            title: "Grazie per la segnalazione",
             fullName: "Nome e cognome",
             fullNamePlaceholder: "Inserisci nome e cognome",
             email: "Email",
@@ -128,7 +128,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
         : {
             report: "Denunciar",
             suspicious: "Se ve algo raro",
-            title: "Denunciar publicacion",
+            title: "Gracias por notificar",
             fullName: "Nombre y apellido",
             fullNamePlaceholder: "Ingresa tu nombre y apellido",
             email: "Email",
@@ -144,7 +144,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
   return (
     <>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <button type="button" onClick={() => setOpen(true)} className="rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
+        <button type="button" onClick={() => setOpen(true)} className="rounded-xl border border-red-600 bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
           {labels.report}
         </button>
         <button type="button" onClick={() => setOpen(true)} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50">

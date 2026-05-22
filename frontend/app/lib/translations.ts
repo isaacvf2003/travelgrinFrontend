@@ -7,7 +7,7 @@ export const translations = {
         continuar: "Continuar",
         este_dato_es: `Este dato es privado y está protegido. \n Podrás cambiarlo si deseas.`,
         no_hay_paises: "No se encontraron países",
-        preparando_proxima_aventura: "Preparando tu próxima aventura...",
+        preparando_proxima_aventura: "Preparando tu próximo destino...",
         // navbar
         publicarGratis: "Publicá gratis",
 
@@ -447,7 +447,7 @@ export const translations = {
         continuar: "Continue",
         este_dato_es: "This information is private and protected. \n You can change it later if you wish.",
         no_hay_paises: " No countries found",
-        preparando_proxima_aventura: "Preparing your next adventure...",
+        preparando_proxima_aventura: "Preparing your next destination...",
         // navbar
         publicarGratis: "Post for Free",
 
@@ -885,7 +885,7 @@ export const translations = {
         cuentanos_el_pais: "Conte-nos o país do seu passaporte para \n acompanhá-lo e personalizar sua experiência de viagem.", continuar: "Continuar",
         este_dato_es: "Esta informação é privada e está protegida. \n Você poderá alterá-la se desejar.",
         no_hay_paises: "Nenhum país encontrado",
-        preparando_proxima_aventura: "Preparando sua próxima aventura...",
+        preparando_proxima_aventura: "Preparando seu próximo destino...",
         // navbar
         publicarGratis: "Publique grátis",
 
@@ -1333,7 +1333,7 @@ export const translations = {
         cuentanos_el_pais: "Indica il paese del tuo passaporto per \n personalizzare la tua esperienza di viaggio.", continuar: "Continua",
         este_dato_es: "Queste informazioni sono private e protette. \n Potrai modificarle quando vuoi.",
         no_hay_paises: "Nessun paese trovato",
-        preparando_proxima_aventura: "Preparando la tua prossima avventura...",
+        preparando_proxima_aventura: "Preparando la tua prossima destinazione...",
         // navbar
         publicarGratis: "Pubblica gratis",
 

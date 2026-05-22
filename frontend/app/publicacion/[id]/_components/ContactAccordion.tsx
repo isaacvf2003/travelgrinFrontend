@@ -123,7 +123,7 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
               return (
                 <a
                   key={`${entry.label}-${entry.href}`}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/50 bg-white/95 px-3 py-2 text-sm font-semibold text-[#114B8D] transition hover:bg-white"
+                  className="relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl border border-white/50 bg-white/95 px-3 py-2 text-sm font-semibold text-[#114B8D] transition before:absolute before:inset-y-0 before:-left-1/2 before:w-1/3 before:-skew-x-12 before:bg-white/70 before:opacity-0 before:blur-sm before:transition-all before:duration-700 hover:bg-white hover:before:left-[120%] hover:before:opacity-100"
                   href={entry.href}
                   target="_blank"
                   rel="noreferrer"
