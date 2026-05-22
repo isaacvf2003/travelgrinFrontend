@@ -41,6 +41,39 @@ export default function SearchDestination() {
   const ALL_CATEGORIES_VALUE = "__all_categories__";
   const [selectedCategory, setSelectedCategory] = useState("");
   const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false);
+  const homeSearchLabelsByLocale: Record<string, {
+    allCategories: string;
+    noCategories: string;
+    categoryOrDestinationRequired: string;
+    categoriesFallback: string;
+  }> = {
+    es: {
+      allCategories: "Ver todas",
+      noCategories: "No hay categorías disponibles",
+      categoryOrDestinationRequired: "Elegí una categoría o un destino para continuar.",
+      categoriesFallback: "Categorías",
+    },
+    en: {
+      allCategories: "View all",
+      noCategories: "No categories available",
+      categoryOrDestinationRequired: "Choose a category or a destination to continue.",
+      categoriesFallback: "Categories",
+    },
+    pt: {
+      allCategories: "Ver todas",
+      noCategories: "Não há categorias disponíveis",
+      categoryOrDestinationRequired: "Escolha uma categoria ou um destino para continuar.",
+      categoriesFallback: "Categorias",
+    },
+    it: {
+      allCategories: "Vedi tutte",
+      noCategories: "Nessuna categoria disponibile",
+      categoryOrDestinationRequired: "Scegli una categoria o una destinazione per continuare.",
+      categoriesFallback: "Categorie",
+    },
+  };
+  const homeSearchLabels = homeSearchLabelsByLocale[locale] ?? homeSearchLabelsByLocale.es;
+  const categoriesFallbackLabel = homeSearchLabels.categoriesFallback;
 
   const [categoryBlocks, setCategoryBlocks] = useState<
     { id: string; label: string; imageUrl?: string | null; roots: CategoryLite[]; childrenBy: Map<string, CategoryLite[]> }[]
@@ -95,7 +128,7 @@ export default function SearchDestination() {
             });
             return {
               id: group.id,
-              label: pickI18nText(group.labelI18n ?? null, locale, group.label ?? "Categorías"),
+              label: pickI18nText(group.labelI18n ?? null, locale, group.label ?? categoriesFallbackLabel),
               imageUrl: group.imageUrl ?? null,
               roots,
               childrenBy,
@@ -118,8 +151,8 @@ export default function SearchDestination() {
             {
               id: fallbackGroup?.id ?? "__fallback__",
               label: fallbackGroup
-                ? pickI18nText(fallbackGroup.labelI18n ?? null, locale, fallbackGroup.label ?? "Categorías")
-                : "Categorías",
+                ? pickI18nText(fallbackGroup.labelI18n ?? null, locale, fallbackGroup.label ?? categoriesFallbackLabel)
+                : categoriesFallbackLabel,
               imageUrl: fallbackGroup?.imageUrl ?? null,
               roots,
               childrenBy,
@@ -134,7 +167,7 @@ export default function SearchDestination() {
     return () => {
       active = false;
     };
-  }, [locale]);
+  }, [categoriesFallbackLabel, locale]);
 
   const selectedCategoryValues = selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE ? [selectedCategory] : [];
   const isAllCategoriesSelected = selectedCategory === ALL_CATEGORIES_VALUE;
@@ -143,32 +176,36 @@ export default function SearchDestination() {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.description || "").localeCompare(b.description || ""));
 
   const handleSearch = () => {
-    if (!destinationCountry.trim()) {
+    const hasCategoryFilter = Boolean(selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE);
+    const hasDestinationFilter = Boolean(destinationCountry.trim());
+    if (!hasCategoryFilter && !hasDestinationFilter) {
       setDestinationError(true);
       return;
     }
-    fetch("/api/destination-searches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        destinationCountry: destinationCountry.trim(),
-        passportCountry: selectedCountry || "",
-        category: selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE ? selectedCategory : "",
-        source: "home-search",
-      }),
-      keepalive: true,
-    }).catch(() => null);
+    if (hasDestinationFilter) {
+      fetch("/api/destination-searches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destinationCountry: destinationCountry.trim(),
+          passportCountry: selectedCountry || "",
+          category: hasCategoryFilter ? selectedCategory : "",
+          source: "home-search",
+        }),
+        keepalive: true,
+      }).catch(() => null);
+    }
     const params = new URLSearchParams();
-    if (selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE) params.set("category", selectedCategory);
+    if (hasCategoryFilter) params.set("category", selectedCategory);
     if (selectedCountry) params.set("country", selectedCountry);
-    if (destinationCountry) params.set("destinationCountry", destinationCountry);
+    if (hasDestinationFilter) params.set("destinationCountry", destinationCountry.trim());
     params.set("page", "1");
     router.push(`/buscar?${params.toString()}`);
   };
 
   useEffect(() => {
-    if (destinationCountry.trim()) setDestinationError(false);
-  }, [destinationCountry]);
+    if (destinationCountry.trim() || (selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE)) setDestinationError(false);
+  }, [destinationCountry, selectedCategory]);
 
   useEffect(() => {
     if (!openCategoryDropdown) return;
@@ -190,7 +227,7 @@ export default function SearchDestination() {
       </h1>
 
       <div className="flex w-full flex-col lg:flex-row lg:space-x-2 space-y-4 lg:space-y-0 justify-center">
-        <div className="w-full shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg relative z-98">
+        <div className="w-full shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg relative z-[80]">
           <button
             type="button"
             onClick={() => setOpenCategoryDropdown((prev) => !prev)}
@@ -201,7 +238,7 @@ export default function SearchDestination() {
                 <Search className="h-5 w-5 text-black" />
                 <span className="truncate text-[14px] font-medium text-[#5A6473]">
                   {isAllCategoriesSelected
-                    ? "Ver todas"
+                    ? homeSearchLabels.allCategories
                     : selectedCategoryValues.length
                       ? pickI18nText(
                           principalCategories.find((category) => category.description === selectedCategory)?.descriptionI18n ?? null,
@@ -218,7 +255,7 @@ export default function SearchDestination() {
           {openCategoryDropdown ? (
             <div className="absolute left-0 right-0 z-30 mt-2 max-h-80 overflow-y-auto rounded-xl bg-white p-2 shadow-2xl">
               {!categoryBlocks.length ? (
-                <div className="px-3 py-2 text-sm text-gray-500">{t("no_hay_categorias_disponibles") || "No hay categorías disponibles"}</div>
+                <div className="px-3 py-2 text-sm text-gray-500">{t("no_hay_categorias_disponibles") || homeSearchLabels.noCategories}</div>
               ) : (
                 <div className="space-y-1">
                   <button
@@ -230,7 +267,7 @@ export default function SearchDestination() {
                     className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[14px] font-medium transition-colors ${isAllCategoriesSelected ? "bg-[#EAF9FB] text-[#14758B]" : "text-[#3A4559] hover:bg-[#EAF9FB] hover:text-[#14758B]"}`}
                   >
                     <Tag className={`h-4 w-4 ${isAllCategoriesSelected ? "text-[#14A7B8]" : "text-slate-400"}`} />
-                    <span className="flex-1">Ver todas</span>
+                    <span className="flex-1">{homeSearchLabels.allCategories}</span>
                     {isAllCategoriesSelected ? <Check className="h-4 w-4 text-[#14A7B8]" /> : null}
                   </button>
                   {principalCategories.map((category) => {
@@ -266,7 +303,7 @@ export default function SearchDestination() {
           style={{ backgroundColor: "#F6F6F6" }}
           className="rounded-lg w-full lg:w-[22rem] text-black relative h-[4rem] shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
         >
-          <div className="relative z-97">
+          <div className="relative z-[70]">
             <DestinationSelect
               destinationCountry={destinationCountry}
               setDestinationCountry={setDestinationCountry}
@@ -293,7 +330,7 @@ export default function SearchDestination() {
       </div>
 
       <p className="text-gray-600 text-center mt-[12px] text-[14px]">
-        {destinationError ? "Elegí un lugar de destino para continuar." : t("filtramos_para_ti")}
+        {destinationError ? homeSearchLabels.categoryOrDestinationRequired : t("filtramos_para_ti")}
       </p>
 
       {openCategoryDropdown ? (

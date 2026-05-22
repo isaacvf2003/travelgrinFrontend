@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import { Check, ChevronDown, Globe2, ImagePlus, Languages, Link as LinkIcon, MapPin, Tag, Upload, UserRound } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -53,7 +54,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_tipo_perfil: "Tipo de perfil",
     oferente_seleccionar_imagen: "Seleccionar imagen",
     oferente_ninguna_imagen: "Ninguna imagen seleccionada",
-    oferente_sede: "Sede",
+    oferente_sede: "Ubicación donde se cumple tu propuesta",
     oferente_pais_sede: "País de la sede principal",
     oferente_ciudad_sede: "Ciudad de la sede principal",
     oferente_url_maps: "URL de Google Maps",
@@ -94,7 +95,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Completá la descripción",
     oferente_toast_web: "Completá el sitio web",
     oferente_toast_terminos: "Debés aceptar términos y condiciones",
-    oferente_toast_sede: "Completá todos los campos de sede principal",
+    oferente_toast_sede: "Completá el país y la ciudad donde se cumple tu propuesta",
     oferente_toast_revision: "Tu publicación está en revisión",
     oferente_toast_imagen_valida: "Subí una imagen válida",
     oferente_toast_imagen_limite: "Podés subir hasta 5 imágenes. Te quedan {remaining}.",
@@ -130,7 +131,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_tipo_perfil: "Profile type",
     oferente_seleccionar_imagen: "Select image",
     oferente_ninguna_imagen: "No image selected",
-    oferente_sede: "Headquarters",
+    oferente_sede: "Location where your proposal takes place",
     oferente_pais_sede: "Main headquarters country",
     oferente_ciudad_sede: "Headquarter city",
     oferente_url_maps: "Google Maps URL",
@@ -171,7 +172,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Complete the description",
     oferente_toast_web: "Complete the website",
     oferente_toast_terminos: "You must accept terms and conditions",
-    oferente_toast_sede: "Complete all main headquarters fields",
+    oferente_toast_sede: "Complete the country and city where your proposal takes place",
     oferente_toast_revision: "Your publication is under review",
     oferente_toast_imagen_valida: "Upload a valid image",
     oferente_toast_imagen_limite: "You can upload up to 5 images. You have {remaining} left.",
@@ -207,7 +208,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_tipo_perfil: "Tipo de perfil",
     oferente_seleccionar_imagen: "Selecionar imagem",
     oferente_ninguna_imagen: "Nenhuma imagem selecionada",
-    oferente_sede: "Sede",
+    oferente_sede: "Local onde sua proposta acontece",
     oferente_pais_sede: "País da sede principal",
     oferente_ciudad_sede: "Cidade da sede principal",
     oferente_url_maps: "URL do Google Maps",
@@ -248,7 +249,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Complete a descrição",
     oferente_toast_web: "Complete o site",
     oferente_toast_terminos: "Você deve aceitar os termos e condições",
-    oferente_toast_sede: "Complete todos os campos da sede principal",
+    oferente_toast_sede: "Complete o país e a cidade onde sua proposta acontece",
     oferente_toast_revision: "Sua publicação está em revisão",
     oferente_toast_imagen_valida: "Carregue uma imagem válida",
     oferente_toast_imagen_limite: "Você pode carregar até 5 imagens. Restam {remaining}.",
@@ -284,7 +285,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_tipo_perfil: "Tipo di profilo",
     oferente_seleccionar_imagen: "Seleziona immagine",
     oferente_ninguna_imagen: "Nessuna immagine selezionata",
-    oferente_sede: "Sede",
+    oferente_sede: "Luogo in cui si svolge la tua proposta",
     oferente_pais_sede: "Paese della sede principale",
     oferente_ciudad_sede: "Città della sede principale",
     oferente_url_maps: "URL di Google Maps",
@@ -325,7 +326,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Completa la descrizione",
     oferente_toast_web: "Completa il sito web",
     oferente_toast_terminos: "Devi accettare termini e condizioni",
-    oferente_toast_sede: "Completa tutti i campi della sede principale",
+    oferente_toast_sede: "Completa il paese e la città in cui si svolge la tua proposta",
     oferente_toast_revision: "La tua pubblicazione è in revisione",
     oferente_toast_imagen_valida: "Carica un'immagine valida",
     oferente_toast_imagen_limite: "Puoi caricare fino a 5 immagini. Ne restano {remaining}.",
@@ -510,9 +511,9 @@ function PlanCard({
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className={`mt-3 rounded-xl px-4 py-2 text-sm font-bold shadow transition disabled:cursor-not-allowed disabled:opacity-60 ${isFeatured ? "bg-white text-[#102A6B] shadow-[0_0_26px_rgba(255,255,255,0.65)] hover:shadow-[0_0_36px_rgba(255,255,255,0.9)]" : "bg-[#273166] text-white hover:bg-[#1d2550]"}`}
+        className={`group relative mt-3 overflow-hidden rounded-xl px-4 py-2 text-sm font-bold shadow transition before:absolute before:inset-y-0 before:-left-1/2 before:w-1/2 before:skew-x-[-18deg] before:bg-white/35 before:opacity-0 before:transition-all before:duration-700 hover:before:left-[120%] hover:before:opacity-100 disabled:cursor-not-allowed disabled:opacity-60 ${isFeatured ? "bg-[#273166] text-white shadow-[0_0_26px_rgba(39,49,102,0.35)] hover:bg-[#1d2550] hover:shadow-[0_0_36px_rgba(39,49,102,0.45)]" : "bg-[#273166] text-white hover:bg-[#1d2550]"}`}
       >
-        {buttonLabel}
+        <span className="relative z-10">{buttonLabel}</span>
       </button>
     </div>
   );
@@ -742,7 +743,7 @@ export default function ModalOferente({ onClose }: Props) {
   };
 
   const validateFeatured = () => {
-    if (!primaryVenue.country.trim() || !primaryVenue.city.trim() || !primaryVenue.mapUrl.trim()) {
+    if (!primaryVenue.country.trim() || !primaryVenue.city.trim()) {
       toast.error(mt("oferente_toast_sede"));
       return false;
     }
@@ -951,7 +952,9 @@ export default function ModalOferente({ onClose }: Props) {
 
       <label className={`flex items-center gap-3 rounded-xl bg-white/80 p-3 text-sm shadow-sm ${isEmptyTerms ? "text-red-600 ring-1 ring-red-300" : "text-[#273166]"}`}>
         <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="h-4 w-4 rounded border-gray-300 accent-[#00A9C6]" />
-        <span>{mt("oferente_aceptar_terminos")}</span>
+        <Link href="/term-condicion" target="_blank" className="font-medium underline decoration-[#00A9C6]/50 underline-offset-4 hover:text-[#00A9C6]" onClick={(event) => event.stopPropagation()}>
+          {mt("oferente_aceptar_terminos")}
+        </Link>
       </label>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -1017,7 +1020,7 @@ export default function ModalOferente({ onClose }: Props) {
         <div className="mb-3 text-sm font-semibold text-[#273166]">{mt("oferente_sede")}</div>
         <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
           <div style={{ position: "relative", zIndex: 9999995 }}>
-            <label className="mb-1 block text-sm font-medium text-slate-700">{mt("oferente_sede")}</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{mt("oferente_pais_sede")}</label>
             <DestinationSelect
               destinationCountry={primaryVenue.country}
               setDestinationCountry={(country) => setPrimaryVenue((prev) => ({ ...prev, country }))}

@@ -197,7 +197,7 @@ export default function DestinationSelect({
       const dropdownHeight = 320;
 
       const spaceBelow = viewportHeight - rect.bottom;
-      const showAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+      const showAbove = window.innerWidth >= 768 && spaceBelow < dropdownHeight && rect.top > dropdownHeight;
 
       setPos({
         top: showAbove ? rect.top - dropdownHeight - 8 : rect.bottom + 8,

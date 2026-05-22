@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
-import { ChevronLeft, ChevronRight, Compass, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, Compass, Handshake, Languages, MapPin, Star } from "lucide-react";
 import { useCountry } from "@/app/context/CountryProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
@@ -25,6 +25,7 @@ type PublicationLite = {
   country?: string | null;
   price?: string | null;
   currency?: string | null;
+  languages?: string[] | string | null;
   featured?: boolean;
   images?: unknown;
   fields?: Record<string, unknown> | null;
@@ -95,6 +96,30 @@ function getCountryCode(country: unknown, catalog: Record<string, string> = {}) 
     if (COUNTRY_CODE_MAP[key]) return COUNTRY_CODE_MAP[key];
   }
   return "";
+}
+
+function shortLanguageCode(value: unknown) {
+  const normalized = normalizeKey(value);
+  if (!normalized) return "";
+  if (["es", "esp", "espanol", "spanish"].includes(normalized)) return "ES";
+  if (["en", "eng", "ingles", "english"].includes(normalized)) return "EN";
+  if (["pt", "por", "portugues", "portuguese"].includes(normalized)) return "PT";
+  if (["it", "ita", "italiano", "italian"].includes(normalized)) return "IT";
+  return String(value ?? "").trim().slice(0, 2).toUpperCase();
+}
+
+function resolveLanguageCodes(item: PublicationLite) {
+  const fields = (item.fields ?? {}) as Record<string, unknown>;
+  const raw = Array.isArray(item.languages)
+    ? item.languages
+    : item.languages
+      ? [item.languages]
+      : Array.isArray(fields.languages)
+        ? fields.languages
+        : fields.languages
+          ? [fields.languages]
+          : [];
+  return Array.from(new Set(raw.map(shortLanguageCode).filter(Boolean)));
 }
 
 function firstPrestacionImage(
@@ -191,6 +216,7 @@ function carouselWindow<T>(
 }
 
 function carouselWindowSize(cardsPerView: number) {
+  if (cardsPerView >= 3) return 5;
   if (cardsPerView >= 2) return 3;
   return 1;
 }
@@ -369,6 +395,14 @@ export default function FeaturedPublicationsSection() {
   }, [cardsPerView, list.length]);
 
   useEffect(() => {
+    if (!isInView || !showCarousel || listWithMore.length < 2) return;
+    const timer = window.setInterval(() => {
+      setCurrentSlide((prev) => positiveModulo(prev + 1, listWithMore.length));
+    }, 4500);
+    return () => window.clearInterval(timer);
+  }, [isInView, listWithMore.length, showCarousel]);
+
+  useEffect(() => {
     if (listWithMore.length)
       setCurrentSlide((prev) => positiveModulo(prev, listWithMore.length));
   }, [listWithMore.length]);
@@ -486,6 +520,14 @@ export default function FeaturedPublicationsSection() {
         positiveModulo(prev, prestacionesToShow.length),
       );
   }, [prestacionesToShow.length]);
+
+  useEffect(() => {
+    if (!isInView || !showPrestCarousel || prestacionesToShow.length < 2) return;
+    const timer = window.setInterval(() => {
+      setPrestacionesSlide((prev) => positiveModulo(prev + 1, prestacionesToShow.length));
+    }, 5200);
+    return () => window.clearInterval(timer);
+  }, [isInView, prestacionesToShow.length, showPrestCarousel]);
 
   const onPrestTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (!showPrestCarousel) return;
@@ -653,20 +695,14 @@ export default function FeaturedPublicationsSection() {
                     pub.subcategory,
                   )
                 : "";
-              const location = [
-                String(pub.city ?? "").trim(),
-                String(pub.country ?? "").trim(),
-              ]
-                .filter(Boolean)
-                .join(", ");
               const isPartner = Boolean(fields.partner);
-              const providerType = String(fields?.providerType ?? "").trim();
               const destination = Array.isArray(fields?.destinationCountries)
                 ? String(
                     (fields.destinationCountries as unknown[])[0] ?? "",
                   ).trim()
                 : "";
               const flagCountryCode = getCountryCode(destination || pub.country, countryCodeCatalog);
+              const languageCodes = resolveLanguageCodes(pub);
               const isPrestacion = pub.primaryGroupKey === "prestacion";
               const detailPath = isPrestacion
                 ? `/prestaciones/${pub.id}`
@@ -676,7 +712,7 @@ export default function FeaturedPublicationsSection() {
                   ? "max-w-[23rem] scale-100 border-[#0B8FA3]/50 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]"
                   : distanceFromCenter > 1
                     ? "max-w-[11rem] scale-90 border-slate-200 bg-slate-50 opacity-45 blur-[2px] grayscale shadow-sm hover:opacity-65 hover:blur-0"
-                    : "max-w-[16rem] scale-95 border-slate-200 bg-slate-50 opacity-60 blur-[1px] grayscale shadow-sm hover:opacity-75 hover:blur-0"
+                    : "max-w-[20rem] scale-100 border-[#0B8FA3]/25 opacity-100 shadow-[0_14px_36px_rgba(15,23,42,0.10)] hover:shadow-[0_18px_42px_rgba(11,143,163,0.16)]"
               }`;
               const featuredCardContent = (
                 <>
@@ -694,13 +730,13 @@ export default function FeaturedPublicationsSection() {
                   <div className="space-y-2 p-4">
                     <div className="flex flex-wrap gap-1">
                       {item.featured ? (
-                        <span className="rounded-full bg-[#00A9C6] px-2 py-0.5 text-[11px] font-semibold text-white">
-                          ★ Destacado
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#00A9C6] px-2 py-0.5 text-[11px] font-semibold text-white">
+                          <Star className="h-3 w-3 fill-current" /> Destacado
                         </span>
                       ) : null}
                       {isPartner ? (
-                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
-                          🤝 Partner
+                        <span className="inline-flex items-center gap-1 rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
+                          <Handshake className="h-3 w-3" /> Partner
                         </span>
                       ) : null}
                     </div>
@@ -714,15 +750,6 @@ export default function FeaturedPublicationsSection() {
                       {categoryLabel || subcategoryLabel || "-"}
                     </p>
                     <p className="flex items-center gap-1 text-sm text-slate-600">
-                      <MapPin className="h-4 w-4 text-[#0B8FA3]" />
-                      {location || destination || "-"}
-                    </p>
-                    {providerType ? (
-                      <p className="text-xs font-medium text-slate-500">
-                        Tipo: {providerType}
-                      </p>
-                    ) : null}
-                    <p className="flex items-center gap-1 text-sm text-slate-600">
                       {flagCountryCode ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -731,10 +758,20 @@ export default function FeaturedPublicationsSection() {
                           className="h-[12px] w-[16px] rounded-[2px] object-cover"
                         />
                       ) : (
-                        <span>📍</span>
+                        <MapPin className="h-4 w-4 text-[#0B8FA3]" />
                       )}
-                      {location || destination || "-"}
+                      {destination || pub.country || "-"}
                     </p>
+                    {languageCodes.length ? (
+                      <p className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
+                        <Languages className="h-3.5 w-3.5 text-[#0B8FA3]" />
+                        {languageCodes.map((code) => (
+                          <span key={code} className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                            {code}
+                          </span>
+                        ))}
+                      </p>
+                    ) : null}
                     <p className="text-sm font-semibold text-[#0B8FA3]">
                       {pub.price
                         ? `${pub.currency ? `${pub.currency} ` : ""}${pub.price}`
@@ -821,7 +858,10 @@ export default function FeaturedPublicationsSection() {
       {showPrestacionesSection ? (
         <section className="mt-12 rounded-[28px] border border-[#DDEAF5] bg-gradient-to-b from-[#F5F8FD] to-[#F8FAFC] p-4 shadow-[0_10px_30px_rgba(39,49,102,0.06)] md:p-8">
           <div className="text-center">
-            <h3 className="text-2xl font-bold text-[#273166]">
+            <h3 className="inline-flex items-center justify-center gap-2 text-2xl font-bold text-[#273166]">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#E4F5FB] text-[#0B8FA3] shadow-[0_10px_24px_rgba(11,143,163,0.14)]">
+                <Compass className="h-5 w-5" />
+              </span>
               {t("suma_prestaciones_plan_viaje")}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
@@ -919,6 +959,11 @@ export default function FeaturedPublicationsSection() {
                         locale,
                         item.category ?? "",
                       );
+                  const prestFields = (item.fields ?? {}) as Record<string, unknown>;
+                  const prestDestination = Array.isArray(prestFields.destinationCountries)
+                    ? String((prestFields.destinationCountries as unknown[])[0] ?? "").trim()
+                    : "";
+                  const prestFlagCountryCode = getCountryCode(prestDestination || item.country, countryCodeCatalog);
                   const prestacionCardClass = `group w-full shrink-0 overflow-hidden rounded-2xl border bg-white text-left transition-all duration-500 ease-out hover:-translate-y-0.5 ${sideClass} ${
                     isFocused
                       ? "max-w-[22rem] scale-100 border-[#0B8FA3]/45 opacity-100 shadow-[0_18px_45px_rgba(11,143,163,0.16)]"
@@ -944,6 +989,17 @@ export default function FeaturedPublicationsSection() {
                         </h4>
                         <p className="line-clamp-1 text-sm text-slate-500">
                           {desc || t("prestacion_disponible")}
+                        </p>
+                        <p className="flex items-center gap-1 text-sm text-slate-600">
+                          {prestFlagCountryCode ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={`https://flagcdn.com/20x15/${prestFlagCountryCode.toLowerCase()}.png`}
+                              alt={prestDestination || item.country || "flag"}
+                              className="h-[12px] w-[16px] rounded-[2px] object-cover"
+                            />
+                          ) : null}
+                          {prestDestination || item.country || "-"}
                         </p>
                         <span
                           className={`inline-flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold ${isFocused ? "bg-[#EAF9FB] text-[#0B6B7A]" : "bg-slate-200 text-slate-600"}`}

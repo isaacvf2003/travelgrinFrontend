@@ -23,10 +23,11 @@ const CountrySelectionModal = ({
   const [countries, setCountries] = useState([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [countryError, setCountryError] = useState(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const isClient = useIsClient();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const searchInputRef = useRef(null);
   const modalRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -259,6 +260,10 @@ const CountrySelectionModal = ({
   };
 
   const handleContinue = () => {
+    if (!selectedCountry) {
+      setCountryError(true);
+      return;
+    }
     closeAndSave();
   };
 
@@ -266,6 +271,7 @@ const CountrySelectionModal = ({
     const label = country.spanishName || country.name?.common || "";
     if (!label) return;
     setSelectedCountry(label);
+    setCountryError(false);
     setIsDropdownOpen(false);
     setSearchTerm("");
     setInputFocused(false);
@@ -308,6 +314,43 @@ const CountrySelectionModal = ({
   };
 
   if (!isOpen) return null;
+  const modalLabelsByLocale: Record<string, {
+    skip: string;
+    selectCountry: string;
+    searchCountry: string;
+    noCountries: string;
+    countryRequired: string;
+  }> = {
+    es: {
+      skip: "Omitir por ahora",
+      selectCountry: "Selecciona un país",
+      searchCountry: "Buscar país...",
+      noCountries: "No se encontraron países",
+      countryRequired: "Elegí tu país de pasaporte para continuar.",
+    },
+    en: {
+      skip: "Skip for now",
+      selectCountry: "Select a country",
+      searchCountry: "Search country...",
+      noCountries: "No countries found",
+      countryRequired: "Choose your passport country to continue.",
+    },
+    pt: {
+      skip: "Pular por agora",
+      selectCountry: "Selecione um país",
+      searchCountry: "Buscar país...",
+      noCountries: "Nenhum país encontrado",
+      countryRequired: "Escolha o país do seu passaporte para continuar.",
+    },
+    it: {
+      skip: "Salta per ora",
+      selectCountry: "Seleziona un paese",
+      searchCountry: "Cerca paese...",
+      noCountries: "Nessun paese trovato",
+      countryRequired: "Scegli il paese del tuo passaporto per continuare.",
+    },
+  };
+  const modalLabels = modalLabelsByLocale[locale] ?? modalLabelsByLocale.es;
 
   return (
     <div
@@ -355,11 +398,11 @@ const CountrySelectionModal = ({
         }}
       >
         {/* Logo y título */}
-        <div className="mb-4 flex items-center justify-between">
-          <button type="button" onClick={closeAndSave} className="rounded-full border border-[#00A9C6]/30 bg-[#00A9C6]/10 px-4 py-1.5 text-sm font-semibold text-[#0B5E6B] hover:bg-[#00A9C6]/20">Omitir por ahora</button>
-          <div className="flex flex-row justify-end">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-row justify-start">
             <SelectCountry isBorderBlack={true} isWelcome />
           </div>
+          <button type="button" onClick={closeAndSave} className="rounded-full border border-[#00A9C6]/30 bg-[#00A9C6]/10 px-4 py-1.5 text-sm font-semibold text-[#0B5E6B] hover:bg-[#00A9C6]/20">{modalLabels.skip}</button>
         </div>
         <div className="text-center mb-8">
           <div className="mb-6 flex justify-center">
@@ -425,7 +468,7 @@ const CountrySelectionModal = ({
                   textRendering: "optimizeLegibility",
                 }}
               >
-                {selectedCountry || "Selecciona un país"}
+                {selectedCountry || modalLabels.selectCountry}
               </span>
             </div>
             <ChevronDown
@@ -475,7 +518,7 @@ const CountrySelectionModal = ({
                 <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder="Buscar país..."
+                  placeholder={modalLabels.searchCountry}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onFocus={handleInputFocus}
@@ -593,12 +636,13 @@ const CountrySelectionModal = ({
                       textRendering: "optimizeLegibility",
                     }}
                   >
-                    No se encontraron países
+                    {modalLabels.noCountries}
                   </div>
                 )}
               </div>
             </div>
           )}
+          {countryError ? <p className="mt-2 text-sm font-medium text-red-600">{modalLabels.countryRequired}</p> : null}
         </div>
 
 
