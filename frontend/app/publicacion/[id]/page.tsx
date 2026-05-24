@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PublicationGallery from "./_components/PublicationGallery";
 
 import NavBar from "@/components/NavBar";
@@ -230,6 +231,28 @@ function getDetailCountryCode(country: string) {
     if (DETAIL_COUNTRY_CODE_MAP[key]) return DETAIL_COUNTRY_CODE_MAP[key];
   }
   return "";
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await Promise.resolve(params);
+  const resolvedId = extractPublicationIdFromParam(id);
+
+  try {
+    const base = await getBaseUrl();
+    const res = await fetch(`${base}/api/publications/${resolvedId}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return { title: "TravelGrin" };
+
+    const payload = (await res.json()) as { item?: Publication } | Publication;
+    const item = ("item" in payload ? payload.item : payload) as Publication;
+    const locale = (item.contentLanguage ?? "es") as Parameters<typeof pickI18nText>[1];
+    const title = pickI18nText(item.titleI18n ?? null, locale, item.title).trim();
+
+    return { title: title ? `${title} | TravelGrin` : "TravelGrin" };
+  } catch {
+    return { title: "TravelGrin" };
+  }
 }
 
 export default async function PublicacionDetalle({ params, searchParams }: PageProps) {

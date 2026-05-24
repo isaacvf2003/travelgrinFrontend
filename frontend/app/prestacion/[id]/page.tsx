@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
 import NavBar from "@/components/NavBar";
@@ -99,6 +100,28 @@ function resolveBackHref(rawValue: string | string[] | undefined) {
   if (!safeValue.startsWith("/")) return "/buscar";
   if (safeValue.startsWith("//")) return "/buscar";
   return safeValue;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await Promise.resolve(params);
+
+  try {
+    const base = await getBaseUrl();
+    const item = await fetchPublication(base, id);
+    if (!item) return { title: "TravelGrin" };
+
+    const fields = (item.fields ?? {}) as Record<string, unknown>;
+    const locale = (item.contentLanguage ?? "es") as Locale;
+    const title = pickI18nText(
+      (fields.prestationHeroTitleI18n as I18nRecord | null) ?? item.titleI18n,
+      locale,
+      asText(fields.prestationHeroTitle) || item.title
+    ).trim();
+
+    return { title: title ? `${title} | TravelGrin` : "TravelGrin" };
+  } catch {
+    return { title: "TravelGrin" };
+  }
 }
 
 export default async function PrestacionDetalle({ params, searchParams }: PageProps) {
