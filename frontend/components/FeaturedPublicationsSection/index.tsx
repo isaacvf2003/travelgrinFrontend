@@ -221,13 +221,18 @@ function carouselWindowSize(cardsPerView: number) {
   return 1;
 }
 
-function carouselDepthClass(isSideCard: boolean, position: number, centerOffset: number) {
+function carouselDepthClass(
+  isSideCard: boolean,
+  position: number,
+  centerOffset: number,
+  focusedPosition = centerOffset,
+) {
   if (isSideCard) {
     return position < centerOffset
       ? "relative z-0 -translate-x-3"
       : "relative z-0 translate-x-3";
   }
-  return position === centerOffset ? "relative z-20" : "relative z-10";
+  return position === focusedPosition ? "relative z-20" : "relative z-10";
 }
 
 export default function FeaturedPublicationsSection() {
@@ -236,7 +241,9 @@ export default function FeaturedPublicationsSection() {
   const cardsPerView = useCardsPerView();
   const [items, setItems] = useState<PublicationLite[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [featuredFocusOffset, setFeaturedFocusOffset] = useState<0 | 1>(0);
   const [prestacionesSlide, setPrestacionesSlide] = useState(0);
+  const [prestacionesFocusOffset, setPrestacionesFocusOffset] = useState<0 | 1>(0);
   const [prestTouchStartX, setPrestTouchStartX] = useState<number | null>(null);
   const [prestTouchEndX, setPrestTouchEndX] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -400,18 +407,67 @@ export default function FeaturedPublicationsSection() {
     featuredVisibleCount,
   );
   const showCarousel = listWithMore.length > 1;
+  const featuredPairMode = featuredWindowItems.length >= 4;
+  const featuredFocusedIndex = positiveModulo(
+    featuredActiveIndex + (featuredPairMode ? featuredFocusOffset : 0),
+    listWithMore.length,
+  );
+
+  const moveFeaturedCarousel = (direction: 1 | -1) => {
+    if (!showCarousel || !listWithMore.length) return;
+
+    if (!featuredPairMode) {
+      setCurrentSlide((prev) => positiveModulo(prev + direction, listWithMore.length));
+      setFeaturedFocusOffset(0);
+      return;
+    }
+
+    if (direction > 0) {
+      if (featuredFocusOffset === 0) {
+        setFeaturedFocusOffset(1);
+        return;
+      }
+      setFeaturedFocusOffset(0);
+      setCurrentSlide((prev) => positiveModulo(prev + 2, listWithMore.length));
+      return;
+    }
+
+    if (featuredFocusOffset === 1) {
+      setFeaturedFocusOffset(0);
+      return;
+    }
+    setFeaturedFocusOffset(1);
+    setCurrentSlide((prev) => positiveModulo(prev - 2, listWithMore.length));
+  };
+
+  const focusFeaturedSource = (sourceIndex: number) => {
+    if (featuredPairMode && sourceIndex === positiveModulo(featuredActiveIndex + 1, listWithMore.length)) {
+      setFeaturedFocusOffset(1);
+      return;
+    }
+    setFeaturedFocusOffset(0);
+    setCurrentSlide(sourceIndex);
+  };
 
   useEffect(() => {
     setCurrentSlide(0);
+    setFeaturedFocusOffset(0);
   }, [cardsPerView, list.length]);
 
   useEffect(() => {
     if (!isInView || isFeaturedPaused || !showCarousel || listWithMore.length < 2) return;
     const timer = window.setInterval(() => {
-      setCurrentSlide((prev) => positiveModulo(prev + 1, listWithMore.length));
+      if (featuredPairMode && featuredFocusOffset === 0) {
+        setFeaturedFocusOffset(1);
+      } else if (featuredPairMode) {
+        setFeaturedFocusOffset(0);
+        setCurrentSlide((prev) => positiveModulo(prev + 2, listWithMore.length));
+      } else {
+        setCurrentSlide((prev) => positiveModulo(prev + 1, listWithMore.length));
+      }
     }, 4500);
     return () => window.clearInterval(timer);
-  }, [isFeaturedPaused, isInView, listWithMore.length, showCarousel]);
+  }, [featuredFocusOffset, featuredPairMode, isFeaturedPaused, isInView, listWithMore.length, showCarousel]);
 
   useEffect(() => {
     if (listWithMore.length)
@@ -437,10 +493,8 @@ export default function FeaturedPublicationsSection() {
     }
     const deltaX = touchStartX - touchEndX;
     const minSwipe = 45;
-    if (deltaX > minSwipe)
-      setCurrentSlide((prev) => positiveModulo(prev + 1, listWithMore.length));
-    if (deltaX < -minSwipe)
-      setCurrentSlide((prev) => positiveModulo(prev - 1, listWithMore.length));
+    if (deltaX > minSwipe) moveFeaturedCarousel(1);
+    if (deltaX < -minSwipe) moveFeaturedCarousel(-1);
     setTouchStartX(null);
     setTouchEndX(null);
     setIsFeaturedPaused(false);
@@ -525,9 +579,62 @@ export default function FeaturedPublicationsSection() {
     prestVisibleCount,
   );
   const showPrestCarousel = prestacionesToShow.length > 1;
+  const prestPairMode = prestWindowItems.length >= 4;
+  const prestFocusedIndex = prestacionesToShow.length
+    ? positiveModulo(
+        safePrestSlide + (prestPairMode ? prestacionesFocusOffset : 0),
+        prestacionesToShow.length,
+      )
+    : 0;
+
+  const movePrestacionesCarousel = (direction: 1 | -1) => {
+    if (!showPrestCarousel || !prestacionesToShow.length) return;
+
+    if (!prestPairMode) {
+      setPrestacionesSlide((prev) =>
+        positiveModulo(prev + direction, prestacionesToShow.length),
+      );
+      setPrestacionesFocusOffset(0);
+      return;
+    }
+
+    if (direction > 0) {
+      if (prestacionesFocusOffset === 0) {
+        setPrestacionesFocusOffset(1);
+        return;
+      }
+      setPrestacionesFocusOffset(0);
+      setPrestacionesSlide((prev) =>
+        positiveModulo(prev + 2, prestacionesToShow.length),
+      );
+      return;
+    }
+
+    if (prestacionesFocusOffset === 1) {
+      setPrestacionesFocusOffset(0);
+      return;
+    }
+    setPrestacionesFocusOffset(1);
+    setPrestacionesSlide((prev) =>
+      positiveModulo(prev - 2, prestacionesToShow.length),
+    );
+  };
+
+  const focusPrestSource = (sourceIndex: number) => {
+    if (
+      prestPairMode &&
+      sourceIndex === positiveModulo(safePrestSlide + 1, prestacionesToShow.length)
+    ) {
+      setPrestacionesFocusOffset(1);
+      return;
+    }
+    setPrestacionesFocusOffset(0);
+    setPrestacionesSlide(sourceIndex);
+  };
 
   useEffect(() => {
     setPrestacionesSlide(0);
+    setPrestacionesFocusOffset(0);
   }, [selectedPrestCategory, cardsPerView, prestacionesToShow.length]);
 
   useEffect(() => {
@@ -540,10 +647,24 @@ export default function FeaturedPublicationsSection() {
   useEffect(() => {
     if (isPrestacionesPaused || !isInView || !showPrestCarousel || prestacionesToShow.length < 2) return;
     const timer = window.setInterval(() => {
-      setPrestacionesSlide((prev) => positiveModulo(prev + 1, prestacionesToShow.length));
+      if (prestPairMode && prestacionesFocusOffset === 0) {
+        setPrestacionesFocusOffset(1);
+      } else if (prestPairMode) {
+        setPrestacionesFocusOffset(0);
+        setPrestacionesSlide((prev) => positiveModulo(prev + 2, prestacionesToShow.length));
+      } else {
+        setPrestacionesSlide((prev) => positiveModulo(prev + 1, prestacionesToShow.length));
+      }
     }, 5200);
     return () => window.clearInterval(timer);
-  }, [isInView, isPrestacionesPaused, prestacionesToShow.length, showPrestCarousel]);
+  }, [
+    isInView,
+    isPrestacionesPaused,
+    prestPairMode,
+    prestacionesFocusOffset,
+    prestacionesToShow.length,
+    showPrestCarousel,
+  ]);
 
   const onPrestTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (!showPrestCarousel) return;
@@ -567,14 +688,8 @@ export default function FeaturedPublicationsSection() {
       return;
     }
     const deltaX = prestTouchStartX - prestTouchEndX;
-    if (deltaX > 45)
-      setPrestacionesSlide((prev) =>
-        positiveModulo(prev + 1, prestacionesToShow.length),
-      );
-    if (deltaX < -45)
-      setPrestacionesSlide((prev) =>
-        positiveModulo(prev - 1, prestacionesToShow.length),
-      );
+    if (deltaX > 45) movePrestacionesCarousel(1);
+    if (deltaX < -45) movePrestacionesCarousel(-1);
     setPrestTouchStartX(null);
     setPrestTouchEndX(null);
     setIsPrestacionesPaused(false);
@@ -642,7 +757,9 @@ export default function FeaturedPublicationsSection() {
         <div className="flex items-stretch justify-center gap-3 overflow-hidden px-8 py-3 md:gap-4 md:px-12">
           {featuredWindowItems.map(
             ({ entry: item, sourceIndex, position, centerOffset }) => {
-              const isFocused = position === centerOffset;
+              const isFocused =
+                position ===
+                (featuredPairMode ? centerOffset + featuredFocusOffset : centerOffset);
               const distanceFromCenter = Math.abs(position - centerOffset);
               const isSideCard =
                 featuredWindowItems.length >= 4
@@ -655,7 +772,12 @@ export default function FeaturedPublicationsSection() {
                     ? "hidden md:block"
                     : "";
               if (item.id === "__more__") {
-                const cardDepthClass = carouselDepthClass(isSideCard, position, centerOffset);
+                const cardDepthClass = carouselDepthClass(
+                  isSideCard,
+                  position,
+                  centerOffset,
+                  featuredPairMode ? centerOffset + featuredFocusOffset : centerOffset,
+                );
                 const moreCardClass = `group w-full shrink-0 transform-gpu overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${cardDepthClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.35),0_24px_60px_rgba(11,143,163,0.24)]" : isSideCard ? "max-w-[11rem] scale-90 opacity-35 blur-[2px] grayscale hover:opacity-55 hover:blur-[1px]" : "max-w-[23rem] scale-100 opacity-95 shadow-[0_14px_36px_rgba(15,23,42,0.10)]"}`;
                 const moreCardContent = (
                   <>
@@ -687,7 +809,7 @@ export default function FeaturedPublicationsSection() {
                     onClick={(event) => {
                       if (!isFocused) {
                         event.preventDefault();
-                        setCurrentSlide(sourceIndex);
+                        focusFeaturedSource(sourceIndex);
                       }
                     }}
                     className={moreCardClass}
@@ -734,7 +856,12 @@ export default function FeaturedPublicationsSection() {
               const detailPath = isPrestacion
                 ? `/prestaciones/${pub.id}`
                 : `/publicacion/${pub.id}`;
-              const cardDepthClass = carouselDepthClass(isSideCard, position, centerOffset);
+              const cardDepthClass = carouselDepthClass(
+                isSideCard,
+                position,
+                centerOffset,
+                featuredPairMode ? centerOffset + featuredFocusOffset : centerOffset,
+              );
               const featuredCardClass = `group w-full shrink-0 transform-gpu overflow-hidden rounded-3xl border bg-white text-left transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-0.5 ${sideClass} ${cardDepthClass} ${
                 isFocused
                   ? "max-w-[23rem] scale-100 border-[#0B8FA3]/70 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.30),0_24px_60px_rgba(11,143,163,0.24)]"
@@ -822,7 +949,7 @@ export default function FeaturedPublicationsSection() {
                   onClick={(event) => {
                     if (!isFocused) {
                       event.preventDefault();
-                      setCurrentSlide(sourceIndex);
+                      focusFeaturedSource(sourceIndex);
                     }
                   }}
                   className={featuredCardClass}
@@ -839,11 +966,7 @@ export default function FeaturedPublicationsSection() {
             <button
               type="button"
               aria-label="Anterior"
-              onClick={() =>
-                setCurrentSlide((prev) =>
-                  positiveModulo(prev - 1, listWithMore.length),
-                )
-              }
+              onClick={() => moveFeaturedCarousel(-1)}
               className="absolute left-1 top-1/2 z-10 flex -translate-y-1/2 rounded-full bg-white p-2 shadow transition hover:scale-105 md:-left-4"
             >
               <ChevronLeft className="h-5 w-5 text-slate-600" />
@@ -851,11 +974,7 @@ export default function FeaturedPublicationsSection() {
             <button
               type="button"
               aria-label="Siguiente"
-              onClick={() =>
-                setCurrentSlide((prev) =>
-                  positiveModulo(prev + 1, listWithMore.length),
-                )
-              }
+              onClick={() => moveFeaturedCarousel(1)}
               className="absolute right-1 top-1/2 z-10 flex -translate-y-1/2 rounded-full bg-white p-2 shadow transition hover:scale-105 md:-right-4"
             >
               <ChevronRight className="h-5 w-5 text-slate-600" />
@@ -866,8 +985,11 @@ export default function FeaturedPublicationsSection() {
                   key={idx}
                   type="button"
                   aria-label={`Ir a página ${idx + 1}`}
-                  onClick={() => setCurrentSlide(idx)}
-                  className={`h-2.5 w-2.5 rounded-full ${featuredActiveIndex === idx ? "bg-[#0B8FA3]" : "bg-slate-300"}`}
+                  onClick={() => {
+                    setCurrentSlide(idx);
+                    setFeaturedFocusOffset(0);
+                  }}
+                  className={`h-2.5 w-2.5 rounded-full ${featuredFocusedIndex === idx ? "bg-[#0B8FA3]" : "bg-slate-300"}`}
                 />
               ))}
             </div>
@@ -965,7 +1087,11 @@ export default function FeaturedPublicationsSection() {
             <div className="relative flex items-stretch justify-center gap-3 overflow-hidden px-8 py-3 md:gap-4 md:px-12">
               {prestWindowItems.map(
                 ({ entry: item, sourceIndex, position, centerOffset }) => {
-                  const isFocused = position === centerOffset;
+                  const isFocused =
+                    position ===
+                    (prestPairMode
+                      ? centerOffset + prestacionesFocusOffset
+                      : centerOffset);
                   const distanceFromCenter = Math.abs(position - centerOffset);
                   const isSideCard =
                     prestWindowItems.length >= 4
@@ -998,7 +1124,14 @@ export default function FeaturedPublicationsSection() {
                     ? String((prestFields.destinationCountries as unknown[])[0] ?? "").trim()
                     : "";
                   const prestFlagCountryCode = getCountryCode(prestDestination || item.country, countryCodeCatalog);
-                  const cardDepthClass = carouselDepthClass(isSideCard, position, centerOffset);
+                  const cardDepthClass = carouselDepthClass(
+                    isSideCard,
+                    position,
+                    centerOffset,
+                    prestPairMode
+                      ? centerOffset + prestacionesFocusOffset
+                      : centerOffset,
+                  );
                   const prestacionCardClass = `group w-full shrink-0 transform-gpu overflow-hidden rounded-2xl border bg-white text-left transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-0.5 ${sideClass} ${cardDepthClass} ${
                     isFocused
                       ? "max-w-[22rem] scale-100 border-[#0B8FA3]/70 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.25),0_20px_52px_rgba(11,143,163,0.20)]"
@@ -1051,7 +1184,7 @@ export default function FeaturedPublicationsSection() {
                       onClick={(event) => {
                         if (!isFocused) {
                           event.preventDefault();
-                          setPrestacionesSlide(sourceIndex);
+                          focusPrestSource(sourceIndex);
                         }
                       }}
                       className={prestacionCardClass}
@@ -1067,11 +1200,7 @@ export default function FeaturedPublicationsSection() {
                 <button
                   type="button"
                   aria-label="Prestación anterior"
-                  onClick={() =>
-                    setPrestacionesSlide((prev) =>
-                      positiveModulo(prev - 1, prestacionesToShow.length),
-                    )
-                  }
+                  onClick={() => movePrestacionesCarousel(-1)}
                   className="absolute left-1 top-1/2 z-10 flex -translate-y-1/2 rounded-full bg-white p-2 shadow transition hover:scale-105 md:left-4"
                 >
                   <ChevronLeft className="h-5 w-5 text-slate-600" />
@@ -1079,11 +1208,7 @@ export default function FeaturedPublicationsSection() {
                 <button
                   type="button"
                   aria-label="Prestación siguiente"
-                  onClick={() =>
-                    setPrestacionesSlide((prev) =>
-                      positiveModulo(prev + 1, prestacionesToShow.length),
-                    )
-                  }
+                  onClick={() => movePrestacionesCarousel(1)}
                   className="absolute right-1 top-1/2 z-10 flex -translate-y-1/2 rounded-full bg-white p-2 shadow transition hover:scale-105 md:right-4"
                 >
                   <ChevronRight className="h-5 w-5 text-slate-600" />
@@ -1094,8 +1219,11 @@ export default function FeaturedPublicationsSection() {
                       key={`prest-dot-${idx}`}
                       type="button"
                       aria-label={`Prestaciones página ${idx + 1}`}
-                      onClick={() => setPrestacionesSlide(idx)}
-                      className={`h-2.5 w-2.5 rounded-full ${safePrestSlide === idx ? "bg-[#0B8FA3]" : "bg-slate-300"}`}
+                      onClick={() => {
+                        setPrestacionesSlide(idx);
+                        setPrestacionesFocusOffset(0);
+                      }}
+                      className={`h-2.5 w-2.5 rounded-full ${prestFocusedIndex === idx ? "bg-[#0B8FA3]" : "bg-slate-300"}`}
                     />
                   ))}
                 </div>
