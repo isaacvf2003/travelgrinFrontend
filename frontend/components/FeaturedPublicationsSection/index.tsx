@@ -205,7 +205,7 @@ function carouselWindow<T>(
 ) {
   if (!entries.length) return [];
   const windowSize = Math.min(entries.length, Math.max(1, requestedSize));
-  const centerOffset = Math.floor(windowSize / 2);
+  const centerOffset = windowSize >= 4 ? 1 : Math.floor(windowSize / 2);
   return Array.from({ length: windowSize }, (_, position) => {
     const sourceIndex = positiveModulo(
       activeIndex + position - centerOffset,
@@ -216,7 +216,7 @@ function carouselWindow<T>(
 }
 
 function carouselWindowSize(cardsPerView: number) {
-  if (cardsPerView >= 3) return 5;
+  if (cardsPerView >= 3) return 4;
   if (cardsPerView >= 2) return 3;
   return 1;
 }
@@ -234,6 +234,8 @@ export default function FeaturedPublicationsSection() {
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInView, setIsInView] = useState(false);
+  const [isFeaturedPaused, setIsFeaturedPaused] = useState(false);
+  const [isPrestacionesPaused, setIsPrestacionesPaused] = useState(false);
   const [prestacionCategories, setPrestacionCategories] = useState<
     PrestCategoryLite[]
   >([]);
@@ -395,12 +397,12 @@ export default function FeaturedPublicationsSection() {
   }, [cardsPerView, list.length]);
 
   useEffect(() => {
-    if (!isInView || !showCarousel || listWithMore.length < 2) return;
+    if (!isInView || isFeaturedPaused || !showCarousel || listWithMore.length < 2) return;
     const timer = window.setInterval(() => {
       setCurrentSlide((prev) => positiveModulo(prev + 1, listWithMore.length));
     }, 4500);
     return () => window.clearInterval(timer);
-  }, [isInView, listWithMore.length, showCarousel]);
+  }, [isFeaturedPaused, isInView, listWithMore.length, showCarousel]);
 
   useEffect(() => {
     if (listWithMore.length)
@@ -409,6 +411,7 @@ export default function FeaturedPublicationsSection() {
 
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (!showCarousel) return;
+    setIsFeaturedPaused(true);
     setTouchEndX(null);
     setTouchStartX(event.changedTouches[0]?.clientX ?? null);
   };
@@ -419,7 +422,10 @@ export default function FeaturedPublicationsSection() {
   };
 
   const onTouchEnd = () => {
-    if (!showCarousel || touchStartX == null || touchEndX == null) return;
+    if (!showCarousel || touchStartX == null || touchEndX == null) {
+      setIsFeaturedPaused(false);
+      return;
+    }
     const deltaX = touchStartX - touchEndX;
     const minSwipe = 45;
     if (deltaX > minSwipe)
@@ -428,6 +434,7 @@ export default function FeaturedPublicationsSection() {
       setCurrentSlide((prev) => positiveModulo(prev - 1, listWithMore.length));
     setTouchStartX(null);
     setTouchEndX(null);
+    setIsFeaturedPaused(false);
   };
 
   const filteredPrestaciones = prestacionItems.filter((item) => {
@@ -522,15 +529,16 @@ export default function FeaturedPublicationsSection() {
   }, [prestacionesToShow.length]);
 
   useEffect(() => {
-    if (!isInView || !showPrestCarousel || prestacionesToShow.length < 2) return;
+    if (isPrestacionesPaused || !isInView || !showPrestCarousel || prestacionesToShow.length < 2) return;
     const timer = window.setInterval(() => {
       setPrestacionesSlide((prev) => positiveModulo(prev + 1, prestacionesToShow.length));
     }, 5200);
     return () => window.clearInterval(timer);
-  }, [isInView, prestacionesToShow.length, showPrestCarousel]);
+  }, [isInView, isPrestacionesPaused, prestacionesToShow.length, showPrestCarousel]);
 
   const onPrestTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (!showPrestCarousel) return;
+    setIsPrestacionesPaused(true);
     setPrestTouchEndX(null);
     setPrestTouchStartX(event.changedTouches[0]?.clientX ?? null);
   };
@@ -545,8 +553,10 @@ export default function FeaturedPublicationsSection() {
       !showPrestCarousel ||
       prestTouchStartX == null ||
       prestTouchEndX == null
-    )
+    ) {
+      setIsPrestacionesPaused(false);
       return;
+    }
     const deltaX = prestTouchStartX - prestTouchEndX;
     if (deltaX > 45)
       setPrestacionesSlide((prev) =>
@@ -558,6 +568,7 @@ export default function FeaturedPublicationsSection() {
       );
     setPrestTouchStartX(null);
     setPrestTouchEndX(null);
+    setIsPrestacionesPaused(false);
   };
 
   useEffect(() => {
@@ -613,6 +624,8 @@ export default function FeaturedPublicationsSection() {
 
       <div
         className="relative"
+        onMouseEnter={() => setIsFeaturedPaused(true)}
+        onMouseLeave={() => setIsFeaturedPaused(false)}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -622,14 +635,18 @@ export default function FeaturedPublicationsSection() {
             ({ entry: item, sourceIndex, position, centerOffset }) => {
               const isFocused = position === centerOffset;
               const distanceFromCenter = Math.abs(position - centerOffset);
+              const isSideCard =
+                featuredWindowItems.length >= 4
+                  ? position === 0 || position === featuredWindowItems.length - 1
+                  : distanceFromCenter > 1;
               const sideClass =
-                distanceFromCenter > 1
+                isSideCard
                   ? "hidden xl:block"
                   : featuredVisibleCount > 1
                     ? "hidden md:block"
                     : "";
               if (item.id === "__more__") {
-                const moreCardClass = `group relative w-full shrink-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-500 ease-out hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]" : distanceFromCenter > 1 ? "max-w-[11rem] scale-90 opacity-45 blur-[2px] grayscale hover:opacity-65 hover:blur-0" : "max-w-[15rem] scale-95 opacity-60 blur-[1px] grayscale hover:opacity-75 hover:blur-0"}`;
+                const moreCardClass = `group relative w-full shrink-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-500 ease-out hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.35),0_24px_60px_rgba(11,143,163,0.24)]" : isSideCard ? "max-w-[11rem] scale-90 opacity-35 blur-[2px] grayscale hover:opacity-55 hover:blur-[1px]" : "max-w-[23rem] scale-100 opacity-95 shadow-[0_14px_36px_rgba(15,23,42,0.10)]"}`;
                 const moreCardContent = (
                   <>
                     <div className="relative h-full min-h-[18rem] w-full bg-slate-100">
@@ -709,15 +726,15 @@ export default function FeaturedPublicationsSection() {
                 : `/publicacion/${pub.id}`;
               const featuredCardClass = `group w-full shrink-0 overflow-hidden rounded-3xl border bg-white text-left transition-all duration-500 ease-out hover:-translate-y-0.5 ${sideClass} ${
                 isFocused
-                  ? "max-w-[23rem] scale-100 border-[#0B8FA3]/50 opacity-100 shadow-[0_22px_55px_rgba(11,143,163,0.18)]"
-                  : distanceFromCenter > 1
-                    ? "max-w-[11rem] scale-90 border-slate-200 bg-slate-50 opacity-45 blur-[2px] grayscale shadow-sm hover:opacity-65 hover:blur-0"
-                    : "max-w-[20rem] scale-100 border-[#0B8FA3]/25 opacity-100 shadow-[0_14px_36px_rgba(15,23,42,0.10)] hover:shadow-[0_18px_42px_rgba(11,143,163,0.16)]"
+                  ? "max-w-[23rem] scale-100 border-[#0B8FA3]/70 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.30),0_24px_60px_rgba(11,143,163,0.24)]"
+                  : isSideCard
+                    ? "max-w-[11rem] scale-90 border-slate-200 bg-slate-50 opacity-35 blur-[2px] grayscale shadow-sm hover:opacity-55 hover:blur-[1px]"
+                    : "max-w-[23rem] scale-100 border-[#0B8FA3]/25 opacity-95 shadow-[0_14px_36px_rgba(15,23,42,0.10)] hover:shadow-[0_18px_42px_rgba(11,143,163,0.16)]"
               }`;
               const featuredCardContent = (
                 <>
                   <div
-                    className={`relative w-full bg-slate-100 ${isFocused ? "h-48" : "h-40"}`}
+                    className={`relative w-full bg-slate-100 ${isSideCard ? "h-40" : "h-48"}`}
                   >
                     <Image
                       src={firstImage(pub)}
@@ -928,6 +945,8 @@ export default function FeaturedPublicationsSection() {
           </div>
           <div
             className="relative mt-5"
+            onMouseEnter={() => setIsPrestacionesPaused(true)}
+            onMouseLeave={() => setIsPrestacionesPaused(false)}
             onTouchStart={onPrestTouchStart}
             onTouchMove={onPrestTouchMove}
             onTouchEnd={onPrestTouchEnd}
@@ -937,8 +956,12 @@ export default function FeaturedPublicationsSection() {
                 ({ entry: item, sourceIndex, position, centerOffset }) => {
                   const isFocused = position === centerOffset;
                   const distanceFromCenter = Math.abs(position - centerOffset);
+                  const isSideCard =
+                    prestWindowItems.length >= 4
+                      ? position === 0 || position === prestWindowItems.length - 1
+                      : distanceFromCenter > 1;
                   const sideClass =
-                    distanceFromCenter > 1
+                    isSideCard
                       ? "hidden xl:block"
                       : prestVisibleCount > 1
                         ? "hidden md:block"
@@ -966,15 +989,15 @@ export default function FeaturedPublicationsSection() {
                   const prestFlagCountryCode = getCountryCode(prestDestination || item.country, countryCodeCatalog);
                   const prestacionCardClass = `group w-full shrink-0 overflow-hidden rounded-2xl border bg-white text-left transition-all duration-500 ease-out hover:-translate-y-0.5 ${sideClass} ${
                     isFocused
-                      ? "max-w-[22rem] scale-100 border-[#0B8FA3]/45 opacity-100 shadow-[0_18px_45px_rgba(11,143,163,0.16)]"
-                      : distanceFromCenter > 1
-                        ? "max-w-[10rem] scale-90 border-slate-200 bg-slate-50 opacity-45 blur-[2px] grayscale shadow-sm hover:opacity-65 hover:blur-0"
-                        : "max-w-[15rem] scale-95 border-slate-200 bg-slate-50 opacity-60 blur-[1px] grayscale shadow-sm hover:opacity-75 hover:blur-0"
+                      ? "max-w-[22rem] scale-100 border-[#0B8FA3]/70 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.25),0_20px_52px_rgba(11,143,163,0.20)]"
+                      : isSideCard
+                        ? "max-w-[10rem] scale-90 border-slate-200 bg-slate-50 opacity-35 blur-[2px] grayscale shadow-sm hover:opacity-55 hover:blur-[1px]"
+                        : "max-w-[22rem] scale-100 border-[#0B8FA3]/25 opacity-95 shadow-[0_12px_32px_rgba(15,23,42,0.10)]"
                   }`;
                   const prestacionCardContent = (
                     <>
                       <div
-                        className={`relative w-full bg-slate-100 ${isFocused ? "h-36" : "h-28"}`}
+                        className={`relative w-full bg-slate-100 ${isSideCard ? "h-28" : "h-36"}`}
                       >
                         <Image
                           src={firstPrestacionImage(item, locale)}
