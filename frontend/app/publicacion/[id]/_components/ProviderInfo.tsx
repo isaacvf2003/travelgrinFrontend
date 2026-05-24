@@ -82,6 +82,62 @@ function getCountryFlag(country: string) {
   return "";
 }
 
+const COUNTRY_CODE_MAP: Record<string, string> = {
+  ar: "AR",
+  argentina: "AR",
+  cl: "CL",
+  chile: "CL",
+  uy: "UY",
+  uruguay: "UY",
+  py: "PY",
+  paraguay: "PY",
+  br: "BR",
+  brasil: "BR",
+  brazil: "BR",
+  pe: "PE",
+  peru: "PE",
+  bo: "BO",
+  bolivia: "BO",
+  co: "CO",
+  colombia: "CO",
+  mx: "MX",
+  mexico: "MX",
+  es: "ES",
+  espana: "ES",
+  it: "IT",
+  italia: "IT",
+  fr: "FR",
+  francia: "FR",
+  de: "DE",
+  alemania: "DE",
+  us: "US",
+  ca: "CA",
+  canada: "CA",
+};
+
+function getCountryCode(country: string) {
+  const raw = String(country ?? "").trim();
+  const normalized = raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim();
+  const tokenized = raw.split(/\s+/).map((token) =>
+    token
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .trim()
+  );
+  const candidates = [normalized, ...tokenized].filter(Boolean);
+  for (const key of candidates) {
+    const code = key.toUpperCase();
+    if (/^[A-Z]{2}$/.test(code)) return code;
+    if (COUNTRY_CODE_MAP[key]) return COUNTRY_CODE_MAP[key];
+  }
+  return "";
+}
+
 export default function ProviderInfo({
   value,
   rating,
@@ -101,6 +157,8 @@ export default function ProviderInfo({
   const description = pickI18nText(value ?? null, locale, t("oferente_info_descripcion"));
   const safeRating = Number.isFinite(Number(rating)) && Number(rating) > 0 ? Number(rating) : null;
   const roundedRating = safeRating != null ? Math.round(safeRating * 2) / 2 : null;
+  const ratingLabel = safeRating != null ? Number(safeRating.toFixed(1)).toLocaleString(locale) : "0";
+  const commentCount = Number.isFinite(Number(reviewCount)) ? Number(reviewCount) : 0;
   const stars = Array.from({ length: 5 }, (_, idx) => {
     if (roundedRating == null) return "empty";
     if (roundedRating >= idx + 1) return "full";
@@ -124,7 +182,7 @@ export default function ProviderInfo({
       </div>
       <RichText value={description} className="mt-1.5 text-base leading-7 text-gray-700" />
 
-      {(roundedRating != null || reviewCount || commentsUrl) ? (
+      {(roundedRating != null || reviewCount != null || commentsUrl) ? (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-[#2C3E50]">
           <span className="font-semibold">{t("oferente_valoracion")}</span>
           <div className="flex items-center gap-1">
@@ -134,11 +192,13 @@ export default function ProviderInfo({
               </span>
             ))}
           </div>
-          {reviewCount ? <span>({reviewCount})</span> : null}
+          <span className="font-semibold text-slate-700">{ratingLabel}</span>
           {commentsUrl ? (
             <a className="text-[#2B7CAB] underline" href={commentsUrl} target="_blank" rel="noreferrer">
-              {t("oferente_comentarios")}
+              {t("oferente_comentarios")}: {commentCount}
             </a>
+          ) : reviewCount != null ? (
+            <span>{t("oferente_comentarios")}: {commentCount}</span>
           ) : null}
         </div>
       ) : null}
@@ -178,7 +238,14 @@ export default function ProviderInfo({
                 return (
                   <div key={`hq-${idx}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2">
                     <span className="inline-flex items-center gap-2">
-                      <span>{getCountryFlag(loc.country)}</span>
+                      {getCountryCode(loc.country) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`https://flagcdn.com/20x15/${getCountryCode(loc.country).toLowerCase()}.png`}
+                          alt={loc.country}
+                          className="h-[12px] w-[16px] rounded-[2px] object-cover"
+                        />
+                      ) : null}
                       <span>{label || loc.country}</span>
                     </span>
                     {loc.mapUrl ? (

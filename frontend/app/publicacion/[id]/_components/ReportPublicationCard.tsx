@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -157,7 +157,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
           <div className="w-full max-w-lg rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-3 text-lg font-semibold text-slate-900">{labels.title}</h3>
             <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
-              PublicaciÃ³n: {publicationTitle || publicationId}
+              {"Publicación:"} {publicationTitle || publicationId}
             </p>
             <div className="grid gap-2">
               <label className="text-sm font-medium text-black">{labels.fullName}</label>

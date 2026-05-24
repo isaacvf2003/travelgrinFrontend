@@ -182,6 +182,56 @@ function getCountryFlag(country: string) {
   return "🏳️";
 }
 
+const DETAIL_COUNTRY_CODE_MAP: Record<string, string> = {
+  ar: "AR",
+  argentina: "AR",
+  albania: "AL",
+  alemania: "DE",
+  andorra: "AD",
+  br: "BR",
+  brasil: "BR",
+  brazil: "BR",
+  ca: "CA",
+  canada: "CA",
+  cl: "CL",
+  chile: "CL",
+  co: "CO",
+  colombia: "CO",
+  de: "DE",
+  es: "ES",
+  espana: "ES",
+  fr: "FR",
+  francia: "FR",
+  it: "IT",
+  italia: "IT",
+  mx: "MX",
+  mexico: "MX",
+  pe: "PE",
+  peru: "PE",
+  py: "PY",
+  paraguay: "PY",
+  us: "US",
+  uy: "UY",
+  uruguay: "UY",
+};
+
+function getDetailCountryCode(country: string) {
+  const raw = String(country ?? "").trim();
+  const normalizeCountry = (value: string) =>
+    value
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .trim();
+  const candidates = [normalizeCountry(raw), ...raw.split(/\s+/).map(normalizeCountry)].filter(Boolean);
+  for (const key of candidates) {
+    const code = key.toUpperCase();
+    if (/^[A-Z]{2}$/.test(code)) return code;
+    if (DETAIL_COUNTRY_CODE_MAP[key]) return DETAIL_COUNTRY_CODE_MAP[key];
+  }
+  return "";
+}
+
 export default async function PublicacionDetalle({ params, searchParams }: PageProps) {
   const { id } = await Promise.resolve(params);
   const resolvedId = extractPublicationIdFromParam(id);
@@ -436,6 +486,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
   ).trim();
   const breadcrumbCountry = selectedDestinationCountry || String(primaryDestination.country ?? "").trim();
   const breadcrumbCountryLabel = breadcrumbCountry.replace(/^[A-Za-z]{2}\s+/, "").trim() || breadcrumbCountry;
+  const breadcrumbCountryCode = getDetailCountryCode(breadcrumbCountry);
   const breadcrumbSources = [
     ...categoryLabels.map((label) => ({ label, param: "category" as const, value: String(item.category ?? label) })),
     ...mergedSubcategoryLabels.map((label) => ({ label, param: "subcategory" as const, value: String(item.subcategory ?? label) })),
@@ -595,7 +646,14 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
               <>
                 <span>›</span>
                 <span className="inline-flex items-center gap-1 text-gray-600">
-                  <span>{getCountryFlag(breadcrumbCountry)}</span>
+                  {breadcrumbCountryCode ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`https://flagcdn.com/20x15/${breadcrumbCountryCode.toLowerCase()}.png`}
+                      alt={breadcrumbCountryLabel}
+                      className="h-[12px] w-[16px] rounded-[2px] object-cover"
+                    />
+                  ) : null}
                   <span>{breadcrumbCountryLabel}</span>
                 </span>
               </>
