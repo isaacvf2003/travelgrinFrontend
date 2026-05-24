@@ -221,6 +221,15 @@ function carouselWindowSize(cardsPerView: number) {
   return 1;
 }
 
+function carouselDepthClass(isSideCard: boolean, position: number, centerOffset: number) {
+  if (isSideCard) {
+    return position < centerOffset
+      ? "relative z-0 -translate-x-3"
+      : "relative z-0 translate-x-3";
+  }
+  return position === centerOffset ? "relative z-20" : "relative z-10";
+}
+
 export default function FeaturedPublicationsSection() {
   const { selectedCountry } = useCountry();
   const { locale, t } = useTranslation();
@@ -646,7 +655,8 @@ export default function FeaturedPublicationsSection() {
                     ? "hidden md:block"
                     : "";
               if (item.id === "__more__") {
-                const moreCardClass = `group relative w-full shrink-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-500 ease-out hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.35),0_24px_60px_rgba(11,143,163,0.24)]" : isSideCard ? "max-w-[11rem] scale-90 opacity-35 blur-[2px] grayscale hover:opacity-55 hover:blur-[1px]" : "max-w-[23rem] scale-100 opacity-95 shadow-[0_14px_36px_rgba(15,23,42,0.10)]"}`;
+                const cardDepthClass = carouselDepthClass(isSideCard, position, centerOffset);
+                const moreCardClass = `group w-full shrink-0 transform-gpu overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${cardDepthClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.35),0_24px_60px_rgba(11,143,163,0.24)]" : isSideCard ? "max-w-[11rem] scale-90 opacity-35 blur-[2px] grayscale hover:opacity-55 hover:blur-[1px]" : "max-w-[23rem] scale-100 opacity-95 shadow-[0_14px_36px_rgba(15,23,42,0.10)]"}`;
                 const moreCardContent = (
                   <>
                     <div className="relative h-full min-h-[18rem] w-full bg-slate-100">
@@ -724,7 +734,8 @@ export default function FeaturedPublicationsSection() {
               const detailPath = isPrestacion
                 ? `/prestaciones/${pub.id}`
                 : `/publicacion/${pub.id}`;
-              const featuredCardClass = `group w-full shrink-0 overflow-hidden rounded-3xl border bg-white text-left transition-all duration-500 ease-out hover:-translate-y-0.5 ${sideClass} ${
+              const cardDepthClass = carouselDepthClass(isSideCard, position, centerOffset);
+              const featuredCardClass = `group w-full shrink-0 transform-gpu overflow-hidden rounded-3xl border bg-white text-left transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-0.5 ${sideClass} ${cardDepthClass} ${
                 isFocused
                   ? "max-w-[23rem] scale-100 border-[#0B8FA3]/70 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.30),0_24px_60px_rgba(11,143,163,0.24)]"
                   : isSideCard
@@ -987,7 +998,8 @@ export default function FeaturedPublicationsSection() {
                     ? String((prestFields.destinationCountries as unknown[])[0] ?? "").trim()
                     : "";
                   const prestFlagCountryCode = getCountryCode(prestDestination || item.country, countryCodeCatalog);
-                  const prestacionCardClass = `group w-full shrink-0 overflow-hidden rounded-2xl border bg-white text-left transition-all duration-500 ease-out hover:-translate-y-0.5 ${sideClass} ${
+                  const cardDepthClass = carouselDepthClass(isSideCard, position, centerOffset);
+                  const prestacionCardClass = `group w-full shrink-0 transform-gpu overflow-hidden rounded-2xl border bg-white text-left transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-0.5 ${sideClass} ${cardDepthClass} ${
                     isFocused
                       ? "max-w-[22rem] scale-100 border-[#0B8FA3]/70 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.25),0_20px_52px_rgba(11,143,163,0.20)]"
                       : isSideCard
