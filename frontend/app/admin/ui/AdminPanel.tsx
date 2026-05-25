@@ -3277,9 +3277,42 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const isUsersSection = section === "usuarios";
   const isCategoriesSection = section === "categorias";
   const isPublicationsSection = section === "publicaciones";
+  const isHowWorksSection = section === "como-funciona";
   const isConfigSection = section === "configuracion";
   const isContactSection = section === "contacto";
 
+
+  const HOME_HOW_TAG = "home-how-it-works";
+  const homeHowPublication = publications.find((item) => String(item.category ?? "") === HOME_HOW_TAG);
+  const [homeHowTitle, setHomeHowTitle] = useState("Cómo funciona");
+  const [homeHowSteps, setHomeHowSteps] = useState<any[]>([{ title: "", subtitle: "", image: "" }]);
+  const [homeHowSaving, setHomeHowSaving] = useState(false);
+
+  useEffect(() => {
+    const steps = Array.isArray((homeHowPublication as any)?.fields?.prestationSteps) ? (homeHowPublication as any).fields.prestationSteps : [];
+    setHomeHowTitle(String((homeHowPublication as any)?.title ?? "Cómo funciona") || "Cómo funciona");
+    setHomeHowSteps(steps.length ? steps : [{ title: "", subtitle: "", image: "" }]);
+  }, [homeHowPublication?.id]);
+
+  const saveHomeHowWorks = async () => {
+    setHomeHowSaving(true);
+    try {
+      const payload = {
+        title: homeHowTitle || "Cómo funciona",
+        description: "Sección Home: Cómo funciona",
+        status: "active",
+        featured: false,
+        category: HOME_HOW_TAG,
+        primaryGroupKey: "prestacion",
+        fields: { prestationSteps: homeHowSteps.filter((s) => s?.title || s?.subtitle || s?.image) },
+        filterOptionIds: [],
+      };
+      const url = homeHowPublication?.id ? `/api/admin/publications?id=${homeHowPublication.id}` : "/api/admin/publications";
+      const method = homeHowPublication?.id ? "PUT" : "POST";
+      await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      await fetchAll();
+    } finally { setHomeHowSaving(false); }
+  };
   const paidPublications = publications.filter((item) => {
     const value = String(item.price ?? "").trim();
     return Boolean(value) && value !== "0";
@@ -4284,6 +4317,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <section className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
           <h2 className="text-2xl font-semibold text-slate-900">Contacto / Sugerencias</h2>
           <p className="mt-2 text-sm text-slate-600">Canal para sugerencias internas y contacto del equipo administrativo.</p>
+        </section>
+      ) : null}
+
+      {isHowWorksSection ? (
+        <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
+          <h2 className="text-2xl font-semibold text-slate-900">Como funciona</h2>
+          <p className="mt-2 text-sm text-slate-600">Armá aquí los pasos que se publican en la Home.</p>
+          <div className="mt-4 space-y-3">
+            <input value={homeHowTitle} onChange={(e) => setHomeHowTitle(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 px-3" placeholder="Título de la sección" />
+            {homeHowSteps.map((step, idx) => (
+              <div key={`home-step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
+                <div className="text-xs font-semibold text-slate-500">Paso {idx + 1}</div>
+                <input value={step.title ?? ""} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: e.target.value } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del paso" />
+                <textarea value={step.subtitle ?? ""} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: e.target.value } : it))} className="min-h-[90px] rounded-xl border border-slate-200 px-3 py-2" placeholder="Descripción" />
+                <input value={step.image ?? ""} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: e.target.value } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="URL de imagen" />
+              </div>
+            ))}
+            <button type="button" onClick={() => setHomeHowSteps((prev) => [...prev, { title: "", subtitle: "", image: "" }])} className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm">+ Agregar paso</button>
+            <button type="button" onClick={saveHomeHowWorks} disabled={homeHowSaving} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white">{homeHowSaving ? "Guardando..." : "Guardar y publicar"}</button>
+          </div>
         </section>
       ) : null}
 
