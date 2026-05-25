@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 
-export type AdminSection = "panel" | "usuarios" | "categorias" | "publicaciones" | "configuracion" | "contacto";
+export type AdminSection = "panel" | "usuarios" | "categorias" | "publicaciones" | "como-funciona" | "configuracion" | "contacto";
 
 type AdminControlLayoutProps = {
   children: ReactNode;
@@ -24,6 +24,7 @@ const navItems: Array<{ label: string; icon: ComponentType<{ className?: string 
   { label: "Usuarios", icon: Users, section: "usuarios" },
   { label: "Categorías", icon: Tag, section: "categorias" },
   { label: "Publicaciones", icon: FileText, section: "publicaciones" },
+  { label: "Cómo funciona", icon: FileText, section: "como-funciona" },
 ];
 
 export default function AdminControlLayout({ children, activeSection }: AdminControlLayoutProps) {
