@@ -3285,13 +3285,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const HOME_HOW_TAG = "home-how-it-works";
   const homeHowPublication = publications.find((item) => String(item.category ?? "") === HOME_HOW_TAG);
   const [homeHowTitle, setHomeHowTitle] = useState("Cómo funciona");
-  const [homeHowSteps, setHomeHowSteps] = useState<any[]>([{ title: "", subtitle: "", image: "" }]);
+  const [homeHowSteps, setHomeHowSteps] = useState<any[]>([{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
   const [homeHowSaving, setHomeHowSaving] = useState(false);
 
   useEffect(() => {
     const steps = Array.isArray((homeHowPublication as any)?.fields?.prestationSteps) ? (homeHowPublication as any).fields.prestationSteps : [];
     setHomeHowTitle(String((homeHowPublication as any)?.title ?? "Cómo funciona") || "Cómo funciona");
-    setHomeHowSteps(steps.length ? steps : [{ title: "", subtitle: "", image: "" }]);
+    setHomeHowSteps(steps.length ? steps : [{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
   }, [homeHowPublication?.id]);
 
   const saveHomeHowWorks = async () => {
@@ -4324,17 +4324,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
           <h2 className="text-2xl font-semibold text-slate-900">Como funciona</h2>
           <p className="mt-2 text-sm text-slate-600">Armá aquí los pasos que se publican en la Home.</p>
+          <div className="mt-3">{renderLangTabs(pLang, setEditingLang)}</div>
           <div className="mt-4 space-y-3">
-            <input value={homeHowTitle} onChange={(e) => setHomeHowTitle(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 px-3" placeholder="Título de la sección" />
+            <input value={homeHowTitle} onChange={(e) => setHomeHowTitle(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 px-3" placeholder={`Título de la sección (${pLang.toUpperCase()})`} />
+            {homeHowSteps.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">No hay pasos. Presioná <b>+ Agregar paso</b>.</div> : null}
             {homeHowSteps.map((step, idx) => (
               <div key={`home-step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                <div className="text-xs font-semibold text-slate-500">Paso {idx + 1}</div>
-                <input value={step.title ?? ""} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: e.target.value } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del paso" />
-                <textarea value={step.subtitle ?? ""} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: e.target.value } : it))} className="min-h-[90px] rounded-xl border border-slate-200 px-3 py-2" placeholder="Descripción" />
-                <input value={step.image ?? ""} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: e.target.value } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="URL de imagen" />
+                <div className="flex items-center justify-between"><div className="text-xs font-semibold text-slate-500">Paso {idx + 1}</div><button type="button" className="text-red-500 text-xs" onClick={() => setHomeHowSteps((prev) => prev.filter((_, i) => i !== idx))}>Quitar paso</button></div>
+                <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title ?? "", it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del paso" />
+                <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle ?? "", it.subtitleI18n, pLang, next) } : it))} placeholder="Descripción" minHeightClassName="min-h-[80px]" />
+                <label className="text-xs font-medium text-slate-500">Subir imagen desde tu dispositivo</label>
+                <input type="file" accept={IMAGE_FILE_ACCEPT} onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; void fileToUploadAsset(file).then((asset) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? asset.url : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, asset.url) } : it))).catch(() => null); e.currentTarget.value = ""; }} className="w-full min-w-0 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:font-semibold file:text-[#007D92]" />
+                {getLangEditValue(step.imageI18n, pLang) ? <div className="text-[11px] text-emerald-700">Imagen cargada ✓</div> : <div className="text-[11px] text-slate-400">Aún sin imagen</div>}
+                <button type="button" onClick={() => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: "", imageI18n: setLangText("", it.imageI18n, pLang, "") } : it))} className="h-9 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600">Quitar imagen</button>
               </div>
             ))}
-            <button type="button" onClick={() => setHomeHowSteps((prev) => [...prev, { title: "", subtitle: "", image: "" }])} className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm">+ Agregar paso</button>
+            <button type="button" onClick={() => setHomeHowSteps((prev) => [...prev, { title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }])} className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm">+ Agregar paso</button>
             <button type="button" onClick={saveHomeHowWorks} disabled={homeHowSaving} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white">{homeHowSaving ? "Guardando..." : "Guardar y publicar"}</button>
           </div>
         </section>
