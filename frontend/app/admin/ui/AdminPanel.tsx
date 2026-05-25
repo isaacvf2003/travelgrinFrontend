@@ -1084,14 +1084,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (catTaxonomyType === "inherit") setCatTaxonomyType("inherit");
   }, [catParentId, categories]);
 
-  useEffect(() => {
-    if (section !== "como-funciona" || isNewPublicationPage) return;
-    setShowPublicationEditor(true);
-    window.setTimeout(() => {
-      document.getElementById("admin-como-funciona")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 80);
-  }, [section, isNewPublicationPage]);
-
   async function refresh() {
     const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory] = await Promise.all([
       api<{ ok: true; items: Category[] }>("/api/categories").then((d) => d.items),
@@ -3284,7 +3276,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const isPanelSection = section === "panel";
   const isUsersSection = section === "usuarios";
   const isCategoriesSection = section === "categorias";
-  const isHowItWorksSection = section === "como-funciona";
   const isPublicationsSection = section === "publicaciones";
   const isConfigSection = section === "configuracion";
   const isContactSection = section === "contacto";
@@ -6043,7 +6034,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
           {pEditorMode === "prestacion" ? (
             <div className="grid gap-5">
-              <div id="admin-como-funciona" className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <label className="text-sm font-semibold text-slate-900">Estado de la prestaciÃ³n</label>
                 <select
                   value={pStatus}

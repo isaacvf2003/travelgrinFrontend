@@ -13,9 +13,6 @@ const TravelTypes = dynamic(() => import("@/components/TravelTypes"), {
 const FeaturedPublicationsSection = dynamic(() => import("@/components/FeaturedPublicationsSection"), {
   loading: () => <section className="mt-8 h-72 w-full animate-pulse rounded-3xl bg-slate-200/70" />,
 });
-const HowDoesItWork = dynamic(() => import("@/components/HowDoesItWork"), {
-  loading: () => <section className="mt-8 h-72 w-full animate-pulse rounded-3xl bg-slate-200/70" />,
-});
 const CardsDemandante = dynamic(() => import("@/components/CardsDemandante"), {
   loading: () => <section className="mt-8 h-80 w-full animate-pulse rounded-3xl bg-slate-200/70" />,
 });
@@ -55,9 +52,6 @@ export default function Home() {
           </section>
           <section>
             <FeaturedPublicationsSection />
-          </section>
-          <section className="px-4 md:px-0">
-            <HowDoesItWork />
           </section>
           <section className="px-4 md:px-0">
             <CardsDemandante />
