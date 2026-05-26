@@ -112,6 +112,17 @@ type PromoCodeItem = {
   updatedAt: string;
 };
 
+type FeaturedPlanPriceItem = {
+  id: string;
+  country: string | null;
+  currency: "ARS" | "USD";
+  amount: number;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type DashboardServiceHistory = {
   sourceId: string;
   taxonomyType: string;
@@ -783,6 +794,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [travelServices, setTravelServices] = useState<TravelService[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCodeItem[]>([]);
+  const [featuredPlanPrices, setFeaturedPlanPrices] = useState<FeaturedPlanPriceItem[]>([]);
   const [dashboardServiceHistory, setDashboardServiceHistory] = useState<DashboardServiceHistory[]>([]);
   const [dashboardPublicationHistory, setDashboardPublicationHistory] = useState<DashboardPublicationHistory[]>([]);
   const [dashboardPassportSelections, setDashboardPassportSelections] = useState<DashboardPassportSelection[]>([]);
@@ -803,6 +815,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [promoEditId, setPromoEditId] = useState<string | null>(null);
   const [promoSaving, setPromoSaving] = useState(false);
   const [promoMessage, setPromoMessage] = useState("");
+  const [priceRuleCountryDraft, setPriceRuleCountryDraft] = useState("");
+  const [priceRuleCurrencyDraft, setPriceRuleCurrencyDraft] = useState<"ARS" | "USD">("USD");
+  const [priceRuleAmountDraft, setPriceRuleAmountDraft] = useState("");
+  const [priceRuleDefaultDraft, setPriceRuleDefaultDraft] = useState(false);
+  const [priceRuleActiveDraft, setPriceRuleActiveDraft] = useState(true);
+  const [priceRuleEditId, setPriceRuleEditId] = useState<string | null>(null);
+  const [priceRuleSaving, setPriceRuleSaving] = useState(false);
+  const [priceRuleMessage, setPriceRuleMessage] = useState("");
   const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
   const [expandedPanelBlocks, setExpandedPanelBlocks] = useState<Record<string, boolean>>({});
   const [destinationCountrySearch, setDestinationCountrySearch] = useState("");
@@ -1106,7 +1126,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [catParentId, categories]);
 
   async function refresh() {
-    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory, promoCodesData] = await Promise.all([
+    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory, promoCodesData, featuredPlanPricesData] = await Promise.all([
       api<{ ok: true; items: Category[] }>("/api/categories").then((d) => d.items),
       api<{ ok: true; groups: FilterGroup[] }>("/api/admin/filters").then((d) => d.groups),
       api<{ ok: true; items: Publication[] }>("/api/admin/publications").then((d) => d.items),
@@ -1121,6 +1141,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         destinationSearches?: DashboardDestinationSearch[];
       }>("/api/admin/dashboard-history").catch(() => ({ ok: true, serviceHistory: [], publicationHistory: [], passportSelections: [], destinationSearches: [] })),
       api<{ ok: true; items: PromoCodeItem[] }>("/api/admin/promo-codes").catch(() => ({ ok: true, items: [] })),
+      api<{ ok: true; items: FeaturedPlanPriceItem[] }>("/api/admin/featured-plan-prices").catch(() => ({ ok: true, items: [] })),
     ]);
 
     setCategories(cats);
@@ -1137,6 +1158,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setDashboardPassportSelections(Array.isArray(dashboardHistory?.passportSelections) ? dashboardHistory.passportSelections : []);
     setDashboardDestinationSearches(Array.isArray(dashboardHistory?.destinationSearches) ? dashboardHistory.destinationSearches : []);
     setPromoCodes(Array.isArray(promoCodesData?.items) ? promoCodesData.items : []);
+    setFeaturedPlanPrices(Array.isArray(featuredPlanPricesData?.items) ? featuredPlanPricesData.items : []);
     setOferenteDestinationMode(oferenteDestinations?.mode === "some" ? "some" : "all");
     setOferenteDestinationCountries(
       Array.isArray(oferenteDestinations?.countries)
@@ -3988,6 +4010,69 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPromoActiveDraft(true);
   };
 
+  const resetPriceRuleForm = () => {
+    setPriceRuleEditId(null);
+    setPriceRuleCountryDraft("");
+    setPriceRuleCurrencyDraft("USD");
+    setPriceRuleAmountDraft("");
+    setPriceRuleDefaultDraft(false);
+    setPriceRuleActiveDraft(true);
+  };
+
+  const savePriceRule = async () => {
+    setPriceRuleSaving(true);
+    setPriceRuleMessage("");
+    try {
+      const payload = {
+        id: priceRuleEditId ?? undefined,
+        country: priceRuleDefaultDraft ? "" : priceRuleCountryDraft,
+        currency: priceRuleCurrencyDraft,
+        amount: Number(priceRuleAmountDraft),
+        isDefault: priceRuleDefaultDraft,
+        isActive: priceRuleActiveDraft,
+      };
+      const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>("/api/admin/featured-plan-prices", {
+        method: priceRuleEditId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+      setPriceRuleMessage(priceRuleEditId ? "Precio actualizado." : "Precio creado.");
+      resetPriceRuleForm();
+    } catch (error) {
+      setPriceRuleMessage(error instanceof Error ? error.message : "No se pudo guardar el precio.");
+    } finally {
+      setPriceRuleSaving(false);
+    }
+  };
+
+  const editPriceRule = (item: FeaturedPlanPriceItem) => {
+    setPriceRuleEditId(item.id);
+    setPriceRuleCountryDraft(item.country ?? "");
+    setPriceRuleCurrencyDraft(item.currency === "ARS" ? "ARS" : "USD");
+    setPriceRuleAmountDraft(String(item.amount ?? ""));
+    setPriceRuleDefaultDraft(Boolean(item.isDefault));
+    setPriceRuleActiveDraft(Boolean(item.isActive));
+    setPriceRuleMessage("");
+  };
+
+  const deletePriceRule = async (id: string) => {
+    setPriceRuleSaving(true);
+    setPriceRuleMessage("");
+    try {
+      const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+      if (priceRuleEditId === id) resetPriceRuleForm();
+      setPriceRuleMessage("Precio eliminado.");
+    } catch (error) {
+      setPriceRuleMessage(error instanceof Error ? error.message : "No se pudo eliminar el precio.");
+    } finally {
+      setPriceRuleSaving(false);
+    }
+  };
+
   const generateRandomPromoCode = () => {
     const token = `TG-${Math.random().toString(36).slice(2, 6).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
     setPromoCodeDraft(token);
@@ -4084,6 +4169,61 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-slate-700">Demandantes por mes: activos vs inactivos</p>
           <MiniBars values={[71, 64, 55, 52, 60, 70]} tone="violet" />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="mb-3">
+          <p className="text-sm font-semibold text-slate-900">Precio plan destacado por pais</p>
+          <p className="text-xs text-slate-500">Configura ARS y USD por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+          <select value={priceRuleCountryDraft} onChange={(event) => setPriceRuleCountryDraft(event.target.value)} disabled={priceRuleDefaultDraft} className="h-10 rounded-xl border border-slate-200 px-3 text-sm disabled:bg-slate-100">
+            <option value="">Seleccionar pais</option>
+            {countryCatalog.map((country) => <option key={`rule-country-${country}`} value={country}>{country}</option>)}
+          </select>
+          <select value={priceRuleCurrencyDraft} onChange={(event) => setPriceRuleCurrencyDraft((event.target.value === "ARS" ? "ARS" : "USD"))} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
+            <option value="USD">USD</option>
+            <option value="ARS">ARS</option>
+          </select>
+          <input value={priceRuleAmountDraft} onChange={(event) => setPriceRuleAmountDraft(event.target.value)} placeholder="Monto" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs text-slate-700">
+            <input type="checkbox" checked={priceRuleDefaultDraft} onChange={(event) => setPriceRuleDefaultDraft(event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]" />
+            Regla por defecto
+          </label>
+          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs text-slate-700">
+            <input type="checkbox" checked={priceRuleActiveDraft} onChange={(event) => setPriceRuleActiveDraft(event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]" />
+            Activo
+          </label>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={savePriceRule} disabled={priceRuleSaving} className="rounded-lg bg-[#00A9C6] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-60">
+            {priceRuleEditId ? "Guardar precio" : "Crear precio"}
+          </button>
+          {priceRuleEditId ? (
+            <button type="button" onClick={resetPriceRuleForm} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+              Cancelar edicion
+            </button>
+          ) : null}
+          {priceRuleMessage ? <span className="text-xs font-medium text-emerald-600">{priceRuleMessage}</span> : null}
+        </div>
+        <div className="mt-3 space-y-2">
+          {featuredPlanPrices.length ? featuredPlanPrices.map((item) => (
+            <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.isDefault ? "DEFECTO" : (item.country || "-")}</span>
+                <span>{item.currency}</span>
+                <span>{item.amount}</span>
+                <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => editPriceRule(item)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100">Editar</button>
+                <button type="button" onClick={() => { void deletePriceRule(item.id); }} className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-rose-700 hover:bg-rose-50">Eliminar</button>
+              </div>
+            </div>
+          )) : (
+            <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay precios de plan destacado.</div>
+          )}
         </div>
       </div>
 
