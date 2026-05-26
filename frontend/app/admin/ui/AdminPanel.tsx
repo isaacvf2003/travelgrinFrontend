@@ -100,6 +100,18 @@ type ReportItem = {
   createdAt?: string;
 };
 
+type PromoCodeItem = {
+  id: string;
+  code: string;
+  discountPercent: number;
+  expiresAt: string | null;
+  maxUses: number | null;
+  usedCount: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type DashboardServiceHistory = {
   sourceId: string;
   taxonomyType: string;
@@ -770,6 +782,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [publications, setPublications] = useState<Publication[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [travelServices, setTravelServices] = useState<TravelService[]>([]);
+  const [promoCodes, setPromoCodes] = useState<PromoCodeItem[]>([]);
   const [dashboardServiceHistory, setDashboardServiceHistory] = useState<DashboardServiceHistory[]>([]);
   const [dashboardPublicationHistory, setDashboardPublicationHistory] = useState<DashboardPublicationHistory[]>([]);
   const [dashboardPassportSelections, setDashboardPassportSelections] = useState<DashboardPassportSelection[]>([]);
@@ -782,6 +795,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [publicationTab, setPublicationTab] = useState<"publicaciones" | "denuncias">("publicaciones");
   const [publicationSearch, setPublicationSearch] = useState("");
   const [publicationTypeFilter, setPublicationTypeFilter] = useState<"todas" | "publicacion" | "prestacion">("todas");
+  const [promoCodeDraft, setPromoCodeDraft] = useState("");
+  const [promoDiscountDraft, setPromoDiscountDraft] = useState("10");
+  const [promoExpiresDraft, setPromoExpiresDraft] = useState("");
+  const [promoMaxUsesDraft, setPromoMaxUsesDraft] = useState("");
+  const [promoActiveDraft, setPromoActiveDraft] = useState(true);
+  const [promoEditId, setPromoEditId] = useState<string | null>(null);
+  const [promoSaving, setPromoSaving] = useState(false);
+  const [promoMessage, setPromoMessage] = useState("");
   const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
   const [expandedPanelBlocks, setExpandedPanelBlocks] = useState<Record<string, boolean>>({});
   const [destinationCountrySearch, setDestinationCountrySearch] = useState("");
@@ -1085,7 +1106,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [catParentId, categories]);
 
   async function refresh() {
-    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory] = await Promise.all([
+    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory, promoCodesData] = await Promise.all([
       api<{ ok: true; items: Category[] }>("/api/categories").then((d) => d.items),
       api<{ ok: true; groups: FilterGroup[] }>("/api/admin/filters").then((d) => d.groups),
       api<{ ok: true; items: Publication[] }>("/api/admin/publications").then((d) => d.items),
@@ -1099,6 +1120,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         passportSelections?: DashboardPassportSelection[];
         destinationSearches?: DashboardDestinationSearch[];
       }>("/api/admin/dashboard-history").catch(() => ({ ok: true, serviceHistory: [], publicationHistory: [], passportSelections: [], destinationSearches: [] })),
+      api<{ ok: true; items: PromoCodeItem[] }>("/api/admin/promo-codes").catch(() => ({ ok: true, items: [] })),
     ]);
 
     setCategories(cats);
@@ -1114,6 +1136,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setDashboardPublicationHistory(Array.isArray(dashboardHistory?.publicationHistory) ? dashboardHistory.publicationHistory : []);
     setDashboardPassportSelections(Array.isArray(dashboardHistory?.passportSelections) ? dashboardHistory.passportSelections : []);
     setDashboardDestinationSearches(Array.isArray(dashboardHistory?.destinationSearches) ? dashboardHistory.destinationSearches : []);
+    setPromoCodes(Array.isArray(promoCodesData?.items) ? promoCodesData.items : []);
     setOferenteDestinationMode(oferenteDestinations?.mode === "some" ? "some" : "all");
     setOferenteDestinationCountries(
       Array.isArray(oferenteDestinations?.countries)
@@ -3956,6 +3979,74 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     </div>
   ) : null;
 
+  const resetPromoForm = () => {
+    setPromoEditId(null);
+    setPromoCodeDraft("");
+    setPromoDiscountDraft("10");
+    setPromoExpiresDraft("");
+    setPromoMaxUsesDraft("");
+    setPromoActiveDraft(true);
+  };
+
+  const generateRandomPromoCode = () => {
+    const token = `TG-${Math.random().toString(36).slice(2, 6).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+    setPromoCodeDraft(token);
+  };
+
+  const savePromoCode = async () => {
+    setPromoSaving(true);
+    setPromoMessage("");
+    try {
+      const payload = {
+        id: promoEditId ?? undefined,
+        code: promoCodeDraft,
+        discountPercent: Number(promoDiscountDraft),
+        expiresAt: promoExpiresDraft || null,
+        maxUses: promoMaxUsesDraft || null,
+        isActive: promoActiveDraft,
+      };
+      const response = await api<{ ok: true; items: PromoCodeItem[] }>("/api/admin/promo-codes", {
+        method: promoEditId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setPromoCodes(Array.isArray(response.items) ? response.items : []);
+      setPromoMessage(promoEditId ? "Codigo promocional actualizado." : "Codigo promocional creado.");
+      resetPromoForm();
+    } catch (error) {
+      setPromoMessage(error instanceof Error ? error.message : "No se pudo guardar el codigo.");
+    } finally {
+      setPromoSaving(false);
+    }
+  };
+
+  const editPromoCode = (item: PromoCodeItem) => {
+    setPromoEditId(item.id);
+    setPromoCodeDraft(item.code);
+    setPromoDiscountDraft(String(item.discountPercent || 0));
+    setPromoExpiresDraft(item.expiresAt ? new Date(item.expiresAt).toISOString().slice(0, 16) : "");
+    setPromoMaxUsesDraft(item.maxUses === null ? "" : String(item.maxUses));
+    setPromoActiveDraft(Boolean(item.isActive));
+    setPromoMessage("");
+  };
+
+  const deletePromoCode = async (id: string) => {
+    setPromoSaving(true);
+    setPromoMessage("");
+    try {
+      const response = await api<{ ok: true; items: PromoCodeItem[] }>(`/api/admin/promo-codes?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      setPromoCodes(Array.isArray(response.items) ? response.items : []);
+      if (promoEditId === id) resetPromoForm();
+      setPromoMessage("Codigo promocional eliminado.");
+    } catch (error) {
+      setPromoMessage(error instanceof Error ? error.message : "No se pudo eliminar el codigo.");
+    } finally {
+      setPromoSaving(false);
+    }
+  };
+
   const usersSectionCard = (
     <section className="space-y-6">
       {detailTravelServiceModal}
@@ -3993,6 +4084,62 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-slate-700">Demandantes por mes: activos vs inactivos</p>
           <MiniBars values={[71, 64, 55, 52, 60, 70]} tone="violet" />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Codigos promocionales</p>
+            <p className="text-xs text-slate-500">Se aplican al plan mensual de publicacion destacada.</p>
+          </div>
+          <button type="button" onClick={generateRandomPromoCode} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+            Generar aleatorio
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
+          <input value={promoCodeDraft} onChange={(event) => setPromoCodeDraft(event.target.value.toUpperCase())} placeholder="Codigo" className="h-10 rounded-xl border border-slate-200 px-3 text-sm md:col-span-2" />
+          <input value={promoDiscountDraft} onChange={(event) => setPromoDiscountDraft(event.target.value)} placeholder="% descuento" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <input type="datetime-local" value={promoExpiresDraft} onChange={(event) => setPromoExpiresDraft(event.target.value)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm md:col-span-2" />
+          <input value={promoMaxUsesDraft} onChange={(event) => setPromoMaxUsesDraft(event.target.value)} placeholder="Limite usos" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" checked={promoActiveDraft} onChange={(event) => setPromoActiveDraft(event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]" />
+            Activo
+          </label>
+          <button type="button" onClick={savePromoCode} disabled={promoSaving} className="rounded-lg bg-[#00A9C6] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-60">
+            {promoEditId ? "Guardar cambios" : "Crear codigo"}
+          </button>
+          {promoEditId ? (
+            <button type="button" onClick={resetPromoForm} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+              Cancelar edicion
+            </button>
+          ) : null}
+          {promoMessage ? <span className="text-xs font-medium text-emerald-600">{promoMessage}</span> : null}
+        </div>
+        <div className="mt-3 space-y-2">
+          {promoCodes.length ? promoCodes.map((item) => {
+            const remaining = item.maxUses === null ? "Ilimitado" : Math.max(item.maxUses - item.usedCount, 0).toString();
+            return (
+              <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.code}</span>
+                  <span>{item.discountPercent}%</span>
+                  <span>Usos: {item.usedCount}{item.maxUses !== null ? `/${item.maxUses}` : ""}</span>
+                  <span>Disponibles: {remaining}</span>
+                  <span>Vence: {item.expiresAt ? new Date(item.expiresAt).toLocaleString("es-AR") : "Sin vencimiento"}</span>
+                  <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => editPromoCode(item)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100">Editar</button>
+                  <button type="button" onClick={() => { void deletePromoCode(item.id); }} className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-rose-700 hover:bg-rose-50">Eliminar</button>
+                </div>
+              </div>
+            );
+          }) : (
+            <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay codigos promocionales.</div>
+          )}
         </div>
       </div>
 
