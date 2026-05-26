@@ -3286,28 +3286,67 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const isHomeHowPublication = (item?: Publication | null) => String(item?.category ?? "") === HOME_HOW_TAG;
   const homeHowPublication = publications.find((item) => String(item.category ?? "") === HOME_HOW_TAG);
   const [homeHowTitle, setHomeHowTitle] = useState("Cómo funciona");
+  const [homeHowTitleI18n, setHomeHowTitleI18n] = useState<I18nRecord>({ es: "Cómo funciona" });
   const [homeHowSteps, setHomeHowSteps] = useState<any[]>([{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
   const [homeHowSaving, setHomeHowSaving] = useState(false);
   const [homeHowSaveMessage, setHomeHowSaveMessage] = useState("");
 
   useEffect(() => {
     const steps = Array.isArray((homeHowPublication as any)?.fields?.prestationSteps) ? (homeHowPublication as any).fields.prestationSteps : [];
-    setHomeHowTitle(String((homeHowPublication as any)?.title ?? "Cómo funciona") || "Cómo funciona");
+    const title = String((homeHowPublication as any)?.title ?? "Cómo funciona") || "Cómo funciona";
+    setHomeHowTitle(title);
+    setHomeHowTitleI18n((homeHowPublication as any)?.titleI18n ?? { es: title });
     setHomeHowSteps(steps.length ? steps : [{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
   }, [homeHowPublication?.id]);
+
+  const homeHowHasContent = (step: any) => Boolean(
+    step?.title || step?.subtitle || step?.image ||
+    Object.values((step?.titleI18n ?? {}) as Record<string, string>).some(Boolean) ||
+    Object.values((step?.subtitleI18n ?? {}) as Record<string, string>).some(Boolean) ||
+    Object.values((step?.imageI18n ?? {}) as Record<string, string>).some(Boolean)
+  );
+
+  const deleteHomeHowPublication = async () => {
+    if (!homeHowPublication?.id) return;
+    const response = await fetch(`/api/admin/publications?id=${homeHowPublication.id}`, { method: "DELETE" });
+    if (!response.ok) throw new Error("No se pudo quitar la seccion.");
+    await refresh();
+  };
+
+  const removeHomeHowStep = (idx: number) => {
+    const nextSteps = homeHowSteps.filter((_, i) => i !== idx);
+    setHomeHowSteps(nextSteps);
+    setHomeHowSaveMessage("");
+    if (!nextSteps.some(homeHowHasContent) && homeHowPublication?.id) {
+      setHomeHowSaving(true);
+      void deleteHomeHowPublication()
+        .then(() => setHomeHowSaveMessage("Se quito la publicacion de Como funciona."))
+        .catch(() => setHomeHowSaveMessage("No se pudo quitar. Intenta nuevamente."))
+        .finally(() => setHomeHowSaving(false));
+    }
+  };
 
   const saveHomeHowWorks = async () => {
     setHomeHowSaving(true);
     setHomeHowSaveMessage("");
     try {
+      const stepsToPublish = homeHowSteps.filter(homeHowHasContent);
+      if (!stepsToPublish.length) {
+        await deleteHomeHowPublication();
+        setHomeHowSaveMessage("No hay pasos para publicar.");
+        setHomeHowSaving(false);
+        return;
+      }
+      const resolvedTitle = firstNonEmptyI18n(homeHowTitleI18n, homeHowTitle) || "Cómo funciona";
       const payload = {
-        title: homeHowTitle || "Cómo funciona",
+        title: resolvedTitle,
+        titleI18n: { ...homeHowTitleI18n, es: homeHowTitleI18n.es || resolvedTitle },
         description: "Sección Home: Cómo funciona",
         status: "active",
         featured: false,
         category: HOME_HOW_TAG,
         primaryGroupKey: "home-how-it-works",
-        fields: { prestationSteps: homeHowSteps.filter((s) => s?.title || s?.subtitle || s?.image) },
+        fields: { prestationSteps: stepsToPublish },
         filterOptionIds: [],
       };
       const url = homeHowPublication?.id ? `/api/admin/publications?id=${homeHowPublication.id}` : "/api/admin/publications";
@@ -4334,11 +4373,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           <p className="mt-2 text-sm text-slate-600">Armá aquí los pasos que se publican en la Home.</p>
           <div className="mt-3">{renderLangTabs(pLang, setEditingLang)}</div>
           <div className="mt-4 space-y-3">
-            <input value={homeHowTitle} onChange={(e) => setHomeHowTitle(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 px-3" placeholder={`Título de la sección (${pLang.toUpperCase()})`} />
+            <input value={getLangEditValue(homeHowTitleI18n, pLang, pLang === "es" ? homeHowTitle : "")} onChange={(e) => {
+              const next = e.target.value;
+              if (pLang === "es") setHomeHowTitle(next);
+              setHomeHowTitleI18n((prev) => setLangText(homeHowTitle, prev, pLang, next));
+            }} className="h-10 w-full rounded-xl border border-slate-200 px-3" placeholder={`Título de la sección (${pLang.toUpperCase()})`} />
             {homeHowSteps.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">No hay pasos. Presioná <b>+ Agregar paso</b>.</div> : null}
             {homeHowSteps.map((step, idx) => (
               <div key={`home-step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                <div className="flex items-center justify-between"><div className="text-xs font-semibold text-slate-500">Paso {idx + 1}</div><button type="button" className="text-red-500 text-xs" onClick={() => setHomeHowSteps((prev) => prev.filter((_, i) => i !== idx))}>Quitar paso</button></div>
+                <div className="flex items-center justify-between"><div className="text-xs font-semibold text-slate-500">Paso {idx + 1}</div><button type="button" className="text-red-500 text-xs" onClick={() => removeHomeHowStep(idx)}>Quitar paso</button></div>
                 <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title ?? "", it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del paso" />
                 <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle ?? "", it.subtitleI18n, pLang, next) } : it))} placeholder="Descripción" minHeightClassName="min-h-[80px]" />
                 <label className="text-xs font-medium text-slate-500">Subir imagen desde tu dispositivo</label>
@@ -4349,7 +4392,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             ))}
             <button type="button" onClick={() => setHomeHowSteps((prev) => [...prev, { title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }])} className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm">+ Agregar paso</button>
             <button type="button" onClick={saveHomeHowWorks} disabled={homeHowSaving} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white">{homeHowSaving ? "Guardando..." : "Guardar y publicar"}</button>
-            {homeHowSaveMessage ? <div className={`text-sm font-semibold ${homeHowSaveMessage.startsWith("Se guardo") ? "text-emerald-700" : "text-red-600"}`}>{homeHowSaveMessage}</div> : null}
+            {homeHowSaveMessage ? <div className={`text-sm font-semibold ${homeHowSaveMessage.startsWith("No") ? "text-red-600" : "text-emerald-700"}`}>{homeHowSaveMessage}</div> : null}
           </div>
         </section>
       ) : null}
