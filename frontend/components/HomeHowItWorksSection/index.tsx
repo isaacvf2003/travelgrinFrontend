@@ -15,7 +15,7 @@ export default function HomeHowItWorksSection() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/publications?status=active&page=1&perPage=36", { cache: "no-store" });
+        const res = await fetch("/api/publications?status=active&category=home-how-it-works&page=1&perPage=1", { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
         const list: Publication[] = Array.isArray(data?.items) ? data.items : [];
