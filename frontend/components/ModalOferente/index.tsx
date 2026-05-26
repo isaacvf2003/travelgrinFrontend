@@ -23,6 +23,27 @@ type FilterOptionLite = { value?: string; label?: string; labelI18n?: Record<str
 type FilterGroupLite = { key?: string; label?: string; taxonomyType?: string | null; options?: FilterOptionLite[] };
 type SelectOption = { value: string; label: string };
 type Step = "basic" | "featured";
+type PromoValidationState = {
+  applied: boolean;
+  code: string;
+  discountPercent: number;
+  originalAmount: number | null;
+  discountedAmount: number | null;
+  message: string;
+  error: boolean;
+};
+type PriceBreakdown = {
+  baseLabel: string;
+  finalLabel: string;
+  showStrikethrough: boolean;
+};
+
+const FEATURED_PLAN_AMOUNT = Number(process.env.NEXT_PUBLIC_FEATURED_MONTHLY_PRICE ?? 0);
+
+function formatMoneyLabel(amount: number | null) {
+  if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) return "$ XX";
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(Number(amount));
+}
 
 const OFERENTE_MODAL_TEXT = {
   es: {
@@ -466,6 +487,8 @@ function PlanCard({
   title,
   tone,
   price,
+  basePrice,
+  showStrikethroughPrice = false,
   items,
   buttonLabel,
   onClick,
@@ -473,11 +496,16 @@ function PlanCard({
   showPromo = false,
   promoCode = "",
   onPromoCodeChange,
+  onApplyPromo,
   promoPlaceholder,
+  promoStatusText,
+  promoStatusError = false,
 }: {
   title: string;
   tone: "free" | "featured";
   price: string;
+  basePrice?: string;
+  showStrikethroughPrice?: boolean;
   items: string[];
   buttonLabel: string;
   onClick: () => void;
@@ -485,7 +513,10 @@ function PlanCard({
   showPromo?: boolean;
   promoCode?: string;
   onPromoCodeChange?: (value: string) => void;
+  onApplyPromo?: () => void;
   promoPlaceholder: string;
+  promoStatusText?: string;
+  promoStatusError?: boolean;
 }) {
   const isFeatured = tone === "featured";
   return (
@@ -497,15 +528,35 @@ function PlanCard({
       <ul className={`mt-4 flex-1 space-y-1.5 text-sm leading-6 ${isFeatured ? "text-cyan-50" : "text-slate-700"}`}>
         {items.map((item) => <li key={item}>• {item}</li>)}
       </ul>
-      <div className={`mt-5 text-center text-2xl font-extrabold ${isFeatured ? "text-white" : "text-slate-900"}`}>{price}</div>
+      <div className="mt-5 text-center">
+        {showStrikethroughPrice && basePrice ? (
+          <div className={`text-sm font-semibold line-through ${isFeatured ? "text-cyan-100/90" : "text-slate-500"}`}>{basePrice}</div>
+        ) : null}
+        <div className={`text-2xl font-extrabold ${isFeatured ? "text-white" : "text-slate-900"}`}>{price}</div>
+      </div>
       {showPromo ? (
-        <input
-          value={promoCode}
-          onChange={(event) => onPromoCodeChange?.(event.target.value)}
-          className="mt-3 h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-          style={{ colorScheme: "light" }}
-          placeholder={promoPlaceholder}
-        />
+        <>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              value={promoCode}
+              onChange={(event) => onPromoCodeChange?.(event.target.value)}
+              className="h-9 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+              style={{ colorScheme: "light" }}
+              placeholder={promoPlaceholder}
+            />
+            <button
+              type="button"
+              onClick={onApplyPromo}
+              className="h-9 rounded-lg border border-white/30 bg-white/20 px-3 text-xs font-semibold text-white hover:bg-white/30 disabled:opacity-60"
+              disabled={!onApplyPromo}
+            >
+              Aplicar
+            </button>
+          </div>
+          {promoStatusText ? (
+            <p className={`mt-2 text-xs ${promoStatusError ? "text-rose-100" : "text-emerald-100"}`}>{promoStatusText}</p>
+          ) : null}
+        </>
       ) : null}
       <button
         type="button"
@@ -578,12 +629,37 @@ export default function ModalOferente({ onClose }: Props) {
   const [priceNegotiable, setPriceNegotiable] = useState(false);
   const [pricePeriod, setPricePeriod] = useState("month");
   const [promoCode, setPromoCode] = useState("");
+  const [promoValidation, setPromoValidation] = useState<PromoValidationState>({
+    applied: false,
+    code: "",
+    discountPercent: 0,
+    originalAmount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null,
+    discountedAmount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null,
+    message: "",
+    error: false,
+  });
 
   const [isEmptyProfileName, setIsEmptyProfileName] = useState(false);
   const [isEmptyProposalCategory, setIsEmptyProposalCategory] = useState(false);
   const [isEmptyEmail, setIsEmptyEmail] = useState(false);
   const [isEmptyTerms, setIsEmptyTerms] = useState(false);
   const [featuredTypeFocusKey, setFeaturedTypeFocusKey] = useState(0);
+
+  const featuredPriceBreakdown = useMemo<PriceBreakdown>(() => {
+    const baseAmount = FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null;
+    if (promoValidation.applied && !promoValidation.error && baseAmount !== null && promoValidation.discountedAmount !== null) {
+      return {
+        baseLabel: formatMoneyLabel(baseAmount),
+        finalLabel: formatMoneyLabel(promoValidation.discountedAmount),
+        showStrikethrough: true,
+      };
+    }
+    return {
+      baseLabel: formatMoneyLabel(baseAmount),
+      finalLabel: formatMoneyLabel(baseAmount),
+      showStrikethrough: false,
+    };
+  }, [promoValidation]);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -641,6 +717,33 @@ export default function ModalOferente({ onClose }: Props) {
     const allowed = new Set(destinationAvailabilityCountries.map((country) => country.trim().toLowerCase()));
     if (!allowed.has(normalized)) setDestinationCountry("");
   }, [destinationAvailabilityMode, destinationAvailabilityCountries, destinationCountry]);
+
+  useEffect(() => {
+    if (!promoCode.trim()) {
+      setPromoValidation((prev) => ({
+        ...prev,
+        applied: false,
+        code: "",
+        discountPercent: 0,
+        discountedAmount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null,
+        message: "",
+        error: false,
+      }));
+      return;
+    }
+    if (!promoValidation.applied) return;
+    if (promoValidation.code.trim().toUpperCase() !== promoCode.trim().toUpperCase()) {
+      setPromoValidation((prev) => ({
+        ...prev,
+        applied: false,
+        code: "",
+        discountPercent: 0,
+        discountedAmount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null,
+        message: "",
+        error: false,
+      }));
+    }
+  }, [promoCode, promoValidation.applied, promoValidation.code]);
 
   const taxonomyFor = (category: Category, byId: Map<string, Category>): string => {
     let current: Category | undefined = category;
@@ -750,6 +853,52 @@ export default function ModalOferente({ onClose }: Props) {
     return true;
   };
 
+  const applyPromoCode = async () => {
+    const code = promoCode.trim();
+    if (!code) {
+      setPromoValidation((prev) => ({ ...prev, applied: false, message: "Ingresa un codigo promocional.", error: true }));
+      return false;
+    }
+    try {
+      const response = await fetch("/api/promo-codes/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, planAmount: FEATURED_PLAN_AMOUNT }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok === false) {
+        setPromoValidation((prev) => ({
+          ...prev,
+          applied: false,
+          code: "",
+          discountPercent: 0,
+          discountedAmount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null,
+          message: String(data?.error ?? "No se pudo validar el codigo."),
+          error: true,
+        }));
+        return false;
+      }
+      const discountPercent = Number(data?.promo?.discountPercent ?? 0);
+      const discountedAmount = data?.pricing?.discountedAmount === null || data?.pricing?.discountedAmount === undefined
+        ? FEATURED_PLAN_AMOUNT
+        : Number(data.pricing.discountedAmount);
+      setPromoValidation({
+        applied: true,
+        code: String(data?.promo?.code ?? code).toUpperCase(),
+        discountPercent,
+        originalAmount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null,
+        discountedAmount: Number.isFinite(discountedAmount) ? discountedAmount : FEATURED_PLAN_AMOUNT,
+        message: `Se aplico el codigo. Descuento: ${discountPercent}%.`,
+        error: false,
+      });
+      setPromoCode(String(data?.promo?.code ?? code).toUpperCase());
+      return true;
+    } catch {
+      setPromoValidation((prev) => ({ ...prev, applied: false, message: "No se pudo validar el codigo.", error: true }));
+      return false;
+    }
+  };
+
   const buildPayload = (publicationPlan: "basic_free" | "featured") => {
     const cleanVenue = {
       country: primaryVenue.country.trim(),
@@ -771,6 +920,10 @@ export default function ModalOferente({ onClose }: Props) {
           .filter((entry) => entry.currency && entry.amount.trim())
           .filter((entry, index, self) => self.findIndex((item) => item.currency === entry.currency) === index);
     const primaryPrice = cleanPrices[0] ?? { currency: "", amount: "" };
+    const effectivePlanAmount = FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : 0;
+    const discountedPlanAmount = promoValidation.applied && !promoValidation.error && promoValidation.discountedAmount !== null
+      ? Number(promoValidation.discountedAmount)
+      : effectivePlanAmount;
     return {
       taxonomyType: "oferente",
       status: "pendiente",
@@ -810,6 +963,8 @@ export default function ModalOferente({ onClose }: Props) {
       priceNegotiable,
       pricePeriod,
       promoCode,
+      planAmount: publicationPlan === "featured" ? effectivePlanAmount : 0,
+      discountedPlanAmount: publicationPlan === "featured" ? discountedPlanAmount : 0,
       country: selectedCountry,
       locale,
       acceptedTerms: true,
@@ -819,6 +974,10 @@ export default function ModalOferente({ onClose }: Props) {
   const submit = async (publicationPlan: "basic_free" | "featured") => {
     if (!validateBasic()) return;
     if (publicationPlan === "featured" && !validateFeatured()) return;
+    if (publicationPlan === "featured" && promoCode.trim()) {
+      const valid = await applyPromoCode();
+      if (!valid) return;
+    }
     setIsLoading(true);
     try {
       const response = await fetch("/api/travel-services", {
@@ -836,8 +995,12 @@ export default function ModalOferente({ onClose }: Props) {
     }
   };
 
-  const goFeatured = () => {
+  const goFeatured = async () => {
     if (!validateBasic()) return;
+    if (promoCode.trim()) {
+      const valid = await applyPromoCode();
+      if (!valid) return;
+    }
     setStep("featured");
     setFeaturedTypeFocusKey((prev) => prev + 1);
   };
@@ -971,14 +1134,19 @@ export default function ModalOferente({ onClose }: Props) {
         <PlanCard
           title={mt("oferente_publicacion_destacada")}
           tone="featured"
-          price="$ XX"
+          price={featuredPriceBreakdown.finalLabel}
+          basePrice={featuredPriceBreakdown.baseLabel}
+          showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
           items={featuredItems}
           buttonLabel={mt("oferente_continuar_destacado")}
           onClick={goFeatured}
           showPromo
           promoCode={promoCode}
           onPromoCodeChange={setPromoCode}
+          onApplyPromo={() => { void applyPromoCode(); }}
           promoPlaceholder={mt("oferente_codigo_promocional")}
+          promoStatusText={promoValidation.message}
+          promoStatusError={promoValidation.error}
         />
       </div>
     </>
@@ -1135,7 +1303,9 @@ export default function ModalOferente({ onClose }: Props) {
         <PlanCard
           title={mt("oferente_publicacion_destacada")}
           tone="featured"
-          price="$ XX"
+          price={featuredPriceBreakdown.finalLabel}
+          basePrice={featuredPriceBreakdown.baseLabel}
+          showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
           items={featuredItems}
           buttonLabel={isLoading ? t("guardando") : mt("oferente_publicar_destacado")}
           onClick={() => submit("featured")}
@@ -1143,7 +1313,10 @@ export default function ModalOferente({ onClose }: Props) {
           showPromo
           promoCode={promoCode}
           onPromoCodeChange={setPromoCode}
+          onApplyPromo={() => { void applyPromoCode(); }}
           promoPlaceholder={mt("oferente_codigo_promocional")}
+          promoStatusText={promoValidation.message}
+          promoStatusError={promoValidation.error}
         />
       </div>
     </>
