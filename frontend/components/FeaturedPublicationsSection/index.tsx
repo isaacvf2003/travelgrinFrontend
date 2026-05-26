@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Compass, Handshake, Languages, MapPin, Star 
 import { useCountry } from "@/app/context/CountryProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
+import ChangingText from "@/components/ChangingText";
 
 const MAX_ITEMS = 8;
 
@@ -726,18 +727,25 @@ export default function FeaturedPublicationsSection() {
   }
   if (!list.length) return null;
 
+  const phrasesThePractice = [
+    t("el_asesor"),
+    t("la_cura"),
+    t("la_formacion"),
+    t("el_documento"),
+    t("el_socio"),
+    t("el_cliente"),
+    t("el_proveedor"),
+    t("la_experiencia"),
+    t("el_colaborador"),
+  ];
+
   return (
     <section
       ref={sectionRef}
       className="mt-6 px-4 sm:px-5 md:mt-8 md:px-6 lg:px-0"
     >
       <div className="mb-10 overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-10">
-        <p className="text-2xl font-bold leading-tight md:text-3xl">
-          <span className="text-[#273166]">
-            {t("formacion_banner_emphasis")}
-          </span>{" "}
-          {t("formacion_banner_rest")}
-        </p>
+        <ChangingText phrases={phrasesThePractice} isNotAlone isBlackText />
       </div>
 
       <div className="mb-8 flex items-center justify-center gap-3 text-center md:mb-10">
@@ -998,11 +1006,7 @@ export default function FeaturedPublicationsSection() {
       </div>
 
       <div className="mt-12 overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-10">
-        <p className="text-2xl font-bold leading-tight md:text-3xl">
-          <span className="text-[#273166]">{t("ciudadano_banner_line1")}</span>
-          <br />
-          {t("ciudadano_banner_line2")}
-        </p>
+        <ChangingText phrases={phrasesThePractice} isNotAlone isBlackText />
       </div>
 
       {showPrestacionesSection ? (

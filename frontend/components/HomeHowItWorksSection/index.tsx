@@ -9,6 +9,7 @@ type Publication = { id: string; category?: string; title?: string; titleI18n?: 
 
 export default function HomeHowItWorksSection() {
   const [steps, setSteps] = useState<Step[]>([]);
+  const [sectionTitle, setSectionTitle] = useState<I18nRecord>({ es: "Cómo funciona" });
   const [loading, setLoading] = useState(true);
   const { locale } = useTranslation();
 
@@ -21,6 +22,7 @@ export default function HomeHowItWorksSection() {
         const list: Publication[] = Array.isArray(data?.items) ? data.items : [];
         const found = list.find((item) => String(item?.category ?? "") === "home-how-it-works" && Array.isArray(item?.fields?.prestationSteps) && item.fields!.prestationSteps!.length > 0);
         const foundSteps = Array.isArray(found?.fields?.prestationSteps) ? found!.fields!.prestationSteps! : [];
+        setSectionTitle(found?.titleI18n ?? { es: found?.title ?? "Cómo funciona" });
         setSteps(foundSteps.filter((entry) => Boolean(entry?.title || entry?.subtitle || entry?.image || entry?.titleI18n || entry?.subtitleI18n || entry?.imageI18n)).slice(0, 6));
       } catch { setSteps([]); } finally { setLoading(false); }
     };
@@ -39,7 +41,7 @@ export default function HomeHowItWorksSection() {
 
   return (
     <section className="mt-10 px-4 md:px-0">
-      <h2 className="text-center text-3xl font-bold text-[#273166] md:text-4xl">Cómo funciona</h2>
+      <h2 className="text-center text-3xl font-bold text-[#273166] md:text-4xl">{pickI18nText(sectionTitle, "Cómo funciona")}</h2>
       <HowToStartCarousel items={localized} />
     </section>
   );
