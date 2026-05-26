@@ -3283,10 +3283,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
 
   const HOME_HOW_TAG = "home-how-it-works";
+  const isHomeHowPublication = (item?: Publication | null) => String(item?.category ?? "") === HOME_HOW_TAG;
   const homeHowPublication = publications.find((item) => String(item.category ?? "") === HOME_HOW_TAG);
   const [homeHowTitle, setHomeHowTitle] = useState("Cómo funciona");
   const [homeHowSteps, setHomeHowSteps] = useState<any[]>([{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
   const [homeHowSaving, setHomeHowSaving] = useState(false);
+  const [homeHowSaveMessage, setHomeHowSaveMessage] = useState("");
 
   useEffect(() => {
     const steps = Array.isArray((homeHowPublication as any)?.fields?.prestationSteps) ? (homeHowPublication as any).fields.prestationSteps : [];
@@ -3296,6 +3298,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const saveHomeHowWorks = async () => {
     setHomeHowSaving(true);
+    setHomeHowSaveMessage("");
     try {
       const payload = {
         title: homeHowTitle || "Cómo funciona",
@@ -3303,14 +3306,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         status: "active",
         featured: false,
         category: HOME_HOW_TAG,
-        primaryGroupKey: "prestacion",
+        primaryGroupKey: "home-how-it-works",
         fields: { prestationSteps: homeHowSteps.filter((s) => s?.title || s?.subtitle || s?.image) },
         filterOptionIds: [],
       };
       const url = homeHowPublication?.id ? `/api/admin/publications?id=${homeHowPublication.id}` : "/api/admin/publications";
       const method = homeHowPublication?.id ? "PUT" : "POST";
-      await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      await fetchAll();
+      const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error("No se pudo guardar la seccion.");
+      await refresh();
+      setHomeHowSaveMessage("Se guardo exitosamente.");
+    } catch {
+      setHomeHowSaveMessage("No se pudo guardar. Intenta nuevamente.");
     } finally { setHomeHowSaving(false); }
   };
   const paidPublications = publications.filter((item) => {
@@ -4063,6 +4070,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   };
 
   const filteredPublications = publications.filter((item) => {
+    if (isHomeHowPublication(item)) return false;
     const query = publicationSearch.toLowerCase().trim();
     const matchesSearch = !query || [item.title, item.publisherName, item.category, item.subcategory]
       .filter(Boolean)
@@ -4341,6 +4349,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             ))}
             <button type="button" onClick={() => setHomeHowSteps((prev) => [...prev, { title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }])} className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm">+ Agregar paso</button>
             <button type="button" onClick={saveHomeHowWorks} disabled={homeHowSaving} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white">{homeHowSaving ? "Guardando..." : "Guardar y publicar"}</button>
+            {homeHowSaveMessage ? <div className={`text-sm font-semibold ${homeHowSaveMessage.startsWith("Se guardo") ? "text-emerald-700" : "text-red-600"}`}>{homeHowSaveMessage}</div> : null}
           </div>
         </section>
       ) : null}
