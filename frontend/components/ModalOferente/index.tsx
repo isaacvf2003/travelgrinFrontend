@@ -37,12 +37,17 @@ type PriceBreakdown = {
   finalLabel: string;
   showStrikethrough: boolean;
 };
+type FeaturedPlanPricing = {
+  country: string | null;
+  currency: "ARS" | "USD";
+  amount: number;
+};
 
 const FEATURED_PLAN_AMOUNT = Number(process.env.NEXT_PUBLIC_FEATURED_MONTHLY_PRICE ?? 0);
 
-function formatMoneyLabel(amount: number | null) {
+function formatMoneyLabel(amount: number | null, currency: "ARS" | "USD" = "USD") {
   if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) return "$ XX";
-  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(Number(amount));
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(amount));
 }
 
 const OFERENTE_MODAL_TEXT = {
@@ -572,7 +577,7 @@ function PlanCard({
 
 export default function ModalOferente({ onClose }: Props) {
   const { t, locale } = useTranslation();
-  const { selectedCountry } = useCountry();
+  const { selectedCountry, setIsOpenModal } = useCountry();
   const modalLocale: OferenteModalLocale = locale in OFERENTE_MODAL_TEXT ? (locale as OferenteModalLocale) : "es";
   const mt = (key: OferenteModalTextKey) => OFERENTE_MODAL_TEXT[modalLocale][key] ?? OFERENTE_MODAL_TEXT.es[key];
   const featuredItems = [
@@ -629,6 +634,11 @@ export default function ModalOferente({ onClose }: Props) {
   const [priceNegotiable, setPriceNegotiable] = useState(false);
   const [pricePeriod, setPricePeriod] = useState("month");
   const [promoCode, setPromoCode] = useState("");
+  const [featuredPlanPricing, setFeaturedPlanPricing] = useState<FeaturedPlanPricing>({
+    country: null,
+    currency: "USD",
+    amount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : 0,
+  });
   const [promoValidation, setPromoValidation] = useState<PromoValidationState>({
     applied: false,
     code: "",
@@ -646,20 +656,20 @@ export default function ModalOferente({ onClose }: Props) {
   const [featuredTypeFocusKey, setFeaturedTypeFocusKey] = useState(0);
 
   const featuredPriceBreakdown = useMemo<PriceBreakdown>(() => {
-    const baseAmount = FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null;
+    const baseAmount = featuredPlanPricing.amount > 0 ? featuredPlanPricing.amount : null;
     if (promoValidation.applied && !promoValidation.error && baseAmount !== null && promoValidation.discountedAmount !== null) {
       return {
-        baseLabel: formatMoneyLabel(baseAmount),
-        finalLabel: formatMoneyLabel(promoValidation.discountedAmount),
+        baseLabel: formatMoneyLabel(baseAmount, featuredPlanPricing.currency),
+        finalLabel: formatMoneyLabel(promoValidation.discountedAmount, featuredPlanPricing.currency),
         showStrikethrough: true,
       };
     }
     return {
-      baseLabel: formatMoneyLabel(baseAmount),
-      finalLabel: formatMoneyLabel(baseAmount),
+      baseLabel: formatMoneyLabel(baseAmount, featuredPlanPricing.currency),
+      finalLabel: formatMoneyLabel(baseAmount, featuredPlanPricing.currency),
       showStrikethrough: false,
     };
-  }, [promoValidation]);
+  }, [featuredPlanPricing.amount, featuredPlanPricing.currency, promoValidation]);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -719,13 +729,39 @@ export default function ModalOferente({ onClose }: Props) {
   }, [destinationAvailabilityMode, destinationAvailabilityCountries, destinationCountry]);
 
   useEffect(() => {
+    const country = String(selectedCountry ?? "").trim();
+    if (!country) return;
+    fetch(`/api/featured-plan-pricing?country=${encodeURIComponent(country)}`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        const item = data?.item ?? {};
+        const amount = Number(item?.amount ?? 0);
+        const currency = String(item?.currency ?? "USD").toUpperCase() === "ARS" ? "ARS" : "USD";
+        const normalizedAmount = Number.isFinite(amount) ? amount : 0;
+        setFeaturedPlanPricing({
+          country: item?.country ? String(item.country) : null,
+          currency,
+          amount: normalizedAmount,
+        });
+        setPromoValidation((prev) => ({
+          ...prev,
+          originalAmount: normalizedAmount > 0 ? normalizedAmount : null,
+          discountedAmount: prev.applied && !prev.error
+            ? Number((normalizedAmount * (1 - Number(prev.discountPercent || 0) / 100)).toFixed(2))
+            : (normalizedAmount > 0 ? normalizedAmount : null),
+        }));
+      })
+      .catch(() => null);
+  }, [selectedCountry]);
+
+  useEffect(() => {
     if (!promoCode.trim()) {
       setPromoValidation((prev) => ({
         ...prev,
         applied: false,
         code: "",
         discountPercent: 0,
-        discountedAmount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null,
+        discountedAmount: featuredPlanPricing.amount > 0 ? featuredPlanPricing.amount : null,
         message: "",
         error: false,
       }));
@@ -738,12 +774,12 @@ export default function ModalOferente({ onClose }: Props) {
         applied: false,
         code: "",
         discountPercent: 0,
-        discountedAmount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null,
+        discountedAmount: featuredPlanPricing.amount > 0 ? featuredPlanPricing.amount : null,
         message: "",
         error: false,
       }));
     }
-  }, [promoCode, promoValidation.applied, promoValidation.code]);
+  }, [featuredPlanPricing.amount, promoCode, promoValidation.applied, promoValidation.code]);
 
   const taxonomyFor = (category: Category, byId: Map<string, Category>): string => {
     let current: Category | undefined = category;
@@ -790,6 +826,14 @@ export default function ModalOferente({ onClose }: Props) {
   const typeOptions = useMemo(() => optionsByTaxonomy(["tipo", "tipos", "type", "types"]), [optionsByTaxonomy]);
 
   const validateBasic = () => {
+    if (!String(selectedCountry ?? "").trim()) {
+      setIsOpenModal?.(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("tg-open-country-modal"));
+      }
+      toast.error("Elegi tu pais de pasaporte para continuar.");
+      return false;
+    }
     if (emailError.length > 0) {
       toast.error(t("email_valido"));
       return false;
@@ -863,7 +907,7 @@ export default function ModalOferente({ onClose }: Props) {
       const response = await fetch("/api/promo-codes/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, planAmount: FEATURED_PLAN_AMOUNT }),
+        body: JSON.stringify({ code, planAmount: featuredPlanPricing.amount }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok === false) {
@@ -872,7 +916,7 @@ export default function ModalOferente({ onClose }: Props) {
           applied: false,
           code: "",
           discountPercent: 0,
-          discountedAmount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null,
+          discountedAmount: featuredPlanPricing.amount > 0 ? featuredPlanPricing.amount : null,
           message: String(data?.error ?? "No se pudo validar el codigo."),
           error: true,
         }));
@@ -880,14 +924,14 @@ export default function ModalOferente({ onClose }: Props) {
       }
       const discountPercent = Number(data?.promo?.discountPercent ?? 0);
       const discountedAmount = data?.pricing?.discountedAmount === null || data?.pricing?.discountedAmount === undefined
-        ? FEATURED_PLAN_AMOUNT
+        ? featuredPlanPricing.amount
         : Number(data.pricing.discountedAmount);
       setPromoValidation({
         applied: true,
         code: String(data?.promo?.code ?? code).toUpperCase(),
         discountPercent,
-        originalAmount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : null,
-        discountedAmount: Number.isFinite(discountedAmount) ? discountedAmount : FEATURED_PLAN_AMOUNT,
+        originalAmount: featuredPlanPricing.amount > 0 ? featuredPlanPricing.amount : null,
+        discountedAmount: Number.isFinite(discountedAmount) ? discountedAmount : featuredPlanPricing.amount,
         message: `Se aplico el codigo. Descuento: ${discountPercent}%.`,
         error: false,
       });
@@ -920,7 +964,7 @@ export default function ModalOferente({ onClose }: Props) {
           .filter((entry) => entry.currency && entry.amount.trim())
           .filter((entry, index, self) => self.findIndex((item) => item.currency === entry.currency) === index);
     const primaryPrice = cleanPrices[0] ?? { currency: "", amount: "" };
-    const effectivePlanAmount = FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : 0;
+    const effectivePlanAmount = featuredPlanPricing.amount > 0 ? featuredPlanPricing.amount : 0;
     const discountedPlanAmount = promoValidation.applied && !promoValidation.error && promoValidation.discountedAmount !== null
       ? Number(promoValidation.discountedAmount)
       : effectivePlanAmount;
@@ -964,6 +1008,7 @@ export default function ModalOferente({ onClose }: Props) {
       pricePeriod,
       promoCode,
       planAmount: publicationPlan === "featured" ? effectivePlanAmount : 0,
+      planCurrency: publicationPlan === "featured" ? featuredPlanPricing.currency : "USD",
       discountedPlanAmount: publicationPlan === "featured" ? discountedPlanAmount : 0,
       country: selectedCountry,
       locale,

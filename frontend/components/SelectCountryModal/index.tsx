@@ -203,18 +203,27 @@ const CountrySelectionModal = ({
   }, [isClient, isOpen, inputFocused]);
 
   // Verificar si el usuario ya completó la selección
+  const openPassportModal = () => {
+    setIsOpen(true);
+    setTimeout(() => {
+      setShowModal(true);
+    }, 50);
+    fetchCountries();
+  };
+
   useEffect(() => {
     if (!isClient) return;
     const hasCompletedSelection = localStorage.getItem(
       "travelgrin_country_selected"
     );
-    if (!hasCompletedSelection) {
-      setIsOpen(true);
-      setTimeout(() => {
-        setShowModal(true);
-      }, 50);
-      fetchCountries();
-    }
+    if (!hasCompletedSelection) openPassportModal();
+  }, [isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    const onOpen = () => openPassportModal();
+    window.addEventListener("tg-open-country-modal", onOpen);
+    return () => window.removeEventListener("tg-open-country-modal", onOpen);
   }, [isClient]);
 
   // Fetch países de la API gratuita
