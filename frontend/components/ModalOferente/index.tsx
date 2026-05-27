@@ -41,6 +41,7 @@ type FeaturedPlanPricing = {
   country: string | null;
   currency: "ARS" | "USD";
   amount: number;
+  checkoutUrl: string | null;
 };
 
 const FEATURED_PLAN_AMOUNT = Number(process.env.NEXT_PUBLIC_FEATURED_MONTHLY_PRICE ?? 0);
@@ -494,6 +495,7 @@ function PlanCard({
   price,
   basePrice,
   showStrikethroughPrice = false,
+  priceCaption,
   items,
   buttonLabel,
   onClick,
@@ -511,6 +513,7 @@ function PlanCard({
   price: string;
   basePrice?: string;
   showStrikethroughPrice?: boolean;
+  priceCaption?: string;
   items: string[];
   buttonLabel: string;
   onClick: () => void;
@@ -538,6 +541,7 @@ function PlanCard({
           <div className={`text-sm font-semibold line-through ${isFeatured ? "text-cyan-100/90" : "text-slate-500"}`}>{basePrice}</div>
         ) : null}
         <div className={`text-2xl font-extrabold ${isFeatured ? "text-white" : "text-slate-900"}`}>{price}</div>
+        {priceCaption ? <div className={`text-xs ${isFeatured ? "text-cyan-100" : "text-slate-500"}`}>{priceCaption}</div> : null}
       </div>
       {showPromo ? (
         <>
@@ -638,6 +642,7 @@ export default function ModalOferente({ onClose }: Props) {
     country: null,
     currency: "USD",
     amount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : 0,
+    checkoutUrl: null,
   });
   const [promoValidation, setPromoValidation] = useState<PromoValidationState>({
     applied: false,
@@ -742,6 +747,7 @@ export default function ModalOferente({ onClose }: Props) {
           country: item?.country ? String(item.country) : null,
           currency,
           amount: normalizedAmount,
+          checkoutUrl: item?.checkoutUrl ? String(item.checkoutUrl) : null,
         });
         setPromoValidation((prev) => ({
           ...prev,
@@ -1030,11 +1036,33 @@ export default function ModalOferente({ onClose }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildPayload(publicationPlan)),
       });
-      if (!response.ok) throw new Error();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.error ?? ""));
+
+      if (publicationPlan === "featured") {
+        const checkoutResponse = await fetch("/api/payments/featured/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            serviceId: String(data?.id ?? ""),
+            country: selectedCountry,
+            amount: buildPayload("featured").discountedPlanAmount,
+            currency: featuredPlanPricing.currency,
+            promoCode,
+            email,
+          }),
+        });
+        const checkoutData = await checkoutResponse.json().catch(() => ({}));
+        if (!checkoutResponse.ok || !checkoutData?.redirectUrl) {
+          throw new Error(String(checkoutData?.error ?? "No se pudo iniciar el checkout."));
+        }
+        window.location.href = String(checkoutData.redirectUrl);
+        return;
+      }
       toast.success(mt("oferente_toast_revision"), { duration: 6000 });
       onClose();
-    } catch {
-      toast.error(t("error_form"));
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t("error_form"));
     } finally {
       setIsLoading(false);
     }
@@ -1182,6 +1210,7 @@ export default function ModalOferente({ onClose }: Props) {
           price={featuredPriceBreakdown.finalLabel}
           basePrice={featuredPriceBreakdown.baseLabel}
           showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
+          priceCaption={`Moneda: ${featuredPlanPricing.currency}`}
           items={featuredItems}
           buttonLabel={mt("oferente_continuar_destacado")}
           onClick={goFeatured}
@@ -1351,6 +1380,7 @@ export default function ModalOferente({ onClose }: Props) {
           price={featuredPriceBreakdown.finalLabel}
           basePrice={featuredPriceBreakdown.baseLabel}
           showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
+          priceCaption={`Moneda: ${featuredPlanPricing.currency}`}
           items={featuredItems}
           buttonLabel={isLoading ? t("guardando") : mt("oferente_publicar_destacado")}
           onClick={() => submit("featured")}
