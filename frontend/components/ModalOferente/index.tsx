@@ -1037,7 +1037,7 @@ export default function ModalOferente({ onClose }: Props) {
         body: JSON.stringify(buildPayload(publicationPlan)),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(String(data?.error ?? ""));
+      if (!response.ok) throw new Error(String(data?.details ?? data?.error ?? ""));
 
       if (publicationPlan === "featured") {
         const checkoutResponse = await fetch("/api/payments/featured/checkout", {
