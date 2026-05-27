@@ -117,6 +117,7 @@ type FeaturedPlanPriceItem = {
   country: string | null;
   currency: "ARS" | "USD";
   amount: number;
+  checkoutUrl: string | null;
   isDefault: boolean;
   isActive: boolean;
   createdAt: string;
@@ -818,6 +819,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [priceRuleCountryDraft, setPriceRuleCountryDraft] = useState("");
   const [priceRuleCurrencyDraft, setPriceRuleCurrencyDraft] = useState<"ARS" | "USD">("USD");
   const [priceRuleAmountDraft, setPriceRuleAmountDraft] = useState("");
+  const [priceRuleCheckoutUrlDraft, setPriceRuleCheckoutUrlDraft] = useState("");
   const [priceRuleDefaultDraft, setPriceRuleDefaultDraft] = useState(false);
   const [priceRuleActiveDraft, setPriceRuleActiveDraft] = useState(true);
   const [priceRuleEditId, setPriceRuleEditId] = useState<string | null>(null);
@@ -4015,6 +4017,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRuleCountryDraft("");
     setPriceRuleCurrencyDraft("USD");
     setPriceRuleAmountDraft("");
+    setPriceRuleCheckoutUrlDraft("");
     setPriceRuleDefaultDraft(false);
     setPriceRuleActiveDraft(true);
   };
@@ -4023,12 +4026,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRuleSaving(true);
     setPriceRuleMessage("");
     try {
+      const isAllCountries = priceRuleCountryDraft === "__ALL__";
+      const isDefaultRule = priceRuleDefaultDraft || isAllCountries;
       const payload = {
         id: priceRuleEditId ?? undefined,
-        country: priceRuleDefaultDraft ? "" : priceRuleCountryDraft,
+        country: isDefaultRule ? "" : priceRuleCountryDraft,
         currency: priceRuleCurrencyDraft,
         amount: Number(priceRuleAmountDraft),
-        isDefault: priceRuleDefaultDraft,
+        checkoutUrl: priceRuleCheckoutUrlDraft,
+        isDefault: isDefaultRule,
         isActive: priceRuleActiveDraft,
       };
       const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>("/api/admin/featured-plan-prices", {
@@ -4048,9 +4054,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const editPriceRule = (item: FeaturedPlanPriceItem) => {
     setPriceRuleEditId(item.id);
-    setPriceRuleCountryDraft(item.country ?? "");
+    setPriceRuleCountryDraft(item.isDefault ? "__ALL__" : (item.country ?? ""));
     setPriceRuleCurrencyDraft(item.currency === "ARS" ? "ARS" : "USD");
     setPriceRuleAmountDraft(String(item.amount ?? ""));
+    setPriceRuleCheckoutUrlDraft(String(item.checkoutUrl ?? ""));
     setPriceRuleDefaultDraft(Boolean(item.isDefault));
     setPriceRuleActiveDraft(Boolean(item.isActive));
     setPriceRuleMessage("");
@@ -4177,9 +4184,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           <p className="text-sm font-semibold text-slate-900">Precio plan destacado por pais</p>
           <p className="text-xs text-slate-500">Configura ARS y USD por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
         </div>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
-          <select value={priceRuleCountryDraft} onChange={(event) => setPriceRuleCountryDraft(event.target.value)} disabled={priceRuleDefaultDraft} className="h-10 rounded-xl border border-slate-200 px-3 text-sm disabled:bg-slate-100">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
+          <select value={priceRuleCountryDraft} onChange={(event) => {
+            const value = event.target.value;
+            setPriceRuleCountryDraft(value);
+            if (value === "__ALL__") {
+              setPriceRuleDefaultDraft(true);
+              setPriceRuleCurrencyDraft("USD");
+            }
+          }} disabled={priceRuleDefaultDraft && priceRuleCountryDraft !== "__ALL__"} className="h-10 rounded-xl border border-slate-200 px-3 text-sm disabled:bg-slate-100">
             <option value="">Seleccionar pais</option>
+            <option value="__ALL__">Todos los paises</option>
             {countryCatalog.map((country) => <option key={`rule-country-${country}`} value={country}>{country}</option>)}
           </select>
           <select value={priceRuleCurrencyDraft} onChange={(event) => setPriceRuleCurrencyDraft((event.target.value === "ARS" ? "ARS" : "USD"))} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
@@ -4187,11 +4202,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <option value="ARS">ARS</option>
           </select>
           <input value={priceRuleAmountDraft} onChange={(event) => setPriceRuleAmountDraft(event.target.value)} placeholder="Monto" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <input value={priceRuleCheckoutUrlDraft} onChange={(event) => setPriceRuleCheckoutUrlDraft(event.target.value)} placeholder="Enlace checkout dLocal" className="h-10 rounded-xl border border-slate-200 px-3 text-sm md:col-span-2" />
           <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs text-slate-700">
-            <input type="checkbox" checked={priceRuleDefaultDraft} onChange={(event) => setPriceRuleDefaultDraft(event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]" />
+            <input type="checkbox" checked={priceRuleDefaultDraft} onChange={(event) => {
+              const checked = event.target.checked;
+              setPriceRuleDefaultDraft(checked);
+              if (checked) {
+                setPriceRuleCountryDraft("__ALL__");
+                setPriceRuleCurrencyDraft("USD");
+              } else if (priceRuleCountryDraft === "__ALL__") {
+                setPriceRuleCountryDraft("");
+              }
+            }} className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]" />
             Regla por defecto
           </label>
-          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs text-slate-700">
+          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs text-slate-700 md:col-span-1">
             <input type="checkbox" checked={priceRuleActiveDraft} onChange={(event) => setPriceRuleActiveDraft(event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]" />
             Activo
           </label>
@@ -4214,6 +4239,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.isDefault ? "DEFECTO" : (item.country || "-")}</span>
                 <span>{item.currency}</span>
                 <span>{item.amount}</span>
+                <span className="max-w-[320px] truncate">Checkout: {item.checkoutUrl || "-"}</span>
                 <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
               </div>
               <div className="flex items-center gap-2">
