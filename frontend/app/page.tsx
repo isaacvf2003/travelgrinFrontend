@@ -6,6 +6,7 @@ import "./globals.css";
 import Phrase from "@/components/Phrase";
 import Footer from "@/components/Footer";
 import dynamic from "next/dynamic";
+import FeaturedPaymentFlash from "@/components/FeaturedPaymentFlash";
 
 const TravelTypes = dynamic(() => import("@/components/TravelTypes"), {
   loading: () => <section className="mt-10 h-80 w-full animate-pulse rounded-3xl bg-slate-200/70" />,
@@ -38,6 +39,7 @@ export const viewport: Viewport = {
 export default function Home() {
   return (
     <>
+    <FeaturedPaymentFlash />
     <div id="home">
       <NavBar  />
       </div>
