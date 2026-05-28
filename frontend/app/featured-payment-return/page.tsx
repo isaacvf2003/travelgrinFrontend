@@ -21,6 +21,24 @@ export default function FeaturedPaymentReturnPage() {
   );
   const serviceId = String(searchParams.get("serviceId") ?? "").trim();
   const [secondsLeft, setSecondsLeft] = useState(6);
+  const normalizedResult = status === "success" ? "success" : status === "cancel" ? "cancel" : "pending";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const payload = JSON.stringify({
+      status: normalizedResult,
+      serviceId,
+      at: Date.now(),
+    });
+    try {
+      window.localStorage.setItem("tg-featured-payment-result", payload);
+    } catch {}
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage({ type: "tg-featured-payment-result", status: normalizedResult, serviceId }, window.location.origin);
+      } catch {}
+    }
+  }, [normalizedResult, serviceId]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -37,6 +55,12 @@ export default function FeaturedPaymentReturnPage() {
 
   useEffect(() => {
     if (secondsLeft > 0) return;
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.close();
+        return;
+      } catch {}
+    }
     const params = new URLSearchParams();
     params.set("featuredPayment", status);
     if (serviceId) params.set("serviceId", serviceId);
@@ -68,4 +92,3 @@ export default function FeaturedPaymentReturnPage() {
     </main>
   );
 }
-
