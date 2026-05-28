@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 
 import "./globals.css";
 import { CountryProvider } from "./context/CountryProvider";
 import { Toaster } from 'react-hot-toast';
 import { LanguageProvider } from "./context/LanguageContext";
 import GlobalActionModals from "@/components/GlobalActionModals";
+import FeedbackFloatingButton from "@/components/FeedbackFloatingButton";
 
 export const metadata: Metadata = {
   title: "TravelGrin - Viajar por oportunidades | Conecta con el mundo",
@@ -41,6 +43,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+      <Script async src="https://www.googletagmanager.com/gtag/js?id=G-Y3PLZ67DHS" strategy="afterInteractive" />
+      <Script id="google-analytics-gtag" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-Y3PLZ67DHS');
+        `}
+      </Script>
       <script 
       type="text/javascript"
       dangerouslySetInnerHTML={{
@@ -63,6 +74,7 @@ export default function RootLayout({
         <CountryProvider>
         {children}
         <GlobalActionModals />
+        <FeedbackFloatingButton />
         <Toaster 
         containerClassName="z-[99999999999]"
           position="top-right"
