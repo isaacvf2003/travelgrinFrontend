@@ -6979,6 +6979,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div className="mt-3 space-y-3">
             {publicationTab === "denuncias" ? filteredReports.map((report) => {
               const isOpen = Boolean(expandedReports[report.id]);
+              const isFeedback = String(report.reason ?? "").toLowerCase() === "feedback" || String(report.publicationId ?? "") === "feedback-general";
               const reportedPublication = publicationsById.get(String(report.publicationId ?? ""));
               const reportedPath = reportedPublication?.primaryGroupKey === "prestacion"
                 ? `/prestaciones/${encodeURIComponent(report.publicationId)}`
@@ -6992,7 +6993,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <div className="text-sm font-semibold text-slate-900">{report.publicationTitle || "Publicación sin título"}</div>
+                        <div className="text-sm font-semibold text-slate-900">
+                          {isFeedback ? "Feedback general" : (report.publicationTitle || "Publicación sin título")}
+                        </div>
                         <div className="mt-1 text-xs text-slate-500">Publicación ID: {report.publicationId || "-"}</div>
                         <div className="mt-1 text-xs text-slate-500">Denunciante: {report.fullName || "-"} · {report.email || "-"} · {report.contact || "-"}</div>
                       </div>
@@ -7003,7 +7006,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   {isOpen ? (
                     <>
                       <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">{report.details || "-"}</div>
-                      {report.publicationId ? (
+                      {report.publicationId && !isFeedback ? (
                         <a
                           href={reportedPath}
                           target="_blank"
@@ -7039,6 +7042,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="mt-2 text-base font-semibold text-slate-900">{p.title}</div>
                     <div className="mt-1 text-xs text-slate-500">
                       Oferente: {p.publisherName || "Sin nombre"} · Email: {String((p.fields as any)?.providerEmail ?? "-")}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      Creada: {p.createdAt ? new Date(p.createdAt).toLocaleString("es-AR") : "-"}
                     </div>
                     <div className="mt-1 text-sm text-slate-600">
                       {(() => {
