@@ -124,6 +124,9 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_terminos: "Debés aceptar términos y condiciones",
     oferente_toast_sede: "Completá el país y la ciudad donde se cumple tu propuesta",
     oferente_toast_revision: "Tu publicación está en revisión",
+    oferente_toast_pago_pestana: "Te abrimos una nueva pestaña para completar el pago.",
+    oferente_toast_pago_exitoso: "Pago exitoso. Pronto verás la publicación en la web.",
+    oferente_toast_pago_cancelado: "Pago no completado o cancelado. Podés intentarlo nuevamente.",
     oferente_toast_imagen_valida: "Subí una imagen válida",
     oferente_toast_imagen_limite: "Podés subir hasta 5 imágenes. Te quedan {remaining}.",
     oferente_toast_imagen_tipo: "Solo se permiten imágenes válidas",
@@ -201,6 +204,9 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_terminos: "You must accept terms and conditions",
     oferente_toast_sede: "Complete the country and city where your proposal takes place",
     oferente_toast_revision: "Your publication is under review",
+    oferente_toast_pago_pestana: "We opened a new tab for you to complete the payment.",
+    oferente_toast_pago_exitoso: "Payment successful. You will soon see the publication on the website.",
+    oferente_toast_pago_cancelado: "Payment not completed or cancelled. You can try again.",
     oferente_toast_imagen_valida: "Upload a valid image",
     oferente_toast_imagen_limite: "You can upload up to 5 images. You have {remaining} left.",
     oferente_toast_imagen_tipo: "Only valid images are allowed",
@@ -278,6 +284,9 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_terminos: "Você deve aceitar os termos e condições",
     oferente_toast_sede: "Complete o país e a cidade onde sua proposta acontece",
     oferente_toast_revision: "Sua publicação está em revisão",
+    oferente_toast_pago_pestana: "Abrimos uma nova aba para você concluir o pagamento.",
+    oferente_toast_pago_exitoso: "Pagamento realizado com sucesso. Em breve você verá a publicação no site.",
+    oferente_toast_pago_cancelado: "Pagamento não concluído ou cancelado. Você pode tentar novamente.",
     oferente_toast_imagen_valida: "Carregue uma imagem válida",
     oferente_toast_imagen_limite: "Você pode carregar até 5 imagens. Restam {remaining}.",
     oferente_toast_imagen_tipo: "Somente imagens válidas são permitidas",
@@ -355,6 +364,9 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_terminos: "Devi accettare termini e condizioni",
     oferente_toast_sede: "Completa il paese e la città in cui si svolge la tua proposta",
     oferente_toast_revision: "La tua pubblicazione è in revisione",
+    oferente_toast_pago_pestana: "Abbiamo aperto una nuova scheda per completare il pagamento.",
+    oferente_toast_pago_exitoso: "Pagamento riuscito. Presto vedrai la pubblicazione sul sito.",
+    oferente_toast_pago_cancelado: "Pagamento non completato o annullato. Puoi riprovare.",
     oferente_toast_imagen_valida: "Carica un'immagine valida",
     oferente_toast_imagen_limite: "Puoi caricare fino a 5 immagini. Ne restano {remaining}.",
     oferente_toast_imagen_tipo: "Sono consentite solo immagini valide",
@@ -605,6 +617,9 @@ export default function ModalOferente({ onClose }: Props) {
   const [filterGroups, setFilterGroups] = useState<FilterGroupLite[]>([]);
   const [step, setStep] = useState<Step>("basic");
   const [isLoading, setIsLoading] = useState(false);
+  const paymentTabRef = useRef<Window | null>(null);
+  const paymentWatcherRef = useRef<number | null>(null);
+  const paymentResultReceivedRef = useRef(false);
   const [isOpenModalAI, setIsOpenModalAI] = useState(false);
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
 
@@ -786,6 +801,54 @@ export default function ModalOferente({ onClose }: Props) {
       }));
     }
   }, [featuredPlanPricing.amount, promoCode, promoValidation.applied, promoValidation.code]);
+
+  useEffect(() => {
+    const clearPaymentWatcher = () => {
+      if (paymentWatcherRef.current !== null) {
+        window.clearInterval(paymentWatcherRef.current);
+        paymentWatcherRef.current = null;
+      }
+    };
+
+    const handlePaymentResult = (rawStatus: string) => {
+      const status = String(rawStatus ?? "").trim().toLowerCase();
+      paymentResultReceivedRef.current = true;
+      clearPaymentWatcher();
+      setIsLoading(false);
+      setStep("featured");
+      setFeaturedTypeFocusKey((prev) => prev + 1);
+      if (status === "success" || status === "approved" || status === "paid") {
+        toast.success(mt("oferente_toast_pago_exitoso"), { duration: 7000 });
+        return;
+      }
+      if (status === "cancel" || status === "cancelled" || status === "canceled" || status === "back" || status === "failed" || status === "rejected") {
+        toast(mt("oferente_toast_pago_cancelado"), { duration: 7000 });
+      }
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== "tg-featured-payment-result" || !event.newValue) return;
+      try {
+        const parsed = JSON.parse(event.newValue) as { status?: string };
+        handlePaymentResult(String(parsed?.status ?? ""));
+      } catch {}
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: string; status?: string } | null;
+      if (!data || data.type !== "tg-featured-payment-result") return;
+      handlePaymentResult(String(data.status ?? ""));
+    };
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("message", onMessage);
+    return () => {
+      clearPaymentWatcher();
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("message", onMessage);
+    };
+  }, [mt]);
 
   const taxonomyFor = (category: Category, byId: Map<string, Category>): string => {
     let current: Category | undefined = category;
@@ -1056,7 +1119,31 @@ export default function ModalOferente({ onClose }: Props) {
         if (!checkoutResponse.ok || !checkoutData?.redirectUrl) {
           throw new Error(String(checkoutData?.error ?? "No se pudo iniciar el checkout."));
         }
-        window.location.href = String(checkoutData.redirectUrl);
+        const paymentTab = window.open(String(checkoutData.redirectUrl), "_blank");
+        if (!paymentTab) {
+          throw new Error("No se pudo abrir la pestaña de pago. Habilitá popups e intentá nuevamente.");
+        }
+        paymentResultReceivedRef.current = false;
+        paymentTabRef.current = paymentTab;
+        if (paymentWatcherRef.current !== null) {
+          window.clearInterval(paymentWatcherRef.current);
+        }
+        paymentWatcherRef.current = window.setInterval(() => {
+          const opened = paymentTabRef.current;
+          if (!opened) return;
+          if (opened.closed) {
+            if (paymentWatcherRef.current !== null) {
+              window.clearInterval(paymentWatcherRef.current);
+              paymentWatcherRef.current = null;
+            }
+            if (!paymentResultReceivedRef.current) {
+              setIsLoading(false);
+              toast(mt("oferente_toast_pago_cancelado"), { duration: 7000 });
+            }
+          }
+        }, 700);
+        setStep("featured");
+        toast.success(mt("oferente_toast_pago_pestana"), { duration: 6000 });
         return;
       }
       toast.success(mt("oferente_toast_revision"), { duration: 6000 });
