@@ -38,6 +38,13 @@ export default function FeaturedPaymentReturnPage() {
         window.opener.postMessage({ type: "tg-featured-payment-result", status: normalizedResult, serviceId }, window.location.origin);
       } catch {}
     }
+    if (serviceId) {
+      fetch("/api/payments/featured/return", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceId, status: normalizedResult }),
+      }).catch(() => null);
+    }
   }, [normalizedResult, serviceId]);
 
   useEffect(() => {
