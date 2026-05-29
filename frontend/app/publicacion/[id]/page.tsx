@@ -128,16 +128,22 @@ function normalizeContactHref(kind: string, rawHref: string) {
   const normalizedKind = kind.toLowerCase();
 
   if (normalizedKind === "email") {
-    return raw.includes("mailto:") ? raw : `mailto:${raw.replace(/^mailto:/i, "")}`;
+    const email = raw.replace(/^mailto:/i, "").trim();
+    if (!email) return "#";
+    return `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=${encodeURIComponent(email)}`;
   }
 
   if (normalizedKind === "whatsapp") {
-    if (/^https?:\/\//i.test(raw)) return raw;
-    const digits = raw.replace(/[^\d+]/g, "").replace(/^\+/, "");
+    if (/^https?:\/\/(wa\.me|api\.whatsapp\.com|(?:www\.)?whatsapp\.com)/i.test(raw)) return raw;
+    const digits = raw.replace(/\D/g, "");
     return digits ? `https://wa.me/${digits}` : "#";
   }
 
   if (/^(https?:|mailto:|tel:)/i.test(raw)) return raw;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 6 && /^[+()\-\s.\d]+$/.test(raw)) {
+    return `tel:${raw.replace(/[^\d+]/g, "")}`;
+  }
   return `https://${raw.replace(/^\/+/, "")}`;
 }
 
