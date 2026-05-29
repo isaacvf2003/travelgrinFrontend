@@ -30,18 +30,42 @@ type ContactEntry = { label: string; href: string; icon: keyof typeof ICONS };
 type PublicationInfo = { basePath: "publicacion" | "prestaciones"; contacts: ContactEntry[] };
 type SocialLinkDetail = { kind?: string; label?: string; url?: string };
 
-function normalizeContactHref(href: string) {
-  return String(href ?? "")
-    .trim()
-    .replace(/^mailto:/i, "")
-    .replace(/\/+$/, "")
-    .toLowerCase();
+function normalizeContactKey(href: string) {
+  return String(href ?? "").trim().replace(/\/+$/, "").toLowerCase();
+}
+
+function isPhoneLike(value: string) {
+  const raw = String(value ?? "").trim();
+  const digits = raw.replace(/\D/g, "");
+  return digits.length >= 6 && /^[+()\-\s.\d]+$/.test(raw);
+}
+
+function normalizeContactHref(kind: string, rawHref: string) {
+  const raw = String(rawHref ?? "").trim();
+  if (!raw) return "#";
+  const normalizedKind = String(kind ?? "").toLowerCase();
+
+  if (normalizedKind === "email") {
+    return raw.includes("mailto:") ? raw : `mailto:${raw.replace(/^mailto:/i, "")}`;
+  }
+
+  if (normalizedKind === "whatsapp") {
+    if (/^https?:\/\//i.test(raw)) return raw;
+    const digits = raw.replace(/[^\d+]/g, "").replace(/^\+/, "");
+    return digits ? `https://wa.me/${digits}` : "#";
+  }
+
+  if (/^(https?:|mailto:|tel:)/i.test(raw)) return raw;
+  if (isPhoneLike(raw)) {
+    return `tel:${raw.replace(/[^\d+]/g, "")}`;
+  }
+  return `https://${raw.replace(/^\/+/, "")}`;
 }
 
 function addUniqueContact(target: ContactEntry[], entry: ContactEntry | null) {
   if (!entry?.href) return;
-  const key = `${entry.icon}:${normalizeContactHref(entry.href)}`;
-  const exists = target.some((current) => `${current.icon}:${normalizeContactHref(current.href)}` === key);
+  const key = `${entry.icon}:${normalizeContactKey(entry.href)}`;
+  const exists = target.some((current) => `${current.icon}:${normalizeContactKey(current.href)}` === key);
   if (!exists) target.push(entry);
 }
 
@@ -243,21 +267,21 @@ function PlanContent() {
               const icon = (entry.kind === "web" ? "web" : entry.kind) as keyof typeof ICONS;
               addUniqueContact(contacts, {
                 label: entry.label || entry.kind || "Enlace",
-                href: entry.kind === "email" && !entry.url.includes("mailto:") ? `mailto:${entry.url}` : entry.url,
+                href: normalizeContactHref(entry.kind, entry.url),
                 icon: ICONS[icon] ? icon : "other",
               });
             });
-            addUniqueContact(contacts, socialLinks.whatsapp ? { label: "WhatsApp", href: socialLinks.whatsapp, icon: "whatsapp" } : null);
-            addUniqueContact(contacts, socialLinks.facebook ? { label: "Facebook", href: socialLinks.facebook, icon: "facebook" } : null);
-            addUniqueContact(contacts, socialLinks.instagram ? { label: "Instagram", href: socialLinks.instagram, icon: "instagram" } : null);
-            addUniqueContact(contacts, socialLinks.linkedin ? { label: "LinkedIn", href: socialLinks.linkedin, icon: "linkedin" } : null);
+            addUniqueContact(contacts, socialLinks.whatsapp ? { label: "WhatsApp", href: normalizeContactHref("whatsapp", socialLinks.whatsapp), icon: "whatsapp" } : null);
+            addUniqueContact(contacts, socialLinks.facebook ? { label: "Facebook", href: normalizeContactHref("facebook", socialLinks.facebook), icon: "facebook" } : null);
+            addUniqueContact(contacts, socialLinks.instagram ? { label: "Instagram", href: normalizeContactHref("instagram", socialLinks.instagram), icon: "instagram" } : null);
+            addUniqueContact(contacts, socialLinks.linkedin ? { label: "LinkedIn", href: normalizeContactHref("linkedin", socialLinks.linkedin), icon: "linkedin" } : null);
             addUniqueContact(
               contacts,
               socialLinks.email
-                ? { label: "Email", href: socialLinks.email.includes("mailto:") ? socialLinks.email : `mailto:${socialLinks.email}`, icon: "email" }
+                ? { label: "Email", href: normalizeContactHref("email", socialLinks.email), icon: "email" }
                 : null
             );
-            addUniqueContact(contacts, socialLinks.website ? { label: "Web", href: socialLinks.website, icon: "web" } : null);
+            addUniqueContact(contacts, socialLinks.website ? { label: "Web", href: normalizeContactHref("web", socialLinks.website), icon: "web" } : null);
 
             const basePath = pub?.primaryGroupKey === "prestacion" ? "prestaciones" : "publicacion";
             return [item.publicationId, { basePath, contacts }] as const;
@@ -299,13 +323,49 @@ function PlanContent() {
     setEmailError("");
     setSendingEmail(true);
     try {
-      await fetch("/api/save-email", {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      setEmailSent(false);
+      const response = await fetch("/api/save-email", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: trimmedEmail, plan: planSummary }),
-      });
+        body: JSON.stringify({
+          email: trimmedEmail,
+          locale,
+          source: "mi_plan",
+          plan: planSummary,
+          items: items.map((item) => {
+            const info = publicationInfoById[item.publicationId];
+            const basePath = info?.basePath ?? "publicacion";
+            const detailUrl = origin ? `${origin}/${basePath}/${item.publicationId}` : "";
+            return {
+              title: item.title,
+              priceLabel: formatItemPrice(item),
+              note: notesById[item.publicationId] ?? "",
+              detailUrl,
+              imageUrl: item.imageUrl ?? "",
+              contacts: (info?.contacts ?? []).map((contact) => ({
+                label: contact.label,
+                href: contact.href,
+              })),
+            };
+            }),
+          }),
+        });
+      if (!response.ok) {
+        throw new Error("No se pudo enviar el plan");
+      }
       setEmailSent(true);
       setEmail("");
+    } catch {
+      setEmailError(
+        locale === "en"
+          ? "We couldn't send the plan."
+          : locale === "pt"
+            ? "Nao conseguimos enviar o plano."
+            : locale === "it"
+              ? "Non siamo riusciti a inviare il piano."
+              : "No pudimos enviar el plan."
+      );
     } finally {
       setSendingEmail(false);
     }
@@ -403,12 +463,13 @@ function PlanContent() {
                       {(publicationInfoById[item.publicationId]?.contacts ?? []).length ? (
                         publicationInfoById[item.publicationId].contacts.map((entry) => {
                           const Icon = ICONS[entry.icon];
+                          const opensInNewTab = !/^(mailto:|tel:)/i.test(entry.href);
                           return (
                             <a
                               key={`${item.publicationId}-${entry.label}-${entry.href}`}
                               href={entry.href}
-                              target="_blank"
-                              rel="noreferrer"
+                              target={opensInNewTab ? "_blank" : undefined}
+                              rel={opensInNewTab ? "noreferrer" : undefined}
                               className="inline-flex items-center gap-1 rounded-lg border border-[#0B8FA3]/30 bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0B6B7A]"
                             >
                               <Icon className="h-3.5 w-3.5" />
