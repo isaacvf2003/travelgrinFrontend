@@ -200,6 +200,10 @@ export default function ModalDemandante({
     }
 
     setIsLoading(true);
+    const searchUrl =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : "/buscar";
     const serviceData = {
       taxonomyType: "demandante",
       category: selectedCategory,
@@ -214,6 +218,10 @@ export default function ModalDemandante({
       isIntermediario: false,
       contanos: "",
       website: "",
+      matchAlertEnabled: true,
+      matchAlertSearchUrl: searchUrl,
+      matchAlertCreatedAt: new Date().toISOString(),
+      interestSource: "demandante_search_form",
     };
     
     try {

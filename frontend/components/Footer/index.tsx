@@ -40,7 +40,7 @@ export default function Footer() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, source: "newsletter" }),
       });
 
       if (!response.ok) {
@@ -108,7 +108,9 @@ export default function Footer() {
               <p className="text-[15px] md:text-[18px] mt-2">
                 {t("sentirse_ciudadano_del_mundo")}
               </p>
-              <p className="text-[14px] md:text-[16px] mt-4">travelgrin@travelgrin.com</p>
+              <a href="mailto:travelgrin@travelgrin.com" className="text-[14px] md:text-[16px] mt-4 hover:underline">
+                travelgrin@travelgrin.com
+              </a>
             </div>
             <div className="flex flex-row text-center items-center justify-center space-y-2">
               <input
@@ -211,7 +213,9 @@ export default function Footer() {
               <p className="text-[15px] md:text-[18px] mt-2">
                 {t("sentirse_ciudadano_del_mundo")}
               </p>
-              <p className="text-[14px] md:text-[16px] mt-4">travelgrin@travelgrin.com</p>
+              <a href="mailto:travelgrin@travelgrin.com" className="text-[14px] md:text-[16px] mt-4 hover:underline">
+                travelgrin@travelgrin.com
+              </a>
             </div>
             <div className="flex flex-row text-center items-center justify-center space-y-2">
               <input
