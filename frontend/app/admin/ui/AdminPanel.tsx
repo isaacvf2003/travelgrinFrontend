@@ -3752,6 +3752,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     () => userOferentes.filter((item) => serviceEffectiveStatus(item) === "aprobado"),
     [userOferentes]
   );
+  const serviceSubmissionCountsByEmail = useMemo(() => {
+    const map = new Map<string, number>();
+    travelServices.forEach((service) => {
+      const email = String(service.email ?? "").trim().toLowerCase();
+      if (!email) return;
+      map.set(email, (map.get(email) ?? 0) + 1);
+    });
+    return map;
+  }, [travelServices]);
   const filteredApprovedOferentes = useMemo(() => {
     const query = pApprovedProviderSearch.trim().toLowerCase();
     if (!query) return approvedOferentes;
@@ -4330,6 +4339,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             const isDemandante = String(service.taxonomyType ?? "").toLowerCase() === "demandante";
             const serviceCategories = normalizeStringArray((serviceExtra.category as string[] | string | undefined) ?? service.category);
             const linkedPublications = isDemandante ? [] : publicationsByProviderEmail.get(String(service.email ?? "").toLowerCase()) ?? [];
+            const totalSubmissionsByEmail = serviceSubmissionCountsByEmail.get(String(service.email ?? "").toLowerCase()) ?? 1;
             const aggregated = linkedPublications.reduce((acc, publication) => {
               const metrics = readPublicationAnalytics(publication);
               acc.views += metrics.views;
@@ -4359,6 +4369,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <>
                       <p className="mt-2 text-sm font-semibold text-slate-900">{service.name || String(serviceExtra.name ?? "") || "Sin nombre"}</p>
                       <p className="mt-1 text-xs text-slate-500">{service.email}</p>
+                      <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
                       <div className="mt-2 text-xs text-slate-600">
                         <b>Tiene {linkedPublications.length} publicación(es)</b>
                         {linkedPublications.length ? (
