@@ -1,12 +1,13 @@
 "use client"
 import { Mail } from "lucide-react";
-import { useState } from "react";
+import type { ChangeEvent } from "react";
 
 type Props = {
   value: string;
   setValue: (text: string) => void;
   label: string;
   required?: boolean;
+  disabled?: boolean;
   isEmpty: boolean;
   setEmailError?: (error: string) => void;
   emailError?: string;
@@ -20,6 +21,7 @@ const EmailInput = ({
   setValue,
   label,
   required = false,
+  disabled = false,
   isEmpty,
   setEmailError,
   emailError = "",
@@ -27,12 +29,13 @@ const EmailInput = ({
   textPorfavor = "",
   textCampoRequerido = "",
 }: Props) => {
-  const validateEmail = (email) => {
+  const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
   
-  const handleEmailChange = (e) => {
+  const handleEmailChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     const email = e.target.value;
     setValue(email);
     
@@ -55,7 +58,8 @@ const EmailInput = ({
         title={textPorfavor}
         onChange={handleEmailChange}
         required={required}
-        className="w-full p-4 pt-6 pl-12  text-black pb-6 rounded-xl transition-all duration-300 bg-white outline-none transform hover:scale-[1.02] focus:scale-[1.02]"
+        disabled={disabled}
+        className="w-full p-4 pt-6 pl-12 text-black pb-6 rounded-xl transition-all duration-300 bg-white outline-none transform hover:scale-[1.02] focus:scale-[1.02] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 disabled:hover:scale-100 disabled:focus:scale-100"
         style={{
           boxShadow: isEmpty
             ? "0 8px 25px -8px rgba(220, 38, 38, 0.4), 0 4px 12px -4px rgba(220, 38, 38, 0.2)"

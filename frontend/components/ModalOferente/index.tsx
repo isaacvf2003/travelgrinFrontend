@@ -17,7 +17,12 @@ import ModalAI from "../ModalAI";
 import CountryMultiSelect from "../CountryMultiSelect";
 import { uploadImageAsset, type ImageAsset } from "@/app/lib/cloudinaryUpload";
 
-type Props = { onClose: () => void };
+type Props = {
+  onClose: () => void;
+  initialEmail?: string;
+  lockEmail?: boolean;
+  onSubmitted?: (info: { serviceId: string; plan: "basic_free" | "featured" }) => void;
+};
 type Category = { id: string; description: string; taxonomyType: string; isPrimaryCategory?: boolean; isPublicVisible?: boolean; parentId?: string | null };
 type FilterOptionLite = { value?: string; label?: string; labelI18n?: Record<string, string> | null };
 type FilterGroupLite = { key?: string; label?: string; taxonomyType?: string | null; options?: FilterOptionLite[] };
@@ -591,7 +596,7 @@ function PlanCard({
   );
 }
 
-export default function ModalOferente({ onClose }: Props) {
+export default function ModalOferente({ onClose, initialEmail = "", lockEmail = false, onSubmitted }: Props) {
   const { t, locale } = useTranslation();
   const { selectedCountry, setIsOpenModal } = useCountry();
   const modalLocale: OferenteModalLocale = locale in OFERENTE_MODAL_TEXT ? (locale as OferenteModalLocale) : "es";
@@ -620,6 +625,7 @@ export default function ModalOferente({ onClose }: Props) {
   const paymentTabRef = useRef<Window | null>(null);
   const paymentWatcherRef = useRef<number | null>(null);
   const paymentResultReceivedRef = useRef(false);
+  const submittedServiceIdRef = useRef<string | null>(null);
   const [isOpenModalAI, setIsOpenModalAI] = useState(false);
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
 
@@ -634,7 +640,7 @@ export default function ModalOferente({ onClose }: Props) {
   const [primaryVenue, setPrimaryVenue] = useState<VenueEntry>({ country: "", city: "", mapUrl: "" });
   const [description, setDescription] = useState("");
   const [website, setWebsite] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [emailError, setEmailError] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -692,6 +698,12 @@ export default function ModalOferente({ onClose }: Props) {
   }, [featuredPlanPricing.amount, featuredPlanPricing.currency, promoValidation]);
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!initialEmail) return;
+    setEmail(initialEmail);
+    setEmailError("");
+    setIsEmptyEmail(false);
+  }, [initialEmail]);
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     const originalPosition = document.body.style.position;
@@ -818,10 +830,15 @@ export default function ModalOferente({ onClose }: Props) {
       setStep("featured");
       setFeaturedTypeFocusKey((prev) => prev + 1);
       if (status === "success" || status === "approved" || status === "paid") {
+        if (submittedServiceIdRef.current) {
+          onSubmitted?.({ serviceId: submittedServiceIdRef.current, plan: "featured" });
+          submittedServiceIdRef.current = null;
+        }
         toast.success(mt("oferente_toast_pago_exitoso"), { duration: 7000 });
         return;
       }
       if (status === "cancel" || status === "cancelled" || status === "canceled" || status === "back" || status === "failed" || status === "rejected") {
+        submittedServiceIdRef.current = null;
         toast(mt("oferente_toast_pago_cancelado"), { duration: 7000 });
       }
     };
@@ -1082,6 +1099,8 @@ export default function ModalOferente({ onClose }: Props) {
       country: selectedCountry,
       locale,
       acceptedTerms: true,
+      submittedViaPortal: Boolean(initialEmail.trim()),
+      portalOwnerEmail: initialEmail.trim().toLowerCase(),
     };
   };
 
@@ -1101,6 +1120,11 @@ export default function ModalOferente({ onClose }: Props) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(String(data?.details ?? data?.error ?? ""));
+      submittedServiceIdRef.current = String(data?.id ?? "");
+      if (publicationPlan === "basic_free") {
+        onSubmitted?.({ serviceId: String(data?.id ?? ""), plan: publicationPlan });
+        submittedServiceIdRef.current = null;
+      }
 
       if (publicationPlan === "featured") {
         const checkoutResponse = await fetch("/api/payments/featured/checkout", {
@@ -1270,7 +1294,7 @@ export default function ModalOferente({ onClose }: Props) {
       </div>
 
       <div>
-        <MaterialInputs required label={mt("oferente_email_label")} value={email} setValue={setEmail} isEmpty={isEmptyEmail} setEmailError={setEmailError} emailError={emailError} textPorfavor={t("por_favor")} textCampoRequerido={t("campo_requerido")} />
+        <MaterialInputs required disabled={lockEmail} label={mt("oferente_email_label")} value={email} setValue={setEmail} isEmpty={isEmptyEmail} setEmailError={setEmailError} emailError={emailError} textPorfavor={t("por_favor")} textCampoRequerido={t("campo_requerido")} />
       </div>
 
       <label className={`flex items-center gap-3 rounded-xl bg-white/80 p-3 text-sm shadow-sm ${isEmptyTerms ? "text-red-600 ring-1 ring-red-300" : "text-[#273166]"}`}>

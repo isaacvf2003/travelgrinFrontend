@@ -96,6 +96,7 @@ export default function Footer() {
               >
                 {t("registra_ong")}
               </li>
+              <li className="cursor-pointer text-white/90"><Link href="/panel-oferente">Portal oferente</Link></li>
               <li className="cursor-pointer"><Link href="/quienes-somos#HowDoesItWork">{t("como_funciona_publicar")}</Link></li>
               <li className="cursor-pointer"><Link href="/quienes-somos">{t("sobre_travelgrin")}</Link></li>
               <li className="cursor-pointer text-white/90"><Link href="/term-condicion">{t("terminos_condiciones")}</Link></li>
@@ -198,6 +199,7 @@ export default function Footer() {
               >
                 {t("registra_ong")}
               </li>
+              <li className="cursor-pointer"><Link href="/panel-oferente">Portal oferente</Link></li>
               <li className="cursor-pointer"><Link href="/quienes-somos#HowDoesItWork">{t("como_funciona_publicar")}</Link></li>
               <li className="cursor-pointer"><Link href="/quienes-somos">{t("sobre_travelgrin")}</Link></li>
               <li className="cursor-pointer text-white/90">{t("terminos_condiciones")}</li>
