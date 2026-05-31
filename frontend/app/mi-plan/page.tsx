@@ -46,13 +46,31 @@ function normalizeContactHref(kind: string, rawHref: string) {
   const normalizedKind = String(kind ?? "").toLowerCase();
 
   if (normalizedKind === "email") {
-    return raw.includes("mailto:") ? raw : `mailto:${raw.replace(/^mailto:/i, "")}`;
+    const email = raw.replace(/^mailto:/i, "").trim();
+    return email
+      ? `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=${encodeURIComponent(email)}`
+      : "#";
   }
 
   if (normalizedKind === "whatsapp") {
-    if (/^https?:\/\//i.test(raw)) return raw;
-    const digits = raw.replace(/[^\d+]/g, "").replace(/^\+/, "");
-    return digits ? `https://wa.me/${digits}` : "#";
+    try {
+      if (/^https?:\/\//i.test(raw)) {
+        const url = new URL(raw);
+        const phoneParam = url.searchParams.get("phone");
+        const textParam = url.searchParams.get("text");
+        const digitsFromPhone = String(phoneParam ?? "").replace(/\D/g, "");
+        if (digitsFromPhone) {
+          return `https://api.whatsapp.com/send?phone=${digitsFromPhone}${textParam ? `&text=${encodeURIComponent(textParam)}` : ""}`;
+        }
+        const digitsFromUrl = `${url.hostname}${url.pathname}`.replace(/\D/g, "");
+        if (digitsFromUrl) return `https://api.whatsapp.com/send?phone=${digitsFromUrl}`;
+      }
+    } catch {
+      // ignore
+    }
+
+    const digits = raw.replace(/\D/g, "");
+    return digits ? `https://api.whatsapp.com/send?phone=${digits}` : "#";
   }
 
   if (/^(https?:|mailto:|tel:)/i.test(raw)) return raw;

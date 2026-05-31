@@ -7,6 +7,7 @@ import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { getDisplayPrice, type PriceOverride } from "@/app/lib/currency";
 import { usePlan } from "@/app/buscar/_components/PlanStore";
 import { trackPublicationMetric } from "./PublicationMetricsTracker";
+import SharePublicationDialog from "@/components/SharePublicationDialog";
 
 type PublicationSidebarCardProps = {
   className?: string;
@@ -122,13 +123,6 @@ export default function PublicationSidebarCard({
   })();
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
   const shareTitle = titleLabel || "Travelgrin";
-  const shareBody = encodeURIComponent(`${shareTitle}\n${shareUrl}`);
-  const gmailShareUrl = shareUrl
-    ? `https://mail.google.com/mail/?view=cm&fs=1&tf=1&su=${encodeURIComponent(shareTitle)}&body=${shareBody}`
-    : "#";
-  const whatsappShareUrl = shareUrl
-    ? `https://wa.me/?text=${shareBody}`
-    : "#";
 
   const isSplit = layout === "split";
 
@@ -252,78 +246,12 @@ export default function PublicationSidebarCard({
           <div className="mt-1 text-2xl font-semibold text-[#0B8FA3]">{formattedPrice}</div>
         </div>
       </div>
-
-      {shareMenuOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold text-[#114B8D]">{t("compartir") || "Compartir"}</h3>
-              <button
-                type="button"
-                className="rounded-full px-3 py-1 text-sm font-medium text-slate-500 hover:bg-slate-100"
-                onClick={() => setShareMenuOpen(false)}
-              >
-                Cerrar
-              </button>
-            </div>
-
-            <div className="mt-4 grid gap-3">
-              {typeof navigator !== "undefined" && typeof navigator.share === "function" ? (
-                <button
-                  type="button"
-                  className="rounded-2xl border border-slate-200 px-4 py-3 text-left text-sm font-semibold text-[#114B8D] hover:bg-slate-50"
-                  onClick={async () => {
-                    try {
-                      await navigator.share({ title: shareTitle, url: shareUrl });
-                      setShareMenuOpen(false);
-                    } catch {
-                      // no-op
-                    }
-                  }}
-                >
-                  Compartir con apps del dispositivo
-                </button>
-              ) : null}
-
-              <a
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-[#114B8D] hover:bg-slate-50"
-                href={whatsappShareUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setShareMenuOpen(false)}
-              >
-                Compartir por WhatsApp
-              </a>
-
-              <a
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-[#114B8D] hover:bg-slate-50"
-                href={gmailShareUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setShareMenuOpen(false)}
-              >
-                Compartir por correo
-              </a>
-
-              <button
-                type="button"
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-left text-sm font-semibold text-[#114B8D] hover:bg-slate-50"
-                onClick={async () => {
-                  if (!shareUrl || typeof navigator === "undefined" || !navigator.clipboard) return;
-                  try {
-                    await navigator.clipboard.writeText(shareUrl);
-                    setShareMenuOpen(false);
-                  } catch {
-                    // no-op
-                  }
-                }}
-              >
-                Copiar enlace
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <SharePublicationDialog
+        open={shareMenuOpen}
+        onClose={() => setShareMenuOpen(false)}
+        shareTitle={shareTitle}
+        shareUrl={shareUrl}
+      />
     </div>
   );
 }

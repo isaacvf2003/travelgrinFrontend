@@ -39,10 +39,53 @@ type ContactAccordionProps = {
   className?: string;
 };
 
+function buildSafeContactHref(icon: keyof typeof ICONS, href: string) {
+  const raw = String(href ?? "").trim();
+  if (!raw) return "#";
+
+  if (icon === "email") {
+    const email = raw.replace(/^mailto:/i, "").trim();
+    return email
+      ? `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=${encodeURIComponent(email)}`
+      : "#";
+  }
+
+  if (icon === "whatsapp") {
+    try {
+      if (/^https?:\/\//i.test(raw)) {
+        const url = new URL(raw);
+        const phoneParam = url.searchParams.get("phone");
+        const textParam = url.searchParams.get("text");
+        const digitsFromPhone = String(phoneParam ?? "").replace(/\D/g, "");
+        if (digitsFromPhone) {
+          return `https://api.whatsapp.com/send?phone=${digitsFromPhone}${textParam ? `&text=${encodeURIComponent(textParam)}` : ""}`;
+        }
+        const digitsFromUrl = `${url.hostname}${url.pathname}`.replace(/\D/g, "");
+        if (digitsFromUrl) return `https://api.whatsapp.com/send?phone=${digitsFromUrl}`;
+      }
+    } catch {
+      // ignore parse errors
+    }
+
+    const digits = raw.replace(/\D/g, "");
+    return digits ? `https://api.whatsapp.com/send?phone=${digits}` : "#";
+  }
+
+  if (/^(mailto:|tel:)/i.test(raw)) return raw;
+  if (/^https?:\/\//i.test(raw)) return raw;
+
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 6 && /^[+()\-\s.\d]+$/.test(raw)) {
+    return `tel:${raw.replace(/[^\d+]/g, "")}`;
+  }
+
+  return `https://${raw.replace(/^\/+/, "")}`;
+}
+
 export default function ContactAccordion({ entries, publicationId = "", className = "" }: ContactAccordionProps) {
   const contentId = useId();
   const labelId = useMemo(() => `contact-toggle-${contentId}`, [contentId]);
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [pendingContact, setPendingContact] = useState<{ href: string; icon: keyof typeof ICONS } | null>(null);
   const [warningOpen, setWarningOpen] = useState(false);
 
   const CONTACT_WARNING_COUNT_KEY = "publicationContactWarningCount_v1";
@@ -64,19 +107,21 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
     };
   };
 
-  const openHref = (href: string) => {
-    if (/^(mailto:|tel:)/i.test(href)) {
-      window.location.href = href;
+  const openHref = (href: string, icon: keyof typeof ICONS) => {
+    const safeHref = buildSafeContactHref(icon, href);
+    if (!safeHref || safeHref === "#") return;
+    if (/^(mailto:|tel:)/i.test(safeHref)) {
+      window.location.href = safeHref;
       return;
     }
-    window.open(href, "_blank", "noopener,noreferrer");
+    window.open(safeHref, "_blank", "noopener,noreferrer");
   };
 
   const handleAcknowledgeAndContinue = () => {
-    const href = pendingHref;
+    const current = pendingContact;
     setWarningOpen(false);
-    setPendingHref(null);
-    if (!href) return;
+    setPendingContact(null);
+    if (!current?.href) return;
 
     const { count, seenPublications } = readWarningState();
     const nextCount = Math.min(2, count + 1);
@@ -85,10 +130,10 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
       : seenPublications;
     window.localStorage.setItem(CONTACT_WARNING_COUNT_KEY, String(nextCount));
     window.localStorage.setItem(CONTACT_WARNING_PUBLICATIONS_KEY, JSON.stringify(nextSeen));
-    openHref(href);
+    openHref(current.href, current.icon);
   };
 
-  const onContactClick = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+  const onContactClick = (event: MouseEvent<HTMLAnchorElement>, href: string, icon: keyof typeof ICONS) => {
     event.preventDefault();
     trackPublicationMetric(publicationId, "lead");
 
@@ -96,11 +141,11 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
     const alreadyShownInPublication = publicationId ? seenPublications.includes(publicationId) : false;
     const shouldShowWarning = count < 2 && !alreadyShownInPublication;
     if (!shouldShowWarning) {
-      openHref(href);
+      openHref(href, icon);
       return;
     }
 
-    setPendingHref(href);
+    setPendingContact({ href, icon });
     setWarningOpen(true);
   };
 
@@ -124,15 +169,16 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
           <div className="grid gap-2.5 text-sm text-gray-700">
             {entries.map((entry) => {
               const Icon = ICONS[entry.icon];
-              const opensInNewTab = !/^(mailto:|tel:)/i.test(entry.href);
+              const safeHref = buildSafeContactHref(entry.icon, entry.href);
+              const opensInNewTab = !/^(mailto:|tel:)/i.test(safeHref);
               return (
                 <a
                   key={`${entry.label}-${entry.href}`}
                   className="relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl border border-white/50 bg-white/95 px-3 py-2 text-sm font-semibold text-[#114B8D] transition before:absolute before:inset-y-0 before:-left-1/2 before:w-1/3 before:-skew-x-12 before:bg-white/70 before:opacity-0 before:blur-sm before:transition-all before:duration-700 hover:bg-white hover:before:left-[120%] hover:before:opacity-100"
-                  href={entry.href}
+                  href={safeHref}
                   target={opensInNewTab ? "_blank" : undefined}
                   rel={opensInNewTab ? "noreferrer" : undefined}
-                  onClick={(event) => onContactClick(event, entry.href)}
+                  onClick={(event) => onContactClick(event, entry.href, entry.icon)}
                 >
                   <Icon className="h-4 w-4" />
                   {entry.label}

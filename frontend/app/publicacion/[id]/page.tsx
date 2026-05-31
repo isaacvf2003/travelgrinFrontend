@@ -134,9 +134,24 @@ function normalizeContactHref(kind: string, rawHref: string) {
   }
 
   if (normalizedKind === "whatsapp") {
-    if (/^https?:\/\/(wa\.me|api\.whatsapp\.com|(?:www\.)?whatsapp\.com)/i.test(raw)) return raw;
+    try {
+      if (/^https?:\/\//i.test(raw)) {
+        const url = new URL(raw);
+        const phoneParam = url.searchParams.get("phone");
+        const textParam = url.searchParams.get("text");
+        const digitsFromPhone = String(phoneParam ?? "").replace(/\D/g, "");
+        if (digitsFromPhone) {
+          return `https://api.whatsapp.com/send?phone=${digitsFromPhone}${textParam ? `&text=${encodeURIComponent(textParam)}` : ""}`;
+        }
+        const digitsFromUrl = `${url.hostname}${url.pathname}`.replace(/\D/g, "");
+        if (digitsFromUrl) return `https://api.whatsapp.com/send?phone=${digitsFromUrl}`;
+      }
+    } catch {
+      // ignore parse failures and continue
+    }
+
     const digits = raw.replace(/\D/g, "");
-    return digits ? `https://wa.me/${digits}` : "#";
+    return digits ? `https://api.whatsapp.com/send?phone=${digits}` : "#";
   }
 
   if (/^(https?:|mailto:|tel:)/i.test(raw)) return raw;

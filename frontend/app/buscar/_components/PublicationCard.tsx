@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { publicationPath } from "@/app/lib/publicationSlug";
 import { Share2 } from "lucide-react";
+import SharePublicationDialog from "@/components/SharePublicationDialog";
 
 import type { Publication } from "@/app/lib/types";
 import { usePlan } from "./PlanStore";
@@ -249,16 +250,13 @@ export function PublicationCard({ item }: { item: Publication }) {
   const { toggle, has } = usePlan();
   const isSaved = has(item.id);
   const { locale, t } = useTranslation();
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const targetCurrency = searchParams.get("priceCurrency");
 
   const onShare = async () => {
     try {
-      if (typeof window === "undefined") return;
-      const basePath = item.primaryGroupKey === "prestacion" ? "prestaciones" : "publicacion";
-      const url = `${window.location.origin}${publicationPath(item.id, displayTitle, basePath)}`;
-
       await fetch("/api/publications/metrics", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -266,19 +264,7 @@ export function PublicationCard({ item }: { item: Publication }) {
         keepalive: true,
       }).catch(() => null);
 
-      // @ts-ignore
-      if (navigator?.share) {
-        // @ts-ignore
-        await navigator.share({ title: displayTitle, url });
-        return;
-      }
-
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        return;
-      }
-
-      window.prompt("Copiá el link:", url);
+      setShareMenuOpen(true);
     } catch {
       // silencioso
     }
@@ -398,7 +384,13 @@ export function PublicationCard({ item }: { item: Publication }) {
     return `/${basePath}/${item.id}?${qs.toString()}`;
   }, [item.id, item.primaryGroupKey, pathname, searchParams, targetCurrency]);
 
+  const shareUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}${detailUrl}`;
+  }, [detailUrl]);
+
   return (
+    <>
     <Link
       href={detailUrl}
       className={`group relative block overflow-hidden rounded-[14px] border bg-white shadow-[0_14px_38px_rgba(15,23,42,0.12)] transition hover:shadow-[0_18px_46px_rgba(15,23,42,0.16)] md:shadow-[0_8px_30px_rgba(0,0,0,0.06)] md:hover:shadow-[0_14px_40px_rgba(0,0,0,0.08)] ${
@@ -568,5 +560,13 @@ export function PublicationCard({ item }: { item: Publication }) {
         </div>
       </div>
     </Link>
+    <SharePublicationDialog
+      open={shareMenuOpen}
+      onClose={() => setShareMenuOpen(false)}
+      shareTitle={displayTitle}
+      shareUrl={shareUrl}
+    />
+    </>
   );
 }
+
