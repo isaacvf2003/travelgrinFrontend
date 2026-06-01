@@ -44,6 +44,7 @@ function buildSafeContactHref(icon: keyof typeof ICONS, href: string) {
   if (!raw) return "#";
 
   if (icon === "email") {
+    if (/^https?:\/\/mail\.google\.com\/mail\//i.test(raw)) return raw;
     const email = raw.replace(/^mailto:/i, "").trim();
     return email
       ? `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=${encodeURIComponent(email)}`
