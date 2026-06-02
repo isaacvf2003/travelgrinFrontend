@@ -53,7 +53,6 @@ type FeaturedPlanPricing = {
   planType?: "featured_120d" | "featured_monthly";
   currency: "ARS" | "USD";
   amount: number;
-  checkoutUrl: string | null;
 };
 
 const FEATURED_PLAN_AMOUNT = Number(process.env.NEXT_PUBLIC_FEATURED_MONTHLY_PRICE ?? 0);
@@ -684,7 +683,6 @@ export default function ModalOferente({
     planType: preferredPaidPlanType,
     currency: "USD",
     amount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : 0,
-    checkoutUrl: null,
   });
   const [promoValidation, setPromoValidation] = useState<PromoValidationState>({
     applied: false,
@@ -796,7 +794,6 @@ export default function ModalOferente({
           planType: item?.planType === "featured_monthly" ? "featured_monthly" : "featured_120d",
           currency,
           amount: normalizedAmount,
-          checkoutUrl: item?.checkoutUrl ? String(item.checkoutUrl) : null,
         });
         setPromoValidation((prev) => ({
           ...prev,

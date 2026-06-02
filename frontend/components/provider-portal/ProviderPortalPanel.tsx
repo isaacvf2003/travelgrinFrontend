@@ -63,7 +63,6 @@ type PlanPriceResponseItem = {
   planType?: "featured_120d" | "featured_monthly";
   currency: "ARS" | "USD";
   amount: number;
-  checkoutUrl: string | null;
 };
 
 type PortalSessionResponse = {
