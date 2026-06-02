@@ -118,8 +118,7 @@ type FeaturedPlanPriceItem = {
   planType: "featured_120d" | "featured_monthly";
   currency: "ARS" | "USD";
   amount: number;
-  checkoutUrl: string | null;
-  providerMode?: "link" | "api" | null;
+  providerMode?: "api" | null;
   providerResourceId?: string | null;
   providerCheckoutUrl?: string | null;
   providerRaw?: unknown | null;
@@ -863,7 +862,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [priceRulePlanTypeDraft, setPriceRulePlanTypeDraft] = useState<"featured_120d" | "featured_monthly">("featured_120d");
   const [priceRuleCurrencyDraft, setPriceRuleCurrencyDraft] = useState<"ARS" | "USD">("USD");
   const [priceRuleAmountDraft, setPriceRuleAmountDraft] = useState("");
-  const [priceRuleCheckoutUrlDraft, setPriceRuleCheckoutUrlDraft] = useState("");
   const [priceRuleDefaultDraft, setPriceRuleDefaultDraft] = useState(false);
   const [priceRuleActiveDraft, setPriceRuleActiveDraft] = useState(true);
   const [priceRuleEditId, setPriceRuleEditId] = useState<string | null>(null);
@@ -4077,7 +4075,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRulePlanTypeDraft("featured_120d");
     setPriceRuleCurrencyDraft("USD");
     setPriceRuleAmountDraft("");
-    setPriceRuleCheckoutUrlDraft("");
     setPriceRuleDefaultDraft(false);
     setPriceRuleActiveDraft(true);
   };
@@ -4094,7 +4091,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         country: isDefaultRule ? "" : priceRuleCountryDraft,
         currency: priceRuleCurrencyDraft,
         amount: Number(priceRuleAmountDraft),
-        checkoutUrl: priceRuleCheckoutUrlDraft,
         isDefault: isDefaultRule,
         isActive: priceRuleActiveDraft,
       };
@@ -4119,7 +4115,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRulePlanTypeDraft(item.planType === "featured_monthly" ? "featured_monthly" : "featured_120d");
     setPriceRuleCurrencyDraft(item.currency === "ARS" ? "ARS" : "USD");
     setPriceRuleAmountDraft(String(item.amount ?? ""));
-    setPriceRuleCheckoutUrlDraft(String(item.checkoutUrl ?? ""));
     setPriceRuleDefaultDraft(Boolean(item.isDefault));
     setPriceRuleActiveDraft(Boolean(item.isActive));
     setPriceRuleMessage("");
@@ -4268,7 +4263,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <option value="ARS">ARS</option>
           </select>
           <input value={priceRuleAmountDraft} onChange={(event) => setPriceRuleAmountDraft(event.target.value)} placeholder="Monto" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
-          <input value={priceRuleCheckoutUrlDraft} onChange={(event) => setPriceRuleCheckoutUrlDraft(event.target.value)} placeholder="Enlace checkout dLocal" className="h-10 rounded-xl border border-slate-200 px-3 text-sm md:col-span-2" />
           <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs text-slate-700">
             <input type="checkbox" checked={priceRuleDefaultDraft} onChange={(event) => {
               const checked = event.target.checked;
@@ -4306,12 +4300,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : "120 DIAS"}</span>
                   <span>{item.currency}</span>
                   <span>{item.amount}</span>
-                <span className="max-w-[320px] truncate">Checkout manual: {item.checkoutUrl || "-"}</span>
-                <span className="rounded-full bg-white px-2 py-1">Modo: {item.providerMode === "api" ? "dLocal API" : "link"}</span>
+                <span className="rounded-full bg-white px-2 py-1">Modo: dLocal API</span>
                 {item.providerResourceId ? (
                   <span className="max-w-[280px] truncate rounded-full bg-white px-2 py-1">Recurso: {item.providerResourceId}</span>
                 ) : null}
-                <span className="max-w-[320px] truncate">Checkout dLocal: {item.providerCheckoutUrl || "-"}</span>
+                <span className="max-w-[320px] truncate">
+                  {item.planType === "featured_monthly"
+                    ? `Checkout dLocal: ${item.providerCheckoutUrl || "-"}`
+                    : "Checkout: se genera al pagar"}
+                </span>
                 <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
               </div>
               <div className="flex items-center gap-2">
