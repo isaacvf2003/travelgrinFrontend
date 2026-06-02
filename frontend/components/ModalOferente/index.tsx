@@ -21,7 +21,12 @@ type Props = {
   onClose: () => void;
   initialEmail?: string;
   lockEmail?: boolean;
-  onSubmitted?: (info: { serviceId: string; plan: "basic_free" | "featured" }) => void;
+  initialPlan?: "basic_free" | "featured" | "monthly";
+  preferredPaidPlanType?: "featured_120d" | "featured_monthly";
+  requestKind?: "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free";
+  previousPlan?: "basic_free" | "featured" | "monthly";
+  sourceServiceId?: string;
+  onSubmitted?: (info: { serviceId: string; plan: "basic_free" | "featured" | "monthly" }) => void;
 };
 type Category = { id: string; description: string; taxonomyType: string; isPrimaryCategory?: boolean; isPublicVisible?: boolean; parentId?: string | null };
 type FilterOptionLite = { value?: string; label?: string; labelI18n?: Record<string, string> | null };
@@ -44,6 +49,7 @@ type PriceBreakdown = {
 };
 type FeaturedPlanPricing = {
   country: string | null;
+  planType?: "featured_120d" | "featured_monthly";
   currency: "ARS" | "USD";
   amount: number;
   checkoutUrl: string | null;
@@ -596,7 +602,17 @@ function PlanCard({
   );
 }
 
-export default function ModalOferente({ onClose, initialEmail = "", lockEmail = false, onSubmitted }: Props) {
+export default function ModalOferente({
+  onClose,
+  initialEmail = "",
+  lockEmail = false,
+  initialPlan = "basic_free",
+  preferredPaidPlanType = "featured_120d",
+  requestKind = "new_publication",
+  previousPlan,
+  sourceServiceId = "",
+  onSubmitted,
+}: Props) {
   const { t, locale } = useTranslation();
   const { selectedCountry, setIsOpenModal } = useCountry();
   const modalLocale: OferenteModalLocale = locale in OFERENTE_MODAL_TEXT ? (locale as OferenteModalLocale) : "es";
@@ -659,8 +675,11 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
   const [priceNegotiable, setPriceNegotiable] = useState(false);
   const [pricePeriod, setPricePeriod] = useState("month");
   const [promoCode, setPromoCode] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState<"basic_free" | "featured" | "monthly">(initialPlan);
+  const [selectedPaidPlanType, setSelectedPaidPlanType] = useState<"featured_120d" | "featured_monthly">(preferredPaidPlanType);
   const [featuredPlanPricing, setFeaturedPlanPricing] = useState<FeaturedPlanPricing>({
     country: null,
+    planType: preferredPaidPlanType,
     currency: "USD",
     amount: FEATURED_PLAN_AMOUNT > 0 ? FEATURED_PLAN_AMOUNT : 0,
     checkoutUrl: null,
@@ -763,7 +782,7 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
   useEffect(() => {
     const country = String(selectedCountry ?? "").trim();
     if (!country) return;
-    fetch(`/api/featured-plan-pricing?country=${encodeURIComponent(country)}`, { cache: "no-store" })
+    fetch(`/api/featured-plan-pricing?country=${encodeURIComponent(country)}&planType=${encodeURIComponent(selectedPaidPlanType)}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         const item = data?.item ?? {};
@@ -772,6 +791,7 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
         const normalizedAmount = Number.isFinite(amount) ? amount : 0;
         setFeaturedPlanPricing({
           country: item?.country ? String(item.country) : null,
+          planType: item?.planType === "featured_monthly" ? "featured_monthly" : "featured_120d",
           currency,
           amount: normalizedAmount,
           checkoutUrl: item?.checkoutUrl ? String(item.checkoutUrl) : null,
@@ -785,7 +805,7 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
         }));
       })
       .catch(() => null);
-  }, [selectedCountry]);
+  }, [selectedCountry, selectedPaidPlanType]);
 
   useEffect(() => {
     if (!promoCode.trim()) {
@@ -825,15 +845,15 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
     const handlePaymentResult = (rawStatus: string) => {
       const status = String(rawStatus ?? "").trim().toLowerCase();
       paymentResultReceivedRef.current = true;
-      clearPaymentWatcher();
-      setIsLoading(false);
-      setStep("featured");
-      setFeaturedTypeFocusKey((prev) => prev + 1);
-      if (status === "success" || status === "approved" || status === "paid") {
-        if (submittedServiceIdRef.current) {
-          onSubmitted?.({ serviceId: submittedServiceIdRef.current, plan: "featured" });
-          submittedServiceIdRef.current = null;
-        }
+        clearPaymentWatcher();
+        setIsLoading(false);
+        setStep("featured");
+        setFeaturedTypeFocusKey((prev) => prev + 1);
+        if (status === "success" || status === "approved" || status === "paid") {
+          if (submittedServiceIdRef.current) {
+            onSubmitted?.({ serviceId: submittedServiceIdRef.current, plan: selectedPlan === "monthly" ? "monthly" : "featured" });
+            submittedServiceIdRef.current = null;
+          }
         toast.success(mt("oferente_toast_pago_exitoso"), { duration: 7000 });
         return;
       }
@@ -1029,7 +1049,7 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
     }
   };
 
-  const buildPayload = (publicationPlan: "basic_free" | "featured") => {
+  const buildPayload = (publicationPlan: "basic_free" | "featured" | "monthly") => {
     const cleanVenue = {
       country: primaryVenue.country.trim(),
       city: primaryVenue.city.trim(),
@@ -1054,6 +1074,7 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
     const discountedPlanAmount = promoValidation.applied && !promoValidation.error && promoValidation.discountedAmount !== null
       ? Number(promoValidation.discountedAmount)
       : effectivePlanAmount;
+    const isPaidPlan = publicationPlan === "featured" || publicationPlan === "monthly";
     return {
       taxonomyType: "oferente",
       status: "pendiente",
@@ -1093,9 +1114,15 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
       priceNegotiable,
       pricePeriod,
       promoCode,
-      planAmount: publicationPlan === "featured" ? effectivePlanAmount : 0,
-      planCurrency: publicationPlan === "featured" ? featuredPlanPricing.currency : "USD",
-      discountedPlanAmount: publicationPlan === "featured" ? discountedPlanAmount : 0,
+      planAmount: isPaidPlan ? effectivePlanAmount : 0,
+      planCurrency: isPaidPlan ? featuredPlanPricing.currency : "USD",
+      discountedPlanAmount: isPaidPlan ? discountedPlanAmount : 0,
+      paymentType: publicationPlan === "monthly" ? "monthly" : publicationPlan === "featured" ? "one_time" : "",
+      planType: publicationPlan === "monthly" ? "featured_monthly" : publicationPlan === "featured" ? "featured_120d" : "",
+      requestKind,
+      previousPlan: previousPlan ?? "",
+      requestedPlan: publicationPlan === "monthly" ? "featured_monthly" : publicationPlan === "featured" ? "featured_120d" : "basic_free",
+      sourceServiceId: sourceServiceId.trim(),
       country: selectedCountry,
       locale,
       acceptedTerms: true,
@@ -1104,13 +1131,14 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
     };
   };
 
-  const submit = async (publicationPlan: "basic_free" | "featured") => {
-    if (!validateBasic()) return;
-    if (publicationPlan === "featured" && !validateFeatured()) return;
-    if (publicationPlan === "featured" && promoCode.trim()) {
-      const valid = await applyPromoCode();
-      if (!valid) return;
-    }
+  const submit = async (publicationPlan: "basic_free" | "featured" | "monthly") => {
+      if (!validateBasic()) return;
+      const isPaidPlan = publicationPlan === "featured" || publicationPlan === "monthly";
+      if (isPaidPlan && !validateFeatured()) return;
+      if (isPaidPlan && promoCode.trim()) {
+        const valid = await applyPromoCode();
+        if (!valid) return;
+      }
     setIsLoading(true);
     try {
       const response = await fetch("/api/travel-services", {
@@ -1126,19 +1154,22 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
         submittedServiceIdRef.current = null;
       }
 
-      if (publicationPlan === "featured") {
-        const checkoutResponse = await fetch("/api/payments/featured/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            serviceId: String(data?.id ?? ""),
-            country: selectedCountry,
-            amount: buildPayload("featured").discountedPlanAmount,
-            currency: featuredPlanPricing.currency,
-            promoCode,
-            email,
-          }),
-        });
+        if (isPaidPlan) {
+          const paidPayload = buildPayload(publicationPlan);
+          const checkoutResponse = await fetch("/api/payments/featured/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              serviceId: String(data?.id ?? ""),
+              country: selectedCountry,
+              amount: paidPayload.discountedPlanAmount,
+              currency: featuredPlanPricing.currency,
+              promoCode,
+              email,
+              paymentType: publicationPlan === "monthly" ? "monthly" : "one_time",
+              planType: publicationPlan === "monthly" ? "featured_monthly" : "featured_120d",
+            }),
+          });
         const checkoutData = await checkoutResponse.json().catch(() => ({}));
         if (!checkoutResponse.ok || !checkoutData?.redirectUrl) {
           throw new Error(String(checkoutData?.error ?? "No se pudo iniciar el checkout."));
@@ -1166,10 +1197,10 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
             }
           }
         }, 700);
-        setStep("featured");
-        toast.success(mt("oferente_toast_pago_pestana"), { duration: 6000 });
-        return;
-      }
+          setStep("featured");
+          toast.success(mt("oferente_toast_pago_pestana"), { duration: 6000 });
+          return;
+        }
       toast.success(mt("oferente_toast_revision"), { duration: 6000 });
       onClose();
     } catch (error) {
@@ -1179,8 +1210,10 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
     }
   };
 
-  const goFeatured = async () => {
+  const goPaid = async (plan: "featured" | "monthly", planType: "featured_120d" | "featured_monthly") => {
     if (!validateBasic()) return;
+    setSelectedPlan(plan);
+    setSelectedPaidPlanType(planType);
     if (promoCode.trim()) {
       const valid = await applyPromoCode();
       if (!valid) return;
@@ -1188,6 +1221,20 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
     setStep("featured");
     setFeaturedTypeFocusKey((prev) => prev + 1);
   };
+
+  useEffect(() => {
+    setSelectedPlan(initialPlan);
+  }, [initialPlan]);
+
+  useEffect(() => {
+    setSelectedPaidPlanType(preferredPaidPlanType);
+  }, [preferredPaidPlanType]);
+
+  const paidPlanTitle = selectedPlan === "monthly"
+    ? (locale === "en" ? "Monthly plan" : locale === "pt" ? "Plano mensal" : locale === "it" ? "Piano mensile" : "Plan mensual")
+    : mt("oferente_publicacion_destacada");
+  const monthlyContinueLabel = locale === "en" ? "Continue monthly" : locale === "pt" ? "Continuar mensal" : locale === "it" ? "Continua mensile" : "Continuar mensual";
+  const monthlySubmitLabel = locale === "en" ? "Subscribe monthly" : locale === "pt" ? "Assinar mensal" : locale === "it" ? "Attiva piano mensile" : "Contratar mensual";
 
   useEffect(() => {
     if (step !== "featured") return;
@@ -1241,7 +1288,7 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
 
   const basicStep = (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="relative w-full">
           <Tag className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#0B8FA3]" />
           <input
@@ -1304,7 +1351,7 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
         </Link>
       </label>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <PlanCard
           title={mt("oferente_publicacion_basica")}
           tone="free"
@@ -1324,7 +1371,25 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
           priceCaption={`Moneda: ${featuredPlanPricing.currency}`}
           items={featuredItems}
           buttonLabel={mt("oferente_continuar_destacado")}
-          onClick={goFeatured}
+          onClick={() => { void goPaid("featured", "featured_120d"); }}
+          showPromo
+          promoCode={promoCode}
+          onPromoCodeChange={setPromoCode}
+          onApplyPromo={() => { void applyPromoCode(); }}
+          promoPlaceholder={mt("oferente_codigo_promocional")}
+          promoStatusText={promoValidation.message}
+          promoStatusError={promoValidation.error}
+        />
+        <PlanCard
+          title={locale === "en" ? "Monthly plan" : locale === "pt" ? "Plano mensal" : locale === "it" ? "Piano mensile" : "Plan mensual"}
+          tone="featured"
+          price={featuredPriceBreakdown.finalLabel}
+          basePrice={featuredPriceBreakdown.baseLabel}
+          showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
+          priceCaption={`Moneda: ${featuredPlanPricing.currency}`}
+          items={featuredItems}
+          buttonLabel={monthlyContinueLabel}
+          onClick={() => { void goPaid("monthly", "featured_monthly"); }}
           showPromo
           promoCode={promoCode}
           onPromoCodeChange={setPromoCode}
@@ -1486,15 +1551,15 @@ export default function ModalOferente({ onClose, initialEmail = "", lockEmail = 
 
       <div className="mx-auto w-full max-w-sm">
         <PlanCard
-          title={mt("oferente_publicacion_destacada")}
+          title={paidPlanTitle}
           tone="featured"
           price={featuredPriceBreakdown.finalLabel}
           basePrice={featuredPriceBreakdown.baseLabel}
           showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
           priceCaption={`Moneda: ${featuredPlanPricing.currency}`}
           items={featuredItems}
-          buttonLabel={isLoading ? t("guardando") : mt("oferente_publicar_destacado")}
-          onClick={() => submit("featured")}
+          buttonLabel={isLoading ? t("guardando") : (selectedPlan === "monthly" ? monthlySubmitLabel : mt("oferente_publicar_destacado"))}
+          onClick={() => submit(selectedPlan === "monthly" ? "monthly" : "featured")}
           disabled={isLoading}
           showPromo
           promoCode={promoCode}
