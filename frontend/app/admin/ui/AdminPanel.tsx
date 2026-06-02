@@ -4306,8 +4306,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 ) : null}
                 <span className="max-w-[320px] truncate">
                   {item.planType === "featured_monthly"
-                    ? `Checkout dLocal: ${item.providerCheckoutUrl || "-"}`
-                    : "Checkout: se genera al pagar"}
+                    ? "Suscripcion: se resuelve por API de dLocal al contratar"
+                    : "Checkout: se genera por API al pagar"}
                 </span>
                 <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
               </div>
