@@ -115,11 +115,37 @@ type PromoCodeItem = {
 type FeaturedPlanPriceItem = {
   id: string;
   country: string | null;
+  planType: "featured_120d" | "featured_monthly";
   currency: "ARS" | "USD";
   amount: number;
   checkoutUrl: string | null;
+  providerMode?: "link" | "api" | null;
+  providerResourceId?: string | null;
+  providerCheckoutUrl?: string | null;
+  providerRaw?: unknown | null;
   isDefault: boolean;
   isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type TravelServicePaymentItem = {
+  id: string;
+  serviceId: string;
+  payerEmail: string | null;
+  provider: string;
+  paymentType: "one_time" | "monthly";
+  planType: "featured_120d" | "featured_monthly";
+  currency: string | null;
+  amount: number | null;
+  promoCode: string | null;
+  externalReference: string | null;
+  providerPaymentId: string | null;
+  checkoutUrl: string | null;
+  status: "pending" | "processing" | "paid" | "failed" | "cancelled";
+  returnStatus: string | null;
+  raw?: unknown | null;
+  paidAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -352,6 +378,22 @@ function receivingModeLabel(mode: unknown): string {
   if (normalized === "except") return "Recibe a todos excepto";
   if (normalized === "only") return "Recibe solo lo seleccionado";
   return "Recibe viajeros de todos los países";
+}
+
+function normalizeProviderPlanLabel(value: unknown): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "featured_monthly" || normalized === "monthly") return "Plan mensual";
+  if (normalized === "featured_120d" || normalized === "featured") return "Destacado 120 dias";
+  return "Gratis 60 dias";
+}
+
+function providerRequestKindLabel(value: unknown): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "renew_free") return "Renovacion gratis";
+  if (normalized === "upgrade_featured_120d") return "Upgrade a destacado 120 dias";
+  if (normalized === "upgrade_featured_monthly") return "Upgrade a plan mensual";
+  if (normalized === "downgrade_free") return "Volver a gratis";
+  return "Nueva publicacion";
 }
 
 function parseProviderLinks(raw: string): { website: string; socialLinks: SocialLinkDetail[] } {
@@ -796,6 +838,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [travelServices, setTravelServices] = useState<TravelService[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCodeItem[]>([]);
   const [featuredPlanPrices, setFeaturedPlanPrices] = useState<FeaturedPlanPriceItem[]>([]);
+  const [travelServicePayments, setTravelServicePayments] = useState<TravelServicePaymentItem[]>([]);
   const [dashboardServiceHistory, setDashboardServiceHistory] = useState<DashboardServiceHistory[]>([]);
   const [dashboardPublicationHistory, setDashboardPublicationHistory] = useState<DashboardPublicationHistory[]>([]);
   const [dashboardPassportSelections, setDashboardPassportSelections] = useState<DashboardPassportSelection[]>([]);
@@ -817,6 +860,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [promoSaving, setPromoSaving] = useState(false);
   const [promoMessage, setPromoMessage] = useState("");
   const [priceRuleCountryDraft, setPriceRuleCountryDraft] = useState("");
+  const [priceRulePlanTypeDraft, setPriceRulePlanTypeDraft] = useState<"featured_120d" | "featured_monthly">("featured_120d");
   const [priceRuleCurrencyDraft, setPriceRuleCurrencyDraft] = useState<"ARS" | "USD">("USD");
   const [priceRuleAmountDraft, setPriceRuleAmountDraft] = useState("");
   const [priceRuleCheckoutUrlDraft, setPriceRuleCheckoutUrlDraft] = useState("");
@@ -1128,7 +1172,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [catParentId, categories]);
 
   async function refresh() {
-    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory, promoCodesData, featuredPlanPricesData] = await Promise.all([
+    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory, promoCodesData, featuredPlanPricesData, travelServicePaymentsData] = await Promise.all([
       api<{ ok: true; items: Category[] }>("/api/categories").then((d) => d.items),
       api<{ ok: true; groups: FilterGroup[] }>("/api/admin/filters").then((d) => d.groups),
       api<{ ok: true; items: Publication[] }>("/api/admin/publications").then((d) => d.items),
@@ -1144,6 +1188,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }>("/api/admin/dashboard-history").catch(() => ({ ok: true, serviceHistory: [], publicationHistory: [], passportSelections: [], destinationSearches: [] })),
       api<{ ok: true; items: PromoCodeItem[] }>("/api/admin/promo-codes").catch(() => ({ ok: true, items: [] })),
       api<{ ok: true; items: FeaturedPlanPriceItem[] }>("/api/admin/featured-plan-prices").catch(() => ({ ok: true, items: [] })),
+      api<{ ok: true; items: TravelServicePaymentItem[] }>("/api/admin/travel-service-payments").catch(() => ({ ok: true, items: [] })),
     ]);
 
     setCategories(cats);
@@ -1161,6 +1206,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setDashboardDestinationSearches(Array.isArray(dashboardHistory?.destinationSearches) ? dashboardHistory.destinationSearches : []);
     setPromoCodes(Array.isArray(promoCodesData?.items) ? promoCodesData.items : []);
     setFeaturedPlanPrices(Array.isArray(featuredPlanPricesData?.items) ? featuredPlanPricesData.items : []);
+    setTravelServicePayments(Array.isArray(travelServicePaymentsData?.items) ? travelServicePaymentsData.items : []);
     setOferenteDestinationMode(oferenteDestinations?.mode === "some" ? "some" : "all");
     setOferenteDestinationCountries(
       Array.isArray(oferenteDestinations?.countries)
@@ -3957,6 +4003,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div><b>Teléfono:</b> {detailTravelService.phone || String(detailExtra?.phone ?? "-")}</div>
             <div><b>Estado:</b> {serviceEffectiveStatus(detailTravelService)}</div>
             <div><b>Motivo estado:</b> {String(detailExtra?.statusReason ?? "-") || "-"}</div>
+            <div><b>Tipo de solicitud:</b> {providerRequestKindLabel(detailExtra?.requestKind)}</div>
+            <div><b>Plan solicitado:</b> {normalizeProviderPlanLabel(detailExtra?.requestedPlan ?? detailExtra?.planType)}</div>
+            <div><b>Plan anterior:</b> {detailExtra?.previousPlan ? normalizeProviderPlanLabel(detailExtra?.previousPlan) : "-"}</div>
+            <div><b>Origen:</b> {detailExtra?.sourceServiceId ? `solicitud/publicación ${String(detailExtra.sourceServiceId)}` : "-"}</div>
             <div><b>Tipo perfil:</b> {normalizeStringArray((detailExtra?.typeProfile as string[] | string | undefined) ?? detailTravelService.typeProfile).join(", ") || "-"}</div>
             <div><b>Categorías:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
             <div><b>Actividad:</b> {normalizeStringArray((detailExtra?.activity as string[] | string | undefined) ?? detailTravelService.activity).join(", ") || "-"}</div>
@@ -4024,6 +4074,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const resetPriceRuleForm = () => {
     setPriceRuleEditId(null);
     setPriceRuleCountryDraft("");
+    setPriceRulePlanTypeDraft("featured_120d");
     setPriceRuleCurrencyDraft("USD");
     setPriceRuleAmountDraft("");
     setPriceRuleCheckoutUrlDraft("");
@@ -4039,6 +4090,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const isDefaultRule = priceRuleDefaultDraft || isAllCountries;
       const payload = {
         id: priceRuleEditId ?? undefined,
+        planType: priceRulePlanTypeDraft,
         country: isDefaultRule ? "" : priceRuleCountryDraft,
         currency: priceRuleCurrencyDraft,
         amount: Number(priceRuleAmountDraft),
@@ -4064,6 +4116,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const editPriceRule = (item: FeaturedPlanPriceItem) => {
     setPriceRuleEditId(item.id);
     setPriceRuleCountryDraft(item.isDefault ? "__ALL__" : (item.country ?? ""));
+    setPriceRulePlanTypeDraft(item.planType === "featured_monthly" ? "featured_monthly" : "featured_120d");
     setPriceRuleCurrencyDraft(item.currency === "ARS" ? "ARS" : "USD");
     setPriceRuleAmountDraft(String(item.amount ?? ""));
     setPriceRuleCheckoutUrlDraft(String(item.checkoutUrl ?? ""));
@@ -4189,13 +4242,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-        <div className="mb-3">
-          <p className="text-sm font-semibold text-slate-900">Precio plan destacado por pais</p>
-          <p className="text-xs text-slate-500">Configura ARS y USD por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
-        </div>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
-          <select value={priceRuleCountryDraft} onChange={(event) => {
-            const value = event.target.value;
+          <div className="mb-3">
+          <p className="text-sm font-semibold text-slate-900">Precios de planes por pais</p>
+            <p className="text-xs text-slate-500">Configura los valores del destacado por 120 dias y del plan mensual por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
+            <select value={priceRulePlanTypeDraft} onChange={(event) => setPriceRulePlanTypeDraft(event.target.value === "featured_monthly" ? "featured_monthly" : "featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
+              <option value="featured_120d">Pago unico 120 dias</option>
+              <option value="featured_monthly">Plan mensual</option>
+            </select>
+            <select value={priceRuleCountryDraft} onChange={(event) => {
+              const value = event.target.value;
             setPriceRuleCountryDraft(value);
             if (value === "__ALL__") {
               setPriceRuleDefaultDraft(true);
@@ -4244,11 +4301,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <div className="mt-3 space-y-2">
           {featuredPlanPrices.length ? featuredPlanPrices.map((item) => (
             <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.isDefault ? "DEFECTO" : (item.country || "-")}</span>
-                <span>{item.currency}</span>
-                <span>{item.amount}</span>
-                <span className="max-w-[320px] truncate">Checkout: {item.checkoutUrl || "-"}</span>
+              <div className="flex flex-1 flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.isDefault ? "DEFECTO" : (item.country || "-")}</span>
+                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : "120 DIAS"}</span>
+                  <span>{item.currency}</span>
+                  <span>{item.amount}</span>
+                <span className="max-w-[320px] truncate">Checkout manual: {item.checkoutUrl || "-"}</span>
+                <span className="rounded-full bg-white px-2 py-1">Modo: {item.providerMode === "api" ? "dLocal API" : "link"}</span>
+                {item.providerResourceId ? (
+                  <span className="max-w-[280px] truncate rounded-full bg-white px-2 py-1">Recurso: {item.providerResourceId}</span>
+                ) : null}
+                <span className="max-w-[320px] truncate">Checkout dLocal: {item.providerCheckoutUrl || "-"}</span>
                 <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
               </div>
               <div className="flex items-center gap-2">
@@ -4257,7 +4320,52 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
             </div>
           )) : (
-            <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay precios de plan destacado.</div>
+              <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay precios configurados.</div>
+            )}
+          </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Pagos y cobros de planes</p>
+            <p className="text-xs text-slate-500">Registro interno de cada intento y pago asociado a publicaciones destacadas o mensuales.</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{travelServicePayments.length} registros</span>
+        </div>
+        <div className="space-y-2">
+          {travelServicePayments.length ? travelServicePayments.map((item) => (
+            <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-700">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : "120 DIAS"}</span>
+                <span className="rounded-full bg-white px-2 py-1">{item.paymentType === "monthly" ? "Suscripcion" : "Pago unico"}</span>
+                <span className="rounded-full bg-white px-2 py-1">{item.currency || "-"} {item.amount ?? "-"}</span>
+                <span className={`rounded-full px-2 py-1 font-semibold ${
+                  item.status === "paid"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : item.status === "failed" || item.status === "cancelled"
+                      ? "bg-rose-100 text-rose-700"
+                      : item.status === "processing"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-sky-100 text-sky-700"
+                }`}>
+                  {item.status}
+                </span>
+                {item.returnStatus ? <span className="rounded-full bg-white px-2 py-1">Retorno: {item.returnStatus}</span> : null}
+              </div>
+              <div className="mt-2 grid gap-2 text-[11px] text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
+                <div><span className="font-semibold text-slate-800">Email:</span> {item.payerEmail || "-"}</div>
+                <div><span className="font-semibold text-slate-800">Publicacion / solicitud:</span> {item.serviceId}</div>
+                <div><span className="font-semibold text-slate-800">Referencia:</span> {item.externalReference || "-"}</div>
+                <div><span className="font-semibold text-slate-800">Pago dLocal:</span> {item.providerPaymentId || "-"}</div>
+                <div><span className="font-semibold text-slate-800">Creado:</span> {item.createdAt ? new Date(item.createdAt).toLocaleString("es-AR") : "-"}</div>
+                <div><span className="font-semibold text-slate-800">Pagado:</span> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
+                <div className="sm:col-span-2 xl:col-span-2"><span className="font-semibold text-slate-800">Checkout:</span> {item.checkoutUrl || "-"}</div>
+                {item.promoCode ? <div><span className="font-semibold text-slate-800">Promo:</span> {item.promoCode}</div> : null}
+              </div>
+            </div>
+          )) : (
+            <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay pagos registrados.</div>
           )}
         </div>
       </div>
@@ -4370,6 +4478,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <p className="mt-2 text-sm font-semibold text-slate-900">{service.name || String(serviceExtra.name ?? "") || "Sin nombre"}</p>
                       <p className="mt-1 text-xs text-slate-500">{service.email}</p>
                       <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-200">
+                          Solicitud: {providerRequestKindLabel(serviceExtra.requestKind)}
+                        </span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700 ring-1 ring-slate-200">
+                          Plan solicitado: {normalizeProviderPlanLabel(serviceExtra.requestedPlan ?? serviceExtra.planType)}
+                        </span>
+                        {serviceExtra.previousPlan ? (
+                          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700 ring-1 ring-indigo-200">
+                            Plan anterior: {normalizeProviderPlanLabel(serviceExtra.previousPlan)}
+                          </span>
+                        ) : null}
+                      </div>
+                      {serviceExtra.sourceServiceId ? (
+                        <p className="mt-2 text-xs text-slate-600">
+                          <b>Origen:</b> solicitud/publicación {String(serviceExtra.sourceServiceId)}
+                        </p>
+                      ) : null}
                       <div className="mt-2 text-xs text-slate-600">
                         <b>Tiene {linkedPublications.length} publicación(es)</b>
                         {linkedPublications.length ? (

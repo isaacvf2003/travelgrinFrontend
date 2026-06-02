@@ -39,15 +39,50 @@ type ContactAccordionProps = {
   className?: string;
 };
 
+function extractEmailAddress(rawHref: string): string {
+  const raw = String(rawHref ?? "").trim();
+  if (!raw) return "";
+
+  if (/^mailto:/i.test(raw)) {
+    return raw.replace(/^mailto:/i, "").split("?")[0].trim();
+  }
+
+  if (raw.includes("@") && !/^https?:\/\//i.test(raw)) {
+    return raw.trim();
+  }
+
+  try {
+    const url = new URL(raw);
+    const toParam = url.searchParams.get("to") ?? "";
+    if (toParam) {
+      const decodedTo = decodeURIComponent(toParam);
+      if (/^https?:\/\/mail\.google\.com\/mail\//i.test(decodedTo) || /^mailto:/i.test(decodedTo)) {
+        return extractEmailAddress(decodedTo);
+      }
+      if (decodedTo.includes("@")) {
+        return decodedTo.split("?")[0].trim();
+      }
+    }
+
+    const pathname = decodeURIComponent(url.pathname);
+    const maybeMail = pathname.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0];
+    if (maybeMail) return maybeMail;
+  } catch {
+    // ignore parse errors
+  }
+
+  const fallbackMatch = raw.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return fallbackMatch?.[0] ?? "";
+}
+
 function buildSafeContactHref(icon: keyof typeof ICONS, href: string) {
   const raw = String(href ?? "").trim();
   if (!raw) return "#";
 
   if (icon === "email") {
-    if (/^https?:\/\/mail\.google\.com\/mail\//i.test(raw)) return raw;
-    const email = raw.replace(/^mailto:/i, "").trim();
+    const email = extractEmailAddress(raw);
     return email
-      ? `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=${encodeURIComponent(email)}`
+      ? `https://mail.google.com/mail/u/0/?view=cm&fs=1&tf=1&to=${encodeURIComponent(email)}`
       : "#";
   }
 
