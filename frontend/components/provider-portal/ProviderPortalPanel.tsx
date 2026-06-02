@@ -916,6 +916,7 @@ export default function ProviderPortalPanel() {
           onClose={() => setOpenSubmissionModal(false)}
           initialEmail={sessionEmail}
           lockEmail
+          showMonthlyPlanOption
           initialPlan={modalPlanIntent}
           preferredPaidPlanType={preferredPaidPlanType}
           requestKind={modalRequestKind}

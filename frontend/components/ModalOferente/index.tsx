@@ -21,6 +21,7 @@ type Props = {
   onClose: () => void;
   initialEmail?: string;
   lockEmail?: boolean;
+  showMonthlyPlanOption?: boolean;
   initialPlan?: "basic_free" | "featured" | "monthly";
   preferredPaidPlanType?: "featured_120d" | "featured_monthly";
   requestKind?: "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free";
@@ -606,6 +607,7 @@ export default function ModalOferente({
   onClose,
   initialEmail = "",
   lockEmail = false,
+  showMonthlyPlanOption = false,
   initialPlan = "basic_free",
   preferredPaidPlanType = "featured_120d",
   requestKind = "new_publication",
@@ -1351,7 +1353,7 @@ export default function ModalOferente({
         </Link>
       </label>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={`grid gap-4 ${showMonthlyPlanOption ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
         <PlanCard
           title={mt("oferente_publicacion_basica")}
           tone="free"
@@ -1380,24 +1382,26 @@ export default function ModalOferente({
           promoStatusText={promoValidation.message}
           promoStatusError={promoValidation.error}
         />
-        <PlanCard
-          title={locale === "en" ? "Monthly plan" : locale === "pt" ? "Plano mensal" : locale === "it" ? "Piano mensile" : "Plan mensual"}
-          tone="featured"
-          price={featuredPriceBreakdown.finalLabel}
-          basePrice={featuredPriceBreakdown.baseLabel}
-          showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
-          priceCaption={`Moneda: ${featuredPlanPricing.currency}`}
-          items={featuredItems}
-          buttonLabel={monthlyContinueLabel}
-          onClick={() => { void goPaid("monthly", "featured_monthly"); }}
-          showPromo
-          promoCode={promoCode}
-          onPromoCodeChange={setPromoCode}
-          onApplyPromo={() => { void applyPromoCode(); }}
-          promoPlaceholder={mt("oferente_codigo_promocional")}
-          promoStatusText={promoValidation.message}
-          promoStatusError={promoValidation.error}
-        />
+        {showMonthlyPlanOption ? (
+          <PlanCard
+            title={locale === "en" ? "Monthly plan" : locale === "pt" ? "Plano mensal" : locale === "it" ? "Piano mensile" : "Plan mensual"}
+            tone="featured"
+            price={featuredPriceBreakdown.finalLabel}
+            basePrice={featuredPriceBreakdown.baseLabel}
+            showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
+            priceCaption={`Moneda: ${featuredPlanPricing.currency}`}
+            items={featuredItems}
+            buttonLabel={monthlyContinueLabel}
+            onClick={() => { void goPaid("monthly", "featured_monthly"); }}
+            showPromo
+            promoCode={promoCode}
+            onPromoCodeChange={setPromoCode}
+            onApplyPromo={() => { void applyPromoCode(); }}
+            promoPlaceholder={mt("oferente_codigo_promocional")}
+            promoStatusText={promoValidation.message}
+            promoStatusError={promoValidation.error}
+          />
+        ) : null}
       </div>
     </>
   );
