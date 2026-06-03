@@ -100,55 +100,6 @@ type ReportItem = {
   createdAt?: string;
 };
 
-type PromoCodeItem = {
-  id: string;
-  code: string;
-  discountPercent: number;
-  expiresAt: string | null;
-  maxUses: number | null;
-  usedCount: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type FeaturedPlanPriceItem = {
-  id: string;
-  country: string | null;
-  planType: "featured_120d" | "featured_monthly";
-  currency: "ARS" | "USD";
-  amount: number;
-  providerMode?: "api" | null;
-  providerResourceId?: string | null;
-  providerCheckoutUrl?: string | null;
-  providerRaw?: unknown | null;
-  isDefault: boolean;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type TravelServicePaymentItem = {
-  id: string;
-  serviceId: string;
-  payerEmail: string | null;
-  provider: string;
-  paymentType: "one_time" | "monthly";
-  planType: "featured_120d" | "featured_monthly";
-  currency: string | null;
-  amount: number | null;
-  promoCode: string | null;
-  externalReference: string | null;
-  providerPaymentId: string | null;
-  checkoutUrl: string | null;
-  status: "pending" | "processing" | "paid" | "failed" | "cancelled";
-  returnStatus: string | null;
-  raw?: unknown | null;
-  paidAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
 type DashboardServiceHistory = {
   sourceId: string;
   taxonomyType: string;
@@ -377,22 +328,6 @@ function receivingModeLabel(mode: unknown): string {
   if (normalized === "except") return "Recibe a todos excepto";
   if (normalized === "only") return "Recibe solo lo seleccionado";
   return "Recibe viajeros de todos los países";
-}
-
-function normalizeProviderPlanLabel(value: unknown): string {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  if (normalized === "featured_monthly" || normalized === "monthly") return "Plan mensual";
-  if (normalized === "featured_120d" || normalized === "featured") return "Destacado 120 dias";
-  return "Gratis 60 dias";
-}
-
-function providerRequestKindLabel(value: unknown): string {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  if (normalized === "renew_free") return "Renovacion gratis";
-  if (normalized === "upgrade_featured_120d") return "Upgrade a destacado 120 dias";
-  if (normalized === "upgrade_featured_monthly") return "Upgrade a plan mensual";
-  if (normalized === "downgrade_free") return "Volver a gratis";
-  return "Nueva publicacion";
 }
 
 function parseProviderLinks(raw: string): { website: string; socialLinks: SocialLinkDetail[] } {
@@ -835,9 +770,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [publications, setPublications] = useState<Publication[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [travelServices, setTravelServices] = useState<TravelService[]>([]);
-  const [promoCodes, setPromoCodes] = useState<PromoCodeItem[]>([]);
-  const [featuredPlanPrices, setFeaturedPlanPrices] = useState<FeaturedPlanPriceItem[]>([]);
-  const [travelServicePayments, setTravelServicePayments] = useState<TravelServicePaymentItem[]>([]);
   const [dashboardServiceHistory, setDashboardServiceHistory] = useState<DashboardServiceHistory[]>([]);
   const [dashboardPublicationHistory, setDashboardPublicationHistory] = useState<DashboardPublicationHistory[]>([]);
   const [dashboardPassportSelections, setDashboardPassportSelections] = useState<DashboardPassportSelection[]>([]);
@@ -850,23 +782,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [publicationTab, setPublicationTab] = useState<"publicaciones" | "denuncias">("publicaciones");
   const [publicationSearch, setPublicationSearch] = useState("");
   const [publicationTypeFilter, setPublicationTypeFilter] = useState<"todas" | "publicacion" | "prestacion">("todas");
-  const [promoCodeDraft, setPromoCodeDraft] = useState("");
-  const [promoDiscountDraft, setPromoDiscountDraft] = useState("10");
-  const [promoExpiresDraft, setPromoExpiresDraft] = useState("");
-  const [promoMaxUsesDraft, setPromoMaxUsesDraft] = useState("");
-  const [promoActiveDraft, setPromoActiveDraft] = useState(true);
-  const [promoEditId, setPromoEditId] = useState<string | null>(null);
-  const [promoSaving, setPromoSaving] = useState(false);
-  const [promoMessage, setPromoMessage] = useState("");
-  const [priceRuleCountryDraft, setPriceRuleCountryDraft] = useState("");
-  const [priceRulePlanTypeDraft, setPriceRulePlanTypeDraft] = useState<"featured_120d" | "featured_monthly">("featured_120d");
-  const [priceRuleCurrencyDraft, setPriceRuleCurrencyDraft] = useState<"ARS" | "USD">("USD");
-  const [priceRuleAmountDraft, setPriceRuleAmountDraft] = useState("");
-  const [priceRuleDefaultDraft, setPriceRuleDefaultDraft] = useState(false);
-  const [priceRuleActiveDraft, setPriceRuleActiveDraft] = useState(true);
-  const [priceRuleEditId, setPriceRuleEditId] = useState<string | null>(null);
-  const [priceRuleSaving, setPriceRuleSaving] = useState(false);
-  const [priceRuleMessage, setPriceRuleMessage] = useState("");
   const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
   const [expandedPanelBlocks, setExpandedPanelBlocks] = useState<Record<string, boolean>>({});
   const [destinationCountrySearch, setDestinationCountrySearch] = useState("");
@@ -1170,7 +1085,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [catParentId, categories]);
 
   async function refresh() {
-    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory, promoCodesData, featuredPlanPricesData, travelServicePaymentsData] = await Promise.all([
+    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory] = await Promise.all([
       api<{ ok: true; items: Category[] }>("/api/categories").then((d) => d.items),
       api<{ ok: true; groups: FilterGroup[] }>("/api/admin/filters").then((d) => d.groups),
       api<{ ok: true; items: Publication[] }>("/api/admin/publications").then((d) => d.items),
@@ -1184,9 +1099,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         passportSelections?: DashboardPassportSelection[];
         destinationSearches?: DashboardDestinationSearch[];
       }>("/api/admin/dashboard-history").catch(() => ({ ok: true, serviceHistory: [], publicationHistory: [], passportSelections: [], destinationSearches: [] })),
-      api<{ ok: true; items: PromoCodeItem[] }>("/api/admin/promo-codes").catch(() => ({ ok: true, items: [] })),
-      api<{ ok: true; items: FeaturedPlanPriceItem[] }>("/api/admin/featured-plan-prices").catch(() => ({ ok: true, items: [] })),
-      api<{ ok: true; items: TravelServicePaymentItem[] }>("/api/admin/travel-service-payments").catch(() => ({ ok: true, items: [] })),
     ]);
 
     setCategories(cats);
@@ -1202,9 +1114,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setDashboardPublicationHistory(Array.isArray(dashboardHistory?.publicationHistory) ? dashboardHistory.publicationHistory : []);
     setDashboardPassportSelections(Array.isArray(dashboardHistory?.passportSelections) ? dashboardHistory.passportSelections : []);
     setDashboardDestinationSearches(Array.isArray(dashboardHistory?.destinationSearches) ? dashboardHistory.destinationSearches : []);
-    setPromoCodes(Array.isArray(promoCodesData?.items) ? promoCodesData.items : []);
-    setFeaturedPlanPrices(Array.isArray(featuredPlanPricesData?.items) ? featuredPlanPricesData.items : []);
-    setTravelServicePayments(Array.isArray(travelServicePaymentsData?.items) ? travelServicePaymentsData.items : []);
     setOferenteDestinationMode(oferenteDestinations?.mode === "some" ? "some" : "all");
     setOferenteDestinationCountries(
       Array.isArray(oferenteDestinations?.countries)
@@ -3368,88 +3277,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const isUsersSection = section === "usuarios";
   const isCategoriesSection = section === "categorias";
   const isPublicationsSection = section === "publicaciones";
-  const isHowWorksSection = section === "como-funciona";
   const isConfigSection = section === "configuracion";
   const isContactSection = section === "contacto";
 
-
-  const HOME_HOW_TAG = "home-how-it-works";
-  const isHomeHowPublication = (item?: Publication | null) => String(item?.category ?? "") === HOME_HOW_TAG;
-  const homeHowPublication = publications.find((item) => String(item.category ?? "") === HOME_HOW_TAG);
-  const [homeHowTitle, setHomeHowTitle] = useState("Cómo funciona");
-  const [homeHowTitleI18n, setHomeHowTitleI18n] = useState<I18nRecord>({ es: "Cómo funciona" });
-  const [homeHowSteps, setHomeHowSteps] = useState<any[]>([{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
-  const [homeHowSaving, setHomeHowSaving] = useState(false);
-  const [homeHowSaveMessage, setHomeHowSaveMessage] = useState("");
-
-  useEffect(() => {
-    const steps = Array.isArray((homeHowPublication as any)?.fields?.prestationSteps) ? (homeHowPublication as any).fields.prestationSteps : [];
-    const title = String((homeHowPublication as any)?.title ?? "Cómo funciona") || "Cómo funciona";
-    setHomeHowTitle(title);
-    setHomeHowTitleI18n((homeHowPublication as any)?.titleI18n ?? { es: title });
-    setHomeHowSteps(steps.length ? steps : [{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
-  }, [homeHowPublication?.id]);
-
-  const homeHowHasContent = (step: any) => Boolean(
-    step?.title || step?.subtitle || step?.image ||
-    Object.values((step?.titleI18n ?? {}) as Record<string, string>).some(Boolean) ||
-    Object.values((step?.subtitleI18n ?? {}) as Record<string, string>).some(Boolean) ||
-    Object.values((step?.imageI18n ?? {}) as Record<string, string>).some(Boolean)
-  );
-
-  const deleteHomeHowPublication = async () => {
-    if (!homeHowPublication?.id) return;
-    const response = await fetch(`/api/admin/publications?id=${homeHowPublication.id}`, { method: "DELETE" });
-    if (!response.ok) throw new Error("No se pudo quitar la seccion.");
-    await refresh();
-  };
-
-  const removeHomeHowStep = (idx: number) => {
-    const nextSteps = homeHowSteps.filter((_, i) => i !== idx);
-    setHomeHowSteps(nextSteps);
-    setHomeHowSaveMessage("");
-    if (!nextSteps.some(homeHowHasContent) && homeHowPublication?.id) {
-      setHomeHowSaving(true);
-      void deleteHomeHowPublication()
-        .then(() => setHomeHowSaveMessage("Se quito la publicacion de Como funciona."))
-        .catch(() => setHomeHowSaveMessage("No se pudo quitar. Intenta nuevamente."))
-        .finally(() => setHomeHowSaving(false));
-    }
-  };
-
-  const saveHomeHowWorks = async () => {
-    setHomeHowSaving(true);
-    setHomeHowSaveMessage("");
-    try {
-      const stepsToPublish = homeHowSteps.filter(homeHowHasContent);
-      if (!stepsToPublish.length) {
-        await deleteHomeHowPublication();
-        setHomeHowSaveMessage("No hay pasos para publicar.");
-        setHomeHowSaving(false);
-        return;
-      }
-      const resolvedTitle = firstNonEmptyI18n(homeHowTitleI18n, homeHowTitle) || "Cómo funciona";
-      const payload = {
-        title: resolvedTitle,
-        titleI18n: { ...homeHowTitleI18n, es: homeHowTitleI18n.es || resolvedTitle },
-        description: "Sección Home: Cómo funciona",
-        status: "active",
-        featured: false,
-        category: HOME_HOW_TAG,
-        primaryGroupKey: "home-how-it-works",
-        fields: { prestationSteps: stepsToPublish },
-        filterOptionIds: [],
-      };
-      const url = homeHowPublication?.id ? `/api/admin/publications?id=${homeHowPublication.id}` : "/api/admin/publications";
-      const method = homeHowPublication?.id ? "PUT" : "POST";
-      const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (!response.ok) throw new Error("No se pudo guardar la seccion.");
-      await refresh();
-      setHomeHowSaveMessage("Se guardo exitosamente.");
-    } catch {
-      setHomeHowSaveMessage("No se pudo guardar. Intenta nuevamente.");
-    } finally { setHomeHowSaving(false); }
-  };
   const paidPublications = publications.filter((item) => {
     const value = String(item.price ?? "").trim();
     return Boolean(value) && value !== "0";
@@ -3796,15 +3626,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     () => userOferentes.filter((item) => serviceEffectiveStatus(item) === "aprobado"),
     [userOferentes]
   );
-  const serviceSubmissionCountsByEmail = useMemo(() => {
-    const map = new Map<string, number>();
-    travelServices.forEach((service) => {
-      const email = String(service.email ?? "").trim().toLowerCase();
-      if (!email) return;
-      map.set(email, (map.get(email) ?? 0) + 1);
-    });
-    return map;
-  }, [travelServices]);
   const filteredApprovedOferentes = useMemo(() => {
     const query = pApprovedProviderSearch.trim().toLowerCase();
     if (!query) return approvedOferentes;
@@ -4001,10 +3822,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div><b>Teléfono:</b> {detailTravelService.phone || String(detailExtra?.phone ?? "-")}</div>
             <div><b>Estado:</b> {serviceEffectiveStatus(detailTravelService)}</div>
             <div><b>Motivo estado:</b> {String(detailExtra?.statusReason ?? "-") || "-"}</div>
-            <div><b>Tipo de solicitud:</b> {providerRequestKindLabel(detailExtra?.requestKind)}</div>
-            <div><b>Plan solicitado:</b> {normalizeProviderPlanLabel(detailExtra?.requestedPlan ?? detailExtra?.planType)}</div>
-            <div><b>Plan anterior:</b> {detailExtra?.previousPlan ? normalizeProviderPlanLabel(detailExtra?.previousPlan) : "-"}</div>
-            <div><b>Origen:</b> {detailExtra?.sourceServiceId ? `solicitud/publicación ${String(detailExtra.sourceServiceId)}` : "-"}</div>
             <div><b>Tipo perfil:</b> {normalizeStringArray((detailExtra?.typeProfile as string[] | string | undefined) ?? detailTravelService.typeProfile).join(", ") || "-"}</div>
             <div><b>Categorías:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
             <div><b>Actividad:</b> {normalizeStringArray((detailExtra?.activity as string[] | string | undefined) ?? detailTravelService.activity).join(", ") || "-"}</div>
@@ -4060,142 +3877,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     </div>
   ) : null;
 
-  const resetPromoForm = () => {
-    setPromoEditId(null);
-    setPromoCodeDraft("");
-    setPromoDiscountDraft("10");
-    setPromoExpiresDraft("");
-    setPromoMaxUsesDraft("");
-    setPromoActiveDraft(true);
-  };
-
-  const resetPriceRuleForm = () => {
-    setPriceRuleEditId(null);
-    setPriceRuleCountryDraft("");
-    setPriceRulePlanTypeDraft("featured_120d");
-    setPriceRuleCurrencyDraft("USD");
-    setPriceRuleAmountDraft("");
-    setPriceRuleDefaultDraft(false);
-    setPriceRuleActiveDraft(true);
-  };
-
-  const savePriceRule = async () => {
-    setPriceRuleSaving(true);
-    setPriceRuleMessage("");
-    try {
-      const isAllCountries = priceRuleCountryDraft === "__ALL__";
-      const isDefaultRule = priceRuleDefaultDraft || isAllCountries;
-      const payload = {
-        id: priceRuleEditId ?? undefined,
-        planType: priceRulePlanTypeDraft,
-        country: isDefaultRule ? "" : priceRuleCountryDraft,
-        currency: priceRuleCurrencyDraft,
-        amount: Number(priceRuleAmountDraft),
-        isDefault: isDefaultRule,
-        isActive: priceRuleActiveDraft,
-      };
-      const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>("/api/admin/featured-plan-prices", {
-        method: priceRuleEditId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
-      setPriceRuleMessage(priceRuleEditId ? "Precio actualizado." : "Precio creado.");
-      resetPriceRuleForm();
-    } catch (error) {
-      setPriceRuleMessage(error instanceof Error ? error.message : "No se pudo guardar el precio.");
-    } finally {
-      setPriceRuleSaving(false);
-    }
-  };
-
-  const editPriceRule = (item: FeaturedPlanPriceItem) => {
-    setPriceRuleEditId(item.id);
-    setPriceRuleCountryDraft(item.isDefault ? "__ALL__" : (item.country ?? ""));
-    setPriceRulePlanTypeDraft(item.planType === "featured_monthly" ? "featured_monthly" : "featured_120d");
-    setPriceRuleCurrencyDraft(item.currency === "ARS" ? "ARS" : "USD");
-    setPriceRuleAmountDraft(String(item.amount ?? ""));
-    setPriceRuleDefaultDraft(Boolean(item.isDefault));
-    setPriceRuleActiveDraft(Boolean(item.isActive));
-    setPriceRuleMessage("");
-  };
-
-  const deletePriceRule = async (id: string) => {
-    setPriceRuleSaving(true);
-    setPriceRuleMessage("");
-    try {
-      const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
-      setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
-      if (priceRuleEditId === id) resetPriceRuleForm();
-      setPriceRuleMessage("Precio eliminado.");
-    } catch (error) {
-      setPriceRuleMessage(error instanceof Error ? error.message : "No se pudo eliminar el precio.");
-    } finally {
-      setPriceRuleSaving(false);
-    }
-  };
-
-  const generateRandomPromoCode = () => {
-    const token = `TG-${Math.random().toString(36).slice(2, 6).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
-    setPromoCodeDraft(token);
-  };
-
-  const savePromoCode = async () => {
-    setPromoSaving(true);
-    setPromoMessage("");
-    try {
-      const payload = {
-        id: promoEditId ?? undefined,
-        code: promoCodeDraft,
-        discountPercent: Number(promoDiscountDraft),
-        expiresAt: promoExpiresDraft || null,
-        maxUses: promoMaxUsesDraft || null,
-        isActive: promoActiveDraft,
-      };
-      const response = await api<{ ok: true; items: PromoCodeItem[] }>("/api/admin/promo-codes", {
-        method: promoEditId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      setPromoCodes(Array.isArray(response.items) ? response.items : []);
-      setPromoMessage(promoEditId ? "Codigo promocional actualizado." : "Codigo promocional creado.");
-      resetPromoForm();
-    } catch (error) {
-      setPromoMessage(error instanceof Error ? error.message : "No se pudo guardar el codigo.");
-    } finally {
-      setPromoSaving(false);
-    }
-  };
-
-  const editPromoCode = (item: PromoCodeItem) => {
-    setPromoEditId(item.id);
-    setPromoCodeDraft(item.code);
-    setPromoDiscountDraft(String(item.discountPercent || 0));
-    setPromoExpiresDraft(item.expiresAt ? new Date(item.expiresAt).toISOString().slice(0, 16) : "");
-    setPromoMaxUsesDraft(item.maxUses === null ? "" : String(item.maxUses));
-    setPromoActiveDraft(Boolean(item.isActive));
-    setPromoMessage("");
-  };
-
-  const deletePromoCode = async (id: string) => {
-    setPromoSaving(true);
-    setPromoMessage("");
-    try {
-      const response = await api<{ ok: true; items: PromoCodeItem[] }>(`/api/admin/promo-codes?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
-      setPromoCodes(Array.isArray(response.items) ? response.items : []);
-      if (promoEditId === id) resetPromoForm();
-      setPromoMessage("Codigo promocional eliminado.");
-    } catch (error) {
-      setPromoMessage(error instanceof Error ? error.message : "No se pudo eliminar el codigo.");
-    } finally {
-      setPromoSaving(false);
-    }
-  };
-
   const usersSectionCard = (
     <section className="space-y-6">
       {detailTravelServiceModal}
@@ -4237,193 +3918,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-          <div className="mb-3">
-          <p className="text-sm font-semibold text-slate-900">Precios de planes por pais</p>
-            <p className="text-xs text-slate-500">Configura los valores del destacado por 120 dias y del plan mensual por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
-          </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
-            <select value={priceRulePlanTypeDraft} onChange={(event) => setPriceRulePlanTypeDraft(event.target.value === "featured_monthly" ? "featured_monthly" : "featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
-              <option value="featured_120d">Pago unico 120 dias</option>
-              <option value="featured_monthly">Plan mensual</option>
-            </select>
-            <select value={priceRuleCountryDraft} onChange={(event) => {
-              const value = event.target.value;
-            setPriceRuleCountryDraft(value);
-            if (value === "__ALL__") {
-              setPriceRuleDefaultDraft(true);
-              setPriceRuleCurrencyDraft("USD");
-            }
-          }} disabled={priceRuleDefaultDraft && priceRuleCountryDraft !== "__ALL__"} className="h-10 rounded-xl border border-slate-200 px-3 text-sm disabled:bg-slate-100">
-            <option value="">Seleccionar pais</option>
-            <option value="__ALL__">Todos los paises</option>
-            {countryCatalog.map((country) => <option key={`rule-country-${country}`} value={country}>{country}</option>)}
-          </select>
-          <select value={priceRuleCurrencyDraft} onChange={(event) => setPriceRuleCurrencyDraft((event.target.value === "ARS" ? "ARS" : "USD"))} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
-            <option value="USD">USD</option>
-            <option value="ARS">ARS</option>
-          </select>
-          <input value={priceRuleAmountDraft} onChange={(event) => setPriceRuleAmountDraft(event.target.value)} placeholder="Monto" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
-          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs text-slate-700">
-            <input type="checkbox" checked={priceRuleDefaultDraft} onChange={(event) => {
-              const checked = event.target.checked;
-              setPriceRuleDefaultDraft(checked);
-              if (checked) {
-                setPriceRuleCountryDraft("__ALL__");
-                setPriceRuleCurrencyDraft("USD");
-              } else if (priceRuleCountryDraft === "__ALL__") {
-                setPriceRuleCountryDraft("");
-              }
-            }} className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]" />
-            Regla por defecto
-          </label>
-          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs text-slate-700 md:col-span-1">
-            <input type="checkbox" checked={priceRuleActiveDraft} onChange={(event) => setPriceRuleActiveDraft(event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]" />
-            Activo
-          </label>
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={savePriceRule} disabled={priceRuleSaving} className="rounded-lg bg-[#00A9C6] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-60">
-            {priceRuleEditId ? "Guardar precio" : "Crear precio"}
-          </button>
-          {priceRuleEditId ? (
-            <button type="button" onClick={resetPriceRuleForm} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-              Cancelar edicion
-            </button>
-          ) : null}
-          {priceRuleMessage ? <span className="text-xs font-medium text-emerald-600">{priceRuleMessage}</span> : null}
-        </div>
-        <div className="mt-3 space-y-2">
-          {featuredPlanPrices.length ? featuredPlanPrices.map((item) => (
-            <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-              <div className="flex flex-1 flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.isDefault ? "DEFECTO" : (item.country || "-")}</span>
-                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : "120 DIAS"}</span>
-                  <span>{item.currency}</span>
-                  <span>{item.amount}</span>
-                <span className="rounded-full bg-white px-2 py-1">Modo: dLocal API</span>
-                {item.providerResourceId ? (
-                  <span className="max-w-[280px] truncate rounded-full bg-white px-2 py-1">Recurso: {item.providerResourceId}</span>
-                ) : null}
-                <span className="max-w-[320px] truncate">
-                  {item.planType === "featured_monthly"
-                    ? "Suscripcion: se resuelve por API de dLocal al contratar"
-                    : "Checkout: se genera por API al pagar"}
-                </span>
-                <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => editPriceRule(item)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100">Editar</button>
-                <button type="button" onClick={() => { void deletePriceRule(item.id); }} className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-rose-700 hover:bg-rose-50">Eliminar</button>
-              </div>
-            </div>
-          )) : (
-              <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay precios configurados.</div>
-            )}
-          </div>
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">Pagos y cobros de planes</p>
-            <p className="text-xs text-slate-500">Registro interno de cada intento y pago asociado a publicaciones destacadas o mensuales.</p>
-          </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{travelServicePayments.length} registros</span>
-        </div>
-        <div className="space-y-2">
-          {travelServicePayments.length ? travelServicePayments.map((item) => (
-            <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-700">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : "120 DIAS"}</span>
-                <span className="rounded-full bg-white px-2 py-1">{item.paymentType === "monthly" ? "Suscripcion" : "Pago unico"}</span>
-                <span className="rounded-full bg-white px-2 py-1">{item.currency || "-"} {item.amount ?? "-"}</span>
-                <span className={`rounded-full px-2 py-1 font-semibold ${
-                  item.status === "paid"
-                    ? "bg-emerald-100 text-emerald-700"
-                    : item.status === "failed" || item.status === "cancelled"
-                      ? "bg-rose-100 text-rose-700"
-                      : item.status === "processing"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-sky-100 text-sky-700"
-                }`}>
-                  {item.status}
-                </span>
-                {item.returnStatus ? <span className="rounded-full bg-white px-2 py-1">Retorno: {item.returnStatus}</span> : null}
-              </div>
-              <div className="mt-2 grid gap-2 text-[11px] text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
-                <div><span className="font-semibold text-slate-800">Email:</span> {item.payerEmail || "-"}</div>
-                <div><span className="font-semibold text-slate-800">Publicacion / solicitud:</span> {item.serviceId}</div>
-                <div><span className="font-semibold text-slate-800">Referencia:</span> {item.externalReference || "-"}</div>
-                <div><span className="font-semibold text-slate-800">Pago dLocal:</span> {item.providerPaymentId || "-"}</div>
-                <div><span className="font-semibold text-slate-800">Creado:</span> {item.createdAt ? new Date(item.createdAt).toLocaleString("es-AR") : "-"}</div>
-                <div><span className="font-semibold text-slate-800">Pagado:</span> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
-                <div className="sm:col-span-2 xl:col-span-2"><span className="font-semibold text-slate-800">Checkout:</span> {item.checkoutUrl || "-"}</div>
-                {item.promoCode ? <div><span className="font-semibold text-slate-800">Promo:</span> {item.promoCode}</div> : null}
-              </div>
-            </div>
-          )) : (
-            <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay pagos registrados.</div>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">Codigos promocionales</p>
-            <p className="text-xs text-slate-500">Se aplican al plan mensual de publicacion destacada.</p>
-          </div>
-          <button type="button" onClick={generateRandomPromoCode} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-            Generar aleatorio
-          </button>
-        </div>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
-          <input value={promoCodeDraft} onChange={(event) => setPromoCodeDraft(event.target.value.toUpperCase())} placeholder="Codigo" className="h-10 rounded-xl border border-slate-200 px-3 text-sm md:col-span-2" />
-          <input value={promoDiscountDraft} onChange={(event) => setPromoDiscountDraft(event.target.value)} placeholder="% descuento" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
-          <input type="datetime-local" value={promoExpiresDraft} onChange={(event) => setPromoExpiresDraft(event.target.value)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm md:col-span-2" />
-          <input value={promoMaxUsesDraft} onChange={(event) => setPromoMaxUsesDraft(event.target.value)} placeholder="Limite usos" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <label className="inline-flex items-center gap-2 text-xs text-slate-600">
-            <input type="checkbox" checked={promoActiveDraft} onChange={(event) => setPromoActiveDraft(event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]" />
-            Activo
-          </label>
-          <button type="button" onClick={savePromoCode} disabled={promoSaving} className="rounded-lg bg-[#00A9C6] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-60">
-            {promoEditId ? "Guardar cambios" : "Crear codigo"}
-          </button>
-          {promoEditId ? (
-            <button type="button" onClick={resetPromoForm} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-              Cancelar edicion
-            </button>
-          ) : null}
-          {promoMessage ? <span className="text-xs font-medium text-emerald-600">{promoMessage}</span> : null}
-        </div>
-        <div className="mt-3 space-y-2">
-          {promoCodes.length ? promoCodes.map((item) => {
-            const remaining = item.maxUses === null ? "Ilimitado" : Math.max(item.maxUses - item.usedCount, 0).toString();
-            return (
-              <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.code}</span>
-                  <span>{item.discountPercent}%</span>
-                  <span>Usos: {item.usedCount}{item.maxUses !== null ? `/${item.maxUses}` : ""}</span>
-                  <span>Disponibles: {remaining}</span>
-                  <span>Vence: {item.expiresAt ? new Date(item.expiresAt).toLocaleString("es-AR") : "Sin vencimiento"}</span>
-                  <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => editPromoCode(item)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100">Editar</button>
-                  <button type="button" onClick={() => { void deletePromoCode(item.id); }} className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-rose-700 hover:bg-rose-50">Eliminar</button>
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay codigos promocionales.</div>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
         <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
             <button type="button" onClick={() => setUserTab("oferentes")} className={`rounded-md px-3 py-1.5 font-medium ${userTab === "oferentes" ? "bg-white shadow" : "text-slate-500"}`}>Oferentes</button>
@@ -4444,7 +3938,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             const isDemandante = String(service.taxonomyType ?? "").toLowerCase() === "demandante";
             const serviceCategories = normalizeStringArray((serviceExtra.category as string[] | string | undefined) ?? service.category);
             const linkedPublications = isDemandante ? [] : publicationsByProviderEmail.get(String(service.email ?? "").toLowerCase()) ?? [];
-            const totalSubmissionsByEmail = serviceSubmissionCountsByEmail.get(String(service.email ?? "").toLowerCase()) ?? 1;
             const aggregated = linkedPublications.reduce((acc, publication) => {
               const metrics = readPublicationAnalytics(publication);
               acc.views += metrics.views;
@@ -4474,25 +3967,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <>
                       <p className="mt-2 text-sm font-semibold text-slate-900">{service.name || String(serviceExtra.name ?? "") || "Sin nombre"}</p>
                       <p className="mt-1 text-xs text-slate-500">{service.email}</p>
-                      <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
-                      <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-200">
-                          Solicitud: {providerRequestKindLabel(serviceExtra.requestKind)}
-                        </span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700 ring-1 ring-slate-200">
-                          Plan solicitado: {normalizeProviderPlanLabel(serviceExtra.requestedPlan ?? serviceExtra.planType)}
-                        </span>
-                        {serviceExtra.previousPlan ? (
-                          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700 ring-1 ring-indigo-200">
-                            Plan anterior: {normalizeProviderPlanLabel(serviceExtra.previousPlan)}
-                          </span>
-                        ) : null}
-                      </div>
-                      {serviceExtra.sourceServiceId ? (
-                        <p className="mt-2 text-xs text-slate-600">
-                          <b>Origen:</b> solicitud/publicación {String(serviceExtra.sourceServiceId)}
-                        </p>
-                      ) : null}
                       <div className="mt-2 text-xs text-slate-600">
                         <b>Tiene {linkedPublications.length} publicación(es)</b>
                         {linkedPublications.length ? (
@@ -4556,7 +4030,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   };
 
   const filteredPublications = publications.filter((item) => {
-    if (isHomeHowPublication(item)) return false;
     const query = publicationSearch.toLowerCase().trim();
     const matchesSearch = !query || [item.title, item.publisherName, item.category, item.subcategory]
       .filter(Boolean)
@@ -4811,36 +4284,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <section className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
           <h2 className="text-2xl font-semibold text-slate-900">Contacto / Sugerencias</h2>
           <p className="mt-2 text-sm text-slate-600">Canal para sugerencias internas y contacto del equipo administrativo.</p>
-        </section>
-      ) : null}
-
-      {isHowWorksSection ? (
-        <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
-          <h2 className="text-2xl font-semibold text-slate-900">Como funciona</h2>
-          <p className="mt-2 text-sm text-slate-600">Armá aquí los pasos que se publican en la Home.</p>
-          <div className="mt-3">{renderLangTabs(pLang, setEditingLang)}</div>
-          <div className="mt-4 space-y-3">
-            <input value={getLangEditValue(homeHowTitleI18n, pLang, pLang === "es" ? homeHowTitle : "")} onChange={(e) => {
-              const next = e.target.value;
-              if (pLang === "es") setHomeHowTitle(next);
-              setHomeHowTitleI18n((prev) => setLangText(homeHowTitle, prev, pLang, next));
-            }} className="h-10 w-full rounded-xl border border-slate-200 px-3" placeholder={`Título de la sección (${pLang.toUpperCase()})`} />
-            {homeHowSteps.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">No hay pasos. Presioná <b>+ Agregar paso</b>.</div> : null}
-            {homeHowSteps.map((step, idx) => (
-              <div key={`home-step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                <div className="flex items-center justify-between"><div className="text-xs font-semibold text-slate-500">Paso {idx + 1}</div><button type="button" className="text-red-500 text-xs" onClick={() => removeHomeHowStep(idx)}>Quitar paso</button></div>
-                <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title ?? "", it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del paso" />
-                <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle ?? "", it.subtitleI18n, pLang, next) } : it))} placeholder="Descripción" minHeightClassName="min-h-[80px]" />
-                <label className="text-xs font-medium text-slate-500">Subir imagen desde tu dispositivo</label>
-                <input type="file" accept={IMAGE_FILE_ACCEPT} onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; void fileToUploadAsset(file).then((asset) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? asset.url : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, asset.url) } : it))).catch(() => null); e.currentTarget.value = ""; }} className="w-full min-w-0 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:font-semibold file:text-[#007D92]" />
-                {getLangEditValue(step.imageI18n, pLang) ? <div className="text-[11px] text-emerald-700">Imagen cargada ✓</div> : <div className="text-[11px] text-slate-400">Aún sin imagen</div>}
-                <button type="button" onClick={() => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: "", imageI18n: setLangText("", it.imageI18n, pLang, "") } : it))} className="h-9 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600">Quitar imagen</button>
-              </div>
-            ))}
-            <button type="button" onClick={() => setHomeHowSteps((prev) => [...prev, { title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }])} className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm">+ Agregar paso</button>
-            <button type="button" onClick={saveHomeHowWorks} disabled={homeHowSaving} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white">{homeHowSaving ? "Guardando..." : "Guardar y publicar"}</button>
-            {homeHowSaveMessage ? <div className={`text-sm font-semibold ${homeHowSaveMessage.startsWith("No") ? "text-red-600" : "text-emerald-700"}`}>{homeHowSaveMessage}</div> : null}
-          </div>
         </section>
       ) : null}
 
@@ -7113,7 +6556,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div className="mt-3 space-y-3">
             {publicationTab === "denuncias" ? filteredReports.map((report) => {
               const isOpen = Boolean(expandedReports[report.id]);
-              const isFeedback = String(report.reason ?? "").toLowerCase() === "feedback" || String(report.publicationId ?? "") === "feedback-general";
               const reportedPublication = publicationsById.get(String(report.publicationId ?? ""));
               const reportedPath = reportedPublication?.primaryGroupKey === "prestacion"
                 ? `/prestaciones/${encodeURIComponent(report.publicationId)}`
@@ -7127,9 +6569,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <div className="text-sm font-semibold text-slate-900">
-                          {isFeedback ? "Feedback general" : (report.publicationTitle || "Publicación sin título")}
-                        </div>
+                        <div className="text-sm font-semibold text-slate-900">{report.publicationTitle || "Publicación sin título"}</div>
                         <div className="mt-1 text-xs text-slate-500">Publicación ID: {report.publicationId || "-"}</div>
                         <div className="mt-1 text-xs text-slate-500">Denunciante: {report.fullName || "-"} · {report.email || "-"} · {report.contact || "-"}</div>
                       </div>
@@ -7140,7 +6580,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   {isOpen ? (
                     <>
                       <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">{report.details || "-"}</div>
-                      {report.publicationId && !isFeedback ? (
+                      {report.publicationId ? (
                         <a
                           href={reportedPath}
                           target="_blank"
@@ -7176,9 +6616,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="mt-2 text-base font-semibold text-slate-900">{p.title}</div>
                     <div className="mt-1 text-xs text-slate-500">
                       Oferente: {p.publisherName || "Sin nombre"} · Email: {String((p.fields as any)?.providerEmail ?? "-")}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      Creada: {p.createdAt ? new Date(p.createdAt).toLocaleString("es-AR") : "-"}
                     </div>
                     <div className="mt-1 text-sm text-slate-600">
                       {(() => {
