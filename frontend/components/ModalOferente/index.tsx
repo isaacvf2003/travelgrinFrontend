@@ -1133,6 +1133,7 @@ export default function ModalOferente({
   const submit = async (publicationPlan: "basic_free" | "featured" | "monthly") => {
       if (!validateBasic()) return;
       const isPaidPlan = publicationPlan === "featured" || publicationPlan === "monthly";
+      const preparedPaymentTab = isPaidPlan ? window.open("", "_blank", "noopener,noreferrer") : null;
       if (isPaidPlan && !validateFeatured()) return;
       if (isPaidPlan && promoCode.trim()) {
         const valid = await applyPromoCode();
@@ -1173,9 +1174,18 @@ export default function ModalOferente({
         if (!checkoutResponse.ok || !checkoutData?.redirectUrl) {
           throw new Error(String(checkoutData?.error ?? "No se pudo iniciar el checkout."));
         }
-        const paymentTab = window.open(String(checkoutData.redirectUrl), "_blank");
-        if (!paymentTab) {
-          throw new Error("No se pudo abrir la pestaña de pago. Habilitá popups e intentá nuevamente.");
+        const redirectUrl = String(checkoutData.redirectUrl);
+        const paymentTab = preparedPaymentTab ?? window.open(redirectUrl, "_blank", "noopener,noreferrer");
+        if (paymentTab) {
+          try {
+            paymentTab.location.href = redirectUrl;
+          } catch {
+            window.location.assign(redirectUrl);
+            return;
+          }
+        } else {
+          window.location.assign(redirectUrl);
+          return;
         }
         paymentResultReceivedRef.current = false;
         paymentTabRef.current = paymentTab;
@@ -1203,6 +1213,9 @@ export default function ModalOferente({
       toast.success(mt("oferente_toast_revision"), { duration: 6000 });
       onClose();
     } catch (error) {
+      try {
+        preparedPaymentTab?.close();
+      } catch {}
       toast.error(error instanceof Error && error.message ? error.message : t("error_form"));
     } finally {
       setIsLoading(false);
