@@ -4,6 +4,16 @@ import { getBackendApiUrl, missingBackendResponse } from "@/app/api/admin/auth/_
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+export async function GET() {
+  const backendApiUrl = getBackendApiUrl();
+  return NextResponse.json({
+    ok: true,
+    route: "frontend-payments-featured-checkout-bridge",
+    version: "2026-06-03-api-pure",
+    backendApiUrl: backendApiUrl || null,
+  });
+}
+
 export async function POST(req: Request) {
   const backendApiUrl = getBackendApiUrl();
   if (!backendApiUrl) return missingBackendResponse();
