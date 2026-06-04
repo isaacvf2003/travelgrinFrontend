@@ -4103,6 +4103,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       ...prev,
       imageAssets,
       providerLogoAsset: (extra.providerLogoAsset as ImageAsset | undefined) ?? null,
+      sourceServiceId: selected.id,
+      requestKind: String(extra.requestKind ?? "").trim() || null,
+      previousPlan: String(extra.previousPlan ?? "").trim() || null,
+      requestedPlan: String(extra.requestedPlan ?? extra.publicationPlan ?? selected.publicationPlan ?? "").trim() || null,
+      publicationPlan:
+        ["monthly", "featured_monthly"].includes(selectedPlanRaw)
+          ? "monthly"
+          : ["featured", "featured_120d"].includes(selectedPlanRaw)
+            ? "featured"
+            : "basic_free",
     }));
     setPProviderInfoI18n((prev) => ({ ...prev, es: selected.contanos || prev.es || "" }));
     setPProviderActivities(activities);
