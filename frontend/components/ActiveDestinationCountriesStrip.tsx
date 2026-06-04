@@ -11,6 +11,7 @@ type PublicationItem = {
 type CountryEntry = {
   country: string;
   count: number;
+  code: string;
 };
 
 const COUNTRY_CODE_MAP: Record<string, string> = {
@@ -25,14 +26,11 @@ const COUNTRY_CODE_MAP: Record<string, string> = {
   colombia: "CO",
   mexico: "MX",
   espana: "ES",
-  españa: "ES",
   italia: "IT",
   portugal: "PT",
   francia: "FR",
   alemania: "DE",
   canada: "CA",
-  canadà: "CA",
-  canadá: "CA",
   "estados unidos": "US",
 };
 
@@ -44,16 +42,22 @@ function normalizeCountry(value: unknown) {
     .replace(/\p{Diacritic}/gu, "");
 }
 
-function flagFromAlpha2Code(alpha2Code: string) {
-  const code = alpha2Code.toUpperCase();
-  if (!/^[A-Z]{2}$/.test(code)) return "🌎";
-  return String.fromCodePoint(...[...code].map((char) => 127397 + char.charCodeAt(0)));
+function getCountryCode(country: string) {
+  return COUNTRY_CODE_MAP[normalizeCountry(country)] ?? "";
 }
 
-function getCountryFlag(country: string) {
-  const normalized = normalizeCountry(country);
-  const alpha2Code = COUNTRY_CODE_MAP[normalized];
-  return alpha2Code ? flagFromAlpha2Code(alpha2Code) : "🌎";
+function CountryFlag({ code, country }: { code: string; country: string }) {
+  const normalized = String(code ?? "").trim().toLowerCase();
+  if (!normalized) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://flagcdn.com/w40/${normalized}.png`}
+      alt={`Bandera de ${country}`}
+      className="h-4 w-5 rounded-[3px] object-cover shadow-sm"
+      loading="lazy"
+    />
+  );
 }
 
 export default function ActiveDestinationCountriesStrip() {
@@ -64,8 +68,11 @@ export default function ActiveDestinationCountriesStrip() {
 
     const load = async () => {
       try {
-        const res = await fetch("/api/publications?status=active&page=1&perPage=120", { cache: "no-store" });
+        const res = await fetch("/api/publications?status=active&page=1&perPage=120", {
+          cache: "no-store",
+        });
         if (!res.ok) return;
+
         const data = await res.json();
         const items: PublicationItem[] = Array.isArray(data?.items) ? data.items : [];
         const counts = new Map<string, CountryEntry>();
@@ -88,10 +95,12 @@ export default function ActiveDestinationCountriesStrip() {
 
           for (const country of candidates) {
             const key = normalizeCountry(country);
-            if (!key) continue;
+            const code = getCountryCode(country);
+            if (!key || !code) continue;
+
             const current = counts.get(key);
             if (current) current.count += 1;
-            else counts.set(key, { country, count: 1 });
+            else counts.set(key, { country, count: 1, code });
           }
         }
 
@@ -111,39 +120,53 @@ export default function ActiveDestinationCountriesStrip() {
     };
   }, []);
 
-  const visibleCountries = useMemo(() => countries.filter((entry) => entry.country), [countries]);
+  const visibleCountries = useMemo(
+    () => countries.filter((entry) => entry.country && entry.code),
+    [countries],
+  );
 
   if (!visibleCountries.length) return null;
 
   return (
-    <section className="mt-6 px-4 md:px-0">
-      <div className="mx-auto max-w-5xl rounded-[30px] bg-gradient-to-r from-[#0FBFC3] via-[#0B8FA3] to-[#0A667D] px-5 py-5 text-white shadow-[0_16px_36px_rgba(11,143,163,0.16)] md:px-8">
+    <section className="px-4 pt-2 md:px-0 md:pt-3">
+      <div className="mx-auto max-w-[40rem] rounded-[18px] bg-gradient-to-r from-[#1bc8c0] via-[#149fba] to-[#116d8a] px-4 py-2 text-white shadow-[0_10px_18px_rgba(17,109,138,0.10)] md:px-5 md:py-2">
         <div className="text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/72">Destinos activos</p>
-          <h2 className="mt-1 text-[21px] font-bold md:text-[24px]">Países que te esperan</h2>
-          <p className="mx-auto mt-1 max-w-2xl text-sm text-white/85">
-            Explorá países donde hoy ya hay oportunidades activas y saltá directo al buscador filtrado.
+          <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-white/70">
+            Destinos activos
+          </p>
+          <h2 className="mt-0.5 text-[15px] font-bold md:text-[16px]">
+            Pa\u00edses que te esperan
+          </h2>
+          <p className="mx-auto mt-0.5 max-w-2xl text-[10px] text-white/86 md:text-[10px]">
+            Explor\u00e1 pa\u00edses donde hoy ya hay oportunidades activas y salt\u00e1 directo al buscador filtrado.
           </p>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
           {visibleCountries.map((entry) => (
             <div
               key={entry.country}
-              className="min-w-[220px] rounded-2xl border border-white/15 bg-white/12 px-4 py-3 backdrop-blur-sm"
+              className="flex min-w-[146px] items-center gap-2 rounded-full border border-white/12 bg-white/10 px-2.5 py-1 backdrop-blur-sm"
             >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{getCountryFlag(entry.country)}</span>
-                <div>
-                  <div className="font-semibold">{entry.country}</div>
-                  <div className="text-xs text-white/75">{entry.count} oportunidad(es)</div>
+              <span
+                aria-hidden="true"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/14 shadow-sm"
+              >
+                <CountryFlag code={entry.code} country={entry.country} />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-semibold leading-none">{entry.country}</div>
+                <div className="mt-0.5 text-[9px] text-white/72">
+                  {entry.count} oportunidad(es)
                 </div>
               </div>
+
               <Link
                 href={`/buscar?destinationCountry=${encodeURIComponent(entry.country)}`}
-                className="mt-3 inline-flex rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#0B8FA3] transition hover:bg-slate-100"
+                className="inline-flex shrink-0 rounded-full bg-white px-2 py-0.5 text-[9px] font-semibold text-[#0b8fa3] transition hover:bg-slate-100"
               >
-                Ver más
+                Ver m\u00e1s
               </Link>
             </div>
           ))}

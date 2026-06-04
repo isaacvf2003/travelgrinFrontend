@@ -922,13 +922,13 @@ export default function FeaturedPublicationsSection() {
                           className="h-[12px] w-[16px] rounded-[2px] object-cover"
                         />
                       ) : (
-                        <MapPin className="h-4 w-4 text-[#0B8FA3]" />
+                        <MapPin className="h-4 w-4 text-[#2563EB]" />
                       )}
                       {destination || pub.country || "-"}
                     </p>
                     {languageCodes.length ? (
                       <p className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
-                        <Languages className="h-3.5 w-3.5 text-[#0B8FA3]" />
+                        <Languages className="h-3.5 w-3.5 text-[#2563EB]" />
                         {languageCodes.map((code) => (
                           <span key={code} className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
                             {code}
@@ -936,7 +936,7 @@ export default function FeaturedPublicationsSection() {
                         ))}
                       </p>
                     ) : null}
-                    <p className="text-sm font-semibold text-[#0B8FA3]">
+                    <p className="text-sm font-semibold text-[#2563EB]">
                       {pub.price
                         ? `${pub.currency ? `${pub.currency} ` : ""}${pub.price}`
                         : t("precio_convenir")}
@@ -1006,15 +1006,15 @@ export default function FeaturedPublicationsSection() {
         ) : null}
       </div>
 
-      <div className="mt-12">
-        <PharseWithBackground onlyOne />
-      </div>
-
       {showPrestacionesSection ? (
-        <section className="mt-12 rounded-[28px] border border-[#DDEAF5] bg-gradient-to-b from-[#F5F8FD] to-[#F8FAFC] p-4 shadow-[0_10px_30px_rgba(39,49,102,0.06)] md:p-8">
+        <>
+        <div className="mb-6 mt-10">
+          <PharseWithBackground onlyOne />
+        </div>
+        <section className="mt-8 rounded-[28px] border border-[#BFD6FF] bg-gradient-to-b from-[#EEF5FF] via-[#F5F9FF] to-[#F8FBFF] p-4 shadow-[0_14px_36px_rgba(37,99,235,0.12)] md:p-8">
           <div className="text-center">
             <h3 className="inline-flex items-center justify-center gap-2 text-2xl font-bold text-[#273166]">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#E4F5FB] text-[#0B8FA3] shadow-[0_10px_24px_rgba(11,143,163,0.14)]">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#DBEAFE] text-[#2563EB] shadow-[0_10px_24px_rgba(37,99,235,0.18)]">
                 <Compass className="h-5 w-5" />
               </span>
               {t("suma_prestaciones_plan_viaje")}
@@ -1056,8 +1056,8 @@ export default function FeaturedPublicationsSection() {
                     }
                     className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${
                       active
-                        ? "bg-[#0B8FA3] text-white shadow-[0_8px_18px_rgba(11,143,163,0.25)]"
-                        : "bg-slate-100 text-slate-700"
+                        ? "bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.28)]"
+                        : "border border-[#BFDBFE] bg-white text-[#1D4ED8]"
                     }`}
                   >
                     <Compass className="h-4 w-4" />
@@ -1139,10 +1139,10 @@ export default function FeaturedPublicationsSection() {
                   );
                   const prestacionCardClass = `group w-full shrink-0 transform-gpu overflow-hidden rounded-2xl border bg-white text-left transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-0.5 ${sideClass} ${cardDepthClass} ${
                     isFocused
-                      ? "max-w-[22rem] scale-100 border-[#0B8FA3]/70 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.25),0_20px_52px_rgba(11,143,163,0.20)]"
+                      ? "max-w-[22rem] scale-100 border-[#2563EB]/75 opacity-100 shadow-[0_0_0_2px_rgba(37,99,235,0.22),0_20px_52px_rgba(37,99,235,0.18)]"
                       : isSideCard
                         ? "max-w-[10rem] scale-90 border-slate-200 bg-slate-50 opacity-35 blur-[2px] grayscale shadow-sm hover:opacity-55 hover:blur-[1px]"
-                        : "max-w-[22rem] scale-100 border-[#0B8FA3]/25 opacity-95 shadow-[0_12px_32px_rgba(15,23,42,0.10)]"
+                        : "max-w-[22rem] scale-100 border-[#93C5FD] opacity-95 shadow-[0_16px_34px_rgba(37,99,235,0.14)]"
                   }`;
                   const prestacionCardContent = (
                     <>
@@ -1175,7 +1175,7 @@ export default function FeaturedPublicationsSection() {
                           {prestDestination || item.country || "-"}
                         </p>
                         <span
-                          className={`inline-flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold ${isFocused ? "bg-[#EAF9FB] text-[#0B6B7A]" : "bg-slate-200 text-slate-600"}`}
+                          className={`inline-flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold ${isFocused ? "bg-[#2563EB] text-white" : "bg-[#DBEAFE] text-[#1D4ED8]"}`}
                         >
                           {t("ver_mas")}
                         </span>
@@ -1228,7 +1228,7 @@ export default function FeaturedPublicationsSection() {
                         setPrestacionesSlide(idx);
                         setPrestacionesFocusOffset(0);
                       }}
-                      className={`h-2.5 w-2.5 rounded-full ${prestFocusedIndex === idx ? "bg-[#0B8FA3]" : "bg-slate-300"}`}
+                      className={`h-2.5 w-2.5 rounded-full ${prestFocusedIndex === idx ? "bg-[#2563EB]" : "bg-slate-300"}`}
                     />
                   ))}
                 </div>
@@ -1242,13 +1242,15 @@ export default function FeaturedPublicationsSection() {
                   ? `/buscar?primaryGroupKey=prestacion&prestacion=${encodeURIComponent(selectedPrestCategory)}`
                   : "/buscar?primaryGroupKey=prestacion"
               }
-              className="text-sm font-semibold text-[#0B8FA3] hover:underline"
+              className="text-sm font-semibold text-[#2563EB] hover:underline"
             >
               {t("ver_todas_las_prestaciones")} →
             </Link>
           </div>
         </section>
+        </>
       ) : null}
     </section>
   );
 }
+
