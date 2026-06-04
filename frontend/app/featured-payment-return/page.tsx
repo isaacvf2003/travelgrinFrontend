@@ -20,7 +20,7 @@ export default function FeaturedPaymentReturnPage() {
     [searchParams],
   );
   const serviceId = String(searchParams.get("serviceId") ?? "").trim();
-  const [secondsLeft, setSecondsLeft] = useState(6);
+  const [secondsLeft, setSecondsLeft] = useState(2);
   const normalizedResult = status === "success" ? "success" : status === "cancel" ? "cancel" : "pending";
 
   useEffect(() => {
@@ -36,6 +36,7 @@ export default function FeaturedPaymentReturnPage() {
     if (window.opener && !window.opener.closed) {
       try {
         window.opener.postMessage({ type: "tg-featured-payment-result", status: normalizedResult, serviceId }, window.location.origin);
+        window.opener.focus();
       } catch {}
     }
     if (serviceId) {
@@ -71,7 +72,7 @@ export default function FeaturedPaymentReturnPage() {
     const params = new URLSearchParams();
     params.set("featuredPayment", status);
     if (serviceId) params.set("serviceId", serviceId);
-    router.replace(`/?${params.toString()}`);
+    router.replace(`/panel-oferente?${params.toString()}`);
   }, [router, secondsLeft, serviceId, status]);
 
   const title =
@@ -82,9 +83,9 @@ export default function FeaturedPaymentReturnPage() {
         : "Verificando pago";
   const description =
     status === "success"
-      ? "Tu pago fue procesado y estamos validando la publicación destacada."
+      ? "Tu pago fue aceptado y la solicitud ya quedó lista para revisión del admin."
       : status === "cancel"
-        ? "Volviste sin completar el pago. Podés intentar nuevamente cuando quieras."
+        ? "Volviste sin completar el pago. Podés intentarlo nuevamente cuando quieras."
         : "Estamos recibiendo la confirmación del pago.";
 
   return (
