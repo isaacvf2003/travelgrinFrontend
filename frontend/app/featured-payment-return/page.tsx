@@ -25,6 +25,11 @@ export default function FeaturedPaymentReturnPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (serviceId) {
+      try {
+        window.sessionStorage.removeItem(`tg-featured-payment-launch:${serviceId}`);
+      } catch {}
+    }
     const payload = JSON.stringify({
       status: normalizedResult,
       serviceId,
@@ -83,10 +88,10 @@ export default function FeaturedPaymentReturnPage() {
         : "Verificando pago";
   const description =
     status === "success"
-      ? "Tu pago fue aceptado y la solicitud ya quedó lista para revisión del admin."
+      ? "Tu pago fue aceptado y la solicitud ya quedo lista para revision del admin."
       : status === "cancel"
-        ? "Volviste sin completar el pago. Podés intentarlo nuevamente cuando quieras."
-        : "Estamos recibiendo la confirmación del pago.";
+        ? "Volviste sin completar el pago. Podes intentarlo nuevamente cuando quieras."
+        : "Estamos recibiendo la confirmacion del pago.";
 
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-xl items-center justify-center px-4">
