@@ -3922,7 +3922,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     setPPublisherName(selected.name || String(extra.name ?? "") || selected.email || "");
     setPProviderEmail(selected.email || "");
-    setPFeatured(String(extra.publicationPlan ?? selected.publicationPlan ?? "") === "featured");
+    const selectedPlanRaw = String(extra.requestedPlan ?? extra.publicationPlan ?? selected.publicationPlan ?? "").trim().toLowerCase();
+    setPFeatured(["featured", "featured_120d", "monthly", "featured_monthly"].includes(selectedPlanRaw));
     setPProviderLogo(providerLogo);
     setPFieldsBase((prev) => ({
       ...prev,
@@ -3962,6 +3963,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPPrice(selected.price || String(extra.price ?? ""));
     if (selected.currency || extra.currency) setPCurrency(String(selected.currency || extra.currency));
     setPExtraPrices(priceByCurrency.filter((entry) => entry.currency !== String(selected.currency || extra.currency || "").trim()));
+    const selectedExpirationRaw = String((selected as any).expirationAt || extra.expirationAt || "").trim();
+    if (selectedExpirationRaw) {
+      const selectedExpiration = new Date(selectedExpirationRaw);
+      if (!Number.isNaN(selectedExpiration.getTime())) {
+        setPExpirationDate(`${selectedExpiration.getFullYear()}-${String(selectedExpiration.getMonth() + 1).padStart(2, "0")}-${String(selectedExpiration.getDate()).padStart(2, "0")}`);
+        setPExpirationTime(`${String(selectedExpiration.getHours()).padStart(2, "0")}:${String(selectedExpiration.getMinutes()).padStart(2, "0")}`);
+      } else {
+        setPExpirationDate("");
+        setPExpirationTime("");
+      }
+    } else {
+      setPExpirationDate("");
+      setPExpirationTime("");
+    }
     const uploadImages = images.filter((item) => item.startsWith("data:image/"));
     const remoteImages = images.filter((item) => item.startsWith("http://") || item.startsWith("https://"));
     setPImageUploads(uploadImages);
@@ -5766,7 +5781,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <option value="">Seleccionar oferente aprobado</option>
                 {filteredApprovedOferentes.map((service) => (
                   <option key={service.id} value={service.id}>
-                    {service.name ? `${service.name} (email: ${service.email})` : service.email}
+                    {[
+                      service.name ? `${service.name} (email: ${service.email})` : service.email,
+                      providerRequestKindLabel(parseTravelServiceExtra(service).requestKind),
+                      normalizeProviderPlanLabel(parseTravelServiceExtra(service).requestedPlan ?? parseTravelServiceExtra(service).publicationPlan),
+                      service.createdAt ? new Date(service.createdAt).toLocaleDateString("es-AR") : "",
+                    ].filter(Boolean).join(" | ")}
                   </option>
                 ))}
               </select>
@@ -6592,7 +6612,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {pEditorMode === "prestacion" ? (
             <div className="grid gap-5">
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <label className="text-sm font-semibold text-slate-900">Estado de la prestaciÃ³n</label>
+                <label className="text-sm font-semibold text-slate-900">Estado de la prestación</label>
                 <select
                   value={pStatus}
                   onChange={(e) => setPStatus(e.target.value)}
