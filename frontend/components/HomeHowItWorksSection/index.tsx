@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import HowToStartCarousel from "@/app/prestacion/[id]/_components/HowToStartCarousel";
@@ -41,8 +41,9 @@ export default function HomeHowItWorksSection() {
 
   return (
     <section className="mt-10 px-4 md:px-0">
-      <h2 className="text-center text-3xl font-bold text-[#273166] md:text-4xl">{pickI18nText(sectionTitle, "Cómo funciona")}</h2>
+      <h2 className="text-center text-[22px] font-bold text-[#273166] md:text-[25.76px]">{pickI18nText(sectionTitle, "Cómo funciona")}</h2>
       <HowToStartCarousel items={localized} />
     </section>
   );
 }
+

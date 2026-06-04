@@ -129,12 +129,293 @@ function fixMojibake(value: string) {
   }
 }
 
+function normalizeBrokenLatinText(value: string) {
+  return value
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã­/g, "í")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã±/g, "ñ")
+    .replace(/Ã¼/g, "ü")
+    .replace(/Â¿/g, "¿")
+    .replace(/Â¡/g, "¡")
+    .replace(/Â°/g, "°");
+}
+
 function sanitizeCopy<T>(value: T): T {
-  if (typeof value === "string") return fixMojibake(value) as T;
+  if (typeof value === "string") {
+    const text = String(value);
+    if (/[ÃÂâð�]/.test(text)) return fixMojibake(text) as T;
+    return normalizeBrokenLatinText(text) as T;
+  }
   if (Array.isArray(value)) return value.map((entry) => sanitizeCopy(entry)) as T;
   if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value).map(([key, entry]) => [key, sanitizeCopy(entry as unknown)]),
+    ) as T;
+  }
+  return value;
+}
+
+function decodeLikelyMojibake(value: string) {
+  if (!/[ÃÂâðï¿½]/.test(value)) return value;
+  let current = value;
+  for (let index = 0; index < 3; index += 1) {
+    try {
+      const bytes = Uint8Array.from(current, (char) => char.charCodeAt(0));
+      const decoded = new TextDecoder("utf-8").decode(bytes);
+      if (!decoded || decoded === current) break;
+      current = decoded;
+      if (!/[ÃÂâðï¿½]/.test(current)) break;
+    } catch {
+      break;
+    }
+  }
+  return normalizePortalMojibake(current);
+}
+
+function normalizePortalMojibake(value: string) {
+  return normalizeBrokenLatinText(
+    value
+      .replace(/ÃƒÂ¡/g, "\u00e1")
+      .replace(/ÃƒÂ©/g, "\u00e9")
+      .replace(/ÃƒÂ­/g, "\u00ed")
+      .replace(/ÃƒÂ³/g, "\u00f3")
+      .replace(/ÃƒÂº/g, "\u00fa")
+      .replace(/ÃƒÂ±/g, "\u00f1")
+      .replace(/ÃƒÂ¼/g, "\u00fc")
+      .replace(/Ã¡/g, "\u00e1")
+      .replace(/Ã©/g, "\u00e9")
+      .replace(/Ã­/g, "\u00ed")
+      .replace(/Ã³/g, "\u00f3")
+      .replace(/Ãº/g, "\u00fa")
+      .replace(/Ã±/g, "\u00f1")
+      .replace(/Ã¼/g, "\u00fc")
+      .replace(/Ã‚Â¿/g, "\u00bf")
+      .replace(/Ã‚Â¡/g, "\u00a1")
+      .replace(/Ã‚Â°/g, "\u00b0")
+      .replace(/Â¿/g, "\u00bf")
+      .replace(/Â¡/g, "\u00a1")
+      .replace(/Â°/g, "\u00b0"),
+  );
+}
+
+function sanitizeVisibleCopy<T>(value: T): T {
+  if (typeof value === "string") return normalizePortalUiText(decodeLikelyMojibake(String(value))) as T;
+  if (Array.isArray(value)) return value.map((entry) => sanitizeVisibleCopy(entry)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, sanitizeVisibleCopy(entry as unknown)]),
+    ) as T;
+  }
+  return value;
+}
+
+function cleanPortalCopy<T>(value: T): T {
+  if (typeof value === "string") return normalizePortalMojibake(decodeLikelyMojibake(String(value))) as T;
+  if (Array.isArray(value)) return value.map((entry) => cleanPortalCopy(entry)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, cleanPortalCopy(entry as unknown)]),
+    ) as T;
+  }
+  return value;
+}
+
+function forcePortalDisplayText(value: string) {
+  return String(value ?? "")
+    .replace(/Acced.+mismo lugar seguro\./gi, "Accedé a tus envíos, publicaciones y pedí una nueva publicación desde el mismo lugar seguro.")
+    .replace(/Us.+Travelgrin\..+solo uso\./gi, "Usá el mismo email que dejaste en tu formulario de Travelgrin. Te vamos a enviar un enlace de acceso de un solo uso.")
+    .replace(/Ingres.+email v.+lido\./gi, "Ingresá un email válido.")
+    .replace(/El enlace vence en 20 minutos y la sesi.+n queda activa por 15 d.+as en este dispositivo\./gi, "El enlace vence en 20 minutos y la sesión queda activa por 15 días en este dispositivo.")
+    .replace(/Ese enlace de acceso ya no es v.+lido\..+nuevo\./gi, "Ese enlace de acceso ya no es válido. Pedí uno nuevo.")
+    .replace(/Sesi.+n activa/gi, "Sesión activa")
+    .replace(/Cerrar sesi.+n/gi, "Cerrar sesión")
+    .replace(/Us.+solicitud de publicaci.+n totalmente nueva sin cambiar tu plan actual\./gi, "Usá esto cuando quieras iniciar una solicitud de publicación totalmente nueva sin cambiar tu plan actual.")
+    .replace(/Pedir otra publicaci.+n/gi, "Pedir otra publicación")
+    .replace(/Crear una nueva publicaci.+n/gi, "Crear una nueva publicación")
+    .replace(/Eleg.+el tipo de nueva publicaci.+n que quer.+s crear con esta misma cuenta de oferente\./gi, "Elegí el tipo de nueva publicación que querés crear con esta misma cuenta de oferente.")
+    .replace(/Publicar publicaci.+n b.+sica/gi, "Publicar publicación básica")
+    .replace(/Pendiente de revisi.+n/gi, "Pendiente de revisión")
+    .replace(/Todav.+a no ten.+s env.+os con este email\./gi, "Todavía no tenés envíos con este email.")
+    .replace(/El admin todav.+a no arm.+ publicaciones a partir de tus solicitudes\./gi, "El admin todavía no armó publicaciones a partir de tus solicitudes.")
+    .replace(/Pago .nico\./gi, "Pago único.")
+    .replace(/publicaci.+n impulsionada/gi, "publicación impulsionada")
+    .replace(/Pasar esta publicaci.+n a mensual/gi, "Pasar esta publicación a mensual")
+    .replace(/Volver esta publicaci.+n al gratis/gi, "Volver esta publicación al gratis")
+    .replace(/Pasar esta publicaci.+n a destacado/gi, "Pasar esta publicación a destacado")
+    .replace(/Crear otra publicaci.+n/gi, "Crear otra publicación")
+    .replace(/publicaci.?.?n/gi, "publicación")
+    .replace(/descripci.?.?n/gi, "descripción")
+    .replace(/revisi.?.?n/gi, "revisión")
+    .replace(/secci.?.?n/gi, "sección")
+    .replace(/envi.?.?$/gi, "envió")
+    .replace(/quer.?.?s/gi, "querés")
+    .replace(/pod.?.?s/gi, "podés")
+    .replace(/d.?.?as/gi, "días")
+    .replace(/.nico/gi, "único")
+    .replace(/galer.?.?a/gi, "galería")
+    .replace(/im.?.?genes/gi, "imágenes")
+    .replace(/sesi.?.?n/gi, "sesión")
+    .replace(/categor.?.?a/gi, "categoría")
+    .replace(/pa.?.?s/gi, "país");
+}
+
+function sanitizePortalVisibleTree<T>(value: T): T {
+  if (typeof value === "string") return normalizePortalUiText(normalizePortalVisibleCopy(cleanPortalCopy(value as string))) as T;
+  if (Array.isArray(value)) return value.map((entry) => sanitizePortalVisibleTree(entry)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, sanitizePortalVisibleTree(entry as unknown)])) as T;
+  }
+  return value;
+}
+
+function normalizePortalUiText(value: string) {
+  return String(value ?? "")
+    .replace(/ÃƒÂ¡/g, "\u00e1")
+    .replace(/ÃƒÂ©/g, "\u00e9")
+    .replace(/ÃƒÂ­/g, "\u00ed")
+    .replace(/ÃƒÂ³/g, "\u00f3")
+    .replace(/ÃƒÂº/g, "\u00fa")
+    .replace(/ÃƒÂ±/g, "\u00f1")
+    .replace(/ÃƒÂ¼/g, "\u00fc")
+    .replace(/Ã‚Â¿/g, "\u00bf")
+    .replace(/Ã‚Â¡/g, "\u00a1")
+    .replace(/Ã‚Â°/g, "\u00b0")
+    .replace(/Ã¡/g, "\u00e1")
+    .replace(/Ã©/g, "\u00e9")
+    .replace(/Ã­/g, "\u00ed")
+    .replace(/Ã³/g, "\u00f3")
+    .replace(/Ãº/g, "\u00fa")
+    .replace(/Ã±/g, "\u00f1")
+    .replace(/Ã¼/g, "\u00fc")
+    .replace(/Â¿/g, "\u00bf")
+    .replace(/Â¡/g, "\u00a1")
+    .replace(/Â°/g, "\u00b0")
+    .replace(/publicaciÒ³n/gi, "publicaci\u00f3n")
+    .replace(/descripciÒ³n/gi, "descripci\u00f3n")
+    .replace(/revisiÒ³n/gi, "revisi\u00f3n")
+    .replace(/secciÒ³n/gi, "secci\u00f3n")
+    .replace(/enviÒ³/gi, "envi\u00f3")
+    .replace(/categorÒ­a/gi, "categor\u00eda")
+    .replace(/subcategorÒ­a/gi, "subcategor\u00eda")
+    .replace(/tÒ­tulo/gi, "t\u00edtulo")
+    .replace(/paÒ­s/gi, "pa\u00eds")
+    .replace(/podÒ©s/gi, "pod\u00e9s")
+    .replace(/querÒ©s/gi, "quer\u00e9s")
+    .replace(/acÒ¡/gi, "ac\u00e1")
+    .replace(/dÒ­as/gi, "d\u00edas")
+    .replace(/Òºnico/gi, "\u00fanico")
+    .replace(/galerÒ­a/gi, "galer\u00eda")
+    .replace(/imÒ¡genes/gi, "im\u00e1genes")
+    .replace(/sesiÒ³n/gi, "sesi\u00f3n")
+    .replace(/ÃƒÆ’Ã‚Â/g, "")
+    .replace(/ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚/g, "")
+    .replace(/Ãƒâ€š/g, "")
+    .replace(/ÃƒÆ’/g, "")
+    .replace(/Ãƒâ€°/g, "\u00c9")
+    .replace(/Ãƒâ€œ/g, "\u00d3")
+    .replace(/Ãƒâ€\u009d/g, "\u00da")
+    .replace(/ÃƒÅ¡/g, "\u00da");
+}
+
+function finalizePortalText(value: string) {
+  return String(value ?? "")
+    .replace(/AccedÃ©/g, "Accedé")
+    .replace(/envÃ­os/g, "envíos")
+    .replace(/pedÃ­/g, "pedí")
+    .replace(/publicaciÃ³n/g, "publicación")
+    .replace(/UsÃ¡/g, "Usá")
+    .replace(/vÃ¡lido/g, "válido")
+    .replace(/sesiÃ³n/g, "sesión")
+    .replace(/dÃ­as/g, "días")
+    .replace(/PedÃ­/g, "Pedí")
+    .replace(/ElegÃ­/g, "Elegí")
+    .replace(/querÃ©s/g, "querés")
+    .replace(/bÃ¡sica/g, "básica")
+    .replace(/revisiÃ³n/g, "revisión")
+    .replace(/TodavÃ­a/g, "Todavía")
+    .replace(/tenÃ©s/g, "tenés")
+    .replace(/armÃ³/g, "armó")
+    .replace(/Ãºnico/g, "único")
+    .replace(/descripciÃ³n/g, "descripción")
+    .replace(/galerÃ­a/g, "galería")
+    .replace(/imÃ¡genes/g, "imágenes")
+    .replace(/categorÃ­a/g, "categoría")
+    .replace(/paÃ­s/g, "país")
+    .replace(/acÃ¡/g, "acá")
+    .replace(/podÃ©s/g, "podés")
+    .replace(/enviÃ³/g, "envió")
+    .replace(/distribuciÃ³n/g, "distribución")
+    .replace(/secciÃ³n/g, "sección");
+}
+
+function normalizePortalVisibleCopy<T>(value: T): T {
+  if (typeof value === "string") {
+    let current = String(value);
+    const replacements: Array<[RegExp, string]> = [
+      [/ÃƒÆ’Ã‚Â/g, ""],
+      [/Ãƒâ€”/g, "×"],
+      [/ÃƒÂ¡/g, "á"],
+      [/ÃƒÂ©/g, "é"],
+      [/ÃƒÂ­/g, "í"],
+      [/ÃƒÂ³/g, "ó"],
+      [/ÃƒÂº/g, "ú"],
+      [/ÃƒÂ±/g, "ñ"],
+      [/ÃƒÂ¼/g, "ü"],
+      [/ÃƒÂ§/g, "ç"],
+      [/ÃƒÂ£/g, "ã"],
+      [/ÃƒÂµ/g, "õ"],
+      [/ÃƒÂ¨/g, "è"],
+      [/Ã‚Â¿/g, "¿"],
+      [/Ã‚Â¡/g, "¡"],
+      [/Ã‚Â°/g, "°"],
+      [/Ã¡/g, "á"],
+      [/Ã©/g, "é"],
+      [/Ã­/g, "í"],
+      [/Ã³/g, "ó"],
+      [/Ãº/g, "ú"],
+      [/Ã±/g, "ñ"],
+      [/Ã¼/g, "ü"],
+    ];
+    const wordFixes: Array<[RegExp, string]> = [
+      [/publicaciÒ³n/gi, "publicación"],
+      [/descripciÒ³n/gi, "descripción"],
+      [/revisiÒ³n/gi, "revisión"],
+      [/secciÒ³n/gi, "sección"],
+      [/enviÒ³/gi, "envió"],
+      [/querÒ©s/gi, "querés"],
+      [/podÒ©s/gi, "podés"],
+      [/acÒ¡/gi, "acá"],
+      [/dÒ­as/gi, "días"],
+      [/Òºnico/gi, "único"],
+      [/galerÒ­a/gi, "galería"],
+      [/imÒ¡genes/gi, "imágenes"],
+      [/sesiÒ³n/gi, "sesión"],
+      [/categorÒ­a/gi, "categoría"],
+      [/paÒ­s/gi, "país"],
+      [/Â·/g, "·"],
+    ];
+    for (let index = 0; index < 3; index += 1) {
+      for (const [pattern, replacement] of replacements) current = current.replace(pattern, replacement);
+      for (const [pattern, replacement] of wordFixes) current = current.replace(pattern, replacement);
+      try {
+        const decoded = decodeURIComponent(escape(current));
+        if (!decoded || decoded === current) break;
+        current = decoded;
+      } catch {
+        break;
+      }
+    }
+    for (const [pattern, replacement] of replacements) current = current.replace(pattern, replacement);
+    for (const [pattern, replacement] of wordFixes) current = current.replace(pattern, replacement);
+    return current as T;
+  }
+  if (Array.isArray(value)) return value.map((entry) => normalizePortalVisibleCopy(entry)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, normalizePortalVisibleCopy(entry as unknown)]),
     ) as T;
   }
   return value;
@@ -167,7 +448,7 @@ export default function ProviderPortalPanel() {
   const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
   const publishCardsRef = useRef<HTMLDivElement | null>(null);
 
-  const copy = useMemo(() => sanitizeCopy({
+  const copy = useMemo(() => sanitizePortalVisibleTree({
     title:
       locale === "en" ? "Provider mini panel" :
       locale === "pt" ? "Mini painel do oferente" :
@@ -448,7 +729,7 @@ export default function ProviderPortalPanel() {
   const portalStatus = String(searchParams.get("portal_status") ?? "").trim().toLowerCase();
   const featuredPaymentStatus = String(searchParams.get("featuredPayment") ?? "").trim().toLowerCase();
 
-  const planCopy = useMemo(() => sanitizeCopy({
+const planCopy = useMemo(() => sanitizePortalVisibleTree({
     currentPlan:
       locale === "en" ? "Current plan" :
       locale === "pt" ? "Plano atual" :
@@ -458,7 +739,7 @@ export default function ProviderPortalPanel() {
       locale === "en" ? "From here you can renew your free publication, upgrade to a paid plan, or request going back to free." :
       locale === "pt" ? "Daqui voce pode renovar sua publicacao gratuita, mudar para um plano pago ou pedir para voltar ao gratuito." :
       locale === "it" ? "Da qui puoi rinnovare la tua pubblicazione gratuita, passare a un piano a pagamento o chiedere di tornare al gratuito." :
-      "Desde aca podes renovar tu publicacion gratuita, pasar a un plan pago o pedir volver al gratuito.",
+      "Desde acá podés renovar tu publicación gratuita, pasar a un plan pago o pedir volver al gratuito.",
     currentBadge:
       locale === "en" ? "Current" :
       locale === "pt" ? "Atual" :
@@ -468,7 +749,7 @@ export default function ProviderPortalPanel() {
       locale === "en" ? "Renew free publication" :
       locale === "pt" ? "Renovar publicacao gratuita" :
       locale === "it" ? "Rinnova pubblicazione gratuita" :
-      "Renovar publicacion gratuita",
+      "Renovar publicación gratuita",
     goBackFree:
       locale === "en" ? "Request going back to free" :
       locale === "pt" ? "Pedir volta ao gratuito" :
@@ -478,12 +759,12 @@ export default function ProviderPortalPanel() {
       locale === "en" ? "You already have the 120-day featured plan." :
       locale === "pt" ? "Voce ja tem o destaque de 120 dias." :
       locale === "it" ? "Hai gia il piano in evidenza da 120 giorni." :
-      "Ya tenes el plan destacado de 120 dias.",
+      "Ya tenés el plan destacado de 120 días.",
     currentMonthly:
       locale === "en" ? "You already have the monthly plan active." :
       locale === "pt" ? "Voce ja tem o plano mensal ativo." :
       locale === "it" ? "Hai gia il piano mensile attivo." :
-      "Ya tenes el plan mensual activo.",
+      "Ya tenés el plan mensual activo.",
     requestType:
       locale === "en" ? "Request" :
       locale === "pt" ? "Solicitud" :
@@ -493,17 +774,17 @@ export default function ProviderPortalPanel() {
       locale === "en" ? "New publication" :
       locale === "pt" ? "Nova publicacao" :
       locale === "it" ? "Nuova pubblicazione" :
-      "Nueva publicacion",
+      "Nueva publicación",
     requestRenew:
       locale === "en" ? "Free renewal" :
       locale === "pt" ? "Renovacao gratuita" :
       locale === "it" ? "Rinnovo gratuito" :
-      "Renovacion gratis",
+      "Renovación gratis",
     requestUpgrade120:
       locale === "en" ? "Upgrade to featured 120 days" :
       locale === "pt" ? "Upgrade para destaque 120 dias" :
       locale === "it" ? "Upgrade a evidenza 120 giorni" :
-      "Upgrade a destacado 120 dias",
+      "Upgrade a destacado 120 días",
     requestUpgradeMonthly:
       locale === "en" ? "Upgrade to monthly plan" :
       locale === "pt" ? "Upgrade para plano mensal" :
@@ -723,7 +1004,7 @@ export default function ProviderPortalPanel() {
     return value || "-";
   }, [locale]);
 
-  const planBenefits = useMemo(() => sanitizeCopy({
+  const planBenefits = useMemo(() => sanitizeVisibleCopy({
     featured: [
       locale === "en" ? "Appears first in results" : locale === "pt" ? "Aparece primeiro nos resultados" : locale === "it" ? "Appare per prima nei risultati" : "Aparece primero en resultados",
       locale === "en" ? "Expanded description" : locale === "pt" ? "DescriÃƒÂ§ÃƒÂ£o ampliada" : locale === "it" ? "Descrizione ampliata" : "DescripciÃƒÂ³n ampliada",
@@ -1140,7 +1421,7 @@ export default function ProviderPortalPanel() {
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-semibold text-slate-900">{item.profileName || item.email}</span>
                             <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(plan.kind)}`}>{plan.label}</span>
-                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(statusKind)}`}>{copy.status}: {readableSubmissionStatus(item.status)}</span>
+                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(statusKind)}`}>{copy.status}: {decodeLikelyMojibake(readableSubmissionStatus(item.status))}</span>
                           </div>
                           {canDelete ? (
                             <button
@@ -1155,7 +1436,7 @@ export default function ProviderPortalPanel() {
                         </div>
                         <div className="mt-2 grid gap-x-4 gap-y-1.5 text-sm text-slate-600 sm:grid-cols-2">
                           <div><span className="font-medium text-slate-800">{copy.destination}:</span> {item.destinationCountry || "-"}</div>
-                          <div><span className="font-medium text-slate-800">{copy.payment}:</span> {readablePaymentStatus(item.paymentStatus)}</div>
+                          <div><span className="font-medium text-slate-800">{copy.payment}:</span> {decodeLikelyMojibake(readablePaymentStatus(item.paymentStatus))}</div>
                           <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(item.createdAt, locale)}</div>
                           <div><span className="font-medium text-slate-800">{copy.expiresAt}:</span> {formatDate(item.expirationAt, locale)}</div>
                           <div className="sm:col-span-2"><span className="font-medium text-slate-800">{planCopy.requestType}:</span> {requestKindLabel(item.requestKind)}</div>

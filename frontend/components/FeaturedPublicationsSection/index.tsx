@@ -8,6 +8,7 @@ import { useCountry } from "@/app/context/CountryProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import ChangingText from "@/components/ChangingText";
+import PharseWithBackground from "@/components/PharseWithBackground";
 
 const MAX_ITEMS = 8;
 
@@ -744,7 +745,7 @@ export default function FeaturedPublicationsSection() {
       ref={sectionRef}
       className="mt-6 px-4 sm:px-5 md:mt-8 md:px-6 lg:px-0"
     >
-      <div className="mx-auto mb-10 w-full max-w-6xl overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-3">
+      <div className="mx-auto mb-10 w-full max-w-6xl overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-10">
         <ChangingText phrases={phrasesThePractice} isNotAlone isBlackText />
       </div>
 
@@ -1005,8 +1006,8 @@ export default function FeaturedPublicationsSection() {
         ) : null}
       </div>
 
-      <div className="mx-auto mt-12 w-full max-w-6xl overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-3">
-        <ChangingText phrases={phrasesThePractice} isNotAlone isBlackText />
+      <div className="mt-12">
+        <PharseWithBackground onlyOne />
       </div>
 
       {showPrestacionesSection ? (

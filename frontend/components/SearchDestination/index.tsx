@@ -31,6 +31,36 @@ type CategoryLite = {
   isPrimaryCategory?: boolean;
 };
 
+function normalizeVisibleSearchText(value: string) {
+  return String(value ?? "")
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã­/g, "í")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã±/g, "ñ")
+    .replace(/Ã£/g, "ã")
+    .replace(/Ã§/g, "ç")
+    .replace(/Ãµ/g, "õ")
+    .replace(/Â¿/g, "¿")
+    .replace(/Â¡/g, "¡");
+}
+
+function finalizeVisibleSearchText(value: string) {
+  return String(value ?? "")
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã­/g, "í")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã±/g, "ñ")
+    .replace(/Ã£/g, "ã")
+    .replace(/Ã§/g, "ç")
+    .replace(/Ãµ/g, "õ")
+    .replace(/Â¿/g, "¿")
+    .replace(/Â¡/g, "¡");
+}
+
 export default function SearchDestination() {
   const router = useRouter();
   const { t, locale } = useTranslation();
@@ -72,7 +102,12 @@ export default function SearchDestination() {
       categoriesFallback: "Categorie",
     },
   };
-  const homeSearchLabels = homeSearchLabelsByLocale[locale] ?? homeSearchLabelsByLocale.es;
+  const homeSearchLabels = Object.fromEntries(
+    Object.entries(homeSearchLabelsByLocale[locale] ?? homeSearchLabelsByLocale.es).map(([key, value]) => [
+      key,
+      finalizeVisibleSearchText(normalizeVisibleSearchText(String(value))),
+    ]),
+  ) as typeof homeSearchLabelsByLocale.es;
   const categoriesFallbackLabel = homeSearchLabels.categoriesFallback;
 
   const [categoryBlocks, setCategoryBlocks] = useState<
