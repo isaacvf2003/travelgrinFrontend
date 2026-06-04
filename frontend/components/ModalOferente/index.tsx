@@ -1174,7 +1174,8 @@ export default function ModalOferente({
   const submit = async (publicationPlan: "basic_free" | "featured" | "monthly") => {
       if (!validateBasic()) return;
       const isPaidPlan = publicationPlan === "featured" || publicationPlan === "monthly";
-      const preparedPaymentTab = isPaidPlan ? window.open("", "_blank", "noopener,noreferrer") : null;
+      const preparingUrl = `${window.location.origin}/featured-payment-launch?state=preparing`;
+      const preparedPaymentTab = isPaidPlan ? window.open(preparingUrl, "_blank") : null;
       if (isPaidPlan && !validateFeatured()) {
         try {
           preparedPaymentTab?.close();
@@ -1227,16 +1228,37 @@ export default function ModalOferente({
           throw new Error(String(checkoutData?.error ?? "No se pudo iniciar el checkout."));
         }
         const redirectUrl = String(checkoutData.redirectUrl);
-        const paymentTab = preparedPaymentTab ?? window.open(redirectUrl, "_blank", "noopener,noreferrer");
-        if (paymentTab) {
-          try {
-            paymentTab.location.href = redirectUrl;
-          } catch {
-            window.location.assign(redirectUrl);
-            return;
+        const launchUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(String(data?.id ?? ""))}&redirect=${encodeURIComponent(btoa(redirectUrl))}`;
+        const paymentTab = preparedPaymentTab ?? window.open(launchUrl, "_blank");
+        if (!paymentTab) {
+          if (submittedServiceIdRef.current) {
+            void fetch("/api/payments/featured/return", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ serviceId: submittedServiceIdRef.current, status: "cancel" }),
+            }).catch(() => null);
+            submittedServiceIdRef.current = null;
           }
-        } else {
-          window.location.assign(redirectUrl);
+          setIsLoading(false);
+          toast.error("No se pudo abrir la pestaña de pago. Habilitá popups e intentá nuevamente.");
+          return;
+        }
+        try {
+          paymentTab.location.replace(launchUrl);
+        } catch {
+          if (submittedServiceIdRef.current) {
+            void fetch("/api/payments/featured/return", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ serviceId: submittedServiceIdRef.current, status: "cancel" }),
+            }).catch(() => null);
+            submittedServiceIdRef.current = null;
+          }
+          try {
+            paymentTab.close();
+          } catch {}
+          setIsLoading(false);
+          toast.error("No se pudo abrir la pestaña de pago. Intentá nuevamente.");
           return;
         }
         paymentResultReceivedRef.current = false;
