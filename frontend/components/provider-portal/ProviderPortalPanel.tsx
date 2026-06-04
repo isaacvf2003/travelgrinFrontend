@@ -112,6 +112,13 @@ function formatPlanPrice(amount: number, currency: "ARS" | "USD", locale: string
   ).format(amount);
 }
 
+function normalizePortalPlanType(value: unknown): "basic_free" | "featured" | "monthly" {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (raw === "featured" || raw === "featured_120d") return "featured";
+  if (raw === "monthly" || raw === "featured_monthly") return "monthly";
+  return "basic_free";
+}
+
 function fixMojibake(value: string) {
   if (!/[ÃÂ]/.test(value)) return value;
   try {
@@ -704,8 +711,8 @@ export default function ProviderPortalPanel() {
   }, [dashboard?.publications]);
 
   const currentPlanType = latestApprovedSubmission?.planType ?? "basic_free";
-  const currentPlanCreatedAt = latestVisiblePublication?.createdAt ?? latestApprovedSubmission?.createdAt ?? null;
-  const currentPlanExpiresAt = latestVisiblePublication?.expiration ?? latestApprovedSubmission?.expirationAt ?? null;
+  const currentPlanCreatedAt = latestApprovedSubmission?.createdAt ?? latestVisiblePublication?.createdAt ?? null;
+  const currentPlanExpiresAt = latestApprovedSubmission?.expirationAt ?? latestVisiblePublication?.expiration ?? null;
   const baseCountry = String(
     latestApprovedSubmission?.country ??
     dashboard?.submissions.find((item) => String(item.country ?? "").trim())?.country ??
@@ -798,14 +805,28 @@ export default function ProviderPortalPanel() {
               })[0] ?? null;
         }
         if (relatedSubmission?.id) usedSubmissionIds.add(relatedSubmission.id);
-        const effectivePlanType =
+        const submissionPlanType = normalizePortalPlanType(
+          relatedSubmission?.requestedPlan ??
+          relatedSubmission?.planType,
+        );
+        const publicationPlanType = normalizePortalPlanType(
+          publication.requestedPlan ??
           publication.planType ??
-          relatedSubmission?.planType ??
-          (publication.featured ? "featured" : "basic_free");
+          (publication.featured ? "featured" : "basic_free"),
+        );
+        const effectivePlanType =
+          publicationPlanType === "basic_free" && submissionPlanType !== "basic_free"
+            ? submissionPlanType
+            : publicationPlanType;
+        const effectiveExpiration =
+          effectivePlanType !== "basic_free" && relatedSubmission?.expirationAt
+            ? relatedSubmission.expirationAt
+            : publication.expiration;
         return {
           publication,
           relatedSubmission,
           effectivePlanType,
+          effectiveExpiration,
         };
       });
   }, [dashboard?.publications, dashboard?.submissions]);
@@ -1098,7 +1119,7 @@ export default function ProviderPortalPanel() {
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-slate-900">{copy.publicationsTitle}</h3>
                 <div className="mt-4 space-y-3">
-                  {visiblePublicationEntries.length ? visiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType }) => {
+                  {visiblePublicationEntries.length ? visiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration }) => {
                     const badge = planBadge(effectivePlanType);
                     const canOpenFromHistory = relatedSubmission ?? latestApprovedSubmission;
                     return (
@@ -1111,7 +1132,7 @@ export default function ProviderPortalPanel() {
                       <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
                         <div><span className="font-medium text-slate-800">{copy.destination}:</span> {[publication.city, publication.country].filter(Boolean).join(", ") || "-"}</div>
                         <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(publication.createdAt, locale)}</div>
-                        <div><span className="font-medium text-slate-800">{copy.expiresAt}:</span> {formatDate(publication.expiration, locale)}</div>
+                        <div><span className="font-medium text-slate-800">{copy.expiresAt}:</span> {formatDate(effectiveExpiration, locale)}</div>
                         <div><span className="font-medium text-slate-800">{planCopy.linkedRequest}:</span> {relatedSubmission?.id || publication.sourceServiceId || "-"}</div>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
