@@ -39,6 +39,7 @@ type PortalSubmission = {
   previousPlan?: string;
   requestedPlan?: string;
   sourceServiceId?: string;
+  draftData?: Record<string, unknown>;
 };
 
 type PortalPublication = {
@@ -51,6 +52,15 @@ type PortalPublication = {
   createdAt: string | null;
   updatedAt: string | null;
   expiration: string | null;
+  providerEmail?: string;
+  providerName?: string;
+  planType?: "basic_free" | "featured" | "monthly";
+  sourceServiceId?: string;
+  requestKind?: string;
+  previousPlan?: string;
+  requestedPlan?: string;
+  relatedSubmissionId?: string;
+  relatedProfileName?: string;
 };
 
 type PortalDashboard = {
@@ -144,6 +154,7 @@ export default function ProviderPortalPanel() {
   const [modalRequestKind, setModalRequestKind] = useState<"new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free">("new_publication");
   const [modalPreviousPlan, setModalPreviousPlan] = useState<"basic_free" | "featured" | "monthly" | undefined>(undefined);
   const [modalSourceServiceId, setModalSourceServiceId] = useState<string | undefined>(undefined);
+  const [modalInitialData, setModalInitialData] = useState<Record<string, unknown> | null>(null);
   const [featured120Price, setFeatured120Price] = useState<PlanPriceResponseItem | null>(null);
   const [monthlyPrice, setMonthlyPrice] = useState<PlanPriceResponseItem | null>(null);
 
@@ -439,6 +450,51 @@ export default function ProviderPortalPanel() {
       locale === "pt" ? "Pedir retorno ao gratuito" :
       locale === "it" ? "Richiedi ritorno al gratuito" :
       "Pedir retorno al gratis",
+    publicationActions:
+      locale === "en" ? "Actions for this publication" :
+      locale === "pt" ? "Ações para esta publicação" :
+      locale === "it" ? "Azioni per questa pubblicazione" :
+      "Acciones para esta publicación",
+    renewFeatured:
+      locale === "en" ? "Renew featured 120 days" :
+      locale === "pt" ? "Renovar destaque 120 dias" :
+      locale === "it" ? "Rinnova evidenza 120 giorni" :
+      "Renovar destacado 120 días",
+    switchMonthly:
+      locale === "en" ? "Switch this publication to monthly" :
+      locale === "pt" ? "Passar esta publicação ao mensal" :
+      locale === "it" ? "Passa questa pubblicazione al mensile" :
+      "Pasar esta publicación a mensual",
+    downgradeThisPublication:
+      locale === "en" ? "Move this publication back to free" :
+      locale === "pt" ? "Voltar esta publicação ao gratuito" :
+      locale === "it" ? "Riporta questa pubblicazione al gratuito" :
+      "Volver esta publicación al gratis",
+    cancelMonthly:
+      locale === "en" ? "Cancel monthly / go back to free" :
+      locale === "pt" ? "Cancelar mensal / voltar ao gratuito" :
+      locale === "it" ? "Annulla mensile / torna al gratuito" :
+      "Cancelar mensual / volver al gratis",
+    upgradeToFeatured:
+      locale === "en" ? "Upgrade this publication to featured" :
+      locale === "pt" ? "Passar esta publicação a destaque" :
+      locale === "it" ? "Passa questa pubblicazione a evidenza" :
+      "Pasar esta publicación a destacado",
+    upgradeToMonthly:
+      locale === "en" ? "Upgrade this publication to monthly" :
+      locale === "pt" ? "Passar esta publicação ao mensal" :
+      locale === "it" ? "Passa questa pubblicazione al mensile" :
+      "Pasar esta publicación a mensual",
+    requestAnotherPublication:
+      locale === "en" ? "Create another publication" :
+      locale === "pt" ? "Criar outra publicação" :
+      locale === "it" ? "Crea un'altra pubblicazione" :
+      "Crear otra publicación",
+    linkedRequest:
+      locale === "en" ? "Source request" :
+      locale === "pt" ? "Solicitação de origem" :
+      locale === "it" ? "Richiesta di origine" :
+      "Solicitud de origen",
   }), [locale]);
 
   const loadSession = useCallback(async () => {
@@ -469,12 +525,12 @@ export default function ProviderPortalPanel() {
   useEffect(() => {
     if (!featuredPaymentStatus) return;
     if (featuredPaymentStatus === "success") {
-      toast.success(locale === "en" ? "Your payment was accepted." : locale === "pt" ? "Seu pagamento foi aceito." : locale === "it" ? "Il tuo pagamento è stato accettato." : "Tu pago fue aceptado.", { duration: 7000 });
+      toast.success(locale === "en" ? "Your payment was accepted." : locale === "pt" ? "Seu pagamento foi aceito." : locale === "it" ? "Il tuo pagamento e stato accettato." : "Tu pago fue aceptado.", { duration: 7000 });
       void loadSession();
       return;
     }
     if (featuredPaymentStatus === "cancel") {
-      toast(locale === "en" ? "The payment window was closed without completing the payment." : locale === "pt" ? "A janela de pagamento foi fechada sem concluir o pagamento." : locale === "it" ? "La finestra di pagamento è stata chiusa senza completare il pagamento." : "La ventana de pago se cerró sin completar el pago.", { duration: 7000 });
+      toast(locale === "en" ? "The payment window was closed without completing the payment." : locale === "pt" ? "A janela de pagamento foi fechada sem concluir o pagamento." : locale === "it" ? "La finestra di pagamento e stata chiusa senza completare il pagamento." : "La ventana de pago se cerro sin completar el pago.", { duration: 7000 });
       void loadSession();
     }
   }, [featuredPaymentStatus, loadSession, locale]);
@@ -650,6 +706,12 @@ export default function ProviderPortalPanel() {
   const currentPlanType = latestApprovedSubmission?.planType ?? "basic_free";
   const currentPlanCreatedAt = latestVisiblePublication?.createdAt ?? latestApprovedSubmission?.createdAt ?? null;
   const currentPlanExpiresAt = latestVisiblePublication?.expiration ?? latestApprovedSubmission?.expirationAt ?? null;
+  const baseCountry = String(
+    latestApprovedSubmission?.country ??
+    dashboard?.submissions.find((item) => String(item.country ?? "").trim())?.country ??
+    selectedCountry ??
+    "",
+  ).trim();
 
   const requestKindLabel = useCallback((value?: string) => {
     const normalized = String(value ?? "").trim().toLowerCase();
@@ -660,11 +722,18 @@ export default function ProviderPortalPanel() {
     return planCopy.requestNew;
   }, [planCopy]);
 
-  const openPlanRequest = useCallback((plan: "basic_free" | "featured" | "monthly") => {
-    const previous = currentPlanType === "featured" || currentPlanType === "monthly" ? currentPlanType : "basic_free";
+  const openPlanRequest = useCallback((
+    plan: "basic_free" | "featured" | "monthly",
+    sourceSubmission?: PortalSubmission | null,
+  ) => {
+    const previous = sourceSubmission?.planType === "featured" || sourceSubmission?.planType === "monthly"
+      ? sourceSubmission.planType
+      : currentPlanType === "featured" || currentPlanType === "monthly"
+        ? currentPlanType
+        : "basic_free";
     let requestKind: "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" = "new_publication";
     if (plan === "basic_free") {
-      if (latestApprovedSubmission?.id) {
+      if (sourceSubmission?.id || latestApprovedSubmission?.id) {
         requestKind = previous === "basic_free" ? "renew_free" : "downgrade_free";
       }
     } else if (plan === "featured") {
@@ -677,7 +746,8 @@ export default function ProviderPortalPanel() {
     setModalVisiblePlans([plan]);
     setModalRequestKind(requestKind);
     setModalPreviousPlan(previous);
-    setModalSourceServiceId(latestApprovedSubmission?.id);
+    setModalSourceServiceId(sourceSubmission?.id || latestApprovedSubmission?.id);
+    setModalInitialData((sourceSubmission?.draftData as Record<string, unknown> | undefined) ?? null);
     setOpenSubmissionModal(true);
   }, [currentPlanType, latestApprovedSubmission?.id]);
 
@@ -688,8 +758,57 @@ export default function ProviderPortalPanel() {
     setModalRequestKind("new_publication");
     setModalPreviousPlan(undefined);
     setModalSourceServiceId(undefined);
+    setModalInitialData((latestApprovedSubmission?.draftData as Record<string, unknown> | undefined) ?? null);
     setOpenSubmissionModal(true);
-  }, []);
+  }, [latestApprovedSubmission?.draftData]);
+
+  const visiblePublicationEntries = useMemo(() => {
+    const publications = [...(dashboard?.publications ?? [])];
+    const submissions = [...(dashboard?.submissions ?? [])];
+    const approvedStatuses = new Set(["aprobado", "approved", "active", "activo", "paid"]);
+    const approvedSubmissions = submissions
+      .filter((item) => approvedStatuses.has(String(item.status ?? "").trim().toLowerCase()))
+      .sort((a, b) => {
+        const aTime = new Date(a.updatedAt ?? a.approvedAt ?? a.createdAt ?? 0).getTime();
+        const bTime = new Date(b.updatedAt ?? b.approvedAt ?? b.createdAt ?? 0).getTime();
+        return bTime - aTime;
+      });
+    const usedSubmissionIds = new Set<string>();
+    return publications
+      .sort((a, b) => {
+        const aTime = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+        const bTime = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
+        return bTime - aTime;
+      })
+      .map((publication) => {
+        const explicitId = String(publication.relatedSubmissionId ?? publication.sourceServiceId ?? "").trim();
+        const publicationTime = new Date(publication.updatedAt ?? publication.createdAt ?? 0).getTime();
+        let relatedSubmission =
+          approvedSubmissions.find((item) => item.id === explicitId || item.sourceServiceId === explicitId) ?? null;
+        if (!relatedSubmission) {
+          relatedSubmission =
+            approvedSubmissions
+              .filter((item) => !usedSubmissionIds.has(item.id))
+              .sort((a, b) => {
+                const aTime = new Date(a.updatedAt ?? a.approvedAt ?? a.createdAt ?? 0).getTime();
+                const bTime = new Date(b.updatedAt ?? b.approvedAt ?? b.createdAt ?? 0).getTime();
+                const aDistance = Math.abs(publicationTime - aTime);
+                const bDistance = Math.abs(publicationTime - bTime);
+                return aDistance - bDistance;
+              })[0] ?? null;
+        }
+        if (relatedSubmission?.id) usedSubmissionIds.add(relatedSubmission.id);
+        const effectivePlanType =
+          publication.planType ??
+          relatedSubmission?.planType ??
+          (publication.featured ? "featured" : "basic_free");
+        return {
+          publication,
+          relatedSubmission,
+          effectivePlanType,
+        };
+      });
+  }, [dashboard?.publications, dashboard?.submissions]);
 
   const planCards = useMemo(() => {
     const currentIsFree = currentPlanType === "basic_free";
@@ -979,24 +1098,78 @@ export default function ProviderPortalPanel() {
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-slate-900">{copy.publicationsTitle}</h3>
                 <div className="mt-4 space-y-3">
-                  {dashboard?.publications.length ? dashboard.publications.map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  {visiblePublicationEntries.length ? visiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType }) => {
+                    const badge = planBadge(effectivePlanType);
+                    const canOpenFromHistory = relatedSubmission ?? latestApprovedSubmission;
+                    return (
+                    <div key={publication.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-slate-900">{item.title || item.id}</span>
-                        {item.featured ? (
-                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses("featured")}`}>{copy.featured}</span>
-                        ) : (
-                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses("free")}`}>{copy.free}</span>
-                        )}
-                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(item.status?.toLowerCase() === "approved" ? "approved" : "default")}`}>{copy.status}: {item.status || "-"}</span>
+                        <span className="text-sm font-semibold text-slate-900">{publication.title || publication.id}</span>
+                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(badge.kind)}`}>{badge.label}</span>
+                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(publication.status?.toLowerCase() === "approved" ? "approved" : "default")}`}>{copy.status}: {publication.status || "-"}</span>
                       </div>
                       <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                        <div><span className="font-medium text-slate-800">{copy.destination}:</span> {[item.city, item.country].filter(Boolean).join(", ") || "-"}</div>
-                        <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(item.createdAt, locale)}</div>
-                        <div><span className="font-medium text-slate-800">{copy.expiresAt}:</span> {formatDate(item.expiration, locale)}</div>
+                        <div><span className="font-medium text-slate-800">{copy.destination}:</span> {[publication.city, publication.country].filter(Boolean).join(", ") || "-"}</div>
+                        <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(publication.createdAt, locale)}</div>
+                        <div><span className="font-medium text-slate-800">{copy.expiresAt}:</span> {formatDate(publication.expiration, locale)}</div>
+                        <div><span className="font-medium text-slate-800">{planCopy.linkedRequest}:</span> {relatedSubmission?.id || publication.sourceServiceId || "-"}</div>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {effectivePlanType === "basic_free" ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openPlanRequest("featured", canOpenFromHistory)}
+                              className="rounded-xl bg-[#0B8FA3] px-3 py-2 text-xs font-semibold text-white hover:opacity-95"
+                            >
+                              {planCopy.upgradeToFeatured}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openPlanRequest("monthly", canOpenFromHistory)}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                            >
+                              {planCopy.upgradeToMonthly}
+                            </button>
+                          </>
+                        ) : null}
+                        {effectivePlanType === "featured" ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openPlanRequest("featured", canOpenFromHistory)}
+                              className="rounded-xl bg-[#0B8FA3] px-3 py-2 text-xs font-semibold text-white hover:opacity-95"
+                            >
+                              {planCopy.renewFeatured}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openPlanRequest("monthly", canOpenFromHistory)}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                            >
+                              {planCopy.switchMonthly}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openPlanRequest("basic_free", canOpenFromHistory)}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                            >
+                              {planCopy.downgradeThisPublication}
+                            </button>
+                          </>
+                        ) : null}
+                        {effectivePlanType === "monthly" ? (
+                          <button
+                            type="button"
+                            onClick={() => openPlanRequest("basic_free", canOpenFromHistory)}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                          >
+                            {planCopy.cancelMonthly}
+                          </button>
+                        ) : null}
                       </div>
                     </div>
-                  )) : (
+                  )}) : (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
                       {copy.emptyPublications}
                     </div>
@@ -1015,17 +1188,13 @@ export default function ProviderPortalPanel() {
           lockEmail
           showMonthlyPlanOption
           visiblePlans={modalVisiblePlans}
-          fixedCountry={String(
-            latestApprovedSubmission?.country ??
-            dashboard?.submissions.find((item) => String(item.country ?? "").trim())?.country ??
-            selectedCountry ??
-            "",
-          ).trim()}
+          fixedCountry={baseCountry}
           initialPlan={modalPlanIntent}
           preferredPaidPlanType={preferredPaidPlanType}
           requestKind={modalRequestKind}
           previousPlan={modalPreviousPlan}
           sourceServiceId={modalSourceServiceId}
+          initialData={modalInitialData}
           onSubmitted={() => {
             setOpenSubmissionModal(false);
             void loadSession();
@@ -1039,3 +1208,5 @@ export default function ProviderPortalPanel() {
     </>
   );
 }
+
+

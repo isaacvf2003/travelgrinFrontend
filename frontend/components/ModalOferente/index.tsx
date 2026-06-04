@@ -29,6 +29,7 @@ type Props = {
   requestKind?: "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free";
   previousPlan?: "basic_free" | "featured" | "monthly";
   sourceServiceId?: string;
+  initialData?: Record<string, any> | null;
   onSubmitted?: (info: { serviceId: string; plan: "basic_free" | "featured" | "monthly" }) => void;
   onPaymentResolved?: (info: { serviceId: string; plan: "featured" | "monthly"; status: "success" | "cancel" }) => void;
 };
@@ -617,6 +618,7 @@ export default function ModalOferente({
   requestKind = "new_publication",
   previousPlan,
   sourceServiceId = "",
+  initialData = null,
   onSubmitted,
   onPaymentResolved,
 }: Props) {
@@ -750,6 +752,102 @@ export default function ModalOferente({
     setEmailError("");
     setIsEmptyEmail(false);
   }, [initialEmail]);
+  useEffect(() => {
+    if (!initialData) return;
+    setProfileName(String(initialData.name ?? initialData.profileName ?? "").trim());
+    setProposalCategories(
+      Array.isArray(initialData.category)
+        ? initialData.category.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+        : [],
+    );
+    setIsOfrezco(Boolean(initialData.isOfrezco));
+    setIsIntermediario(Boolean(initialData.isIntermediario));
+    setDestinationCountry(String(initialData.destinationCountry ?? "").trim());
+    setDestinationAvailabilityMode(initialData.receivingCountriesMode === "only" ? "some" : "all");
+    setDestinationAvailabilityCountries(
+      Array.isArray(initialData.receivingCountries)
+        ? initialData.receivingCountries.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+        : [],
+    );
+    setPassportCountries(
+      Array.isArray(initialData.receivingCountries)
+        ? initialData.receivingCountries.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+        : [],
+    );
+    setLanguages(
+      Array.isArray(initialData.languages)
+        ? initialData.languages.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+        : [],
+    );
+    const firstVenue =
+      Array.isArray(initialData.venues) && initialData.venues[0] && typeof initialData.venues[0] === "object"
+        ? (initialData.venues[0] as Record<string, unknown>)
+        : null;
+    setPrimaryVenue({
+      country: String(firstVenue?.country ?? initialData.headquarterCountry ?? "").trim(),
+      city: String(firstVenue?.city ?? initialData.headquarterCity ?? initialData.city ?? "").trim(),
+      mapUrl: String(firstVenue?.mapUrl ?? initialData.headquarterMapUrl ?? initialData.destinationMapUrl ?? "").trim(),
+    });
+    setDescription(String(initialData.contanos ?? initialData.description ?? "").trim());
+    setWebsite(String(initialData.website ?? "").trim());
+    setProviderLogo(String(initialData.providerLogo ?? "").trim());
+    setProviderLogoAsset(initialData.providerLogoAsset && typeof initialData.providerLogoAsset === "object" ? initialData.providerLogoAsset as ImageAsset : null);
+    setProviderType(
+      Array.isArray(initialData.typeProfile)
+        ? String(initialData.typeProfile[0] ?? "").trim()
+        : String(initialData.providerType ?? "").trim(),
+    );
+    setServiceImages(
+      Array.isArray(initialData.images)
+        ? initialData.images.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+        : [],
+    );
+    setServiceImageAssets(
+      Array.isArray(initialData.imageAssets)
+        ? initialData.imageAssets.filter((entry: unknown) => entry && typeof entry === "object") as ImageAsset[]
+        : [],
+    );
+    setIncluded(
+      Array.isArray(initialData.included)
+        ? initialData.included.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean).join("\n")
+        : String(initialData.included ?? "").trim(),
+    );
+    setNotIncluded(
+      Array.isArray(initialData.notIncluded)
+        ? initialData.notIncluded.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean).join("\n")
+        : String(initialData.notIncluded ?? "").trim(),
+    );
+    const detailedLinks = Array.isArray(initialData.socialLinksDetailed)
+      ? initialData.socialLinksDetailed
+          .map((entry: unknown) => {
+            if (!entry || typeof entry !== "object") return null;
+            const item = entry as Record<string, unknown>;
+            return {
+              kind: String(item.kind ?? "web") as ContactKind,
+              label: String(item.label ?? "").trim(),
+              url: String(item.url ?? "").trim(),
+            };
+          })
+          .filter(Boolean) as ContactEntry[]
+      : [];
+    setContactLinks(detailedLinks.length ? detailedLinks : [{ kind: "web", url: "", label: "" }]);
+    const nextPrices = Array.isArray(initialData.priceByCurrency)
+      ? initialData.priceByCurrency
+          .map((entry: unknown) => {
+            if (!entry || typeof entry !== "object") return null;
+            const item = entry as Record<string, unknown>;
+            const currency = String(item.currency ?? "").trim().toUpperCase();
+            const amount = String(item.amount ?? "").trim();
+            if (!currency || !amount) return null;
+            return { currency, amount };
+          })
+          .filter(Boolean) as PriceEntry[]
+      : [];
+    setPriceEntries(nextPrices.length ? nextPrices : [{ currency: "USD", amount: "" }]);
+    setPriceNegotiable(Boolean(initialData.priceNegotiable));
+    setPricePeriod(String(initialData.pricePeriod ?? "month").trim() || "month");
+    setAcceptedTerms(Boolean(initialData.acceptedTerms ?? true));
+  }, [initialData]);
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     const originalPosition = document.body.style.position;
