@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 import ModalOferente from "@/components/ModalOferente";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCountry } from "@/app/context/CountryProvider";
@@ -24,6 +25,7 @@ type PortalSubmission = {
   status: string;
   createdAt: string | null;
   updatedAt: string | null;
+  country: string;
   destinationCountry: string;
   profileName: string;
   planType: "basic_free" | "featured" | "monthly";
@@ -100,6 +102,27 @@ function formatPlanPrice(amount: number, currency: "ARS" | "USD", locale: string
   ).format(amount);
 }
 
+function fixMojibake(value: string) {
+  if (!/[ÃÂ]/.test(value)) return value;
+  try {
+    const bytes = Uint8Array.from(value, (char) => char.charCodeAt(0));
+    return new TextDecoder("utf-8").decode(bytes);
+  } catch {
+    return value;
+  }
+}
+
+function sanitizeCopy<T>(value: T): T {
+  if (typeof value === "string") return fixMojibake(value) as T;
+  if (Array.isArray(value)) return value.map((entry) => sanitizeCopy(entry)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, sanitizeCopy(entry as unknown)]),
+    ) as T;
+  }
+  return value;
+}
+
 export default function ProviderPortalPanel() {
   const { locale } = useTranslation();
   const { selectedCountry } = useCountry();
@@ -117,13 +140,14 @@ export default function ProviderPortalPanel() {
   const [openSubmissionModal, setOpenSubmissionModal] = useState(false);
   const [modalPlanIntent, setModalPlanIntent] = useState<"basic_free" | "featured" | "monthly">("basic_free");
   const [preferredPaidPlanType, setPreferredPaidPlanType] = useState<"featured_120d" | "featured_monthly">("featured_120d");
+  const [modalVisiblePlans, setModalVisiblePlans] = useState<Array<"basic_free" | "featured" | "monthly">>(["basic_free", "featured", "monthly"]);
   const [modalRequestKind, setModalRequestKind] = useState<"new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free">("new_publication");
   const [modalPreviousPlan, setModalPreviousPlan] = useState<"basic_free" | "featured" | "monthly" | undefined>(undefined);
   const [modalSourceServiceId, setModalSourceServiceId] = useState<string | undefined>(undefined);
   const [featured120Price, setFeatured120Price] = useState<PlanPriceResponseItem | null>(null);
   const [monthlyPrice, setMonthlyPrice] = useState<PlanPriceResponseItem | null>(null);
 
-  const copy = useMemo(() => ({
+  const copy = useMemo(() => sanitizeCopy({
     title:
       locale === "en" ? "Provider mini panel" :
       locale === "pt" ? "Mini painel do oferente" :
@@ -347,8 +371,9 @@ export default function ProviderPortalPanel() {
   }), [locale]);
 
   const portalStatus = String(searchParams.get("portal_status") ?? "").trim().toLowerCase();
+  const featuredPaymentStatus = String(searchParams.get("featuredPayment") ?? "").trim().toLowerCase();
 
-  const planCopy = useMemo(() => ({
+  const planCopy = useMemo(() => sanitizeCopy({
     currentPlan:
       locale === "en" ? "Current plan" :
       locale === "pt" ? "Plano atual" :
@@ -442,7 +467,38 @@ export default function ProviderPortalPanel() {
   }, [loadSession]);
 
   useEffect(() => {
-    const country = String(selectedCountry ?? "").trim();
+    if (!featuredPaymentStatus) return;
+    if (featuredPaymentStatus === "success") {
+      toast.success(locale === "en" ? "Your payment was accepted." : locale === "pt" ? "Seu pagamento foi aceito." : locale === "it" ? "Il tuo pagamento è stato accettato." : "Tu pago fue aceptado.", { duration: 7000 });
+      void loadSession();
+      return;
+    }
+    if (featuredPaymentStatus === "cancel") {
+      toast(locale === "en" ? "The payment window was closed without completing the payment." : locale === "pt" ? "A janela de pagamento foi fechada sem concluir o pagamento." : locale === "it" ? "La finestra di pagamento è stata chiusa senza completare il pagamento." : "La ventana de pago se cerró sin completar el pago.", { duration: 7000 });
+      void loadSession();
+    }
+  }, [featuredPaymentStatus, loadSession, locale]);
+
+  useEffect(() => {
+    if (!featuredPaymentStatus) return;
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.delete("featuredPayment");
+    nextUrl.searchParams.delete("serviceId");
+    window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+  }, [featuredPaymentStatus]);
+
+  useEffect(() => {
+    const country = String(
+      dashboard?.submissions.find((item) => ["aprobado", "approved", "active", "activo", "paid"].includes(String(item.status ?? "").trim().toLowerCase()) && String(item.country ?? "").trim())?.country ??
+      dashboard?.submissions.find((item) => String(item.country ?? "").trim())?.country ??
+      selectedCountry ??
+      "",
+    ).trim();
+    if (!country) {
+      setFeatured120Price(null);
+      setMonthlyPrice(null);
+      return;
+    }
     const buildUrl = (planType: "featured_120d" | "featured_monthly") =>
       `/api/featured-plan-pricing?country=${encodeURIComponent(country)}&planType=${encodeURIComponent(planType)}`;
 
@@ -456,7 +512,7 @@ export default function ProviderPortalPanel() {
       setFeatured120Price(null);
       setMonthlyPrice(null);
     });
-  }, [selectedCountry]);
+  }, [dashboard?.submissions, selectedCountry]);
 
   const submitRequestAccess = async () => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -507,7 +563,47 @@ export default function ProviderPortalPanel() {
     return { label: copy.free, kind: "free" as const };
   };
 
-  const planBenefits = useMemo(() => ({
+  const readableSubmissionStatus = useCallback((value?: string) => {
+    const normalized = String(value ?? "").trim().toLowerCase();
+    if (["approved", "aprobado", "active", "activo"].includes(normalized)) {
+      return locale === "en" ? "Approved" : locale === "pt" ? "Aprovado" : locale === "it" ? "Approvato" : "Aprobado";
+    }
+    if (["pendiente_pago", "payment_pending"].includes(normalized)) {
+      return locale === "en" ? "Waiting for payment" : locale === "pt" ? "Aguardando pagamento" : locale === "it" ? "In attesa di pagamento" : "Esperando pago";
+    }
+    if (["pago_cancelado", "cancelled", "canceled"].includes(normalized)) {
+      return locale === "en" ? "Payment cancelled" : locale === "pt" ? "Pagamento cancelado" : locale === "it" ? "Pagamento annullato" : "Pago cancelado";
+    }
+    if (["pago_fallido", "failed", "rejected"].includes(normalized)) {
+      return locale === "en" ? "Payment failed" : locale === "pt" ? "Pagamento falhou" : locale === "it" ? "Pagamento fallito" : "Pago fallido";
+    }
+    if (["pendiente", "pending"].includes(normalized)) {
+      return locale === "en" ? "Pending review" : locale === "pt" ? "Pendente de revisão" : locale === "it" ? "In attesa di revisione" : "Pendiente de revisión";
+    }
+    return value || "-";
+  }, [locale]);
+
+  const readablePaymentStatus = useCallback((value?: string) => {
+    const normalized = String(value ?? "").trim().toLowerCase();
+    if (["paid", "approved", "success"].includes(normalized)) {
+      return locale === "en" ? "Paid" : locale === "pt" ? "Pago" : locale === "it" ? "Pagato" : "Pagado";
+    }
+    if (["processing"].includes(normalized)) {
+      return locale === "en" ? "Processing" : locale === "pt" ? "Em processamento" : locale === "it" ? "In elaborazione" : "Procesando";
+    }
+    if (["pending"].includes(normalized)) {
+      return locale === "en" ? "Pending" : locale === "pt" ? "Pendente" : locale === "it" ? "In attesa" : "Pendiente";
+    }
+    if (["cancelled", "canceled"].includes(normalized)) {
+      return locale === "en" ? "Cancelled" : locale === "pt" ? "Cancelado" : locale === "it" ? "Annullato" : "Cancelado";
+    }
+    if (["failed", "rejected"].includes(normalized)) {
+      return locale === "en" ? "Failed" : locale === "pt" ? "Falhou" : locale === "it" ? "Fallito" : "Fallido";
+    }
+    return value || "-";
+  }, [locale]);
+
+  const planBenefits = useMemo(() => sanitizeCopy({
     featured: [
       locale === "en" ? "Appears first in results" : locale === "pt" ? "Aparece primeiro nos resultados" : locale === "it" ? "Appare per prima nei risultati" : "Aparece primero en resultados",
       locale === "en" ? "Expanded description" : locale === "pt" ? "DescriÃ§Ã£o ampliada" : locale === "it" ? "Descrizione ampliata" : "DescripciÃ³n ampliada",
@@ -578,6 +674,7 @@ export default function ProviderPortalPanel() {
     }
     setModalPlanIntent(plan);
     setPreferredPaidPlanType(plan === "monthly" ? "featured_monthly" : "featured_120d");
+    setModalVisiblePlans([plan]);
     setModalRequestKind(requestKind);
     setModalPreviousPlan(previous);
     setModalSourceServiceId(latestApprovedSubmission?.id);
@@ -587,6 +684,7 @@ export default function ProviderPortalPanel() {
   const openNewPublicationRequest = useCallback(() => {
     setModalPlanIntent("basic_free");
     setPreferredPaidPlanType("featured_120d");
+    setModalVisiblePlans(["basic_free", "featured", "monthly"]);
     setModalRequestKind("new_publication");
     setModalPreviousPlan(undefined);
     setModalSourceServiceId(undefined);
@@ -853,11 +951,11 @@ export default function ProviderPortalPanel() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-semibold text-slate-900">{item.profileName || item.email}</span>
                           <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(plan.kind)}`}>{plan.label}</span>
-                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(statusKind)}`}>{copy.status}: {item.status || "-"}</span>
+                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(statusKind)}`}>{copy.status}: {readableSubmissionStatus(item.status)}</span>
                         </div>
                         <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
                           <div><span className="font-medium text-slate-800">{copy.destination}:</span> {item.destinationCountry || "-"}</div>
-                          <div><span className="font-medium text-slate-800">{copy.payment}:</span> {item.paymentStatus || "-"}</div>
+                          <div><span className="font-medium text-slate-800">{copy.payment}:</span> {readablePaymentStatus(item.paymentStatus)}</div>
                           <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(item.createdAt, locale)}</div>
                           <div><span className="font-medium text-slate-800">{copy.expiresAt}:</span> {formatDate(item.expirationAt, locale)}</div>
                           <div className="sm:col-span-2"><span className="font-medium text-slate-800">{planCopy.requestType}:</span> {requestKindLabel(item.requestKind)}</div>
@@ -916,12 +1014,23 @@ export default function ProviderPortalPanel() {
           initialEmail={sessionEmail}
           lockEmail
           showMonthlyPlanOption
+          visiblePlans={modalVisiblePlans}
+          fixedCountry={String(
+            latestApprovedSubmission?.country ??
+            dashboard?.submissions.find((item) => String(item.country ?? "").trim())?.country ??
+            selectedCountry ??
+            "",
+          ).trim()}
           initialPlan={modalPlanIntent}
           preferredPaidPlanType={preferredPaidPlanType}
           requestKind={modalRequestKind}
           previousPlan={modalPreviousPlan}
           sourceServiceId={modalSourceServiceId}
           onSubmitted={() => {
+            setOpenSubmissionModal(false);
+            void loadSession();
+          }}
+          onPaymentResolved={() => {
             setOpenSubmissionModal(false);
             void loadSession();
           }}
