@@ -353,6 +353,15 @@ function parseTravelServiceExtra(service: TravelService): Record<string, unknown
   }
 }
 
+function providerDisplayName(service: TravelService): string {
+  const extra = parseTravelServiceExtra(service);
+  const candidate = String(extra.name ?? (extra.providerName as string | undefined) ?? (service as any).providerName ?? "").trim();
+  if (candidate) return candidate;
+  const email = String(service.email ?? "").trim();
+  if (!email) return "Sin nombre";
+  return email.split("@")[0] || email;
+}
+
 function serviceEffectiveStatus(service: TravelService): string {
   const raw = String(service.status ?? service.whatStop ?? "").trim().toLowerCase();
   return raw || "pendiente";
@@ -879,6 +888,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [userTab, setUserTab] = useState<"oferentes" | "demandantes">("oferentes");
   const [userSearch, setUserSearch] = useState("");
   const [detailTravelService, setDetailTravelService] = useState<TravelService | null>(null);
+  const [detailPaymentEmail, setDetailPaymentEmail] = useState<string | null>(null);
   const [detailImageExpanded, setDetailImageExpanded] = useState<string | null>(null);
   const [publicationTab, setPublicationTab] = useState<"publicaciones" | "denuncias">("publicaciones");
   const [publicationSearch, setPublicationSearch] = useState("");
@@ -1062,6 +1072,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [pPrestacionRelatedCategory, setPPrestacionRelatedCategory] = useState("todas");
   const [pEditorMode, setPEditorMode] = useState<"publicacion" | "prestacion">("publicacion");
   const [pApprovedProviderSearch, setPApprovedProviderSearch] = useState("");
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [approvedProviderPickerOpen, setApprovedProviderPickerOpen] = useState(false);
+  const [approvedProviderExpandedEmail, setApprovedProviderExpandedEmail] = useState<string | null>(null);
   const [pPrestacionResources, setPPrestacionResources] = useState<PrestacionResource[]>([createEmptyPrestacionResource()]);
   const [pPrestacionSteps, setPPrestacionSteps] = useState<PrestacionStep[]>([createEmptyPrestacionStep()]);
   const [pPrestacionFaqs, setPPrestacionFaqs] = useState<PrestacionFaq[]>([createEmptyPrestacionFaq()]);
@@ -3835,7 +3848,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const nextTime = item.createdAt ? new Date(item.createdAt).getTime() : 0;
       if (!current || nextTime >= currentTime) grouped.set(email, item);
     });
-    return Array.from(grouped.values());
+    return Array.from(grouped.values()).sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
   }, [selectedUsers]);
 
   const approvedOferentes = useMemo(
@@ -3855,8 +3872,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const query = pApprovedProviderSearch.trim().toLowerCase();
     if (!query) return approvedOferentes;
     return approvedOferentes.filter((service) => {
-      const extra = parseTravelServiceExtra(service);
-      const label = service.name || String(extra.name ?? "") || "";
+      const label = providerDisplayName(service);
       return [label, service.email].some((value) => String(value ?? "").toLowerCase().includes(query));
     });
   }, [approvedOferentes, pApprovedProviderSearch]);
@@ -3865,21 +3881,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     filteredApprovedOferentes.forEach((service) => {
       const email = String(service.email ?? "").trim().toLowerCase();
       if (!email) return;
-      const extra = parseTravelServiceExtra(service);
-      const label = String(service.name || String(extra.name ?? "") || email).trim();
+      const label = providerDisplayName(service);
       const current = groups.get(email) ?? { email, label, services: [] };
       current.services.push(service);
       if (!current.label && label) current.label = label;
       groups.set(email, current);
     });
-    return Array.from(groups.values()).map((group) => ({
-      ...group,
-      services: [...group.services].sort((a, b) => {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return Array.from(groups.values())
+      .map((group) => ({
+        ...group,
+        services: [...group.services].sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        }),
+      }))
+      .sort((a, b) => {
+        const aTime = a.services[0]?.createdAt ? new Date(a.services[0].createdAt).getTime() : 0;
+        const bTime = b.services[0]?.createdAt ? new Date(b.services[0].createdAt).getTime() : 0;
         return bTime - aTime;
-      }),
-    }));
+      });
   }, [filteredApprovedOferentes]);
   const paymentCounts = useMemo(() => ({
     monthly: travelServicePayments.filter((item) => item.planType === "featured_monthly").length,
@@ -3889,38 +3910,82 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     rejected: travelServicePayments.filter((item) => item.status === "failed" || item.status === "cancelled").length,
     refunded: travelServicePayments.filter((item) => readRefundSnapshot(item.raw) !== "-").length,
   }), [travelServicePayments]);
-  const paymentSections = useMemo(() => ([
-    {
-      key: "monthly",
-      title: "Planes mensuales",
-      items: travelServicePayments.filter((item) => item.planType === "featured_monthly"),
-    },
-    {
-      key: "featured120",
-      title: "Destacado 120 dias",
-      items: travelServicePayments.filter((item) => item.planType !== "featured_monthly"),
-    },
-    {
-      key: "paid",
-      title: "Aceptados",
-      items: travelServicePayments.filter((item) => item.status === "paid"),
-    },
-    {
-      key: "pending",
-      title: "Pendientes / proceso",
-      items: travelServicePayments.filter((item) => item.status === "pending" || item.status === "processing"),
-    },
-    {
-      key: "rejected",
-      title: "Rechazados / cancelados",
-      items: travelServicePayments.filter((item) => item.status === "failed" || item.status === "cancelled"),
-    },
-    {
-      key: "refunded",
-      title: "Reembolsos",
-      items: travelServicePayments.filter((item) => readRefundSnapshot(item.raw) !== "-"),
-    },
-  ]), [travelServicePayments]);
+  const paymentSections = useMemo(() => {
+    const buildGroups = (items: TravelServicePaymentItem[]) => {
+      const grouped = new Map<string, { email: string; label: string; latestAt: number; items: TravelServicePaymentItem[] }>();
+      items.forEach((item) => {
+        const email = String(item.payerEmail ?? "").trim().toLowerCase();
+        if (!email) return;
+        const relatedService = userOferentes.find((service) => String(service.email ?? "").trim().toLowerCase() === email);
+        const current = grouped.get(email) ?? {
+          email,
+          label: relatedService ? providerDisplayName(relatedService) : (email.split("@")[0] || email),
+          latestAt: 0,
+          items: [],
+        };
+        current.items.push(item);
+        const nextTime = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+        if (nextTime >= current.latestAt) {
+          current.latestAt = nextTime;
+          current.label = relatedService ? providerDisplayName(relatedService) : current.label;
+        }
+        grouped.set(email, current);
+      });
+      return Array.from(grouped.values())
+        .map((group) => ({
+          ...group,
+          items: [...group.items].sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTime - aTime;
+          }),
+        }))
+        .sort((a, b) => b.latestAt - a.latestAt);
+    };
+
+    return [
+      {
+        key: "monthly",
+        title: "Planes mensuales",
+        items: buildGroups(travelServicePayments.filter((item) => item.planType === "featured_monthly")),
+      },
+      {
+        key: "featured120",
+        title: "Destacado 120 dias",
+        items: buildGroups(travelServicePayments.filter((item) => item.planType !== "featured_monthly")),
+      },
+      {
+        key: "paid",
+        title: "Aceptados",
+        items: buildGroups(travelServicePayments.filter((item) => item.status === "paid")),
+      },
+      {
+        key: "pending",
+        title: "Pendientes / proceso",
+        items: buildGroups(travelServicePayments.filter((item) => item.status === "pending" || item.status === "processing")),
+      },
+      {
+        key: "rejected",
+        title: "Rechazados / cancelados",
+        items: buildGroups(travelServicePayments.filter((item) => item.status === "failed" || item.status === "cancelled")),
+      },
+      {
+        key: "refunded",
+        title: "Reembolsos",
+        items: buildGroups(travelServicePayments.filter((item) => readRefundSnapshot(item.raw) !== "-")),
+      },
+    ];
+  }, [travelServicePayments, userOferentes]);
+  const visiblePaymentSections = useMemo(() => {
+    const query = paymentSearch.trim().toLowerCase();
+    if (!query) return paymentSections;
+    return paymentSections.map((section) => ({
+      ...section,
+      items: section.items.filter((group) =>
+        [group.label, group.email].some((value) => String(value ?? "").toLowerCase().includes(query))
+      ),
+    }));
+  }, [paymentSearch, paymentSections]);
 
   const publicationsByProviderEmail = useMemo(() => {
     const map = new Map<string, Publication[]>();
@@ -3974,6 +4039,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const selected = approvedOferentes.find((item) => item.id === serviceId);
     if (!selected) return;
     setPApprovedProviderSearch("");
+    setApprovedProviderPickerOpen(false);
+    setApprovedProviderExpandedEmail(null);
     const extra = parseTravelServiceExtra(selected);
 
     const rawCategories = normalizeStringArray((extra.category as string[] | string | undefined) ?? selected.category);
@@ -4027,7 +4094,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const normalizedReceivingMode = receivingMode === "except" || receivingMode === "only" ? receivingMode : "all";
     const receivingCountries = normalizeStringArray(extra.receivingCountries as string[] | string | undefined);
 
-    setPPublisherName(selected.name || String(extra.name ?? "") || selected.email || "");
+    setPPublisherName(providerDisplayName(selected));
     setPProviderEmail(selected.email || "");
     const selectedPlanRaw = String(extra.requestedPlan ?? extra.publicationPlan ?? selected.publicationPlan ?? "").trim().toLowerCase();
     setPFeatured(["featured", "featured_120d", "monthly", "featured_monthly"].includes(selectedPlanRaw));
@@ -4109,6 +4176,27 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const detailRelatedPayments = detailTravelService && !isDetailDemandante
     ? travelServicePayments.filter((item) => detailRelatedServices.some((service) => service.id === item.serviceId))
     : [];
+  const detailPaymentServices = detailPaymentEmail
+    ? userOferentes
+        .filter((item) => String(item.email ?? "").trim().toLowerCase() === detailPaymentEmail)
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        })
+    : [];
+  const detailPaymentItems = detailPaymentEmail
+    ? travelServicePayments
+        .filter((item) => String(item.payerEmail ?? "").trim().toLowerCase() === detailPaymentEmail)
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        })
+    : [];
+  const detailPaymentLabel = detailPaymentServices[0]
+    ? providerDisplayName(detailPaymentServices[0])
+    : (detailPaymentEmail ? (detailPaymentEmail.split("@")[0] || detailPaymentEmail) : "");
 
   const detailTravelServiceModal = detailTravelService ? (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4" onClick={() => { setDetailTravelService(null); setDetailImageExpanded(null); }}>
@@ -4229,6 +4317,63 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
           </div>
         ) : null}
+      </div>
+    </div>
+  ) : null;
+
+  const detailPaymentModal = detailPaymentEmail ? (
+    <div className="fixed inset-0 z-[310] flex items-center justify-center bg-black/40 p-4" onClick={() => setDetailPaymentEmail(null)}>
+      <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900">{detailPaymentLabel}</h3>
+            <p className="text-sm text-slate-500">{detailPaymentEmail}</p>
+          </div>
+          <button type="button" onClick={() => setDetailPaymentEmail(null)} className="rounded-lg border border-slate-200 px-3 py-1 text-sm">Cerrar</button>
+        </div>
+        <div className="space-y-3">
+          {detailPaymentItems.map((item) => {
+            const linkedService = detailPaymentServices.find((service) => service.id === item.serviceId);
+            const linkedExtra = linkedService ? parseTravelServiceExtra(linkedService) : {};
+            return (
+              <div key={`detail-payment-${item.id}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "Plan mensual" : "Destacado 120 dias"}</span>
+                  <span className="rounded-full bg-white px-2 py-1">{item.paymentType === "monthly" ? "Suscripcion" : "Pago unico"}</span>
+                  <span className="rounded-full bg-white px-2 py-1">{item.currency || "-"} {item.amount ?? "-"}</span>
+                  <span className={`rounded-full px-2 py-1 ${paymentStatusClasses(item.status)}`}>{paymentStatusLabel(item.status)}</span>
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <div><b>Solicitud:</b> {item.serviceId}</div>
+                  <div><b>Fecha:</b> {item.createdAt ? new Date(item.createdAt).toLocaleString("es-AR") : "-"}</div>
+                  <div><b>Referencia:</b> {item.externalReference || "-"}</div>
+                  <div><b>Pago dLocal:</b> {item.providerPaymentId || "-"}</div>
+                  <div><b>Pagado:</b> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
+                  <div><b>Retorno:</b> {item.returnStatus || "-"}</div>
+                  <div><b>Reembolso:</b> {readRefundSnapshot(item.raw)}</div>
+                  <div><b>Tipo de solicitud:</b> {providerRequestKindLabel(linkedExtra.requestKind)}</div>
+                </div>
+                {linkedService ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => { setDetailPaymentEmail(null); setDetailTravelService(linkedService); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">
+                      Ver solicitud completa
+                    </button>
+                    {serviceEffectiveStatus(linkedService) === "pendiente" ? (
+                      <>
+                        <button type="button" onClick={() => updateTravelServiceStatus(linkedService.id, "aprobado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">Aprobado</button>
+                        <button type="button" onClick={() => updateTravelServiceStatus(linkedService.id, "rechazado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">Rechazado</button>
+                        <button type="button" onClick={() => updateTravelServiceStatus(linkedService.id, "falta info")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">Falta info</button>
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+          {!detailPaymentItems.length ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">No hay movimientos para este usuario.</div>
+          ) : null}
+        </div>
       </div>
     </div>
   ) : null;
@@ -4372,6 +4517,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const usersSectionCard = (
     <section className="space-y-6">
       {detailTravelServiceModal}
+      {detailPaymentModal}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DashboardStatCard
           label="Total Oferentes"
@@ -4511,34 +4657,59 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Rechazados:</b> {paymentCounts.rejected}</div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Reembolsos:</b> {paymentCounts.refunded}</div>
         </div>
+        <div className="mt-3">
+          <input
+            value={paymentSearch}
+            onChange={(event) => setPaymentSearch(event.target.value)}
+            className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+            placeholder="Buscar usuario por nombre o email..."
+          />
+        </div>
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          {paymentSections.map((section) => (
+          {visiblePaymentSections.map((section) => (
             <div key={`payment-section-${section.key}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-slate-900">{section.title}</div>
                 <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-700">{section.items.length}</span>
               </div>
               <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                {section.items.length ? section.items.map((item) => (
-                  <div key={`${section.key}-${item.id}`} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-700">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : "120 DIAS"}</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-1">{item.paymentType === "monthly" ? "Suscripcion" : "Pago unico"}</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-1">{item.currency || "-"} {item.amount ?? "-"}</span>
-                      <span className={`rounded-full px-2 py-1 font-semibold ${paymentStatusClasses(item.status)}`}>{paymentStatusLabel(item.status)}</span>
+                {section.items.length ? section.items.map((group) => {
+                  const latest = group.items[0];
+                  const paidCount = group.items.filter((item) => item.status === "paid").length;
+                  const pendingCount = group.items.filter((item) => item.status === "pending" || item.status === "processing").length;
+                  const cancelledCount = group.items.filter((item) => item.status === "failed" || item.status === "cancelled").length;
+                  return (
+                    <div key={`${section.key}-${group.email}`} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-700">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-slate-900">{group.label}</div>
+                          <div className="truncate text-slate-500">{group.email}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDetailPaymentEmail(group.email)}
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+                        >
+                          Detalle
+                        </button>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="rounded-full bg-slate-100 px-2 py-1">Movimientos: {group.items.length}</span>
+                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Aceptados: {paidCount}</span>
+                        <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">Pendientes: {pendingCount}</span>
+                        <span className="rounded-full bg-rose-50 px-2 py-1 text-rose-700">Cancelados/Rechazados: {cancelledCount}</span>
+                      </div>
+                      {latest ? (
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <div><span className="font-semibold text-slate-800">Ultimo plan:</span> {latest.planType === "featured_monthly" ? "Plan mensual" : "Destacado 120 dias"}</div>
+                          <div><span className="font-semibold text-slate-800">Ultimo estado:</span> {paymentStatusLabel(latest.status)}</div>
+                          <div><span className="font-semibold text-slate-800">Ultimo monto:</span> {latest.currency || "-"} {latest.amount ?? "-"}</div>
+                          <div><span className="font-semibold text-slate-800">Ultimo movimiento:</span> {latest.createdAt ? new Date(latest.createdAt).toLocaleString("es-AR") : "-"}</div>
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      <div><span className="font-semibold text-slate-800">Usuario:</span> {item.payerEmail || "-"}</div>
-                      <div><span className="font-semibold text-slate-800">Solicitud:</span> {item.serviceId}</div>
-                      <div><span className="font-semibold text-slate-800">Referencia:</span> {item.externalReference || "-"}</div>
-                      <div><span className="font-semibold text-slate-800">Pago dLocal:</span> {item.providerPaymentId || "-"}</div>
-                      <div><span className="font-semibold text-slate-800">Creado:</span> {item.createdAt ? new Date(item.createdAt).toLocaleString("es-AR") : "-"}</div>
-                      <div><span className="font-semibold text-slate-800">Pagado:</span> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
-                      <div><span className="font-semibold text-slate-800">Retorno:</span> {item.returnStatus || "-"}</div>
-                      <div><span className="font-semibold text-slate-800">Reembolso:</span> {readRefundSnapshot(item.raw)}</div>
-                    </div>
-                  </div>
-                )) : (
+                  );
+                }) : (
                   <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">Sin registros en esta sección.</div>
                 )}
               </div>
@@ -4613,7 +4784,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             value={userSearch}
             onChange={(event) => setUserSearch(event.target.value)}
             className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200 sm:w-72"
-            placeholder="Buscar..."
+            placeholder="Buscar por nombre o email..."
           />
         </div>
 
@@ -4652,7 +4823,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     </div>
                   ) : (
                     <>
-                      <p className="mt-2 text-sm font-semibold text-slate-900">{service.name || String(serviceExtra.name ?? "") || "Sin nombre"}</p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">{providerDisplayName(service)}</p>
                       <p className="mt-1 text-xs text-slate-500">{service.email}</p>
                       <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
                       <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
@@ -5932,35 +6103,81 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           >
             <div className="grid gap-2">
               <label className="text-sm font-medium text-slate-700">Nombre del oferente (aprobado)</label>
-              <input
-                value={pApprovedProviderSearch}
-                onChange={(e) => setPApprovedProviderSearch(e.target.value)}
-                className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                placeholder="Buscar oferente por nombre o email..."
-              />
-              <select
-                value=""
-                onChange={(e) => applyOferenteToPublication(e.target.value)}
-                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-              >
-                <option value="">Seleccionar oferente aprobado</option>
-                {approvedOferentesGrouped.map((group) => (
-                  <optgroup key={`provider-group-${group.email}`} label={`${group.label} (${group.email})`}>
-                    {group.services.map((service) => {
-                      const extra = parseTravelServiceExtra(service);
-                      return (
-                        <option key={service.id} value={service.id}>
-                          {[
-                            providerRequestKindLabel(extra.requestKind),
-                            normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan),
-                            service.createdAt ? new Date(service.createdAt).toLocaleDateString("es-AR") : "",
-                          ].filter(Boolean).join(" | ")}
-                        </option>
-                      );
-                    })}
-                  </optgroup>
-                ))}
-              </select>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setApprovedProviderPickerOpen((prev) => !prev)}
+                  className="flex h-auto min-h-10 w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-3 text-left text-sm outline-none transition hover:bg-slate-50 focus:ring-2 focus:ring-[#00A9C6]/30"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium text-slate-900">
+                      {pProviderEmail ? `${pPublisherName || "Sin nombre"} (${pProviderEmail})` : "Seleccionar oferente aprobado"}
+                    </div>
+                    {pProviderEmail ? (
+                      <div className="truncate text-xs text-slate-500">Elegi una solicitud aprobada para autocompletar la publicacion.</div>
+                    ) : null}
+                  </div>
+                  <span className={`text-slate-400 transition ${approvedProviderPickerOpen ? "rotate-180" : ""}`}>▾</span>
+                </button>
+                {approvedProviderPickerOpen ? (
+                  <div className="absolute left-0 right-0 top-full z-30 mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+                    <input
+                      value={pApprovedProviderSearch}
+                      onChange={(e) => setPApprovedProviderSearch(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                      placeholder="Buscar oferente por nombre o email..."
+                    />
+                    <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+                      {approvedOferentesGrouped.length ? approvedOferentesGrouped.map((group) => (
+                        <div key={`provider-group-${group.email}`} className="rounded-xl border border-slate-200 bg-slate-50">
+                          <button
+                            type="button"
+                            onClick={() => setApprovedProviderExpandedEmail((prev) => prev === group.email ? null : group.email)}
+                            className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-medium text-slate-900">{group.label}</div>
+                              <div className="truncate text-xs text-slate-500">{group.email}</div>
+                            </div>
+                            <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-slate-700">
+                              {group.services.length} solicitud(es)
+                            </span>
+                          </button>
+                          {approvedProviderExpandedEmail === group.email ? (
+                            <div className="space-y-2 border-t border-slate-200 bg-white p-3">
+                              {group.services.map((service) => {
+                                const extra = parseTravelServiceExtra(service);
+                                const identifier = service.name && service.name !== group.label ? service.name : `Solicitud ${service.id.slice(0, 8)}`;
+                                return (
+                                  <button
+                                    key={service.id}
+                                    type="button"
+                                    onClick={() => applyOferenteToPublication(service.id)}
+                                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-left hover:bg-slate-100"
+                                  >
+                                    <div className="font-medium text-slate-900">{identifier}</div>
+                                    <div className="mt-1 text-xs text-slate-600">
+                                      {[
+                                        providerRequestKindLabel(extra.requestKind),
+                                        normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan),
+                                        service.createdAt ? new Date(service.createdAt).toLocaleDateString("es-AR") : "",
+                                      ].filter(Boolean).join(" | ")}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      )) : (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                          No hay oferentes aprobados para mostrar.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
             <div className="grid gap-2 md:grid-cols-2">
               <div className="grid gap-2">
