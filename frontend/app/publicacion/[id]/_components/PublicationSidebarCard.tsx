@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Share2 } from "lucide-react";
@@ -200,7 +200,7 @@ export default function PublicationSidebarCard({
 
           {languages.length ? (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-              <span>{t("oferente_comunica")}</span>
+              <span>Idiomas de atención</span>
               <div className="flex flex-wrap gap-2">
                 {languages.map((lang) => (
                   <span
@@ -255,3 +255,4 @@ export default function PublicationSidebarCard({
     </div>
   );
 }
+

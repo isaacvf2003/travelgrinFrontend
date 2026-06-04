@@ -3,10 +3,11 @@ import NavBar from "@/components/NavBar";
 import SearchDestination from "@/components/SearchDestination";
 import { Viewport } from "next";
 import "./globals.css";
-import Phrase from "@/components/Phrase";
+import PharseWithBackground from "@/components/PharseWithBackground";
 import Footer from "@/components/Footer";
 import dynamic from "next/dynamic";
 import FeaturedPaymentFlash from "@/components/FeaturedPaymentFlash";
+import ActiveDestinationCountriesStrip from "@/components/ActiveDestinationCountriesStrip";
 
 const TravelTypes = dynamic(() => import("@/components/TravelTypes"), {
   loading: () => <section className="mt-10 h-80 w-full animate-pulse rounded-3xl bg-slate-200/70" />,
@@ -61,9 +62,10 @@ export default function Home() {
           <section className="px-4 md:px-0">
             <CardsDemandante />
           </section>
+          <ActiveDestinationCountriesStrip />
           <HomeHowItWorksSection />
           <section className="px-4 md:px-0">
-            <Phrase />
+            <PharseWithBackground onlyOne />
           </section>
         </div>
         <section id="preguntas-frecuentes">

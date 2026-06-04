@@ -23,7 +23,7 @@ function pickImage(p: Publication) {
 
 
 function normalizeTagKey(value: string) {
-  return String(value ?? "")
+  return finalizeVisibleCountryText(String(value ?? ""))
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
@@ -56,11 +56,12 @@ function resolveLinkedPrestaciones(item: Publication, locale: "es" | "en" | "pt"
 }
 
 function normalizeTaxonomyType(value: unknown) {
-  return String(value ?? "")
+  const fallback = String(value ?? "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .trim();
+  return finalizeVisibleCountryText(fallback);
 }
 
 function resolveLanguages(item: Publication) {
@@ -214,6 +215,102 @@ function normalizeCountryKey(country: string) {
     .trim();
 }
 
+function finalizeVisibleCountryText(value: string) {
+  return String(value ?? "")
+    .replace(/PerÃº/g, "Perú")
+    .replace(/MÃ©xico/g, "México")
+    .replace(/EspaÃ±a/g, "España")
+    .replace(/CanadÃ¡/g, "Canadá")
+    .replace(/canadÃ /gi, "canadá")
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã­/g, "í")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã±/g, "ñ")
+    .replace(/ðŸ‡¦ðŸ‡·/g, "🇦🇷")
+    .replace(/ðŸ‡¨ðŸ‡±/g, "🇨🇱")
+    .replace(/ðŸ‡ºðŸ‡¾/g, "🇺🇾")
+    .replace(/ðŸ‡µðŸ‡¾/g, "🇵🇾")
+    .replace(/ðŸ‡§ðŸ‡·/g, "🇧🇷")
+    .replace(/ðŸ‡µðŸ‡ª/g, "🇵🇪")
+    .replace(/ðŸ‡§ðŸ‡´/g, "🇧🇴")
+    .replace(/ðŸ‡¨ðŸ‡´/g, "🇨🇴")
+    .replace(/ðŸ‡²ðŸ‡½/g, "🇲🇽")
+    .replace(/ðŸ‡ªðŸ‡¸/g, "🇪🇸")
+    .replace(/ðŸ‡®ðŸ‡¹/g, "🇮🇹")
+    .replace(/ðŸ‡«ðŸ‡·/g, "🇫🇷")
+    .replace(/ðŸ‡©ðŸ‡ª/g, "🇩🇪")
+    .replace(/ðŸ‡ºðŸ‡¸/g, "🇺🇸")
+    .replace(/ðŸ‡¨ðŸ‡¦/g, "🇨🇦")
+    .replace(/ðŸŒŽ/g, "🌎")
+    .replace(/ðŸ“/g, "📍");
+}
+
+function normalizeVisibleCountryText(value: string) {
+  const normalized = String(value ?? "")
+    .replace(/PerÃ/g, "Perú")
+    .replace(/MÃ/g, "México")
+    .replace(/EspaÃ/g, "España")
+    .replace(/CanadÃ/g, "Canadá")
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã­/g, "í")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã±/g, "ñ")
+    .replace(/ðŸ‡¦ðŸ‡·/g, "🇦🇷")
+    .replace(/ðŸ‡¨ðŸ‡±/g, "🇨🇱")
+    .replace(/ðŸ‡ºðŸ‡¾/g, "🇺🇾")
+    .replace(/ðŸ‡µðŸ‡¾/g, "🇵🇾")
+    .replace(/ðŸ‡§ðŸ‡·/g, "🇧🇷")
+    .replace(/ðŸ‡µðŸ‡ª/g, "🇵🇪")
+    .replace(/ðŸ‡§ðŸ‡´/g, "🇧🇴")
+    .replace(/ðŸ‡¨ðŸ‡´/g, "🇨🇴")
+    .replace(/ðŸ‡²ðŸ‡½/g, "🇲🇽")
+    .replace(/ðŸ‡ªðŸ‡¸/g, "🇪🇸")
+    .replace(/ðŸ‡®ðŸ‡¹/g, "🇮🇹")
+    .replace(/ðŸ‡«ðŸ‡·/g, "🇫🇷")
+    .replace(/ðŸ‡©ðŸ‡ª/g, "🇩🇪")
+    .replace(/ðŸ‡ºðŸ‡¸/g, "🇺🇸")
+    .replace(/ðŸ‡¨ðŸ‡¦/g, "🇨🇦")
+    .replace(/ðŸŒŽ/g, "🌎")
+    .replace(/ðŸ“/g, "📍");
+  if (normalized !== String(value ?? "")) return finalizeVisibleCountryText(normalized);
+  return String(value ?? "")
+    .replace(/PerÃº/g, "Perú")
+    .replace(/MÃ©xico/g, "México")
+    .replace(/EspaÃ±a/g, "España")
+    .replace(/CanadÃ¡/g, "Canadá")
+    .replace(/canadÃ /gi, "canadá")
+    .replace(/ðŸ‡¦ðŸ‡·/g, "🇦🇷")
+    .replace(/ðŸ‡¨ðŸ‡±/g, "🇨🇱")
+    .replace(/ðŸ‡ºðŸ‡¾/g, "🇺🇾")
+    .replace(/ðŸ‡µðŸ‡¾/g, "🇵🇾")
+    .replace(/ðŸ‡§ðŸ‡·/g, "🇧🇷")
+    .replace(/ðŸ‡µðŸ‡ª/g, "🇵🇪")
+    .replace(/ðŸ‡§ðŸ‡´/g, "🇧🇴")
+    .replace(/ðŸ‡¨ðŸ‡´/g, "🇨🇴")
+    .replace(/ðŸ‡²ðŸ‡½/g, "🇲🇽")
+    .replace(/ðŸ‡ªðŸ‡¸/g, "🇪🇸")
+    .replace(/ðŸ‡®ðŸ‡¹/g, "🇮🇹")
+    .replace(/ðŸ‡«ðŸ‡·/g, "🇫🇷")
+    .replace(/ðŸ‡©ðŸ‡ª/g, "🇩🇪")
+    .replace(/ðŸ‡ºðŸ‡¸/g, "🇺🇸")
+    .replace(/ðŸ‡¨ðŸ‡¦/g, "🇨🇦")
+    .replace(/ðŸŒŽ/g, "🌎")
+    .replace(/ðŸ“/g, "📍");
+}
+
+function booleanLike(value: unknown) {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "si", "sí", "yes", "on"].includes(normalized)) return true;
+    if (["false", "0", "no", "off", ""].includes(normalized)) return false;
+  }
+  return Boolean(value);
+}
+
 function flagFromAlpha2Code(alpha2Code: string) {
   const code = alpha2Code.toUpperCase();
   if (!/^[A-Z]{2}$/.test(code)) return "";
@@ -229,7 +326,7 @@ function getCountryFlag(country: string) {
   for (const key of candidates) {
     const fromCode = flagFromAlpha2Code(key);
     if (fromCode) return fromCode;
-    if (COUNTRY_FLAG_MAP[key]) return COUNTRY_FLAG_MAP[key];
+    if (COUNTRY_FLAG_MAP[key]) return normalizeVisibleCountryText(COUNTRY_FLAG_MAP[key]);
   }
   return "🏳️";
 }
@@ -289,9 +386,9 @@ export function PublicationCard({ item }: { item: Publication }) {
   const destinationCountryRaw = (isPrestacion ? prestacionDestinationCountry : "") || item.country?.trim() || item.headquarterCountry?.trim() || "";
   const destinationCountryKey = normalizeCountryKey(destinationCountryRaw);
   const destinationCountry =
-    COUNTRY_LABEL_MAP[destinationCountryKey] ||
-    destinationCountryRaw.replace(/^[A-Za-z]{2}\s+/, "").trim() ||
-    destinationCountryRaw;
+    normalizeVisibleCountryText(COUNTRY_LABEL_MAP[destinationCountryKey] || "") ||
+    normalizeVisibleCountryText(destinationCountryRaw.replace(/^[A-Za-z]{2}\s+/, "").trim()) ||
+    normalizeVisibleCountryText(destinationCountryRaw);
   const destinationFlag = destinationCountry ? getCountryFlag(destinationCountryRaw) : "📍";
   const destinationCode = getCountryCode(destinationCountryRaw);
   const destinationLabel = isPrestacion ? destinationCountry : [destinationCountry, destinationCity].filter(Boolean).join(", ");
@@ -306,7 +403,7 @@ export function PublicationCard({ item }: { item: Publication }) {
   const cardHighlights = useMemo<string[]>(() => {
     const blocks = Array.isArray((item as any)?.fields?.extraDescriptions) ? (item as any).fields.extraDescriptions : [];
     return blocks
-      .filter((block: any) => Boolean(block?.visibleInCard))
+      .filter((block: any) => booleanLike(block?.visibleInCard))
       .map((block: any) => {
         const title = pickI18nText(block?.titleI18n ?? null, locale, String(block?.title ?? "").trim());
         return normalizeTagKey(title) === "lo que incluye" ? t("observaciones_label") : title;

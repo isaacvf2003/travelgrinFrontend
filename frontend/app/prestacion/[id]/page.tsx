@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
@@ -295,7 +295,7 @@ export default async function PrestacionDetalle({ params, searchParams }: PagePr
             ← <TranslatedText id="volver_busqueda" />
           </Link>
         </div>
-        <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-8 text-white md:p-12" style={heroImage ? { backgroundImage: `linear-gradient(rgba(15,23,42,.78), rgba(30,41,59,.72)), url(${heroImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
+        <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-[#0B8FA3] via-[#1479C9] to-[#1A4B8C] p-8 text-white md:p-12" style={heroImage ? { backgroundImage: `linear-gradient(rgba(11,143,163,.82), rgba(20,121,201,.76)), url(${heroImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
           <div className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold">Prestación</div>
           <h1 className="mt-4 text-3xl font-bold md:text-5xl">
             <I18nText value={(fields.prestationHeroTitleI18n as I18nRecord | null) ?? item.titleI18n} fallback={asText(fields.prestationHeroTitle) || item.title} />
@@ -359,3 +359,4 @@ export default async function PrestacionDetalle({ params, searchParams }: PagePr
     </div>
   );
 }
+

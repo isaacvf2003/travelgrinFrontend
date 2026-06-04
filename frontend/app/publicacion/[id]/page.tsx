@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import type { Metadata } from "next";
 import PublicationGallery from "./_components/PublicationGallery";
 
@@ -675,7 +675,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
     return arr.findIndex((it) => `${it.icon}|${it.href}`.toLowerCase() === key) === index;
   }) as ContactEntry[];
 
-  // Intento traer “otras oportunidades”
+  // Intento traer â€œotras oportunidadesâ€
   let others: Publication[] = [];
   try {
     const qs = new URLSearchParams();
@@ -845,7 +845,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
           </section>
 
           {/* RIGHT: Sidebar (mantengo tu lógica pero con look más figma) */}
-          <aside className="min-w-0 space-y-3">
+          <aside className="min-w-0 space-y-3 lg:sticky lg:top-24 lg:self-start">
             <PublicationSidebarCard
               className="hidden lg:block"
               publicationId={String(item.id)}
@@ -911,3 +911,4 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
     </div>
   );
 }
+

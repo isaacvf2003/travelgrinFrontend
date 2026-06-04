@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { translations, type Locale, type TranslationKey } from '../lib/translations'
 
 interface LanguageContextType {
@@ -8,25 +8,62 @@ interface LanguageContextType {
   t: (key: TranslationKey) => string
 }
 
+function normalizeVisibleText(value: string) {
+  let current = String(value ?? '')
+  const replacements: Array<[RegExp, string]> = [
+    [/Ã¡/g, 'á'],
+    [/Ã©/g, 'é'],
+    [/Ã­/g, 'í'],
+    [/Ã³/g, 'ó'],
+    [/Ãº/g, 'ú'],
+    [/Ã±/g, 'ñ'],
+    [/Ã¼/g, 'ü'],
+    [/Â¿/g, '¿'],
+    [/Â¡/g, '¡'],
+    [/publicaciÒ³n/gi, 'publicación'],
+    [/descripciÒ³n/gi, 'descripción'],
+    [/revisiÒ³n/gi, 'revisión'],
+    [/secciÒ³n/gi, 'sección'],
+    [/enviÒ³/gi, 'envió'],
+    [/querÒ©s/gi, 'querés'],
+    [/podÒ©s/gi, 'podés'],
+    [/acÒ¡/gi, 'acá'],
+    [/dÒ­as/gi, 'días'],
+    [/Òºnico/gi, 'único'],
+    [/galerÒ­a/gi, 'galería'],
+    [/imÒ¡genes/gi, 'imágenes'],
+    [/sesiÒ³n/gi, 'sesión'],
+  ]
+
+  for (const [pattern, replacement] of replacements) current = current.replace(pattern, replacement)
+
+  try {
+    const decoded = decodeURIComponent(escape(current))
+    if (decoded && decoded !== current) {
+      current = decoded
+      for (const [pattern, replacement] of replacements) current = current.replace(pattern, replacement)
+    }
+  } catch {}
+
+  return current
+}
+
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('es')
 
-  // Detectar idioma del navegador al inicializar
   useEffect(() => {
     const savedLocale = localStorage.getItem('locale') as Locale
     if (savedLocale && translations[savedLocale]) {
       setLocaleState(savedLocale)
     } else {
-      // Auto-detectar del navegador
       const browserLang = navigator.language.split('-')[0] as Locale
       const supportedLocales = ['es', 'en', 'pt', 'it']
-      
+
       if (supportedLocales.includes(browserLang)) {
         setLocaleState(browserLang)
       } else {
-        // Si el idioma no está soportado, usar español por defecto
         setLocaleState('es')
       }
     }
@@ -35,12 +72,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale)
     localStorage.setItem('locale', newLocale)
-    // Opcional: cambiar URL si quieres URLs con idioma
-    // window.history.pushState({}, '', `/${newLocale}`)
   }
 
   const t = (key: TranslationKey): string => {
-    return translations[locale]?.[key] || translations.es[key]
+    const value = translations[locale]?.[key] || translations.es[key]
+    return normalizeVisibleText(value)
   }
 
   return (
@@ -50,5 +86,4 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   )
 }
 
-// Exportar el contexto por si se necesita usar directamente
-export { LanguageContext };
+export { LanguageContext }

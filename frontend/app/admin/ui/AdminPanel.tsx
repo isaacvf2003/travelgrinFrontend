@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -356,10 +356,100 @@ function parseTravelServiceExtra(service: TravelService): Record<string, unknown
 function providerDisplayName(service: TravelService): string {
   const extra = parseTravelServiceExtra(service);
   const candidate = String(extra.name ?? (extra.providerName as string | undefined) ?? (service as any).providerName ?? "").trim();
-  if (candidate) return candidate;
+  if (candidate) return normalizeVisibleText(candidate);
   const email = String(service.email ?? "").trim();
   if (!email) return "Sin nombre";
   return email.split("@")[0] || email;
+}
+
+function normalizeVisibleText(value: string): string {
+  const raw = String(value ?? "");
+  const directlyNormalized = raw
+    .replace(/ÃƒÆ’Ã‚Â/g, "")
+    .replace(/Ãƒâ€”/g, "×")
+    .replace(/ÃƒÂ¡/g, "\u00e1")
+    .replace(/ÃƒÂ©/g, "\u00e9")
+    .replace(/ÃƒÂ­/g, "\u00ed")
+    .replace(/ÃƒÂ³/g, "\u00f3")
+    .replace(/ÃƒÂº/g, "\u00fa")
+    .replace(/ÃƒÂ±/g, "\u00f1")
+    .replace(/ÃƒÂ¼/g, "\u00fc")
+    .replace(/ÃƒÂ§/g, "\u00e7")
+    .replace(/ÃƒÂ£/g, "\u00e3")
+    .replace(/ÃƒÂµ/g, "\u00f5")
+    .replace(/ÃƒÂ¨/g, "\u00e8")
+    .replace(/Ã¡/g, "\u00e1")
+    .replace(/Ã©/g, "\u00e9")
+    .replace(/Ã­/g, "\u00ed")
+    .replace(/Ã³/g, "\u00f3")
+    .replace(/Ãº/g, "\u00fa")
+    .replace(/Ã±/g, "\u00f1")
+    .replace(/Ã¼/g, "\u00fc")
+    .replace(/Ã‚Â¿/g, "\u00bf")
+    .replace(/Ã‚Â¡/g, "\u00a1")
+    .replace(/Ã‚Â°/g, "\u00b0")
+    .replace(/Â¿/g, "\u00bf")
+    .replace(/Â¡/g, "\u00a1")
+    .replace(/Â°/g, "\u00b0")
+    .replace(/Ã°Å¸Å’Å½/g, "\ud83c\udf0e")
+    .replace(/Ã°Å¸â€œÂ/g, "\ud83d\udccd")
+    .replace(/ðŸ‡¦ðŸ‡·/g, "\ud83c\udde6\ud83c\uddf7")
+    .replace(/ðŸ‡¨ðŸ‡±/g, "\ud83c\udde8\ud83c\uddf1")
+    .replace(/ðŸ‡ºðŸ‡¾/g, "\ud83c\uddfa\ud83c\uddfe")
+    .replace(/ðŸ‡µðŸ‡¾/g, "\ud83c\uddf5\ud83c\uddfe")
+    .replace(/ðŸ‡§ðŸ‡·/g, "\ud83c\udde7\ud83c\uddf7")
+    .replace(/ðŸ‡µðŸ‡ª/g, "\ud83c\uddf5\ud83c\uddea")
+    .replace(/ðŸ‡§ðŸ‡´/g, "\ud83c\udde7\ud83c\uddf4")
+    .replace(/ðŸ‡¨ðŸ‡´/g, "\ud83c\udde8\ud83c\uddf4")
+    .replace(/ðŸ‡²ðŸ‡½/g, "\ud83c\uddf2\ud83c\uddfd")
+    .replace(/ðŸ‡ªðŸ‡¸/g, "\ud83c\uddea\ud83c\uddf8")
+    .replace(/ðŸ‡®ðŸ‡¹/g, "\ud83c\uddee\ud83c\uddf9")
+    .replace(/ðŸ‡«ðŸ‡·/g, "\ud83c\uddeb\ud83c\uddf7")
+    .replace(/ðŸ‡©ðŸ‡ª/g, "\ud83c\udde9\ud83c\uddea")
+    .replace(/ðŸ‡ºðŸ‡¸/g, "\ud83c\uddfa\ud83c\uddf8")
+    .replace(/ðŸ‡¨ðŸ‡¦/g, "\ud83c\udde8\ud83c\udde6")
+    .replace(/ðŸŒŽ/g, "\ud83c\udf0e")
+    .replace(/ðŸ¤\u009d/g, "\ud83e\udd1d")
+    .replace(/ðŸ‘\u0081Ã¯Â¸Â/g, "\ud83d\udc41\ufe0f")
+    .replace(/ðŸ“©/g, "\ud83d\udce9")
+    .replace(/â¤Ã¯Â¸Â/g, "\u2764\ufe0f")
+    .replace(/ðŸ”—/g, "\ud83d\udd17")
+    .replace(/publicaciÒ³n/gi, "publicación")
+    .replace(/secciÒ³n/gi, "sección")
+    .replace(/descripciÒ³n/gi, "descripción")
+    .replace(/revisiÒ³n/gi, "revisión")
+    .replace(/enviÒ³/gi, "envió")
+    .replace(/categorÒ­a/gi, "categoría")
+    .replace(/subcategorÒ­a/gi, "subcategoría")
+    .replace(/tÒ­tulo/gi, "título")
+    .replace(/paÒ­s/gi, "país")
+    .replace(/podÒ©s/gi, "podés")
+    .replace(/querÒ©s/gi, "querés")
+    .replace(/acÒ¡/gi, "acá")
+    .replace(/dÒ­as/gi, "días")
+    .replace(/Òºnico/gi, "único")
+    .replace(/galerÒ­a/gi, "galería")
+    .replace(/imÒ¡genes/gi, "imágenes")
+    .replace(/sesiÒ³n/gi, "sesión")
+    .replace(/Â·/g, "·")
+    .replace(/ðŸ—‘/g, "")
+    .replace(/ðŸ‘/g, "")
+    .replace(/ðŸ“©/g, "")
+    .replace(/â¤ï¸/g, "")
+    .replace(/ðŸ”—/g, "");
+  if (directlyNormalized !== raw && !/[ÃÂâð]/.test(directlyNormalized)) return directlyNormalized;
+  try {
+    const decoded = decodeURIComponent(escape(raw));
+    return decoded && decoded !== raw ? normalizeVisibleText(decoded) : directlyNormalized;
+  } catch {
+    try {
+      const bytes = Uint8Array.from(raw, (char) => char.charCodeAt(0));
+      const decoded = new TextDecoder("utf-8").decode(bytes);
+      return decoded && decoded !== raw ? normalizeVisibleText(decoded) : directlyNormalized;
+    } catch {
+      return directlyNormalized;
+    }
+  }
 }
 
 function serviceEffectiveStatus(service: TravelService): string {
@@ -376,6 +466,15 @@ function isActiveServiceLifecycle(status: unknown) {
   return ["aprobado", "active", "activo"].includes(normalized);
 }
 
+function booleanLike(value: unknown) {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "si", "sí", "yes", "on"].includes(normalized)) return true;
+    if (["false", "0", "no", "off", ""].includes(normalized)) return false;
+  }
+  return Boolean(value);
+}
+
 function isActivePublicationLifecycle(status: unknown) {
   const normalized = normalizeLifecycleStatus(status);
   return ["active", "activo", "published", "publicado"].includes(normalized);
@@ -385,21 +484,21 @@ function receivingModeLabel(mode: unknown): string {
   const normalized = String(mode ?? "").trim().toLowerCase();
   if (normalized === "except") return "Recibe a todos excepto";
   if (normalized === "only") return "Recibe solo lo seleccionado";
-  return "Recibe viajeros de todos los paÃ­ses";
+  return "Recibe viajeros de todos los países";
 }
 
 function normalizeProviderPlanLabel(value: unknown): string {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (normalized === "featured_monthly" || normalized === "monthly") return "Plan mensual";
-  if (normalized === "featured_120d" || normalized === "featured") return "Destacado 120 dias";
-  return "Gratis 60 dias";
+  if (normalized === "featured_120d" || normalized === "featured") return "Destacado 120 días";
+  return "Gratis 60 días";
 }
 
 function linkedPublicationPlanLabel(publication: Publication): string {
   const fields = (publication.fields && typeof publication.fields === "object" ? publication.fields : {}) as Record<string, unknown>;
   const explicitPlan = fields.publicationPlan ?? fields.requestedPlan ?? fields.planType;
   if (String(explicitPlan ?? "").trim()) return normalizeProviderPlanLabel(explicitPlan);
-  return publication.featured ? "Destacado 120 dias" : "Gratis 60 dias";
+  return publication.featured ? "Destacado 120 días" : "Gratis 60 días";
 }
 
 function paymentStatusLabel(value: unknown): string {
@@ -437,8 +536,8 @@ function readRefundSnapshot(raw: unknown): string {
 
 function providerRequestKindLabel(value: unknown): string {
   const normalized = String(value ?? "").trim().toLowerCase();
-  if (normalized === "renew_free") return "Renovacion gratis";
-  if (normalized === "upgrade_featured_120d") return "Upgrade a destacado 120 dias";
+  if (normalized === "renew_free") return "Renovación gratis";
+  if (normalized === "upgrade_featured_120d") return "Upgrade a destacado 120 días";
   if (normalized === "upgrade_featured_monthly") return "Upgrade a plan mensual";
   if (normalized === "downgrade_free") return "Volver a gratis";
   return "Nueva publicacion";
@@ -505,7 +604,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 function firstNonEmpty(...values: Array<string | null | undefined>) {
   for (const value of values) {
-    const cleaned = String(value ?? "").trim();
+    const cleaned = normalizeVisibleText(String(value ?? "").trim());
     if (cleaned) return cleaned;
   }
   return "";
@@ -586,7 +685,7 @@ function DashboardStatCard({ label, total, active, monthly, activeMonthly, tone 
       <div className="mt-3 flex items-center gap-2 border-t border-black/10 pt-2 text-xs">
         <ArrowUpRight className="h-3.5 w-3.5" />
         <span>+{monthly.toLocaleString()} en el mes</span>
-        <span className="opacity-70">Â· activos mes: {activeMonthly.toLocaleString()}</span>
+        <span className="opacity-70">Ã‚Â· activos mes: {activeMonthly.toLocaleString()}</span>
       </div>
     </div>
   );
@@ -709,12 +808,12 @@ function StatsChartCard({ title, labelA, labelB, colorA, colorB = "#c7d2fe", sin
         <div className="flex flex-wrap items-center gap-1 text-xs">
           <div className="rounded-lg bg-slate-100 p-0.5">
             <button className={`rounded-md px-2 py-1 ${mode === "bar" ? "bg-white shadow text-slate-700" : "text-slate-400"}`} onClick={() => setMode("bar")}>Barras</button>
-            <button className={`rounded-md px-2 py-1 ${mode === "line" ? "bg-white shadow text-slate-700" : "text-slate-400"}`} onClick={() => setMode("line")}>LÃ­neas</button>
+            <button className={`rounded-md px-2 py-1 ${mode === "line" ? "bg-white shadow text-slate-700" : "text-slate-400"}`} onClick={() => setMode("line")}>LÃƒÂ­neas</button>
           </div>
           <div className="rounded-lg bg-slate-100 p-0.5">
             {(["days", "weeks", "months", "years"] as ChartPeriod[]).map((value) => (
               <button key={value} className={`rounded-md px-2 py-1 ${period === value ? "bg-white shadow text-indigo-600" : "text-slate-400"}`} onClick={() => setPeriod(value)}>
-                {value === "days" ? "DÃ­as" : value === "weeks" ? "Semanas" : value === "months" ? "Meses" : "AÃ±os"}
+                {value === "days" ? "DÃƒÂ­as" : value === "weeks" ? "Semanas" : value === "months" ? "Meses" : "AÃƒÂ±os"}
               </button>
             ))}
           </div>
@@ -1332,7 +1431,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setOferenteDestinationSaved(true);
       window.setTimeout(() => setOferenteDestinationSaved(false), 3500);
     } catch (error) {
-      setSaveMessage(error instanceof Error ? error.message : "No se pudo aplicar la configuraciÃ³n.");
+      setSaveMessage(error instanceof Error ? error.message : "No se pudo aplicar la configuraciÃƒÂ³n.");
       window.setTimeout(() => setSaveMessage(""), 3500);
     } finally {
       setOferenteDestinationSaving(false);
@@ -1371,10 +1470,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const priceSymbolByCurrency: Record<string, string> = {
     ARS: "$",
     USD: "US$",
-    EUR: "â‚¬",
+    EUR: "Ã¢â€šÂ¬",
     BRL: "R$",
-    JPY: "Â¥",
-    GBP: "Â£",
+    JPY: "Ã‚Â¥",
+    GBP: "Ã‚Â£",
   };
 
   const createEmptyBlockCategoryDraft = (parentDraftId = ""): BlockCategoryDraft => ({
@@ -1433,13 +1532,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     categoryLockRef.current = true;
     const baseDescription = firstNonEmpty(catI18n.es);
     if (!baseDescription) {
-      setCatError("El nombre en EspaÃ±ol es obligatorio.");
+      setCatError("El nombre en EspaÃƒÂ±ol es obligatorio.");
       categoryLockRef.current = false;
       return;
     }
     const selectedBlockId = catBlockId;
     if (!catParentId && !selectedBlockId) {
-      setCatError("TenÃ©s que seleccionar un bloque para la categorÃ­a.");
+      setCatError("TenÃƒÂ©s que seleccionar un bloque para la categorÃƒÂ­a.");
       categoryLockRef.current = false;
       return;
     }
@@ -1581,7 +1680,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             }
           }
         } catch (syncError) {
-          console.warn("CategorÃ­a creada, pero no se pudo sincronizar la opciÃ³n en el bloque.", syncError);
+          console.warn("CategorÃƒÂ­a creada, pero no se pudo sincronizar la opciÃƒÂ³n en el bloque.", syncError);
         }
       }
 
@@ -1601,7 +1700,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setShowCategoryModal(false);
       await refresh();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "No se pudo guardar la categorÃ­a.";
+      const message = error instanceof Error ? error.message : "No se pudo guardar la categorÃƒÂ­a.";
       setCatError(message);
       return;
     } finally {
@@ -1615,7 +1714,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     filterGroupLockRef.current = true;
     const label = firstNonEmpty(blockLabelI18n.es);
     if (!label) {
-      setBlockError("El nombre del bloque en EspaÃ±ol es obligatorio.");
+      setBlockError("El nombre del bloque en EspaÃƒÂ±ol es obligatorio.");
       filterGroupLockRef.current = false;
       return;
     }
@@ -1803,7 +1902,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   async function deleteCategory(id: string) {
-    if (!window.confirm("Â¿Seguro que querÃ©s eliminar esta categorÃ­a?")) return;
+    if (!window.confirm("Ã‚Â¿Seguro que querÃƒÂ©s eliminar esta categorÃƒÂ­a?")) return;
     await api(`/api/admin/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
     await refresh();
   }
@@ -1896,7 +1995,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const order = maxOrder + 1;
 
     if (!key || !label) {
-      setFgError("El nombre en EspaÃ±ol es obligatorio.");
+      setFgError("El nombre en EspaÃƒÂ±ol es obligatorio.");
       filterGroupLockRef.current = false;
       return;
     }
@@ -1938,7 +2037,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       window.alert("El bloque Precio es obligatorio y no se puede eliminar.");
       return;
     }
-    if (!window.confirm("Â¿Seguro que querÃ©s eliminar este bloque?")) return;
+    if (!window.confirm("Ã‚Â¿Seguro que querÃƒÂ©s eliminar este bloque?")) return;
     await api(`/api/admin/filters?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     await refresh();
   }
@@ -1971,7 +2070,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const order = maxOrder + 1;
     const parentId = draft.parentId || null;
     if (!label || !value) {
-      setFilterOptionError((prev) => ({ ...prev, [groupId]: "El label en EspaÃ±ol es obligatorio." }));
+      setFilterOptionError((prev) => ({ ...prev, [groupId]: "El label en EspaÃƒÂ±ol es obligatorio." }));
       filterOptionLockRef.current[groupId] = false;
       return;
     }
@@ -2039,13 +2138,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       pPrestacionResources[0]?.title,
       pPrestacionSteps[0]?.title,
       pPrestacionFaqs[0]?.question,
-      "PrestaciÃ³n"
+      "PrestaciÃƒÂ³n"
     );
     const fallbackPrestacionDescription = firstNonEmpty(
       pPrestacionResources[0]?.subtitle,
       pPrestacionColorBlocks[0]?.text,
       pPrestacionSteps[0]?.subtitle,
-      "Contenido de prestaciÃ³n"
+      "Contenido de prestaciÃƒÂ³n"
     );
     const prestacionHeroTitle = firstNonEmptyI18n(pPrestacionHeroTitleI18n);
     const title = pEditorMode === "prestacion"
@@ -2058,7 +2157,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       ? firstNonEmpty(pDescriptionI18n.es, pDescription, fallbackPrestacionDescription)
       : firstNonEmpty(pDescriptionI18n.es, pDescription);
     if (!title || !description) {
-      setSaveMessage("TÃ­tulo y descripciÃ³n en EspaÃ±ol son obligatorios.");
+      setSaveMessage("TÃƒÂ­tulo y descripciÃƒÂ³n en EspaÃƒÂ±ol son obligatorios.");
       publicationLockRef.current = false;
       return;
     }
@@ -2144,6 +2243,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const normalizedPrestacionCategory = pEditorMode === "prestacion"
       ? firstNonEmpty(pPrestacionCategory)
       : "";
+    const selectedPrestacionRoot = pEditorMode === "prestacion"
+      ? prestacionRoots.find((option) => normalizeComparable(option.description) === normalizeComparable(normalizedPrestacionCategory))
+      : null;
+    const selectedPrestacionCategoryI18n = normalizedPrestacionCategory
+      ? (selectedPrestacionRoot?.descriptionI18n ?? { es: normalizedPrestacionCategory })
+      : null;
     const existingImageAssets = Array.isArray((pFieldsBase as any).imageAssets)
       ? ((pFieldsBase as any).imageAssets as ImageAsset[])
       : [];
@@ -2185,11 +2290,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       category: pEditorMode === "prestacion"
         ? (normalizedPrestacionCategory || null)
         : (pCategorySelections[0] || pCategory || null),
-      categoryI18n: pCategoryI18n || null,
+      categoryI18n: pEditorMode === "prestacion"
+        ? selectedPrestacionCategoryI18n
+        : (pCategoryI18n || null),
       subcategory: pEditorMode === "prestacion"
         ? (normalizedPrestacionCategory || null)
         : (pSubcategorySelections[0] || pSubcategory || null),
-      subcategoryI18n: pSubcategoryI18n || null,
+      subcategoryI18n: pEditorMode === "prestacion"
+        ? selectedPrestacionCategoryI18n
+        : (pSubcategoryI18n || null),
       primaryGroupKey: pEditorMode === "prestacion" ? "prestacion" : "category",
       contentLanguage: pContentLanguage || null,
 
@@ -2280,7 +2389,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               body,
               titleI18n: { ...d.titleI18n, es: firstNonEmpty(d.titleI18n.es, title) },
               bodyI18n: { ...d.bodyI18n, es: firstNonEmpty(d.bodyI18n.es, body) },
-              visibleInCard: Boolean(d.visibleInCard),
+              visibleInCard: booleanLike(d.visibleInCard),
             };
           })
           .filter((d) => d.title || d.body),
@@ -2309,7 +2418,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           body: JSON.stringify(payload),
         });
       }
-      setSaveMessage(editingId ? "Cambios guardados." : "PublicaciÃ³n creada.");
+      setSaveMessage(editingId ? "Cambios guardados." : "Publicación creada.");
       window.setTimeout(() => setSaveMessage(""), 4000);
 
       setPTitle("");
@@ -2390,7 +2499,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     } catch (error: any) {
       const message = String(error?.message ?? "").trim();
-      setSaveMessage(message ? `No se pudo guardar: ${message}` : "No se pudo guardar la publicaciÃ³n.");
+      setSaveMessage(message ? `No se pudo guardar: ${message}` : "No se pudo guardar la publicación.");
     } finally {
       setSavingPublication(false);
       publicationLockRef.current = false;
@@ -2399,8 +2508,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   async function deletePublication(id: string) {
     const publication = publications.find((item) => item.id === id);
-    const label = publication?.primaryGroupKey === "prestacion" ? "prestaciÃ³n" : "publicaciÃ³n";
-    if (!window.confirm(`Â¿Seguro que querÃ©s eliminar esta ${label}? Esta acciÃ³n no se puede deshacer.`)) return;
+    const label = publication?.primaryGroupKey === "prestacion" ? "prestación" : "publicación";
+    if (!window.confirm(`¿Seguro que querés eliminar esta ${label}? Esta acción no se puede deshacer.`)) return;
     await api(`/api/admin/publications?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     await refresh();
   }
@@ -2687,7 +2796,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               titleI18n: titleI18n ?? { es: fallbackTitle },
               bodyI18n: bodyI18n ?? { es: fallbackBody },
               lang: "es" as Lang,
-              visibleInCard: Boolean(d?.visibleInCard),
+              visibleInCard: booleanLike(d?.visibleInCard),
             };
           })
         : []
@@ -2744,7 +2853,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPPartner(false);
     setPTitleI18n((prev) => ({ ...prev, es: `${String(prev.es ?? pub.title ?? "").trim()} (copia)` }));
     setPTitle((prev) => `${String(prev || pub.title || "").trim()} (copia)`);
-    setSaveMessage("Copia cargada. EditÃ¡ los campos necesarios y guardÃ¡ como nueva publicaciÃ³n.");
+      setSaveMessage("Copia cargada. Editá los campos necesarios y guardá como nueva publicación.");
     window.setTimeout(() => setSaveMessage(""), 4500);
   }
 
@@ -3281,7 +3390,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     if (panel === "category") {
       if (!pickerRoots.length) {
-        return <div className="mt-3 text-sm text-slate-500">No hay categorÃ­as disponibles.</div>;
+        return <div className="mt-3 text-sm text-slate-500">No hay categorÃƒÂ­as disponibles.</div>;
       }
       return (
         <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -3355,22 +3464,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
 
     if (!pCategorySelections.length) {
-      return <div className="mt-3 text-sm text-slate-500">Primero seleccionÃ¡ una categorÃ­a.</div>;
+      return <div className="mt-3 text-sm text-slate-500">Primero seleccionÃƒÂ¡ una categorÃƒÂ­a.</div>;
     }
 
     if (!publicationSubcategoryOptions.length) {
-      return <div className="mt-3 text-sm text-slate-500">No hay subcategorÃ­as para la categorÃ­a seleccionada.</div>;
+      return <div className="mt-3 text-sm text-slate-500">No hay subcategorÃƒÂ­as para la categorÃƒÂ­a seleccionada.</div>;
     }
 
     return (
       <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
         <div className="rounded-xl border border-slate-200 bg-white p-2">
           <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-[#00A9C6]">
-            SubcategorÃ­as
+            SubcategorÃƒÂ­as
           </div>
           <div className="px-2 pb-2 text-xs font-medium text-slate-500">
             {publicationSubcategoryPanelMeta
-              ? `${publicationSubcategoryPanelMeta.selectedCount} categorÃ­a(s) seleccionada(s)`
+              ? `${publicationSubcategoryPanelMeta.selectedCount} categorÃƒÂ­a(s) seleccionada(s)`
               : null}
           </div>
           <div className="space-y-1">
@@ -3429,15 +3538,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const HOME_HOW_TAG = "home-how-it-works";
   const isHomeHowPublication = (item?: Publication | null) => String(item?.category ?? "") === HOME_HOW_TAG;
   const homeHowPublication = publications.find((item) => String(item.category ?? "") === HOME_HOW_TAG);
-  const [homeHowTitle, setHomeHowTitle] = useState("CÃ³mo funciona");
-  const [homeHowTitleI18n, setHomeHowTitleI18n] = useState<I18nRecord>({ es: "CÃ³mo funciona" });
+  const [homeHowTitle, setHomeHowTitle] = useState("CÃƒÂ³mo funciona");
+  const [homeHowTitleI18n, setHomeHowTitleI18n] = useState<I18nRecord>({ es: "CÃƒÂ³mo funciona" });
   const [homeHowSteps, setHomeHowSteps] = useState<any[]>([{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
   const [homeHowSaving, setHomeHowSaving] = useState(false);
   const [homeHowSaveMessage, setHomeHowSaveMessage] = useState("");
 
   useEffect(() => {
     const steps = Array.isArray((homeHowPublication as any)?.fields?.prestationSteps) ? (homeHowPublication as any).fields.prestationSteps : [];
-    const title = String((homeHowPublication as any)?.title ?? "CÃ³mo funciona") || "CÃ³mo funciona";
+    const title = String((homeHowPublication as any)?.title ?? "CÃƒÂ³mo funciona") || "CÃƒÂ³mo funciona";
     setHomeHowTitle(title);
     setHomeHowTitleI18n((homeHowPublication as any)?.titleI18n ?? { es: title });
     setHomeHowSteps(steps.length ? steps : [{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
@@ -3481,11 +3590,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         setHomeHowSaving(false);
         return;
       }
-      const resolvedTitle = firstNonEmptyI18n(homeHowTitleI18n, homeHowTitle) || "CÃ³mo funciona";
+      const resolvedTitle = firstNonEmptyI18n(homeHowTitleI18n, homeHowTitle) || "CÃƒÂ³mo funciona";
       const payload = {
         title: resolvedTitle,
         titleI18n: { ...homeHowTitleI18n, es: homeHowTitleI18n.es || resolvedTitle },
-        description: "SecciÃ³n Home: CÃ³mo funciona",
+        description: "SecciÃƒÂ³n Home: CÃƒÂ³mo funciona",
         status: "active",
         featured: false,
         category: HOME_HOW_TAG,
@@ -4015,7 +4124,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const updateTravelServiceStatus = async (id: string, status: "aprobado" | "rechazado" | "falta info" | "pendiente") => {
     const needsReason = status === "rechazado" || status === "falta info";
     const reason = needsReason
-      ? window.prompt(`IngresÃ¡ el motivo para "${status}" (se enviarÃ¡ por email al oferente):`, "") ?? ""
+      ? window.prompt(`IngresÃƒÂ¡ el motivo para "${status}" (se enviarÃƒÂ¡ por email al oferente):`, "") ?? ""
       : "";
     if (needsReason && !reason.trim()) return;
 
@@ -4226,35 +4335,35 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
             <div><b>Email:</b> {detailTravelService.email || "-"}</div>
             <div><b>Estado:</b> {serviceEffectiveStatus(detailTravelService)}</div>
-            <div><b>PaÃ­s de pasaporte:</b> {detailTravelService.country || "-"}</div>
+            <div><b>País de pasaporte:</b> {detailTravelService.country || "-"}</div>
             <div><b>Destino:</b> {detailTravelService.destinationCountry || "-"}</div>
-            <div className="md:col-span-2"><b>CategorÃ­a:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
-            <div className="md:col-span-2"><b>Â¿QuÃ© estÃ¡ buscando?:</b> {String(detailExtra?.whatSearching ?? "") || "-"}</div>
-            <div className="md:col-span-2"><b>Â¿QuÃ© le da dudas o preocupa?:</b> {String(detailExtra?.whatStop ?? "") || "-"}</div>
+            <div className="md:col-span-2"><b>Categoría:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
+            <div className="md:col-span-2"><b>¿Qué está buscando?:</b> {String(detailExtra?.whatSearching ?? "") || "-"}</div>
+            <div className="md:col-span-2"><b>¿Qué le da dudas o preocupa?:</b> {String(detailExtra?.whatStop ?? "") || "-"}</div>
             <div><b>Fecha:</b> {detailTravelService.createdAt ? new Date(detailTravelService.createdAt).toLocaleDateString("es-AR") : "-"}</div>
           </div>
         ) : (
           <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
             <div><b>Nombre:</b> {detailTravelService.name || String(detailExtra?.name ?? "-")}</div>
             <div><b>Email:</b> {detailTravelService.email || "-"}</div>
-            <div><b>TelÃ©fono:</b> {detailTravelService.phone || String(detailExtra?.phone ?? "-")}</div>
+            <div><b>Teléfono:</b> {detailTravelService.phone || String(detailExtra?.phone ?? "-")}</div>
             <div><b>Estado:</b> {serviceEffectiveStatus(detailTravelService)}</div>
             <div><b>Motivo estado:</b> {String(detailExtra?.statusReason ?? "-") || "-"}</div>
             <div><b>Tipo de solicitud:</b> {providerRequestKindLabel(detailExtra?.requestKind)}</div>
             <div><b>Plan solicitado:</b> {normalizeProviderPlanLabel(detailExtra?.requestedPlan ?? detailExtra?.planType)}</div>
             <div><b>Plan anterior:</b> {detailExtra?.previousPlan ? normalizeProviderPlanLabel(detailExtra?.previousPlan) : "-"}</div>
-            <div><b>Origen:</b> {detailExtra?.sourceServiceId ? `solicitud/publicaciÃ³n ${String(detailExtra.sourceServiceId)}` : "-"}</div>
+            <div><b>Origen:</b> {detailExtra?.sourceServiceId ? normalizeVisibleText(`solicitud/publicación ${String(detailExtra.sourceServiceId)}`) : "-"}</div>
             <div><b>Tipo perfil:</b> {normalizeStringArray((detailExtra?.typeProfile as string[] | string | undefined) ?? detailTravelService.typeProfile).join(", ") || "-"}</div>
-            <div><b>CategorÃ­as:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
+            <div><b>Categorías:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
             <div><b>Actividad:</b> {normalizeStringArray((detailExtra?.activity as string[] | string | undefined) ?? detailTravelService.activity).join(", ") || "-"}</div>
             <div><b>Modalidad:</b> {normalizeStringArray((detailExtra?.modality as string[] | string | undefined) ?? detailTravelService.modality).join(", ") || "-"}</div>
             <div><b>Idiomas:</b> {normalizeStringArray((detailExtra?.languages as string[] | string | undefined) ?? detailTravelService.languages).join(", ") || "-"}</div>
             <div><b>Destino:</b> {detailTravelService.destinationCountry || "-"} / {detailTravelService.city || String(detailExtra?.city ?? "-")}</div>
             <div><b>Sede principal:</b> {detailTravelService.headquarterCountry || String(detailExtra?.headquarterCountry ?? "-")}</div>
             <div className="md:col-span-2"><b>Web/red:</b> {detailTravelService.website || "-"}</div>
-            <div className="md:col-span-2"><b>DescripciÃ³n:</b> {detailTravelService.contanos || "-"}</div>
-            <div className="md:col-span-2"><b>Â¿QuÃ© estÃ¡ buscando?:</b> {String(detailExtra?.whatSearching ?? "") || "-"}</div>
-            <div className="md:col-span-2"><b>Â¿QuÃ© lo frena o preocupa?:</b> {String(detailExtra?.whatStop ?? "") || "-"}</div>
+            <div className="md:col-span-2"><b>Descripción:</b> {detailTravelService.contanos || "-"}</div>
+            <div className="md:col-span-2"><b>¿Qué está buscando?:</b> {String(detailExtra?.whatSearching ?? "") || "-"}</div>
+            <div className="md:col-span-2"><b>¿Qué lo frena o preocupa?:</b> {String(detailExtra?.whatStop ?? "") || "-"}</div>
             <div className="md:col-span-2">
               <b>Tipos de viajeros:</b> {receivingModeLabel(detailExtra?.receivingCountriesMode)}
               {normalizeStringArray(detailExtra?.receivingCountries).length
@@ -4262,7 +4371,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 : ""}
             </div>
             <div className="md:col-span-2">
-              <b>ImÃ¡genes cargadas:</b>
+              <b>Imágenes cargadas:</b>
               <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
                 {normalizeStringArray(detailExtra?.images).length ? normalizeStringArray(detailExtra?.images).map((img, idx) => (
                   <button key={`${idx}-${img.slice(0, 20)}`} type="button" onClick={() => setDetailImageExpanded(img)} className="overflow-hidden rounded-lg border border-slate-200">
@@ -4279,12 +4388,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     const metrics = readPublicationAnalytics(publication);
                     return (
                       <div key={`linked-${publication.id}`}>
-                        • [{linkedPublicationPlanLabel(publication)}] {publication.title || "Sin título"} — {publication.publisherName || "Sin oferente"} | 👁 {metrics.views} · 📩 {metrics.leads} · ❤️ {metrics.favorites} · 🔗 {metrics.shares}
+                        [{normalizeVisibleText(linkedPublicationPlanLabel(publication))}] {normalizeVisibleText(publication.title || "Sin título")} — {normalizeVisibleText(publication.publisherName || "Sin oferente")} | Visitas: {metrics.views} · Leads: {metrics.leads} · Favoritos: {metrics.favorites} · Compartidos: {metrics.shares}
                       </div>
                     );
                   })}
                 </div>
-              ) : <div className="mt-2 text-xs text-slate-500">Este oferente todavÃ­a no tiene publicaciones vinculadas.</div>}
+              ) : <div className="mt-2 text-xs text-slate-500">Este oferente todavía no tiene publicaciones vinculadas.</div>}
             </div>
             <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex items-center justify-between gap-3">
@@ -4727,7 +4836,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     </div>
                   );
                 }) : (
-                  <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">Sin registros en esta secciÃ³n.</div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">{normalizeVisibleText("Sin registros en esta sección.")}</div>
                 )}
               </div>
             </div>
@@ -4833,16 +4942,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   {isDemandante ? (
                     <div className="mt-2 space-y-1 text-xs text-slate-600">
                       <p className="text-sm font-semibold text-slate-900">{service.email || "Sin email"}</p>
-                      <p><b>CategorÃ­a:</b> {serviceCategories.join(", ") || "-"}</p>
+                      <p><b>Categoría:</b> {serviceCategories.join(", ") || "-"}</p>
                       <p><b>Pasaporte:</b> {service.country || "-"} <b className="ml-2">Destino:</b> {service.destinationCountry || "-"}</p>
                       <p><b>Busca:</b> {String(serviceExtra.whatSearching ?? "") || "-"}</p>
-                      <p><b>Dudas/preocupaciÃ³n:</b> {String(serviceExtra.whatStop ?? "") || "-"}</p>
+                      <p><b>Dudas/preocupación:</b> {String(serviceExtra.whatStop ?? "") || "-"}</p>
                     </div>
                   ) : (
                     <>
                       <p className="mt-2 text-sm font-semibold text-slate-900">{providerDisplayName(service)}</p>
                       <p className="mt-1 text-xs text-slate-500">{service.email}</p>
-                      <p className="mt-2 text-xs text-slate-600"><b>Este email enviÃ³:</b> {totalSubmissionsByEmail} solicitud(es)</p>
+                      <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
                       <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                         <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-200">
                           Solicitud: {providerRequestKindLabel(serviceExtra.requestKind)}
@@ -4858,24 +4967,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       </div>
                       {serviceExtra.sourceServiceId ? (
                         <p className="mt-2 text-xs text-slate-600">
-                          <b>Origen:</b> solicitud/publicaciÃ³n {String(serviceExtra.sourceServiceId)}
+                          <b>Origen:</b> {normalizeVisibleText(`solicitud/publicación ${String(serviceExtra.sourceServiceId)}`)}
                         </p>
                       ) : null}
                       <div className="mt-2 text-xs text-slate-600">
-                        <b>Tiene {linkedPublications.length} publicaciÃ³n(es)</b>
+                        <b>Tiene {linkedPublications.length} publicación(es)</b>
                         {linkedPublications.length ? (
                           <div className="mt-1 space-y-1">
                             {linkedPublications.slice(0, 3).map((publication) => (
-                              <div key={`${service.id}-${publication.id}`}>• [{linkedPublicationPlanLabel(publication)}] {publication.title || "Sin título"} — {publication.publisherName || "Sin oferente"}</div>
+                              <div key={`${service.id}-${publication.id}`}>
+                                [{normalizeVisibleText(linkedPublicationPlanLabel(publication))}] {normalizeVisibleText(publication.title || "Sin título")} — {normalizeVisibleText(publication.publisherName || "Sin oferente")}
+                              </div>
                             ))}
                           </div>
                         ) : null}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5">ðŸ‘ï¸ {aggregated.views} visitas</span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5">ðŸ“© {aggregated.leads} leads</span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5">â¤ï¸ {aggregated.favorites} favoritos</span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5">ðŸ”— {aggregated.shares} compartidos</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5">Visitas: {aggregated.views}</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5">Leads: {aggregated.leads}</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5">Favoritos: {aggregated.favorites}</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5">Compartidos: {aggregated.shares}</span>
                       </div>
                     </>
                   )}
@@ -4884,12 +4995,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Detalle</button>
                   {serviceStatus === "pendiente" ? (
                     <>
-                      <button type="button" onClick={() => updateTravelServiceStatus(service.id, "aprobado")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">âœ… Aprobado</button>
-                      <button type="button" onClick={() => updateTravelServiceStatus(service.id, "rechazado")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">âŒ Rechazado</button>
-                      <button type="button" onClick={() => updateTravelServiceStatus(service.id, "falta info")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">âš  Falta info</button>
+                      <button type="button" onClick={() => updateTravelServiceStatus(service.id, "aprobado")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Aprobado</button>
+                      <button type="button" onClick={() => updateTravelServiceStatus(service.id, "rechazado")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Rechazado</button>
+                      <button type="button" onClick={() => updateTravelServiceStatus(service.id, "falta info")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Falta info</button>
                     </>
                   ) : null}
-                  <button type="button" onClick={() => deleteTravelService(service.id)} className="rounded-lg border border-rose-200 px-3 py-1.5 text-rose-700 hover:bg-rose-50">ðŸ—‘ Eliminar</button>
+                  <button type="button" onClick={() => deleteTravelService(service.id)} className="rounded-lg border border-rose-200 px-3 py-1.5 text-rose-700 hover:bg-rose-50">Eliminar</button>
                 </div>
               </div>
             </article>
@@ -4905,7 +5016,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     router.push("/admin/publicaciones/nueva");
   };
 
-  const publicationTypeLabel = (item: Publication) => (item.primaryGroupKey === "prestacion" ? "PrestaciÃ³n" : "PublicaciÃ³n");
+  const publicationTypeLabel = (item: Publication) => (item.primaryGroupKey === "prestacion" ? "Prestación" : "Publicación");
   const publicationTypeColors = (item: Publication) =>
     item.primaryGroupKey === "prestacion"
       ? "bg-teal-100 text-teal-700 border-teal-200"
@@ -5006,7 +5117,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <StatsChartCard title="Oferentes: activos vs inactivos" labelA="Activos" labelB="Inactivos" colorA="#6366f1" colorB="#c7d2fe" getData={oferentesData} />
         <StatsChartCard title="Demandantes: activos vs inactivos" labelA="Activos" labelB="Inactivos" colorA="#8b5cf6" colorB="#ddd6fe" getData={demandantesData} />
         <StatsChartCard title="Publicaciones: pagas vs gratis" labelA="Pagas" labelB="Gratis" colorA="#10b981" colorB="#a7f3d0" getData={publicationsData} />
-        <StatsChartCard title="Denuncias por perÃ­odo" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
+        <StatsChartCard title="Denuncias por perÃƒÂ­odo" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -5032,7 +5143,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               Seleccionar los destino disponible para el registro del oferente
             </div>
             <p className="mt-1 text-xs text-slate-500">
-              Solo modifica el campo PaÃ­s destino que aplica tu propuesta en el registro de oferentes.
+              Solo modifica el campo PaÃƒÂ­s destino que aplica tu propuesta en el registro de oferentes.
             </p>
           </div>
           {oferenteDestinationSaved ? (
@@ -5069,7 +5180,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               label="Destinos habilitados"
               selected={oferenteDestinationCountries}
               onChange={setOferenteDestinationCountries}
-              placeholder="SeleccionÃ¡ uno o mÃ¡s paÃ­ses destino"
+              placeholder="SeleccionÃƒÂ¡ uno o mÃƒÂ¡s paÃƒÂ­ses destino"
             />
           </div>
         ) : null}
@@ -5085,10 +5196,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100"><h3 className="text-sm font-semibold text-slate-700">CategorÃ­as</h3></div>
+        <div className="px-5 py-4 border-b border-slate-100"><h3 className="text-sm font-semibold text-slate-700">CategorÃƒÂ­as</h3></div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">CategorÃ­a</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">En PaÃ­s Destino</th></tr></thead>
+            <thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">CategorÃƒÂ­a</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">En PaÃƒÂ­s Destino</th></tr></thead>
             <tbody>
               {categoryDashboardRows.blockRows.map((block) => {
                 const open = expandedPanelBlocks[block.id] ?? false;
@@ -5097,7 +5208,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <tr className="border-t border-slate-100 hover:bg-slate-50">
                       <td className="px-5 py-3 text-slate-700 font-semibold">
                         <button type="button" onClick={() => setExpandedPanelBlocks((prev) => ({ ...prev, [block.id]: !open }))} className="inline-flex items-center gap-2">
-                          <span className="text-[#00A9C6]">{open ? "â–¾" : "â–¸"}</span>
+                          <span className="text-[#00A9C6]">{open ? "Ã¢â€“Â¾" : "Ã¢â€“Â¸"}</span>
                           <span>{block.name}</span>
                         </button>
                       </td>
@@ -5118,7 +5229,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             </tr>
                             {root.children.map((child) => (
                               <tr key={`child-${child.id}`} className="border-t border-slate-50 bg-white">
-                                <td className="px-5 py-2 pl-16 text-slate-500">â†³ {child.name}</td>
+                                <td className="px-5 py-2 pl-16 text-slate-500">Ã¢â€ Â³ {child.name}</td>
                                 <td className="px-3 py-2 text-center text-slate-500">{child.total}</td>
                                 <td className="px-3 py-2 text-center text-violet-600">{child.paid}</td>
                                 <td className="px-3 py-2 text-center text-emerald-600">{child.free}</td>
@@ -5139,29 +5250,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-700">PaÃ­ses Destino (Demandantes)</h3>
-            <input value={destinationCountrySearch} onChange={(event) => setDestinationCountrySearch(event.target.value)} placeholder="Buscar paÃ­s..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
-            <p className="mt-1 text-[11px] text-slate-400">Sin bÃºsqueda: top 10 paÃ­ses con mÃ¡s demandantes.</p>
+            <h3 className="text-sm font-semibold text-slate-700">PaÃƒÂ­ses Destino (Demandantes)</h3>
+            <input value={destinationCountrySearch} onChange={(event) => setDestinationCountrySearch(event.target.value)} placeholder="Buscar paÃƒÂ­s..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
+            <p className="mt-1 text-[11px] text-slate-400">Sin bÃƒÂºsqueda: top 10 paÃƒÂ­ses con mÃƒÂ¡s demandantes.</p>
           </div>
-          <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">PaÃ­s</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Visitas</th></tr></thead><tbody>{visibleDestinationRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.total}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.visits}</td></tr>))}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">PaÃƒÂ­s</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Visitas</th></tr></thead><tbody>{visibleDestinationRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.total}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.visits}</td></tr>))}</tbody></table></div>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-700">PaÃ­ses Origen (Oferentes)</h3>
-            <input value={originCountrySearch} onChange={(event) => setOriginCountrySearch(event.target.value)} placeholder="Buscar paÃ­s..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
-            <p className="mt-1 text-[11px] text-slate-400">Sin bÃºsqueda: top 10 paÃ­ses con mÃ¡s oferentes.</p>
+            <h3 className="text-sm font-semibold text-slate-700">PaÃƒÂ­ses Origen (Oferentes)</h3>
+            <input value={originCountrySearch} onChange={(event) => setOriginCountrySearch(event.target.value)} placeholder="Buscar paÃƒÂ­s..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
+            <p className="mt-1 text-[11px] text-slate-400">Sin bÃƒÂºsqueda: top 10 paÃƒÂ­ses con mÃƒÂ¡s oferentes.</p>
           </div>
-          <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">PaÃ­s</th><th className="text-center px-3 py-3 font-semibold">Pubs.</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Cats.</th><th className="text-center px-3 py-3 font-semibold">Destinos</th></tr></thead><tbody>{visibleOriginRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.publications}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center text-slate-600">{row.categories}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.destinations}</td></tr>))}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">PaÃƒÂ­s</th><th className="text-center px-3 py-3 font-semibold">Pubs.</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Cats.</th><th className="text-center px-3 py-3 font-semibold">Destinos</th></tr></thead><tbody>{visibleOriginRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.publications}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center text-slate-600">{row.categories}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.destinations}</td></tr>))}</tbody></table></div>
         </div>
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-semibold text-slate-700">Visitas por Pasaporte / PaÃ­s de Origen</h3>
-          <input value={passportCountrySearch} onChange={(event) => setPassportCountrySearch(event.target.value)} placeholder="Buscar paÃ­s..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
-          <p className="mt-1 text-[11px] text-slate-400">Sin bÃºsqueda: top 10 paÃ­ses con mÃ¡s pasaportes seleccionados.</p>
+          <h3 className="text-sm font-semibold text-slate-700">Visitas por Pasaporte / PaÃƒÂ­s de Origen</h3>
+          <input value={passportCountrySearch} onChange={(event) => setPassportCountrySearch(event.target.value)} placeholder="Buscar paÃƒÂ­s..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
+          <p className="mt-1 text-[11px] text-slate-400">Sin bÃƒÂºsqueda: top 10 paÃƒÂ­ses con mÃƒÂ¡s pasaportes seleccionados.</p>
         </div>
-        <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">PaÃ­s</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Prom. por DÃ­a</th><th className="text-center px-3 py-3 font-semibold">Prom. por Mes</th><th className="text-center px-3 py-3 font-semibold">Destinos Prom.</th></tr></thead><tbody>{visiblePassportRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-5 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center font-bold text-blue-600">{row.total.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-600">{row.perDay}</td><td className="px-3 py-3 text-center text-slate-600">{row.perMonth.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-500">{row.avgDestinations}</td></tr>))}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">PaÃƒÂ­s</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Prom. por DÃƒÂ­a</th><th className="text-center px-3 py-3 font-semibold">Prom. por Mes</th><th className="text-center px-3 py-3 font-semibold">Destinos Prom.</th></tr></thead><tbody>{visiblePassportRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-5 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center font-bold text-blue-600">{row.total.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-600">{row.perDay}</td><td className="px-3 py-3 text-center text-slate-600">{row.perMonth.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-500">{row.avgDestinations}</td></tr>))}</tbody></table></div>
       </div>
       </>
       ) : null}
@@ -5170,8 +5281,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
       {isConfigSection ? (
         <section className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
-          <h2 className="text-2xl font-semibold text-slate-900">ConfiguraciÃ³n</h2>
-          <p className="mt-2 text-sm text-slate-600">Esta secciÃ³n replica la navegaciÃ³n del panel de control. AquÃ­ podÃ©s seguir centralizando ajustes del admin.</p>
+          <h2 className="text-2xl font-semibold text-slate-900">ConfiguraciÃƒÂ³n</h2>
+          <p className="mt-2 text-sm text-slate-600">Esta secciÃƒÂ³n replica la navegaciÃƒÂ³n del panel de control. AquÃƒÂ­ podÃƒÂ©s seguir centralizando ajustes del admin.</p>
         </section>
       ) : null}
 
@@ -5185,23 +5296,23 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       {isHowWorksSection ? (
         <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
           <h2 className="text-2xl font-semibold text-slate-900">Como funciona</h2>
-          <p className="mt-2 text-sm text-slate-600">ArmÃ¡ aquÃ­ los pasos que se publican en la Home.</p>
+          <p className="mt-2 text-sm text-slate-600">ArmÃƒÂ¡ aquÃƒÂ­ los pasos que se publican en la Home.</p>
           <div className="mt-3">{renderLangTabs(pLang, setEditingLang)}</div>
           <div className="mt-4 space-y-3">
             <input value={getLangEditValue(homeHowTitleI18n, pLang, pLang === "es" ? homeHowTitle : "")} onChange={(e) => {
               const next = e.target.value;
               if (pLang === "es") setHomeHowTitle(next);
               setHomeHowTitleI18n((prev) => setLangText(homeHowTitle, prev, pLang, next));
-            }} className="h-10 w-full rounded-xl border border-slate-200 px-3" placeholder={`TÃ­tulo de la secciÃ³n (${pLang.toUpperCase()})`} />
-            {homeHowSteps.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">No hay pasos. PresionÃ¡ <b>+ Agregar paso</b>.</div> : null}
+            }} className="h-10 w-full rounded-xl border border-slate-200 px-3" placeholder={`TÃƒÂ­tulo de la secciÃƒÂ³n (${pLang.toUpperCase()})`} />
+            {homeHowSteps.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">No hay pasos. PresionÃƒÂ¡ <b>+ Agregar paso</b>.</div> : null}
             {homeHowSteps.map((step, idx) => (
               <div key={`home-step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
                 <div className="flex items-center justify-between"><div className="text-xs font-semibold text-slate-500">Paso {idx + 1}</div><button type="button" className="text-red-500 text-xs" onClick={() => removeHomeHowStep(idx)}>Quitar paso</button></div>
-                <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title ?? "", it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃ­tulo del paso" />
-                <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle ?? "", it.subtitleI18n, pLang, next) } : it))} placeholder="DescripciÃ³n" minHeightClassName="min-h-[80px]" />
+                <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title ?? "", it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃƒÂ­tulo del paso" />
+                <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle ?? "", it.subtitleI18n, pLang, next) } : it))} placeholder="DescripciÃƒÂ³n" minHeightClassName="min-h-[80px]" />
                 <label className="text-xs font-medium text-slate-500">Subir imagen desde tu dispositivo</label>
                 <input type="file" accept={IMAGE_FILE_ACCEPT} onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; void fileToUploadAsset(file).then((asset) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? asset.url : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, asset.url) } : it))).catch(() => null); e.currentTarget.value = ""; }} className="w-full min-w-0 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:font-semibold file:text-[#007D92]" />
-                {getLangEditValue(step.imageI18n, pLang) ? <div className="text-[11px] text-emerald-700">Imagen cargada âœ“</div> : <div className="text-[11px] text-slate-400">AÃºn sin imagen</div>}
+                {getLangEditValue(step.imageI18n, pLang) ? <div className="text-[11px] text-emerald-700">Imagen cargada Ã¢Å“â€œ</div> : <div className="text-[11px] text-slate-400">AÃƒÂºn sin imagen</div>}
                 <button type="button" onClick={() => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: "", imageI18n: setLangText("", it.imageI18n, pLang, "") } : it))} className="h-9 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600">Quitar imagen</button>
               </div>
             ))}
@@ -5214,7 +5325,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
       {isCategoriesSection ? (
       <div className="grid gap-8">
-      {/* CategorÃ­as */}
+      {/* CategorÃƒÂ­as */}
       <section className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -5234,19 +5345,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700 sm:flex-none"
               >
                 <Plus className="h-4 w-4" />
-                Nueva categorÃ­a
+                Nueva categorÃƒÂ­a
               </button>
             </div>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-4 sm:px-5">
-              <h3 className="text-sm font-semibold text-slate-700">Ãrbol de bloques y categorÃ­as</h3>
-              <span className="text-xs text-slate-400">{categoryBlocks.length} bloques Â· {categories.length} categorÃ­as</span>
+              <h3 className="text-sm font-semibold text-slate-700">ÃƒÂrbol de bloques y categorÃƒÂ­as</h3>
+              <span className="text-xs text-slate-400">{categoryBlocks.length} bloques Ã‚Â· {categories.length} categorÃƒÂ­as</span>
             </div>
 
             {!categoryBlocks.length ? (
-              <div className="px-5 py-10 text-center text-sm text-slate-500">No hay bloques todavÃ­a.</div>
+              <div className="px-5 py-10 text-center text-sm text-slate-500">No hay bloques todavÃƒÂ­a.</div>
             ) : (
               <div className="space-y-4 px-2 py-3 sm:px-4 sm:py-4">
                 {categoryBlocks.map((block, blockIndex) => {
@@ -5292,11 +5403,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           </span>
                         </button>
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                          <button type="button" onClick={() => moveFilterGroup(block.id, -1)} disabled={blockIndex === 0} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">â†‘</button>
-                          <button type="button" onClick={() => moveFilterGroup(block.id, 1)} disabled={blockIndex === categoryBlocks.length - 1} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">â†“</button>
+                          <button type="button" onClick={() => moveFilterGroup(block.id, -1)} disabled={blockIndex === 0} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">Ã¢â€ â€˜</button>
+                          <button type="button" onClick={() => moveFilterGroup(block.id, 1)} disabled={blockIndex === categoryBlocks.length - 1} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">Ã¢â€ â€œ</button>
                           <button type="button" onClick={() => openEditBlockModal(block)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Editar</button>
                           <button type="button" onClick={() => deleteFilterGroup(block.id)} disabled={block.key === "price"} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">Eliminar</button>
-                          <button type="button" onClick={() => openCreateCategoryModal("", block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ CategorÃ­a</button>
+                          <button type="button" onClick={() => openCreateCategoryModal("", block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ CategorÃƒÂ­a</button>
                         </div>
                       </div>
 
@@ -5311,7 +5422,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         });
 
                         if (!rootsInBlock.length && !fallbackOptionRoots.length) {
-                          return <div className="px-4 py-4 text-xs text-slate-500">Sin categorÃ­as en este bloque.</div>;
+                          return <div className="px-4 py-4 text-xs text-slate-500">Sin categorÃƒÂ­as en este bloque.</div>;
                         }
 
                         return (
@@ -5354,13 +5465,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                         <p className="text-sm font-semibold text-slate-900">
                                           {pickI18nText(root.descriptionI18n ?? null, catLang, root.description)}
                                           {root.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
-                                        </p>{root.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Esta categorÃ­a es invisible</p> : null}
+                                        </p>{root.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Esta categorÃƒÂ­a es invisible</p> : null}
                                         {getCategoryCustomTaxonomyNotice(root) ? <p className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(root)}</p> : null}
                                       </span>
                                     </button>
                                     <div className="flex flex-wrap items-center justify-end gap-2">
-                                      <button type="button" onClick={() => moveCategory(root.id, -1)} disabled={rootIndex === 0} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">â†‘</button>
-                                      <button type="button" onClick={() => moveCategory(root.id, 1)} disabled={rootIndex === rootsInBlock.length - 1} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">â†“</button>
+                                      <button type="button" onClick={() => moveCategory(root.id, -1)} disabled={rootIndex === 0} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">Ã¢â€ â€˜</button>
+                                      <button type="button" onClick={() => moveCategory(root.id, 1)} disabled={rootIndex === rootsInBlock.length - 1} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">Ã¢â€ â€œ</button>
                                       <button type="button" onClick={() => openCreateCategoryModal(root.id, block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ Sub</button>
                                       <button type="button" onClick={() => openEditCategoryModal(root)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Editar</button>
                                       <button type="button" onClick={() => deleteCategory(root.id)} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50">Eliminar</button>
@@ -5377,12 +5488,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                                 <div className="text-sm font-medium text-slate-800">
                                                   {pickI18nText(child.descriptionI18n ?? null, catLang, child.description)}
                                                   {child.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
-                                                </div>{child.isPublicVisible === false ? <div className="mt-1 text-xs font-medium text-amber-600">Esta categorÃ­a es invisible</div> : null}
+                                                </div>{child.isPublicVisible === false ? <div className="mt-1 text-xs font-medium text-amber-600">Esta categorÃƒÂ­a es invisible</div> : null}
                                                 {getCategoryCustomTaxonomyNotice(child) ? <div className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(child)}</div> : null}
                                               </div>
                                               <div className="flex flex-wrap items-center justify-end gap-2">
-                                                <button type="button" onClick={() => moveCategory(child.id, -1)} disabled={childIndex === 0} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">â†‘</button>
-                                                <button type="button" onClick={() => moveCategory(child.id, 1)} disabled={childIndex === children.length - 1} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">â†“</button>
+                                                <button type="button" onClick={() => moveCategory(child.id, -1)} disabled={childIndex === 0} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">Ã¢â€ â€˜</button>
+                                                <button type="button" onClick={() => moveCategory(child.id, 1)} disabled={childIndex === children.length - 1} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">Ã¢â€ â€œ</button>
                                                 <button type="button" onClick={() => openEditCategoryModal(child)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-white">Editar</button>
                                                 <button type="button" onClick={() => deleteCategory(child.id)} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50">Eliminar</button>
                                               </div>
@@ -5486,7 +5597,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-3 shadow-2xl sm:p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div className="inline-flex rounded-xl bg-slate-100 p-1">
-                  <button type="button" onClick={() => setCategoryModalMode("category")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${categoryModalMode === "category" ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}>CategorÃ­a</button>
+                  <button type="button" onClick={() => setCategoryModalMode("category")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${categoryModalMode === "category" ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}>CategorÃƒÂ­a</button>
                   <button type="button" onClick={() => setCategoryModalMode("block")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${categoryModalMode === "block" ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}>Bloque</button>
                 </div>
                 <button type="button" onClick={() => setShowCategoryModal(false)} className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
@@ -5496,7 +5607,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
               {categoryModalMode === "category" ? (
                 <div className="space-y-4">
-                  <h3 className="text-2xl font-semibold text-slate-900">{editingCategoryId ? "Editar categorÃ­a" : catParentId ? "Nueva subcategorÃ­a" : "Nueva categorÃ­a"}</h3>
+                  <h3 className="text-2xl font-semibold text-slate-900">{editingCategoryId ? "Editar categorÃƒÂ­a" : catParentId ? "Nueva subcategorÃƒÂ­a" : "Nueva categorÃƒÂ­a"}</h3>
                   <div>
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Nombre (multilenguaje)</label>
                     <div className="space-y-2">
@@ -5522,9 +5633,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
                   {showCategoryParentSelector ? (
                     <div>
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">CategorÃ­a padre</label>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">CategorÃƒÂ­a padre</label>
                       <select value={catParentId} onChange={(e) => setCatParentId(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300">
-                        <option value="">(Ninguna â€” categorÃ­a raÃ­z)</option>
+                        <option value="">(Ninguna Ã¢â‚¬â€ categorÃƒÂ­a raÃƒÂ­z)</option>
                         {roots
                           .filter((root) => {
                             if (!catBlockId) return true;
@@ -5552,15 +5663,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
                   <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
                     <input type="checkbox" checked={catIsPublicVisible} onChange={(e) => setCatIsPublicVisible(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
-                    <span>Visible al pÃºblico</span>
+                    <span>Visible al pÃƒÂºblico</span>
                   </label>
                   <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
                     <input type="checkbox" checked={catIsPrimaryCategory} onChange={(e) => setCatIsPrimaryCategory(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
-                    <span>Esta categorÃ­a es principal (buscador de inicio)</span>
+                    <span>Esta categorÃƒÂ­a es principal (buscador de inicio)</span>
                   </label>
                   {catIsPrimaryCategory ? (
                     <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <label className="block text-xs font-semibold uppercase tracking-widest text-slate-500">Ãcono de categorÃ­a principal (opcional)</label>
+                      <label className="block text-xs font-semibold uppercase tracking-widest text-slate-500">ÃƒÂcono de categorÃƒÂ­a principal (opcional)</label>
                       <input
                         value={catIconImageUrl.startsWith("data:image/") ? "" : catIconImageUrl}
                         onChange={(e) => {
@@ -5568,7 +5679,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           setCatIconImageUrl(e.target.value);
                         }}
                         className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                        placeholder="URL de Ã­cono (opcional)"
+                        placeholder="URL de ÃƒÂ­cono (opcional)"
                       />
                       <input
                         type="file"
@@ -5587,7 +5698,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       {catIconImageUrl ? (
                         <div className="flex items-center gap-2">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={catIconImageUrl} alt="Preview Ã­cono de categorÃ­a" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+                          <img src={catIconImageUrl} alt="Preview ÃƒÂ­cono de categorÃƒÂ­a" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
                           <button
                             type="button"
                             onClick={() => {
@@ -5601,7 +5712,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         </div>
                       ) : null}
                       <p className="text-[11px] text-slate-500">
-                        Este Ã­cono se muestra junto al nombre en los buscadores de categorÃ­as principales.
+                        Este ÃƒÂ­cono se muestra junto al nombre en los buscadores de categorÃƒÂ­as principales.
                       </p>
                       <label className="mt-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Imagen de card principal (opcional)</label>
                       <input
@@ -5644,7 +5755,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         </div>
                       ) : null}
                       <p className="text-[11px] text-slate-500">
-                        Esta imagen se usa como fondo en las cards del bloque &quot;CategorÃ­as con propÃ³sito&quot;.
+                        Esta imagen se usa como fondo en las cards del bloque &quot;CategorÃƒÂ­as con propÃƒÂ³sito&quot;.
                       </p>
                     </div>
                   ) : null}
@@ -5660,13 +5771,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           <input
                             value={catPriceMin}
                             onChange={(e) => setCatPriceMin(e.target.value.replace(/[^0-9]/g, ""))}
-                            placeholder="MÃ­nimo"
+                            placeholder="MÃƒÂ­nimo"
                             className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
                           />
                           <input
                             value={catPriceMax}
                             onChange={(e) => setCatPriceMax(e.target.value.replace(/[^0-9]/g, ""))}
-                            placeholder="MÃ¡ximo"
+                            placeholder="MÃƒÂ¡ximo"
                             className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
                           />
                         </div>
@@ -5681,7 +5792,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           </select>
                         </div>
                         <p className="mt-2 text-xs text-slate-500">
-                          Al crear la categorÃ­a, tambiÃ©n se agregarÃ¡ una opciÃ³n de rango de precio y la moneda al bloque &quot;price&quot;.
+                          Al crear la categorÃƒÂ­a, tambiÃƒÂ©n se agregarÃƒÂ¡ una opciÃƒÂ³n de rango de precio y la moneda al bloque &quot;price&quot;.
                         </p>
                       </div>
                     );
@@ -5689,16 +5800,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
                   <div className="flex flex-wrap justify-end gap-2 pt-2">
                     <button type="button" onClick={() => setShowCategoryModal(false)} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
-                    <button type="button" onClick={addCategory} disabled={savingCategory} className="h-10 rounded-xl bg-indigo-500 px-5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60">{savingCategory ? "Guardando..." : editingCategoryId ? "Actualizar categorÃ­a" : "Crear categorÃ­a"}</button>
+                    <button type="button" onClick={addCategory} disabled={savingCategory} className="h-10 rounded-xl bg-indigo-500 px-5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60">{savingCategory ? "Guardando..." : editingCategoryId ? "Actualizar categorÃƒÂ­a" : "Crear categorÃƒÂ­a"}</button>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <h3 className="text-2xl font-semibold text-slate-900">{editingBlockId ? "Editar tÃ­tulo" : "Nuevo tÃ­tulo"}</h3>
+                  <h3 className="text-2xl font-semibold text-slate-900">{editingBlockId ? "Editar tÃƒÂ­tulo" : "Nuevo tÃƒÂ­tulo"}</h3>
                   <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">TÃ­tulo del bloque (multilenguaje)</label>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">TÃƒÂ­tulo del bloque (multilenguaje)</label>
                     {renderLangTabs(blockLang, setBlockLang)}
-                    <input value={blockLabelI18n[blockLang] ?? ""} onChange={(e) => setBlockLabelI18n((prev) => ({ ...prev, [blockLang]: e.target.value }))} className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" placeholder="TÃ­tulo del bloque" />
+                    <input value={blockLabelI18n[blockLang] ?? ""} onChange={(e) => setBlockLabelI18n((prev) => ({ ...prev, [blockLang]: e.target.value }))} className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" placeholder="TÃƒÂ­tulo del bloque" />
                     {blockError ? <p className="mt-2 text-xs text-red-500">{blockError}</p> : null}
                   </div>
                   <div>
@@ -5715,7 +5826,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
                   <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
                     <input type="checkbox" checked={blockIsPublicVisible} onChange={(e) => setBlockIsPublicVisible(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
-                    <span>Visible al pÃºblico</span>
+                    <span>Visible al pÃƒÂºblico</span>
                   </label>
                   <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
                     <input
@@ -5730,10 +5841,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="mb-3 flex items-center justify-between gap-2">
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-widest text-slate-500">CategorÃ­as iniciales del tÃ­tulo</div>
-                          <div className="text-xs text-slate-500">Opcional: creÃ¡ categorÃ­as y subcategorÃ­as al mismo tiempo que el tÃ­tulo.</div>
+                          <div className="text-xs font-semibold uppercase tracking-widest text-slate-500">CategorÃƒÂ­as iniciales del tÃƒÂ­tulo</div>
+                          <div className="text-xs text-slate-500">Opcional: creÃƒÂ¡ categorÃƒÂ­as y subcategorÃƒÂ­as al mismo tiempo que el tÃƒÂ­tulo.</div>
                         </div>
-                        <button type="button" onClick={() => addBlockCategoryDraft("")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">+ Nueva categorÃ­a</button>
+                        <button type="button" onClick={() => addBlockCategoryDraft("")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">+ Nueva categorÃƒÂ­a</button>
                       </div>
                       <div className="space-y-3">
                         {blockRootDrafts.map((draft, draftIndex) => {
@@ -5741,7 +5852,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           return (
                             <div key={draft.id} className="rounded-xl border border-slate-200 bg-white p-3">
                               <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
-                                CategorÃ­a {draftIndex + 1}
+                                CategorÃƒÂ­a {draftIndex + 1}
                               </div>
                               <div className="mb-2">
                                 {renderLangTabs(
@@ -5773,7 +5884,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                     }
                                     className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
                                   />
-                                  Visible al pÃºblico
+                                  Visible al pÃƒÂºblico
                                 </label>
                                 {blockVisibleInCard ? (
                                   <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
@@ -5791,14 +5902,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                               </div>
                               {draft.isPrimaryCategory ? (
                                 <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Ãcono de categorÃ­a principal (opcional)</label>
+                                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">ÃƒÂcono de categorÃƒÂ­a principal (opcional)</label>
                                   <input
                                     value={draft.iconImageUrl}
                                     onChange={(e) =>
                                       updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, iconImageUrl: e.target.value }))
                                     }
                                     className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                                    placeholder="URL del Ã­cono"
+                                    placeholder="URL del ÃƒÂ­cono"
                                   />
                                   <input
                                     type="file"
@@ -5819,7 +5930,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   {draft.iconImageUrl ? (
                                     <div className="flex items-center gap-2">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={draft.iconImageUrl} alt="Preview Ã­cono categorÃ­a principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
+                                      <img src={draft.iconImageUrl} alt="Preview ÃƒÂ­cono categorÃƒÂ­a principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
                                       <button
                                         type="button"
                                         onClick={() => updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, iconImageUrl: "" }))}
@@ -5875,7 +5986,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   onClick={() => addBlockCategoryDraft(draft.id)}
                                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                                 >
-                                  + SubcategorÃ­a
+                                  + SubcategorÃƒÂ­a
                                 </button>
                               </div>
                               <div className="mt-2">
@@ -5901,7 +6012,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   {subDrafts.map((subDraft, subIndex) => (
                                     <div key={subDraft.id} className="rounded-lg border border-slate-200 bg-white p-2">
                                       <div className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-                                        SubcategorÃ­a {draftIndex + 1}.{subIndex + 1}
+                                        SubcategorÃƒÂ­a {draftIndex + 1}.{subIndex + 1}
                                       </div>
                                       <div className="mb-2">
                                         {renderLangTabs(
@@ -5933,7 +6044,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                             }
                                             className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
                                           />
-                                          Visible al pÃºblico
+                                          Visible al pÃƒÂºblico
                                         </label>
                                         {blockVisibleInCard ? (
                                           <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
@@ -5951,14 +6062,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                       </div>
                                       {subDraft.isPrimaryCategory ? (
                                         <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                          <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Ãcono de categorÃ­a principal (opcional)</label>
+                                          <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">ÃƒÂcono de categorÃƒÂ­a principal (opcional)</label>
                                           <input
                                             value={subDraft.iconImageUrl}
                                             onChange={(e) =>
                                               updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, iconImageUrl: e.target.value }))
                                             }
                                             className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                                            placeholder="URL del Ã­cono"
+                                            placeholder="URL del ÃƒÂ­cono"
                                           />
                                           <input
                                             type="file"
@@ -5979,7 +6090,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                           {subDraft.iconImageUrl ? (
                                             <div className="flex items-center gap-2">
                                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                                              <img src={subDraft.iconImageUrl} alt="Preview Ã­cono subcategorÃ­a principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
+                                              <img src={subDraft.iconImageUrl} alt="Preview ÃƒÂ­cono subcategorÃƒÂ­a principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
                                               <button
                                                 type="button"
                                                 onClick={() => updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, iconImageUrl: "" }))}
@@ -6017,7 +6128,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                           {subDraft.cardImageUrl ? (
                                             <div className="space-y-2">
                                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                                              <img src={subDraft.cardImageUrl} alt="Preview imagen card subcategorÃ­a principal" className="h-16 w-full rounded border border-slate-200 object-cover" />
+                                              <img src={subDraft.cardImageUrl} alt="Preview imagen card subcategorÃƒÂ­a principal" className="h-16 w-full rounded border border-slate-200 object-cover" />
                                               <button
                                                 type="button"
                                                 onClick={() => updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, cardImageUrl: "" }))}
@@ -6055,7 +6166,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         })}
                         {!blockCategoryDrafts.length ? (
                           <div className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-xs text-slate-500">
-                            Sin categorÃ­as iniciales. PodÃ©s crearlas luego con <b>+ Nueva categorÃ­a</b>.
+                            Sin categorÃƒÂ­as iniciales. PodÃƒÂ©s crearlas luego con <b>+ Nueva categorÃƒÂ­a</b>.
                           </div>
                         ) : null}
                       </div>
@@ -6082,30 +6193,30 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div>
               <h2 className="text-2xl font-semibold text-slate-900">Publicaciones</h2>
               <p className="mt-2 text-sm text-slate-600">
-                Las publicaciones aparecen en <b>/buscar</b> y se filtran con mÃºltiples selecciones por bloque.
+                Las publicaciones aparecen en <b>/buscar</b> y se filtran con mÃƒÂºltiples selecciones por bloque.
               </p>
             </div>
-            <span className="mt-2 text-sm font-semibold text-[#00A9C6] transition group-open:rotate-180">â–¾</span>
+            <span className="mt-2 text-sm font-semibold text-[#00A9C6] transition group-open:rotate-180">Ã¢â€“Â¾</span>
           </summary>
 
           {(showPublicationEditor || isNewPublicationPage) ? (
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicaciÃ³n" : "Nueva publicaciÃ³n"}</h3>
+              <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
               <button type="button" onClick={() => (isNewPublicationPage ? router.push("/admin?section=publicaciones") : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
             </div>
           <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
           {pEditorMode === "prestacion" ? (
             <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60">
-              <label className="text-sm font-medium text-slate-700">Idioma de ediciÃ³n</label>
+              <label className="text-sm font-medium text-slate-700">Idioma de edición</label>
               {renderLangTabs(pLang, setEditingLang)}
               <p className="text-xs text-slate-500">
-                Cambia el idioma de todos los campos de texto traducibles (tÃ­tulo, descripciones y textos). No modifica nombres propios, URLs ni valores numÃ©ricos.
+                Cambia el idioma de todos los campos de texto traducibles (título, descripciones y textos). No modifica nombres propios, URLs ni valores numéricos.
               </p>
             </div>
           ) : null}
           <div className="flex flex-wrap gap-3 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm shadow-slate-200/60">
-            <button type="button" onClick={() => setPEditorMode("publicacion")} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "publicacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>PublicaciÃ³n</button>
+            <button type="button" onClick={() => setPEditorMode("publicacion")} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "publicacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Publicación</button>
             <button type="button" onClick={() => { setPEditorMode("prestacion"); if (!pPrestacionResources.length) setPPrestacionResources([createEmptyPrestacionResource()]); if (!pPrestacionSteps.length) setPPrestacionSteps([createEmptyPrestacionStep()]); if (!pPrestacionFaqs.length) setPPrestacionFaqs([createEmptyPrestacionFaq()]); if (!pPrestacionColorBlocks.length) setPPrestacionColorBlocks([createEmptyPrestacionColorBlock()]); }} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "prestacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Prestaciones</button>
           </div>
 <div className="contents min-w-0">
@@ -6115,8 +6226,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             id="admin-publicacion-oferente"
             tone="slate"
             icon={<UserRound className="h-5 w-5" />}
-            title="InformaciÃ³n del oferente"
-            description="CompletÃ¡ primero los datos base del perfil que se mostrarÃ¡ junto a la publicaciÃ³n."
+            title="Información del oferente"
+            description="Completá primero los datos base del perfil que se mostrará junto a la publicación."
           >
             <div className="grid gap-2">
               <label className="text-sm font-medium text-slate-700">Nombre del oferente (aprobado)</label>
@@ -6134,7 +6245,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <div className="truncate text-xs text-slate-500">Elegi una solicitud aprobada para autocompletar la publicacion.</div>
                     ) : null}
                   </div>
-                  <span className={`text-slate-400 transition ${approvedProviderPickerOpen ? "rotate-180" : ""}`}>â–¾</span>
+                  <span className={`text-slate-400 transition ${approvedProviderPickerOpen ? "rotate-180" : ""}`}>Ã¢â€“Â¾</span>
                 </button>
                 {approvedProviderPickerOpen ? (
                   <div className="absolute left-0 right-0 top-full z-30 mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
@@ -6203,16 +6314,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   value={pPublisherName}
                   onChange={(e) => setPPublisherName(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Ej: Ana PÃ©rez"
+                  placeholder="Ej: Ana PÃƒÂ©rez"
                 />
               </div>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">DescripciÃ³n del oferente</label>
+              <label className="text-sm font-medium text-slate-700">DescripciÃƒÂ³n del oferente</label>
               <RichTextEditor
                 value={pProviderInfoI18n[pLang] ?? ""}
                 onChange={(next) => setPProviderInfoI18n((prev) => ({ ...prev, [pLang]: next }))}
-                placeholder="Texto visible en el detalle de la publicaciÃ³n..."
+                placeholder="Texto visible en el detalle de la publicación..."
               />
             </div>
 
@@ -6239,7 +6350,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 ) : null}
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Inicio de actividad (aÃ±o)</label>
+                <label className="text-sm font-medium text-slate-700">Inicio de actividad (aÃƒÂ±o)</label>
                 <input
                   value={pProviderStartYear}
                   onChange={(e) => setPProviderStartYear(e.target.value)}
@@ -6248,7 +6359,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">ValoraciÃ³n (0 a 5)</label>
+                <label className="text-sm font-medium text-slate-700">ValoraciÃƒÂ³n (0 a 5)</label>
                 <input
                   value={pProviderRating}
                   onChange={(e) => setPProviderRating(e.target.value)}
@@ -6284,7 +6395,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     setPProviderActivities((prev) =>
                       checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
                     ),
-                  "No hay categorÃ­as con tipo de filtro actividad.",
+                  "No hay categorÃƒÂ­as con tipo de filtro actividad.",
                   "Seleccionar actividades"
                 )}
               </div>
@@ -6298,7 +6409,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     setPProviderTypes((prev) =>
                       checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
                     ),
-                  "No hay categorÃ­as con tipo de filtro tipo.",
+                  "No hay categorÃƒÂ­as con tipo de filtro tipo.",
                   "Seleccionar tipos"
                 )}
               </div>
@@ -6306,7 +6417,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
             <div className="mt-4 rounded-2xl border border-slate-200/80 bg-slate-50/75 p-4">
               <div className="text-sm font-semibold text-slate-900">Modalidad en que ofrece sus servicios</div>
-              <div className="mt-1 text-xs text-slate-500">MarcÃ¡ una o mÃ¡s modalidades (categorÃ­as con tipo de filtro modalidad).</div>
+              <div className="mt-1 text-xs text-slate-500">MarcÃƒÂ¡ una o mÃƒÂ¡s modalidades (categorÃƒÂ­as con tipo de filtro modalidad).</div>
               {renderTaxonomyTypeDropdown(
                 "modalidad",
                 modalidadRoots,
@@ -6315,38 +6426,38 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   setPProviderModalities((prev) =>
                     checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
                   ),
-                "No hay categorÃ­as con tipo de filtro modalidad."
+                "No hay categorÃƒÂ­as con tipo de filtro modalidad."
               )}
             </div>
 
           </AdminEditorSection>
 
           <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm shadow-slate-200/60">
-            <a href="#admin-publicacion-propuesta" className="rounded-full bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100">Propuesta o publicaciÃ³n</a>
-            <a href="#admin-publicacion-ubicacion-precio" className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">UbicaciÃ³n y precio</a>
+            <a href="#admin-publicacion-propuesta" className="rounded-full bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100">Propuesta o publicaciÃƒÂ³n</a>
+            <a href="#admin-publicacion-ubicacion-precio" className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">Ubicación y precio</a>
             <a href="#admin-publicacion-sedes" className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">Sedes y filtro por pasaporte</a>
-            <a href="#admin-publicacion-idiomas-contacto" className="rounded-full bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">Idiomas, expiraciÃ³n y contacto</a>
-            <a href="#admin-publicacion-imagenes" className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">ImÃ¡genes</a>
+            <a href="#admin-publicacion-idiomas-contacto" className="rounded-full bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">Idiomas, expiración y contacto</a>
+            <a href="#admin-publicacion-imagenes" className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">Imágenes</a>
           </div>
 
           <AdminEditorSection
             id="admin-publicacion-propuesta"
             tone="indigo"
             icon={<FileText className="h-5 w-5" />}
-            title="Propuesta o publicaciÃ³n"
-            description="DefinÃ­ el contenido principal, cÃ³mo se clasifica y quÃ© informaciÃ³n verÃ¡ primero la persona usuaria."
+            title="Propuesta o publicación"
+            description="Definí el contenido principal, cómo se clasifica y qué información verá primero la persona usuaria."
           >
           <div className="grid gap-4">
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
-              <div className="text-sm font-semibold text-slate-900">CategorÃ­as y sub-categorÃ­as</div>
-              <div className="mt-1 text-xs text-slate-500">SeleccionÃ¡ categorÃ­a y subcategorÃ­a desde un Ãºnico selector integrado.</div>
+              <div className="text-sm font-semibold text-slate-900">Categorías y subcategorías</div>
+              <div className="mt-1 text-xs text-slate-500">Seleccioná categoría y subcategoría desde un único selector integrado.</div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setOpenPublicationPanel((prev) => (prev === "category" ? null : "category"))}
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  CategorÃ­a + subcategorÃ­a
+                  Categoría + subcategoría
                   {openPublicationPanel === "category" ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </button>
               </div>
@@ -6357,12 +6468,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div className="mt-2 space-y-1 text-sm text-slate-700">
                     {pCategorySelections.length ? (
                       <div>
-                        <span className="font-semibold">CategorÃ­as:</span> {pCategorySelections.join(", ")}
+                        <span className="font-semibold">Categorías:</span> {pCategorySelections.join(", ")}
                       </div>
                     ) : null}
                     {pSubcategorySelections.length ? (
                       <div>
-                        <span className="font-semibold">SubcategorÃ­as:</span> {pSubcategorySelections.join(", ")}
+                        <span className="font-semibold">Subcategorías:</span> {pSubcategorySelections.join(", ")}
                       </div>
                     ) : null}
                   </div>
@@ -6371,8 +6482,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
 
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
-              <div className="text-sm font-semibold text-slate-900">AÃ±adir prestaciones</div>
-              <div className="mt-1 text-xs text-slate-500">SeleccionÃ¡ prestaciones (categorÃ­as con tipo de filtro prestaciÃ³n).</div>
+              <div className="text-sm font-semibold text-slate-900">Añadir prestaciones</div>
+              <div className="mt-1 text-xs text-slate-500">Seleccioná prestaciones (categorías con tipo de filtro prestación).</div>
               {renderTaxonomyTypeDropdown(
                 "prestacion",
                 prestacionRoots,
@@ -6381,7 +6492,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   setPPrestaciones((prev) =>
                     checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
                   ),
-                "No hay categorÃ­as con tipo de filtro prestaciÃ³n."
+                "No hay categorías con tipo de filtro prestación."
               )}
             </div>
 
@@ -6404,7 +6515,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   onChange={(e) => setPPartner(e.target.checked)}
                   className="h-4 w-4 rounded border-slate-300 text-cyan-600"
                 />
-                ðŸ¤ Partner
+                Partner
               </label>
             </div>
 
@@ -6423,7 +6534,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">TÃ­tulo de la publicaciÃ³n</label>
+                <label className="text-sm font-medium text-slate-700">Título de la publicación</label>
                 <input
                   value={pTitleI18n[pLang] ?? ""}
                   onChange={(e) => {
@@ -6432,26 +6543,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     if (pLang === "es") setPTitle(next);
                   }}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Ej: AcompaÃ±amos tu registro..."
+                  placeholder="Ej: Acompañamos tu registro..."
                 />
               </div>
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">DescripciÃ³n</label>
+              <label className="text-sm font-medium text-slate-700">Descripción</label>
               <RichTextEditor
                 value={pDescriptionI18n[pLang] ?? ""}
                 onChange={(next) => {
                   setPDescriptionI18n((prev) => ({ ...prev, [pLang]: next }));
                   if (pLang === "es") setPDescription(next);
                 }}
-                placeholder="Texto de la publicaciÃ³n..."
+                placeholder="Texto de la publicación..."
               />
             </div>
 
             <div className="grid gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-slate-900">DescripciÃ³n opcional</div>
+                <div className="text-sm font-semibold text-slate-900">DescripciÃƒÂ³n opcional</div>
                 <button
                   type="button"
                   onClick={() =>
@@ -6498,7 +6609,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           )
                         }
                         className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                        placeholder="TÃ­tulo del bloque"
+                        placeholder="TÃƒÂ­tulo del bloque"
                       />
                       <RichTextEditor
                         value={desc.bodyI18n[pLang] ?? ""}
@@ -6515,15 +6626,35 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             )
                           )
                         }
-                        placeholder="DescripciÃ³n adicional..."
+                        placeholder="DescripciÃƒÂ³n adicional..."
                         minHeightClassName="min-h-[80px]"
                       />
+                      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={booleanLike(desc.visibleInCard)}
+                          onChange={(e) =>
+                            setPExtraDescriptions((prev) =>
+                              prev.map((d, i) =>
+                                i === idx
+                                  ? {
+                                      ...d,
+                                      visibleInCard: e.target.checked,
+                                    }
+                                  : d
+                              )
+                            )
+                          }
+                          className="h-4 w-4 rounded border-slate-300 text-[#00A9C6] focus:ring-[#00A9C6]"
+                        />
+                        Visible en la tarjeta
+                      </label>
                     </div>
                   ))}
                 </div>
               ) : (
                 <p className="text-xs text-slate-500">
-                  PodÃ©s agregar mÃ¡s bloques de descripciÃ³n con un tÃ­tulo propio.
+                  PodÃƒÂ©s agregar mÃƒÂ¡s bloques de descripciÃƒÂ³n con un tÃƒÂ­tulo propio.
                 </p>
               )}
             </div>
@@ -6534,21 +6665,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             id="admin-publicacion-ubicacion-precio"
             tone="sky"
             icon={<MapPinned className="h-5 w-5" />}
-            title="UbicaciÃ³n y precio"
-            description="AgrupÃ¡ destino, ciudad, mapa y la configuraciÃ³n comercial en un mismo bloque mÃ¡s fÃ¡cil de completar."
+            title="UbicaciÃƒÂ³n y precio"
+            description="AgrupÃƒÂ¡ destino, ciudad, mapa y la configuraciÃƒÂ³n comercial en un mismo bloque mÃƒÂ¡s fÃƒÂ¡cil de completar."
           >
           <div className="grid gap-4">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">PaÃ­s (destino del viaje)</label>
+                <label className="text-sm font-medium text-slate-700">PaÃƒÂ­s (destino del viaje)</label>
                 <CountryMultiSelect
-                  label="Seleccionar paÃ­s destino"
+                  label="Seleccionar paÃƒÂ­s destino"
                   showLabel={false}
                   selectionMode="single"
                   compact
                   selectedSingle={pCountry}
                   onSingleChange={setPCountry}
-                  placeholder="SeleccionÃ¡ un paÃ­s destino."
+                  placeholder="SeleccionÃƒÂ¡ un paÃƒÂ­s destino."
                 />
               </div>
               <div className="grid gap-2">
@@ -6561,7 +6692,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">UbicaciÃ³n de Google Maps (URL)</label>
+                <label className="text-sm font-medium text-slate-700">UbicaciÃƒÂ³n de Google Maps (URL)</label>
                 <input
                   value={pLocationAddress}
                   onChange={(e) => setPLocationAddress(e.target.value)}
@@ -6625,12 +6756,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   onChange={(e) => setPPricePeriod(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
                 >
-                  <option value="">Sin perÃ­odo</option>
+                  <option value="">Sin perÃƒÂ­odo</option>
                   <option value="month">por mes</option>
                   <option value="week">por semana</option>
-                  <option value="day">por dÃ­a</option>
-                  <option value="year">por aÃ±o</option>
-                  <option value="once">Ãºnico</option>
+                  <option value="day">por dÃƒÂ­a</option>
+                  <option value="year">por aÃƒÂ±o</option>
+                  <option value="once">ÃƒÂºnico</option>
                 </select>
               </div>
             </div>
@@ -6686,7 +6817,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     </div>
                   ))
                 ) : (
-                  <div className="text-xs text-slate-500">SumÃ¡ precios adicionales por moneda.</div>
+                  <div className="text-xs text-slate-500">SumÃƒÂ¡ precios adicionales por moneda.</div>
                 )}
               </div>
               <button
@@ -6705,19 +6836,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             tone="emerald"
             icon={<Building2 className="h-5 w-5" />}
             title="Sedes y filtro por pasaporte"
-            description="SeparÃ¡ claramente dÃ³nde opera el oferente y desde quÃ© paÃ­ses puede recibir viajeros."
+            description="SeparÃƒÂ¡ claramente dÃƒÂ³nde opera el oferente y desde quÃƒÂ© paÃƒÂ­ses puede recibir viajeros."
           >
             <div className="grid gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/45 p-4">
               <div className="text-xs font-semibold uppercase text-slate-500">Sede principal del oferente</div>
               <div className="grid gap-2 md:grid-cols-3">
                 <CountryMultiSelect
-                  label="PaÃ­s de la sede"
+                  label="PaÃƒÂ­s de la sede"
                   showLabel={false}
                   selectionMode="single"
                   compact
                   selectedSingle={pHeadquarterCountry}
                   onSingleChange={setPHeadquarterCountry}
-                  placeholder="PaÃ­s de la sede"
+                  placeholder="PaÃƒÂ­s de la sede"
                 />
                 <input
                   value={pHeadquarterCity}
@@ -6749,7 +6880,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   {pHeadquarterExtras.map((loc, idx) => (
                     <div key={`hq-${idx}`} className="grid gap-2 md:grid-cols-3">
                       <CountryMultiSelect
-                        label={`PaÃ­s sede adicional ${idx + 1}`}
+                        label={`PaÃƒÂ­s sede adicional ${idx + 1}`}
                         showLabel={false}
                         selectionMode="single"
                         compact
@@ -6761,7 +6892,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             )
                           )
                         }
-                        placeholder="PaÃ­s de la sede"
+                        placeholder="PaÃƒÂ­s de la sede"
                       />
                       <input
                         value={loc.city}
@@ -6800,7 +6931,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   ))}
                 </div>
               ) : (
-                <div className="text-xs text-slate-500">PodÃ©s sumar mÃ¡s sedes si aplica.</div>
+                <div className="text-xs text-slate-500">PodÃƒÂ©s sumar mÃƒÂ¡s sedes si aplica.</div>
               )}
             </div>
 
@@ -6811,9 +6942,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 onChange={(e) => setPReceivingCountriesMode(e.target.value as "all" | "only" | "except")}
                 className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
               >
-                <option value="all">Recibe viajeros de todos los paÃ­ses</option>
-                <option value="only">Recibe solo los paÃ­ses seleccionados</option>
-                <option value="except">Recibe todos los paÃ­ses excepto los seleccionados</option>
+                <option value="all">Recibe viajeros de todos los paÃƒÂ­ses</option>
+                <option value="only">Recibe solo los paÃƒÂ­ses seleccionados</option>
+                <option value="except">Recibe todos los paÃƒÂ­ses excepto los seleccionados</option>
               </select>
             </div>
 
@@ -6823,12 +6954,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <CountryMultiSelect
                 label={
                   pReceivingCountriesMode === "except"
-                    ? "PaÃ­ses que NO recibe"
-                    : "PaÃ­ses que recibe"
+                    ? "PaÃƒÂ­ses que NO recibe"
+                    : "PaÃƒÂ­ses que recibe"
                 }
                 selected={pReceivingCountries}
                 onChange={setPReceivingCountries}
-                placeholder="SeleccionÃ¡ paÃ­ses para aplicar el filtro."
+                placeholder="SeleccionÃƒÂ¡ paÃƒÂ­ses para aplicar el filtro."
               />
             )}
           </AdminEditorSection>
@@ -6837,8 +6968,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             id="admin-publicacion-idiomas-contacto"
             tone="amber"
             icon={<Languages className="h-5 w-5" />}
-            title="Idiomas, expiraciÃ³n y contacto"
-            description="TerminÃ¡ la configuraciÃ³n pÃºblica y operativa de la publicaciÃ³n sin mezclarla con el material visual."
+            title="Idiomas, expiración y contacto"
+            description="Terminá la configuración pública y operativa de la publicación sin mezclarla con el material visual."
           >
           <div className="grid gap-3 rounded-2xl border border-amber-100 bg-amber-50/45 p-4">
             <label className="text-sm font-medium text-slate-700">Idiomas que se hablan</label>
@@ -6853,13 +6984,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   : current.filter((v) => v !== value);
                 setPLanguages(next.join(", "));
               },
-              "No hay categorÃ­as con tipo de filtro idiomas."
+              "No hay categorías con tipo de filtro idiomas."
             )}
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
             <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
-              <label className="text-sm font-medium text-slate-700">Fecha y hora de expiraciÃ³n</label>
+              <label className="text-sm font-medium text-slate-700">Fecha y hora de expiración</label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
                   type="date"
@@ -6878,7 +7009,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <p className="text-xs text-slate-500">La hora es opcional.</p>
             </div>
             <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
-              <label className="text-sm font-medium text-slate-700">PÃ¡gina web</label>
+              <label className="text-sm font-medium text-slate-700">PÃƒÂ¡gina web</label>
               <input
                 value={pWebsite}
                 onChange={(e) => setPWebsite(e.target.value)}
@@ -6958,10 +7089,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
           </div>
           <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
-            <label className="text-sm font-medium text-slate-700">Idioma de ediciÃ³n</label>
+            <label className="text-sm font-medium text-slate-700">Idioma de ediciÃƒÂ³n</label>
             {renderLangTabs(pLang, setEditingLang)}
             <p className="text-xs text-slate-500">
-              Cambia el idioma de todos los campos traducibles de esta publicaciÃ³n sin tocar URLs, nombres propios ni precios.
+              Cambia el idioma de todos los campos traducibles de esta publicación sin tocar URLs, nombres propios ni precios.
             </p>
           </div>
           </AdminEditorSection>
@@ -6970,11 +7101,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             id="admin-publicacion-imagenes"
             tone="slate"
             icon={<ImageIcon className="h-5 w-5" />}
-            title="ImÃ¡genes"
-            description="CargÃ¡ o pegÃ¡ URLs de las imÃ¡genes en un bloque aparte para que el flujo del formulario sea mÃ¡s limpio."
+            title="ImÃƒÂ¡genes"
+            description="CargÃƒÂ¡ o pegÃƒÂ¡ URLs de las imÃƒÂ¡genes en un bloque aparte para que el flujo del formulario sea mÃƒÂ¡s limpio."
           >
           <div className="grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/65 p-4">
-            <label className="text-sm font-medium text-slate-700">ImÃ¡genes (URLs o subida directa)</label>
+            <label className="text-sm font-medium text-slate-700">ImÃƒÂ¡genes (URLs o subida directa)</label>
             <textarea
               value={pImageUrls}
               onChange={(e) => setPImageUrls(e.target.value)}
@@ -6999,7 +7130,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-xs font-semibold text-slate-600 shadow"
                         aria-label="Quitar imagen"
                       >
-                        Ã—
+                        ×
                       </button>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={img} alt={`preview-${idx}`} className="h-full w-full object-cover" />
@@ -7017,7 +7148,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {pEditorMode === "prestacion" ? (
             <div className="grid gap-5">
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <label className="text-sm font-semibold text-slate-900">Estado de la prestaciÃ³n</label>
+                <label className="text-sm font-semibold text-slate-900">Estado de la prestación</label>
                 <select
                   value={pStatus}
                   onChange={(e) => setPStatus(e.target.value)}
@@ -7030,10 +7161,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-sm font-semibold text-slate-900">PrestaciÃ³n vinculada a la publicaciÃ³n</div>
-                <p className="mt-1 text-xs text-slate-500">ElegÃ­ a quÃ© categorÃ­a con tipo de filtro prestaciÃ³n pertenece esta publicaciÃ³n.</p>
+                <div className="text-sm font-semibold text-slate-900">Prestación vinculada a la publicación</div>
+                <p className="mt-1 text-xs text-slate-500">Elegí a qué categoría con tipo de filtro prestación pertenece esta publicación.</p>
                 <div className="mt-3 grid gap-2">
-                  <label className="text-xs font-medium text-slate-500">Seleccionar prestaciÃ³n</label>
+                  <label className="text-xs font-medium text-slate-500">Seleccionar prestación</label>
                   <select
                     value={pPrestacionCategory}
                     onChange={(e) => {
@@ -7043,24 +7174,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     }}
                     className="h-10 rounded-xl border border-slate-200 px-3"
                   >
-                    <option value="">Seleccionar prestaciÃ³n</option>
+                    <option value="">Seleccionar prestación</option>
                     {prestacionRoots.map((opt) => (
                       <option key={`prestation-category-${opt.id}`} value={opt.description}>{pickI18nText(opt.descriptionI18n ?? null, pLang, opt.description)}</option>
                     ))}
                   </select>
-                  {!prestacionRoots.length ? <div className="text-xs text-slate-500">No hay categorÃ­as con tipo de filtro prestaciÃ³n.</div> : null}
+                  {!prestacionRoots.length ? <div className="text-xs text-slate-500">No hay categorías con tipo de filtro prestación.</div> : null}
                 </div>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-sm font-semibold text-slate-900">Elegir la CategorÃ­as o sub-categorÃ­as vinculada con la publicacion</div>
-                <p className="mt-1 text-xs text-slate-500">SeleccionÃ¡ categorÃ­as y subcategorÃ­as relacionadas. Se muestran todas excepto las de tipo prestaciÃ³n.</p>
+                <div className="text-sm font-semibold text-slate-900">Elegir categorías o subcategorías vinculadas con la publicación</div>
+                <p className="mt-1 text-xs text-slate-500">Seleccioná categorías y subcategorías relacionadas. Se muestran todas excepto las de tipo prestación.</p>
                 <button
                   type="button"
                   onClick={() => setOpenPublicationPanel((prev) => (prev === "category" ? null : "category"))}
                   className="mt-3 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  <span>{pCategorySelections.length || pSubcategorySelections.length ? "Editar categorÃ­as vinculadas" : "Seleccionar categorÃ­as vinculadas"}</span>
+                  <span>{pCategorySelections.length || pSubcategorySelections.length ? "Editar categorías vinculadas" : "Seleccionar categorías vinculadas"}</span>
                   {openPublicationPanel === "category" ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </button>
                 {openPublicationPanel ? <div className="mt-3">{renderCategorySelection(openPublicationPanel)}</div> : null}
@@ -7070,12 +7201,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="mt-2 space-y-1 text-sm text-slate-700">
                       {pCategorySelections.length ? (
                         <div>
-                          <span className="font-semibold">CategorÃ­as:</span> {pCategorySelections.join(", ")}
+                          <span className="font-semibold">Categorías:</span> {pCategorySelections.join(", ")}
                         </div>
                       ) : null}
                       {pSubcategorySelections.length ? (
                         <div>
-                          <span className="font-semibold">SubcategorÃ­as:</span> {pSubcategorySelections.join(", ")}
+                          <span className="font-semibold">Subcategorías:</span> {pSubcategorySelections.join(", ")}
                         </div>
                       ) : null}
                     </div>
@@ -7085,28 +7216,28 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="text-sm font-semibold text-slate-900">Lugar de destino (visibilidad)</div>
-                <p className="mt-1 text-xs text-slate-500">SeleccionÃ¡ uno o mÃ¡s paÃ­ses en los que querÃ©s mostrar esta prestaciÃ³n en /buscar.</p>
+                <p className="mt-1 text-xs text-slate-500">Seleccioná uno o más países en los que querés mostrar esta prestación en /buscar.</p>
                 <div className="mt-3">
                   <CountryMultiSelect
-                    label="PaÃ­ses donde se muestra"
+                    label="Países donde se muestra"
                     selected={pPrestacionDestinationCountries}
                     onChange={setPPrestacionDestinationCountries}
-                    placeholder="SeleccionÃ¡ paÃ­ses destino"
+                    placeholder="Seleccioná países destino"
                   />
                 </div>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-sm font-semibold text-slate-900">Hero de la prestaciÃ³n</div>
-                <p className="mt-1 text-xs text-slate-500">PodÃ©s usar una imagen personalizada para el hero del detalle, con tÃ­tulo y subtÃ­tulo traducibles.</p>
+                <div className="text-sm font-semibold text-slate-900">Hero de la prestaciÃƒÂ³n</div>
+                <p className="mt-1 text-xs text-slate-500">PodÃƒÂ©s usar una imagen personalizada para el hero del detalle, con tÃƒÂ­tulo y subtÃƒÂ­tulo traducibles.</p>
                 <div className="mt-3 grid gap-2">
                   <input value={getLangEditValue(pPrestacionHeroTitleI18n, pLang)} onChange={(e) => {
                     const next = e.target.value;
                     setPPrestacionHeroTitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next));
                     setPTitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next));
                     if (pLang === "es") setPTitle(next);
-                  }} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃ­tulo del hero" />
-                  <RichTextEditor value={getLangEditValue(pPrestacionHeroSubtitleI18n, pLang)} onChange={(next) => setPPrestacionHeroSubtitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next))} placeholder="SubtÃ­tulo del hero" minHeightClassName="min-h-[80px]" />
+                  }} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃƒÂ­tulo del hero" />
+                  <RichTextEditor value={getLangEditValue(pPrestacionHeroSubtitleI18n, pLang)} onChange={(next) => setPPrestacionHeroSubtitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next))} placeholder="SubtÃƒÂ­tulo del hero" minHeightClassName="min-h-[80px]" />
                   <input value={getLangMediaValue(pPrestacionHeroImageI18n, pLang, pPrestacionHeroImage)} onChange={(e) => setPPrestacionHeroImageI18n((prev) => setLangText(prev.es ?? "", prev, pLang, e.target.value))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="URL de imagen del hero (opcional)" />
                   <input type="file" accept={IMAGE_FILE_ACCEPT} onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -7122,8 +7253,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="mt-3 space-y-3">
                   {pPrestacionHeroInfoBlocks.map((block, idx) => (
                     <div key={`hero-info-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Bloque #{idx + 1}</span><button type="button" className="text-red-500" onClick={() => setPPrestacionHeroInfoBlocks((prev) => prev.length <= 1 ? [createEmptyPrestacionHeroInfoBlock()] : prev.filter((_, i) => i !== idx))}>Ã—</button></div>
-                      <input value={getLangEditValue(block.titleI18n, pLang)} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃ­tulo del bloque" />
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Bloque #{idx + 1}</span><button type="button" className="text-red-500" onClick={() => setPPrestacionHeroInfoBlocks((prev) => prev.length <= 1 ? [createEmptyPrestacionHeroInfoBlock()] : prev.filter((_, i) => i !== idx))}>Ãƒâ€”</button></div>
+                      <input value={getLangEditValue(block.titleI18n, pLang)} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃƒÂ­tulo del bloque" />
                       <RichTextEditor value={getLangEditValue(block.textI18n, pLang)} onChange={(next) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, text: pLang === "es" ? next : it.text, textI18n: setLangText(it.text, it.textI18n, pLang, next) } : it))} placeholder="Texto del bloque" minHeightClassName="min-h-[70px]" />
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <input type="color" value={block.bgColor} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, bgColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
@@ -7139,9 +7270,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">1</span>
                   <div>
-                    <div className="text-lg font-semibold text-slate-900">ðŸƒ Tarjetas de Recursos</div>
-                    <p className="text-xs text-slate-500">Tarjetas flexibles con tÃ­tulo, subtÃ­tulo, imagen, Ã­tems check y botones. Cada tarjeta puede tener ademÃ¡s un bloque de texto con color.</p>
-                    <p className="mt-1 text-[11px] text-slate-400">EstÃ¡s editando contenidos en idioma: <span className="font-semibold uppercase">{pLang}</span>. En imÃ¡genes, podÃ©s cargar una por idioma; si no cargÃ¡s una, se usa la de ES.</p>
+                    <div className="text-lg font-semibold text-slate-900">Ã°Å¸Æ’Â Tarjetas de Recursos</div>
+                    <p className="text-xs text-slate-500">Tarjetas flexibles con tÃƒÂ­tulo, subtÃƒÂ­tulo, imagen, ÃƒÂ­tems check y botones. Cada tarjeta puede tener ademÃƒÂ¡s un bloque de texto con color.</p>
+                    <p className="mt-1 text-[11px] text-slate-400">EstÃƒÂ¡s editando contenidos en idioma: <span className="font-semibold uppercase">{pLang}</span>. En imÃƒÂ¡genes, podÃƒÂ©s cargar una por idioma; si no cargÃƒÂ¡s una, se usa la de ES.</p>
                   </div>
                 </div>
                 <div className="mt-4 space-y-3">
@@ -7149,10 +7280,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div key={`resource-${idx}`} className="rounded-xl border border-slate-200 p-3">
                       <div className="mb-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Tarjeta #{idx + 1}
-                        <button type="button" onClick={() => setPPrestacionResources((prev) => prev.length <= 1 ? [createEmptyPrestacionResource()] : prev.filter((_, i) => i !== idx))} className="text-red-500">Ã—</button>
+                        <button type="button" onClick={() => setPPrestacionResources((prev) => prev.length <= 1 ? [createEmptyPrestacionResource()] : prev.filter((_, i) => i !== idx))} className="text-red-500">Ãƒâ€”</button>
                       </div>
                       <div className="grid gap-2 md:grid-cols-2">
-                        <div className="grid gap-1"><label className="text-xs font-medium text-slate-500">TÃ­tulo</label><input value={getLangEditValue(card.titleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Lima Immigration" /></div>
+                        <div className="grid gap-1"><label className="text-xs font-medium text-slate-500">TÃƒÂ­tulo</label><input value={getLangEditValue(card.titleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Lima Immigration" /></div>
                         {card.title || card.subtitle || card.image || (card.checkItemsI18n ?? []).length || (card.buttons ?? []).length || card.colorNoteTitle || card.colorNoteText ? (
                           <div className="rounded-xl border border-slate-200 bg-white p-3">
                             {card.image ? <img src={card.image} alt="preview" className="h-28 w-full rounded-lg object-cover" /> : null}
@@ -7160,7 +7291,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             {getLangEditValue(card.subtitleI18n, pLang) ? <div className="mt-1 text-xs text-slate-600">{getLangEditValue(card.subtitleI18n, pLang)}</div> : null}
                             {(card.checkItemsI18n ?? []).length ? (
                               <ul className="mt-2 space-y-1 text-xs text-slate-700">
-                                {(card.checkItemsI18n ?? []).slice(0, 3).map((itemI18n, i) => <li key={`prev-check-${idx}-${i}`} className="text-emerald-600">âœ“ {getLangEditValue(itemI18n, pLang)}</li>)}
+                                {(card.checkItemsI18n ?? []).slice(0, 3).map((itemI18n, i) => <li key={`prev-check-${idx}-${i}`} className="text-emerald-600">Ã¢Å“â€œ {getLangEditValue(itemI18n, pLang)}</li>)}
                               </ul>
                             ) : null}
                             {(card.colorNoteTitle || card.colorNoteText) ? (
@@ -7171,11 +7302,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             ) : null}
                           </div>
                         ) : (
-                          <div className="rounded-xl border-2 border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-400">CompletÃ¡ los campos para ver la previa</div>
+                          <div className="rounded-xl border-2 border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-400">CompletÃƒÂ¡ los campos para ver la previa</div>
                         )}
                       </div>
                       <div className="mt-2 grid gap-2">
-                        <label className="text-xs font-medium text-slate-500">SubtÃ­tulo</label><input value={getLangEditValue(card.subtitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? e.target.value : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Tu guÃ­a de visa personalizada" />
+                        <label className="text-xs font-medium text-slate-500">SubtÃƒÂ­tulo</label><input value={getLangEditValue(card.subtitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? e.target.value : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Tu guÃƒÂ­a de visa personalizada" />
                         <label className="text-xs font-medium text-slate-500">Imagen (URL)</label><input value={getLangMediaValue(card.imageI18n, pLang, card.image)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? e.target.value : it.image, imageI18n: setLangText(it.image, it.imageI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="https://..." />
                         <input
                           type="file"
@@ -7206,9 +7337,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         </button>
                       </div>
                       <div className="mt-3">
-                        <label className="text-xs font-medium text-slate-500">Ãtems con check</label>
+                        <label className="text-xs font-medium text-slate-500">ÃƒÂtems con check</label>
                         <div className="mt-1 flex gap-2">
-                          <input value={resourceItemDrafts[idx] ?? ""} onChange={(e) => setResourceItemDrafts((prev) => ({ ...prev, [idx]: e.target.value }))} className="h-9 flex-1 rounded-xl border border-slate-200 px-3 text-sm" placeholder="Agregar Ã­tem..." />
+                          <input value={resourceItemDrafts[idx] ?? ""} onChange={(e) => setResourceItemDrafts((prev) => ({ ...prev, [idx]: e.target.value }))} className="h-9 flex-1 rounded-xl border border-slate-200 px-3 text-sm" placeholder="Agregar ÃƒÂ­tem..." />
                           <button type="button" onClick={() => {
                             const value = (resourceItemDrafts[idx] ?? "").trim();
                             if (!value) return;
@@ -7235,15 +7366,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   )
                                 }
                                 className="h-9 rounded-xl border border-slate-200 px-3 text-sm"
-                                placeholder={`Ãtem con check (${pLang.toUpperCase()})`}
+                                placeholder={`ÃƒÂtem con check (${pLang.toUpperCase()})`}
                               />
-                              <button type="button" className="h-9 w-9 rounded-lg border border-slate-200 text-red-500" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, checkItems: (it.checkItems ?? []).filter((_, j) => j !== itemIdx), checkItemsI18n: (it.checkItemsI18n ?? []).filter((_, j) => j !== itemIdx) } : it))}>Ã—</button>
+                              <button type="button" className="h-9 w-9 rounded-lg border border-slate-200 text-red-500" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, checkItems: (it.checkItems ?? []).filter((_, j) => j !== itemIdx), checkItemsI18n: (it.checkItemsI18n ?? []).filter((_, j) => j !== itemIdx) } : it))}>Ãƒâ€”</button>
                             </div>
                           ))}
                         </div>
                       </div>
                       <div className="mt-3 text-xs font-medium text-slate-500">Botones ({(card.buttons ?? []).length}/2)</div><div className="mt-2 grid gap-2 md:grid-cols-[1fr_140px]">
-                        <input value={getLangEditValue(resourceButtonDrafts[idx]?.labelI18n, pLang)} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: pLang === "es" ? e.target.value : prev[idx]?.label ?? "", labelI18n: setLangText(prev[idx]?.label ?? "", prev[idx]?.labelI18n, pLang, e.target.value), url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder={`Texto del botÃ³n (${pLang.toUpperCase()})`} />
+                        <input value={getLangEditValue(resourceButtonDrafts[idx]?.labelI18n, pLang)} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: pLang === "es" ? e.target.value : prev[idx]?.label ?? "", labelI18n: setLangText(prev[idx]?.label ?? "", prev[idx]?.labelI18n, pLang, e.target.value), url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder={`Texto del botÃƒÂ³n (${pLang.toUpperCase()})`} />
                         <select value={(resourceButtonDrafts[idx]?.style ?? "primary")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: e.target.value === "secondary" ? "secondary" : "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm">
                           <option value="primary">Primario</option>
                           <option value="secondary">Secundario</option>
@@ -7259,13 +7390,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         }} className="h-9 rounded-lg border border-slate-200 text-sm">+</button>
                       </div>
                       <div className="mt-2 grid gap-2 md:grid-cols-2">
-                        <div className="grid gap-1"><label className="text-[11px] text-slate-500">Color botÃ³n</label><input type="color" value={(resourceButtonDrafts[idx]?.bgColor ?? "#2563EB")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: e.target.value, textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 w-12 rounded border border-slate-200" /></div>
+                        <div className="grid gap-1"><label className="text-[11px] text-slate-500">Color botÃƒÂ³n</label><input type="color" value={(resourceButtonDrafts[idx]?.bgColor ?? "#2563EB")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: e.target.value, textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 w-12 rounded border border-slate-200" /></div>
                         <div className="grid gap-1"><label className="text-[11px] text-slate-500">Color texto</label><input type="color" value={(resourceButtonDrafts[idx]?.textColor ?? "#FFFFFF")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: e.target.value } }))} className="h-9 w-12 rounded border border-slate-200" /></div>
                       </div>
                       {(card.buttons ?? []).length ? (
                         <div className="mt-2 flex flex-wrap gap-2">
                           {card.buttons.map((btn, btnIdx) => (
-                            <span key={`${getLangEditValue(btn.labelI18n, pLang)}-${btnIdx}`} className="rounded-lg px-2 py-1 text-xs shadow-sm" style={{ backgroundColor: btn.bgColor || (btn.style === "secondary" ? "#FFFFFF" : "#2563EB"), color: btn.textColor || (btn.style === "secondary" ? "#1D4ED8" : "#FFFFFF"), border: btn.style === "secondary" ? "1px solid #C7D2FE" : "1px solid transparent" }}>{getLangEditValue(btn.labelI18n, pLang)}<button type="button" className="ml-2" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, buttons: (it.buttons ?? []).filter((_, j) => j !== btnIdx) } : it))}>Ã—</button></span>
+                            <span key={`${getLangEditValue(btn.labelI18n, pLang)}-${btnIdx}`} className="rounded-lg px-2 py-1 text-xs shadow-sm" style={{ backgroundColor: btn.bgColor || (btn.style === "secondary" ? "#FFFFFF" : "#2563EB"), color: btn.textColor || (btn.style === "secondary" ? "#1D4ED8" : "#FFFFFF"), border: btn.style === "secondary" ? "1px solid #C7D2FE" : "1px solid transparent" }}>{getLangEditValue(btn.labelI18n, pLang)}<button type="button" className="ml-2" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, buttons: (it.buttons ?? []).filter((_, j) => j !== btnIdx) } : it))}>Ãƒâ€”</button></span>
                           ))}
                         </div>
                       ) : null}
@@ -7295,14 +7426,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                 )
                               }
                               className="h-9 rounded-xl border border-slate-200 px-3 text-sm"
-                              placeholder={`Texto del botÃ³n #${btnIdx + 1} (${pLang.toUpperCase()})`}
+                              placeholder={`Texto del botÃƒÂ³n #${btnIdx + 1} (${pLang.toUpperCase()})`}
                             />
                           ))}
                         </div>
                       ) : null}
                       {(card.colorNoteTitle || card.colorNoteText) ? (
                         <div className="mt-3 grid gap-2">
-                          <input value={getLangEditValue(card.colorNoteTitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: pLang === "es" ? e.target.value : it.colorNoteTitle, colorNoteTitleI18n: setLangText(it.colorNoteTitle ?? "", it.colorNoteTitleI18n, pLang, e.target.value) } : it))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder="TÃ­tulo del bloque de color" />
+                          <input value={getLangEditValue(card.colorNoteTitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: pLang === "es" ? e.target.value : it.colorNoteTitle, colorNoteTitleI18n: setLangText(it.colorNoteTitle ?? "", it.colorNoteTitleI18n, pLang, e.target.value) } : it))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder="TÃƒÂ­tulo del bloque de color" />
                           <RichTextEditor value={getLangEditValue(card.colorNoteTextI18n, pLang)} onChange={(next) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteText: pLang === "es" ? next : it.colorNoteText, colorNoteTextI18n: setLangText(it.colorNoteText ?? "", it.colorNoteTextI18n, pLang, next) } : it))} placeholder="Texto del bloque de color" minHeightClassName="min-h-[70px]" />
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                             <input type="color" value={card.colorNoteBgColor ?? "#EEF2FF"} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteBgColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
@@ -7310,7 +7441,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           </div>
                         </div>
                       ) : null}
-                      <button type="button" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: it.colorNoteTitle || "TÃ­tulo", colorNoteText: it.colorNoteText || "Texto destacado", colorNoteBgColor: it.colorNoteBgColor || "#EEF2FF", colorNoteTextColor: it.colorNoteTextColor || "#1E3A8A" } : it))} className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700">Agregar bloque de texto con color a esta tarjeta</button>
+                      <button type="button" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: it.colorNoteTitle || "TÃƒÂ­tulo", colorNoteText: it.colorNoteText || "Texto destacado", colorNoteBgColor: it.colorNoteBgColor || "#EEF2FF", colorNoteTextColor: it.colorNoteTextColor || "#1E3A8A" } : it))} className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700">Agregar bloque de texto con color a esta tarjeta</button>
                     </div>
                   ))}
                 </div>
@@ -7321,8 +7452,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">2</span>
                   <div>
-                    <div className="text-lg font-semibold text-slate-900">Pasos de uso / CÃ³mo funciona</div>
-                    <p className="text-xs text-slate-500">GuÃ­a paso a paso para mostrar en la pantalla de detalle.</p>
+                    <div className="text-lg font-semibold text-slate-900">Pasos de uso / CÃƒÂ³mo funciona</div>
+                    <p className="text-xs text-slate-500">GuÃƒÂ­a paso a paso para mostrar en la pantalla de detalle.</p>
                   </div>
                 </div>
                 <div className="mt-3 rounded-xl bg-slate-50 p-4">
@@ -7333,7 +7464,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <div className="grid h-7 w-7 place-items-center rounded-full bg-indigo-600 text-xs font-semibold text-white">{idx + 1}</div>
                         <div>
                           <div className="text-sm font-semibold text-slate-900">{getLangEditValue(step.titleI18n, pLang) || `Paso ${idx + 1}`}</div>
-                          <div className="text-xs text-slate-600">{getLangEditValue(step.subtitleI18n, pLang) || "DescripciÃ³n del paso..."}</div>
+                          <div className="text-xs text-slate-600">{getLangEditValue(step.subtitleI18n, pLang) || "DescripciÃƒÂ³n del paso..."}</div>
                         </div>
                       </div>
                     ))}
@@ -7342,9 +7473,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="mt-3 space-y-3">
                   {pPrestacionSteps.map((step, idx) => (
                     <div key={`step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Paso {idx + 1}</span><button type="button" className="text-red-500" onClick={() => setPPrestacionSteps((prev) => prev.length <= 1 ? [createEmptyPrestacionStep()] : prev.filter((_, i) => i !== idx))}>ðŸ—‘</button></div>
-                      <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃ­tulo del paso" />
-                      <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, next) } : it))} placeholder="DescripciÃ³n del paso..." minHeightClassName="min-h-[70px]" />
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Paso {idx + 1}</span><button type="button" className="text-red-500" onClick={() => setPPrestacionSteps((prev) => prev.length <= 1 ? [createEmptyPrestacionStep()] : prev.filter((_, i) => i !== idx))}>Ã°Å¸â€”â€˜</button></div>
+                      <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃƒÂ­tulo del paso" />
+                      <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, next) } : it))} placeholder="DescripciÃƒÂ³n del paso..." minHeightClassName="min-h-[70px]" />
                       <input value={getLangMediaValue(step.imageI18n, pLang, step.image ?? "")} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? e.target.value : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Imagen URL (opcional)" />
                       <input
                         type="file"
@@ -7384,7 +7515,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">3</span>
                   <div>
                     <div className="text-lg font-semibold text-slate-900">Preguntas frecuentes (FAQs)</div>
-                    <p className="text-xs text-slate-500">Se muestran como acordeÃ³n en la pantalla de detalle.</p>
+                    <p className="text-xs text-slate-500">Se muestran como acordeÃƒÂ³n en la pantalla de detalle.</p>
                   </div>
                 </div>
                 <div className="mt-3 rounded-xl bg-slate-50 p-4">
@@ -7401,7 +7532,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="mt-3 space-y-3">
                   {pPrestacionFaqs.map((faq, idx) => (
                     <div key={`faq-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Q{idx + 1}</span><button type="button" className="text-red-500" onClick={() => setPPrestacionFaqs((prev) => prev.length <= 1 ? [createEmptyPrestacionFaq()] : prev.filter((_, i) => i !== idx))}>ðŸ—‘</button></div>
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Q{idx + 1}</span><button type="button" className="text-red-500" onClick={() => setPPrestacionFaqs((prev) => prev.length <= 1 ? [createEmptyPrestacionFaq()] : prev.filter((_, i) => i !== idx))}>Ã°Å¸â€”â€˜</button></div>
                       <input value={getLangEditValue(faq.questionI18n, pLang)} onChange={(e) => setPPrestacionFaqs((prev) => prev.map((it, i) => i === idx ? { ...it, question: pLang === "es" ? e.target.value : it.question, questionI18n: setLangText(it.question, it.questionI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Pregunta frecuente..." />
                       <RichTextEditor value={getLangEditValue(faq.answerI18n, pLang)} onChange={(next) => setPPrestacionFaqs((prev) => prev.map((it, i) => i === idx ? { ...it, answer: pLang === "es" ? next : it.answer, answerI18n: setLangText(it.answer, it.answerI18n, pLang, next) } : it))} placeholder="Respuesta..." minHeightClassName="min-h-[80px]" />
                     </div>
@@ -7410,14 +7541,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <button type="button" onClick={() => setPPrestacionFaqs((prev) => [...prev, createEmptyPrestacionFaq()])} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">+ Agregar pregunta frecuente</button>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-lg font-semibold text-slate-900">TambiÃ©n te puede interesar</div>
-                <p className="mt-1 text-xs text-slate-500">SeleccionÃ¡ publicaciones para mostrar en carrusel al final del detalle.</p>
+                <div className="text-lg font-semibold text-slate-900">TambiÃƒÂ©n te puede interesar</div>
+                <p className="mt-1 text-xs text-slate-500">SeleccionÃƒÂ¡ publicaciones para mostrar en carrusel al final del detalle.</p>
                 <div className="mt-3 grid gap-2">
                   <div className="grid gap-2 sm:grid-cols-2">
                     <input
                       value={pPrestacionRelatedSearch}
                       onChange={(e) => setPPrestacionRelatedSearch(e.target.value)}
-                      placeholder="Buscar publicaciÃ³n..."
+                      placeholder="Buscar publicación..."
                       className="h-10 rounded-xl border border-slate-200 px-3"
                     />
                     <select
@@ -7425,7 +7556,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       onChange={(e) => setPPrestacionRelatedCategory(e.target.value)}
                       className="h-10 rounded-xl border border-slate-200 px-3"
                     >
-                      <option value="todas">Todas las categorÃ­as</option>
+                      <option value="todas">Todas las categorÃƒÂ­as</option>
                       {Array.from(new Set(publications.map((pub) => String(pub.category ?? "").trim()).filter(Boolean))).map((category) => (
                         <option key={`related-cat-${category}`} value={category}>{category}</option>
                       ))}
@@ -7440,7 +7571,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     }}
                     className="h-10 rounded-xl border border-slate-200 px-3"
                   >
-                    <option value="">Agregar publicaciÃ³n relacionada</option>
+                    <option value="">Agregar publicación relacionada</option>
                     {publications
                       .filter((pub) => pub.id !== editingId)
                       .filter((pub) => pPrestacionRelatedCategory === "todas" || String(pub.category ?? "").trim() === pPrestacionRelatedCategory)
@@ -7460,7 +7591,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       return (
                         <span key={id} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
                           {pub?.title || id}
-                          <button type="button" className="ml-2 text-red-500" onClick={() => setPPrestacionRelatedIds((prev) => prev.filter((entry) => entry !== id))}>Ã—</button>
+                          <button type="button" className="ml-2 text-red-500" onClick={() => setPPrestacionRelatedIds((prev) => prev.filter((entry) => entry !== id))}>Ãƒâ€”</button>
                         </span>
                       );
                     })}
@@ -7481,14 +7612,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 ? "Guardando..."
                 : editingId
                   ? "Guardar cambios"
-                  : "Crear publicaciÃ³n"}
+                  : "Crear publicación"}
             </button>
             {editingId ? (
               <button
                 onClick={cancelEdit}
                 className="h-11 rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                Cancelar ediciÃ³n
+                Cancelar ediciÃƒÂ³n
               </button>
             ) : null}
             {saveMessage ? (
@@ -7504,14 +7635,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {!isNewPublicationPage ? (
           <>
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Total</p><p className="mt-2 text-3xl font-bold text-slate-800">{publications.length}</p><p className="text-xs text-slate-400">-3 en el mes Â· +87 Â· -8</p></div>
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Total</p><p className="mt-2 text-3xl font-bold text-slate-800">{publications.length}</p><p className="text-xs text-slate-400">-3 en el mes Ã‚Â· +87 Ã‚Â· -8</p></div>
             <div className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-violet-500">Pagas</p><p className="mt-2 text-3xl font-bold text-violet-700">{paidPublications.length}</p></div>
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-emerald-500">Gratis</p><p className="mt-2 text-3xl font-bold text-emerald-700">{freePublications}</p></div>
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
             <StatsChartCard title="Publicaciones: pagas vs gratis" labelA="Pagas" labelB="Gratis" colorA="#10b981" colorB="#a7f3d0" getData={publicationsData} />
-            <StatsChartCard title="Denuncias por perÃ­odo" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
+            <StatsChartCard title="Denuncias por perÃƒÂ­odo" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
           </div>
 
           <div className="mt-8 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -7534,7 +7665,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <button type="button" onClick={openNewPublicationEditor} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Nueva</button>
               </div>
             </div>
-            <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "Ãšltimas publicaciones"}</div>
+            <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "ÃƒÅ¡ltimas publicaciones"}</div>
             <div className="mt-3 space-y-3">
             {publicationTab === "denuncias" ? filteredReports.map((report) => {
               const isOpen = Boolean(expandedReports[report.id]);
@@ -7553,10 +7684,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold text-slate-900">
-                          {isFeedback ? "Feedback general" : (report.publicationTitle || "PublicaciÃ³n sin tÃ­tulo")}
+                          {isFeedback ? "Feedback general" : (report.publicationTitle || "PublicaciÃƒÂ³n sin tÃƒÂ­tulo")}
                         </div>
-                        <div className="mt-1 text-xs text-slate-500">PublicaciÃ³n ID: {report.publicationId || "-"}</div>
-                        <div className="mt-1 text-xs text-slate-500">Denunciante: {report.fullName || "-"} Â· {report.email || "-"} Â· {report.contact || "-"}</div>
+                        <div className="mt-1 text-xs text-slate-500">PublicaciÃƒÂ³n ID: {report.publicationId || "-"}</div>
+                        <div className="mt-1 text-xs text-slate-500">Denunciante: {report.fullName || "-"} Ã‚Â· {report.email || "-"} Ã‚Â· {report.contact || "-"}</div>
                       </div>
                       <span className="text-xs font-semibold text-rose-600">{isOpen ? "Ocultar" : "Ver detalle"}</span>
                     </div>
@@ -7575,7 +7706,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           Abrir publicacion denunciada
                         </a>
                       ) : null}
-                      <div className="mt-2 text-xs text-rose-600">{report.reason || "Denuncia"} Â· {report.createdAt ? new Date(report.createdAt).toLocaleString("es-AR") : ""}</div>
+                      <div className="mt-2 text-xs text-rose-600">{report.reason || "Denuncia"} Ã‚Â· {report.createdAt ? new Date(report.createdAt).toLocaleString("es-AR") : ""}</div>
                     </>
                   ) : null}
                 </div>
@@ -7595,30 +7726,30 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <span className="rounded-full bg-[#00A9C6]/10 px-2 py-0.5 text-xs text-[#007D92]">destacado</span>
                       ) : null}
                       {Boolean((p.fields as any)?.partner) ? (
-                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-700">ðŸ¤ partner</span>
+                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-700">Ã°Å¸Â¤Â partner</span>
                       ) : null}
                     </div>
                     <div className="mt-2 text-base font-semibold text-slate-900">{p.title}</div>
                     <div className="mt-1 text-xs text-slate-500">
-                      Oferente: {p.publisherName || "Sin nombre"} Â· Email: {String((p.fields as any)?.providerEmail ?? "-")}
+                      Oferente: {p.publisherName || "Sin nombre"} Ã‚Â· Email: {String((p.fields as any)?.providerEmail ?? "-")}
                     </div>
                     <div className="mt-1 text-xs text-slate-500">
                       Creada: {p.createdAt ? new Date(p.createdAt).toLocaleString("es-AR") : "-"}
                     </div>
                     <div className="mt-1 text-sm text-slate-600">
                       {(() => {
-                        return "Bloque: CategorÃ­as";
+                        return "Bloque: CategorÃƒÂ­as";
                       })()}
                       {p.category
-                        ? ` Â· ${pickI18nText(p.categoryI18n ?? null, locale, p.category)}${
+                        ? ` Ã‚Â· ${pickI18nText(p.categoryI18n ?? null, locale, p.category)}${
                             p.subcategory
-                              ? ` Â· ${pickI18nText(p.subcategoryI18n ?? null, locale, p.subcategory)}`
+                              ? ` Ã‚Â· ${pickI18nText(p.subcategoryI18n ?? null, locale, p.subcategory)}`
                               : ""
                           }`
-                        : " Â· Sin categorÃ­a"}
-                      {p.city ? ` Â· ${p.city}` : ""}
+                        : " Ã‚Â· Sin categorÃƒÂ­a"}
+                      {p.city ? ` Ã‚Â· ${p.city}` : ""}
                       {p.country ? `, ${p.country}` : ""}
-                      {p.headquarterCountry ? ` Â· Sede: ${p.headquarterCountry}` : ""}
+                      {p.headquarterCountry ? ` Ã‚Â· Sede: ${p.headquarterCountry}` : ""}
                     </div>
                     {(() => {
                       const warnings: string[] = [];
@@ -7632,12 +7763,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         }
                       }
                       if (p.primaryGroupKey && p.primaryGroupKey !== "category") {
-                        warnings.push("Advertencia: categorÃ­a definida en un bloque distinto a categorÃ­as.");
+                        warnings.push("Advertencia: categorÃƒÂ­a definida en un bloque distinto a categorÃƒÂ­as.");
                       }
                       const catType = p.category ? categoryTaxonomyTypeByLabel.get(p.category) : null;
                       const subType = p.subcategory ? categoryTaxonomyTypeByLabel.get(p.subcategory) : null;
                       if (catType && subType && catType !== subType) {
-                        warnings.push("Advertencia: tipo de filtro y categorÃ­a no coinciden.");
+                        warnings.push("Advertencia: tipo de filtro y categorÃƒÂ­a no coinciden.");
                       }
                       return warnings.length ? (
                         <div className="mt-2 space-y-1 text-xs text-amber-600">
@@ -7648,10 +7779,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       ) : null;
                     })()}
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5">ðŸ‘ï¸ {readPublicationAnalytics(p).views}</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5">ðŸ“© {readPublicationAnalytics(p).leads}</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5">â¤ï¸ {readPublicationAnalytics(p).favorites}</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5">ðŸ”— {readPublicationAnalytics(p).shares}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5">Visitas: {readPublicationAnalytics(p).views}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5">Leads: {readPublicationAnalytics(p).leads}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5">Favoritos: {readPublicationAnalytics(p).favorites}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5">Compartidos: {readPublicationAnalytics(p).shares}</span>
                       {publicationLanguages(p).length ? (
                         <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">Idiomas: {publicationLanguages(p).join(", ")}</span>
                       ) : null}
