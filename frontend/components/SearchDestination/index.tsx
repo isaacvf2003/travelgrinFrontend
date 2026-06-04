@@ -290,7 +290,7 @@ export default function SearchDestination() {
           {openCategoryDropdown ? (
             <div className="absolute left-0 right-0 z-30 mt-2 max-h-80 overflow-y-auto rounded-xl bg-white p-2 shadow-2xl">
               {!categoryBlocks.length ? (
-                <div className="px-3 py-2 text-sm text-gray-500">{t("no_hay_categorias_disponibles") || homeSearchLabels.noCategories}</div>
+                <div className="px-3 py-2 text-sm text-gray-500">{homeSearchLabels.noCategories}</div>
               ) : (
                 <div className="space-y-1">
                   <button

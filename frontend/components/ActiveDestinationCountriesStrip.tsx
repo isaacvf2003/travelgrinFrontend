@@ -22,18 +22,17 @@ const COUNTRY_CODE_MAP: Record<string, string> = {
   paraguay: "PY",
   bolivia: "BO",
   peru: "PE",
-  "perú": "PE",
   colombia: "CO",
   mexico: "MX",
-  "méxico": "MX",
-  españa: "ES",
   espana: "ES",
+  españa: "ES",
   italia: "IT",
   portugal: "PT",
   francia: "FR",
   alemania: "DE",
   canada: "CA",
-  "canadá": "CA",
+  canadà: "CA",
+  canadá: "CA",
   "estados unidos": "US",
 };
 
@@ -91,16 +90,13 @@ export default function ActiveDestinationCountriesStrip() {
             const key = normalizeCountry(country);
             if (!key) continue;
             const current = counts.get(key);
-            if (current) {
-              current.count += 1;
-            } else {
-              counts.set(key, { country, count: 1 });
-            }
+            if (current) current.count += 1;
+            else counts.set(key, { country, count: 1 });
           }
         }
 
         const next = Array.from(counts.values())
-          .sort((a, b) => (b.count - a.count) || a.country.localeCompare(b.country, "es"))
+          .sort((a, b) => b.count - a.count || a.country.localeCompare(b.country, "es"))
           .slice(0, 8);
 
         if (!cancelled) setCountries(next);
@@ -120,23 +116,21 @@ export default function ActiveDestinationCountriesStrip() {
   if (!visibleCountries.length) return null;
 
   return (
-    <section className="mt-10 px-4 md:px-0">
-      <div className="rounded-[32px] bg-gradient-to-r from-[#0FBFC3] via-[#0B8FA3] to-[#0A667D] px-5 py-6 text-white shadow-[0_18px_40px_rgba(11,143,163,0.18)] md:px-8">
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/75">Destinos activos</p>
-            <h2 className="mt-1 text-[22px] font-bold md:text-[25.76px]">Países que te esperan</h2>
-            <p className="mt-1 max-w-2xl text-sm text-white/85">
-              Explorá países donde hoy ya hay oportunidades activas y saltá directo al buscador filtrado.
-            </p>
-          </div>
+    <section className="mt-6 px-4 md:px-0">
+      <div className="mx-auto max-w-5xl rounded-[30px] bg-gradient-to-r from-[#0FBFC3] via-[#0B8FA3] to-[#0A667D] px-5 py-5 text-white shadow-[0_16px_36px_rgba(11,143,163,0.16)] md:px-8">
+        <div className="text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/72">Destinos activos</p>
+          <h2 className="mt-1 text-[21px] font-bold md:text-[24px]">Países que te esperan</h2>
+          <p className="mx-auto mt-1 max-w-2xl text-sm text-white/85">
+            Explorá países donde hoy ya hay oportunidades activas y saltá directo al buscador filtrado.
+          </p>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           {visibleCountries.map((entry) => (
             <div
               key={entry.country}
-              className="rounded-2xl border border-white/15 bg-white/12 p-4 backdrop-blur-sm"
+              className="min-w-[220px] rounded-2xl border border-white/15 bg-white/12 px-4 py-3 backdrop-blur-sm"
             >
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{getCountryFlag(entry.country)}</span>
@@ -147,7 +141,7 @@ export default function ActiveDestinationCountriesStrip() {
               </div>
               <Link
                 href={`/buscar?destinationCountry=${encodeURIComponent(entry.country)}`}
-                className="mt-4 inline-flex rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#0B8FA3] transition hover:bg-slate-100"
+                className="mt-3 inline-flex rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#0B8FA3] transition hover:bg-slate-100"
               >
                 Ver más
               </Link>

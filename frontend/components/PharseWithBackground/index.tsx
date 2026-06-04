@@ -3,7 +3,6 @@ import React from "react";
 import ChangingText from "../ChangingText";
 import Image from "next/image";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import ButtonSolid from "../ButtonSolid";
 
 type Props = {
   onlyOne?: boolean;
@@ -79,13 +78,6 @@ export default function PharseWithBackground({ onlyOne = false }: Props) {
           </div>
         </div>
       </div>
-      {onlyOne && (
-        <ButtonSolid
-          hexButton="#15A4AE"
-          classStyle="w-[15rem] my-8 md:w-auto text-sm lg:text-lg bg-teal-500 hover:bg-teal-600 text-white lg:px-12 py-3 rounded-lg font-medium text-lg transition-colors"
-          title={t("inicia_tu_aventura")}
-        />
-      )}
     </>
   );
 }
