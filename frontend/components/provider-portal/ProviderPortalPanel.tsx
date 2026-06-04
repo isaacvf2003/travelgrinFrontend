@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import ModalOferente from "@/components/ModalOferente";
@@ -120,7 +120,7 @@ function normalizePortalPlanType(value: unknown): "basic_free" | "featured" | "m
 }
 
 function fixMojibake(value: string) {
-  if (!/[ÃÂ]/.test(value)) return value;
+  if (!/[ÃƒÃ‚]/.test(value)) return value;
   try {
     const bytes = Uint8Array.from(value, (char) => char.charCodeAt(0));
     return new TextDecoder("utf-8").decode(bytes);
@@ -164,6 +164,8 @@ export default function ProviderPortalPanel() {
   const [modalInitialData, setModalInitialData] = useState<Record<string, unknown> | null>(null);
   const [featured120Price, setFeatured120Price] = useState<PlanPriceResponseItem | null>(null);
   const [monthlyPrice, setMonthlyPrice] = useState<PlanPriceResponseItem | null>(null);
+  const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
+  const publishCardsRef = useRef<HTMLDivElement | null>(null);
 
   const copy = useMemo(() => sanitizeCopy({
     title:
@@ -173,9 +175,9 @@ export default function ProviderPortalPanel() {
       "Mini panel del oferente",
     subtitle:
       locale === "en" ? "Access your submissions, publications and request a new one from the same secure place." :
-      locale === "pt" ? "Acesse seus envios, publicações e peça uma nova publicação do mesmo lugar seguro." :
+      locale === "pt" ? "Acesse seus envios, publicaÃ§Ãµes e peÃ§a uma nova publicaÃ§Ã£o do mesmo lugar seguro." :
       locale === "it" ? "Accedi ai tuoi invii, pubblicazioni e richiedi una nuova pubblicazione dallo stesso posto sicuro." :
-      "Accedé a tus envíos, publicaciones y pedí una nueva publicación desde el mismo lugar seguro.",
+      "AccedÃ© a tus envÃ­os, publicaciones y pedÃ­ una nueva publicaciÃ³n desde el mismo lugar seguro.",
     requestTitle:
       locale === "en" ? "Enter with a secure link" :
       locale === "pt" ? "Entrar com link seguro" :
@@ -183,9 +185,9 @@ export default function ProviderPortalPanel() {
       "Entrar con enlace seguro",
     requestBody:
       locale === "en" ? "Use the same email you left in your Travelgrin form. We will send you a one-time access link." :
-      locale === "pt" ? "Use o mesmo email que você deixou no formulário da Travelgrin. Vamos te enviar um link de acesso de uso único." :
+      locale === "pt" ? "Use o mesmo email que vocÃª deixou no formulÃ¡rio da Travelgrin. Vamos te enviar um link de acesso de uso Ãºnico." :
       locale === "it" ? "Usa la stessa email che hai lasciato nel modulo Travelgrin. Ti invieremo un link monouso." :
-      "Usá el mismo email que dejaste en tu formulario de Travelgrin. Te vamos a enviar un enlace de acceso de un solo uso.",
+      "UsÃ¡ el mismo email que dejaste en tu formulario de Travelgrin. Te vamos a enviar un enlace de acceso de un solo uso.",
     emailPlaceholder:
       locale === "en" ? "Your contact email" :
       locale === "pt" ? "Seu email de contato" :
@@ -203,14 +205,14 @@ export default function ProviderPortalPanel() {
       "Enviando...",
     invalidEmail:
       locale === "en" ? "Enter a valid email." :
-      locale === "pt" ? "Insira um email válido." :
+      locale === "pt" ? "Insira um email vÃ¡lido." :
       locale === "it" ? "Inserisci un'email valida." :
-      "Ingresá un email válido.",
+      "IngresÃ¡ un email vÃ¡lido.",
     securityHint:
       locale === "en" ? "The link expires in 20 minutes and the session stays active for 15 days on this device." :
-      locale === "pt" ? "O link vence em 20 minutos e a sessão fica ativa por 15 dias neste dispositivo." :
+      locale === "pt" ? "O link vence em 20 minutos e a sessÃ£o fica ativa por 15 dias neste dispositivo." :
       locale === "it" ? "Il link scade in 20 minuti e la sessione resta attiva per 15 giorni su questo dispositivo." :
-      "El enlace vence en 20 minutos y la sesión queda activa por 15 días en este dispositivo.",
+      "El enlace vence en 20 minutos y la sesiÃ³n queda activa por 15 dÃ­as en este dispositivo.",
     accessOk:
       locale === "en" ? "Access verified. Welcome back." :
       locale === "pt" ? "Acesso verificado. Bem-vindo de volta." :
@@ -218,19 +220,19 @@ export default function ProviderPortalPanel() {
       "Acceso verificado. Bienvenido de nuevo.",
     accessInvalid:
       locale === "en" ? "That access link is no longer valid. Request a new one." :
-      locale === "pt" ? "Esse link de acesso não é mais válido. Peça um novo." :
-      locale === "it" ? "Quel link di accesso non è più valido. Richiedine uno nuovo." :
-      "Ese enlace de acceso ya no es válido. Pedí uno nuevo.",
+      locale === "pt" ? "Esse link de acesso nÃ£o Ã© mais vÃ¡lido. PeÃ§a um novo." :
+      locale === "it" ? "Quel link di accesso non Ã¨ piÃ¹ valido. Richiedine uno nuovo." :
+      "Ese enlace de acceso ya no es vÃ¡lido. PedÃ­ uno nuevo.",
     activeSession:
       locale === "en" ? "Active session" :
-      locale === "pt" ? "Sessão ativa" :
+      locale === "pt" ? "SessÃ£o ativa" :
       locale === "it" ? "Sessione attiva" :
-      "Sesión activa",
+      "SesiÃ³n activa",
     logout:
       locale === "en" ? "Log out" :
       locale === "pt" ? "Salir" :
       locale === "it" ? "Esci" :
-      "Cerrar sesión",
+      "Cerrar sesiÃ³n",
     refreshing:
       locale === "en" ? "Refreshing..." :
       locale === "pt" ? "Atualizando..." :
@@ -243,34 +245,89 @@ export default function ProviderPortalPanel() {
       "Actualizar panel",
     newSubmissionHint:
       locale === "en" ? "Use this when you want to start a brand-new publication request without changing your current plan." :
-      locale === "pt" ? "Use isto quando quiser iniciar um pedido de publicação totalmente novo sem mudar seu plano atual." :
+      locale === "pt" ? "Use isto quando quiser iniciar um pedido de publicaÃ§Ã£o totalmente novo sem mudar seu plano atual." :
       locale === "it" ? "Usa questo quando vuoi avviare una richiesta di pubblicazione completamente nuova senza cambiare il tuo piano attuale." :
-      "Usá esto cuando quieras iniciar una solicitud de publicación totalmente nueva sin cambiar tu plan actual.",
+      "UsÃ¡ esto cuando quieras iniciar una solicitud de publicaciÃ³n totalmente nueva sin cambiar tu plan actual.",
     newSubmission:
       locale === "en" ? "Request another publication" :
-      locale === "pt" ? "Pedir outra publicação" :
+      locale === "pt" ? "Pedir outra publicaÃ§Ã£o" :
       locale === "it" ? "Richiedi un'altra pubblicazione" :
-      "Pedir otra publicación",
+      "Pedir otra publicaciÃ³n",
+    jumpToPublishOptions:
+      locale === "en" ? "Create another publication" :
+      locale === "pt" ? "Criar outra publicação" :
+      locale === "it" ? "Crea un'altra pubblicazione" :
+      "Crear otra publicación",
+    publishOptionsTitle:
+      locale === "en" ? "Create a new publication" :
+      locale === "pt" ? "Criar uma nova publicaÃƒÂ§ÃƒÂ£o" :
+      locale === "it" ? "Crea una nuova pubblicazione" :
+      "Crear una nueva publicaciÃƒÂ³n",
+    publishOptionsBody:
+      locale === "en" ? "Choose the type of new publication you want to create with this same provider account." :
+      locale === "pt" ? "Escolha o tipo de nova publicaÃƒÂ§ÃƒÂ£o que vocÃƒÂª quer criar com esta mesma conta de oferente." :
+      locale === "it" ? "Scegli il tipo di nuova pubblicazione che vuoi creare con questo stesso account fornitore." :
+      "ElegÃƒÂ­ el tipo de nueva publicaciÃƒÂ³n que querÃƒÂ©s crear con esta misma cuenta de oferente.",
+    publishFreeAction:
+      locale === "en" ? "Publish basic listing" :
+      locale === "pt" ? "Publicar publicação básica" :
+      locale === "it" ? "Pubblica pubblicazione base" :
+      "Publicar publicación básica",
+    publishFeaturedAction:
+      locale === "en" ? "Publish featured listing" :
+      locale === "pt" ? "Publicar destaque 120 dias" :
+      locale === "it" ? "Pubblica evidenza 120 giorni" :
+      "Publicar destacado",
+    publishMonthlyAction:
+      locale === "en" ? "Publish monthly plan" :
+      locale === "pt" ? "Publicar plano mensal" :
+      locale === "it" ? "Pubblica piano mensile" :
+      "Publicar plan mensual",
+    submissionDelete:
+      locale === "en" ? "Delete" :
+      locale === "pt" ? "Excluir" :
+      locale === "it" ? "Elimina" :
+      "Eliminar",
+    deletingSubmission:
+      locale === "en" ? "Deleting..." :
+      locale === "pt" ? "Excluindo..." :
+      locale === "it" ? "Eliminazione..." :
+      "Eliminando...",
+    submissionDeleted:
+      locale === "en" ? "Request deleted." :
+      locale === "pt" ? "SolicitaÃƒÂ§ÃƒÂ£o excluÃƒÂ­da." :
+      locale === "it" ? "Richiesta eliminata." :
+      "Solicitud eliminada.",
+    submissionDeleteConfirm:
+      locale === "en" ? "Do you want to delete this request from your history?" :
+      locale === "pt" ? "Quer excluir esta solicitaÃƒÂ§ÃƒÂ£o do seu histÃƒÂ³rico?" :
+      locale === "it" ? "Vuoi eliminare questa richiesta dal tuo storico?" :
+      "Ã‚Â¿QuerÃƒÂ©s eliminar esta solicitud de tu historial?",
+    compactHistoryHint:
+      locale === "en" ? "Latest requests first. You can delete cancelled or pending requests from here." :
+      locale === "pt" ? "Pedidos mais recentes primeiro. VocÃƒÂª pode excluir daqui os pedidos cancelados ou pendentes." :
+      locale === "it" ? "Richieste piÃƒÂ¹ recenti per prime. Da qui puoi eliminare le richieste annullate o in sospeso." :
+      "Las solicitudes mÃƒÂ¡s nuevas van primero. Desde acÃƒÂ¡ podÃƒÂ©s eliminar las canceladas o pendientes.",
     statsSubmissions:
       locale === "en" ? "Submitted forms" :
-      locale === "pt" ? "Formulários enviados" :
+      locale === "pt" ? "FormulÃ¡rios enviados" :
       locale === "it" ? "Moduli inviati" :
       "Formularios enviados",
     statsPublications:
       locale === "en" ? "Admin-built publications" :
-      locale === "pt" ? "Publicações armadas pelo admin" :
+      locale === "pt" ? "PublicaÃ§Ãµes armadas pelo admin" :
       locale === "it" ? "Pubblicazioni create dall'admin" :
       "Publicaciones armadas por admin",
     statsPending:
       locale === "en" ? "Pending review" :
-      locale === "pt" ? "Pendentes de revisão" :
+      locale === "pt" ? "Pendentes de revisÃ£o" :
       locale === "it" ? "In attesa di revisione" :
-      "Pendientes de revisión",
+      "Pendientes de revisiÃ³n",
     statsPlans:
       locale === "en" ? "Plan mix" :
-      locale === "pt" ? "Distribuição de planos" :
+      locale === "pt" ? "DistribuiÃ§Ã£o de planos" :
       locale === "it" ? "Mix dei piani" :
-      "Distribución de planes",
+      "DistribuciÃ³n de planes",
     submissionsTitle:
       locale === "en" ? "Your submitted requests" :
       locale === "pt" ? "Seus pedidos enviados" :
@@ -278,19 +335,19 @@ export default function ProviderPortalPanel() {
       "Tus solicitudes enviadas",
     publicationsTitle:
       locale === "en" ? "Publications visible for your account" :
-      locale === "pt" ? "Publicações visíveis para sua conta" :
+      locale === "pt" ? "PublicaÃ§Ãµes visÃ­veis para sua conta" :
       locale === "it" ? "Pubblicazioni visibili per il tuo account" :
       "Publicaciones visibles para tu cuenta",
     emptySubmissions:
       locale === "en" ? "You still have no submissions with this email." :
-      locale === "pt" ? "Você ainda não tem envios com este email." :
+      locale === "pt" ? "VocÃª ainda nÃ£o tem envios com este email." :
       locale === "it" ? "Non hai ancora invii con questa email." :
-      "Todavía no tenés envíos con este email.",
+      "TodavÃ­a no tenÃ©s envÃ­os con este email.",
     emptyPublications:
       locale === "en" ? "The admin has not built publications from your requests yet." :
-      locale === "pt" ? "O admin ainda não armou publicações a partir dos seus pedidos." :
+      locale === "pt" ? "O admin ainda nÃ£o armou publicaÃ§Ãµes a partir dos seus pedidos." :
       locale === "it" ? "L'admin non ha ancora creato pubblicazioni dalle tue richieste." :
-      "El admin todavía no armó publicaciones a partir de tus solicitudes.",
+      "El admin todavÃ­a no armÃ³ publicaciones a partir de tus solicitudes.",
     createdAt:
       locale === "en" ? "Created" :
       locale === "pt" ? "Creado em" :
@@ -320,7 +377,7 @@ export default function ProviderPortalPanel() {
       locale === "en" ? "Featured 120 days" :
       locale === "pt" ? "Destaque 120 dias" :
       locale === "it" ? "In evidenza 120 giorni" :
-      "Destacado 120 días",
+      "Destacado 120 dÃ­as",
     monthly:
       locale === "en" ? "Monthly plan" :
       locale === "pt" ? "Plano mensal" :
@@ -328,29 +385,29 @@ export default function ProviderPortalPanel() {
       "Plan mensual",
     free:
       locale === "en" ? "Free 60 days" :
-      locale === "pt" ? "Grátis 60 dias" :
+      locale === "pt" ? "GrÃ¡tis 60 dias" :
       locale === "it" ? "Gratis 60 giorni" :
-      "Gratis 60 días",
+      "Gratis 60 dÃ­as",
     planSelectorTitle:
       locale === "en" ? "Choose how you want to continue" :
-      locale === "pt" ? "Escolha como vocÃª quer continuar" :
+      locale === "pt" ? "Escolha como vocÃƒÂª quer continuar" :
       locale === "it" ? "Scegli come vuoi continuare" :
-      "ElegÃ­ cÃ³mo querÃ©s continuar",
+      "ElegÃƒÂ­ cÃƒÂ³mo querÃƒÂ©s continuar",
     planSelectorBody:
       locale === "en" ? "Stay free, upgrade to featured for 120 days, or switch to a monthly plan. Paid plans use the prices configured by the admin for your passport country." :
-      locale === "pt" ? "Continue no gratuito, passe para destaque por 120 dias ou mude para o plano mensal. Os planos pagos usam os preÃ§os configurados pelo admin para o paÃ­s do seu passaporte." :
+      locale === "pt" ? "Continue no gratuito, passe para destaque por 120 dias ou mude para o plano mensal. Os planos pagos usam os preÃƒÂ§os configurados pelo admin para o paÃƒÂ­s do seu passaporte." :
       locale === "it" ? "Resta nel gratuito, passa all'evidenza per 120 giorni oppure attiva il piano mensile. I piani a pagamento usano i prezzi configurati dall'admin per il paese del tuo passaporto." :
-      "SeguÃ­ en gratis, pasÃ¡ a destacado por 120 dÃ­as o cambiÃ¡ al plan mensual. Los planes pagos usan los precios configurados por el admin para el paÃ­s de tu pasaporte.",
+      "SeguÃƒÂ­ en gratis, pasÃƒÂ¡ a destacado por 120 dÃƒÂ­as o cambiÃƒÂ¡ al plan mensual. Los planes pagos usan los precios configurados por el admin para el paÃƒÂ­s de tu pasaporte.",
     freeCta:
       locale === "en" ? "Renew / request free" :
-      locale === "pt" ? "Renovar / pedir grÃ¡tis" :
+      locale === "pt" ? "Renovar / pedir grÃƒÂ¡tis" :
       locale === "it" ? "Rinnova / richiedi gratis" :
       "Renovar / pedir gratis",
     featuredCta:
       locale === "en" ? "Switch to featured 120 days" :
       locale === "pt" ? "Passar para destaque 120 dias" :
       locale === "it" ? "Passa a evidenza 120 giorni" :
-      "Pasar a destacado 120 dÃ­as",
+      "Pasar a destacado 120 dÃƒÂ­as",
     monthlyCta:
       locale === "en" ? "Switch to monthly plan" :
       locale === "pt" ? "Passar para plano mensal" :
@@ -358,19 +415,19 @@ export default function ProviderPortalPanel() {
       "Pasar a plan mensual",
     freeDescription:
       locale === "en" ? "Visible in the listing for 60 days. When it expires, you can renew it from here and the request goes back to the admin." :
-      locale === "pt" ? "VisÃ­vel na listagem por 60 dias. Quando vencer, vocÃª pode renovar por aqui e o pedido volta para o admin." :
+      locale === "pt" ? "VisÃƒÂ­vel na listagem por 60 dias. Quando vencer, vocÃƒÂª pode renovar por aqui e o pedido volta para o admin." :
       locale === "it" ? "Visibile nell'elenco per 60 giorni. Quando scade, puoi rinnovarlo da qui e la richiesta torna all'admin." :
-      "Visible en el listado por 60 dÃ­as. Cuando vence, podÃ©s renovarla desde acÃ¡ y la solicitud vuelve al admin.",
+      "Visible en el listado por 60 dÃƒÂ­as. Cuando vence, podÃƒÂ©s renovarla desde acÃƒÂ¡ y la solicitud vuelve al admin.",
     featuredDescription:
       locale === "en" ? "One-time payment. Includes the same featured benefits from the publication form for 120 days." :
-      locale === "pt" ? "Pagamento Ãºnico. Inclui os mesmos benefÃ­cios destacados do formulÃ¡rio de publicaÃ§Ã£o por 120 dias." :
+      locale === "pt" ? "Pagamento ÃƒÂºnico. Inclui os mesmos benefÃƒÂ­cios destacados do formulÃƒÂ¡rio de publicaÃƒÂ§ÃƒÂ£o por 120 dias." :
       locale === "it" ? "Pagamento unico. Include gli stessi vantaggi in evidenza del modulo di pubblicazione per 120 giorni." :
-      "Pago Ãºnico. Incluye los mismos beneficios destacados del formulario de publicaciÃ³n por 120 dÃ­as.",
+      "Pago ÃƒÂºnico. Incluye los mismos beneficios destacados del formulario de publicaciÃƒÂ³n por 120 dÃƒÂ­as.",
     monthlyDescription:
       locale === "en" ? "Recurring monthly billing with the same featured benefits to keep your publication boosted continuously." :
-      locale === "pt" ? "CobranÃ§a mensal recorrente com os mesmos benefÃ­cios destacados para manter sua publicaÃ§Ã£o impulsionada de forma continua." :
+      locale === "pt" ? "CobranÃƒÂ§a mensal recorrente com os mesmos benefÃƒÂ­cios destacados para manter sua publicaÃƒÂ§ÃƒÂ£o impulsionada de forma continua." :
       locale === "it" ? "Addebito mensile ricorrente con gli stessi vantaggi del piano in evidenza per mantenere la tua pubblicazione potenziata in modo continuo." :
-      "Cobro mensual recurrente con los mismos beneficios destacados para mantener tu publicaciÃ³n impulsionada de forma continua.",
+      "Cobro mensual recurrente con los mismos beneficios destacados para mantener tu publicaciÃƒÂ³n impulsionada de forma continua.",
     includesTitle:
       locale === "en" ? "Includes" :
       locale === "pt" ? "Inclui" :
@@ -378,14 +435,14 @@ export default function ProviderPortalPanel() {
       "Incluye",
     noPriceConfigured:
       locale === "en" ? "Price not configured yet" :
-      locale === "pt" ? "PreÃ§o ainda nÃ£o configurado" :
+      locale === "pt" ? "PreÃƒÂ§o ainda nÃƒÂ£o configurado" :
       locale === "it" ? "Prezzo non ancora configurato" :
-      "Precio todavÃ­a no configurado",
+      "Precio todavÃƒÂ­a no configurado",
     priceUnavailableHint:
       locale === "en" ? "The admin still needs to configure this price for your passport country." :
-      locale === "pt" ? "O admin ainda precisa configurar este preço para o país do seu passaporte." :
+      locale === "pt" ? "O admin ainda precisa configurar este preÃ§o para o paÃ­s do seu passaporte." :
       locale === "it" ? "L'admin deve ancora configurare questo prezzo per il paese del tuo passaporto." :
-      "El admin todavía tiene que configurar este precio para el país de tu pasaporte.",
+      "El admin todavÃ­a tiene que configurar este precio para el paÃ­s de tu pasaporte.",
   }), [locale]);
 
   const portalStatus = String(searchParams.get("portal_status") ?? "").trim().toLowerCase();
@@ -459,24 +516,24 @@ export default function ProviderPortalPanel() {
       "Pedir retorno al gratis",
     publicationActions:
       locale === "en" ? "Actions for this publication" :
-      locale === "pt" ? "Ações para esta publicação" :
+      locale === "pt" ? "AÃ§Ãµes para esta publicaÃ§Ã£o" :
       locale === "it" ? "Azioni per questa pubblicazione" :
-      "Acciones para esta publicación",
+      "Acciones para esta publicaciÃ³n",
     renewFeatured:
       locale === "en" ? "Renew featured 120 days" :
       locale === "pt" ? "Renovar destaque 120 dias" :
       locale === "it" ? "Rinnova evidenza 120 giorni" :
-      "Renovar destacado 120 días",
+      "Renovar destacado 120 dÃ­as",
     switchMonthly:
       locale === "en" ? "Switch this publication to monthly" :
-      locale === "pt" ? "Passar esta publicação ao mensal" :
+      locale === "pt" ? "Passar esta publicaÃ§Ã£o ao mensal" :
       locale === "it" ? "Passa questa pubblicazione al mensile" :
-      "Pasar esta publicación a mensual",
+      "Pasar esta publicaciÃ³n a mensual",
     downgradeThisPublication:
       locale === "en" ? "Move this publication back to free" :
-      locale === "pt" ? "Voltar esta publicação ao gratuito" :
+      locale === "pt" ? "Voltar esta publicaÃ§Ã£o ao gratuito" :
       locale === "it" ? "Riporta questa pubblicazione al gratuito" :
-      "Volver esta publicación al gratis",
+      "Volver esta publicaciÃ³n al gratis",
     cancelMonthly:
       locale === "en" ? "Cancel monthly / go back to free" :
       locale === "pt" ? "Cancelar mensal / voltar ao gratuito" :
@@ -484,22 +541,22 @@ export default function ProviderPortalPanel() {
       "Cancelar mensual / volver al gratis",
     upgradeToFeatured:
       locale === "en" ? "Upgrade this publication to featured" :
-      locale === "pt" ? "Passar esta publicação a destaque" :
+      locale === "pt" ? "Passar esta publicaÃ§Ã£o a destaque" :
       locale === "it" ? "Passa questa pubblicazione a evidenza" :
-      "Pasar esta publicación a destacado",
+      "Pasar esta publicaciÃ³n a destacado",
     upgradeToMonthly:
       locale === "en" ? "Upgrade this publication to monthly" :
-      locale === "pt" ? "Passar esta publicação ao mensal" :
+      locale === "pt" ? "Passar esta publicaÃ§Ã£o ao mensal" :
       locale === "it" ? "Passa questa pubblicazione al mensile" :
-      "Pasar esta publicación a mensual",
+      "Pasar esta publicaciÃ³n a mensual",
     requestAnotherPublication:
       locale === "en" ? "Create another publication" :
-      locale === "pt" ? "Criar outra publicação" :
+      locale === "pt" ? "Criar outra publicaÃ§Ã£o" :
       locale === "it" ? "Crea un'altra pubblicazione" :
-      "Crear otra publicación",
+      "Crear otra publicaciÃ³n",
     linkedRequest:
       locale === "en" ? "Source request" :
-      locale === "pt" ? "Solicitação de origem" :
+      locale === "pt" ? "SolicitaÃ§Ã£o de origem" :
       locale === "it" ? "Richiesta di origine" :
       "Solicitud de origen",
   }), [locale]);
@@ -641,7 +698,7 @@ export default function ProviderPortalPanel() {
       return locale === "en" ? "Payment failed" : locale === "pt" ? "Pagamento falhou" : locale === "it" ? "Pagamento fallito" : "Pago fallido";
     }
     if (["pendiente", "pending"].includes(normalized)) {
-      return locale === "en" ? "Pending review" : locale === "pt" ? "Pendente de revisão" : locale === "it" ? "In attesa di revisione" : "Pendiente de revisión";
+      return locale === "en" ? "Pending review" : locale === "pt" ? "Pendente de revisÃ£o" : locale === "it" ? "In attesa di revisione" : "Pendiente de revisiÃ³n";
     }
     return value || "-";
   }, [locale]);
@@ -669,14 +726,14 @@ export default function ProviderPortalPanel() {
   const planBenefits = useMemo(() => sanitizeCopy({
     featured: [
       locale === "en" ? "Appears first in results" : locale === "pt" ? "Aparece primeiro nos resultados" : locale === "it" ? "Appare per prima nei risultati" : "Aparece primero en resultados",
-      locale === "en" ? "Expanded description" : locale === "pt" ? "DescriÃ§Ã£o ampliada" : locale === "it" ? "Descrizione ampliata" : "DescripciÃ³n ampliada",
-      locale === "en" ? "Multiple contact links" : locale === "pt" ? "VÃ¡rios links de contato" : locale === "it" ? "PiÃ¹ link di contatto" : "Varios links de contacto",
-      locale === "en" ? "Available in 4 languages" : locale === "pt" ? "DisponÃ­vel em 4 idiomas" : locale === "it" ? "Disponibile in 4 lingue" : "Disponible en 4 idiomas",
-      locale === "en" ? "Gallery up to 5 images" : locale === "pt" ? "Galeria de atÃ© 5 imagens" : locale === "it" ? "Galleria fino a 5 immagini" : "GalerÃ­a hasta 5 imÃ¡genes",
+      locale === "en" ? "Expanded description" : locale === "pt" ? "DescriÃƒÂ§ÃƒÂ£o ampliada" : locale === "it" ? "Descrizione ampliata" : "DescripciÃƒÂ³n ampliada",
+      locale === "en" ? "Multiple contact links" : locale === "pt" ? "VÃƒÂ¡rios links de contato" : locale === "it" ? "PiÃƒÂ¹ link di contatto" : "Varios links de contacto",
+      locale === "en" ? "Available in 4 languages" : locale === "pt" ? "DisponÃƒÂ­vel em 4 idiomas" : locale === "it" ? "Disponibile in 4 lingue" : "Disponible en 4 idiomas",
+      locale === "en" ? "Gallery up to 5 images" : locale === "pt" ? "Galeria de atÃƒÂ© 5 imagens" : locale === "it" ? "Galleria fino a 5 immagini" : "GalerÃƒÂ­a hasta 5 imÃƒÂ¡genes",
     ],
     free: [
-      locale === "en" ? "Visible in the general listing" : locale === "pt" ? "VisÃ­vel na listagem geral" : locale === "it" ? "Visibile nell'elenco generale" : "Visible en el listado general",
-      locale === "en" ? "Brief description" : locale === "pt" ? "DescriÃ§Ã£o breve" : locale === "it" ? "Descrizione breve" : "DescripciÃ³n breve",
+      locale === "en" ? "Visible in the general listing" : locale === "pt" ? "VisÃƒÂ­vel na listagem geral" : locale === "it" ? "Visibile nell'elenco generale" : "Visible en el listado general",
+      locale === "en" ? "Brief description" : locale === "pt" ? "DescriÃƒÂ§ÃƒÂ£o breve" : locale === "it" ? "Descrizione breve" : "DescripciÃƒÂ³n breve",
       locale === "en" ? "1 contact link" : locale === "pt" ? "1 link de contato" : locale === "it" ? "1 link di contatto" : "1 link de contacto",
     ],
   }), [locale]);
@@ -769,6 +826,39 @@ export default function ProviderPortalPanel() {
     setOpenSubmissionModal(true);
   }, [latestApprovedSubmission?.draftData]);
 
+  const openSpecificNewPublicationRequest = useCallback((plan: "basic_free" | "featured" | "monthly") => {
+    setModalPlanIntent(plan);
+    setPreferredPaidPlanType(plan === "monthly" ? "featured_monthly" : "featured_120d");
+    setModalVisiblePlans([plan]);
+    setModalRequestKind("new_publication");
+    setModalPreviousPlan(undefined);
+    setModalSourceServiceId(undefined);
+    setModalInitialData((latestApprovedSubmission?.draftData as Record<string, unknown> | undefined) ?? null);
+    setOpenSubmissionModal(true);
+  }, [latestApprovedSubmission?.draftData]);
+
+  const deleteSubmission = useCallback(async (submission: PortalSubmission) => {
+    if (typeof window !== "undefined" && !window.confirm(copy.submissionDeleteConfirm)) return;
+    setDeletingSubmissionId(submission.id);
+    try {
+      const response = await fetch(`/api/provider-portal/submissions/${encodeURIComponent(submission.id)}`, {
+        method: "DELETE",
+        cache: "no-store",
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok === false) {
+        throw new Error(String(data?.error ?? "No se pudo eliminar la solicitud."));
+      }
+      toast.success(copy.submissionDeleted);
+      await loadSession();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo eliminar la solicitud.");
+    } finally {
+      setDeletingSubmissionId(null);
+    }
+  }, [copy.submissionDeleteConfirm, copy.submissionDeleted, loadSession]);
+
   const visiblePublicationEntries = useMemo(() => {
     const publications = [...(dashboard?.publications ?? [])];
     const submissions = [...(dashboard?.submissions ?? [])];
@@ -832,53 +922,53 @@ export default function ProviderPortalPanel() {
   }, [dashboard?.publications, dashboard?.submissions]);
 
   const planCards = useMemo(() => {
-    const currentIsFree = currentPlanType === "basic_free";
-    const currentIsFeatured = currentPlanType === "featured";
-    const currentIsMonthly = currentPlanType === "monthly";
     const featuredReady = Boolean(featured120Price && Number(featured120Price.amount ?? 0) > 0);
     const monthlyReady = Boolean(monthlyPrice && Number(monthlyPrice.amount ?? 0) > 0);
     return [
       {
         key: "free",
+        kind: "free",
         icon: ShieldCheck,
         title: copy.free,
         description: copy.freeDescription,
         price: locale === "en" ? "Free" : locale === "pt" ? "Gratis" : locale === "it" ? "Gratis" : "Gratis",
         benefits: planBenefits.free,
-        current: currentIsFree,
+        current: false,
         disabled: false,
         helper: copy.newSubmissionHint,
-        actionLabel: currentIsFree ? planCopy.renewFree : planCopy.goBackFree,
-        action: () => openPlanRequest("basic_free"),
+        actionLabel: copy.publishFreeAction,
+        action: () => openSpecificNewPublicationRequest("basic_free"),
       },
       {
         key: "featured",
+        kind: "featured",
         icon: Crown,
         title: copy.featured,
         description: copy.featuredDescription,
         price: featured120Label,
         benefits: planBenefits.featured,
-        current: currentIsFeatured,
-        disabled: currentIsFeatured || !featuredReady,
-        helper: currentIsFeatured ? planCopy.currentFeatured : featuredReady ? "" : copy.priceUnavailableHint,
-        actionLabel: currentIsFeatured ? planCopy.currentFeatured : copy.featuredCta,
-        action: () => openPlanRequest("featured"),
+        current: false,
+        disabled: !featuredReady,
+        helper: featuredReady ? copy.newSubmissionHint : copy.priceUnavailableHint,
+        actionLabel: copy.publishFeaturedAction,
+        action: () => openSpecificNewPublicationRequest("featured"),
       },
       {
         key: "monthly",
+        kind: "monthly",
         icon: Sparkles,
         title: copy.monthly,
         description: copy.monthlyDescription,
         price: monthlyLabel,
         benefits: planBenefits.featured,
-        current: currentIsMonthly,
-        disabled: currentIsMonthly || !monthlyReady,
-        helper: currentIsMonthly ? planCopy.currentMonthly : monthlyReady ? "" : copy.priceUnavailableHint,
-        actionLabel: currentIsMonthly ? planCopy.currentMonthly : copy.monthlyCta,
-        action: () => openPlanRequest("monthly"),
+        current: false,
+        disabled: !monthlyReady,
+        helper: monthlyReady ? copy.newSubmissionHint : copy.priceUnavailableHint,
+        actionLabel: copy.publishMonthlyAction,
+        action: () => openSpecificNewPublicationRequest("monthly"),
       },
     ];
-  }, [copy.featured, copy.featuredCta, copy.featuredDescription, copy.free, copy.freeDescription, copy.monthly, copy.monthlyCta, copy.monthlyDescription, copy.newSubmissionHint, copy.priceUnavailableHint, currentPlanType, featured120Label, featured120Price, locale, monthlyLabel, monthlyPrice, openPlanRequest, planBenefits.featured, planBenefits.free, planCopy.currentFeatured, planCopy.currentMonthly, planCopy.goBackFree, planCopy.renewFree]);
+  }, [copy.featured, copy.featuredDescription, copy.free, copy.freeDescription, copy.monthly, copy.monthlyDescription, copy.newSubmissionHint, copy.priceUnavailableHint, copy.publishFeaturedAction, copy.publishFreeAction, copy.publishMonthlyAction, featured120Label, featured120Price, locale, monthlyLabel, monthlyPrice, openSpecificNewPublicationRequest, planBenefits.featured, planBenefits.free]);
 
   if (loading) {
     return (
@@ -1005,10 +1095,10 @@ export default function ProviderPortalPanel() {
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={openNewPublicationRequest}
+                onClick={() => publishCardsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
                 className="rounded-2xl bg-[#0B8FA3] px-5 py-3 text-sm font-semibold text-white hover:opacity-95"
               >
-                {copy.newSubmission}
+                {copy.jumpToPublishOptions}
               </button>
               <button
                 type="button"
@@ -1028,72 +1118,42 @@ export default function ProviderPortalPanel() {
               </button>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-3">
-              {planCards.map((card) => {
-                const Icon = card.icon;
-                return (
-                  <div key={card.key} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0B8FA3]/10 text-[#0B8FA3]">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      {card.current ? (
-                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-                          {planCopy.currentBadge}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="mt-4">
-                      <div className="text-lg font-semibold text-slate-900">{card.title}</div>
-                      <div className="mt-1 text-2xl font-bold text-slate-900">{card.price}</div>
-                      <p className="mt-3 text-sm leading-relaxed text-slate-600">{card.description}</p>
-                    </div>
-                    <div className="mt-4">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{copy.includesTitle}</div>
-                      <ul className="mt-2 space-y-2 text-sm text-slate-600">
-                        {card.benefits.map((benefit) => (
-                          <li key={`${card.key}-${benefit}`} className="flex items-start gap-2">
-                            <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-500" />
-                            <span>{benefit}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    {card.helper ? (
-                      <p className="mt-4 text-xs leading-relaxed text-slate-500">{card.helper}</p>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={card.action}
-                      disabled={card.disabled}
-                      className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                        card.current || card.disabled
-                          ? "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-80"
-                          : "bg-[#0B8FA3] text-white hover:opacity-95"
-                      }`}
-                    >
-                      {card.actionLabel}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
             <div className="grid gap-6 xl:grid-cols-2">
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-slate-900">{copy.submissionsTitle}</h3>
-                <div className="mt-4 space-y-3">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">{copy.submissionsTitle}</h3>
+                    <p className="mt-1 text-xs text-slate-500">{copy.compactHistoryHint}</p>
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                    {dashboard?.submissions.length ?? 0}
+                  </span>
+                </div>
+                <div className="mt-4 max-h-[420px] space-y-2 overflow-y-auto pr-1">
                   {dashboard?.submissions.length ? dashboard.submissions.map((item) => {
                     const plan = planBadge(item.planType);
                     const statusKind = ["aprobado", "approved", "active", "paid"].includes(String(item.status).toLowerCase()) ? "approved" : "pending";
+                    const canDelete = !["aprobado", "approved", "active", "paid"].includes(String(item.status).toLowerCase()) && String(item.paymentStatus || "").toLowerCase() !== "paid";
                     return (
-                      <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-slate-900">{item.profileName || item.email}</span>
-                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(plan.kind)}`}>{plan.label}</span>
-                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(statusKind)}`}>{copy.status}: {readableSubmissionStatus(item.status)}</span>
+                      <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-slate-900">{item.profileName || item.email}</span>
+                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(plan.kind)}`}>{plan.label}</span>
+                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(statusKind)}`}>{copy.status}: {readableSubmissionStatus(item.status)}</span>
+                          </div>
+                          {canDelete ? (
+                            <button
+                              type="button"
+                              onClick={() => void deleteSubmission(item)}
+                              disabled={deletingSubmissionId === item.id}
+                              className="rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {deletingSubmissionId === item.id ? copy.deletingSubmission : copy.submissionDelete}
+                            </button>
+                          ) : null}
                         </div>
-                        <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                        <div className="mt-2 grid gap-x-4 gap-y-1.5 text-sm text-slate-600 sm:grid-cols-2">
                           <div><span className="font-medium text-slate-800">{copy.destination}:</span> {item.destinationCountry || "-"}</div>
                           <div><span className="font-medium text-slate-800">{copy.payment}:</span> {readablePaymentStatus(item.paymentStatus)}</div>
                           <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(item.createdAt, locale)}</div>
@@ -1196,6 +1256,62 @@ export default function ProviderPortalPanel() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+
+            <div
+              ref={publishCardsRef}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">{copy.publishOptionsTitle}</h3>
+                  <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600">{copy.publishOptionsBody}</p>
+                </div>
+              </div>
+              <div className="mt-5 grid gap-5 lg:grid-cols-3">
+                {planCards.map((card) => (
+                  <article
+                    key={card.key}
+                    className={`rounded-3xl border p-5 shadow-sm transition ${
+                      card.disabled
+                        ? "border-slate-200 bg-slate-50"
+                        : "border-slate-200 bg-white hover:-translate-y-0.5 hover:shadow-md"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 text-slate-700">
+                      <div className={`rounded-2xl p-3 ${card.kind === "free" ? "bg-emerald-50 text-emerald-600" : card.kind === "monthly" ? "bg-violet-50 text-violet-600" : "bg-cyan-50 text-cyan-600"}`}>
+                        <card.icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-semibold text-slate-900">{card.title}</div>
+                        <div className="text-sm text-slate-500">{card.price}</div>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-sm leading-relaxed text-slate-600">{card.description}</p>
+                    <ul className="mt-4 space-y-2 text-sm text-slate-700">
+                      {card.benefits.map((benefit) => (
+                        <li key={`${card.key}-${benefit}`} className="flex items-start gap-2">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none text-emerald-500" />
+                          <span>{benefit}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-4 text-xs leading-relaxed text-slate-500">{card.helper}</p>
+                    <button
+                      type="button"
+                      onClick={card.action}
+                      disabled={card.disabled}
+                      className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                        card.disabled
+                          ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
+                          : "bg-[#0B8FA3] text-white hover:opacity-95"
+                      }`}
+                    >
+                      {card.actionLabel}
+                    </button>
+                  </article>
+                ))}
               </div>
             </div>
           </>
