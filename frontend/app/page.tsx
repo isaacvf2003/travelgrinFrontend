@@ -53,6 +53,7 @@ export default function Home() {
           <section className="px-4 md:px-0">
             <SearchDestination />
           </section>
+          <ActiveDestinationCountriesStrip />
           <section id="categories" className="px-4 sm:px-5 md:px-6 lg:px-0">
             <TravelTypes />
           </section>
@@ -60,13 +61,12 @@ export default function Home() {
             <FeaturedPublicationsSection />
           </section>
           <section className="px-4 md:px-0">
-            <CardsDemandante />
-          </section>
-          <ActiveDestinationCountriesStrip />
-          <HomeHowItWorksSection />
-          <section className="px-4 md:px-0">
             <PharseWithBackground onlyOne />
           </section>
+          <section className="px-4 md:px-0">
+            <CardsDemandante />
+          </section>
+          <HomeHowItWorksSection />
         </div>
         <section id="preguntas-frecuentes">
           <TravelgrinFAQ/>

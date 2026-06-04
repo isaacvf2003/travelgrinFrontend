@@ -697,11 +697,11 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
   }
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#F3F5F7]">
+    <div className="min-h-screen bg-[#F3F5F7]">
       <NavBar />
 
       <PlanProvider>
-        <main className="mx-auto max-w-6xl overflow-x-clip px-3 py-6 sm:px-4">
+        <main className="mx-auto max-w-6xl px-3 py-6 sm:px-4">
           {/* Breadcrumb */}
           <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-gray-400">
             <Link className="text-gray-600 hover:text-gray-900" href="/">

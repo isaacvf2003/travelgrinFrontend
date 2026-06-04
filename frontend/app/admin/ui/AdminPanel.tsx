@@ -1741,6 +1741,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         savedBlockId = editingBlockId;
         if (blockVisibleInCard !== initialBlockVisibleInCard) {
           const blockCategories = categories.filter((category) => category.blockId === savedBlockId);
+          const fallbackPrimaryCategoryId =
+            blockVisibleInCard && !blockCategories.some((category) => category.isPrimaryCategory === true)
+              ? (blockCategories.find((category) => !category.parentId)?.id ?? blockCategories[0]?.id ?? null)
+              : null;
           await Promise.all(blockCategories.map((category) =>
             api(`/api/admin/categories/${encodeURIComponent(category.id)}`, {
               method: "PATCH",
@@ -1752,9 +1756,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 parentId: category.parentId ?? null,
                 blockId: category.blockId ?? savedBlockId,
                 isPublicVisible: category.isPublicVisible !== false,
-                isPrimaryCategory: blockVisibleInCard ? Boolean(category.isPrimaryCategory) : false,
-                iconImageUrl: blockVisibleInCard && category.isPrimaryCategory ? (category.iconImageUrl ?? null) : null,
-                cardImageUrl: blockVisibleInCard && category.isPrimaryCategory ? (category.cardImageUrl ?? null) : null,
+                isPrimaryCategory: blockVisibleInCard ? Boolean(category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId) : false,
+                iconImageUrl:
+                  blockVisibleInCard && (category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId)
+                    ? (category.iconImageUrl ?? null)
+                    : null,
+                cardImageUrl:
+                  blockVisibleInCard && (category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId)
+                    ? (category.cardImageUrl ?? null)
+                    : null,
                 order: category.order ?? 0,
               }),
             })
@@ -1780,9 +1790,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
 
       if (!editingBlockId && savedBlockId && blockCategoryDrafts.length) {
-        const draftById = new Map(blockCategoryDrafts.map((draft) => [draft.id, draft]));
+        const normalizedDrafts = blockCategoryDrafts.map((draft, draftIndex) => {
+          if (!blockVisibleInCard) return { ...draft, isPrimaryCategory: false };
+          if (blockCategoryDrafts.some((entry) => entry.isPrimaryCategory)) return draft;
+          const shouldBePrimary = !draft.parentDraftId && draftIndex === 0;
+          return shouldBePrimary ? { ...draft, isPrimaryCategory: true } : draft;
+        });
+        const draftById = new Map(normalizedDrafts.map((draft) => [draft.id, draft]));
         const draftIdsByParent = new Map<string, string[]>();
-        blockCategoryDrafts.forEach((draft) => {
+        normalizedDrafts.forEach((draft) => {
           const key = draft.parentDraftId || "__root__";
           draftIdsByParent.set(key, [...(draftIdsByParent.get(key) ?? []), draft.id]);
         });
@@ -2677,11 +2693,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         ? (pub.fields as any).prestaciones.map((entry: any) => String(entry))
         : []
     );
-    setPPrestacionCategory(
-      Array.isArray((pub.fields as any)?.prestaciones) && (pub.fields as any).prestaciones.length
-        ? String((pub.fields as any).prestaciones[0] ?? "")
-        : ""
-    );
+    const resolvedPrestacionCategory =
+      String((pub.fields as any)?.prestationResources?.[0]?.prestationRef ?? "").trim() ||
+      String((pub.fields as any)?.prestationSteps?.[0]?.prestationRef ?? "").trim() ||
+      String((pub.fields as any)?.prestationFaqs?.[0]?.prestationRef ?? "").trim() ||
+      String((pub.fields as any)?.prestationColorBlocks?.[0]?.prestationRef ?? "").trim() ||
+      (Array.isArray((pub.fields as any)?.prestaciones) && (pub.fields as any).prestaciones.length
+        ? String((pub.fields as any).prestaciones[0] ?? "").trim()
+        : "");
+    setPPrestacionCategory(resolvedPrestacionCategory);
     setPPrestacionDestinationCountries(
       Array.isArray((pub.fields as any)?.destinationCountries)
         ? (pub.fields as any).destinationCountries.map((entry: any) => String(entry ?? "")).filter(Boolean)
