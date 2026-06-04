@@ -386,6 +386,39 @@ function normalizeProviderPlanLabel(value: unknown): string {
   return "Gratis 60 dias";
 }
 
+function paymentStatusLabel(value: unknown): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "paid") return "Aceptado";
+  if (normalized === "processing") return "En proceso";
+  if (normalized === "pending") return "Pendiente";
+  if (normalized === "failed") return "Rechazado";
+  if (normalized === "cancelled") return "Cancelado";
+  return String(value ?? "-") || "-";
+}
+
+function paymentStatusClasses(value: unknown): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "paid") return "bg-emerald-100 text-emerald-700";
+  if (normalized === "processing") return "bg-amber-100 text-amber-700";
+  if (normalized === "pending") return "bg-sky-100 text-sky-700";
+  if (normalized === "failed" || normalized === "cancelled") return "bg-rose-100 text-rose-700";
+  return "bg-slate-100 text-slate-700";
+}
+
+function readRefundSnapshot(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "-";
+  const source = raw as Record<string, unknown>;
+  const direct = String(source.refundStatus ?? source.refund_status ?? source.refunded ?? "").trim();
+  if (direct) return direct;
+  const providerRaw = source.providerRaw;
+  if (providerRaw && typeof providerRaw === "object") {
+    const nested = providerRaw as Record<string, unknown>;
+    const nestedValue = String(nested.refundStatus ?? nested.refund_status ?? nested.refunded ?? "").trim();
+    if (nestedValue) return nestedValue;
+  }
+  return "-";
+}
+
 function providerRequestKindLabel(value: unknown): string {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (normalized === "renew_free") return "Renovacion gratis";
@@ -3791,6 +3824,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(query));
   });
+  const selectedOferenteCards = useMemo(() => {
+    const grouped = new Map<string, TravelService>();
+    selectedUsers.forEach((item) => {
+      if (String(item.taxonomyType ?? "").toLowerCase() !== "oferente") return;
+      const email = String(item.email ?? "").trim().toLowerCase();
+      if (!email) return;
+      const current = grouped.get(email);
+      const currentTime = current?.createdAt ? new Date(current.createdAt).getTime() : 0;
+      const nextTime = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+      if (!current || nextTime >= currentTime) grouped.set(email, item);
+    });
+    return Array.from(grouped.values());
+  }, [selectedUsers]);
 
   const approvedOferentes = useMemo(
     () => userOferentes.filter((item) => serviceEffectiveStatus(item) === "aprobado"),
@@ -3814,6 +3860,67 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       return [label, service.email].some((value) => String(value ?? "").toLowerCase().includes(query));
     });
   }, [approvedOferentes, pApprovedProviderSearch]);
+  const approvedOferentesGrouped = useMemo(() => {
+    const groups = new Map<string, { email: string; label: string; services: TravelService[] }>();
+    filteredApprovedOferentes.forEach((service) => {
+      const email = String(service.email ?? "").trim().toLowerCase();
+      if (!email) return;
+      const extra = parseTravelServiceExtra(service);
+      const label = String(service.name || String(extra.name ?? "") || email).trim();
+      const current = groups.get(email) ?? { email, label, services: [] };
+      current.services.push(service);
+      if (!current.label && label) current.label = label;
+      groups.set(email, current);
+    });
+    return Array.from(groups.values()).map((group) => ({
+      ...group,
+      services: [...group.services].sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      }),
+    }));
+  }, [filteredApprovedOferentes]);
+  const paymentCounts = useMemo(() => ({
+    monthly: travelServicePayments.filter((item) => item.planType === "featured_monthly").length,
+    featured120: travelServicePayments.filter((item) => item.planType !== "featured_monthly").length,
+    paid: travelServicePayments.filter((item) => item.status === "paid").length,
+    pending: travelServicePayments.filter((item) => item.status === "pending" || item.status === "processing").length,
+    rejected: travelServicePayments.filter((item) => item.status === "failed" || item.status === "cancelled").length,
+    refunded: travelServicePayments.filter((item) => readRefundSnapshot(item.raw) !== "-").length,
+  }), [travelServicePayments]);
+  const paymentSections = useMemo(() => ([
+    {
+      key: "monthly",
+      title: "Planes mensuales",
+      items: travelServicePayments.filter((item) => item.planType === "featured_monthly"),
+    },
+    {
+      key: "featured120",
+      title: "Destacado 120 dias",
+      items: travelServicePayments.filter((item) => item.planType !== "featured_monthly"),
+    },
+    {
+      key: "paid",
+      title: "Aceptados",
+      items: travelServicePayments.filter((item) => item.status === "paid"),
+    },
+    {
+      key: "pending",
+      title: "Pendientes / proceso",
+      items: travelServicePayments.filter((item) => item.status === "pending" || item.status === "processing"),
+    },
+    {
+      key: "rejected",
+      title: "Rechazados / cancelados",
+      items: travelServicePayments.filter((item) => item.status === "failed" || item.status === "cancelled"),
+    },
+    {
+      key: "refunded",
+      title: "Reembolsos",
+      items: travelServicePayments.filter((item) => readRefundSnapshot(item.raw) !== "-"),
+    },
+  ]), [travelServicePayments]);
 
   const publicationsByProviderEmail = useMemo(() => {
     const map = new Map<string, Publication[]>();
@@ -3990,6 +4097,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const detailLinkedPublications = detailTravelService && !isDetailDemandante
     ? (publicationsByProviderEmail.get(String(detailTravelService.email ?? "").toLowerCase()) ?? [])
     : [];
+  const detailRelatedServices = detailTravelService && !isDetailDemandante
+    ? userOferentes
+        .filter((item) => String(item.email ?? "").trim().toLowerCase() === String(detailTravelService.email ?? "").trim().toLowerCase())
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        })
+    : [];
+  const detailRelatedPayments = detailTravelService && !isDetailDemandante
+    ? travelServicePayments.filter((item) => detailRelatedServices.some((service) => service.id === item.serviceId))
+    : [];
 
   const detailTravelServiceModal = detailTravelService ? (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4" onClick={() => { setDetailTravelService(null); setDetailImageExpanded(null); }}>
@@ -4061,6 +4180,45 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   })}
                 </div>
               ) : <div className="mt-2 text-xs text-slate-500">Este oferente todavía no tiene publicaciones vinculadas.</div>}
+            </div>
+            <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-slate-900">Historial de solicitudes del oferente</div>
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">{detailRelatedServices.length} solicitud(es)</span>
+              </div>
+              <div className="mt-3 space-y-2">
+                {detailRelatedServices.map((service) => {
+                  const extra = parseTravelServiceExtra(service);
+                  const payment = detailRelatedPayments.find((item) => item.serviceId === service.id);
+                  const currentStatus = serviceEffectiveStatus(service);
+                  return (
+                    <div key={`history-${service.id}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-white px-2 py-1 font-semibold">{normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan)}</span>
+                        <span className="rounded-full bg-white px-2 py-1">{providerRequestKindLabel(extra.requestKind)}</span>
+                        <span className="rounded-full bg-white px-2 py-1">{currentStatus}</span>
+                        <span className={`rounded-full px-2 py-1 ${paymentStatusClasses(payment?.status ?? extra.paymentStatus ?? "-")}`}>Pago: {paymentStatusLabel(payment?.status ?? extra.paymentStatus ?? "-")}</span>
+                      </div>
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        <div><b>ID solicitud:</b> {service.id}</div>
+                        <div><b>Fecha:</b> {service.createdAt ? new Date(service.createdAt).toLocaleString("es-AR") : "-"}</div>
+                        <div><b>Plan anterior:</b> {extra.previousPlan ? normalizeProviderPlanLabel(extra.previousPlan) : "-"}</div>
+                        <div><b>Referencia de pago:</b> {payment?.externalReference || "-"}</div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Ver solicitud</button>
+                        {currentStatus === "pendiente" ? (
+                          <>
+                            <button type="button" onClick={() => updateTravelServiceStatus(service.id, "aprobado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Aprobado</button>
+                            <button type="button" onClick={() => updateTravelServiceStatus(service.id, "rechazado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Rechazado</button>
+                            <button type="button" onClick={() => updateTravelServiceStatus(service.id, "falta info")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Falta info</button>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -4345,40 +4503,47 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{travelServicePayments.length} registros</span>
         </div>
-        <div className="space-y-2">
-          {travelServicePayments.length ? travelServicePayments.map((item) => (
-            <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-700">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : "120 DIAS"}</span>
-                <span className="rounded-full bg-white px-2 py-1">{item.paymentType === "monthly" ? "Suscripcion" : "Pago unico"}</span>
-                <span className="rounded-full bg-white px-2 py-1">{item.currency || "-"} {item.amount ?? "-"}</span>
-                <span className={`rounded-full px-2 py-1 font-semibold ${
-                  item.status === "paid"
-                    ? "bg-emerald-100 text-emerald-700"
-                    : item.status === "failed" || item.status === "cancelled"
-                      ? "bg-rose-100 text-rose-700"
-                      : item.status === "processing"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-sky-100 text-sky-700"
-                }`}>
-                  {item.status}
-                </span>
-                {item.returnStatus ? <span className="rounded-full bg-white px-2 py-1">Retorno: {item.returnStatus}</span> : null}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Mensuales:</b> {paymentCounts.monthly}</div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>120 dias:</b> {paymentCounts.featured120}</div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Aceptados:</b> {paymentCounts.paid}</div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Pendientes:</b> {paymentCounts.pending}</div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Rechazados:</b> {paymentCounts.rejected}</div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Reembolsos:</b> {paymentCounts.refunded}</div>
+        </div>
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          {paymentSections.map((section) => (
+            <div key={`payment-section-${section.key}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-slate-900">{section.title}</div>
+                <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-700">{section.items.length}</span>
               </div>
-              <div className="mt-2 grid gap-2 text-[11px] text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
-                <div><span className="font-semibold text-slate-800">Email:</span> {item.payerEmail || "-"}</div>
-                <div><span className="font-semibold text-slate-800">Publicacion / solicitud:</span> {item.serviceId}</div>
-                <div><span className="font-semibold text-slate-800">Referencia:</span> {item.externalReference || "-"}</div>
-                <div><span className="font-semibold text-slate-800">Pago dLocal:</span> {item.providerPaymentId || "-"}</div>
-                <div><span className="font-semibold text-slate-800">Creado:</span> {item.createdAt ? new Date(item.createdAt).toLocaleString("es-AR") : "-"}</div>
-                <div><span className="font-semibold text-slate-800">Pagado:</span> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
-                <div className="sm:col-span-2 xl:col-span-2"><span className="font-semibold text-slate-800">Checkout:</span> {item.checkoutUrl || "-"}</div>
-                {item.promoCode ? <div><span className="font-semibold text-slate-800">Promo:</span> {item.promoCode}</div> : null}
+              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                {section.items.length ? section.items.map((item) => (
+                  <div key={`${section.key}-${item.id}`} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-700">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : "120 DIAS"}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-1">{item.paymentType === "monthly" ? "Suscripcion" : "Pago unico"}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-1">{item.currency || "-"} {item.amount ?? "-"}</span>
+                      <span className={`rounded-full px-2 py-1 font-semibold ${paymentStatusClasses(item.status)}`}>{paymentStatusLabel(item.status)}</span>
+                    </div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <div><span className="font-semibold text-slate-800">Usuario:</span> {item.payerEmail || "-"}</div>
+                      <div><span className="font-semibold text-slate-800">Solicitud:</span> {item.serviceId}</div>
+                      <div><span className="font-semibold text-slate-800">Referencia:</span> {item.externalReference || "-"}</div>
+                      <div><span className="font-semibold text-slate-800">Pago dLocal:</span> {item.providerPaymentId || "-"}</div>
+                      <div><span className="font-semibold text-slate-800">Creado:</span> {item.createdAt ? new Date(item.createdAt).toLocaleString("es-AR") : "-"}</div>
+                      <div><span className="font-semibold text-slate-800">Pagado:</span> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
+                      <div><span className="font-semibold text-slate-800">Retorno:</span> {item.returnStatus || "-"}</div>
+                      <div><span className="font-semibold text-slate-800">Reembolso:</span> {readRefundSnapshot(item.raw)}</div>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">Sin registros en esta sección.</div>
+                )}
               </div>
             </div>
-          )) : (
-            <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay pagos registrados.</div>
-          )}
+          ))}
         </div>
       </div>
 
@@ -4453,7 +4618,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         </div>
 
         <div className="space-y-3">
-          {selectedUsers.length ? selectedUsers.map((service) => {
+          {(userTab === "oferentes" ? selectedOferenteCards : selectedUsers).length ? (userTab === "oferentes" ? selectedOferenteCards : selectedUsers).map((service) => {
             const serviceExtra = parseTravelServiceExtra(service);
             const serviceStatus = serviceEffectiveStatus(service);
             const isDemandante = String(service.taxonomyType ?? "").toLowerCase() === "demandante";
@@ -5779,15 +5944,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
               >
                 <option value="">Seleccionar oferente aprobado</option>
-                {filteredApprovedOferentes.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {[
-                      service.name ? `${service.name} (email: ${service.email})` : service.email,
-                      providerRequestKindLabel(parseTravelServiceExtra(service).requestKind),
-                      normalizeProviderPlanLabel(parseTravelServiceExtra(service).requestedPlan ?? parseTravelServiceExtra(service).publicationPlan),
-                      service.createdAt ? new Date(service.createdAt).toLocaleDateString("es-AR") : "",
-                    ].filter(Boolean).join(" | ")}
-                  </option>
+                {approvedOferentesGrouped.map((group) => (
+                  <optgroup key={`provider-group-${group.email}`} label={`${group.label} (${group.email})`}>
+                    {group.services.map((service) => {
+                      const extra = parseTravelServiceExtra(service);
+                      return (
+                        <option key={service.id} value={service.id}>
+                          {[
+                            providerRequestKindLabel(extra.requestKind),
+                            normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan),
+                            service.createdAt ? new Date(service.createdAt).toLocaleDateString("es-AR") : "",
+                          ].filter(Boolean).join(" | ")}
+                        </option>
+                      );
+                    })}
+                  </optgroup>
                 ))}
               </select>
             </div>
