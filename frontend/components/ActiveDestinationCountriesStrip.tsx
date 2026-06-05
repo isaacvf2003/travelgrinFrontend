@@ -129,24 +129,24 @@ export default function ActiveDestinationCountriesStrip() {
 
   return (
     <section className="px-4 pt-2 md:px-0 md:pt-3">
-      <div className="mx-auto max-w-[40rem] rounded-[18px] bg-gradient-to-r from-[#1bc8c0] via-[#149fba] to-[#116d8a] px-4 py-2 text-white shadow-[0_10px_18px_rgba(17,109,138,0.10)] md:px-5 md:py-2">
+      <div className="mx-auto max-w-[56rem] rounded-[22px] bg-gradient-to-r from-[#1bc8c0] via-[#149fba] to-[#116d8a] px-5 py-3 text-white shadow-[0_10px_18px_rgba(17,109,138,0.10)] md:px-7 md:py-4">
         <div className="text-center">
           <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-white/70">
             Destinos activos
           </p>
-          <h2 className="mt-0.5 text-[15px] font-bold md:text-[16px]">
+          <h2 className="mt-1 text-[18px] font-bold md:text-[22px]">
             Pa\u00edses que te esperan
           </h2>
-          <p className="mx-auto mt-0.5 max-w-2xl text-[10px] text-white/86 md:text-[10px]">
+          <p className="mx-auto mt-1 max-w-3xl text-[11px] text-white/86 md:text-[13px]">
             Explor\u00e1 pa\u00edses donde hoy ya hay oportunidades activas y salt\u00e1 directo al buscador filtrado.
           </p>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
           {visibleCountries.map((entry) => (
             <div
               key={entry.country}
-              className="flex min-w-[146px] items-center gap-2 rounded-full border border-white/12 bg-white/10 px-2.5 py-1 backdrop-blur-sm"
+              className="flex min-w-[176px] items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 backdrop-blur-sm"
             >
               <span
                 aria-hidden="true"

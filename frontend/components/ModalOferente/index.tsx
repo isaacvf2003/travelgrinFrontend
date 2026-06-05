@@ -555,12 +555,12 @@ function PlanCard({
 }) {
   const isFeatured = tone === "featured";
   return (
-    <div className={`flex h-full flex-col rounded-[1.35rem] border p-5 text-sm shadow-[0_18px_45px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.16)] ${isFeatured ? "border-[#67E8F9] bg-gradient-to-br from-[#102A6B] via-[#0B8FA3] to-[#00A9C6] text-white" : "border-emerald-300 bg-white/95 text-slate-800"}`}>
+    <div className={`flex h-full min-h-[30rem] flex-col rounded-[1.5rem] border p-5 text-sm shadow-[0_18px_45px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.16)] md:p-6 ${isFeatured ? "border-[#67E8F9] bg-gradient-to-br from-[#102A6B] via-[#0B8FA3] to-[#00A9C6] text-white" : "border-emerald-300 bg-white/95 text-slate-800"}`}>
       <div className={`flex items-center gap-2 text-sm font-bold ${isFeatured ? "text-white" : "text-[#273166]"}`}>
         <span className={`h-3 w-3 rounded-full ${isFeatured ? "bg-cyan-200 shadow-[0_0_18px_rgba(165,243,252,0.95)]" : "bg-emerald-500"}`} />
         {title}
       </div>
-      <ul className={`mt-4 flex-1 space-y-1.5 text-sm leading-6 ${isFeatured ? "text-cyan-50" : "text-slate-700"}`}>
+      <ul className={`mt-4 flex-1 space-y-2 text-sm leading-6 ${isFeatured ? "text-cyan-50" : "text-slate-700"}`}>
         {items.map((item) => <li key={item}>• {item}</li>)}
       </ul>
       <div className="mt-5 text-center">
@@ -572,18 +572,18 @@ function PlanCard({
       </div>
       {showPromo ? (
         <>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               value={promoCode}
               onChange={(event) => onPromoCodeChange?.(event.target.value)}
-              className="h-9 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+              className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
               style={{ colorScheme: "light" }}
               placeholder={promoPlaceholder}
             />
             <button
               type="button"
               onClick={onApplyPromo}
-              className="h-9 rounded-lg border border-white/30 bg-white/20 px-3 text-xs font-semibold text-white hover:bg-white/30 disabled:opacity-60"
+              className={`h-10 w-full rounded-xl border px-4 text-sm font-semibold transition hover:brightness-105 disabled:opacity-60 sm:w-auto ${isFeatured ? "border-white/30 bg-white/20 text-white hover:bg-white/30" : "border-[#273166]/15 bg-[#273166] text-white hover:bg-[#1d2550]"}`}
               disabled={!onApplyPromo}
             >
               Aplicar
@@ -1525,7 +1525,7 @@ export default function ModalOferente({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <div style={{ position: "relative", zIndex: 9999997, isolation: "isolate" }}>
           <DestinationSelect destinationCountry={destinationCountry} setDestinationCountry={setDestinationCountry} label={mt("oferente_destino_label")} customClass="mb-0" isInModal textBuscarPais={t("buscar_pais")} noHayPaises={t("no_hay_paises")} allowedCountries={destinationAvailabilityMode === "some" ? destinationAvailabilityCountries : []} />
         </div>
@@ -1550,7 +1550,7 @@ export default function ModalOferente({
         </Link>
       </label>
 
-      <div className={`grid gap-4 ${visiblePlanSet.size >= 3 ? "md:grid-cols-3" : visiblePlanSet.size === 2 ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
+      <div className={`mx-auto grid w-full max-w-[920px] gap-4 xl:gap-5 ${visiblePlanSet.size >= 3 ? "lg:grid-cols-3" : visiblePlanSet.size === 2 ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
         {visiblePlanSet.has("basic_free") ? (
           <PlanCard
             title={mt("oferente_publicacion_basica")}
@@ -1754,7 +1754,7 @@ export default function ModalOferente({
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-sm">
+      <div className="mx-auto w-full max-w-[30rem]">
         <PlanCard
           title={paidPlanTitle}
           tone="featured"
@@ -1783,7 +1783,7 @@ export default function ModalOferente({
       <div className="fixed inset-0 bg-black/60" style={{ zIndex: 400 }} onClick={onClose} />
       <div className="fixed inset-0 flex items-start justify-center p-3 pt-2 sm:p-4 sm:pt-6" style={{ zIndex: 410, pointerEvents: "none" }}>
         <div
-          className="relative bg-white rounded-[1.7rem] shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+          className="relative flex max-h-[90vh] w-full max-w-[1120px] flex-col overflow-hidden rounded-[1.7rem] bg-white shadow-2xl"
           style={{ pointerEvents: "auto", zIndex: 1000000, isolation: "isolate" }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -1803,9 +1803,9 @@ export default function ModalOferente({
             </div>
           </div>
 
-          <div ref={modalBodyRef} className="flex-1 overflow-y-auto bg-gradient-to-b from-[#F5FBFB] via-[#EEEEEE] to-[#F8FAFC] p-6 space-y-6">
+          <div ref={modalBodyRef} className="flex-1 overflow-y-auto bg-gradient-to-b from-[#F5FBFB] via-[#EEEEEE] to-[#F8FAFC] p-5 sm:p-6 space-y-6">
             <div className="flex items-center justify-center flex-col text-center">
-              <h1 style={{ color: "#273166" }} className="text-xl font-semibold text-gray-800 leading-tight">{t("conecta_con_viajeros")}</h1>
+              <h1 style={{ color: "#273166" }} className="text-xl font-semibold leading-tight text-gray-800 md:text-2xl">{t("conecta_con_viajeros")}</h1>
               <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? mt("oferente_destacado_heading") : t("cambiamos_la_manera")}</h2>
             </div>
             {step === "basic" ? basicStep : featuredStep}

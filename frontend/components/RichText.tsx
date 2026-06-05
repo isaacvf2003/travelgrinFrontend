@@ -27,6 +27,48 @@ const ALLOWED_STYLES = new Set([
   "text-decoration-line",
 ]);
 
+function normalizeVisibleText(value: string) {
+  const raw = String(value ?? "");
+  if (!raw) return "";
+
+  let normalized = raw
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã­/g, "í")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã±/g, "ñ")
+    .replace(/Ã¼/g, "ü")
+    .replace(/Ã/g, "Á")
+    .replace(/Ã‰/g, "É")
+    .replace(/Ã/g, "Í")
+    .replace(/Ã“/g, "Ó")
+    .replace(/Ãš/g, "Ú")
+    .replace(/Ã‘/g, "Ñ")
+    .replace(/Â¿/g, "¿")
+    .replace(/Â¡/g, "¡")
+    .replace(/â†/g, "←")
+    .replace(/â†’/g, "→")
+    .replace(/â€”/g, "—")
+    .replace(/â€“/g, "–")
+    .replace(/â€œ/g, "“")
+    .replace(/â€/g, "”")
+    .replace(/â€˜/g, "‘")
+    .replace(/â€™/g, "’");
+
+  if (/[ÃÂâ]/.test(normalized)) {
+    try {
+      const bytes = Uint8Array.from(normalized, (char) => char.charCodeAt(0));
+      const decoded = new TextDecoder("utf-8").decode(bytes);
+      if (decoded && decoded !== normalized) normalized = decoded;
+    } catch {
+      // keep best effort text
+    }
+  }
+
+  return normalized;
+}
+
 function escapeHtml(value: string) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -76,7 +118,7 @@ function sanitizeStyle(value: string) {
 }
 
 export function sanitizeRichText(value: string) {
-  const input = String(value ?? "");
+  const input = normalizeVisibleText(String(value ?? ""));
   if (!/<\/?[a-z][\s\S]*>/i.test(input)) return escapeHtml(input).replace(/\n/g, "<br />");
 
   return input.replace(/<\/?[^>]+>/g, (tag) => {
