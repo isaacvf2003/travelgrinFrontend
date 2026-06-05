@@ -7,6 +7,7 @@ import { Check, ChevronDown, Search, Tag } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText } from "@/app/lib/i18nContent";
 import { useCountry } from "@/app/context/CountryProvider";
+import { readStoredDestination, writeStoredDestination } from "@/app/lib/destinationStore";
 import { useSearchNavigation } from "./SearchNavigationContext";
 
 type FilterGroupLite = {
@@ -68,25 +69,19 @@ export default function SearchBar() {
   const initialCountrySyncDone = useRef(false);
 
   useEffect(() => {
-    try {
-      const queryDestination = params.get("destinationCountry") || "";
-      if (queryDestination) {
-        window.localStorage.setItem("tg_destination", queryDestination);
-        return;
-      }
-      const savedDestination = window.localStorage.getItem("tg_destination");
-      if (savedDestination && !destinationCountry) {
-        setDestinationCountry(savedDestination);
-      }
-    } catch {}
+    const queryDestination = params.get("destinationCountry") || "";
+    if (queryDestination) {
+      writeStoredDestination(queryDestination);
+      return;
+    }
+    const savedDestination = readStoredDestination();
+    if (savedDestination && !destinationCountry) {
+      setDestinationCountry(savedDestination);
+    }
   }, [params, destinationCountry]);
 
   useEffect(() => {
-    try {
-      if (destinationCountry.trim()) {
-        window.localStorage.setItem("tg_destination", destinationCountry.trim());
-      }
-    } catch {}
+    if (destinationCountry.trim()) writeStoredDestination(destinationCountry);
   }, [destinationCountry]);
 
   const applySearchBarSelection = useCallback(() => {
@@ -209,7 +204,8 @@ export default function SearchBar() {
   useEffect(() => {
     setSelectedCategory(params.get("category") || "");
     setSelectedSubcategory(params.get("subcategory") || "");
-    setDestinationCountry(params.get("destinationCountry") || "");
+    const queryDestination = params.get("destinationCountry") || "";
+    setDestinationCountry(queryDestination || readStoredDestination());
   }, [params]);
 
   useEffect(() => {

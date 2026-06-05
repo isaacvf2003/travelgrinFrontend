@@ -7,6 +7,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
+import {
+  buildBuscarHrefWithDestination,
+  DESTINATION_CHANGE_EVENT,
+  readStoredDestination,
+} from "@/app/lib/destinationStore";
 
 type PublicationLite = {
   id: string;
@@ -43,8 +48,30 @@ export default function PrestacionesToAdd({ chips, currentPublicationId }: Props
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const [mobilePage, setMobilePage] = useState(0);
   const [mobilePages, setMobilePages] = useState(1);
+  const [storedDestination, setStoredDestination] = useState("");
 
   const [availableValues, setAvailableValues] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const syncStoredDestination = (event?: Event) => {
+      const eventDestination =
+        event instanceof CustomEvent ? String(event.detail ?? "").trim() : "";
+      setStoredDestination(
+        eventDestination ||
+          readStoredDestination() ||
+          String(searchParams.get("destinationCountry") ?? "").trim(),
+      );
+    };
+
+    syncStoredDestination();
+    window.addEventListener(DESTINATION_CHANGE_EVENT, syncStoredDestination);
+    window.addEventListener("storage", syncStoredDestination);
+
+    return () => {
+      window.removeEventListener(DESTINATION_CHANGE_EVENT, syncStoredDestination);
+      window.removeEventListener("storage", syncStoredDestination);
+    };
+  }, [searchParams]);
 
   useEffect(() => {
     let mounted = true;
@@ -306,7 +333,11 @@ export default function PrestacionesToAdd({ chips, currentPublicationId }: Props
               <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="break-words text-xs text-slate-500">{openItems.length} prestaciones encontradas</div>
                 <Link
-                  href={`/buscar?${new URLSearchParams({ prestacion: openValue }).toString()}`}
+                  href={buildBuscarHrefWithDestination(
+                    { primaryGroupKey: "prestacion", prestacion: openValue },
+                    storedDestination,
+                    String(searchParams.get("country") ?? "").trim(),
+                  )}
                   className="inline-flex rounded-lg border border-teal-300 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-100"
                 >
                   Ver todas
