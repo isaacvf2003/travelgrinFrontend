@@ -366,7 +366,87 @@ function normalizeVisibleText(value: string): string {
   const raw = String(value ?? "");
   if (!raw) return "";
 
+  const broken = "(?:[^A-Za-z0-9\\s]{1,80})";
+  const contextualRepairs: Array<[RegExp, string]> = [
+    [new RegExp(`CATEGOR${broken}AS`, "g"), "CATEGORÍAS"],
+    [new RegExp(`CATEGOR${broken}A`, "g"), "CATEGORÍA"],
+    [new RegExp(`T${broken}TULO`, "g"), "TÍTULO"],
+    [new RegExp(`P${broken}BLICO`, "g"), "PÚBLICO"],
+    [new RegExp(`Categor${broken}as`, "g"), "Categorías"],
+    [new RegExp(`Categor${broken}a`, "g"), "Categoría"],
+    [new RegExp(`Publicaci${broken}n`, "g"), "Publicación"],
+    [new RegExp(`Prestaci${broken}n`, "g"), "Prestación"],
+    [new RegExp(`Informaci${broken}n`, "g"), "Información"],
+    [new RegExp(`Descripci${broken}n`, "g"), "Descripción"],
+    [new RegExp(`categor${broken}as`, "gi"), "categorías"],
+    [new RegExp(`categor${broken}a`, "gi"), "categoría"],
+    [new RegExp(`subcategor${broken}as`, "gi"), "subcategorías"],
+    [new RegExp(`subcategor${broken}a`, "gi"), "subcategoría"],
+    [new RegExp(`publicaci${broken}nes`, "gi"), "publicaciones"],
+    [new RegExp(`publicaci${broken}n`, "gi"), "publicación"],
+    [new RegExp(`prestaci${broken}nes`, "gi"), "prestaciones"],
+    [new RegExp(`prestaci${broken}n`, "gi"), "prestación"],
+    [new RegExp(`informaci${broken}n`, "gi"), "información"],
+    [new RegExp(`descripci${broken}n`, "gi"), "descripción"],
+    [new RegExp(`configuraci${broken}n`, "gi"), "configuración"],
+    [new RegExp(`navegaci${broken}n`, "gi"), "navegación"],
+    [new RegExp(`edici${broken}n`, "gi"), "edición"],
+    [new RegExp(`valoraci${broken}n`, "gi"), "valoración"],
+    [new RegExp(`opci${broken}nes`, "gi"), "opciones"],
+    [new RegExp(`opci${broken}n`, "gi"), "opción"],
+    [new RegExp(`acci${broken}n`, "gi"), "acción"],
+    [new RegExp(`secci${broken}n`, "gi"), "sección"],
+    [new RegExp(`selecci${broken}n`, "gi"), "selección"],
+    [new RegExp(`t${broken}tulo`, "gi"), "título"],
+    [new RegExp(`t${broken}tulos`, "gi"), "títulos"],
+    [new RegExp(`p${broken}blico`, "gi"), "público"],
+    [new RegExp(`pa${broken}s`, "gi"), "país"],
+    [new RegExp(`pa${broken}ses`, "gi"), "países"],
+    [new RegExp(`a${broken}o`, "gi"), "año"],
+    [new RegExp(`a${broken}os`, "gi"), "años"],
+    [new RegExp(`d${broken}a`, "gi"), "día"],
+    [new RegExp(`d${broken}as`, "gi"), "días"],
+    [new RegExp(`m${broken}s`, "gi"), "más"],
+    [new RegExp(`m${broken}ltiples`, "gi"), "múltiples"],
+    [new RegExp(`aqu${broken}`, "gi"), "aquí"],
+    [new RegExp(`todav${broken}a`, "gi"), "todavía"],
+    [new RegExp(`tambi${broken}n`, "gi"), "también"],
+    [new RegExp(`pod${broken}s`, "gi"), "podés"],
+    [new RegExp(`cre${broken}`, "gi"), "creá"],
+    [new RegExp(`c${broken}digo`, "gi"), "código"],
+    [new RegExp(`m${broken}nimo`, "gi"), "mínimo"],
+    [new RegExp(`m${broken}ximo`, "gi"), "máximo"],
+    [new RegExp(`prop${broken}sito`, "gi"), "propósito"],
+    [new RegExp(`Seleccion${broken}`, "g"), "Seleccioná"],
+    [new RegExp(`seleccion${broken}`, "g"), "seleccioná"],
+    [new RegExp(`Eleg${broken}`, "g"), "Elegí"],
+    [new RegExp(`eleg${broken}`, "g"), "elegí"],
+    [new RegExp(`Complet${broken}`, "g"), "Completá"],
+    [new RegExp(`complet${broken}`, "g"), "completá"],
+    [new RegExp(`mostrar${broken}`, "gi"), "mostrará"],
+    [new RegExp(`num${broken}ricos`, "gi"), "numéricos"],
+    [new RegExp(`qu${broken}`, "gi"), "qué"],
+    [new RegExp(`quer${broken}s`, "gi"), "querés"],
+    [new RegExp(`est${broken}`, "gi"), "está"],
+    [new RegExp(`enviar${broken}`, "gi"), "enviará"],
+    [new RegExp(`ingres${broken}`, "gi"), "ingresá"],
+    [new RegExp(`guard${broken}`, "gi"), "guardá"],
+  ];
+
   let normalized = raw
+    .replace(/ÃƒÂ¡/g, "á")
+    .replace(/ÃƒÂ©/g, "é")
+    .replace(/ÃƒÂ­/g, "í")
+    .replace(/ÃƒÂ³/g, "ó")
+    .replace(/ÃƒÂº/g, "ú")
+    .replace(/ÃƒÂ±/g, "ñ")
+    .replace(/ÃƒÂ¼/g, "ü")
+    .replace(/ÃƒÂ/g, "Á")
+    .replace(/ÃƒÂ‰/g, "É")
+    .replace(/ÃƒÂ/g, "Í")
+    .replace(/ÃƒÂ“/g, "Ó")
+    .replace(/ÃƒÂš/g, "Ú")
+    .replace(/ÃƒÂ‘/g, "Ñ")
     .replace(/Ã¡/g, "á")
     .replace(/Ã©/g, "é")
     .replace(/Ã­/g, "í")
@@ -390,22 +470,26 @@ function normalizeVisibleText(value: string): string {
     .replace(/â€˜/g, '‘')
     .replace(/â€™/g, '’');
 
-  if (/[ÃÂâ]/.test(normalized)) {
-    try {
-      const bytes = Uint8Array.from(normalized, (char) => char.charCodeAt(0));
-      const decoded = new TextDecoder('utf-8').decode(bytes);
-      if (decoded && decoded !== normalized) normalized = decoded;
-    } catch {
-      // keep best effort text
-    }
+  for (const [pattern, replacement] of contextualRepairs) {
+    normalized = normalized.replace(pattern, replacement);
   }
+
+  for (const [pattern, replacement] of contextualRepairs) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+
+  normalized = normalized
+    .replace(/publicaciónes/gi, "publicaciones")
+    .replace(/prestaciónes/gi, "prestaciones")
+    .replace(/opciónes/gi, "opciones")
+    .replace(/selecciónes/gi, "selecciones");
 
   return normalized.replace(/\s+/g, ' ').trim();
 }
 
 function normalizeAdminDomTree(root: HTMLElement) {
   const normalizeIfNeeded = (value: string) => {
-    if (!/[ÃÂâ]/.test(value)) return value;
+    if (!/[ÃÂâ�]/.test(value)) return value;
     return normalizeVisibleText(value);
   };
 
@@ -1049,7 +1133,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     return () => {
       observer.disconnect();
     };
-  }, [section, publicationsView]);
+  }, [section, publicationsView, loading]);
 
   // --- Category form ---
   const [catLang, setCatLang] = useState<Lang>("es");
