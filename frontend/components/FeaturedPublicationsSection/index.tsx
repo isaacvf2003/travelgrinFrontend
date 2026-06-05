@@ -252,7 +252,6 @@ export default function FeaturedPublicationsSection() {
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInView, setIsInView] = useState(false);
-  const [isFeaturedPaused, setIsFeaturedPaused] = useState(false);
   const [isPrestacionesPaused, setIsPrestacionesPaused] = useState(false);
   const [prestacionCategories, setPrestacionCategories] = useState<
     PrestCategoryLite[]
@@ -457,28 +456,12 @@ export default function FeaturedPublicationsSection() {
   }, [cardsPerView, list.length]);
 
   useEffect(() => {
-    if (!isInView || isFeaturedPaused || !showCarousel || listWithMore.length < 2) return;
-    const timer = window.setInterval(() => {
-      if (featuredPairMode && featuredFocusOffset === 0) {
-        setFeaturedFocusOffset(1);
-      } else if (featuredPairMode) {
-        setFeaturedFocusOffset(0);
-        setCurrentSlide((prev) => positiveModulo(prev + 2, listWithMore.length));
-      } else {
-        setCurrentSlide((prev) => positiveModulo(prev + 1, listWithMore.length));
-      }
-    }, 4500);
-    return () => window.clearInterval(timer);
-  }, [featuredFocusOffset, featuredPairMode, isFeaturedPaused, isInView, listWithMore.length, showCarousel]);
-
-  useEffect(() => {
     if (listWithMore.length)
       setCurrentSlide((prev) => positiveModulo(prev, listWithMore.length));
   }, [listWithMore.length]);
 
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (!showCarousel) return;
-    setIsFeaturedPaused(true);
     setTouchEndX(null);
     setTouchStartX(event.changedTouches[0]?.clientX ?? null);
   };
@@ -490,7 +473,6 @@ export default function FeaturedPublicationsSection() {
 
   const onTouchEnd = () => {
     if (!showCarousel || touchStartX == null || touchEndX == null) {
-      setIsFeaturedPaused(false);
       return;
     }
     const deltaX = touchStartX - touchEndX;
@@ -499,7 +481,6 @@ export default function FeaturedPublicationsSection() {
     if (deltaX < -minSwipe) moveFeaturedCarousel(-1);
     setTouchStartX(null);
     setTouchEndX(null);
-    setIsFeaturedPaused(false);
   };
 
   const filteredPrestaciones = prestacionItems.filter((item) => {
@@ -757,8 +738,6 @@ export default function FeaturedPublicationsSection() {
 
       <div
         className="relative"
-        onMouseEnter={() => setIsFeaturedPaused(true)}
-        onMouseLeave={() => setIsFeaturedPaused(false)}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -936,7 +915,7 @@ export default function FeaturedPublicationsSection() {
                         ))}
                       </p>
                     ) : null}
-                    <p className="text-sm font-semibold text-[#2563EB]">
+                    <p className={`text-sm font-semibold ${isFocused ? "text-[#0B8FA3]" : "text-[#273166]"}`}>
                       {pub.price
                         ? `${pub.currency ? `${pub.currency} ` : ""}${pub.price}`
                         : t("precio_convenir")}

@@ -129,16 +129,16 @@ export default function ActiveDestinationCountriesStrip() {
 
   return (
     <section className="px-4 pt-2 md:px-0 md:pt-3">
-      <div className="mx-auto max-w-[56rem] rounded-[22px] bg-gradient-to-r from-[#1bc8c0] via-[#149fba] to-[#116d8a] px-5 py-3 text-white shadow-[0_10px_18px_rgba(17,109,138,0.10)] md:px-7 md:py-4">
+      <div className="mx-auto w-full max-w-[1152px] rounded-[22px] bg-gradient-to-r from-[#1bc8c0] via-[#149fba] to-[#116d8a] px-5 py-3 text-white shadow-[0_10px_18px_rgba(17,109,138,0.10)] md:px-7 md:py-4">
         <div className="text-center">
           <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-white/70">
             Destinos activos
           </p>
           <h2 className="mt-1 text-[18px] font-bold md:text-[22px]">
-            Pa\u00edses que te esperan
+            Países que te esperan
           </h2>
           <p className="mx-auto mt-1 max-w-3xl text-[11px] text-white/86 md:text-[13px]">
-            Explor\u00e1 pa\u00edses donde hoy ya hay oportunidades activas y salt\u00e1 directo al buscador filtrado.
+            Explorá países donde hoy ya hay oportunidades activas y saltá directo al buscador filtrado.
           </p>
         </div>
 
@@ -166,7 +166,7 @@ export default function ActiveDestinationCountriesStrip() {
                 href={`/buscar?destinationCountry=${encodeURIComponent(entry.country)}`}
                 className="inline-flex shrink-0 rounded-full bg-white px-2 py-0.5 text-[9px] font-semibold text-[#0b8fa3] transition hover:bg-slate-100"
               >
-                Ver m\u00e1s
+                Ver más
               </Link>
             </div>
           ))}
