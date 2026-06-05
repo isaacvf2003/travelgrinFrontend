@@ -662,6 +662,7 @@ export default function ModalOferente({
   const [proposalCategories, setProposalCategories] = useState<string[]>([]);
   const [isOfrezco, setIsOfrezco] = useState(false);
   const [isIntermediario, setIsIntermediario] = useState(false);
+  const previousIntermediarioRef = useRef(isIntermediario);
   const [destinationCountry, setDestinationCountry] = useState("");
   const [destinationAvailabilityMode, setDestinationAvailabilityMode] = useState<"all" | "some">("all");
   const [destinationAvailabilityCountries, setDestinationAvailabilityCountries] = useState<string[]>([]);
@@ -971,6 +972,21 @@ export default function ModalOferente({
   }, [effectivePlanPricing.amount, promoCode, promoValidation.applied, promoValidation.code]);
 
   useEffect(() => {
+    if (previousIntermediarioRef.current === isIntermediario) return;
+    previousIntermediarioRef.current = isIntermediario;
+    if (!promoValidation.applied) return;
+    setPromoValidation((prev) => ({
+      ...prev,
+      applied: false,
+      code: "",
+      discountPercent: 0,
+      discountedAmount: effectivePlanPricing.amount > 0 ? effectivePlanPricing.amount : null,
+      message: "",
+      error: false,
+    }));
+  }, [effectivePlanPricing.amount, isIntermediario, promoValidation.applied]);
+
+  useEffect(() => {
     const clearPaymentWatcher = () => {
       if (paymentWatcherRef.current !== null) {
         window.clearInterval(paymentWatcherRef.current);
@@ -1154,7 +1170,7 @@ export default function ModalOferente({
       const response = await fetch("/api/promo-codes/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, planAmount: effectivePlanPricing.amount }),
+        body: JSON.stringify({ code, planAmount: effectivePlanPricing.amount, isIntermediario }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok === false) {
