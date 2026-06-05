@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Check, ChevronDown, Globe2, ImagePlus, Languages, Link as LinkIcon, MapPin, Tag, Upload, UserRound } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, Globe2, ImagePlus, Languages, Link as LinkIcon, Loader2, MapPin, Tag, Upload, UserRound, XCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCountry } from "@/app/context/CountryProvider";
 import { RoundedCheckbox } from "../MaterialCheckbox";
@@ -147,6 +147,22 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_imagen_limite: "Podés subir hasta 5 imágenes. Te quedan {remaining}.",
     oferente_toast_imagen_tipo: "Solo se permiten imágenes válidas",
     oferente_toast_comprimir_imagenes: "No se pudieron comprimir las imágenes",
+    oferente_promo_aplicar: "Aplicar",
+    oferente_promo_empty_code: "Ingresá un código promocional.",
+    oferente_promo_invalid: "Código promocional inválido.",
+    oferente_promo_partner_only: "Este código promocional aplica solo a partners/intermediarios.",
+    oferente_promo_expired: "El código promocional ya venció.",
+    oferente_promo_max_uses_reached: "El código promocional ya alcanzó su límite de uso.",
+    oferente_promo_inactive: "El código promocional no está activo.",
+    oferente_promo_validate_error: "No se pudo validar el código.",
+    oferente_promo_applied: "Código aplicado. Descuento: {discount}%.",
+    oferente_pago_preparando: "Preparando tu pago...",
+    oferente_pago_redirigiendo: "Te estamos llevando al checkout seguro.",
+    oferente_pago_completado: "Pago completado correctamente.",
+    oferente_pago_no_completado: "El pago no fue completado.",
+    oferente_pago_error: "No se pudo iniciar el pago. Intentá nuevamente.",
+    oferente_pago_popup_error: "No se pudo abrir el checkout. Habilitá ventanas emergentes e intentá nuevamente.",
+    oferente_pago_verificando: "Verificando el estado del pago...",
   },
   en: {
     oferente_nombre_perfil: "* Profile or brand name",
@@ -227,6 +243,22 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_imagen_limite: "You can upload up to 5 images. You have {remaining} left.",
     oferente_toast_imagen_tipo: "Only valid images are allowed",
     oferente_toast_comprimir_imagenes: "The images could not be compressed",
+    oferente_promo_aplicar: "Apply",
+    oferente_promo_empty_code: "Enter a promo code.",
+    oferente_promo_invalid: "Invalid promo code.",
+    oferente_promo_partner_only: "This promo code applies only to partners/intermediaries.",
+    oferente_promo_expired: "This promo code has expired.",
+    oferente_promo_max_uses_reached: "This promo code has reached its usage limit.",
+    oferente_promo_inactive: "This promo code is not active.",
+    oferente_promo_validate_error: "The promo code could not be validated.",
+    oferente_promo_applied: "Code applied. Discount: {discount}%.",
+    oferente_pago_preparando: "Preparing your payment...",
+    oferente_pago_redirigiendo: "Taking you to the secure checkout.",
+    oferente_pago_completado: "Payment completed successfully.",
+    oferente_pago_no_completado: "The payment was not completed.",
+    oferente_pago_error: "The payment could not be started. Please try again.",
+    oferente_pago_popup_error: "The checkout could not be opened. Enable pop-ups and try again.",
+    oferente_pago_verificando: "Checking payment status...",
   },
   pt: {
     oferente_nombre_perfil: "* Nome do seu perfil ou marca",
@@ -307,6 +339,22 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_imagen_limite: "Você pode carregar até 5 imagens. Restam {remaining}.",
     oferente_toast_imagen_tipo: "Somente imagens válidas são permitidas",
     oferente_toast_comprimir_imagenes: "Não foi possível comprimir as imagens",
+    oferente_promo_aplicar: "Aplicar",
+    oferente_promo_empty_code: "Insira um código promocional.",
+    oferente_promo_invalid: "Código promocional inválido.",
+    oferente_promo_partner_only: "Este código promocional se aplica apenas a partners/intermediários.",
+    oferente_promo_expired: "Este código promocional expirou.",
+    oferente_promo_max_uses_reached: "Este código promocional atingiu seu limite de uso.",
+    oferente_promo_inactive: "Este código promocional não está ativo.",
+    oferente_promo_validate_error: "Não foi possível validar o código.",
+    oferente_promo_applied: "Código aplicado. Desconto: {discount}%.",
+    oferente_pago_preparando: "Preparando seu pagamento...",
+    oferente_pago_redirigiendo: "Levando você ao checkout seguro.",
+    oferente_pago_completado: "Pagamento concluído corretamente.",
+    oferente_pago_no_completado: "O pagamento não foi concluído.",
+    oferente_pago_error: "Não foi possível iniciar o pagamento. Tente novamente.",
+    oferente_pago_popup_error: "Não foi possível abrir o checkout. Ative pop-ups e tente novamente.",
+    oferente_pago_verificando: "Verificando o estado do pagamento...",
   },
   it: {
     oferente_nombre_perfil: "* Nome del tuo profilo o brand",
@@ -387,11 +435,32 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_imagen_limite: "Puoi caricare fino a 5 immagini. Ne restano {remaining}.",
     oferente_toast_imagen_tipo: "Sono consentite solo immagini valide",
     oferente_toast_comprimir_imagenes: "Non è stato possibile comprimere le immagini",
+    oferente_promo_aplicar: "Applica",
+    oferente_promo_empty_code: "Inserisci un codice promozionale.",
+    oferente_promo_invalid: "Codice promozionale non valido.",
+    oferente_promo_partner_only: "Questo codice promozionale si applica solo a partner/intermediari.",
+    oferente_promo_expired: "Questo codice promozionale è scaduto.",
+    oferente_promo_max_uses_reached: "Questo codice promozionale ha raggiunto il limite di utilizzo.",
+    oferente_promo_inactive: "Questo codice promozionale non è attivo.",
+    oferente_promo_validate_error: "Non è stato possibile validare il codice.",
+    oferente_promo_applied: "Codice applicato. Sconto: {discount}%.",
+    oferente_pago_preparando: "Preparazione del pagamento...",
+    oferente_pago_redirigiendo: "Ti stiamo portando al checkout sicuro.",
+    oferente_pago_completado: "Pagamento completato correttamente.",
+    oferente_pago_no_completado: "Il pagamento non è stato completato.",
+    oferente_pago_error: "Non è stato possibile avviare il pagamento. Riprova.",
+    oferente_pago_popup_error: "Non è stato possibile aprire il checkout. Abilita i pop-up e riprova.",
+    oferente_pago_verificando: "Verifica dello stato del pagamento...",
   },
 } as const;
 
 type OferenteModalLocale = keyof typeof OFERENTE_MODAL_TEXT;
 type OferenteModalTextKey = keyof typeof OFERENTE_MODAL_TEXT.es;
+type PaymentUiState = {
+  status: "idle" | "preparing" | "redirected" | "success" | "cancel" | "error";
+  messageKey?: OferenteModalTextKey;
+  detail?: string;
+};
 
 const CURRENCY_OPTIONS = ["ARS", "USD", "EUR", "BRL", "CLP", "COP", "MXN", "PEN", "UYU", "JPY"];
 type PriceEntry = { currency: string; amount: string };
@@ -533,6 +602,8 @@ function PlanCard({
   onPromoCodeChange,
   onApplyPromo,
   promoPlaceholder,
+  promoApplyLabel,
+  promoDisabled = false,
   promoStatusText,
   promoStatusError = false,
   compact = false,
@@ -552,6 +623,8 @@ function PlanCard({
   onPromoCodeChange?: (value: string) => void;
   onApplyPromo?: () => void;
   promoPlaceholder: string;
+  promoApplyLabel?: string;
+  promoDisabled?: boolean;
   promoStatusText?: string;
   promoStatusError?: boolean;
   compact?: boolean;
@@ -587,9 +660,9 @@ function PlanCard({
               type="button"
               onClick={onApplyPromo}
               className={`h-10 w-full rounded-xl border px-4 text-sm font-semibold transition hover:brightness-105 disabled:opacity-60 sm:w-auto ${isFeatured ? "border-white/30 bg-white/20 text-white hover:bg-white/30" : "border-[#273166]/15 bg-[#273166] text-white hover:bg-[#1d2550]"}`}
-              disabled={!onApplyPromo}
+              disabled={!onApplyPromo || promoDisabled || disabled}
             >
-              Aplicar
+              {promoApplyLabel ?? "Aplicar"}
             </button>
           </div>
           {promoStatusText ? (
@@ -605,6 +678,45 @@ function PlanCard({
       >
         <span className="relative z-10">{buttonLabel}</span>
       </button>
+    </div>
+  );
+}
+
+function PaymentStatusPanel({
+  state,
+  text,
+}: {
+  state: PaymentUiState;
+  text: (key: OferenteModalTextKey) => string;
+}) {
+  if (state.status === "idle") return null;
+
+  const isLoadingState = state.status === "preparing" || state.status === "redirected";
+  const isSuccess = state.status === "success";
+  const Icon = isLoadingState ? Loader2 : isSuccess ? CheckCircle2 : XCircle;
+  const messageKey =
+    state.messageKey ??
+    (isLoadingState
+      ? "oferente_pago_preparando"
+      : isSuccess
+        ? "oferente_pago_completado"
+        : "oferente_pago_no_completado");
+
+  return (
+    <div
+      className={`rounded-2xl border px-4 py-5 text-center shadow-sm ${
+        isLoadingState
+          ? "border-cyan-200 bg-cyan-50 text-[#0B7187]"
+          : isSuccess
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : "border-rose-200 bg-rose-50 text-rose-700"
+      }`}
+      role="status"
+      aria-live="polite"
+    >
+      <Icon className={`mx-auto h-10 w-10 ${isLoadingState ? "animate-spin" : ""}`} />
+      <p className="mt-3 text-sm font-bold">{text(messageKey)}</p>
+      {state.detail ? <p className="mt-1 text-xs opacity-80">{state.detail}</p> : null}
     </div>
   );
 }
@@ -630,6 +742,24 @@ export default function ModalOferente({
   const { selectedCountry, setIsOpenModal } = useCountry();
   const modalLocale: OferenteModalLocale = locale in OFERENTE_MODAL_TEXT ? (locale as OferenteModalLocale) : "es";
   const mt = (key: OferenteModalTextKey) => OFERENTE_MODAL_TEXT[modalLocale][key] ?? OFERENTE_MODAL_TEXT.es[key];
+  const fillText = (key: OferenteModalTextKey, replacements: Record<string, string>) =>
+    Object.entries(replacements).reduce((text, [token, value]) => text.replace(`{${token}}`, value), mt(key));
+  const promoMessageKey = (payload: any): OferenteModalTextKey => {
+    const code = String(payload?.errorCode ?? payload?.reason ?? "").trim().toLowerCase();
+    if (code.includes("empty")) return "oferente_promo_empty_code";
+    if (code.includes("partner")) return "oferente_promo_partner_only";
+    if (code.includes("expired")) return "oferente_promo_expired";
+    if (code.includes("max_uses") || code.includes("limit")) return "oferente_promo_max_uses_reached";
+    if (code.includes("inactive")) return "oferente_promo_inactive";
+    if (code.includes("invalid")) return "oferente_promo_invalid";
+    const raw = normalize(String(payload?.error ?? ""));
+    if (raw.includes("partner") || raw.includes("intermediario")) return "oferente_promo_partner_only";
+    if (raw.includes("limite") || raw.includes("uso")) return "oferente_promo_max_uses_reached";
+    if (raw.includes("vencio") || raw.includes("expired")) return "oferente_promo_expired";
+    if (raw.includes("activo") || raw.includes("active")) return "oferente_promo_inactive";
+    if (raw.includes("invalido") || raw.includes("invalid")) return "oferente_promo_invalid";
+    return "oferente_promo_validate_error";
+  };
   const featuredItems = [
     mt("oferente_featured_item_results"),
     mt("oferente_featured_item_duration"),
@@ -651,6 +781,7 @@ export default function ModalOferente({
   const [filterGroups, setFilterGroups] = useState<FilterGroupLite[]>([]);
   const [step, setStep] = useState<Step>("basic");
   const [isLoading, setIsLoading] = useState(false);
+  const [paymentUi, setPaymentUi] = useState<PaymentUiState>({ status: "idle" });
   const paymentTabRef = useRef<Window | null>(null);
   const paymentWatcherRef = useRef<number | null>(null);
   const paymentResultReceivedRef = useRef(false);
@@ -986,53 +1117,98 @@ export default function ModalOferente({
     }));
   }, [effectivePlanPricing.amount, isIntermediario, promoValidation.applied]);
 
-  useEffect(() => {
-    const clearPaymentWatcher = () => {
-      if (paymentWatcherRef.current !== null) {
-        window.clearInterval(paymentWatcherRef.current);
-        paymentWatcherRef.current = null;
-      }
-    };
+  const clearPaymentWatcher = useCallback(() => {
+    if (paymentWatcherRef.current !== null) {
+      window.clearInterval(paymentWatcherRef.current);
+      paymentWatcherRef.current = null;
+    }
+  }, []);
 
-    const handlePaymentResult = (rawStatus: string) => {
-      const status = String(rawStatus ?? "").trim().toLowerCase();
+  const normalizePaymentResult = useCallback((rawStatus: string): "success" | "cancel" | "pending" => {
+    const value = String(rawStatus ?? "").trim().toLowerCase();
+    if (["success", "approved", "paid", "completed", "ok"].includes(value)) return "success";
+    if (["pending", "processing", "in_process", "authorized"].includes(value)) return "pending";
+    if (["cancel", "cancelled", "canceled", "back", "failed", "rejected", "not_found", "no_payment", "error"].includes(value)) return "cancel";
+    return "pending";
+  }, []);
+
+  const verifyPaymentStatus = useCallback(async (serviceId: string, returnStatus = "check") => {
+    try {
+      const response = await fetch("/api/payments/featured/return", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceId, status: returnStatus }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok === false) return "cancel" as const;
+      return normalizePaymentResult(String(data?.status ?? ""));
+    } catch {
+      return "cancel" as const;
+    }
+  }, [normalizePaymentResult]);
+
+  const verifyPaymentWithRetries = useCallback(async (serviceId: string, returnStatus = "check") => {
+    setPaymentUi({ status: "preparing", messageKey: "oferente_pago_verificando" });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const result = await verifyPaymentStatus(serviceId, returnStatus);
+      if (result !== "pending") return result;
+      await new Promise((resolve) => window.setTimeout(resolve, 1200));
+    }
+    return "cancel" as const;
+  }, [verifyPaymentStatus]);
+
+  const handleResolvedPaymentResult = useCallback((
+    result: "success" | "cancel" | "pending",
+    serviceId: string,
+    paidPlan: "featured" | "monthly",
+  ) => {
+    paymentResultReceivedRef.current = true;
+    clearPaymentWatcher();
+    setIsLoading(false);
+    setStep("featured");
+    setFeaturedTypeFocusKey((prev) => prev + 1);
+    if (result === "success") {
+      setPaymentUi({ status: "success", messageKey: "oferente_pago_completado" });
+      onSubmitted?.({ serviceId, plan: paidPlan });
+      submittedServiceIdRef.current = null;
+      return;
+    }
+    setPaymentUi({ status: "cancel", messageKey: "oferente_pago_no_completado" });
+    onPaymentResolved?.({ serviceId, plan: paidPlan, status: "cancel" });
+    submittedServiceIdRef.current = null;
+  }, [clearPaymentWatcher, onPaymentResolved, onSubmitted]);
+
+  useEffect(() => {
+    const handlePaymentResult = async (rawStatus: string, payloadServiceId?: string) => {
       const paidPlan = selectedPlan === "monthly" ? "monthly" : "featured";
-      const currentServiceId = submittedServiceIdRef.current;
-      paymentResultReceivedRef.current = true;
-        clearPaymentWatcher();
+      const currentServiceId = String(payloadServiceId || submittedServiceIdRef.current || "").trim();
+      if (!currentServiceId) {
         setIsLoading(false);
-        setStep("featured");
-        setFeaturedTypeFocusKey((prev) => prev + 1);
-        if (status === "success" || status === "approved" || status === "paid") {
-          if (currentServiceId) {
-            onSubmitted?.({ serviceId: currentServiceId, plan: paidPlan });
-            submittedServiceIdRef.current = null;
-          }
-        toast.success(mt("oferente_toast_pago_exitoso"), { duration: 7000 });
+        setPaymentUi({ status: "cancel", messageKey: "oferente_pago_no_completado" });
         return;
       }
-      if (status === "cancel" || status === "cancelled" || status === "canceled" || status === "back" || status === "failed" || status === "rejected") {
-        if (currentServiceId) {
-          onPaymentResolved?.({ serviceId: currentServiceId, plan: paidPlan, status: "cancel" });
-        }
-        submittedServiceIdRef.current = null;
-        toast(mt("oferente_toast_pago_cancelado"), { duration: 7000 });
-      }
+      paymentResultReceivedRef.current = true;
+      clearPaymentWatcher();
+      const normalizedFromPayload = normalizePaymentResult(rawStatus);
+      const result = normalizedFromPayload === "pending"
+        ? await verifyPaymentWithRetries(currentServiceId, "check")
+        : await verifyPaymentWithRetries(currentServiceId, rawStatus);
+      handleResolvedPaymentResult(result, currentServiceId, paidPlan);
     };
 
     const onStorage = (event: StorageEvent) => {
       if (event.key !== "tg-featured-payment-result" || !event.newValue) return;
       try {
-        const parsed = JSON.parse(event.newValue) as { status?: string };
-        handlePaymentResult(String(parsed?.status ?? ""));
+        const parsed = JSON.parse(event.newValue) as { status?: string; serviceId?: string };
+        void handlePaymentResult(String(parsed?.status ?? ""), String(parsed?.serviceId ?? ""));
       } catch {}
     };
 
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      const data = event.data as { type?: string; status?: string } | null;
+      const data = event.data as { type?: string; status?: string; serviceId?: string } | null;
       if (!data || data.type !== "tg-featured-payment-result") return;
-      handlePaymentResult(String(data.status ?? ""));
+      void handlePaymentResult(String(data.status ?? ""), String(data.serviceId ?? ""));
     };
 
     window.addEventListener("storage", onStorage);
@@ -1042,7 +1218,7 @@ export default function ModalOferente({
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("message", onMessage);
     };
-  }, [mt, onPaymentResolved, onSubmitted, selectedPlan]);
+  }, [clearPaymentWatcher, handleResolvedPaymentResult, normalizePaymentResult, selectedPlan, verifyPaymentWithRetries]);
 
   const taxonomyFor = (category: Category, byId: Map<string, Category>): string => {
     let current: Category | undefined = category;
@@ -1163,7 +1339,7 @@ export default function ModalOferente({
   const applyPromoCode = async () => {
     const code = promoCode.trim();
     if (!code) {
-      setPromoValidation((prev) => ({ ...prev, applied: false, message: "Ingresa un codigo promocional.", error: true }));
+      setPromoValidation((prev) => ({ ...prev, applied: false, message: mt("oferente_promo_empty_code"), error: true }));
       return false;
     }
     try {
@@ -1180,7 +1356,7 @@ export default function ModalOferente({
           code: "",
           discountPercent: 0,
           discountedAmount: effectivePlanPricing.amount > 0 ? effectivePlanPricing.amount : null,
-          message: String(data?.error ?? "No se pudo validar el codigo."),
+          message: mt(promoMessageKey(data)),
           error: true,
         }));
         return false;
@@ -1195,13 +1371,13 @@ export default function ModalOferente({
         discountPercent,
         originalAmount: effectivePlanPricing.amount > 0 ? effectivePlanPricing.amount : null,
         discountedAmount: Number.isFinite(discountedAmount) ? discountedAmount : effectivePlanPricing.amount,
-        message: `Se aplico el codigo. Descuento: ${discountPercent}%.`,
+        message: fillText("oferente_promo_applied", { discount: String(discountPercent) }),
         error: false,
       });
       setPromoCode(String(data?.promo?.code ?? code).toUpperCase());
       return true;
     } catch {
-      setPromoValidation((prev) => ({ ...prev, applied: false, message: "No se pudo validar el codigo.", error: true }));
+      setPromoValidation((prev) => ({ ...prev, applied: false, message: mt("oferente_promo_validate_error"), error: true }));
       return false;
     }
   };
@@ -1290,25 +1466,36 @@ export default function ModalOferente({
   };
 
   const submit = async (publicationPlan: "basic_free" | "featured" | "monthly") => {
-      if (!validateBasic()) return;
-      const isPaidPlan = publicationPlan === "featured" || publicationPlan === "monthly";
-      const preparingUrl = `${window.location.origin}/featured-payment-launch?state=preparing`;
-      const preparedPaymentTab = isPaidPlan ? window.open(preparingUrl, "_blank") : null;
-      if (isPaidPlan && !validateFeatured()) {
+    if (isLoading) return;
+    if (!validateBasic()) return;
+    const isPaidPlan = publicationPlan === "featured" || publicationPlan === "monthly";
+    if (isPaidPlan && !validateFeatured()) return;
+
+    let preparedPaymentTab: Window | null = null;
+    let keepPaymentLoading = false;
+    if (isPaidPlan) {
+      setPaymentUi({ status: "preparing", messageKey: "oferente_pago_preparando" });
+      preparedPaymentTab = window.open("about:blank", "_blank");
+      if (!preparedPaymentTab) {
+        setPaymentUi({ status: "error", messageKey: "oferente_pago_popup_error" });
+        return;
+      }
+      setIsLoading(true);
+    } else {
+      setPaymentUi({ status: "idle" });
+    }
+
+    if (isPaidPlan && promoCode.trim()) {
+      const valid = await applyPromoCode();
+      if (!valid) {
         try {
           preparedPaymentTab?.close();
         } catch {}
+        setPaymentUi({ status: "idle" });
+        setIsLoading(false);
         return;
       }
-      if (isPaidPlan && promoCode.trim()) {
-        const valid = await applyPromoCode();
-        if (!valid) {
-          try {
-            preparedPaymentTab?.close();
-          } catch {}
-          return;
-        }
-      }
+    }
     setIsLoading(true);
     try {
       const response = await fetch("/api/travel-services", {
@@ -1317,36 +1504,54 @@ export default function ModalOferente({
         body: JSON.stringify(buildPayload(publicationPlan)),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(String(data?.details ?? data?.error ?? ""));
+      if (!response.ok) {
+        if (isPaidPlan && (data?.errorCode || data?.reason)) {
+          setPromoValidation((prev) => ({
+            ...prev,
+            applied: false,
+            code: "",
+            discountPercent: 0,
+            discountedAmount: effectivePlanPricing.amount > 0 ? effectivePlanPricing.amount : null,
+            message: mt(promoMessageKey(data)),
+            error: true,
+          }));
+          try {
+            preparedPaymentTab?.close();
+          } catch {}
+          setPaymentUi({ status: "idle" });
+          return;
+        }
+        throw new Error(String(data?.details ?? data?.error ?? ""));
+      }
       submittedServiceIdRef.current = String(data?.id ?? "");
       if (publicationPlan === "basic_free") {
         onSubmitted?.({ serviceId: String(data?.id ?? ""), plan: publicationPlan });
         submittedServiceIdRef.current = null;
       }
 
-        if (isPaidPlan) {
-          const paidPayload = buildPayload(publicationPlan);
-          const checkoutResponse = await fetch("/api/payments/featured/checkout", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              serviceId: String(data?.id ?? ""),
-              country: effectiveCountry,
-              amount: paidPayload.discountedPlanAmount,
-              currency: paidPayload.planCurrency,
-              promoCode,
-              email,
-              paymentType: publicationPlan === "monthly" ? "monthly" : "one_time",
-              planType: publicationPlan === "monthly" ? "featured_monthly" : "featured_120d",
-              locale,
-            }),
-          });
+      if (isPaidPlan) {
+        const paidPayload = buildPayload(publicationPlan);
+        const checkoutResponse = await fetch("/api/payments/featured/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            serviceId: String(data?.id ?? ""),
+            country: effectiveCountry,
+            amount: paidPayload.discountedPlanAmount,
+            currency: paidPayload.planCurrency,
+            promoCode,
+            email,
+            paymentType: publicationPlan === "monthly" ? "monthly" : "one_time",
+            planType: publicationPlan === "monthly" ? "featured_monthly" : "featured_120d",
+            locale,
+          }),
+        });
         const checkoutData = await checkoutResponse.json().catch(() => ({}));
         if (!checkoutResponse.ok || !checkoutData?.redirectUrl) {
-          throw new Error(String(checkoutData?.error ?? "No se pudo iniciar el checkout."));
+          throw new Error("payment_checkout_failed");
         }
         const redirectUrl = String(checkoutData.redirectUrl);
-        const launchUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(String(data?.id ?? ""))}&redirect=${encodeURIComponent(btoa(redirectUrl))}`;
+        const launchUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(String(data?.id ?? ""))}&locale=${encodeURIComponent(locale)}&redirect=${encodeURIComponent(btoa(redirectUrl))}`;
         const paymentTab = preparedPaymentTab ?? window.open(launchUrl, "_blank");
         if (!paymentTab) {
           if (submittedServiceIdRef.current) {
@@ -1357,8 +1562,7 @@ export default function ModalOferente({
             }).catch(() => null);
             submittedServiceIdRef.current = null;
           }
-          setIsLoading(false);
-          toast.error("No se pudo abrir la pestaña de pago. Habilitá popups e intentá nuevamente.");
+          setPaymentUi({ status: "error", messageKey: "oferente_pago_popup_error" });
           return;
         }
         try {
@@ -1375,12 +1579,12 @@ export default function ModalOferente({
           try {
             paymentTab.close();
           } catch {}
-          setIsLoading(false);
-          toast.error("No se pudo abrir la pestaña de pago. Intentá nuevamente.");
+          setPaymentUi({ status: "error", messageKey: "oferente_pago_popup_error" });
           return;
         }
         paymentResultReceivedRef.current = false;
         paymentTabRef.current = paymentTab;
+        setPaymentUi({ status: "redirected", messageKey: "oferente_pago_redirigiendo" });
         if (paymentWatcherRef.current !== null) {
           window.clearInterval(paymentWatcherRef.current);
         }
@@ -1395,41 +1599,37 @@ export default function ModalOferente({
             if (!paymentResultReceivedRef.current) {
               const currentServiceId = submittedServiceIdRef.current;
               if (currentServiceId) {
-                void fetch("/api/payments/featured/return", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ serviceId: currentServiceId, status: "cancel" }),
-                }).catch(() => null);
-                onPaymentResolved?.({
-                  serviceId: currentServiceId,
-                  plan: publicationPlan === "monthly" ? "monthly" : "featured",
-                  status: "cancel",
+                void verifyPaymentWithRetries(currentServiceId, "check").then((result) => {
+                  handleResolvedPaymentResult(result, currentServiceId, publicationPlan === "monthly" ? "monthly" : "featured");
                 });
-                submittedServiceIdRef.current = null;
               }
-              setIsLoading(false);
-              toast(mt("oferente_toast_pago_cancelado"), { duration: 7000 });
             }
           }
         }, 700);
-          setStep("featured");
-          toast.success(mt("oferente_toast_pago_pestana"), { duration: 6000 });
-          return;
-        }
+        setStep("featured");
+        keepPaymentLoading = true;
+        return;
+      }
       toast.success(mt("oferente_toast_revision"), { duration: 6000 });
       onClose();
     } catch (error) {
       try {
         preparedPaymentTab?.close();
       } catch {}
-      toast.error(error instanceof Error && error.message ? error.message : t("error_form"));
+      if (isPaidPlan) {
+        setPaymentUi({ status: "error", messageKey: "oferente_pago_error" });
+      } else {
+        toast.error(error instanceof Error && error.message ? error.message : t("error_form"));
+      }
     } finally {
-      setIsLoading(false);
+      if (!keepPaymentLoading) setIsLoading(false);
     }
   };
 
   const goPaid = async (plan: "featured" | "monthly", planType: "featured_120d" | "featured_monthly") => {
+    if (isLoading) return;
     if (!validateBasic()) return;
+    setPaymentUi({ status: "idle" });
     setSelectedPlan(plan);
     setSelectedPaidPlanType(planType);
     if (promoCode.trim()) {
@@ -1521,6 +1721,7 @@ export default function ModalOferente({
   };
 
   if (!mounted) return null;
+  const isPaymentBusy = paymentUi.status === "preparing" || paymentUi.status === "redirected";
 
   const basicStep = (
     <>
@@ -1596,7 +1797,7 @@ export default function ModalOferente({
             items={basicItems}
             buttonLabel={isLoading ? t("guardando") : mt("oferente_publicar_gratis")}
             onClick={() => submit("basic_free")}
-            disabled={isLoading}
+            disabled={isLoading || isPaymentBusy}
             promoPlaceholder={mt("oferente_codigo_promocional")}
             compact={useCompactPlanCardSize}
           />
@@ -1612,11 +1813,14 @@ export default function ModalOferente({
             items={featuredItems}
             buttonLabel={mt("oferente_continuar_destacado")}
             onClick={() => { void goPaid("featured", "featured_120d"); }}
+            disabled={isLoading || isPaymentBusy}
             showPromo
             promoCode={promoCode}
             onPromoCodeChange={setPromoCode}
             onApplyPromo={() => { void applyPromoCode(); }}
             promoPlaceholder={mt("oferente_codigo_promocional")}
+            promoApplyLabel={mt("oferente_promo_aplicar")}
+            promoDisabled={isLoading || isPaymentBusy}
             promoStatusText={promoValidation.message}
             promoStatusError={promoValidation.error}
             compact={useCompactPlanCardSize}
@@ -1633,11 +1837,14 @@ export default function ModalOferente({
             items={featuredItems}
             buttonLabel={monthlyContinueLabel}
             onClick={() => { void goPaid("monthly", "featured_monthly"); }}
+            disabled={isLoading || isPaymentBusy}
             showPromo
             promoCode={promoCode}
             onPromoCodeChange={setPromoCode}
             onApplyPromo={() => { void applyPromoCode(); }}
             promoPlaceholder={mt("oferente_codigo_promocional")}
+            promoApplyLabel={mt("oferente_promo_aplicar")}
+            promoDisabled={isLoading || isPaymentBusy}
             promoStatusText={promoValidation.message}
             promoStatusError={promoValidation.error}
             compact={useCompactPlanCardSize}
@@ -1805,12 +2012,14 @@ export default function ModalOferente({
           items={featuredItems}
           buttonLabel={isLoading ? t("guardando") : (selectedPlan === "monthly" ? monthlySubmitLabel : mt("oferente_publicar_destacado"))}
           onClick={() => submit(selectedPlan === "monthly" ? "monthly" : "featured")}
-          disabled={isLoading}
+          disabled={isLoading || isPaymentBusy}
           showPromo
           promoCode={promoCode}
           onPromoCodeChange={setPromoCode}
           onApplyPromo={() => { void applyPromoCode(); }}
           promoPlaceholder={mt("oferente_codigo_promocional")}
+          promoApplyLabel={mt("oferente_promo_aplicar")}
+          promoDisabled={isLoading || isPaymentBusy}
           promoStatusText={promoValidation.message}
           promoStatusError={promoValidation.error}
           compact
@@ -1821,7 +2030,7 @@ export default function ModalOferente({
 
   const modalContent = (
     <>
-      <div className="fixed inset-0 bg-black/60" style={{ zIndex: 400 }} onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60" style={{ zIndex: 400 }} onClick={isPaymentBusy ? undefined : onClose} />
       <div className="fixed inset-0 flex items-start justify-center p-3 pt-2 sm:p-4 sm:pt-6" style={{ zIndex: 410, pointerEvents: "none" }}>
         <div
           className="relative flex max-h-[90vh] w-full max-w-[42rem] flex-col overflow-hidden rounded-[1.7rem] bg-white shadow-2xl"
@@ -1833,11 +2042,11 @@ export default function ModalOferente({
               <Image src="/logo-degrade.png" width={200} height={200} className="object-cover w-[10rem] h-[5rem] mb-4" alt="logo degrade" />
               <div className="flex items-center gap-2">
                 {step === "featured" ? (
-                  <button type="button" onClick={() => setStep("basic")} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                  <button type="button" onClick={() => setStep("basic")} disabled={isPaymentBusy} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
                     {mt("oferente_volver_atras")}
                   </button>
                 ) : null}
-                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200 flex-shrink-0">
+                <button onClick={onClose} disabled={isPaymentBusy} className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200 flex-shrink-0 disabled:cursor-not-allowed disabled:opacity-50">
                   <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -1849,6 +2058,7 @@ export default function ModalOferente({
               <h1 style={{ color: "#273166" }} className="text-xl font-semibold leading-tight text-gray-800 md:text-2xl">{t("conecta_con_viajeros")}</h1>
               <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? mt("oferente_destacado_heading") : t("cambiamos_la_manera")}</h2>
             </div>
+            <PaymentStatusPanel state={paymentUi} text={mt} />
             {step === "basic" ? basicStep : featuredStep}
             <div className="flex items-center justify-center gap-2 text-xs text-slate-600">
               <Globe2 className="h-4 w-4" />
