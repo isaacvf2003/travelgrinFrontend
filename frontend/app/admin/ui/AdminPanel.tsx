@@ -621,7 +621,7 @@ function DashboardStatCard({ label, total, active, monthly, activeMonthly, tone 
 
   return (
     <div className={`rounded-2xl border bg-gradient-to-br ${tones[tone]} p-5 shadow-sm`}>
-      <p className="text-xs font-semibold uppercase tracking-widest opacity-70">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-widest opacity-70">{normalizeVisibleText(label)}</p>
       <div className="mt-3 flex items-end justify-between">
         <div>
           <p className="text-4xl font-bold tracking-tight">{total.toLocaleString()}</p>
@@ -635,7 +635,7 @@ function DashboardStatCard({ label, total, active, monthly, activeMonthly, tone 
       <div className="mt-3 flex items-center gap-2 border-t border-black/10 pt-2 text-xs">
         <ArrowUpRight className="h-3.5 w-3.5" />
         <span>+{monthly.toLocaleString()} en el mes</span>
-        <span className="opacity-70">ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ activos mes: {activeMonthly.toLocaleString()}</span>
+        <span className="opacity-70">· activos mes: {activeMonthly.toLocaleString()}</span>
       </div>
     </div>
   );
@@ -754,16 +754,16 @@ function StatsChartCard({ title, labelA, labelB, colorA, colorB = "#c7d2fe", sin
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-700">{title}</p>
+        <p className="text-sm font-semibold text-slate-700">{normalizeVisibleText(title)}</p>
         <div className="flex flex-wrap items-center gap-1 text-xs">
           <div className="rounded-lg bg-slate-100 p-0.5">
             <button className={`rounded-md px-2 py-1 ${mode === "bar" ? "bg-white shadow text-slate-700" : "text-slate-400"}`} onClick={() => setMode("bar")}>Barras</button>
-            <button className={`rounded-md px-2 py-1 ${mode === "line" ? "bg-white shadow text-slate-700" : "text-slate-400"}`} onClick={() => setMode("line")}>LÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½neas</button>
+            <button className={`rounded-md px-2 py-1 ${mode === "line" ? "bg-white shadow text-slate-700" : "text-slate-400"}`} onClick={() => setMode("line")}>Líneas</button>
           </div>
           <div className="rounded-lg bg-slate-100 p-0.5">
             {(["days", "weeks", "months", "years"] as ChartPeriod[]).map((value) => (
               <button key={value} className={`rounded-md px-2 py-1 ${period === value ? "bg-white shadow text-indigo-600" : "text-slate-400"}`} onClick={() => setPeriod(value)}>
-                {value === "days" ? "DÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as" : value === "weeks" ? "Semanas" : value === "months" ? "Meses" : "AÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½os"}
+                {value === "days" ? "Días" : value === "weeks" ? "Semanas" : value === "months" ? "Meses" : "Años"}
               </button>
             ))}
           </div>
@@ -781,8 +781,8 @@ function StatsChartCard({ title, labelA, labelB, colorA, colorB = "#c7d2fe", sin
         {hoverIndex !== null ? (
           <div className="absolute left-2 top-2 z-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow">
             <p className="font-semibold text-slate-700">{data[hoverIndex]?.label}</p>
-            <p style={{ color: colorA }}>{labelA}: {data[hoverIndex]?.a ?? 0}</p>
-            {!single ? <p style={{ color: colorB }}>{labelB}: {data[hoverIndex]?.b ?? 0}</p> : null}
+            <p style={{ color: colorA }}>{normalizeVisibleText(labelA)}: {data[hoverIndex]?.a ?? 0}</p>
+            {!single ? <p style={{ color: colorB }}>{normalizeVisibleText(labelB ?? "")}: {data[hoverIndex]?.b ?? 0}</p> : null}
           </div>
         ) : null}
 
@@ -837,8 +837,8 @@ function StatsChartCard({ title, labelA, labelB, colorA, colorB = "#c7d2fe", sin
       </div>
 
       <div className="mt-2 flex gap-4 text-xs text-slate-500">
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: colorA }} />{labelA}</span>
-        {!single ? <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: colorB }} />{labelB}</span> : null}
+        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: colorA }} />{normalizeVisibleText(labelA)}</span>
+        {!single ? <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: colorB }} />{normalizeVisibleText(labelB ?? "")}</span> : null}
       </div>
     </div>
   );
@@ -3508,15 +3508,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const HOME_HOW_TAG = "home-how-it-works";
   const isHomeHowPublication = (item?: Publication | null) => String(item?.category ?? "") === HOME_HOW_TAG;
   const homeHowPublication = publications.find((item) => String(item.category ?? "") === HOME_HOW_TAG);
-  const [homeHowTitle, setHomeHowTitle] = useState("CÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½mo funciona");
-  const [homeHowTitleI18n, setHomeHowTitleI18n] = useState<I18nRecord>({ es: "CÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½mo funciona" });
+  const [homeHowTitle, setHomeHowTitle] = useState("Cómo funciona");
+  const [homeHowTitleI18n, setHomeHowTitleI18n] = useState<I18nRecord>({ es: "Cómo funciona" });
   const [homeHowSteps, setHomeHowSteps] = useState<any[]>([{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
   const [homeHowSaving, setHomeHowSaving] = useState(false);
   const [homeHowSaveMessage, setHomeHowSaveMessage] = useState("");
 
   useEffect(() => {
     const steps = Array.isArray((homeHowPublication as any)?.fields?.prestationSteps) ? (homeHowPublication as any).fields.prestationSteps : [];
-    const title = String((homeHowPublication as any)?.title ?? "CÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½mo funciona") || "CÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½mo funciona";
+    const title = String((homeHowPublication as any)?.title ?? "Cómo funciona") || "Cómo funciona";
     setHomeHowTitle(title);
     setHomeHowTitleI18n((homeHowPublication as any)?.titleI18n ?? { es: title });
     setHomeHowSteps(steps.length ? steps : [{ title: "", titleI18n: { es: "" }, subtitle: "", subtitleI18n: { es: "" }, image: "", imageI18n: { es: "" } }]);
@@ -3560,11 +3560,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         setHomeHowSaving(false);
         return;
       }
-      const resolvedTitle = firstNonEmptyI18n(homeHowTitleI18n, homeHowTitle) || "CÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½mo funciona";
+      const resolvedTitle = firstNonEmptyI18n(homeHowTitleI18n, homeHowTitle) || "Cómo funciona";
       const payload = {
         title: resolvedTitle,
         titleI18n: { ...homeHowTitleI18n, es: homeHowTitleI18n.es || resolvedTitle },
-        description: "SecciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n Home: CÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½mo funciona",
+        description: "Sección Home: Cómo funciona",
         status: "active",
         featured: false,
         category: HOME_HOW_TAG,
@@ -5086,7 +5086,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <StatsChartCard title="Oferentes: activos vs inactivos" labelA="Activos" labelB="Inactivos" colorA="#6366f1" colorB="#c7d2fe" getData={oferentesData} />
         <StatsChartCard title="Demandantes: activos vs inactivos" labelA="Activos" labelB="Inactivos" colorA="#8b5cf6" colorB="#ddd6fe" getData={demandantesData} />
         <StatsChartCard title="Publicaciones: pagas vs gratis" labelA="Pagas" labelB="Gratis" colorA="#10b981" colorB="#a7f3d0" getData={publicationsData} />
-        <StatsChartCard title="Denuncias por perÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½odo" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
+        <StatsChartCard title="Denuncias por período" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -5264,24 +5264,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
       {isHowWorksSection ? (
         <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
-          <h2 className="text-2xl font-semibold text-slate-900">CÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½mo funciona</h2>
-          <p className="mt-2 text-sm text-slate-600">ArmÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ aquÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ los pasos que se publican en la Home.</p>
+          <h2 className="text-2xl font-semibold text-slate-900">Cómo funciona</h2>
+          <p className="mt-2 text-sm text-slate-600">Armá aquí los pasos que se publican en la Home.</p>
           <div className="mt-3">{renderLangTabs(pLang, setEditingLang)}</div>
           <div className="mt-4 space-y-3">
             <input value={getLangEditValue(homeHowTitleI18n, pLang, pLang === "es" ? homeHowTitle : "")} onChange={(e) => {
               const next = e.target.value;
               if (pLang === "es") setHomeHowTitle(next);
               setHomeHowTitleI18n((prev) => setLangText(homeHowTitle, prev, pLang, next));
-            }} className="h-10 w-full rounded-xl border border-slate-200 px-3" placeholder={`TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo de la secciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n (${pLang.toUpperCase()})`} />
-            {homeHowSteps.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">No hay pasos. PresionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ <b>+ Agregar paso</b>.</div> : null}
+            }} className="h-10 w-full rounded-xl border border-slate-200 px-3" placeholder={`Título de la sección (${pLang.toUpperCase()})`} />
+            {homeHowSteps.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">No hay pasos. Presioná <b>+ Agregar paso</b>.</div> : null}
             {homeHowSteps.map((step, idx) => (
               <div key={`home-step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
                 <div className="flex items-center justify-between"><div className="text-xs font-semibold text-slate-500">Paso {idx + 1}</div><button type="button" className="text-red-500 text-xs" onClick={() => removeHomeHowStep(idx)}>Quitar paso</button></div>
-                <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title ?? "", it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo del paso" />
-                <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle ?? "", it.subtitleI18n, pLang, next) } : it))} placeholder="DescripciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n" minHeightClassName="min-h-[80px]" />
+                <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title ?? "", it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del paso" />
+                <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle ?? "", it.subtitleI18n, pLang, next) } : it))} placeholder="Descripción" minHeightClassName="min-h-[80px]" />
                 <label className="text-xs font-medium text-slate-500">Subir imagen desde tu dispositivo</label>
                 <input type="file" accept={IMAGE_FILE_ACCEPT} onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; void fileToUploadAsset(file).then((asset) => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? asset.url : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, asset.url) } : it))).catch(() => null); e.currentTarget.value = ""; }} className="w-full min-w-0 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:font-semibold file:text-[#007D92]" />
-                {getLangEditValue(step.imageI18n, pLang) ? <div className="text-[11px] text-emerald-700">Imagen cargada</div> : <div className="text-[11px] text-slate-400">AÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n sin imagen</div>}
+                {getLangEditValue(step.imageI18n, pLang) ? <div className="text-[11px] text-emerald-700">Imagen cargada</div> : <div className="text-[11px] text-slate-400">Aún sin imagen</div>}
                 <button type="button" onClick={() => setHomeHowSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: "", imageI18n: setLangText("", it.imageI18n, pLang, "") } : it))} className="h-9 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600">Quitar imagen</button>
               </div>
             ))}
@@ -5314,19 +5314,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700 sm:flex-none"
               >
                 <Plus className="h-4 w-4" />
-                Nueva categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
+                Nueva categoría
               </button>
             </div>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-4 sm:px-5">
-              <h3 className="text-sm font-semibold text-slate-700">ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½rbol de bloques y categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as</h3>
-              <span className="text-xs text-slate-400">{categoryBlocks.length} bloques ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ {categories.length} categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as</span>
+              <h3 className="text-sm font-semibold text-slate-700">Árbol de bloques y categorías</h3>
+              <span className="text-xs text-slate-400">{categoryBlocks.length} bloques · {categories.length} categorías</span>
             </div>
 
             {!categoryBlocks.length ? (
-              <div className="px-5 py-10 text-center text-sm text-slate-500">No hay bloques todavÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a.</div>
+              <div className="px-5 py-10 text-center text-sm text-slate-500">No hay bloques todavía.</div>
             ) : (
               <div className="space-y-4 px-2 py-3 sm:px-4 sm:py-4">
                 {categoryBlocks.map((block, blockIndex) => {
@@ -5376,7 +5376,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           <button type="button" onClick={() => moveFilterGroup(block.id, 1)} disabled={blockIndex === categoryBlocks.length - 1} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">?</button>
                           <button type="button" onClick={() => openEditBlockModal(block)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Editar</button>
                           <button type="button" onClick={() => deleteFilterGroup(block.id)} disabled={block.key === "price"} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">Eliminar</button>
-                          <button type="button" onClick={() => openCreateCategoryModal("", block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a</button>
+                          <button type="button" onClick={() => openCreateCategoryModal("", block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ Categoría</button>
                         </div>
                       </div>
 
@@ -5391,7 +5391,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         });
 
                         if (!rootsInBlock.length && !fallbackOptionRoots.length) {
-                          return <div className="px-4 py-4 text-xs text-slate-500">Sin categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as en este bloque.</div>;
+                          return <div className="px-4 py-4 text-xs text-slate-500">Sin categorías en este bloque.</div>;
                         }
 
                         return (
@@ -7604,14 +7604,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {!isNewPublicationPage ? (
           <>
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Total</p><p className="mt-2 text-3xl font-bold text-slate-800">{publications.length}</p><p className="text-xs text-slate-400">-3 en el mes ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ +87 ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ -8</p></div>
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Total</p><p className="mt-2 text-3xl font-bold text-slate-800">{publications.length}</p><p className="text-xs text-slate-400">-3 en el mes · +87 · -8</p></div>
             <div className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-violet-500">Pagas</p><p className="mt-2 text-3xl font-bold text-violet-700">{paidPublications.length}</p></div>
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-emerald-500">Gratis</p><p className="mt-2 text-3xl font-bold text-emerald-700">{freePublications}</p></div>
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
             <StatsChartCard title="Publicaciones: pagas vs gratis" labelA="Pagas" labelB="Gratis" colorA="#10b981" colorB="#a7f3d0" getData={publicationsData} />
-            <StatsChartCard title="Denuncias por perÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½odo" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
+            <StatsChartCard title="Denuncias por período" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
           </div>
 
           <div className="mt-8 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -7634,7 +7634,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <button type="button" onClick={openNewPublicationEditor} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Nueva</button>
               </div>
             </div>
-            <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ltimas publicaciones"}</div>
+            <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "Últimas publicaciones"}</div>
             <div className="mt-3 space-y-3">
             {publicationTab === "denuncias" ? filteredReports.map((report) => {
               const isOpen = Boolean(expandedReports[report.id]);
@@ -7653,10 +7653,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold text-slate-900">
-                          {isFeedback ? "Feedback general" : (report.publicationTitle || "PublicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n sin tÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo")}
+                          {normalizeVisibleText(isFeedback ? "Feedback general" : (report.publicationTitle || "Publicación sin título"))}
                         </div>
-                        <div className="mt-1 text-xs text-slate-500">PublicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n ID: {report.publicationId || "-"}</div>
-                        <div className="mt-1 text-xs text-slate-500">Denunciante: {report.fullName || "-"} ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ {report.email || "-"} ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ {report.contact || "-"}</div>
+                        <div className="mt-1 text-xs text-slate-500">Publicación ID: {normalizeVisibleText(report.publicationId || "-")}</div>
+                        <div className="mt-1 text-xs text-slate-500">Denunciante: {normalizeVisibleText(report.fullName || "-")} · {normalizeVisibleText(report.email || "-")} · {normalizeVisibleText(report.contact || "-")}</div>
                       </div>
                       <span className="text-xs font-semibold text-rose-600">{isOpen ? "Ocultar" : "Ver detalle"}</span>
                     </div>
@@ -7672,10 +7672,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           rel="noreferrer"
                           className="mt-2 inline-flex rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
                         >
-                          Abrir publicacion denunciada
+                          Abrir publicación denunciada
                         </a>
                       ) : null}
-                      <div className="mt-2 text-xs text-rose-600">{report.reason || "Denuncia"} ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ {report.createdAt ? new Date(report.createdAt).toLocaleString("es-AR") : ""}</div>
+                      <div className="mt-2 text-xs text-rose-600">{normalizeVisibleText(report.reason || "Denuncia")} · {report.createdAt ? new Date(report.createdAt).toLocaleString("es-AR") : ""}</div>
                     </>
                   ) : null}
                 </div>
@@ -7698,27 +7698,27 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-700">partner</span>
                       ) : null}
                     </div>
-                    <div className="mt-2 text-base font-semibold text-slate-900">{p.title}</div>
+                    <div className="mt-2 text-base font-semibold text-slate-900">{normalizeVisibleText(p.title)}</div>
                     <div className="mt-1 text-xs text-slate-500">
-                      Oferente: {p.publisherName || "Sin nombre"} ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ Email: {String((p.fields as any)?.providerEmail ?? "-")}
+                      Oferente: {normalizeVisibleText(p.publisherName || "Sin nombre")} · Email: {normalizeVisibleText(String((p.fields as any)?.providerEmail ?? "-"))}
                     </div>
                     <div className="mt-1 text-xs text-slate-500">
                       Creada: {p.createdAt ? new Date(p.createdAt).toLocaleString("es-AR") : "-"}
                     </div>
                     <div className="mt-1 text-sm text-slate-600">
                       {(() => {
-                        return "Bloque: CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as";
+                        return "Bloque: Categorías";
                       })()}
                       {p.category
-                        ? ` ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ ${pickI18nText(p.categoryI18n ?? null, locale, p.category)}${
+                        ? ` · ${normalizeVisibleText(pickI18nText(p.categoryI18n ?? null, locale, p.category))}${
                             p.subcategory
-                              ? ` ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ ${pickI18nText(p.subcategoryI18n ?? null, locale, p.subcategory)}`
+                              ? ` · ${normalizeVisibleText(pickI18nText(p.subcategoryI18n ?? null, locale, p.subcategory))}`
                               : ""
                           }`
-                        : " ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ Sin categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a"}
-                      {p.city ? ` ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ ${p.city}` : ""}
-                      {p.country ? `, ${p.country}` : ""}
-                      {p.headquarterCountry ? ` ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ Sede: ${p.headquarterCountry}` : ""}
+                        : " · Sin categoría"}
+                      {p.city ? ` · ${normalizeVisibleText(p.city)}` : ""}
+                      {p.country ? `, ${normalizeVisibleText(p.country)}` : ""}
+                      {p.headquarterCountry ? ` · Sede: ${normalizeVisibleText(p.headquarterCountry)}` : ""}
                     </div>
                     {(() => {
                       const warnings: string[] = [];
@@ -7732,12 +7732,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         }
                       }
                       if (p.primaryGroupKey && p.primaryGroupKey !== "category") {
-                        warnings.push("Advertencia: categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a definida en un bloque distinto a categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as.");
+                        warnings.push("Advertencia: categoría definida en un bloque distinto a categorías.");
                       }
                       const catType = p.category ? categoryTaxonomyTypeByLabel.get(p.category) : null;
                       const subType = p.subcategory ? categoryTaxonomyTypeByLabel.get(p.subcategory) : null;
                       if (catType && subType && catType !== subType) {
-                        warnings.push("Advertencia: tipo de filtro y categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a no coinciden.");
+                        warnings.push("Advertencia: tipo de filtro y categoría no coinciden.");
                       }
                       return warnings.length ? (
                         <div className="mt-2 space-y-1 text-xs text-amber-600">

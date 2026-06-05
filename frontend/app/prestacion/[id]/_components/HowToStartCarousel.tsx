@@ -73,7 +73,6 @@ export default function HowToStartCarousel({ items }: { items: HowToItem[] }) {
 
   return (
     <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-      {/* Mobile */}
       <div className="md:hidden">
         <div className="mb-3 flex items-center justify-end gap-2">
           <button
@@ -126,9 +125,8 @@ export default function HowToStartCarousel({ items }: { items: HowToItem[] }) {
         ) : null}
       </div>
 
-      {/* Tablet/Desktop */}
       <div className="hidden md:block">
-        <div className="flex gap-3">
+        <div className="flex gap-4">
           {safeItems.map((step, idx) => {
             const isActive = idx === active;
             return (
@@ -139,17 +137,17 @@ export default function HowToStartCarousel({ items }: { items: HowToItem[] }) {
                   if (window.innerWidth >= 1024) setStep(idx);
                 }}
                 onClick={() => setStep(idx)}
-                className={`h-[380px] overflow-hidden rounded-2xl border transition-all duration-500 ${
+                className={`h-[420px] overflow-hidden rounded-[1.65rem] border transition-all duration-500 ${
                   isActive
-                    ? "flex-[2.2] border-[#00A9C6]/35 bg-gradient-to-br from-[#EAF9FC] to-[#D6F1F7] shadow-md"
-                    : "flex-1 border-slate-200 bg-gradient-to-br from-[#F6FAFF] to-[#EEF5FF]"
+                    ? "flex-[2.9] border-[#00A9C6]/35 bg-gradient-to-br from-[#EAF9FC] to-[#D6F1F7] shadow-md"
+                    : "flex-[1.1] border-slate-200 bg-gradient-to-br from-[#F6FAFF] to-[#EEF5FF]"
                 }`}
               >
-                {isActive ? (
-                  <img src={step.image || PLACEHOLDER_IMAGE} alt={step.title || `Paso ${idx + 1}`} className="h-full w-full object-cover object-center" />
-                ) : (
-                  <img src={step.image || PLACEHOLDER_IMAGE} alt={step.title || `Paso ${idx + 1}`} className="h-full w-full object-cover object-center opacity-75" />
-                )}
+                <img
+                  src={step.image || PLACEHOLDER_IMAGE}
+                  alt={step.title || `Paso ${idx + 1}`}
+                  className={`h-full w-full object-cover object-center ${isActive ? "" : "opacity-75"}`}
+                />
               </button>
             );
           })}
@@ -163,17 +161,17 @@ export default function HowToStartCarousel({ items }: { items: HowToItem[] }) {
                 key={`legend-${step.id}`}
                 type="button"
                 onClick={() => setStep(idx)}
-                className={`min-w-0 text-left transition-all duration-500 ${isActive ? "flex-[2.2]" : "flex-1"}`}
+                className={`min-w-0 text-left transition-all duration-500 ${isActive ? "flex-[2.9]" : "flex-[1.1]"}`}
               >
                 <div className={`flex items-start gap-4 ${isActive ? "" : "justify-start"}`}>
                   <div className="shrink-0">{numberWithTimer(idx)}</div>
                   {isActive ? (
                     <div className="min-w-0 flex-1 pt-1">
-                      <h3 className="text-[clamp(1.45rem,2vw,2.05rem)] leading-tight font-semibold text-slate-900 break-words">
+                      <h3 className="text-[clamp(1.45rem,2vw,2.05rem)] break-words leading-tight font-semibold text-slate-900">
                         {step.title}
                       </h3>
                       {step.subtitle ? (
-                        <RichText value={step.subtitle} className="mt-2 max-w-[34rem] text-[15px] leading-7 text-slate-600 break-words" />
+                        <RichText value={step.subtitle} className="mt-2 max-w-[34rem] break-words text-[15px] leading-7 text-slate-600" />
                       ) : null}
                     </div>
                   ) : null}
