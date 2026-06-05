@@ -76,6 +76,7 @@ export const translations = {
         datos_contacto: "Datos de contacto",
         web_label: "Web",
         idiomas_label: "Idiomas",
+        idiomas_atencion: "Idiomas de atención",
         recomendaciones_viaje: "Recomendaciones para viajar",
         recomendaciones_viaje_texto:
             "Evitá caer en estafas: verificá al oferente, no hagas pagos fuera de la plataforma y cuidá tus datos.",
@@ -521,6 +522,7 @@ export const translations = {
         datos_contacto: "Contact details",
         web_label: "Website",
         idiomas_label: "Languages",
+        idiomas_atencion: "Service languages",
         recomendaciones_viaje: "Travel recommendations",
         recomendaciones_viaje_texto:
             "Avoid scams: verify the provider, don't pay outside the platform, and keep your data safe.",
@@ -966,6 +968,7 @@ export const translations = {
         datos_contacto: "Dados de contato",
         web_label: "Site",
         idiomas_label: "Idiomas",
+        idiomas_atencion: "Idiomas de atendimento",
         recomendaciones_viaje: "Recomendações de viagem",
         recomendaciones_viaje_texto:
             "Evite golpes: verifique o provedor, não faça pagamentos fora da plataforma e proteja seus dados.",
@@ -1415,6 +1418,7 @@ export const translations = {
         datos_contacto: "Dati di contatto",
         web_label: "Sito",
         idiomas_label: "Lingue",
+        idiomas_atencion: "Lingue di assistenza",
         recomendaciones_viaje: "Consigli di viaggio",
         recomendaciones_viaje_texto:
             "Evita le truffe: verifica il fornitore, non effettuare pagamenti fuori dalla piattaforma e proteggi i tuoi dati.",
