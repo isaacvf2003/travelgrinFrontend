@@ -402,6 +402,50 @@ function normalizeVisibleText(value: string): string {
 
   return normalized.replace(/\s+/g, ' ').trim();
 }
+
+function normalizeAdminDomTree(root: HTMLElement) {
+  const normalizeIfNeeded = (value: string) => {
+    if (!/[ÃÂâ]/.test(value)) return value;
+    return normalizeVisibleText(value);
+  };
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let currentNode = walker.nextNode();
+
+  while (currentNode) {
+    const textNode = currentNode as Text;
+    const parent = textNode.parentElement;
+    const rawValue = textNode.nodeValue ?? "";
+
+    if (parent && !["SCRIPT", "STYLE"].includes(parent.tagName)) {
+      const nextValue = normalizeIfNeeded(rawValue);
+      if (nextValue !== rawValue) {
+        textNode.nodeValue = nextValue;
+      }
+    }
+
+    currentNode = walker.nextNode();
+  }
+
+  root.querySelectorAll<HTMLElement>("*").forEach((element) => {
+    ["placeholder", "title", "aria-label"].forEach((attr) => {
+      const attrValue = element.getAttribute(attr);
+      if (!attrValue) return;
+      const nextValue = normalizeIfNeeded(attrValue);
+      if (nextValue !== attrValue) {
+        element.setAttribute(attr, nextValue);
+      }
+    });
+
+    if (element instanceof HTMLInputElement && ["button", "submit", "reset"].includes(element.type)) {
+      const nextValue = normalizeIfNeeded(element.value);
+      if (nextValue !== element.value) {
+        element.value = nextValue;
+      }
+    }
+  });
+}
+
 function serviceEffectiveStatus(service: TravelService): string {
   const raw = String(service.status ?? service.whatStop ?? "").trim().toLowerCase();
   return raw || "pendiente";
@@ -925,6 +969,7 @@ function AdminEditorSection({
 export default function AdminPanel({ section, publicationsView = "overview" }: AdminPanelProps) {
   const { locale } = useTranslation();
   const router = useRouter();
+  const adminRootRef = useRef<HTMLDivElement | null>(null);
   const isNewPublicationPage = publicationsView === "new";
   const [loading, setLoading] = useState(true);
 
@@ -972,6 +1017,39 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [originCountrySearch, setOriginCountrySearch] = useState("");
   const [passportCountrySearch, setPassportCountrySearch] = useState("");
   const [showPublicationEditor, setShowPublicationEditor] = useState(isNewPublicationPage);
+
+  useEffect(() => {
+    const root = adminRootRef.current;
+    if (!root) return;
+
+    let scheduled = false;
+    const runNormalization = () => {
+      normalizeAdminDomTree(root);
+    };
+
+    runNormalization();
+
+    const observer = new MutationObserver(() => {
+      if (scheduled) return;
+      scheduled = true;
+      window.requestAnimationFrame(() => {
+        scheduled = false;
+        runNormalization();
+      });
+    });
+
+    observer.observe(root, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["placeholder", "title", "aria-label", "value"],
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [section, publicationsView]);
 
   // --- Category form ---
   const [catLang, setCatLang] = useState<Lang>("es");
@@ -5035,7 +5113,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   return (
-    <div className="min-w-0 space-y-4 sm:space-y-6">
+    <div ref={adminRootRef} className="min-w-0 space-y-4 sm:space-y-6">
       {isPanelSection ? (
       <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
