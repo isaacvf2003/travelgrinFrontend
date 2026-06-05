@@ -104,7 +104,7 @@ export default function HowToStartCarousel({ items }: { items: HowToItem[] }) {
         <div className="mt-4 flex items-start gap-3">
           {numberWithTimer(active)}
           <div>
-            <h3 className="text-2xl font-bold text-slate-900">{current.title}</h3>
+            <h3 className="text-[21px] font-bold leading-tight text-slate-900">{current.title}</h3>
             {current.subtitle ? <RichText value={current.subtitle} className="mt-1 text-sm text-slate-600" /> : null}
           </div>
         </div>
@@ -167,7 +167,7 @@ export default function HowToStartCarousel({ items }: { items: HowToItem[] }) {
                   <div className="shrink-0">{numberWithTimer(idx)}</div>
                   {isActive ? (
                     <div className="min-w-0 flex-1 pt-1">
-                      <h3 className="text-[clamp(1.45rem,2vw,2.05rem)] break-words leading-tight font-semibold text-slate-900">
+                      <h3 className="break-words text-[22px] font-semibold leading-tight text-slate-900 md:text-[24px]">
                         {step.title}
                       </h3>
                       {step.subtitle ? (
