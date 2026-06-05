@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, Plus, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, Plus, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
@@ -367,11 +367,14 @@ function normalizeVisibleText(value: string): string {
   if (!raw) return "";
 
   const broken = "(?:[^A-Za-z0-9\\s]{1,80})";
+  const noisy = "(?:[^A-Za-z0-9\\s]*[ÃÂâ�][^A-Za-z0-9\\s]*){1,80}";
   const contextualRepairs: Array<[RegExp, string]> = [
     [new RegExp(`CATEGOR${broken}AS`, "g"), "CATEGORÍAS"],
     [new RegExp(`CATEGOR${broken}A`, "g"), "CATEGORÍA"],
     [new RegExp(`T${broken}TULO`, "g"), "TÍTULO"],
+    [new RegExp(`SUBT${broken}TULO`, "g"), "SUBTÍTULO"],
     [new RegExp(`P${broken}BLICO`, "g"), "PÚBLICO"],
+    [new RegExp(`PA${broken}S`, "g"), "PAÍS"],
     [new RegExp(`Categor${broken}as`, "g"), "Categorías"],
     [new RegExp(`Categor${broken}a`, "g"), "Categoría"],
     [new RegExp(`Publicaci${broken}n`, "g"), "Publicación"],
@@ -399,6 +402,8 @@ function normalizeVisibleText(value: string): string {
     [new RegExp(`selecci${broken}n`, "gi"), "selección"],
     [new RegExp(`t${broken}tulo`, "gi"), "título"],
     [new RegExp(`t${broken}tulos`, "gi"), "títulos"],
+    [new RegExp(`subt${broken}tulo`, "gi"), "subtítulo"],
+    [new RegExp(`subt${broken}tulos`, "gi"), "subtítulos"],
     [new RegExp(`p${broken}blico`, "gi"), "público"],
     [new RegExp(`pa${broken}s`, "gi"), "país"],
     [new RegExp(`pa${broken}ses`, "gi"), "países"],
@@ -431,6 +436,84 @@ function normalizeVisibleText(value: string): string {
     [new RegExp(`enviar${broken}`, "gi"), "enviará"],
     [new RegExp(`ingres${broken}`, "gi"), "ingresá"],
     [new RegExp(`guard${broken}`, "gi"), "guardá"],
+    [new RegExp(`ubicaci${broken}n`, "gi"), "ubicación"],
+    [new RegExp(`a${broken}adir`, "gi"), "añadir"],
+    [new RegExp(`im${broken}genes`, "gi"), "imágenes"],
+    [new RegExp(`imagen${broken}es`, "gi"), "imágenes"],
+    [new RegExp(`b${broken}squeda`, "gi"), "búsqueda"],
+    [new RegExp(`gu${broken}a`, "gi"), "guía"],
+    [new RegExp(`bot${broken}n`, "gi"), "botón"],
+    [new RegExp(`acorde${broken}n`, "gi"), "acordeón"],
+    [new RegExp(`í?tems`, "gi"), "ítems"],
+    [new RegExp(`P${broken}rez`, "g"), "Pérez"],
+    [new RegExp(`Acompa${broken}amos`, "g"), "Acompañamos"],
+    [new RegExp(`acompa${broken}amos`, "g"), "acompañamos"],
+    [new RegExp(`Espa${broken}ol`, "g"), "Español"],
+    [new RegExp(`espa${broken}ol`, "g"), "español"],
+    [new RegExp(`Ten${broken}s`, "g"), "Tenés"],
+    [new RegExp(`ten${broken}s`, "g"), "tenés"],
+    [new RegExp(`Est${broken}s`, "g"), "Estás"],
+    [new RegExp(`est${broken}s`, "g"), "estás"],
+    [new RegExp(`M${broken}nimo`, "g"), "Mínimo"],
+    [new RegExp(`m${broken}nimo`, "g"), "mínimo"],
+    [new RegExp(`M${broken}ximo`, "g"), "Máximo"],
+    [new RegExp(`m${broken}ximo`, "g"), "máximo"],
+  ];
+  const noisyContextualRepairs: Array<[RegExp, string]> = [
+    [new RegExp(`categor${noisy}as`, "gi"), "categorías"],
+    [new RegExp(`categor${noisy}a`, "gi"), "categoría"],
+    [new RegExp(`subcategor${noisy}as`, "gi"), "subcategorías"],
+    [new RegExp(`subcategor${noisy}a`, "gi"), "subcategoría"],
+    [new RegExp(`publicaci${noisy}nes`, "gi"), "publicaciones"],
+    [new RegExp(`publicaci${noisy}n`, "gi"), "publicación"],
+    [new RegExp(`prestaci${noisy}nes`, "gi"), "prestaciones"],
+    [new RegExp(`prestaci${noisy}n`, "gi"), "prestación"],
+    [new RegExp(`informaci${noisy}n`, "gi"), "información"],
+    [new RegExp(`descripci${noisy}n`, "gi"), "descripción"],
+    [new RegExp(`configuraci${noisy}n`, "gi"), "configuración"],
+    [new RegExp(`edici${noisy}n`, "gi"), "edición"],
+    [new RegExp(`valoraci${noisy}n`, "gi"), "valoración"],
+    [new RegExp(`opci${noisy}nes`, "gi"), "opciones"],
+    [new RegExp(`opci${noisy}n`, "gi"), "opción"],
+    [new RegExp(`acci${noisy}n`, "gi"), "acción"],
+    [new RegExp(`selecci${noisy}n`, "gi"), "selección"],
+    [new RegExp(`ubicaci${noisy}n`, "gi"), "ubicación"],
+    [new RegExp(`t${noisy}tulo`, "gi"), "título"],
+    [new RegExp(`subt${noisy}tulo`, "gi"), "subtítulo"],
+    [new RegExp(`p${noisy}blico`, "gi"), "público"],
+    [new RegExp(`pa${noisy}ses`, "gi"), "países"],
+    [new RegExp(`pa${noisy}s`, "gi"), "país"],
+    [new RegExp(`a${noisy}os`, "gi"), "años"],
+    [new RegExp(`a${noisy}o`, "gi"), "año"],
+    [new RegExp(`d${noisy}as`, "gi"), "días"],
+    [new RegExp(`d${noisy}a`, "gi"), "día"],
+    [new RegExp(`m${noisy}s`, "gi"), "más"],
+    [new RegExp(`m${noisy}ltiples`, "gi"), "múltiples"],
+    [new RegExp(`b${noisy}squeda`, "gi"), "búsqueda"],
+    [new RegExp(`gu${noisy}a`, "gi"), "guía"],
+    [new RegExp(`bot${noisy}n`, "gi"), "botón"],
+    [new RegExp(`acorde${noisy}n`, "gi"), "acordeón"],
+    [new RegExp(`im${noisy}genes`, "gi"), "imágenes"],
+    [new RegExp(`a${noisy}adir`, "gi"), "añadir"],
+    [new RegExp(`tambi${noisy}n`, "gi"), "también"],
+    [new RegExp(`todav${noisy}a`, "gi"), "todavía"],
+    [new RegExp(`pod${noisy}s`, "gi"), "podés"],
+    [new RegExp(`num${noisy}ricos`, "gi"), "numéricos"],
+    [new RegExp(`qu${noisy}`, "gi"), "qué"],
+    [new RegExp(`quer${noisy}s`, "gi"), "querés"],
+    [new RegExp(`est${noisy}`, "gi"), "está"],
+    [new RegExp(`enviar${noisy}`, "gi"), "enviará"],
+    [new RegExp(`ingres${noisy}`, "gi"), "ingresá"],
+    [new RegExp(`guard${noisy}`, "gi"), "guardá"],
+    [new RegExp(`seleccion${noisy}`, "gi"), "seleccioná"],
+    [new RegExp(`eleg${noisy}`, "gi"), "elegí"],
+    [new RegExp(`complet${noisy}`, "gi"), "completá"],
+    [new RegExp(`mostrar${noisy}`, "gi"), "mostrará"],
+    [new RegExp(`Espa${noisy}ol`, "g"), "Español"],
+    [new RegExp(`espa${noisy}ol`, "g"), "español"],
+    [new RegExp(`P${noisy}rez`, "g"), "Pérez"],
+    [new RegExp(`Acompa${noisy}amos`, "g"), "Acompañamos"],
+    [new RegExp(`acompa${noisy}amos`, "g"), "acompañamos"],
   ];
 
   let normalized = raw
@@ -474,11 +557,14 @@ function normalizeVisibleText(value: string): string {
     normalized = normalized.replace(pattern, replacement);
   }
 
-  for (const [pattern, replacement] of contextualRepairs) {
+  for (const [pattern, replacement] of noisyContextualRepairs) {
     normalized = normalized.replace(pattern, replacement);
   }
 
   normalized = normalized
+    .replace(/\uFFFD/g, "")
+    .replace(/ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½/g, "")
+    .replace(/ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â/g, "")
     .replace(/publicaciónes/gi, "publicaciones")
     .replace(/prestaciónes/gi, "prestaciones")
     .replace(/opciónes/gi, "opciones")
@@ -5274,7 +5360,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               Seleccionar los destino disponible para el registro del oferente
             </div>
             <p className="mt-1 text-xs text-slate-500">
-              Solo modifica el campo PaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s destino que aplica tu propuesta en el registro de oferentes.
+              Solo modifica el campo País destino que aplica tu propuesta en el registro de oferentes.
             </p>
           </div>
           {oferenteDestinationSaved ? (
@@ -5311,7 +5397,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               label="Destinos habilitados"
               selected={oferenteDestinationCountries}
               onChange={setOferenteDestinationCountries}
-              placeholder="SeleccionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ uno o mÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ses destino"
+              placeholder="Seleccioná uno o más países destino"
             />
           </div>
         ) : null}
@@ -5327,10 +5413,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100"><h3 className="text-sm font-semibold text-slate-700">CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as</h3></div>
+        <div className="px-5 py-4 border-b border-slate-100"><h3 className="text-sm font-semibold text-slate-700">Categorías</h3></div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">En paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s destino</th></tr></thead>
+            <thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">Categoría</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">En país destino</th></tr></thead>
             <tbody>
               {categoryDashboardRows.blockRows.map((block) => {
                 const open = expandedPanelBlocks[block.id] ?? false;
@@ -5360,7 +5446,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             </tr>
                             {root.children.map((child) => (
                               <tr key={`child-${child.id}`} className="border-t border-slate-50 bg-white">
-                                <td className="px-5 py-2 pl-16 text-slate-500">? {child.name}</td>
+                                <td className="px-5 py-2 pl-16 text-slate-500"><span className="mr-1 text-slate-300">-</span>{child.name}</td>
                                 <td className="px-3 py-2 text-center text-slate-500">{child.total}</td>
                                 <td className="px-3 py-2 text-center text-violet-600">{child.paid}</td>
                                 <td className="px-3 py-2 text-center text-emerald-600">{child.free}</td>
@@ -5381,29 +5467,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-700">PaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ses destino (demandantes)</h3>
-            <input value={destinationCountrySearch} onChange={(event) => setDestinationCountrySearch(event.target.value)} placeholder="Buscar paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
-            <p className="mt-1 text-[11px] text-slate-400">Sin bÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½squeda: top 10 paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ses con mÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s demandantes.</p>
+            <h3 className="text-sm font-semibold text-slate-700">Países destino (demandantes)</h3>
+            <input value={destinationCountrySearch} onChange={(event) => setDestinationCountrySearch(event.target.value)} placeholder="Buscar país..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
+            <p className="mt-1 text-[11px] text-slate-400">Sin búsqueda: top 10 países con más demandantes.</p>
           </div>
-          <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">PaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Visitas</th></tr></thead><tbody>{visibleDestinationRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.total}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.visits}</td></tr>))}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">País</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Visitas</th></tr></thead><tbody>{visibleDestinationRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.total}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.visits}</td></tr>))}</tbody></table></div>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-700">PaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ses origen (oferentes)</h3>
-            <input value={originCountrySearch} onChange={(event) => setOriginCountrySearch(event.target.value)} placeholder="Buscar paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
-            <p className="mt-1 text-[11px] text-slate-400">Sin bÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½squeda: top 10 paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ses con mÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s oferentes.</p>
+            <h3 className="text-sm font-semibold text-slate-700">Países origen (oferentes)</h3>
+            <input value={originCountrySearch} onChange={(event) => setOriginCountrySearch(event.target.value)} placeholder="Buscar país..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
+            <p className="mt-1 text-[11px] text-slate-400">Sin búsqueda: top 10 países con más oferentes.</p>
           </div>
-          <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">PaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s</th><th className="text-center px-3 py-3 font-semibold">Pubs.</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Cats.</th><th className="text-center px-3 py-3 font-semibold">Destinos</th></tr></thead><tbody>{visibleOriginRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.publications}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center text-slate-600">{row.categories}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.destinations}</td></tr>))}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">País</th><th className="text-center px-3 py-3 font-semibold">Pubs.</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Cats.</th><th className="text-center px-3 py-3 font-semibold">Destinos</th></tr></thead><tbody>{visibleOriginRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.publications}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center text-slate-600">{row.categories}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.destinations}</td></tr>))}</tbody></table></div>
         </div>
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-semibold text-slate-700">Visitas por pasaporte / paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s de origen</h3>
-          <input value={passportCountrySearch} onChange={(event) => setPassportCountrySearch(event.target.value)} placeholder="Buscar paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
-          <p className="mt-1 text-[11px] text-slate-400">Sin bÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½squeda: top 10 paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ses con mÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s pasaportes seleccionados.</p>
+          <h3 className="text-sm font-semibold text-slate-700">Visitas por pasaporte / país de origen</h3>
+          <input value={passportCountrySearch} onChange={(event) => setPassportCountrySearch(event.target.value)} placeholder="Buscar país..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
+          <p className="mt-1 text-[11px] text-slate-400">Sin búsqueda: top 10 países con más pasaportes seleccionados.</p>
         </div>
-        <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">PaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Prom. por dÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a</th><th className="text-center px-3 py-3 font-semibold">Prom. por mes</th><th className="text-center px-3 py-3 font-semibold">Destinos prom.</th></tr></thead><tbody>{visiblePassportRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-5 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center font-bold text-blue-600">{row.total.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-600">{row.perDay}</td><td className="px-3 py-3 text-center text-slate-600">{row.perMonth.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-500">{row.avgDestinations}</td></tr>))}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">País</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Prom. por día</th><th className="text-center px-3 py-3 font-semibold">Prom. por mes</th><th className="text-center px-3 py-3 font-semibold">Destinos prom.</th></tr></thead><tbody>{visiblePassportRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-5 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center font-bold text-blue-600">{row.total.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-600">{row.perDay}</td><td className="px-3 py-3 text-center text-slate-600">{row.perMonth.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-500">{row.avgDestinations}</td></tr>))}</tbody></table></div>
       </div>
       </>
       ) : null}
@@ -5412,8 +5498,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
       {isConfigSection ? (
         <section className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
-          <h2 className="text-2xl font-semibold text-slate-900">ConfiguraciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</h2>
-          <p className="mt-2 text-sm text-slate-600">Esta secciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n replica la navegaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n del panel de control. AquÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ podÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s seguir centralizando ajustes del admin.</p>
+          <h2 className="text-2xl font-semibold text-slate-900">Configuración</h2>
+          <p className="mt-2 text-sm text-slate-600">Esta sección replica la navegación del panel de control. Aquí podés seguir centralizando ajustes del admin.</p>
         </section>
       ) : null}
 
@@ -5534,8 +5620,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           </span>
                         </button>
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                          <button type="button" onClick={() => moveFilterGroup(block.id, -1)} disabled={blockIndex === 0} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">?</button>
-                          <button type="button" onClick={() => moveFilterGroup(block.id, 1)} disabled={blockIndex === categoryBlocks.length - 1} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">?</button>
+                          <button type="button" onClick={() => moveFilterGroup(block.id, -1)} disabled={blockIndex === 0} title="Subir bloque" aria-label="Subir bloque" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowUp className="h-3.5 w-3.5" /></button>
+                          <button type="button" onClick={() => moveFilterGroup(block.id, 1)} disabled={blockIndex === categoryBlocks.length - 1} title="Bajar bloque" aria-label="Bajar bloque" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowDown className="h-3.5 w-3.5" /></button>
                           <button type="button" onClick={() => openEditBlockModal(block)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Editar</button>
                           <button type="button" onClick={() => deleteFilterGroup(block.id)} disabled={block.key === "price"} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">Eliminar</button>
                           <button type="button" onClick={() => openCreateCategoryModal("", block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ Categoría</button>
@@ -5596,13 +5682,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                         <p className="text-sm font-semibold text-slate-900">
                                           {pickI18nText(root.descriptionI18n ?? null, catLang, root.description)}
                                           {root.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
-                                        </p>{root.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Esta categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a es invisible</p> : null}
+                                        </p>{root.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Esta categoría es invisible</p> : null}
                                         {getCategoryCustomTaxonomyNotice(root) ? <p className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(root)}</p> : null}
                                       </span>
                                     </button>
                                     <div className="flex flex-wrap items-center justify-end gap-2">
-                                      <button type="button" onClick={() => moveCategory(root.id, -1)} disabled={rootIndex === 0} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">?</button>
-                                      <button type="button" onClick={() => moveCategory(root.id, 1)} disabled={rootIndex === rootsInBlock.length - 1} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">?</button>
+                                      <button type="button" onClick={() => moveCategory(root.id, -1)} disabled={rootIndex === 0} title="Subir categoría" aria-label="Subir categoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowUp className="h-3.5 w-3.5" /></button>
+                                      <button type="button" onClick={() => moveCategory(root.id, 1)} disabled={rootIndex === rootsInBlock.length - 1} title="Bajar categoría" aria-label="Bajar categoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowDown className="h-3.5 w-3.5" /></button>
                                       <button type="button" onClick={() => openCreateCategoryModal(root.id, block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ Sub</button>
                                       <button type="button" onClick={() => openEditCategoryModal(root)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Editar</button>
                                       <button type="button" onClick={() => deleteCategory(root.id)} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50">Eliminar</button>
@@ -5619,12 +5705,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                                 <div className="text-sm font-medium text-slate-800">
                                                   {pickI18nText(child.descriptionI18n ?? null, catLang, child.description)}
                                                   {child.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
-                                                </div>{child.isPublicVisible === false ? <div className="mt-1 text-xs font-medium text-amber-600">Esta categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a es invisible</div> : null}
+                                                </div>{child.isPublicVisible === false ? <div className="mt-1 text-xs font-medium text-amber-600">Esta categoría es invisible</div> : null}
                                                 {getCategoryCustomTaxonomyNotice(child) ? <div className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(child)}</div> : null}
                                               </div>
                                               <div className="flex flex-wrap items-center justify-end gap-2">
-                                                <button type="button" onClick={() => moveCategory(child.id, -1)} disabled={childIndex === 0} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">?</button>
-                                                <button type="button" onClick={() => moveCategory(child.id, 1)} disabled={childIndex === children.length - 1} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40">?</button>
+                                                <button type="button" onClick={() => moveCategory(child.id, -1)} disabled={childIndex === 0} title="Subir subcategoría" aria-label="Subir subcategoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowUp className="h-3.5 w-3.5" /></button>
+                                                <button type="button" onClick={() => moveCategory(child.id, 1)} disabled={childIndex === children.length - 1} title="Bajar subcategoría" aria-label="Bajar subcategoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowDown className="h-3.5 w-3.5" /></button>
                                                 <button type="button" onClick={() => openEditCategoryModal(child)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-white">Editar</button>
                                                 <button type="button" onClick={() => deleteCategory(child.id)} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50">Eliminar</button>
                                               </div>
@@ -5728,7 +5814,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-3 shadow-2xl sm:p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div className="inline-flex rounded-xl bg-slate-100 p-1">
-                  <button type="button" onClick={() => setCategoryModalMode("category")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${categoryModalMode === "category" ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}>CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a</button>
+                  <button type="button" onClick={() => setCategoryModalMode("category")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${categoryModalMode === "category" ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}>Categoría</button>
                   <button type="button" onClick={() => setCategoryModalMode("block")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${categoryModalMode === "block" ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}>Bloque</button>
                 </div>
                 <button type="button" onClick={() => setShowCategoryModal(false)} className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
@@ -5738,7 +5824,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
               {categoryModalMode === "category" ? (
                 <div className="space-y-4">
-                  <h3 className="text-2xl font-semibold text-slate-900">{editingCategoryId ? "Editar categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a" : catParentId ? "Nueva subcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a" : "Nueva categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a"}</h3>
+                  <h3 className="text-2xl font-semibold text-slate-900">{editingCategoryId ? "Editar categoría" : catParentId ? "Nueva subcategoría" : "Nueva categoría"}</h3>
                   <div>
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Nombre (multilenguaje)</label>
                     <div className="space-y-2">
@@ -5764,9 +5850,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
                   {showCategoryParentSelector ? (
                     <div>
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a padre</label>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Categoría padre</label>
                       <select value={catParentId} onChange={(e) => setCatParentId(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300">
-                        <option value="">(Ninguna ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a raÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½z)</option>
+                        <option value="">(Ninguna, categoría raíz)</option>
                         {roots
                           .filter((root) => {
                             if (!catBlockId) return true;
@@ -5794,15 +5880,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
                   <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
                     <input type="checkbox" checked={catIsPublicVisible} onChange={(e) => setCatIsPublicVisible(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
-                    <span>Visible al pÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½blico</span>
+                    <span>Visible al público</span>
                   </label>
                   <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
                     <input type="checkbox" checked={catIsPrimaryCategory} onChange={(e) => setCatIsPrimaryCategory(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
-                    <span>Esta categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a es principal (buscador de inicio)</span>
+                    <span>Esta categoría es principal (buscador de inicio)</span>
                   </label>
                   {catIsPrimaryCategory ? (
                     <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <label className="block text-xs font-semibold uppercase tracking-widest text-slate-500">ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½cono de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a principal (opcional)</label>
+                    <label className="block text-xs font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
                       <input
                         value={catIconImageUrl.startsWith("data:image/") ? "" : catIconImageUrl}
                         onChange={(e) => {
@@ -5810,7 +5896,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           setCatIconImageUrl(e.target.value);
                         }}
                         className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                        placeholder="URL de ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½cono (opcional)"
+                        placeholder="URL de ícono (opcional)"
                       />
                       <input
                         type="file"
@@ -5829,7 +5915,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       {catIconImageUrl ? (
                         <div className="flex items-center gap-2">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={catIconImageUrl} alt="Preview ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½cono de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+                          <img src={catIconImageUrl} alt="Preview ícono de categoría" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
                           <button
                             type="button"
                             onClick={() => {
@@ -5843,7 +5929,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         </div>
                       ) : null}
                       <p className="text-[11px] text-slate-500">
-                        Este ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½cono se muestra junto al nombre en los buscadores de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as principales.
+                        Este ícono se muestra junto al nombre en los buscadores de categorías principales.
                       </p>
                       <label className="mt-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Imagen de card principal (opcional)</label>
                       <input
@@ -5886,7 +5972,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         </div>
                       ) : null}
                       <p className="text-[11px] text-slate-500">
-                        Esta imagen se usa como fondo en las cards del bloque &quot;CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as con propÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½sito&quot;.
+                        Esta imagen se usa como fondo en las cards del bloque &quot;Categorías con propósito&quot;.
                       </p>
                     </div>
                   ) : null}
@@ -5902,13 +5988,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           <input
                             value={catPriceMin}
                             onChange={(e) => setCatPriceMin(e.target.value.replace(/[^0-9]/g, ""))}
-                            placeholder="MÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½nimo"
+                            placeholder="Mínimo"
                             className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
                           />
                           <input
                             value={catPriceMax}
                             onChange={(e) => setCatPriceMax(e.target.value.replace(/[^0-9]/g, ""))}
-                            placeholder="MÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ximo"
+                            placeholder="Máximo"
                             className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
                           />
                         </div>
@@ -5923,7 +6009,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           </select>
                         </div>
                         <p className="mt-2 text-xs text-slate-500">
-                          Al crear la categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a, tambiÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n se agregarÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ una opciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n de rango de precio y la moneda al bloque &quot;price&quot;.
+                          Al crear la categoría, también se agregará una opción de rango de precio y la moneda al bloque &quot;price&quot;.
                         </p>
                       </div>
                     );
@@ -5931,16 +6017,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
                   <div className="flex flex-wrap justify-end gap-2 pt-2">
                     <button type="button" onClick={() => setShowCategoryModal(false)} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
-                    <button type="button" onClick={addCategory} disabled={savingCategory} className="h-10 rounded-xl bg-indigo-500 px-5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60">{savingCategory ? "Guardando..." : editingCategoryId ? "Actualizar categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a" : "Crear categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a"}</button>
+                    <button type="button" onClick={addCategory} disabled={savingCategory} className="h-10 rounded-xl bg-indigo-500 px-5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60">{savingCategory ? "Guardando..." : editingCategoryId ? "Actualizar categoría" : "Crear categoría"}</button>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <h3 className="text-2xl font-semibold text-slate-900">{editingBlockId ? "Editar tÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo" : "Nuevo tÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo"}</h3>
+                  <h3 className="text-2xl font-semibold text-slate-900">{editingBlockId ? "Editar título" : "Nuevo título"}</h3>
                   <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo del bloque (multilenguaje)</label>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Título del bloque (multilenguaje)</label>
                     {renderLangTabs(blockLang, setBlockLang)}
-                    <input value={blockLabelI18n[blockLang] ?? ""} onChange={(e) => setBlockLabelI18n((prev) => ({ ...prev, [blockLang]: e.target.value }))} className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" placeholder="TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo del bloque" />
+                    <input value={blockLabelI18n[blockLang] ?? ""} onChange={(e) => setBlockLabelI18n((prev) => ({ ...prev, [blockLang]: e.target.value }))} className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" placeholder="Título del bloque" />
                     {blockError ? <p className="mt-2 text-xs text-red-500">{blockError}</p> : null}
                   </div>
                   <div>
@@ -5957,7 +6043,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
                   <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
                     <input type="checkbox" checked={blockIsPublicVisible} onChange={(e) => setBlockIsPublicVisible(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
-                    <span>Visible al pÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½blico</span>
+                    <span>Visible al público</span>
                   </label>
                   <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
                     <input
@@ -5972,10 +6058,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="mb-3 flex items-center justify-between gap-2">
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-widest text-slate-500">CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as iniciales del tÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo</div>
-                          <div className="text-xs text-slate-500">Opcional: creÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as y subcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as al mismo tiempo que el tÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo.</div>
+                          <div className="text-xs font-semibold uppercase tracking-widest text-slate-500">Categorías iniciales del título</div>
+                          <div className="text-xs text-slate-500">Opcional: creá categorías y subcategorías al mismo tiempo que el título.</div>
                         </div>
-                        <button type="button" onClick={() => addBlockCategoryDraft("")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">+ Nueva categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a</button>
+                        <button type="button" onClick={() => addBlockCategoryDraft("")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">+ Nueva categoría</button>
                       </div>
                       <div className="space-y-3">
                         {blockRootDrafts.map((draft, draftIndex) => {
@@ -5983,7 +6069,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           return (
                             <div key={draft.id} className="rounded-xl border border-slate-200 bg-white p-3">
                               <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
-                                CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a {draftIndex + 1}
+                                Categoría {draftIndex + 1}
                               </div>
                               <div className="mb-2">
                                 {renderLangTabs(
@@ -6015,7 +6101,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                     }
                                     className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
                                   />
-                                  Visible al pÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½blico
+                                  Visible al público
                                 </label>
                                 {blockVisibleInCard ? (
                                   <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
@@ -6033,14 +6119,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                               </div>
                               {draft.isPrimaryCategory ? (
                                 <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½cono de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a principal (opcional)</label>
+                                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
                                   <input
                                     value={draft.iconImageUrl}
                                     onChange={(e) =>
                                       updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, iconImageUrl: e.target.value }))
                                     }
                                     className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                                    placeholder="URL del ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½cono"
+                                    placeholder="URL del ícono"
                                   />
                                   <input
                                     type="file"
@@ -6061,7 +6147,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   {draft.iconImageUrl ? (
                                     <div className="flex items-center gap-2">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={draft.iconImageUrl} alt="Preview ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½cono categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
+                                      <img src={draft.iconImageUrl} alt="Preview ícono categoría principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
                                       <button
                                         type="button"
                                         onClick={() => updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, iconImageUrl: "" }))}
@@ -6117,7 +6203,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   onClick={() => addBlockCategoryDraft(draft.id)}
                                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                                 >
-                          + SubcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
+                          + Subcategoría
                                 </button>
                               </div>
                               <div className="mt-2">
@@ -6143,7 +6229,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   {subDrafts.map((subDraft, subIndex) => (
                                     <div key={subDraft.id} className="rounded-lg border border-slate-200 bg-white p-2">
                                       <div className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-                                    SubcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a {draftIndex + 1}.{subIndex + 1}
+                                    Subcategoría {draftIndex + 1}.{subIndex + 1}
                                       </div>
                                       <div className="mb-2">
                                         {renderLangTabs(
@@ -6175,7 +6261,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                             }
                                             className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
                                           />
-                                  Visible al pÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½blico
+                                  Visible al público
                                         </label>
                                         {blockVisibleInCard ? (
                                           <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
@@ -6193,14 +6279,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                       </div>
                                       {subDraft.isPrimaryCategory ? (
                                         <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½cono de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a principal (opcional)</label>
+                                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
                                           <input
                                             value={subDraft.iconImageUrl}
                                             onChange={(e) =>
                                               updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, iconImageUrl: e.target.value }))
                                             }
                                             className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                                    placeholder="URL del ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½cono"
+                                    placeholder="URL del ícono"
                                           />
                                           <input
                                             type="file"
@@ -6221,7 +6307,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                           {subDraft.iconImageUrl ? (
                                             <div className="flex items-center gap-2">
                                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={subDraft.iconImageUrl} alt="Preview ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½cono subcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
+                                      <img src={subDraft.iconImageUrl} alt="Preview ícono subcategoría principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
                                               <button
                                                 type="button"
                                                 onClick={() => updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, iconImageUrl: "" }))}
@@ -6259,7 +6345,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                           {subDraft.cardImageUrl ? (
                                             <div className="space-y-2">
                                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={subDraft.cardImageUrl} alt="Preview imagen card subcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a principal" className="h-16 w-full rounded border border-slate-200 object-cover" />
+                                      <img src={subDraft.cardImageUrl} alt="Preview imagen card subcategoría principal" className="h-16 w-full rounded border border-slate-200 object-cover" />
                                               <button
                                                 type="button"
                                                 onClick={() => updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, cardImageUrl: "" }))}
@@ -6297,7 +6383,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         })}
                         {!blockCategoryDrafts.length ? (
                           <div className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-xs text-slate-500">
-                          Sin categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as iniciales. PodÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s crearlas luego con <b>+ Nueva categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a</b>.
+                          Sin categorías iniciales. Podés crearlas luego con <b>+ Nueva categoría</b>.
                           </div>
                         ) : null}
                       </div>
@@ -6324,30 +6410,30 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div>
               <h2 className="text-2xl font-semibold text-slate-900">Publicaciones</h2>
               <p className="mt-2 text-sm text-slate-600">
-                Las publicaciones aparecen en <b>/buscar</b> y se filtran con mÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ltiples selecciones por bloque.
+                Las publicaciones aparecen en <b>/buscar</b> y se filtran con múltiples selecciones por bloque.
               </p>
             </div>
-            <span className="mt-2 text-sm font-semibold text-[#00A9C6] transition group-open:rotate-180">?</span>
+            <ChevronDown className="mt-2 h-4 w-4 text-[#00A9C6] transition group-open:rotate-180" />
           </summary>
 
           {(showPublicationEditor || isNewPublicationPage) ? (
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n" : "Nueva publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n"}</h3>
+              <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
               <button type="button" onClick={() => (isNewPublicationPage ? router.push("/admin?section=publicaciones") : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
             </div>
           <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
           {pEditorMode === "prestacion" ? (
             <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60">
-              <label className="text-sm font-medium text-slate-700">Idioma de ediciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</label>
+              <label className="text-sm font-medium text-slate-700">Idioma de edición</label>
               {renderLangTabs(pLang, setEditingLang)}
               <p className="text-xs text-slate-500">
-                Cambia el idioma de todos los campos de texto traducibles (tÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo, descripciones y textos). No modifica nombres propios, URLs ni valores numÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ricos.
+                Cambia el idioma de todos los campos de texto traducibles (título, descripciones y textos). No modifica nombres propios, URLs ni valores numéricos.
               </p>
             </div>
           ) : null}
           <div className="flex flex-wrap gap-3 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm shadow-slate-200/60">
-            <button type="button" onClick={() => setPEditorMode("publicacion")} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "publicacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>PublicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</button>
+            <button type="button" onClick={() => setPEditorMode("publicacion")} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "publicacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Publicación</button>
             <button type="button" onClick={() => { setPEditorMode("prestacion"); if (!pPrestacionResources.length) setPPrestacionResources([createEmptyPrestacionResource()]); if (!pPrestacionSteps.length) setPPrestacionSteps([createEmptyPrestacionStep()]); if (!pPrestacionFaqs.length) setPPrestacionFaqs([createEmptyPrestacionFaq()]); if (!pPrestacionColorBlocks.length) setPPrestacionColorBlocks([createEmptyPrestacionColorBlock()]); }} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "prestacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Prestaciones</button>
           </div>
 <div className="contents min-w-0">
@@ -6357,8 +6443,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             id="admin-publicacion-oferente"
             tone="slate"
             icon={<UserRound className="h-5 w-5" />}
-            title="InformaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n del oferente"
-            description="CompletÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ primero los datos base del perfil que se mostrarÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ junto a la publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n."
+            title="Información del oferente"
+            description="Completá primero los datos base del perfil que se mostrará junto a la publicación."
           >
             <div className="grid gap-2">
               <label className="text-sm font-medium text-slate-700">Nombre del oferente (aprobado)</label>
@@ -6373,10 +6459,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       {pProviderEmail ? `${pPublisherName || "Sin nombre"} (${pProviderEmail})` : "Seleccionar oferente aprobado"}
                     </div>
                     {pProviderEmail ? (
-                      <div className="truncate text-xs text-slate-500">ElegÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ una solicitud aprobada para autocompletar la publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n.</div>
+                      <div className="truncate text-xs text-slate-500">Elegí una solicitud aprobada para autocompletar la publicación.</div>
                     ) : null}
                   </div>
-                  <span className={`text-slate-400 transition ${approvedProviderPickerOpen ? "rotate-180" : ""}`}>?</span>
+                  <ChevronDown className={`h-4 w-4 text-slate-400 transition ${approvedProviderPickerOpen ? "rotate-180" : ""}`} />
                 </button>
                 {approvedProviderPickerOpen ? (
                   <div className="absolute left-0 right-0 top-full z-30 mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
@@ -6445,16 +6531,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   value={pPublisherName}
                   onChange={(e) => setPPublisherName(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Ej: Ana PÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½rez"
+                  placeholder="Ej: Ana Pérez"
                 />
               </div>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">DescripciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n del oferente</label>
+              <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
               <RichTextEditor
                 value={pProviderInfoI18n[pLang] ?? ""}
                 onChange={(next) => setPProviderInfoI18n((prev) => ({ ...prev, [pLang]: next }))}
-                placeholder="Texto visible en el detalle de la publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n..."
+                placeholder="Texto visible en el detalle de la publicación..."
               />
             </div>
 
@@ -6481,7 +6567,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 ) : null}
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Inicio de actividad (aÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½o)</label>
+                <label className="text-sm font-medium text-slate-700">Inicio de actividad (año)</label>
                 <input
                   value={pProviderStartYear}
                   onChange={(e) => setPProviderStartYear(e.target.value)}
@@ -6490,7 +6576,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">ValoraciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n (0 a 5)</label>
+                <label className="text-sm font-medium text-slate-700">Valoración (0 a 5)</label>
                 <input
                   value={pProviderRating}
                   onChange={(e) => setPProviderRating(e.target.value)}
@@ -6526,7 +6612,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     setPProviderActivities((prev) =>
                       checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
                     ),
-                  "No hay categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as con tipo de filtro actividad.",
+                  "No hay categorías con tipo de filtro actividad.",
                   "Seleccionar actividades"
                 )}
               </div>
@@ -6540,7 +6626,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     setPProviderTypes((prev) =>
                       checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
                     ),
-                  "No hay categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as con tipo de filtro tipo.",
+                  "No hay categorías con tipo de filtro tipo.",
                   "Seleccionar tipos"
                 )}
               </div>
@@ -6548,7 +6634,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
             <div className="mt-4 rounded-2xl border border-slate-200/80 bg-slate-50/75 p-4">
               <div className="text-sm font-semibold text-slate-900">Modalidad en que ofrece sus servicios</div>
-              <div className="mt-1 text-xs text-slate-500">MarcÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ una o mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s modalidades (categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as con tipo de filtro modalidad).</div>
+              <div className="mt-1 text-xs text-slate-500">Marcá una o más modalidades (categorías con tipo de filtro modalidad).</div>
               {renderTaxonomyTypeDropdown(
                 "modalidad",
                 modalidadRoots,
@@ -6557,38 +6643,38 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   setPProviderModalities((prev) =>
                     checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
                   ),
-                "No hay categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as con tipo de filtro modalidad."
+                "No hay categorías con tipo de filtro modalidad."
               )}
             </div>
 
           </AdminEditorSection>
 
           <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm shadow-slate-200/60">
-            <a href="#admin-publicacion-propuesta" className="rounded-full bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100">Propuesta o publicaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n</a>
-            <a href="#admin-publicacion-ubicacion-precio" className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">UbicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n y precio</a>
+            <a href="#admin-publicacion-propuesta" className="rounded-full bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100">Propuesta o publicación</a>
+            <a href="#admin-publicacion-ubicacion-precio" className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">Ubicación y precio</a>
             <a href="#admin-publicacion-sedes" className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">Sedes y filtro por pasaporte</a>
-            <a href="#admin-publicacion-idiomas-contacto" className="rounded-full bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">Idiomas, expiraciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n y contacto</a>
-            <a href="#admin-publicacion-imagenes" className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">ImÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½genes</a>
+            <a href="#admin-publicacion-idiomas-contacto" className="rounded-full bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">Idiomas, expiración y contacto</a>
+            <a href="#admin-publicacion-imagenes" className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">Imágenes</a>
           </div>
 
           <AdminEditorSection
             id="admin-publicacion-propuesta"
             tone="indigo"
             icon={<FileText className="h-5 w-5" />}
-            title="Propuesta o publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n"
-            description="DefinÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ el contenido principal, cÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½mo se clasifica y quÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ informaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n verÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ primero la persona usuaria."
+            title="Propuesta o publicación"
+            description="Definí el contenido principal, cómo se clasifica y qué información verá primero la persona usuaria."
           >
           <div className="grid gap-4">
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
-              <div className="text-sm font-semibold text-slate-900">CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as y subcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as</div>
-              <div className="mt-1 text-xs text-slate-500">SeleccionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a y subcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a desde un ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½nico selector integrado.</div>
+              <div className="text-sm font-semibold text-slate-900">Categorías y subcategorías</div>
+              <div className="mt-1 text-xs text-slate-500">Seleccioná categoría y subcategoría desde un único selector integrado.</div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setOpenPublicationPanel((prev) => (prev === "category" ? null : "category"))}
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a + subcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
+                  Categoría + subcategoría
                   {openPublicationPanel === "category" ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </button>
               </div>
@@ -6599,12 +6685,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div className="mt-2 space-y-1 text-sm text-slate-700">
                     {pCategorySelections.length ? (
                       <div>
-                        <span className="font-semibold">CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as:</span> {pCategorySelections.join(", ")}
+                        <span className="font-semibold">Categorías:</span> {pCategorySelections.join(", ")}
                       </div>
                     ) : null}
                     {pSubcategorySelections.length ? (
                       <div>
-                        <span className="font-semibold">SubcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as:</span> {pSubcategorySelections.join(", ")}
+                        <span className="font-semibold">Subcategorías:</span> {pSubcategorySelections.join(", ")}
                       </div>
                     ) : null}
                   </div>
@@ -6613,8 +6699,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
 
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
-              <div className="text-sm font-semibold text-slate-900">AÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½adir prestaciones</div>
-              <div className="mt-1 text-xs text-slate-500">SeleccionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ prestaciones (categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as con tipo de filtro prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n).</div>
+              <div className="text-sm font-semibold text-slate-900">Añadir prestaciones</div>
+              <div className="mt-1 text-xs text-slate-500">Seleccioná prestaciones (categorías con tipo de filtro prestación).</div>
               {renderTaxonomyTypeDropdown(
                 "prestacion",
                 prestacionRoots,
@@ -6623,7 +6709,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   setPPrestaciones((prev) =>
                     checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
                   ),
-                "No hay categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as con tipo de filtro prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n."
+                "No hay categorías con tipo de filtro prestación."
               )}
             </div>
 
@@ -6665,7 +6751,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo de la publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</label>
+                <label className="text-sm font-medium text-slate-700">Título de la publicación</label>
                 <input
                   value={pTitleI18n[pLang] ?? ""}
                   onChange={(e) => {
@@ -6674,26 +6760,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     if (pLang === "es") setPTitle(next);
                   }}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Ej: AcompaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½amos tu registro..."
+                  placeholder="Ej: Acompañamos tu registro..."
                 />
               </div>
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">DescripciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</label>
+              <label className="text-sm font-medium text-slate-700">Descripción</label>
               <RichTextEditor
                 value={pDescriptionI18n[pLang] ?? ""}
                 onChange={(next) => {
                   setPDescriptionI18n((prev) => ({ ...prev, [pLang]: next }));
                   if (pLang === "es") setPDescription(next);
                 }}
-                placeholder="Texto de la publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n..."
+                placeholder="Texto de la publicación..."
               />
             </div>
 
             <div className="grid gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-slate-900">DescripciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n opcional</div>
+                <div className="text-sm font-semibold text-slate-900">Descripción opcional</div>
                 <button
                   type="button"
                   onClick={() =>
@@ -6740,7 +6826,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           )
                         }
                         className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                        placeholder="TÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tulo del bloque"
+                        placeholder="Título del bloque"
                       />
                       <RichTextEditor
                         value={desc.bodyI18n[pLang] ?? ""}
@@ -6757,7 +6843,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             )
                           )
                         }
-                        placeholder="DescripciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n adicional..."
+                        placeholder="Descripción adicional..."
                         minHeightClassName="min-h-[80px]"
                       />
                       <label className="inline-flex items-center gap-2 text-sm text-slate-700">
@@ -6785,7 +6871,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </div>
               ) : (
                 <p className="text-xs text-slate-500">
-                  PodÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s agregar mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s bloques de descripciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n con un tÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tulo propio.
+                  Podés agregar más bloques de descripción con un título propio.
                 </p>
               )}
             </div>
@@ -6796,21 +6882,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             id="admin-publicacion-ubicacion-precio"
             tone="sky"
             icon={<MapPinned className="h-5 w-5" />}
-            title="UbicaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n y precio"
-            description="AgrupÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ destino, ciudad, mapa y la configuraciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n comercial en un mismo bloque mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡cil de completar."
+            title="Ubicación y precio"
+            description="Agrupá destino, ciudad, mapa y la configuración comercial en un mismo bloque más fácil de completar."
           >
           <div className="grid gap-4">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">PaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­s (destino del viaje)</label>
+                <label className="text-sm font-medium text-slate-700">País (destino del viaje)</label>
                 <CountryMultiSelect
-                  label="Seleccionar paÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­s destino"
+                  label="Seleccionar país destino"
                   showLabel={false}
                   selectionMode="single"
                   compact
                   selectedSingle={pCountry}
                   onSingleChange={setPCountry}
-                  placeholder="SeleccionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ un paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s destino."
+                  placeholder="Seleccioná un país destino."
                 />
               </div>
               <div className="grid gap-2">
@@ -6823,7 +6909,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">UbicaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de Google Maps (URL)</label>
+                <label className="text-sm font-medium text-slate-700">Ubicación de Google Maps (URL)</label>
                 <input
                   value={pLocationAddress}
                   onChange={(e) => setPLocationAddress(e.target.value)}
@@ -6887,12 +6973,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   onChange={(e) => setPPricePeriod(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
                 >
-                  <option value="">Sin perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo</option>
+                  <option value="">Sin período</option>
                   <option value="month">por mes</option>
                   <option value="week">por semana</option>
-                  <option value="day">por dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a</option>
-                  <option value="year">por aÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±o</option>
-                  <option value="once">ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºnico</option>
+                  <option value="day">por día</option>
+                  <option value="year">por año</option>
+                  <option value="once">único</option>
                 </select>
               </div>
             </div>
@@ -6948,7 +7034,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     </div>
                   ))
                 ) : (
-                  <div className="text-xs text-slate-500">SumÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ precios adicionales por moneda.</div>
+                  <div className="text-xs text-slate-500">Sumá precios adicionales por moneda.</div>
                 )}
               </div>
               <button
@@ -6967,19 +7053,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             tone="emerald"
             icon={<Building2 className="h-5 w-5" />}
             title="Sedes y filtro por pasaporte"
-            description="SeparÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ claramente dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³nde opera el oferente y desde quÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© paÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ses puede recibir viajeros."
+            description="Separá claramente dónde opera el oferente y desde qué países puede recibir viajeros."
           >
             <div className="grid gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/45 p-4">
               <div className="text-xs font-semibold uppercase text-slate-500">Sede principal del oferente</div>
               <div className="grid gap-2 md:grid-cols-3">
                 <CountryMultiSelect
-                  label="PaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­s de la sede"
+                  label="País de la sede"
                   showLabel={false}
                   selectionMode="single"
                   compact
                   selectedSingle={pHeadquarterCountry}
                   onSingleChange={setPHeadquarterCountry}
-                  placeholder="PaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­s de la sede"
+                  placeholder="País de la sede"
                 />
                 <input
                   value={pHeadquarterCity}
@@ -7011,7 +7097,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   {pHeadquarterExtras.map((loc, idx) => (
                     <div key={`hq-${idx}`} className="grid gap-2 md:grid-cols-3">
                       <CountryMultiSelect
-                        label={`PaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­s sede adicional ${idx + 1}`}
+                        label={`País sede adicional ${idx + 1}`}
                         showLabel={false}
                         selectionMode="single"
                         compact
@@ -7023,7 +7109,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             )
                           )
                         }
-                        placeholder="PaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­s de la sede"
+                        placeholder="País de la sede"
                       />
                       <input
                         value={loc.city}
@@ -7384,7 +7470,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="mt-3 space-y-3">
                   {pPrestacionHeroInfoBlocks.map((block, idx) => (
                     <div key={`hero-info-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Bloque #{idx + 1}</span><button type="button" className="text-red-500" onClick={() => setPPrestacionHeroInfoBlocks((prev) => prev.length <= 1 ? [createEmptyPrestacionHeroInfoBlock()] : prev.filter((_, i) => i !== idx))}>ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½</button></div>
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Bloque #{idx + 1}</span><button type="button" aria-label="Eliminar bloque" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionHeroInfoBlocks((prev) => prev.length <= 1 ? [createEmptyPrestacionHeroInfoBlock()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
                       <input value={getLangEditValue(block.titleI18n, pLang)} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo del bloque" />
                       <RichTextEditor value={getLangEditValue(block.textI18n, pLang)} onChange={(next) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, text: pLang === "es" ? next : it.text, textI18n: setLangText(it.text, it.textI18n, pLang, next) } : it))} placeholder="Texto del bloque" minHeightClassName="min-h-[70px]" />
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -7411,7 +7497,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div key={`resource-${idx}`} className="rounded-xl border border-slate-200 p-3">
                       <div className="mb-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Tarjeta #{idx + 1}
-                        <button type="button" onClick={() => setPPrestacionResources((prev) => prev.length <= 1 ? [createEmptyPrestacionResource()] : prev.filter((_, i) => i !== idx))} className="text-red-500">ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½</button>
+                        <button type="button" aria-label="Eliminar tarjeta" onClick={() => setPPrestacionResources((prev) => prev.length <= 1 ? [createEmptyPrestacionResource()] : prev.filter((_, i) => i !== idx))} className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"><X className="h-3.5 w-3.5" /></button>
                       </div>
                       <div className="grid gap-2 md:grid-cols-2">
                         <div className="grid gap-1"><label className="text-xs font-medium text-slate-500">TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo</label><input value={getLangEditValue(card.titleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Lima Immigration" /></div>
@@ -7422,7 +7508,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             {getLangEditValue(card.subtitleI18n, pLang) ? <div className="mt-1 text-xs text-slate-600">{getLangEditValue(card.subtitleI18n, pLang)}</div> : null}
                             {(card.checkItemsI18n ?? []).length ? (
                               <ul className="mt-2 space-y-1 text-xs text-slate-700">
-                                {(card.checkItemsI18n ?? []).slice(0, 3).map((itemI18n, i) => <li key={`prev-check-${idx}-${i}`} className="text-emerald-600">ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ {getLangEditValue(itemI18n, pLang)}</li>)}
+                                {(card.checkItemsI18n ?? []).slice(0, 3).map((itemI18n, i) => <li key={`prev-check-${idx}-${i}`} className="text-emerald-600">✓ {getLangEditValue(itemI18n, pLang)}</li>)}
                               </ul>
                             ) : null}
                             {(card.colorNoteTitle || card.colorNoteText) ? (
@@ -7499,7 +7585,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                 className="h-9 rounded-xl border border-slate-200 px-3 text-sm"
                                 placeholder={`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âtem con check (${pLang.toUpperCase()})`}
                               />
-                              <button type="button" className="h-9 w-9 rounded-lg border border-slate-200 text-red-500" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, checkItems: (it.checkItems ?? []).filter((_, j) => j !== itemIdx), checkItemsI18n: (it.checkItemsI18n ?? []).filter((_, j) => j !== itemIdx) } : it))}>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</button>
+                              <button type="button" aria-label="Eliminar ítem" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-red-500" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, checkItems: (it.checkItems ?? []).filter((_, j) => j !== itemIdx), checkItemsI18n: (it.checkItemsI18n ?? []).filter((_, j) => j !== itemIdx) } : it))}><X className="h-3.5 w-3.5" /></button>
                             </div>
                           ))}
                         </div>
@@ -7604,7 +7690,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="mt-3 space-y-3">
                   {pPrestacionSteps.map((step, idx) => (
                     <div key={`step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Paso {idx + 1}</span><button type="button" className="text-red-500" onClick={() => setPPrestacionSteps((prev) => prev.length <= 1 ? [createEmptyPrestacionStep()] : prev.filter((_, i) => i !== idx))}>ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œ</button></div>
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Paso {idx + 1}</span><button type="button" aria-label="Eliminar paso" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionSteps((prev) => prev.length <= 1 ? [createEmptyPrestacionStep()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
                       <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tulo del paso" />
                       <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, next) } : it))} placeholder="DescripciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n del paso..." minHeightClassName="min-h-[70px]" />
                       <input value={getLangMediaValue(step.imageI18n, pLang, step.image ?? "")} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? e.target.value : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Imagen URL (opcional)" />
@@ -7663,7 +7749,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="mt-3 space-y-3">
                   {pPrestacionFaqs.map((faq, idx) => (
                     <div key={`faq-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Q{idx + 1}</span><button type="button" className="text-red-500" onClick={() => setPPrestacionFaqs((prev) => prev.length <= 1 ? [createEmptyPrestacionFaq()] : prev.filter((_, i) => i !== idx))}>ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œ</button></div>
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Q{idx + 1}</span><button type="button" aria-label="Eliminar pregunta" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionFaqs((prev) => prev.length <= 1 ? [createEmptyPrestacionFaq()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
                       <input value={getLangEditValue(faq.questionI18n, pLang)} onChange={(e) => setPPrestacionFaqs((prev) => prev.map((it, i) => i === idx ? { ...it, question: pLang === "es" ? e.target.value : it.question, questionI18n: setLangText(it.question, it.questionI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Pregunta frecuente..." />
                       <RichTextEditor value={getLangEditValue(faq.answerI18n, pLang)} onChange={(next) => setPPrestacionFaqs((prev) => prev.map((it, i) => i === idx ? { ...it, answer: pLang === "es" ? next : it.answer, answerI18n: setLangText(it.answer, it.answerI18n, pLang, next) } : it))} placeholder="Respuesta..." minHeightClassName="min-h-[80px]" />
                     </div>
@@ -7722,7 +7808,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       return (
                         <span key={id} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
                           {pub?.title || id}
-                          <button type="button" className="ml-2 text-red-500" onClick={() => setPPrestacionRelatedIds((prev) => prev.filter((entry) => entry !== id))}>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</button>
+                          <button type="button" aria-label="Quitar publicación relacionada" className="ml-2 inline-flex align-middle text-red-500" onClick={() => setPPrestacionRelatedIds((prev) => prev.filter((entry) => entry !== id))}><X className="h-3 w-3" /></button>
                         </span>
                       );
                     })}
