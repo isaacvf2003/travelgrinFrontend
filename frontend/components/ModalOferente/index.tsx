@@ -30,6 +30,7 @@ type Props = {
   previousPlan?: "basic_free" | "featured" | "monthly";
   sourceServiceId?: string;
   initialData?: Record<string, any> | null;
+  compactPlanCards?: boolean;
   onSubmitted?: (info: { serviceId: string; plan: "basic_free" | "featured" | "monthly" }) => void;
   onPaymentResolved?: (info: { serviceId: string; plan: "featured" | "monthly"; status: "success" | "cancel" }) => void;
 };
@@ -534,6 +535,7 @@ function PlanCard({
   promoPlaceholder,
   promoStatusText,
   promoStatusError = false,
+  compact = false,
 }: {
   title: string;
   tone: "free" | "featured";
@@ -552,22 +554,23 @@ function PlanCard({
   promoPlaceholder: string;
   promoStatusText?: string;
   promoStatusError?: boolean;
+  compact?: boolean;
 }) {
   const isFeatured = tone === "featured";
   return (
-    <div className={`flex h-full min-h-[30rem] flex-col rounded-[1.5rem] border p-5 text-sm shadow-[0_18px_45px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.16)] md:p-6 ${isFeatured ? "border-[#67E8F9] bg-gradient-to-br from-[#102A6B] via-[#0B8FA3] to-[#00A9C6] text-white" : "border-emerald-300 bg-white/95 text-slate-800"}`}>
+    <div className={`flex h-full flex-col rounded-[1.5rem] border text-sm shadow-[0_18px_45px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.16)] ${compact ? "min-h-[24rem] p-4 md:p-5" : "min-h-[30rem] p-5 md:p-6"} ${isFeatured ? "border-[#67E8F9] bg-gradient-to-br from-[#102A6B] via-[#0B8FA3] to-[#00A9C6] text-white" : "border-emerald-300 bg-white/95 text-slate-800"}`}>
       <div className={`flex items-center gap-2 text-sm font-bold ${isFeatured ? "text-white" : "text-[#273166]"}`}>
         <span className={`h-3 w-3 rounded-full ${isFeatured ? "bg-cyan-200 shadow-[0_0_18px_rgba(165,243,252,0.95)]" : "bg-emerald-500"}`} />
         {title}
       </div>
-      <ul className={`mt-4 flex-1 space-y-2 text-sm leading-6 ${isFeatured ? "text-cyan-50" : "text-slate-700"}`}>
+      <ul className={`mt-4 flex-1 space-y-2 text-sm ${compact ? "leading-5" : "leading-6"} ${isFeatured ? "text-cyan-50" : "text-slate-700"}`}>
         {items.map((item) => <li key={item}>• {item}</li>)}
       </ul>
-      <div className="mt-5 text-center">
+      <div className={`${compact ? "mt-4" : "mt-5"} text-center`}>
         {showStrikethroughPrice && basePrice ? (
           <div className={`text-sm font-semibold line-through ${isFeatured ? "text-cyan-100/90" : "text-slate-500"}`}>{basePrice}</div>
         ) : null}
-        <div className={`text-2xl font-extrabold ${isFeatured ? "text-white" : "text-slate-900"}`}>{price}</div>
+        <div className={`${compact ? "text-[1.55rem]" : "text-2xl"} font-extrabold ${isFeatured ? "text-white" : "text-slate-900"}`}>{price}</div>
         {priceCaption ? <div className={`text-xs ${isFeatured ? "text-cyan-100" : "text-slate-500"}`}>{priceCaption}</div> : null}
       </div>
       {showPromo ? (
@@ -619,6 +622,7 @@ export default function ModalOferente({
   previousPlan,
   sourceServiceId = "",
   initialData = null,
+  compactPlanCards = false,
   onSubmitted,
   onPaymentResolved,
 }: Props) {
@@ -1434,6 +1438,12 @@ export default function ModalOferente({
   const monthlyContinueLabel = locale === "en" ? "Continue monthly" : locale === "pt" ? "Continuar mensal" : locale === "it" ? "Continua mensile" : "Continuar mensual";
   const monthlySubmitLabel = locale === "en" ? "Subscribe monthly" : locale === "pt" ? "Assinar mensal" : locale === "it" ? "Attiva piano mensile" : "Contratar mensual";
   const visiblePlanSet = new Set(visiblePlans);
+  const hasMonthlyPlanVisible = showMonthlyPlanOption && visiblePlanSet.has("monthly");
+  const useCompactPlanCards =
+    compactPlanCards &&
+    visiblePlanSet.has("basic_free") &&
+    visiblePlanSet.has("featured") &&
+    !hasMonthlyPlanVisible;
 
   useEffect(() => {
     if (step !== "featured") return;
@@ -1487,7 +1497,7 @@ export default function ModalOferente({
 
   const basicStep = (
     <>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="relative w-full">
           <Tag className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#0B8FA3]" />
           <input
@@ -1550,7 +1560,7 @@ export default function ModalOferente({
         </Link>
       </label>
 
-      <div className={`mx-auto grid w-full max-w-[920px] gap-4 xl:gap-5 ${visiblePlanSet.size >= 3 ? "lg:grid-cols-3" : visiblePlanSet.size === 2 ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
+      <div className={`mx-auto grid w-full gap-4 ${useCompactPlanCards ? "max-w-[38rem] md:grid-cols-2" : `max-w-[920px] xl:gap-5 ${visiblePlanSet.size >= 3 ? "lg:grid-cols-3" : visiblePlanSet.size === 2 ? "md:grid-cols-2" : "md:grid-cols-1"}`}`}>
         {visiblePlanSet.has("basic_free") ? (
           <PlanCard
             title={mt("oferente_publicacion_basica")}
@@ -1561,6 +1571,7 @@ export default function ModalOferente({
             onClick={() => submit("basic_free")}
             disabled={isLoading}
             promoPlaceholder={mt("oferente_codigo_promocional")}
+            compact={useCompactPlanCards}
           />
         ) : null}
         {visiblePlanSet.has("featured") ? (
@@ -1581,6 +1592,7 @@ export default function ModalOferente({
             promoPlaceholder={mt("oferente_codigo_promocional")}
             promoStatusText={promoValidation.message}
             promoStatusError={promoValidation.error}
+            compact={useCompactPlanCards}
           />
         ) : null}
         {showMonthlyPlanOption && visiblePlanSet.has("monthly") ? (
@@ -1783,7 +1795,7 @@ export default function ModalOferente({
       <div className="fixed inset-0 bg-black/60" style={{ zIndex: 400 }} onClick={onClose} />
       <div className="fixed inset-0 flex items-start justify-center p-3 pt-2 sm:p-4 sm:pt-6" style={{ zIndex: 410, pointerEvents: "none" }}>
         <div
-          className="relative flex max-h-[90vh] w-full max-w-[1120px] flex-col overflow-hidden rounded-[1.7rem] bg-white shadow-2xl"
+          className="relative flex max-h-[90vh] w-full max-w-[42rem] flex-col overflow-hidden rounded-[1.7rem] bg-white shadow-2xl"
           style={{ pointerEvents: "auto", zIndex: 1000000, isolation: "isolate" }}
           onClick={(e) => e.stopPropagation()}
         >

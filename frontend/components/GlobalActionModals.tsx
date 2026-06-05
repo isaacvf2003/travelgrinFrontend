@@ -18,6 +18,7 @@ export default function GlobalActionModals() {
   if (isOpenModalOferente) {
     return (
       <ModalOferente
+        compactPlanCards
         onClose={() => {
           setIsOpenModalOferente(false);
           setIsOpenModal(false);
