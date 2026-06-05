@@ -6,6 +6,11 @@ import { useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { ChevronLeft, ChevronRight, Compass, Handshake, MapPin, Star } from "lucide-react";
 import { useCountry } from "@/app/context/CountryProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import {
+  buildBuscarHrefWithDestination,
+  DESTINATION_CHANGE_EVENT,
+  readStoredDestination,
+} from "@/app/lib/destinationStore";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import ChangingText from "@/components/ChangingText";
 import PharseWithBackground from "@/components/PharseWithBackground";
@@ -240,6 +245,7 @@ function carouselDepthClass(
 export default function FeaturedPublicationsSection() {
   const { selectedCountry } = useCountry();
   const { locale, t } = useTranslation();
+  const [storedDestination, setStoredDestination] = useState("");
   const cardsPerView = useCardsPerView();
   const [items, setItems] = useState<PublicationLite[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -261,6 +267,26 @@ export default function FeaturedPublicationsSection() {
     useState<string>("");
   const [countryCodeCatalog, setCountryCodeCatalog] = useState<Record<string, string>>({});
   const sectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const syncStoredDestination = (event?: Event) => {
+      const eventDestination =
+        event instanceof CustomEvent ? String(event.detail ?? "").trim() : "";
+      setStoredDestination(eventDestination || readStoredDestination());
+    };
+
+    syncStoredDestination();
+    window.addEventListener(DESTINATION_CHANGE_EVENT, syncStoredDestination);
+    window.addEventListener("storage", syncStoredDestination);
+
+    return () => {
+      window.removeEventListener(DESTINATION_CHANGE_EVENT, syncStoredDestination);
+      window.removeEventListener("storage", syncStoredDestination);
+    };
+  }, []);
+
+  const buildSearchHref = (params: Record<string, string | undefined> = {}) =>
+    buildBuscarHrefWithDestination(params, storedDestination, selectedCountry);
 
   useEffect(() => {
     const node = sectionRef.current;
@@ -789,11 +815,7 @@ export default function FeaturedPublicationsSection() {
                 return (
                   <Link
                     key={`${item.id}-${sourceIndex}`}
-                    href={
-                      selectedCountry
-                        ? `/buscar?country=${encodeURIComponent(selectedCountry)}`
-                        : "/buscar"
-                    }
+                    href={buildSearchHref()}
                     onClick={(event) => {
                       if (!isFocused) {
                         event.preventDefault();
@@ -841,9 +863,17 @@ export default function FeaturedPublicationsSection() {
               const flagCountryCode = getCountryCode(destination || pub.country, countryCodeCatalog);
               const languageCodes = resolveLanguageCodes(pub);
               const isPrestacion = pub.primaryGroupKey === "prestacion";
+              const detailReturnTo = buildSearchHref(
+                isPrestacion
+                  ? {
+                      primaryGroupKey: "prestacion",
+                      prestacion: selectedPrestCategory || undefined,
+                    }
+                  : {},
+              );
               const detailPath = isPrestacion
-                ? `/prestaciones/${pub.id}`
-                : `/publicacion/${pub.id}`;
+                ? `/prestaciones/${pub.id}?returnTo=${encodeURIComponent(detailReturnTo)}`
+                : `/publicacion/${pub.id}?returnTo=${encodeURIComponent(detailReturnTo)}`;
               const cardDepthClass = carouselDepthClass(
                 isSideCard,
                 position,
@@ -1164,7 +1194,12 @@ export default function FeaturedPublicationsSection() {
                   return (
                     <Link
                       key={`prest-${item.id}-${sourceIndex}`}
-                      href={`/prestaciones/${item.id}`}
+                      href={`/prestaciones/${item.id}?returnTo=${encodeURIComponent(
+                        buildSearchHref({
+                          primaryGroupKey: "prestacion",
+                          prestacion: selectedPrestCategory || undefined,
+                        }),
+                      )}`}
                       onClick={(event) => {
                         if (!isFocused) {
                           event.preventDefault();
@@ -1216,11 +1251,10 @@ export default function FeaturedPublicationsSection() {
           </div>
           <div className="mt-4 flex justify-end">
             <Link
-              href={
-                selectedPrestCategory
-                  ? `/buscar?primaryGroupKey=prestacion&prestacion=${encodeURIComponent(selectedPrestCategory)}`
-                  : "/buscar?primaryGroupKey=prestacion"
-              }
+              href={buildSearchHref({
+                primaryGroupKey: "prestacion",
+                prestacion: selectedPrestCategory || undefined,
+              })}
               className="text-sm font-semibold text-[#2563EB] hover:underline"
             >
               {t("ver_todas_las_prestaciones")} →

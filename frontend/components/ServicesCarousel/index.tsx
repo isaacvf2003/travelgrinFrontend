@@ -7,6 +7,7 @@ import { useIsClient } from "@/app/hooks/isClient";
 import ChangingText from "../ChangingText";
 import { useCountry } from "@/app/context/CountryProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { readStoredDestination } from "@/app/lib/destinationStore";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 
 type HomeCategoryCard = {
@@ -199,6 +200,8 @@ export default function ServicesCarousel() {
     }
 
     if (selectedCountry) params.set("country", selectedCountry);
+    const storedDestination = readStoredDestination();
+    if (storedDestination) params.set("destinationCountry", storedDestination);
     params.set("page", "1");
     router.push(`/buscar?${params.toString()}`);
   };

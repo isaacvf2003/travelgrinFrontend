@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { writeStoredDestination } from "@/app/lib/destinationStore";
 
 type PublicationItem = {
   country?: string | null;
@@ -166,6 +167,7 @@ export default function ActiveDestinationCountriesStrip() {
 
               <Link
                 href={`/buscar?destinationCountry=${encodeURIComponent(entry.country)}`}
+                onClick={() => writeStoredDestination(entry.country)}
                 className="inline-flex shrink-0 rounded-full bg-white px-2 py-0.5 text-[9px] font-semibold text-[#0b8fa3] transition hover:bg-slate-100"
               >
                 {t("ver_mas")}

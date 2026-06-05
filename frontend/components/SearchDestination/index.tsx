@@ -8,6 +8,7 @@ import DestinationSelect from "../DestinationSelect";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText } from "@/app/lib/i18nContent";
 import { useCountry } from "@/app/context/CountryProvider";
+import { readStoredDestination, writeStoredDestination } from "@/app/lib/destinationStore";
 
 type FilterGroupLite = {
   id: string;
@@ -115,18 +116,12 @@ export default function SearchDestination() {
   >([]);
 
   useEffect(() => {
-    try {
-      const savedDestination = window.localStorage.getItem("tg_destination");
-      if (savedDestination) setDestinationCountry(savedDestination);
-    } catch {}
+    const savedDestination = readStoredDestination();
+    if (savedDestination) setDestinationCountry(savedDestination);
   }, []);
 
   useEffect(() => {
-    try {
-      if (destinationCountry.trim()) {
-        window.localStorage.setItem("tg_destination", destinationCountry.trim());
-      }
-    } catch {}
+    if (destinationCountry.trim()) writeStoredDestination(destinationCountry);
   }, [destinationCountry]);
 
   useEffect(() => {
