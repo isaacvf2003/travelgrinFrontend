@@ -1391,6 +1391,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [pEditorMode, setPEditorMode] = useState<"publicacion" | "prestacion">("publicacion");
   const [pApprovedProviderSearch, setPApprovedProviderSearch] = useState("");
   const [paymentSearch, setPaymentSearch] = useState("");
+  const [paymentSectionTab, setPaymentSectionTab] = useState<"monthly" | "featured120" | "paid" | "pending" | "rejected" | "refunded">("monthly");
   const [approvedProviderPickerOpen, setApprovedProviderPickerOpen] = useState(false);
   const [approvedProviderExpandedEmail, setApprovedProviderExpandedEmail] = useState<string | null>(null);
   const [pPrestacionResources, setPPrestacionResources] = useState<PrestacionResource[]>([createEmptyPrestacionResource()]);
@@ -4334,6 +4335,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       ),
     }));
   }, [paymentSearch, paymentSections]);
+  const selectedPaymentSection = visiblePaymentSections.find((section) => section.key === paymentSectionTab) ?? visiblePaymentSections[0] ?? null;
 
   const publicationsByProviderEmail = useMemo(() => {
     const map = new Map<string, Publication[]>();
@@ -5012,83 +5014,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">Pagos y cobros de planes</p>
-            <p className="text-xs text-slate-500">Registro interno de cada intento y pago asociado a publicaciones destacadas o mensuales.</p>
-          </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{travelServicePayments.length} registros</span>
-        </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Mensuales:</b> {paymentCounts.monthly}</div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>120 dias:</b> {paymentCounts.featured120}</div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Aceptados:</b> {paymentCounts.paid}</div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Pendientes:</b> {paymentCounts.pending}</div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Rechazados:</b> {paymentCounts.rejected}</div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs"><b>Reembolsos:</b> {paymentCounts.refunded}</div>
-        </div>
-        <div className="mt-3">
-          <input
-            value={paymentSearch}
-            onChange={(event) => setPaymentSearch(event.target.value)}
-            className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-            placeholder="Buscar usuario por nombre o email..."
-          />
-        </div>
-        <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          {visiblePaymentSections.map((section) => (
-            <div key={`payment-section-${section.key}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-slate-900">{section.title}</div>
-                <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-700">{section.items.length}</span>
-              </div>
-              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                {section.items.length ? section.items.map((group) => {
-                  const latest = group.items[0];
-                  const paidCount = group.items.filter((item) => item.status === "paid").length;
-                  const pendingCount = group.items.filter((item) => item.status === "pending" || item.status === "processing").length;
-                  const cancelledCount = group.items.filter((item) => item.status === "failed" || item.status === "cancelled").length;
-                  return (
-                    <div key={`${section.key}-${group.email}`} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-700">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold text-slate-900">{group.label}</div>
-                          <div className="truncate text-slate-500">{group.email}</div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setDetailPaymentEmail(group.email)}
-                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
-                        >
-                          Detalle
-                        </button>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="rounded-full bg-slate-100 px-2 py-1">Movimientos: {group.items.length}</span>
-                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Aceptados: {paidCount}</span>
-                        <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">Pendientes: {pendingCount}</span>
-                        <span className="rounded-full bg-rose-50 px-2 py-1 text-rose-700">Cancelados/Rechazados: {cancelledCount}</span>
-                      </div>
-                      {latest ? (
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                          <div><span className="font-semibold text-slate-800">Último plan:</span> {latest.planType === "featured_monthly" ? "Plan mensual" : "Destacado 120 días"}</div>
-                          <div><span className="font-semibold text-slate-800">Último estado:</span> {paymentStatusLabel(latest.status)}</div>
-                          <div><span className="font-semibold text-slate-800">Último monto:</span> {latest.currency || "-"} {latest.amount ?? "-"}</div>
-                          <div><span className="font-semibold text-slate-800">Último movimiento:</span> {latest.createdAt ? new Date(latest.createdAt).toLocaleString("es-AR") : "-"}</div>
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                }) : (
-                  <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">Sin registros en esta sección.</div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -5140,6 +5065,102 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             );
           }) : (
             <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aún no hay códigos promocionales.</div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Pagos y cobros de planes</p>
+            <p className="text-xs text-slate-500">Registro interno de cada intento y pago asociado a publicaciones destacadas o mensuales.</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{travelServicePayments.length} registros</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {[
+            { key: "monthly", label: "Mensuales", count: paymentCounts.monthly },
+            { key: "featured120", label: "120 dias", count: paymentCounts.featured120 },
+            { key: "paid", label: "Aceptados", count: paymentCounts.paid },
+            { key: "pending", label: "Pendientes", count: paymentCounts.pending },
+            { key: "rejected", label: "Rechazados", count: paymentCounts.rejected },
+            { key: "refunded", label: "Reembolsos", count: paymentCounts.refunded },
+          ].map((item) => (
+            <button
+              key={`payment-tab-${item.key}`}
+              type="button"
+              onClick={() => setPaymentSectionTab(item.key as typeof paymentSectionTab)}
+              className={`rounded-xl border p-3 text-left text-xs transition ${
+                paymentSectionTab === item.key
+                  ? "border-[#00A9C6] bg-cyan-50 text-slate-950 shadow-sm"
+                  : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white"
+              }`}
+            >
+              <span className="font-semibold">{item.label}:</span> {item.count}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3">
+          <input
+            value={paymentSearch}
+            onChange={(event) => setPaymentSearch(event.target.value)}
+            className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+            placeholder="Buscar usuario por nombre o email..."
+          />
+        </div>
+        <div className="mt-4">
+          {selectedPaymentSection ? [selectedPaymentSection].map((section) => (
+            <div key={`payment-section-${section.key}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-slate-900">{section.title}</div>
+                <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-700">{section.items.length}</span>
+              </div>
+              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                {section.items.length ? section.items.map((group) => {
+                  const latest = group.items[0];
+                  const paidCount = group.items.filter((item) => item.status === "paid").length;
+                  const pendingCount = group.items.filter((item) => item.status === "pending" || item.status === "processing").length;
+                  const cancelledCount = group.items.filter((item) => item.status === "failed" || item.status === "cancelled").length;
+                  return (
+                    <div key={`${section.key}-${group.email}`} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-700">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-slate-900">{group.label}</div>
+                          <div className="truncate text-slate-500">{group.email}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDetailPaymentEmail(group.email)}
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+                        >
+                          Detalle
+                        </button>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="rounded-full bg-slate-100 px-2 py-1">Movimientos: {group.items.length}</span>
+                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Aceptados: {paidCount}</span>
+                        <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">Pendientes: {pendingCount}</span>
+                        <span className="rounded-full bg-rose-50 px-2 py-1 text-rose-700">Cancelados/Rechazados: {cancelledCount}</span>
+                      </div>
+                      {latest ? (
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <div><span className="font-semibold text-slate-800">Último plan:</span> {latest.planType === "featured_monthly" ? "Plan mensual" : "Destacado 120 días"}</div>
+                          <div><span className="font-semibold text-slate-800">Último estado:</span> {paymentStatusLabel(latest.status)}</div>
+                          <div><span className="font-semibold text-slate-800">Último monto:</span> {latest.currency || "-"} {latest.amount ?? "-"}</div>
+                          <div><span className="font-semibold text-slate-800">Último movimiento:</span> {latest.createdAt ? new Date(latest.createdAt).toLocaleString("es-AR") : "-"}</div>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                }) : (
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">Sin registros en esta sección.</div>
+                )}
+              </div>
+            </div>
+          )) : (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+              Sin registros para mostrar.
+            </div>
           )}
         </div>
       </div>
