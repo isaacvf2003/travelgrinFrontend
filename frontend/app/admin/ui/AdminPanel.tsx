@@ -781,16 +781,24 @@ function firstNonEmpty(...values: Array<string | null | undefined>) {
 }
 
 function readPublicationAnalytics(publication: Publication) {
-  const analytics = (publication.fields as Record<string, any> | undefined)?.analytics ?? {};
+  const fields = (publication.fields as Record<string, any> | undefined) ?? {};
+  const analytics = fields.analytics ?? {};
   const toNum = (value: unknown) => {
     const parsed = Number(value ?? 0);
     return Number.isFinite(parsed) ? parsed : 0;
   };
+  const firstMetric = (...values: unknown[]) => {
+    for (const value of values) {
+      const parsed = toNum(value);
+      if (parsed > 0) return parsed;
+    }
+    return 0;
+  };
   return {
-    views: toNum(analytics.views),
-    leads: toNum(analytics.leads),
-    favorites: toNum(analytics.favorites),
-    shares: toNum(analytics.shares),
+    views: firstMetric(analytics.views, analytics.visits, fields.views, fields.visitCount, fields.visits),
+    leads: firstMetric(analytics.leads, analytics.leadCount, fields.leads, fields.leadCount, fields.contractCount),
+    favorites: firstMetric(analytics.favorites, analytics.favoriteCount, fields.favorites, fields.favoriteCount),
+    shares: firstMetric(analytics.shares, analytics.shareCount, fields.shares, fields.shareCount, fields.sharedCount),
   };
 }
 
@@ -4330,11 +4338,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const publicationsByProviderEmail = useMemo(() => {
     const map = new Map<string, Publication[]>();
     publications.forEach((publication) => {
-      const providerEmail = String((publication.fields as any)?.providerEmail ?? "").trim().toLowerCase();
-      if (!providerEmail) return;
-      const current = map.get(providerEmail) ?? [];
-      current.push(publication);
-      map.set(providerEmail, current);
+      const fields = (publication.fields as any) ?? {};
+      const candidateEmails = [
+        fields.providerEmail,
+        fields.publisherEmail,
+        fields.email,
+        fields.contactEmail,
+        fields.portalOwnerEmail,
+        fields.ownerEmail,
+        fields.provider?.email,
+        fields.oferente?.email,
+      ]
+        .map((value) => String(value ?? "").trim().toLowerCase())
+        .filter((value, index, self) => value.includes("@") && self.indexOf(value) === index);
+      candidateEmails.forEach((providerEmail) => {
+        const current = map.get(providerEmail) ?? [];
+        current.push(publication);
+        map.set(providerEmail, current);
+      });
     });
     return map;
   }, [publications]);
