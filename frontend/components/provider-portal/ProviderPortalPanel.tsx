@@ -1550,7 +1550,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                   <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600">{copy.publishOptionsBody}</p>
                 </div>
               </div>
-              <div className="mt-5 grid gap-5 lg:grid-cols-3">
+              <div className="mx-auto mt-5 grid max-w-[980px] gap-5 lg:grid-cols-3">
                 {planCards.map((card) => (
                   <article
                     key={card.key}

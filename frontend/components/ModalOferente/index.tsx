@@ -1439,11 +1439,22 @@ export default function ModalOferente({
   const monthlySubmitLabel = locale === "en" ? "Subscribe monthly" : locale === "pt" ? "Assinar mensal" : locale === "it" ? "Attiva piano mensile" : "Contratar mensual";
   const visiblePlanSet = new Set(visiblePlans);
   const hasMonthlyPlanVisible = showMonthlyPlanOption && visiblePlanSet.has("monthly");
+  const visiblePlanCount =
+    (visiblePlanSet.has("basic_free") ? 1 : 0) +
+    (visiblePlanSet.has("featured") ? 1 : 0) +
+    (hasMonthlyPlanVisible ? 1 : 0);
   const useCompactPlanCards =
     compactPlanCards &&
     visiblePlanSet.has("basic_free") &&
     visiblePlanSet.has("featured") &&
     !hasMonthlyPlanVisible;
+  const useSinglePlanCard = visiblePlanCount === 1;
+  const useCompactPlanCardSize = useCompactPlanCards || useSinglePlanCard;
+  const planCardsGridClass = useCompactPlanCards
+    ? "max-w-[38rem] md:grid-cols-2"
+    : useSinglePlanCard
+      ? "max-w-[21rem] md:grid-cols-1"
+      : `max-w-[920px] xl:gap-5 ${visiblePlanCount >= 3 ? "lg:grid-cols-3" : visiblePlanCount === 2 ? "md:grid-cols-2" : "md:grid-cols-1"}`;
 
   useEffect(() => {
     if (step !== "featured") return;
@@ -1560,7 +1571,7 @@ export default function ModalOferente({
         </Link>
       </label>
 
-      <div className={`mx-auto grid w-full gap-4 ${useCompactPlanCards ? "max-w-[38rem] md:grid-cols-2" : `max-w-[920px] xl:gap-5 ${visiblePlanSet.size >= 3 ? "lg:grid-cols-3" : visiblePlanSet.size === 2 ? "md:grid-cols-2" : "md:grid-cols-1"}`}`}>
+      <div className={`mx-auto grid w-full gap-4 ${planCardsGridClass}`}>
         {visiblePlanSet.has("basic_free") ? (
           <PlanCard
             title={mt("oferente_publicacion_basica")}
@@ -1571,7 +1582,7 @@ export default function ModalOferente({
             onClick={() => submit("basic_free")}
             disabled={isLoading}
             promoPlaceholder={mt("oferente_codigo_promocional")}
-            compact={useCompactPlanCards}
+            compact={useCompactPlanCardSize}
           />
         ) : null}
         {visiblePlanSet.has("featured") ? (
@@ -1592,7 +1603,7 @@ export default function ModalOferente({
             promoPlaceholder={mt("oferente_codigo_promocional")}
             promoStatusText={promoValidation.message}
             promoStatusError={promoValidation.error}
-            compact={useCompactPlanCards}
+            compact={useCompactPlanCardSize}
           />
         ) : null}
         {showMonthlyPlanOption && visiblePlanSet.has("monthly") ? (
@@ -1613,6 +1624,7 @@ export default function ModalOferente({
             promoPlaceholder={mt("oferente_codigo_promocional")}
             promoStatusText={promoValidation.message}
             promoStatusError={promoValidation.error}
+            compact={useCompactPlanCardSize}
           />
         ) : null}
       </div>
@@ -1766,7 +1778,7 @@ export default function ModalOferente({
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[30rem]">
+      <div className="mx-auto w-full max-w-[21rem]">
         <PlanCard
           title={paidPlanTitle}
           tone="featured"
@@ -1785,6 +1797,7 @@ export default function ModalOferente({
           promoPlaceholder={mt("oferente_codigo_promocional")}
           promoStatusText={promoValidation.message}
           promoStatusError={promoValidation.error}
+          compact
         />
       </div>
     </>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 type PublicationItem = {
   country?: string | null;
@@ -61,6 +62,7 @@ function CountryFlag({ code, country }: { code: string; country: string }) {
 }
 
 export default function ActiveDestinationCountriesStrip() {
+  const { t } = useTranslation();
   const [countries, setCountries] = useState<CountryEntry[]>([]);
 
   useEffect(() => {
@@ -132,13 +134,13 @@ export default function ActiveDestinationCountriesStrip() {
       <div className="mx-auto w-full max-w-[1152px] rounded-[22px] bg-gradient-to-r from-[#1bc8c0] via-[#149fba] to-[#116d8a] px-5 py-3 text-white shadow-[0_10px_18px_rgba(17,109,138,0.10)] md:px-7 md:py-4">
         <div className="text-center">
           <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-white/70">
-            Destinos activos
+            {t("destinos_activos")}
           </p>
           <h2 className="mt-1 text-[18px] font-bold md:text-[22px]">
-            Países que te esperan
+            {t("paises_que_te_esperan")}
           </h2>
           <p className="mx-auto mt-1 max-w-3xl text-[11px] text-white/86 md:text-[13px]">
-            Explorá países donde hoy ya hay oportunidades activas y saltá directo al buscador filtrado.
+            {t("explora_paises_oportunidades_activas")}
           </p>
         </div>
 
@@ -158,7 +160,7 @@ export default function ActiveDestinationCountriesStrip() {
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12px] font-semibold leading-none">{entry.country}</div>
                 <div className="mt-0.5 text-[9px] text-white/72">
-                  {entry.count} oportunidad(es)
+                  {entry.count} {entry.count === 1 ? t("oportunidad_singular") : t("oportunidad_plural")}
                 </div>
               </div>
 
@@ -166,7 +168,7 @@ export default function ActiveDestinationCountriesStrip() {
                 href={`/buscar?destinationCountry=${encodeURIComponent(entry.country)}`}
                 className="inline-flex shrink-0 rounded-full bg-white px-2 py-0.5 text-[9px] font-semibold text-[#0b8fa3] transition hover:bg-slate-100"
               >
-                Ver más
+                {t("ver_mas")}
               </Link>
             </div>
           ))}
