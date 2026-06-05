@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
-import { ChevronLeft, ChevronRight, Compass, Handshake, Languages, MapPin, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Compass, Handshake, MapPin, Star } from "lucide-react";
 import { useCountry } from "@/app/context/CountryProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
@@ -907,7 +907,7 @@ export default function FeaturedPublicationsSection() {
                     </p>
                     {languageCodes.length ? (
                       <p className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
-                        <Languages className="h-3.5 w-3.5 text-[#2563EB]" />
+                        <span className="font-semibold text-[#273166]">{t("idiomas_atencion")}:</span>
                         {languageCodes.map((code) => (
                           <span key={code} className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
                             {code}
