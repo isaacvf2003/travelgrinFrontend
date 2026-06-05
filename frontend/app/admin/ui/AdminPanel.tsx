@@ -107,6 +107,7 @@ type PromoCodeItem = {
   expiresAt: string | null;
   maxUses: number | null;
   usedCount: number;
+  scope?: "all" | "partners";
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -1182,6 +1183,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [promoDiscountDraft, setPromoDiscountDraft] = useState("10");
   const [promoExpiresDraft, setPromoExpiresDraft] = useState("");
   const [promoMaxUsesDraft, setPromoMaxUsesDraft] = useState("");
+  const [promoScopeDraft, setPromoScopeDraft] = useState<"all" | "partners">("all");
   const [promoActiveDraft, setPromoActiveDraft] = useState(true);
   const [promoEditId, setPromoEditId] = useState<string | null>(null);
   const [promoSaving, setPromoSaving] = useState(false);
@@ -4757,6 +4759,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPromoDiscountDraft("10");
     setPromoExpiresDraft("");
     setPromoMaxUsesDraft("");
+    setPromoScopeDraft("all");
     setPromoActiveDraft(true);
   };
 
@@ -4843,6 +4846,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         discountPercent: Number(promoDiscountDraft),
         expiresAt: promoExpiresDraft || null,
         maxUses: promoMaxUsesDraft || null,
+        scope: promoScopeDraft,
         isActive: promoActiveDraft,
       };
       const response = await api<{ ok: true; items: PromoCodeItem[] }>("/api/admin/promo-codes", {
@@ -4866,6 +4870,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPromoDiscountDraft(String(item.discountPercent || 0));
     setPromoExpiresDraft(item.expiresAt ? new Date(item.expiresAt).toISOString().slice(0, 16) : "");
     setPromoMaxUsesDraft(item.maxUses === null ? "" : String(item.maxUses));
+    setPromoScopeDraft(item.scope === "partners" ? "partners" : "all");
     setPromoActiveDraft(Boolean(item.isActive));
     setPromoMessage("");
   };
@@ -5024,10 +5029,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             Generar aleatorio
           </button>
         </div>
-        <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <input value={promoCodeDraft} onChange={(event) => setPromoCodeDraft(event.target.value.toUpperCase())} placeholder="Código" className="h-10 rounded-xl border border-slate-200 px-3 text-sm md:col-span-1" />
           <input value={promoDiscountDraft} onChange={(event) => setPromoDiscountDraft(event.target.value)} placeholder="% descuento" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <input type="datetime-local" value={promoExpiresDraft} onChange={(event) => setPromoExpiresDraft(event.target.value)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700" title="Fecha de vencimiento" />
           <input value={promoMaxUsesDraft} onChange={(event) => setPromoMaxUsesDraft(event.target.value)} placeholder="Límite usos" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <select value={promoScopeDraft} onChange={(event) => setPromoScopeDraft(event.target.value === "partners" ? "partners" : "all")} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700">
+            <option value="all">Todas las personas</option>
+            <option value="partners">Solo partners</option>
+          </select>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <label className="inline-flex items-center gap-2 text-xs text-slate-600">
@@ -5055,6 +5065,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <span>Usos: {item.usedCount}{item.maxUses !== null ? `/${item.maxUses}` : ""}</span>
                   <span>Disponibles: {remaining}</span>
                   <span>Vence: {item.expiresAt ? new Date(item.expiresAt).toLocaleString("es-AR") : "Sin vencimiento"}</span>
+                  <span className={`rounded-full px-2 py-0.5 ${(item.scope ?? "all") === "partners" ? "bg-cyan-100 text-cyan-700" : "bg-white text-slate-600"}`}>
+                    {(item.scope ?? "all") === "partners" ? "Solo partners" : "Todas las personas"}
+                  </span>
                   <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
                 </div>
                 <div className="flex items-center gap-2">
