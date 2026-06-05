@@ -366,8 +366,8 @@ function normalizeVisibleText(value: string): string {
   const raw = String(value ?? "");
   if (!raw) return "";
 
-  const broken = "(?:[^A-Za-z0-9\\s]{1,80})";
-  const noisy = "(?:[^A-Za-z0-9\\s]*[ÃÂâ�][^A-Za-z0-9\\s]*){1,80}";
+  const broken = "(?:[^A-Za-z\\s]{1,120})";
+  const noisy = "(?:[^A-Za-z\\s]*[ÃÂâ�][^A-Za-z\\s]*){1,120}";
   const contextualRepairs: Array<[RegExp, string]> = [
     [new RegExp(`CATEGOR${broken}AS`, "g"), "CATEGORÍAS"],
     [new RegExp(`CATEGOR${broken}A`, "g"), "CATEGORÍA"],
@@ -394,6 +394,7 @@ function normalizeVisibleText(value: string): string {
     [new RegExp(`configuraci${broken}n`, "gi"), "configuración"],
     [new RegExp(`navegaci${broken}n`, "gi"), "navegación"],
     [new RegExp(`edici${broken}n`, "gi"), "edición"],
+    [new RegExp(`expiraci${broken}n`, "gi"), "expiración"],
     [new RegExp(`valoraci${broken}n`, "gi"), "valoración"],
     [new RegExp(`opci${broken}nes`, "gi"), "opciones"],
     [new RegExp(`opci${broken}n`, "gi"), "opción"],
@@ -419,6 +420,8 @@ function normalizeVisibleText(value: string): string {
     [new RegExp(`pod${broken}s`, "gi"), "podés"],
     [new RegExp(`cre${broken}`, "gi"), "creá"],
     [new RegExp(`c${broken}digo`, "gi"), "código"],
+    [new RegExp(`c${broken}mo`, "gi"), "cómo"],
+    [new RegExp(`p${broken}gina`, "gi"), "página"],
     [new RegExp(`m${broken}nimo`, "gi"), "mínimo"],
     [new RegExp(`m${broken}ximo`, "gi"), "máximo"],
     [new RegExp(`prop${broken}sito`, "gi"), "propósito"],
@@ -472,6 +475,7 @@ function normalizeVisibleText(value: string): string {
     [new RegExp(`descripci${noisy}n`, "gi"), "descripción"],
     [new RegExp(`configuraci${noisy}n`, "gi"), "configuración"],
     [new RegExp(`edici${noisy}n`, "gi"), "edición"],
+    [new RegExp(`expiraci${noisy}n`, "gi"), "expiración"],
     [new RegExp(`valoraci${noisy}n`, "gi"), "valoración"],
     [new RegExp(`opci${noisy}nes`, "gi"), "opciones"],
     [new RegExp(`opci${noisy}n`, "gi"), "opción"],
@@ -492,6 +496,8 @@ function normalizeVisibleText(value: string): string {
     [new RegExp(`b${noisy}squeda`, "gi"), "búsqueda"],
     [new RegExp(`gu${noisy}a`, "gi"), "guía"],
     [new RegExp(`bot${noisy}n`, "gi"), "botón"],
+    [new RegExp(`c${noisy}mo`, "gi"), "cómo"],
+    [new RegExp(`p${noisy}gina`, "gi"), "página"],
     [new RegExp(`acorde${noisy}n`, "gi"), "acordeón"],
     [new RegExp(`im${noisy}genes`, "gi"), "imágenes"],
     [new RegExp(`a${noisy}adir`, "gi"), "añadir"],
@@ -575,7 +581,7 @@ function normalizeVisibleText(value: string): string {
 
 function normalizeAdminDomTree(root: HTMLElement) {
   const normalizeIfNeeded = (value: string) => {
-    if (!/[ÃÂâ�]/.test(value)) return value;
+    if (!/[ÃÂâ�Æƒ€]/.test(value)) return value;
     return normalizeVisibleText(value);
   };
 
@@ -598,7 +604,7 @@ function normalizeAdminDomTree(root: HTMLElement) {
   }
 
   root.querySelectorAll<HTMLElement>("*").forEach((element) => {
-    ["placeholder", "title", "aria-label"].forEach((attr) => {
+    ["placeholder", "data-placeholder", "title", "aria-label", "alt"].forEach((attr) => {
       const attrValue = element.getAttribute(attr);
       if (!attrValue) return;
       const nextValue = normalizeIfNeeded(attrValue);
@@ -1213,7 +1219,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       childList: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ["placeholder", "title", "aria-label", "value"],
+      attributeFilter: ["placeholder", "data-placeholder", "title", "aria-label", "alt", "value"],
     });
 
     return () => {
@@ -1629,7 +1635,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setOferenteDestinationSaved(true);
       window.setTimeout(() => setOferenteDestinationSaved(false), 3500);
     } catch (error) {
-      setSaveMessage(error instanceof Error ? error.message : "No se pudo aplicar la configuraciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n.");
+      setSaveMessage(error instanceof Error ? error.message : "No se pudo aplicar la configuración.");
       window.setTimeout(() => setSaveMessage(""), 3500);
     } finally {
       setOferenteDestinationSaving(false);
@@ -1668,10 +1674,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const priceSymbolByCurrency: Record<string, string> = {
     ARS: "$",
     USD: "US$",
-    EUR: "ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½",
+    EUR: "€",
     BRL: "R$",
-    JPY: "ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½",
-    GBP: "ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½",
+    JPY: "¥",
+    GBP: "£",
   };
 
   const createEmptyBlockCategoryDraft = (parentDraftId = ""): BlockCategoryDraft => ({
@@ -1730,13 +1736,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     categoryLockRef.current = true;
     const baseDescription = firstNonEmpty(catI18n.es);
     if (!baseDescription) {
-      setCatError("El nombre en EspaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ol es obligatorio.");
+      setCatError("El nombre en Español es obligatorio.");
       categoryLockRef.current = false;
       return;
     }
     const selectedBlockId = catBlockId;
     if (!catParentId && !selectedBlockId) {
-      setCatError("TenÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s que seleccionar un bloque para la categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a.");
+      setCatError("Tenés que seleccionar un bloque para la categoría.");
       categoryLockRef.current = false;
       return;
     }
@@ -1878,7 +1884,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             }
           }
         } catch (syncError) {
-          console.warn("CategorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a creada, pero no se pudo sincronizar la opciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n en el bloque.", syncError);
+          console.warn("Categoría creada, pero no se pudo sincronizar la opción en el bloque.", syncError);
         }
       }
 
@@ -1898,7 +1904,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setShowCategoryModal(false);
       await refresh();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "No se pudo guardar la categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a.";
+      const message = error instanceof Error ? error.message : "No se pudo guardar la categoría.";
       setCatError(message);
       return;
     } finally {
@@ -1912,7 +1918,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     filterGroupLockRef.current = true;
     const label = firstNonEmpty(blockLabelI18n.es);
     if (!label) {
-      setBlockError("El nombre del bloque en EspaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ol es obligatorio.");
+      setBlockError("El nombre del bloque en Español es obligatorio.");
       filterGroupLockRef.current = false;
       return;
     }
@@ -2116,7 +2122,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   async function deleteCategory(id: string) {
-    if (!window.confirm("ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½Seguro que querÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s eliminar esta categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a?")) return;
+    if (!window.confirm("¿Seguro que querés eliminar esta categoría?")) return;
     await api(`/api/admin/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
     await refresh();
   }
@@ -2209,7 +2215,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const order = maxOrder + 1;
 
     if (!key || !label) {
-      setFgError("El nombre en EspaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ol es obligatorio.");
+      setFgError("El nombre en Español es obligatorio.");
       filterGroupLockRef.current = false;
       return;
     }
@@ -2251,7 +2257,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       window.alert("El bloque Precio es obligatorio y no se puede eliminar.");
       return;
     }
-    if (!window.confirm("ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½Seguro que querÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s eliminar este bloque?")) return;
+    if (!window.confirm("¿Seguro que querés eliminar este bloque?")) return;
     await api(`/api/admin/filters?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     await refresh();
   }
@@ -2284,7 +2290,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const order = maxOrder + 1;
     const parentId = draft.parentId || null;
     if (!label || !value) {
-      setFilterOptionError((prev) => ({ ...prev, [groupId]: "El label en EspaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ol es obligatorio." }));
+      setFilterOptionError((prev) => ({ ...prev, [groupId]: "El label en Español es obligatorio." }));
       filterOptionLockRef.current[groupId] = false;
       return;
     }
@@ -2352,13 +2358,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       pPrestacionResources[0]?.title,
       pPrestacionSteps[0]?.title,
       pPrestacionFaqs[0]?.question,
-      "PrestaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n"
+      "Prestación"
     );
     const fallbackPrestacionDescription = firstNonEmpty(
       pPrestacionResources[0]?.subtitle,
       pPrestacionColorBlocks[0]?.text,
       pPrestacionSteps[0]?.subtitle,
-      "Contenido de prestaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n"
+      "Contenido de prestación"
     );
     const prestacionHeroTitle = firstNonEmptyI18n(pPrestacionHeroTitleI18n);
     const title = pEditorMode === "prestacion"
@@ -2371,7 +2377,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       ? firstNonEmpty(pDescriptionI18n.es, pDescription, fallbackPrestacionDescription)
       : firstNonEmpty(pDescriptionI18n.es, pDescription);
     if (!title || !description) {
-      setSaveMessage("TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo y descripciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n en EspaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ol son obligatorios.");
+      setSaveMessage("Título y descripción en Español son obligatorios.");
       publicationLockRef.current = false;
       return;
     }
@@ -2632,7 +2638,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           body: JSON.stringify(payload),
         });
       }
-      setSaveMessage(editingId ? "Cambios guardados." : "PublicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n creada.");
+      setSaveMessage(editingId ? "Cambios guardados." : "Publicación creada.");
       window.setTimeout(() => setSaveMessage(""), 4000);
 
       setPTitle("");
@@ -2713,7 +2719,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     } catch (error: any) {
       const message = String(error?.message ?? "").trim();
-      setSaveMessage(message ? `No se pudo guardar: ${message}` : "No se pudo guardar la publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n.");
+      setSaveMessage(message ? `No se pudo guardar: ${message}` : "No se pudo guardar la publicación.");
     } finally {
       setSavingPublication(false);
       publicationLockRef.current = false;
@@ -2722,8 +2728,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   async function deletePublication(id: string) {
     const publication = publications.find((item) => item.id === id);
-    const label = publication?.primaryGroupKey === "prestacion" ? "prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n" : "publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n";
-    if (!window.confirm(`ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½Seguro que querÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s eliminar esta ${label}? Esta acciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n no se puede deshacer.`)) return;
+    const label = publication?.primaryGroupKey === "prestacion" ? "prestación" : "publicación";
+    if (!window.confirm(`¿Seguro que querés eliminar esta ${label}? Esta acción no se puede deshacer.`)) return;
     await api(`/api/admin/publications?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     await refresh();
   }
@@ -3071,7 +3077,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPPartner(false);
     setPTitleI18n((prev) => ({ ...prev, es: `${String(prev.es ?? pub.title ?? "").trim()} (copia)` }));
     setPTitle((prev) => `${String(prev || pub.title || "").trim()} (copia)`);
-      setSaveMessage("Copia cargada. EditÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ los campos necesarios y guardÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ como nueva publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n.");
+      setSaveMessage("Copia cargada. Editá los campos necesarios y guardá como nueva publicación.");
     window.setTimeout(() => setSaveMessage(""), 4500);
   }
 
@@ -3608,7 +3614,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     if (panel === "category") {
       if (!pickerRoots.length) {
-      return <div className="mt-3 text-sm text-slate-500">No hay categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as disponibles.</div>;
+      return <div className="mt-3 text-sm text-slate-500">No hay categorías disponibles.</div>;
       }
       return (
         <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -3682,22 +3688,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
 
     if (!pCategorySelections.length) {
-      return <div className="mt-3 text-sm text-slate-500">Primero seleccionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ una categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a.</div>;
+      return <div className="mt-3 text-sm text-slate-500">Primero seleccioná una categoría.</div>;
     }
 
     if (!publicationSubcategoryOptions.length) {
-      return <div className="mt-3 text-sm text-slate-500">No hay subcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as para la categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a seleccionada.</div>;
+      return <div className="mt-3 text-sm text-slate-500">No hay subcategorías para la categoría seleccionada.</div>;
     }
 
     return (
       <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
         <div className="rounded-xl border border-slate-200 bg-white p-2">
           <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-[#00A9C6]">
-            SubcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as
+            Subcategorías
           </div>
           <div className="px-2 pb-2 text-xs font-medium text-slate-500">
             {publicationSubcategoryPanelMeta
-              ? `${publicationSubcategoryPanelMeta.selectedCount} categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a(s) seleccionada(s)`
+              ? `${publicationSubcategoryPanelMeta.selectedCount} categoría(s) seleccionada(s)`
               : null}
           </div>
           <div className="space-y-1">
@@ -4285,7 +4291,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       },
       {
         key: "featured120",
-        title: "Destacado 120 dÃƒÂ­as",
+        title: "Destacado 120 días",
         items: buildGroups(travelServicePayments.filter((item) => item.planType !== "featured_monthly")),
       },
       {
@@ -4342,7 +4348,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const updateTravelServiceStatus = async (id: string, status: "aprobado" | "rechazado" | "falta info" | "pendiente") => {
     const needsReason = status === "rechazado" || status === "falta info";
     const reason = needsReason
-      ? window.prompt(`IngresÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ el motivo para "${status}" (se enviarÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ por email al oferente):`, "") ?? ""
+      ? window.prompt(`Ingresá el motivo para "${status}" (se enviará por email al oferente):`, "") ?? ""
       : "";
     if (needsReason && !reason.trim()) return;
 
@@ -4606,12 +4612,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     const metrics = readPublicationAnalytics(publication);
                     return (
                       <div key={`linked-${publication.id}`}>
-                        [{normalizeVisibleText(linkedPublicationPlanLabel(publication))}] {normalizeVisibleText(publication.title || "Sin tÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo")} ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ {normalizeVisibleText(publication.publisherName || "Sin oferente")} | Visitas: {metrics.views} ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ Leads: {metrics.leads} ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ Favoritos: {metrics.favorites} ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ Compartidos: {metrics.shares}
+                        [{normalizeVisibleText(linkedPublicationPlanLabel(publication))}] {normalizeVisibleText(publication.title || "Sin título")} - {normalizeVisibleText(publication.publisherName || "Sin oferente")} | Visitas: {metrics.views} - Leads: {metrics.leads} - Favoritos: {metrics.favorites} - Compartidos: {metrics.shares}
                       </div>
                     );
                   })}
                 </div>
-              ) : <div className="mt-2 text-xs text-slate-500">Este oferente todavÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a no tiene publicaciones vinculadas.</div>}
+              ) : <div className="mt-2 text-xs text-slate-500">Este oferente todavía no tiene publicaciones vinculadas.</div>}
             </div>
             <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex items-center justify-between gap-3">
@@ -4682,7 +4688,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             return (
               <div key={`detail-payment-${item.id}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "Plan mensual" : "Destacado 120 dÃƒÂ­as"}</span>
+                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "Plan mensual" : "Destacado 120 días"}</span>
                   <span className="rounded-full bg-white px-2 py-1">{item.paymentType === "monthly" ? "Suscripcion" : "Pago unico"}</span>
                   <span className="rounded-full bg-white px-2 py-1">{item.currency || "-"} {item.amount ?? "-"}</span>
                   <span className={`rounded-full px-2 py-1 ${paymentStatusClasses(item.status)}`}>{paymentStatusLabel(item.status)}</span>
@@ -4822,7 +4828,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         body: JSON.stringify(payload),
       });
       setPromoCodes(Array.isArray(response.items) ? response.items : []);
-      setPromoMessage(promoEditId ? "CÃƒÂ³digo promocional actualizado." : "CÃƒÂ³digo promocional creado.");
+      setPromoMessage(promoEditId ? "Código promocional actualizado." : "Código promocional creado.");
       resetPromoForm();
     } catch (error) {
       setPromoMessage(error instanceof Error ? error.message : "No se pudo guardar el codigo.");
@@ -4850,7 +4856,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       });
       setPromoCodes(Array.isArray(response.items) ? response.items : []);
       if (promoEditId === id) resetPromoForm();
-      setPromoMessage("CÃƒÂ³digo promocional eliminado.");
+      setPromoMessage("Código promocional eliminado.");
     } catch (error) {
       setPromoMessage(error instanceof Error ? error.message : "No se pudo eliminar el codigo.");
     } finally {
@@ -5542,7 +5548,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
       {isCategoriesSection ? (
       <div className="grid gap-8">
-      {/* CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as */}
+      {/* Categorías */}
       <section className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -7148,7 +7154,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   ))}
                 </div>
               ) : (
-                <div className="text-xs text-slate-500">PodÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s sumar mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s sedes si aplica.</div>
+                <div className="text-xs text-slate-500">Podés sumar más sedes si aplica.</div>
               )}
             </div>
 
@@ -7159,9 +7165,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 onChange={(e) => setPReceivingCountriesMode(e.target.value as "all" | "only" | "except")}
                 className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
               >
-                <option value="all">Recibe viajeros de todos los paÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ses</option>
-                <option value="only">Recibe solo los paÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ses seleccionados</option>
-                <option value="except">Recibe todos los paÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ses excepto los seleccionados</option>
+                <option value="all">Recibe viajeros de todos los países</option>
+                <option value="only">Recibe solo los países seleccionados</option>
+                <option value="except">Recibe todos los países excepto los seleccionados</option>
               </select>
             </div>
 
@@ -7171,12 +7177,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <CountryMultiSelect
                 label={
                   pReceivingCountriesMode === "except"
-                    ? "PaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ses que NO recibe"
-                    : "PaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ses que recibe"
+                    ? "Países que NO recibe"
+                    : "Países que recibe"
                 }
                 selected={pReceivingCountries}
                 onChange={setPReceivingCountries}
-                placeholder="SeleccionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ses para aplicar el filtro."
+                placeholder="Seleccioná países para aplicar el filtro."
               />
             )}
           </AdminEditorSection>
@@ -7185,8 +7191,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             id="admin-publicacion-idiomas-contacto"
             tone="amber"
             icon={<Languages className="h-5 w-5" />}
-            title="Idiomas, expiraciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n y contacto"
-            description="TerminÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ la configuraciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n pÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½blica y operativa de la publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n sin mezclarla con el material visual."
+            title="Idiomas, expiración y contacto"
+            description="Terminá la configuración pública y operativa de la publicación sin mezclarla con el material visual."
           >
           <div className="grid gap-3 rounded-2xl border border-amber-100 bg-amber-50/45 p-4">
             <label className="text-sm font-medium text-slate-700">Idiomas que se hablan</label>
@@ -7201,13 +7207,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   : current.filter((v) => v !== value);
                 setPLanguages(next.join(", "));
               },
-              "No hay categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as con tipo de filtro idiomas."
+              "No hay categorías con tipo de filtro idiomas."
             )}
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
             <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
-              <label className="text-sm font-medium text-slate-700">Fecha y hora de expiraciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</label>
+              <label className="text-sm font-medium text-slate-700">Fecha y hora de expiración</label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
                   type="date"
@@ -7226,7 +7232,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <p className="text-xs text-slate-500">La hora es opcional.</p>
             </div>
             <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
-              <label className="text-sm font-medium text-slate-700">PÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡gina web</label>
+              <label className="text-sm font-medium text-slate-700">Página web</label>
               <input
                 value={pWebsite}
                 onChange={(e) => setPWebsite(e.target.value)}
@@ -7306,10 +7312,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
           </div>
           <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
-            <label className="text-sm font-medium text-slate-700">Idioma de ediciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n</label>
+            <label className="text-sm font-medium text-slate-700">Idioma de edición</label>
             {renderLangTabs(pLang, setEditingLang)}
             <p className="text-xs text-slate-500">
-              Cambia el idioma de todos los campos traducibles de esta publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n sin tocar URLs, nombres propios ni precios.
+              Cambia el idioma de todos los campos traducibles de esta publicación sin tocar URLs, nombres propios ni precios.
             </p>
           </div>
           </AdminEditorSection>
@@ -7318,11 +7324,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             id="admin-publicacion-imagenes"
             tone="slate"
             icon={<ImageIcon className="h-5 w-5" />}
-            title="ImÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡genes"
-            description="CargÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ o pegÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ URLs de las imÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡genes en un bloque aparte para que el flujo del formulario sea mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s limpio."
+            title="Imágenes"
+            description="Cargá o pegá URLs de las imágenes en un bloque aparte para que el flujo del formulario sea más limpio."
           >
           <div className="grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/65 p-4">
-            <label className="text-sm font-medium text-slate-700">ImÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡genes (URLs o subida directa)</label>
+            <label className="text-sm font-medium text-slate-700">Imágenes (URLs o subida directa)</label>
             <textarea
               value={pImageUrls}
               onChange={(e) => setPImageUrls(e.target.value)}
@@ -7347,7 +7353,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-xs font-semibold text-slate-600 shadow"
                         aria-label="Quitar imagen"
                       >
-                        ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½
+                        <X className="h-3.5 w-3.5" />
                       </button>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={img} alt={`preview-${idx}`} className="h-full w-full object-cover" />
@@ -7365,7 +7371,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {pEditorMode === "prestacion" ? (
             <div className="grid gap-5">
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <label className="text-sm font-semibold text-slate-900">Estado de la prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</label>
+                <label className="text-sm font-semibold text-slate-900">Estado de la prestación</label>
                 <select
                   value={pStatus}
                   onChange={(e) => setPStatus(e.target.value)}
@@ -7378,10 +7384,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-sm font-semibold text-slate-900">PrestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n vinculada a la publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</div>
-                <p className="mt-1 text-xs text-slate-500">ElegÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ a quÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a con tipo de filtro prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n pertenece esta publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n.</p>
+                <div className="text-sm font-semibold text-slate-900">Prestación vinculada a la publicación</div>
+                <p className="mt-1 text-xs text-slate-500">Elegí a qué categoría con tipo de filtro prestación pertenece esta publicación.</p>
                 <div className="mt-3 grid gap-2">
-                  <label className="text-xs font-medium text-slate-500">Seleccionar prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</label>
+                  <label className="text-xs font-medium text-slate-500">Seleccionar prestación</label>
                   <select
                     value={pPrestacionCategory}
                     onChange={(e) => {
@@ -7391,24 +7397,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     }}
                     className="h-10 rounded-xl border border-slate-200 px-3"
                   >
-                    <option value="">Seleccionar prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</option>
+                    <option value="">Seleccionar prestación</option>
                     {prestacionRoots.map((opt) => (
                       <option key={`prestation-category-${opt.id}`} value={opt.description}>{pickI18nText(opt.descriptionI18n ?? null, pLang, opt.description)}</option>
                     ))}
                   </select>
-                  {!prestacionRoots.length ? <div className="text-xs text-slate-500">No hay categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as con tipo de filtro prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n.</div> : null}
+                  {!prestacionRoots.length ? <div className="text-xs text-slate-500">No hay categorías con tipo de filtro prestación.</div> : null}
                 </div>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-sm font-semibold text-slate-900">Elegir categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as o subcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as vinculadas con la publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</div>
-                <p className="mt-1 text-xs text-slate-500">SeleccionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as y subcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as relacionadas. Se muestran todas excepto las de tipo prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n.</p>
+                <div className="text-sm font-semibold text-slate-900">Elegir categorías o subcategorías vinculadas con la publicación</div>
+                <p className="mt-1 text-xs text-slate-500">Seleccioná categorías y subcategorías relacionadas. Se muestran todas excepto las de tipo prestación.</p>
                 <button
                   type="button"
                   onClick={() => setOpenPublicationPanel((prev) => (prev === "category" ? null : "category"))}
                   className="mt-3 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  <span>{pCategorySelections.length || pSubcategorySelections.length ? "Editar categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as vinculadas" : "Seleccionar categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as vinculadas"}</span>
+                  <span>{pCategorySelections.length || pSubcategorySelections.length ? "Editar categorías vinculadas" : "Seleccionar categorías vinculadas"}</span>
                   {openPublicationPanel === "category" ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </button>
                 {openPublicationPanel ? <div className="mt-3">{renderCategorySelection(openPublicationPanel)}</div> : null}
@@ -7418,12 +7424,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="mt-2 space-y-1 text-sm text-slate-700">
                       {pCategorySelections.length ? (
                         <div>
-                          <span className="font-semibold">CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as:</span> {pCategorySelections.join(", ")}
+                          <span className="font-semibold">Categorías:</span> {pCategorySelections.join(", ")}
                         </div>
                       ) : null}
                       {pSubcategorySelections.length ? (
                         <div>
-                          <span className="font-semibold">SubcategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as:</span> {pSubcategorySelections.join(", ")}
+                          <span className="font-semibold">Subcategorías:</span> {pSubcategorySelections.join(", ")}
                         </div>
                       ) : null}
                     </div>
@@ -7433,28 +7439,28 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="text-sm font-semibold text-slate-900">Lugar de destino (visibilidad)</div>
-                <p className="mt-1 text-xs text-slate-500">SeleccionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ uno o mÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ses en los que querÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s mostrar esta prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n en /buscar.</p>
+                <p className="mt-1 text-xs text-slate-500">Seleccioná uno o más países en los que querés mostrar esta prestación en /buscar.</p>
                 <div className="mt-3">
                   <CountryMultiSelect
-                    label="PaÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ses donde se muestra"
+                    label="Países donde se muestra"
                     selected={pPrestacionDestinationCountries}
                     onChange={setPPrestacionDestinationCountries}
-                    placeholder="SeleccionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ paÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ses destino"
+                    placeholder="Seleccioná países destino"
                   />
                 </div>
               </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="text-sm font-semibold text-slate-900">Hero de la prestaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n</div>
-                  <p className="mt-1 text-xs text-slate-500">PodÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s usar una imagen personalizada para el hero del detalle, con tÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo y subtÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo traducibles.</p>
+                  <div className="text-sm font-semibold text-slate-900">Hero de la prestación</div>
+                  <p className="mt-1 text-xs text-slate-500">Podés usar una imagen personalizada para el hero del detalle, con título y subtítulo traducibles.</p>
                   <div className="mt-3 grid gap-2">
                   <input value={getLangEditValue(pPrestacionHeroTitleI18n, pLang)} onChange={(e) => {
                     const next = e.target.value;
                     setPPrestacionHeroTitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next));
                     setPTitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next));
                     if (pLang === "es") setPTitle(next);
-                  }} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo del hero" />
-                  <RichTextEditor value={getLangEditValue(pPrestacionHeroSubtitleI18n, pLang)} onChange={(next) => setPPrestacionHeroSubtitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next))} placeholder="SubtÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo del hero" minHeightClassName="min-h-[80px]" />
+                  }} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del hero" />
+                  <RichTextEditor value={getLangEditValue(pPrestacionHeroSubtitleI18n, pLang)} onChange={(next) => setPPrestacionHeroSubtitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next))} placeholder="Subtítulo del hero" minHeightClassName="min-h-[80px]" />
                   <input value={getLangMediaValue(pPrestacionHeroImageI18n, pLang, pPrestacionHeroImage)} onChange={(e) => setPPrestacionHeroImageI18n((prev) => setLangText(prev.es ?? "", prev, pLang, e.target.value))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="URL de imagen del hero (opcional)" />
                   <input type="file" accept={IMAGE_FILE_ACCEPT} onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -7471,7 +7477,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   {pPrestacionHeroInfoBlocks.map((block, idx) => (
                     <div key={`hero-info-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
                       <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Bloque #{idx + 1}</span><button type="button" aria-label="Eliminar bloque" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionHeroInfoBlocks((prev) => prev.length <= 1 ? [createEmptyPrestacionHeroInfoBlock()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
-                      <input value={getLangEditValue(block.titleI18n, pLang)} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo del bloque" />
+                      <input value={getLangEditValue(block.titleI18n, pLang)} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del bloque" />
                       <RichTextEditor value={getLangEditValue(block.textI18n, pLang)} onChange={(next) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, text: pLang === "es" ? next : it.text, textI18n: setLangText(it.text, it.textI18n, pLang, next) } : it))} placeholder="Texto del bloque" minHeightClassName="min-h-[70px]" />
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <input type="color" value={block.bgColor} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, bgColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
@@ -7488,8 +7494,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">1</span>
                     <div>
                       <div className="text-lg font-semibold text-slate-900">Tarjetas de recursos</div>
-                      <p className="text-xs text-slate-500">Tarjetas flexibles con tÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo, subtÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo, imagen, ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tems con check y botones. Cada tarjeta puede tener ademÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s un bloque de texto con color.</p>
-                      <p className="mt-1 text-[11px] text-slate-400">EstÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s editando contenidos en idioma: <span className="font-semibold uppercase">{pLang}</span>. En imÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½genes, podÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s cargar una por idioma; si no cargÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s una, se usa la de ES.</p>
+                      <p className="text-xs text-slate-500">Tarjetas flexibles con título, subtítulo, imagen, ítems con check y botones. Cada tarjeta puede tener además un bloque de texto con color.</p>
+                      <p className="mt-1 text-[11px] text-slate-400">Estás editando contenidos en idioma: <span className="font-semibold uppercase">{pLang}</span>. En imágenes, podés cargar una por idioma; si no cargás una, se usa la de ES.</p>
                     </div>
                 </div>
                 <div className="mt-4 space-y-3">
@@ -7500,7 +7506,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <button type="button" aria-label="Eliminar tarjeta" onClick={() => setPPrestacionResources((prev) => prev.length <= 1 ? [createEmptyPrestacionResource()] : prev.filter((_, i) => i !== idx))} className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"><X className="h-3.5 w-3.5" /></button>
                       </div>
                       <div className="grid gap-2 md:grid-cols-2">
-                        <div className="grid gap-1"><label className="text-xs font-medium text-slate-500">TÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo</label><input value={getLangEditValue(card.titleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Lima Immigration" /></div>
+                        <div className="grid gap-1"><label className="text-xs font-medium text-slate-500">Título</label><input value={getLangEditValue(card.titleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Lima Immigration" /></div>
                         {card.title || card.subtitle || card.image || (card.checkItemsI18n ?? []).length || (card.buttons ?? []).length || card.colorNoteTitle || card.colorNoteText ? (
                           <div className="rounded-xl border border-slate-200 bg-white p-3">
                             {card.image ? <img src={card.image} alt="preview" className="h-28 w-full rounded-lg object-cover" /> : null}
@@ -7519,11 +7525,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             ) : null}
                           </div>
                         ) : (
-                          <div className="rounded-xl border-2 border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-400">CompletÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ los campos para ver la previa</div>
+                          <div className="rounded-xl border-2 border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-400">Completá los campos para ver la previa</div>
                         )}
                       </div>
                       <div className="mt-2 grid gap-2">
-                        <label className="text-xs font-medium text-slate-500">SubtÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½tulo</label><input value={getLangEditValue(card.subtitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? e.target.value : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Tu guÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a de visa personalizada" />
+                        <label className="text-xs font-medium text-slate-500">Subtítulo</label><input value={getLangEditValue(card.subtitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? e.target.value : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Tu guía de visa personalizada" />
                         <label className="text-xs font-medium text-slate-500">Imagen (URL)</label><input value={getLangMediaValue(card.imageI18n, pLang, card.image)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? e.target.value : it.image, imageI18n: setLangText(it.image, it.imageI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="https://..." />
                         <input
                           type="file"
@@ -7554,9 +7560,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         </button>
                       </div>
                       <div className="mt-3">
-                        <label className="text-xs font-medium text-slate-500">ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âtems con check</label>
+                        <label className="text-xs font-medium text-slate-500">Ítems con check</label>
                         <div className="mt-1 flex gap-2">
-                          <input value={resourceItemDrafts[idx] ?? ""} onChange={(e) => setResourceItemDrafts((prev) => ({ ...prev, [idx]: e.target.value }))} className="h-9 flex-1 rounded-xl border border-slate-200 px-3 text-sm" placeholder="Agregar ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tem..." />
+                          <input value={resourceItemDrafts[idx] ?? ""} onChange={(e) => setResourceItemDrafts((prev) => ({ ...prev, [idx]: e.target.value }))} className="h-9 flex-1 rounded-xl border border-slate-200 px-3 text-sm" placeholder="Agregar ítem..." />
                           <button type="button" onClick={() => {
                             const value = (resourceItemDrafts[idx] ?? "").trim();
                             if (!value) return;
@@ -7583,7 +7589,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   )
                                 }
                                 className="h-9 rounded-xl border border-slate-200 px-3 text-sm"
-                                placeholder={`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âtem con check (${pLang.toUpperCase()})`}
+                                placeholder={`Ítem con check (${pLang.toUpperCase()})`}
                               />
                               <button type="button" aria-label="Eliminar ítem" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-red-500" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, checkItems: (it.checkItems ?? []).filter((_, j) => j !== itemIdx), checkItemsI18n: (it.checkItemsI18n ?? []).filter((_, j) => j !== itemIdx) } : it))}><X className="h-3.5 w-3.5" /></button>
                             </div>
@@ -7591,7 +7597,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         </div>
                       </div>
                       <div className="mt-3 text-xs font-medium text-slate-500">Botones ({(card.buttons ?? []).length}/2)</div><div className="mt-2 grid gap-2 md:grid-cols-[1fr_140px]">
-                        <input value={getLangEditValue(resourceButtonDrafts[idx]?.labelI18n, pLang)} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: pLang === "es" ? e.target.value : prev[idx]?.label ?? "", labelI18n: setLangText(prev[idx]?.label ?? "", prev[idx]?.labelI18n, pLang, e.target.value), url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder={`Texto del botÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (${pLang.toUpperCase()})`} />
+                        <input value={getLangEditValue(resourceButtonDrafts[idx]?.labelI18n, pLang)} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: pLang === "es" ? e.target.value : prev[idx]?.label ?? "", labelI18n: setLangText(prev[idx]?.label ?? "", prev[idx]?.labelI18n, pLang, e.target.value), url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder={`Texto del botón (${pLang.toUpperCase()})`} />
                         <select value={(resourceButtonDrafts[idx]?.style ?? "primary")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: e.target.value === "secondary" ? "secondary" : "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm">
                           <option value="primary">Primario</option>
                           <option value="secondary">Secundario</option>
@@ -7607,13 +7613,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         }} className="h-9 rounded-lg border border-slate-200 text-sm">+</button>
                       </div>
                       <div className="mt-2 grid gap-2 md:grid-cols-2">
-                        <div className="grid gap-1"><label className="text-[11px] text-slate-500">Color botÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n</label><input type="color" value={(resourceButtonDrafts[idx]?.bgColor ?? "#2563EB")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: e.target.value, textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 w-12 rounded border border-slate-200" /></div>
+                        <div className="grid gap-1"><label className="text-[11px] text-slate-500">Color botón</label><input type="color" value={(resourceButtonDrafts[idx]?.bgColor ?? "#2563EB")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: e.target.value, textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 w-12 rounded border border-slate-200" /></div>
                         <div className="grid gap-1"><label className="text-[11px] text-slate-500">Color texto</label><input type="color" value={(resourceButtonDrafts[idx]?.textColor ?? "#FFFFFF")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: e.target.value } }))} className="h-9 w-12 rounded border border-slate-200" /></div>
                       </div>
                       {(card.buttons ?? []).length ? (
                         <div className="mt-2 flex flex-wrap gap-2">
                           {card.buttons.map((btn, btnIdx) => (
-                            <span key={`${getLangEditValue(btn.labelI18n, pLang)}-${btnIdx}`} className="rounded-lg px-2 py-1 text-xs shadow-sm" style={{ backgroundColor: btn.bgColor || (btn.style === "secondary" ? "#FFFFFF" : "#2563EB"), color: btn.textColor || (btn.style === "secondary" ? "#1D4ED8" : "#FFFFFF"), border: btn.style === "secondary" ? "1px solid #C7D2FE" : "1px solid transparent" }}>{getLangEditValue(btn.labelI18n, pLang)}<button type="button" className="ml-2" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, buttons: (it.buttons ?? []).filter((_, j) => j !== btnIdx) } : it))}>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</button></span>
+                            <span key={`${getLangEditValue(btn.labelI18n, pLang)}-${btnIdx}`} className="rounded-lg px-2 py-1 text-xs shadow-sm" style={{ backgroundColor: btn.bgColor || (btn.style === "secondary" ? "#FFFFFF" : "#2563EB"), color: btn.textColor || (btn.style === "secondary" ? "#1D4ED8" : "#FFFFFF"), border: btn.style === "secondary" ? "1px solid #C7D2FE" : "1px solid transparent" }}>{getLangEditValue(btn.labelI18n, pLang)}<button type="button" aria-label="Quitar botón" className="ml-2 inline-flex align-middle" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, buttons: (it.buttons ?? []).filter((_, j) => j !== btnIdx) } : it))}><X className="h-3 w-3" /></button></span>
                           ))}
                         </div>
                       ) : null}
@@ -7643,14 +7649,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                 )
                               }
                               className="h-9 rounded-xl border border-slate-200 px-3 text-sm"
-                              placeholder={`Texto del botÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n #${btnIdx + 1} (${pLang.toUpperCase()})`}
+                              placeholder={`Texto del botón #${btnIdx + 1} (${pLang.toUpperCase()})`}
                             />
                           ))}
                         </div>
                       ) : null}
                       {(card.colorNoteTitle || card.colorNoteText) ? (
                         <div className="mt-3 grid gap-2">
-                          <input value={getLangEditValue(card.colorNoteTitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: pLang === "es" ? e.target.value : it.colorNoteTitle, colorNoteTitleI18n: setLangText(it.colorNoteTitle ?? "", it.colorNoteTitleI18n, pLang, e.target.value) } : it))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder="TÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tulo del bloque de color" />
+                          <input value={getLangEditValue(card.colorNoteTitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: pLang === "es" ? e.target.value : it.colorNoteTitle, colorNoteTitleI18n: setLangText(it.colorNoteTitle ?? "", it.colorNoteTitleI18n, pLang, e.target.value) } : it))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder="Título del bloque de color" />
                           <RichTextEditor value={getLangEditValue(card.colorNoteTextI18n, pLang)} onChange={(next) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteText: pLang === "es" ? next : it.colorNoteText, colorNoteTextI18n: setLangText(it.colorNoteText ?? "", it.colorNoteTextI18n, pLang, next) } : it))} placeholder="Texto del bloque de color" minHeightClassName="min-h-[70px]" />
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                             <input type="color" value={card.colorNoteBgColor ?? "#EEF2FF"} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteBgColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
@@ -7658,7 +7664,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           </div>
                         </div>
                       ) : null}
-                      <button type="button" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: it.colorNoteTitle || "TÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tulo", colorNoteText: it.colorNoteText || "Texto destacado", colorNoteBgColor: it.colorNoteBgColor || "#EEF2FF", colorNoteTextColor: it.colorNoteTextColor || "#1E3A8A" } : it))} className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700">Agregar bloque de texto con color a esta tarjeta</button>
+                      <button type="button" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: it.colorNoteTitle || "Título", colorNoteText: it.colorNoteText || "Texto destacado", colorNoteBgColor: it.colorNoteBgColor || "#EEF2FF", colorNoteTextColor: it.colorNoteTextColor || "#1E3A8A" } : it))} className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700">Agregar bloque de texto con color a esta tarjeta</button>
                     </div>
                   ))}
                 </div>
@@ -7669,8 +7675,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">2</span>
                   <div>
-                    <div className="text-lg font-semibold text-slate-900">Pasos de uso / CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³mo funciona</div>
-                    <p className="text-xs text-slate-500">GuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a paso a paso para mostrar en la pantalla de detalle.</p>
+                    <div className="text-lg font-semibold text-slate-900">Pasos de uso / Cómo funciona</div>
+                    <p className="text-xs text-slate-500">Guía paso a paso para mostrar en la pantalla de detalle.</p>
                   </div>
                 </div>
                 <div className="mt-3 rounded-xl bg-slate-50 p-4">
@@ -7681,7 +7687,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <div className="grid h-7 w-7 place-items-center rounded-full bg-indigo-600 text-xs font-semibold text-white">{idx + 1}</div>
                         <div>
                           <div className="text-sm font-semibold text-slate-900">{getLangEditValue(step.titleI18n, pLang) || `Paso ${idx + 1}`}</div>
-                          <div className="text-xs text-slate-600">{getLangEditValue(step.subtitleI18n, pLang) || "DescripciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n del paso..."}</div>
+                          <div className="text-xs text-slate-600">{getLangEditValue(step.subtitleI18n, pLang) || "Descripción del paso..."}</div>
                         </div>
                       </div>
                     ))}
@@ -7691,8 +7697,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   {pPrestacionSteps.map((step, idx) => (
                     <div key={`step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
                       <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Paso {idx + 1}</span><button type="button" aria-label="Eliminar paso" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionSteps((prev) => prev.length <= 1 ? [createEmptyPrestacionStep()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
-                      <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="TÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tulo del paso" />
-                      <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, next) } : it))} placeholder="DescripciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n del paso..." minHeightClassName="min-h-[70px]" />
+                      <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del paso" />
+                      <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, next) } : it))} placeholder="Descripción del paso..." minHeightClassName="min-h-[70px]" />
                       <input value={getLangMediaValue(step.imageI18n, pLang, step.image ?? "")} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? e.target.value : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Imagen URL (opcional)" />
                       <input
                         type="file"
@@ -7732,7 +7738,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">3</span>
                   <div>
                     <div className="text-lg font-semibold text-slate-900">Preguntas frecuentes (FAQs)</div>
-                    <p className="text-xs text-slate-500">Se muestran como acordeÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n en la pantalla de detalle.</p>
+                    <p className="text-xs text-slate-500">Se muestran como acordeón en la pantalla de detalle.</p>
                   </div>
                 </div>
                 <div className="mt-3 rounded-xl bg-slate-50 p-4">
@@ -7758,14 +7764,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <button type="button" onClick={() => setPPrestacionFaqs((prev) => [...prev, createEmptyPrestacionFaq()])} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">+ Agregar pregunta frecuente</button>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-lg font-semibold text-slate-900">TambiÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n te puede interesar</div>
-                <p className="mt-1 text-xs text-slate-500">SeleccionÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ publicaciones para mostrar en carrusel al final del detalle.</p>
+                <div className="text-lg font-semibold text-slate-900">También te puede interesar</div>
+                <p className="mt-1 text-xs text-slate-500">Seleccioná publicaciones para mostrar en carrusel al final del detalle.</p>
                 <div className="mt-3 grid gap-2">
                   <div className="grid gap-2 sm:grid-cols-2">
                     <input
                       value={pPrestacionRelatedSearch}
                       onChange={(e) => setPPrestacionRelatedSearch(e.target.value)}
-                      placeholder="Buscar publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n..."
+                      placeholder="Buscar publicación..."
                       className="h-10 rounded-xl border border-slate-200 px-3"
                     />
                     <select
@@ -7773,7 +7779,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       onChange={(e) => setPPrestacionRelatedCategory(e.target.value)}
                       className="h-10 rounded-xl border border-slate-200 px-3"
                     >
-                      <option value="todas">Todas las categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as</option>
+                      <option value="todas">Todas las categorías</option>
                       {Array.from(new Set(publications.map((pub) => String(pub.category ?? "").trim()).filter(Boolean))).map((category) => (
                         <option key={`related-cat-${category}`} value={category}>{category}</option>
                       ))}
@@ -7788,7 +7794,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     }}
                     className="h-10 rounded-xl border border-slate-200 px-3"
                   >
-                    <option value="">Agregar publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n relacionada</option>
+                    <option value="">Agregar publicación relacionada</option>
                     {publications
                       .filter((pub) => pub.id !== editingId)
                       .filter((pub) => pPrestacionRelatedCategory === "todas" || String(pub.category ?? "").trim() === pPrestacionRelatedCategory)
@@ -7829,14 +7835,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 ? "Guardando..."
                 : editingId
                   ? "Guardar cambios"
-                  : "Crear publicaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n"}
+                  : "Crear publicación"}
             </button>
             {editingId ? (
               <button
                 onClick={cancelEdit}
                 className="h-11 rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                Cancelar ediciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n
+                Cancelar edición
               </button>
             ) : null}
             {saveMessage ? (
