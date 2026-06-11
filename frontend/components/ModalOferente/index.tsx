@@ -1475,7 +1475,9 @@ export default function ModalOferente({
     let keepPaymentLoading = false;
     if (isPaidPlan) {
       setPaymentUi({ status: "preparing", messageKey: "oferente_pago_preparando" });
-      preparedPaymentTab = window.open("about:blank", "_blank");
+      const pendingServiceId = String(submittedServiceIdRef.current || "pending").trim() || "pending";
+      const preparingUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(pendingServiceId)}&locale=${encodeURIComponent(locale)}&state=preparing`;
+      preparedPaymentTab = window.open(preparingUrl, "_blank");
       if (!preparedPaymentTab) {
         setPaymentUi({ status: "error", messageKey: "oferente_pago_popup_error" });
         return;
@@ -1551,7 +1553,7 @@ export default function ModalOferente({
           throw new Error("payment_checkout_failed");
         }
         const redirectUrl = String(checkoutData.redirectUrl);
-        const launchUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(String(data?.id ?? ""))}&locale=${encodeURIComponent(locale)}&redirect=${encodeURIComponent(btoa(redirectUrl))}`;
+        const launchUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(String(data?.id ?? ""))}&locale=${encodeURIComponent(locale)}&redirect=${encodeURIComponent(btoa(redirectUrl))}&state=connecting`;
         const paymentTab = preparedPaymentTab ?? window.open(launchUrl, "_blank");
         if (!paymentTab) {
           if (submittedServiceIdRef.current) {
