@@ -49,6 +49,13 @@ function normalizeResult(raw: string): LaunchStatus {
   return "cancel";
 }
 
+type PaymentLaunchContext = {
+  serviceId: string;
+  locale: LaunchLocale;
+  redirectUrl: string;
+  launchedAt: number;
+};
+
 export default function FeaturedPaymentLaunchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,10 +67,39 @@ export default function FeaturedPaymentLaunchPage() {
   const copy = LAUNCH_TEXT[locale];
   const redirectUrl = useMemo(() => safeBase64Decode(redirectEncoded), [redirectEncoded]);
   const storageKey = useMemo(() => `tg-featured-payment-launch:${serviceId || "unknown"}`, [serviceId]);
+  const paymentContextKey = useMemo(
+    () => `tg-featured-payment-context:${serviceId || "unknown"}`,
+    [serviceId],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (status === "preparing" || !serviceId || !redirectUrl) return;
+    if (status === "preparing") {
+      if (serviceId) {
+        const payload: PaymentLaunchContext = {
+          serviceId,
+          locale,
+          redirectUrl: "",
+          launchedAt: Date.now(),
+        };
+        try {
+          window.sessionStorage.setItem(paymentContextKey, JSON.stringify(payload));
+        } catch {}
+      }
+      return;
+    }
+    if (!serviceId || !redirectUrl) return;
+
+    const payload: PaymentLaunchContext = {
+      serviceId,
+      locale,
+      redirectUrl,
+      launchedAt: Date.now(),
+    };
+    try {
+      window.sessionStorage.setItem(paymentContextKey, JSON.stringify(payload));
+    } catch {}
+
     const alreadyLaunched = window.sessionStorage.getItem(storageKey) === "1";
     if (!alreadyLaunched) {
       window.sessionStorage.setItem(storageKey, "1");
@@ -100,7 +136,7 @@ export default function FeaturedPaymentLaunchPage() {
         } catch {}
         router.replace(`/panel-oferente?featuredPayment=${resolvedStatus}&serviceId=${encodeURIComponent(serviceId)}`);
       });
-  }, [redirectUrl, router, serviceId, status, storageKey]);
+  }, [locale, paymentContextKey, redirectUrl, router, serviceId, status, storageKey]);
 
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-xl items-center justify-center px-4">

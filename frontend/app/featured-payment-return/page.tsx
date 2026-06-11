@@ -59,10 +59,50 @@ const RETURN_TEXT: Record<ReturnLocale, {
 };
 
 function normalizeStatus(raw: string): ReturnStatus {
-  const value = raw.trim().toLowerCase();
+  const value = String(raw ?? "").trim().toLowerCase();
   if (["success", "approved", "paid", "completed", "ok"].includes(value)) return "success";
   if (["cancel", "cancelled", "canceled", "back", "failed", "rejected", "not_found", "no_payment", "error"].includes(value)) return "cancel";
   return "pending";
+}
+
+function readLaunchContext(
+  explicitServiceId: string,
+  explicitLocale: ReturnLocale,
+): { serviceId: string; locale: ReturnLocale } {
+  if (typeof window === "undefined") return { serviceId: explicitServiceId, locale: explicitLocale };
+  if (explicitServiceId) return { serviceId: explicitServiceId, locale: explicitLocale };
+
+  try {
+    const latest = Object.keys(window.sessionStorage)
+      .filter((key) => key.startsWith("tg-featured-payment-context:"))
+      .map((key) => {
+        try {
+          const parsed = JSON.parse(window.sessionStorage.getItem(key) || "{}") as {
+            serviceId?: string;
+            locale?: string;
+            launchedAt?: number;
+          };
+          return {
+            serviceId: String(parsed.serviceId ?? "").trim(),
+            locale: String(parsed.locale ?? "").trim().toLowerCase(),
+            launchedAt: Number(parsed.launchedAt ?? 0),
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter((item): item is { serviceId: string; locale: string; launchedAt: number } => Boolean(item?.serviceId))
+      .sort((a, b) => b.launchedAt - a.launchedAt)[0];
+
+    if (latest?.serviceId) {
+      return {
+        serviceId: latest.serviceId,
+        locale: (["es", "en", "pt", "it"].includes(latest.locale) ? latest.locale : explicitLocale) as ReturnLocale,
+      };
+    }
+  } catch {}
+
+  return { serviceId: explicitServiceId, locale: explicitLocale };
 }
 
 export default function FeaturedPaymentReturnPage() {
@@ -72,23 +112,31 @@ export default function FeaturedPaymentReturnPage() {
     () => normalizeStatus(String(searchParams.get("status") ?? searchParams.get("payment_status") ?? searchParams.get("result") ?? "")),
     [searchParams],
   );
-  const serviceId = String(searchParams.get("serviceId") ?? "").trim();
+  const queryServiceId = String(searchParams.get("serviceId") ?? "").trim();
   const localeParam = String(searchParams.get("locale") ?? "es").trim().toLowerCase();
-  const locale = (["es", "en", "pt", "it"].includes(localeParam) ? localeParam : "es") as ReturnLocale;
+  const initialLocale = (["es", "en", "pt", "it"].includes(localeParam) ? localeParam : "es") as ReturnLocale;
+  const [resolvedContext] = useState(() => readLaunchContext(queryServiceId, initialLocale));
+  const serviceId = resolvedContext.serviceId;
+  const locale = resolvedContext.locale;
   const copy = RETURN_TEXT[locale];
-  const [secondsLeft, setSecondsLeft] = useState(2);
+  const [secondsLeft, setSecondsLeft] = useState(1);
   const [resolvedResult, setResolvedResult] = useState<ReturnStatus>(queryStatus);
   const [hasNotifiedModal, setHasNotifiedModal] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     let ignore = false;
+
     const resolveAndNotify = async () => {
       if (serviceId) {
         try {
           window.sessionStorage.removeItem(`tg-featured-payment-launch:${serviceId}`);
         } catch {}
+        try {
+          window.sessionStorage.removeItem(`tg-featured-payment-context:${serviceId}`);
+        } catch {}
       }
+
       let nextResult = queryStatus;
       if (serviceId) {
         try {
@@ -103,6 +151,7 @@ export default function FeaturedPaymentReturnPage() {
           nextResult = "cancel";
         }
       }
+
       if (ignore) return;
       setResolvedResult(nextResult);
       const payload = JSON.stringify({
@@ -121,6 +170,7 @@ export default function FeaturedPaymentReturnPage() {
       }
       setHasNotifiedModal(true);
     };
+
     void resolveAndNotify();
     return () => {
       ignore = true;
@@ -140,23 +190,32 @@ export default function FeaturedPaymentReturnPage() {
           if (data?.status) setResolvedResult(normalizeStatus(String(data.status)));
         })
         .catch(() => null);
-    }, 1200);
+    }, 700);
     return () => window.clearTimeout(timer);
   }, [resolvedResult, serviceId]);
 
   useEffect(() => {
     if (!hasNotifiedModal) return;
-    const timer = setInterval(() => {
+    if (window.opener && !window.opener.closed && resolvedResult !== "pending") {
+      const closeSoon = window.setTimeout(() => {
+        try {
+          window.close();
+        } catch {}
+      }, 250);
+      return () => window.clearTimeout(closeSoon);
+    }
+
+    const timer = window.setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
-          clearInterval(timer);
+          window.clearInterval(timer);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(timer);
-  }, [hasNotifiedModal]);
+    return () => window.clearInterval(timer);
+  }, [hasNotifiedModal, resolvedResult]);
 
   useEffect(() => {
     if (!hasNotifiedModal) return;
