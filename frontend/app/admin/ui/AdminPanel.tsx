@@ -129,6 +129,33 @@ type FeaturedPlanPriceItem = {
   updatedAt: string;
 };
 
+type DlocalSubscriptionPlanItem = {
+  id: string;
+  featuredPlanPriceId: string | null;
+  country: string | null;
+  currency: "ARS" | "USD";
+  name: string;
+  description: string | null;
+  amount: number;
+  frequencyType: "MONTHLY";
+  frequencyValue: number;
+  dayOfMonth: number | null;
+  maxPeriods: number | null;
+  successUrl: string | null;
+  backUrl: string | null;
+  errorUrl: string | null;
+  notificationUrl: string | null;
+  manualSubscribeUrl: string | null;
+  providerMode: "api" | "manual";
+  dlocalPlanId: string | null;
+  planToken: string | null;
+  subscribeUrl: string | null;
+  providerRaw?: unknown | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type TravelServicePaymentItem = {
   id: string;
   serviceId: string;
@@ -1165,6 +1192,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [travelServices, setTravelServices] = useState<TravelService[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCodeItem[]>([]);
   const [featuredPlanPrices, setFeaturedPlanPrices] = useState<FeaturedPlanPriceItem[]>([]);
+  const [dlocalSubscriptionPlans, setDlocalSubscriptionPlans] = useState<DlocalSubscriptionPlanItem[]>([]);
   const [travelServicePayments, setTravelServicePayments] = useState<TravelServicePaymentItem[]>([]);
   const [dashboardServiceHistory, setDashboardServiceHistory] = useState<DashboardServiceHistory[]>([]);
   const [dashboardPublicationHistory, setDashboardPublicationHistory] = useState<DashboardPublicationHistory[]>([]);
@@ -1197,6 +1225,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [priceRuleEditId, setPriceRuleEditId] = useState<string | null>(null);
   const [priceRuleSaving, setPriceRuleSaving] = useState(false);
   const [priceRuleMessage, setPriceRuleMessage] = useState("");
+  const [priceRuleProviderModeDraft, setPriceRuleProviderModeDraft] = useState<"api" | "manual">("api");
+  const [priceRuleSubscriptionPlanIdDraft, setPriceRuleSubscriptionPlanIdDraft] = useState<string | null>(null);
+  const [priceRuleSubscriptionNameDraft, setPriceRuleSubscriptionNameDraft] = useState("");
+  const [priceRuleSubscriptionDescriptionDraft, setPriceRuleSubscriptionDescriptionDraft] = useState("");
+  const [priceRuleSubscriptionDayOfMonthDraft, setPriceRuleSubscriptionDayOfMonthDraft] = useState("");
+  const [priceRuleSubscriptionMaxPeriodsDraft, setPriceRuleSubscriptionMaxPeriodsDraft] = useState("");
+  const [priceRuleSubscriptionSuccessUrlDraft, setPriceRuleSubscriptionSuccessUrlDraft] = useState("");
+  const [priceRuleSubscriptionBackUrlDraft, setPriceRuleSubscriptionBackUrlDraft] = useState("");
+  const [priceRuleSubscriptionErrorUrlDraft, setPriceRuleSubscriptionErrorUrlDraft] = useState("");
+  const [priceRuleSubscriptionNotificationUrlDraft, setPriceRuleSubscriptionNotificationUrlDraft] = useState("");
+  const [priceRuleSubscriptionManualUrlDraft, setPriceRuleSubscriptionManualUrlDraft] = useState("");
   const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
   const [expandedPanelBlocks, setExpandedPanelBlocks] = useState<Record<string, boolean>>({});
   const [destinationCountrySearch, setDestinationCountrySearch] = useState("");
@@ -1237,6 +1276,28 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     };
   }, [section, publicationsView, loading]);
 
+  useEffect(() => {
+    if (priceRulePlanTypeDraft !== "featured_monthly") return;
+    const defaults = getDefaultSubscriptionUrls();
+    if (!priceRuleSubscriptionSuccessUrlDraft) setPriceRuleSubscriptionSuccessUrlDraft(defaults.successUrl);
+    if (!priceRuleSubscriptionBackUrlDraft) setPriceRuleSubscriptionBackUrlDraft(defaults.backUrl);
+    if (!priceRuleSubscriptionErrorUrlDraft) setPriceRuleSubscriptionErrorUrlDraft(defaults.errorUrl);
+    if (!priceRuleSubscriptionNotificationUrlDraft) setPriceRuleSubscriptionNotificationUrlDraft(defaults.notificationUrl);
+    if (!priceRuleSubscriptionNameDraft) {
+      setPriceRuleSubscriptionNameDraft(priceRuleCountryDraft && priceRuleCountryDraft !== "__ALL__"
+        ? `Plan mensual ${priceRuleCountryDraft}`
+        : "Plan mensual Travelgrin");
+    }
+  }, [
+    priceRuleCountryDraft,
+    priceRulePlanTypeDraft,
+    priceRuleSubscriptionBackUrlDraft,
+    priceRuleSubscriptionErrorUrlDraft,
+    priceRuleSubscriptionNameDraft,
+    priceRuleSubscriptionNotificationUrlDraft,
+    priceRuleSubscriptionSuccessUrlDraft,
+  ]);
+
   // --- Category form ---
   const [catLang, setCatLang] = useState<Lang>("es");
   const [catI18n, setCatI18n] = useState<I18nRecord>({ es: "" });
@@ -1259,6 +1320,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [catCardImageUrl, setCatCardImageUrl] = useState("");
   const [catIconImageTouched, setCatIconImageTouched] = useState(false);
   const [catCardImageTouched, setCatCardImageTouched] = useState(false);
+
+  const getDefaultSubscriptionUrls = () => {
+    if (typeof window === "undefined") {
+      return {
+        successUrl: "",
+        backUrl: "",
+        errorUrl: "",
+        notificationUrl: "",
+      };
+    }
+    const origin = window.location.origin.replace(/\/$/, "");
+    return {
+      successUrl: `${origin}/featured-payment-return?status=success`,
+      backUrl: `${origin}/featured-payment-return?status=cancel`,
+      errorUrl: `${origin}/featured-payment-return?status=cancel`,
+      notificationUrl: `${origin}/api/dlocalgo/webhook`,
+    };
+  };
 
   const [blockLang, setBlockLang] = useState<Lang>("es");
   const [blockLabelI18n, setBlockLabelI18n] = useState<I18nRecord>({ es: "" });
@@ -1537,7 +1616,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [catParentId, categories]);
 
   async function refresh() {
-    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory, promoCodesData, featuredPlanPricesData, travelServicePaymentsData] = await Promise.all([
+    const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory, promoCodesData, featuredPlanPricesData, dlocalSubscriptionPlansData, travelServicePaymentsData] = await Promise.all([
       api<{ ok: true; items: Category[] }>("/api/categories").then((d) => d.items),
       api<{ ok: true; groups: FilterGroup[] }>("/api/admin/filters").then((d) => d.groups),
       api<{ ok: true; items: Publication[] }>("/api/admin/publications").then((d) => d.items),
@@ -1553,6 +1632,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }>("/api/admin/dashboard-history").catch(() => ({ ok: true, serviceHistory: [], publicationHistory: [], passportSelections: [], destinationSearches: [] })),
       api<{ ok: true; items: PromoCodeItem[] }>("/api/admin/promo-codes").catch(() => ({ ok: true, items: [] })),
       api<{ ok: true; items: FeaturedPlanPriceItem[] }>("/api/admin/featured-plan-prices").catch(() => ({ ok: true, items: [] })),
+      api<{ ok: true; items: DlocalSubscriptionPlanItem[] }>("/api/admin/dlocal-subscription-plans").catch(() => ({ ok: true, items: [] })),
       api<{ ok: true; items: TravelServicePaymentItem[] }>("/api/admin/travel-service-payments").catch(() => ({ ok: true, items: [] })),
     ]);
 
@@ -1571,6 +1651,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setDashboardDestinationSearches(Array.isArray(dashboardHistory?.destinationSearches) ? dashboardHistory.destinationSearches : []);
     setPromoCodes(Array.isArray(promoCodesData?.items) ? promoCodesData.items : []);
     setFeaturedPlanPrices(Array.isArray(featuredPlanPricesData?.items) ? featuredPlanPricesData.items : []);
+    setDlocalSubscriptionPlans(Array.isArray(dlocalSubscriptionPlansData?.items) ? dlocalSubscriptionPlansData.items : []);
     setTravelServicePayments(Array.isArray(travelServicePaymentsData?.items) ? travelServicePaymentsData.items : []);
     setOferenteDestinationMode(oferenteDestinations?.mode === "some" ? "some" : "all");
     setOferenteDestinationCountries(
@@ -4771,7 +4852,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRuleAmountDraft("");
     setPriceRuleDefaultDraft(false);
     setPriceRuleActiveDraft(true);
+    setPriceRuleProviderModeDraft("api");
+    setPriceRuleSubscriptionPlanIdDraft(null);
+    setPriceRuleSubscriptionNameDraft("");
+    setPriceRuleSubscriptionDescriptionDraft("");
+    setPriceRuleSubscriptionDayOfMonthDraft("");
+    setPriceRuleSubscriptionMaxPeriodsDraft("");
+    setPriceRuleSubscriptionSuccessUrlDraft("");
+    setPriceRuleSubscriptionBackUrlDraft("");
+    setPriceRuleSubscriptionErrorUrlDraft("");
+    setPriceRuleSubscriptionNotificationUrlDraft("");
+    setPriceRuleSubscriptionManualUrlDraft("");
   };
+
+  const findSubscriptionPlanForPriceRule = (priceRuleId: string | null | undefined) =>
+    dlocalSubscriptionPlans.find((item) => item.featuredPlanPriceId === priceRuleId) ?? null;
 
   const savePriceRule = async () => {
     setPriceRuleSaving(true);
@@ -4779,22 +4874,51 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     try {
       const isAllCountries = priceRuleCountryDraft === "__ALL__";
       const isDefaultRule = priceRuleDefaultDraft || isAllCountries;
-      const payload = {
-        id: priceRuleEditId ?? undefined,
-        planType: priceRulePlanTypeDraft,
-        country: isDefaultRule ? "" : priceRuleCountryDraft,
-        currency: priceRuleCurrencyDraft,
-        amount: Number(priceRuleAmountDraft),
-        isDefault: isDefaultRule,
-        isActive: priceRuleActiveDraft,
-      };
-      const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>("/api/admin/featured-plan-prices", {
-        method: priceRuleEditId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
-      setPriceRuleMessage(priceRuleEditId ? "Precio actualizado." : "Precio creado.");
+      if (priceRulePlanTypeDraft === "featured_monthly") {
+        const payload = {
+          id: priceRuleSubscriptionPlanIdDraft ?? undefined,
+          planType: "featured_monthly",
+          country: isDefaultRule ? "" : priceRuleCountryDraft,
+          currency: priceRuleCurrencyDraft,
+          amount: Number(priceRuleAmountDraft),
+          isDefault: isDefaultRule,
+          isActive: priceRuleActiveDraft,
+          providerMode: priceRuleProviderModeDraft,
+          name: priceRuleSubscriptionNameDraft,
+          description: priceRuleSubscriptionDescriptionDraft,
+          dayOfMonth: priceRuleSubscriptionDayOfMonthDraft || null,
+          maxPeriods: priceRuleSubscriptionMaxPeriodsDraft || null,
+          successUrl: priceRuleSubscriptionSuccessUrlDraft || null,
+          backUrl: priceRuleSubscriptionBackUrlDraft || null,
+          errorUrl: priceRuleSubscriptionErrorUrlDraft || null,
+          notificationUrl: priceRuleSubscriptionNotificationUrlDraft || null,
+          manualSubscribeUrl: priceRuleProviderModeDraft === "manual" ? (priceRuleSubscriptionManualUrlDraft || null) : null,
+        };
+        const response = await api<{ ok: true; items: DlocalSubscriptionPlanItem[]; priceItems: FeaturedPlanPriceItem[] }>("/api/admin/dlocal-subscription-plans", {
+          method: priceRuleSubscriptionPlanIdDraft ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        setDlocalSubscriptionPlans(Array.isArray(response.items) ? response.items : []);
+        setFeaturedPlanPrices(Array.isArray(response.priceItems) ? response.priceItems : []);
+      } else {
+        const payload = {
+          id: priceRuleEditId ?? undefined,
+          planType: priceRulePlanTypeDraft,
+          country: isDefaultRule ? "" : priceRuleCountryDraft,
+          currency: priceRuleCurrencyDraft,
+          amount: Number(priceRuleAmountDraft),
+          isDefault: isDefaultRule,
+          isActive: priceRuleActiveDraft,
+        };
+        const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>("/api/admin/featured-plan-prices", {
+          method: priceRuleEditId ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+      }
+      setPriceRuleMessage(priceRuleEditId || priceRuleSubscriptionPlanIdDraft ? "Precio actualizado." : "Precio creado.");
       resetPriceRuleForm();
     } catch (error) {
       setPriceRuleMessage(error instanceof Error ? error.message : "No se pudo guardar el precio.");
@@ -4804,13 +4928,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   };
 
   const editPriceRule = (item: FeaturedPlanPriceItem) => {
+    const linkedPlan = item.planType === "featured_monthly" ? findSubscriptionPlanForPriceRule(item.id) : null;
     setPriceRuleEditId(item.id);
+    setPriceRuleSubscriptionPlanIdDraft(linkedPlan?.id ?? null);
     setPriceRuleCountryDraft(item.isDefault ? "__ALL__" : (item.country ?? ""));
     setPriceRulePlanTypeDraft(item.planType === "featured_monthly" ? "featured_monthly" : "featured_120d");
     setPriceRuleCurrencyDraft(item.currency === "ARS" ? "ARS" : "USD");
     setPriceRuleAmountDraft(String(item.amount ?? ""));
     setPriceRuleDefaultDraft(Boolean(item.isDefault));
     setPriceRuleActiveDraft(Boolean(item.isActive));
+    setPriceRuleProviderModeDraft(linkedPlan?.providerMode === "manual" ? "manual" : "api");
+    setPriceRuleSubscriptionNameDraft(linkedPlan?.name ?? "");
+    setPriceRuleSubscriptionDescriptionDraft(linkedPlan?.description ?? "");
+    setPriceRuleSubscriptionDayOfMonthDraft(linkedPlan?.dayOfMonth ? String(linkedPlan.dayOfMonth) : "");
+    setPriceRuleSubscriptionMaxPeriodsDraft(linkedPlan?.maxPeriods ? String(linkedPlan.maxPeriods) : "");
+    setPriceRuleSubscriptionSuccessUrlDraft(linkedPlan?.successUrl ?? "");
+    setPriceRuleSubscriptionBackUrlDraft(linkedPlan?.backUrl ?? "");
+    setPriceRuleSubscriptionErrorUrlDraft(linkedPlan?.errorUrl ?? "");
+    setPriceRuleSubscriptionNotificationUrlDraft(linkedPlan?.notificationUrl ?? "");
+    setPriceRuleSubscriptionManualUrlDraft(linkedPlan?.manualSubscribeUrl ?? "");
     setPriceRuleMessage("");
   };
 
@@ -4818,10 +4954,28 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRuleSaving(true);
     setPriceRuleMessage("");
     try {
-      const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
-      setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+      const item = featuredPlanPrices.find((entry) => entry.id === id) ?? null;
+      if (item?.planType === "featured_monthly") {
+        const linkedPlan = findSubscriptionPlanForPriceRule(id);
+        if (linkedPlan?.id) {
+          const response = await api<{ ok: true; items: DlocalSubscriptionPlanItem[]; priceItems: FeaturedPlanPriceItem[] }>(
+            `/api/admin/dlocal-subscription-plans?id=${encodeURIComponent(linkedPlan.id)}`,
+            { method: "DELETE" },
+          );
+          setDlocalSubscriptionPlans(Array.isArray(response.items) ? response.items : []);
+          setFeaturedPlanPrices(Array.isArray(response.priceItems) ? response.priceItems : []);
+        } else {
+          const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
+            method: "DELETE",
+          });
+          setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+        }
+      } else {
+        const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+        setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+      }
       if (priceRuleEditId === id) resetPriceRuleForm();
       setPriceRuleMessage("Precio eliminado.");
     } catch (error) {
@@ -4938,7 +5092,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           <p className="text-sm font-semibold text-slate-900">Precios de planes por pais</p>
             <p className="text-xs text-slate-500">Configura los valores del destacado por 120 dias y del plan mensual por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
           </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
             <select value={priceRulePlanTypeDraft} onChange={(event) => setPriceRulePlanTypeDraft(event.target.value === "featured_monthly" ? "featured_monthly" : "featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
               <option value="featured_120d">Pago unico 120 dias</option>
               <option value="featured_monthly">Plan mensual</option>
@@ -4978,6 +5132,85 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             Activo
           </label>
         </div>
+        {priceRulePlanTypeDraft === "featured_monthly" ? (
+          <div className="mt-3 rounded-2xl border border-cyan-100 bg-cyan-50/40 p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Plan mensual real de dLocal Go</p>
+                <p className="text-xs text-slate-500">Podés crearlo por API o guardar un subscribe_url manual como fallback.</p>
+              </div>
+              <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-slate-600">
+                {priceRuleProviderModeDraft === "manual" ? "Modo manual" : "Modo API"}
+              </span>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              <select
+                value={priceRuleProviderModeDraft}
+                onChange={(event) => setPriceRuleProviderModeDraft(event.target.value === "manual" ? "manual" : "api")}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              >
+                <option value="api">Crear plan real por API</option>
+                <option value="manual">Usar subscribe_url manual</option>
+              </select>
+              <input
+                value={priceRuleSubscriptionNameDraft}
+                onChange={(event) => setPriceRuleSubscriptionNameDraft(event.target.value)}
+                placeholder="Nombre del plan"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              />
+              <input
+                value={priceRuleSubscriptionDescriptionDraft}
+                onChange={(event) => setPriceRuleSubscriptionDescriptionDraft(event.target.value)}
+                placeholder="Descripción"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
+              />
+              <input
+                value={priceRuleSubscriptionDayOfMonthDraft}
+                onChange={(event) => setPriceRuleSubscriptionDayOfMonthDraft(event.target.value)}
+                placeholder="Día del mes (opcional)"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              />
+              <input
+                value={priceRuleSubscriptionMaxPeriodsDraft}
+                onChange={(event) => setPriceRuleSubscriptionMaxPeriodsDraft(event.target.value)}
+                placeholder="Máximo de períodos (opcional)"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              />
+              <input
+                value={priceRuleSubscriptionSuccessUrlDraft}
+                onChange={(event) => setPriceRuleSubscriptionSuccessUrlDraft(event.target.value)}
+                placeholder="success_url"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
+              />
+              <input
+                value={priceRuleSubscriptionBackUrlDraft}
+                onChange={(event) => setPriceRuleSubscriptionBackUrlDraft(event.target.value)}
+                placeholder="back_url"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              />
+              <input
+                value={priceRuleSubscriptionErrorUrlDraft}
+                onChange={(event) => setPriceRuleSubscriptionErrorUrlDraft(event.target.value)}
+                placeholder="error_url"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              />
+              <input
+                value={priceRuleSubscriptionNotificationUrlDraft}
+                onChange={(event) => setPriceRuleSubscriptionNotificationUrlDraft(event.target.value)}
+                placeholder="notification_url / webhook"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
+              />
+              {priceRuleProviderModeDraft === "manual" ? (
+                <input
+                  value={priceRuleSubscriptionManualUrlDraft}
+                  onChange={(event) => setPriceRuleSubscriptionManualUrlDraft(event.target.value)}
+                  placeholder="manual_subscribe_url"
+                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
+                />
+              ) : null}
+            </div>
+          </div>
+        ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <button type="button" onClick={savePriceRule} disabled={priceRuleSaving} className="rounded-lg bg-[#00A9C6] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-60">
             {priceRuleEditId ? "Guardar precio" : "Crear precio"}
@@ -4990,30 +5223,72 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {priceRuleMessage ? <span className="text-xs font-medium text-emerald-600">{priceRuleMessage}</span> : null}
         </div>
         <div className="mt-3 space-y-2">
-          {featuredPlanPrices.length ? featuredPlanPrices.map((item) => (
+          {featuredPlanPrices.length ? featuredPlanPrices.map((item) => {
+            const linkedPlan = item.planType === "featured_monthly" ? findSubscriptionPlanForPriceRule(item.id) : null;
+            return (
             <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
               <div className="flex flex-1 flex-wrap items-center gap-2">
                   <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.isDefault ? "DEFECTO" : (item.country || "-")}</span>
                   <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : "120 DIAS"}</span>
                   <span>{item.currency}</span>
                   <span>{item.amount}</span>
-                <span className="rounded-full bg-white px-2 py-1">Modo: dLocal API</span>
-                {item.providerResourceId ? (
+                <span className="rounded-full bg-white px-2 py-1">
+                  Modo: {item.planType === "featured_monthly" ? (linkedPlan?.providerMode === "manual" ? "Manual" : "dLocal API") : "dLocal API"}
+                </span>
+                {item.planType === "featured_monthly" ? (
+                  <>
+                    {linkedPlan?.dlocalPlanId ? (
+                      <span className="max-w-[280px] truncate rounded-full bg-white px-2 py-1">Plan: {linkedPlan.dlocalPlanId}</span>
+                    ) : null}
+                    {linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl ? (
+                      <span className="max-w-[320px] truncate rounded-full bg-white px-2 py-1">
+                        Subscribe: {linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl}
+                      </span>
+                    ) : null}
+                  </>
+                ) : item.providerResourceId ? (
                   <span className="max-w-[280px] truncate rounded-full bg-white px-2 py-1">Recurso: {item.providerResourceId}</span>
                 ) : null}
                 <span className="max-w-[320px] truncate">
                   {item.planType === "featured_monthly"
-                    ? "Suscripcion: se resuelve por API de dLocal al contratar"
+                    ? linkedPlan?.providerMode === "manual"
+                      ? "Suscripción mensual con fallback manual activo"
+                      : "Suscripción mensual real de dLocal Go"
                     : "Checkout: se genera por API al pagar"}
                 </span>
                 <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
               </div>
               <div className="flex items-center gap-2">
+                {item.planType === "featured_monthly" && (linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl) ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl || "");
+                          setPriceRuleMessage("subscribe_url copiado.");
+                        } catch {
+                          setPriceRuleMessage("No se pudo copiar el subscribe_url.");
+                        }
+                      }}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100"
+                    >
+                      Copiar URL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.open(linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl || "", "_blank", "noopener,noreferrer")}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100"
+                    >
+                      Ver checkout
+                    </button>
+                  </>
+                ) : null}
                 <button type="button" onClick={() => editPriceRule(item)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100">Editar</button>
                 <button type="button" onClick={() => { void deletePriceRule(item.id); }} className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-rose-700 hover:bg-rose-50">Eliminar</button>
               </div>
             </div>
-          )) : (
+          )}) : (
               <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay precios configurados.</div>
             )}
           </div>
