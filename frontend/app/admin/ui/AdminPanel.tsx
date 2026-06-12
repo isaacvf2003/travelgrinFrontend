@@ -1236,6 +1236,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [priceRuleSubscriptionErrorUrlDraft, setPriceRuleSubscriptionErrorUrlDraft] = useState("");
   const [priceRuleSubscriptionNotificationUrlDraft, setPriceRuleSubscriptionNotificationUrlDraft] = useState("");
   const [priceRuleSubscriptionManualUrlDraft, setPriceRuleSubscriptionManualUrlDraft] = useState("");
+  const [priceRuleShowUrlConfigDraft, setPriceRuleShowUrlConfigDraft] = useState(false);
   const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
   const [expandedPanelBlocks, setExpandedPanelBlocks] = useState<Record<string, boolean>>({});
   const [destinationCountrySearch, setDestinationCountrySearch] = useState("");
@@ -4863,6 +4864,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRuleSubscriptionErrorUrlDraft("");
     setPriceRuleSubscriptionNotificationUrlDraft("");
     setPriceRuleSubscriptionManualUrlDraft("");
+    setPriceRuleShowUrlConfigDraft(false);
   };
 
   const findSubscriptionPlanForPriceRule = (priceRuleId: string | null | undefined) =>
@@ -4879,6 +4881,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           id: priceRuleSubscriptionPlanIdDraft ?? undefined,
           planType: "featured_monthly",
           country: isDefaultRule ? "" : priceRuleCountryDraft,
+          providerCountry: isDefaultRule ? "US" : priceRuleCountryDraft,
           currency: priceRuleCurrencyDraft,
           amount: Number(priceRuleAmountDraft),
           isDefault: isDefaultRule,
@@ -4947,6 +4950,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRuleSubscriptionErrorUrlDraft(linkedPlan?.errorUrl ?? "");
     setPriceRuleSubscriptionNotificationUrlDraft(linkedPlan?.notificationUrl ?? "");
     setPriceRuleSubscriptionManualUrlDraft(linkedPlan?.manualSubscribeUrl ?? "");
+    setPriceRuleShowUrlConfigDraft(false);
     setPriceRuleMessage("");
   };
 
@@ -5137,7 +5141,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Plan mensual real de dLocal Go</p>
-                <p className="text-xs text-slate-500">Podés crearlo por API o guardar un subscribe_url manual como fallback.</p>
+                <p className="text-xs text-slate-500">
+                  Podés crearlo por API o guardar un subscribe_url manual como fallback. Si elegís
+                  {" "}
+                  <span className="font-medium text-slate-700">Todos los países</span>
+                  {" "}
+                  se crea en dLocal Go con
+                  {" "}
+                  <span className="font-medium text-slate-700">país US</span>
+                  {" "}
+                  y
+                  {" "}
+                  <span className="font-medium text-slate-700">moneda USD</span>.
+                </p>
               </div>
               <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-slate-600">
                 {priceRuleProviderModeDraft === "manual" ? "Modo manual" : "Modo API"}
@@ -5164,6 +5180,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 placeholder="Descripción"
                 className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
               />
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 md:col-span-2">
+                País de los suscriptores en dLocal Go:{" "}
+                <span className="font-semibold text-slate-900">
+                  {priceRuleCountryDraft && priceRuleCountryDraft !== "__ALL__" ? priceRuleCountryDraft : "US (regla global en USD)"}
+                </span>
+              </div>
               <input
                 value={priceRuleSubscriptionDayOfMonthDraft}
                 onChange={(event) => setPriceRuleSubscriptionDayOfMonthDraft(event.target.value)}
@@ -5176,37 +5198,50 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 placeholder="Máximo de períodos (opcional)"
                 className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
               />
-              <input
-                value={priceRuleSubscriptionSuccessUrlDraft}
-                onChange={(event) => setPriceRuleSubscriptionSuccessUrlDraft(event.target.value)}
-                placeholder="success_url"
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
-              />
-              <input
-                value={priceRuleSubscriptionBackUrlDraft}
-                onChange={(event) => setPriceRuleSubscriptionBackUrlDraft(event.target.value)}
-                placeholder="back_url"
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-              />
-              <input
-                value={priceRuleSubscriptionErrorUrlDraft}
-                onChange={(event) => setPriceRuleSubscriptionErrorUrlDraft(event.target.value)}
-                placeholder="error_url"
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-              />
-              <input
-                value={priceRuleSubscriptionNotificationUrlDraft}
-                onChange={(event) => setPriceRuleSubscriptionNotificationUrlDraft(event.target.value)}
-                placeholder="notification_url / webhook"
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
-              />
-              {priceRuleProviderModeDraft === "manual" ? (
-                <input
-                  value={priceRuleSubscriptionManualUrlDraft}
-                  onChange={(event) => setPriceRuleSubscriptionManualUrlDraft(event.target.value)}
-                  placeholder="manual_subscribe_url"
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
-                />
+              <div className="md:col-span-2">
+                <button
+                  type="button"
+                  onClick={() => setPriceRuleShowUrlConfigDraft((current) => !current)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  {priceRuleShowUrlConfigDraft ? "Ocultar URLs" : "Colocar URLs"}
+                </button>
+              </div>
+              {priceRuleShowUrlConfigDraft ? (
+                <>
+                  <input
+                    value={priceRuleSubscriptionSuccessUrlDraft}
+                    onChange={(event) => setPriceRuleSubscriptionSuccessUrlDraft(event.target.value)}
+                    placeholder="success_url"
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
+                  />
+                  <input
+                    value={priceRuleSubscriptionBackUrlDraft}
+                    onChange={(event) => setPriceRuleSubscriptionBackUrlDraft(event.target.value)}
+                    placeholder="back_url"
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                  />
+                  <input
+                    value={priceRuleSubscriptionErrorUrlDraft}
+                    onChange={(event) => setPriceRuleSubscriptionErrorUrlDraft(event.target.value)}
+                    placeholder="error_url"
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                  />
+                  <input
+                    value={priceRuleSubscriptionNotificationUrlDraft}
+                    onChange={(event) => setPriceRuleSubscriptionNotificationUrlDraft(event.target.value)}
+                    placeholder="notification_url / webhook"
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
+                  />
+                  {priceRuleProviderModeDraft === "manual" ? (
+                    <input
+                      value={priceRuleSubscriptionManualUrlDraft}
+                      onChange={(event) => setPriceRuleSubscriptionManualUrlDraft(event.target.value)}
+                      placeholder="manual_subscribe_url"
+                      className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
+                    />
+                  ) : null}
+                </>
               ) : null}
             </div>
           </div>
@@ -5235,18 +5270,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <span className="rounded-full bg-white px-2 py-1">
                   Modo: {item.planType === "featured_monthly" ? (linkedPlan?.providerMode === "manual" ? "Manual" : "dLocal API") : "dLocal API"}
                 </span>
-                {item.planType === "featured_monthly" ? (
-                  <>
-                    {linkedPlan?.dlocalPlanId ? (
-                      <span className="max-w-[280px] truncate rounded-full bg-white px-2 py-1">Plan: {linkedPlan.dlocalPlanId}</span>
-                    ) : null}
-                    {linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl ? (
-                      <span className="max-w-[320px] truncate rounded-full bg-white px-2 py-1">
-                        Subscribe: {linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl}
-                      </span>
-                    ) : null}
-                  </>
-                ) : item.providerResourceId ? (
+                  {item.planType === "featured_monthly" ? (
+                    <>
+                      {linkedPlan?.dlocalPlanId ? (
+                        <span className="max-w-[280px] truncate rounded-full bg-white px-2 py-1">Plan: {linkedPlan.dlocalPlanId}</span>
+                      ) : null}
+                    </>
+                  ) : item.providerResourceId ? (
                   <span className="max-w-[280px] truncate rounded-full bg-white px-2 py-1">Recurso: {item.providerResourceId}</span>
                 ) : null}
                 <span className="max-w-[320px] truncate">
