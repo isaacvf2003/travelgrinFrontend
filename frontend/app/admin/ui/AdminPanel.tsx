@@ -4881,7 +4881,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           id: priceRuleSubscriptionPlanIdDraft ?? undefined,
           planType: "featured_monthly",
           country: isDefaultRule ? "" : priceRuleCountryDraft,
-          providerCountry: isDefaultRule ? "US" : priceRuleCountryDraft,
+          providerCountry: isDefaultRule ? "Todos los países" : priceRuleCountryDraft,
           currency: priceRuleCurrencyDraft,
           amount: Number(priceRuleAmountDraft),
           isDefault: isDefaultRule,
@@ -5148,7 +5148,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   {" "}
                   se crea en dLocal Go con
                   {" "}
-                  <span className="font-medium text-slate-700">país US</span>
+                  <span className="font-medium text-slate-700">Todos los países</span>
                   {" "}
                   y
                   {" "}
@@ -5183,7 +5183,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 md:col-span-2">
                 País de los suscriptores en dLocal Go:{" "}
                 <span className="font-semibold text-slate-900">
-                  {priceRuleCountryDraft && priceRuleCountryDraft !== "__ALL__" ? priceRuleCountryDraft : "US (regla global en USD)"}
+                  {priceRuleCountryDraft && priceRuleCountryDraft !== "__ALL__" ? priceRuleCountryDraft : "Todos los países (regla global en USD)"}
                 </span>
               </div>
               <input
