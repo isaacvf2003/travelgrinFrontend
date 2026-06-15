@@ -256,33 +256,27 @@ export default function SearchBar() {
   const selectedLabels = [...selectedCategoryValues];
 
   const onSearch = () => {
-    const hasCategoryFilter = Boolean(selectedCategory.trim() || selectedSubcategory.trim());
-    const hasDestinationFilter = Boolean(destinationCountry.trim());
-    if (!hasCategoryFilter && !hasDestinationFilter) {
+    if (!destinationCountry.trim()) {
       setDestinationError(true);
       return;
     }
-    if (hasDestinationFilter) {
-      fetch("/api/destination-searches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          destinationCountry: destinationCountry.trim(),
-          passportCountry: selectedCountry || "",
-          category: selectedCategory || selectedSubcategory || "",
-          source: "buscar-search",
-        }),
-        keepalive: true,
-      }).catch(() => null);
-    }
+    fetch("/api/destination-searches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        destinationCountry: destinationCountry.trim(),
+        passportCountry: selectedCountry || "",
+        category: selectedCategory || selectedSubcategory || "",
+        source: "buscar-search",
+      }),
+      keepalive: true,
+    }).catch(() => null);
     applySearchBarSelection();
   };
 
   useEffect(() => {
-    if (destinationCountry.trim() || selectedCategory.trim() || selectedSubcategory.trim()) {
-      setDestinationError(false);
-    }
-  }, [destinationCountry, selectedCategory, selectedSubcategory]);
+    if (destinationCountry.trim()) setDestinationError(false);
+  }, [destinationCountry]);
 
   return (
     <div className="relative isolate z-[60] w-full max-w-6xl mx-auto px-4">
