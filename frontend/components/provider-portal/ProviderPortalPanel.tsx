@@ -1773,9 +1773,10 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                     const statusKind = visualSubmissionKind(item);
                     const statusLabel = visualSubmissionLabel(item);
                     const paymentLabel = visualPaymentLabel(item.paymentStatus);
-                    const canDelete = !["aprobado", "approved", "active", "paid"].includes(String(item.status).toLowerCase()) && String(item.paymentStatus || "").toLowerCase() !== "paid";
                     const normalizedStatus = String(item.status ?? "").trim().toLowerCase();
-                    const canResume = true;
+                    const isApproved = ["aprobado", "approved", "active", "activo", "paid"].includes(normalizedStatus);
+                    const canDelete = !isApproved && String(item.paymentStatus || "").toLowerCase() !== "paid";
+                    const canResume = ["needs_info", "rejected"].includes(normalizedStatus);
                     const refundStatus = String(item.refundStatus ?? "").trim().toLowerCase();
                     const paymentConfirmed = isConfirmedPortalPayment(item.paymentStatus);
                     const canRequestRefund =
@@ -1864,7 +1865,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                               {t("providerPortal.refund.pendingNotice")}
                             </div>
                           ) : null}
-                          {canResume ? (
+                          {canResume && !isApproved ? (
                             <div className="sm:col-span-2 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900">
                               <span className="font-semibold">{t("reanudar_solicitud")}:</span> {t("si_ya_pagaste_no_pagas_de_nuevo")}
                             </div>
