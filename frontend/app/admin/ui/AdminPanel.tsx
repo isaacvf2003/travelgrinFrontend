@@ -659,6 +659,12 @@ function serviceEffectiveStatus(service: TravelService): string {
   return raw || "pendiente";
 }
 
+function isReviewableTravelService(service: TravelService, extra?: Record<string, unknown>): boolean {
+  const currentStatus = serviceEffectiveStatus(service);
+  const wasResubmitted = String(extra?.resubmittedAt ?? "").trim().length > 0;
+  return currentStatus === "pendiente" || (currentStatus === "falta info" && wasResubmitted);
+}
+
 function normalizeLifecycleStatus(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
 }
@@ -4888,6 +4894,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   const extra = parseTravelServiceExtra(service);
                   const payment = detailRelatedPayments.find((item) => item.serviceId === service.id);
                   const currentStatus = serviceEffectiveStatus(service);
+                  const canReviewUpdatedSubmission = isReviewableTravelService(service, extra);
                   const refundData = parseRefundSnapshot({
                     ...(payment?.raw && typeof payment.raw === "object" ? payment.raw as Record<string, unknown> : {}),
                     ...extra,
@@ -4928,7 +4935,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       ) : null}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Ver solicitud</button>
-                        {currentStatus === "pendiente" ? (
+                        {canReviewUpdatedSubmission ? (
                           <>
                             <button type="button" onClick={() => updateTravelServiceStatus(service.id, "aprobado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Aprobado</button>
                             <button type="button" onClick={() => updateTravelServiceStatus(service.id, "rechazado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Rechazado</button>
@@ -4977,6 +4984,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {detailPaymentItems.map((item) => {
             const linkedService = detailPaymentServices.find((service) => service.id === item.serviceId);
             const linkedExtra = linkedService ? parseTravelServiceExtra(linkedService) : {};
+            const canReviewUpdatedSubmission = linkedService ? isReviewableTravelService(linkedService, linkedExtra) : false;
             const refundData = parseRefundSnapshot({
               ...(item.raw && typeof item.raw === "object" ? item.raw as Record<string, unknown> : {}),
               ...linkedExtra,
@@ -5016,7 +5024,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <button type="button" onClick={() => { setDetailPaymentEmail(null); setDetailTravelService(linkedService); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">
                       Ver solicitud completa
                     </button>
-                    {serviceEffectiveStatus(linkedService) === "pendiente" ? (
+                    {canReviewUpdatedSubmission ? (
                       <>
                         <button type="button" onClick={() => updateTravelServiceStatus(linkedService.id, "aprobado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">Aprobado</button>
                         <button type="button" onClick={() => updateTravelServiceStatus(linkedService.id, "rechazado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">Rechazado</button>
@@ -5796,7 +5804,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </div>
                 <div className="flex items-center gap-2 text-xs">
                   <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Detalle</button>
-                  {serviceStatus === "pendiente" ? (
+                  {isReviewableTravelService(service, serviceExtra) ? (
                     <>
                       <button type="button" onClick={() => updateTravelServiceStatus(service.id, "aprobado")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Aprobado</button>
                       <button type="button" onClick={() => updateTravelServiceStatus(service.id, "rechazado")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Rechazado</button>
