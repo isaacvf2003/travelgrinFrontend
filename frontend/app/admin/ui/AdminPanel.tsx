@@ -4061,12 +4061,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     countriesBase.forEach((country) => map.set(country, { total: 0, paid: 0, free: 0, visits: 0 }));
 
     publications.forEach((publication) => {
-      const key = resolveCountryName(publication.country);
-      if (!key) return;
-      const current = map.get(key) ?? { total: 0, paid: 0, free: 0, visits: 0 };
-      if (String(publication.price ?? "").trim() && publication.price !== "0") current.paid += 1;
-      else current.free += 1;
-      map.set(key, current);
+      const fields = (publication.fields as Record<string, any> | undefined) ?? {};
+      const rawCountries = [
+        publication.country,
+        ...(Array.isArray(fields.destinationCountries) ? fields.destinationCountries : []),
+        ...(Array.isArray(fields.travelDestinations) ? fields.travelDestinations.map((entry: any) => entry?.country) : []),
+      ];
+      const keys = Array.from(new Set(rawCountries.map((country) => resolveCountryName(String(country ?? ""))).filter(Boolean))) as string[];
+      keys.forEach((key) => {
+        const current = map.get(key) ?? { total: 0, paid: 0, free: 0, visits: 0 };
+        current.total += 1;
+        if (String(publication.price ?? "").trim() && publication.price !== "0") current.paid += 1;
+        else current.free += 1;
+        map.set(key, current);
+      });
     });
 
     dashboardDestinationSearches.forEach((search) => {
@@ -4097,7 +4105,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         if (!key) return;
         const current = map.get(key) ?? { publications: 0, paid: 0, free: 0, categories: 0, destinations: 0, categorySet: new Set(), destinationSet: new Set() };
         current.publications += 1;
-        if (normalizeLifecycleStatus(entry.publicationPlan) === "featured") current.paid += 1;
+        if (["featured", "monthly", "featured_120d", "featured_monthly"].includes(normalizeLifecycleStatus(entry.publicationPlan))) current.paid += 1;
         else current.free += 1;
         (entry.categories ?? []).forEach((category) => {
           if (category) current.categorySet.add(category);
@@ -4142,6 +4150,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const destination = resolveCountryName(search.destinationCountry);
       if (!passport || !destination) return;
       const current = grouped.get(passport) ?? { total: 0, monthly: 0, destinationSet: new Set() };
+      current.total += 1;
+      if (search.createdAt && new Date(search.createdAt) >= monthStart) current.monthly += 1;
       current.destinationSet.add(destination);
       grouped.set(passport, current);
     });
@@ -4801,6 +4811,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
+              {String(detailCurrentRefund.refundStatus ?? "").trim() ? (
               <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="mb-2 text-sm font-semibold text-slate-900">Reembolso</div>
                 <div className="grid gap-2 md:grid-cols-2">
@@ -4817,6 +4828,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   </div>
                 ) : null}
               </div>
+              ) : null}
               <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="mb-2 text-sm font-semibold text-slate-900">Datos enviados</div>
                 <div className="grid gap-2 md:grid-cols-2">
@@ -4987,8 +4999,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Pago dLocal:</b> {item.providerPaymentId || "-"}</div>
                   <div><b>Pagado:</b> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
                   <div><b>Retorno:</b> {item.returnStatus || "-"}</div>
-                  <div><b>Reembolso:</b> {refundStatus ? refundStatusLabel(refundStatus) : "-"}</div>
-                  <div><b>Refund ref:</b> {String(refundData.refundProviderReference ?? "-") || "-"}</div>
+                  {refundStatus ? <div><b>Reembolso:</b> {refundStatusLabel(refundStatus)}</div> : null}
+                  {refundStatus ? <div><b>Refund ref:</b> {String(refundData.refundProviderReference ?? "-") || "-"}</div> : null}
                   <div><b>Tipo de solicitud:</b> {providerRequestKindLabel(linkedExtra.requestKind)}</div>
                 </div>
                 {refundStatus ? (
