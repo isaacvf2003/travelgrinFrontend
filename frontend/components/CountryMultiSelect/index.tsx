@@ -52,10 +52,11 @@ export default function CountryMultiSelect({
 
   useEffect(() => {
     let active = true;
-    fetch("https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags")
+    fetch("/api/countries")
       .then((res) => res.json())
-      .then((data: CountryApi[]) => {
+      .then((payload) => {
         if (!active) return;
+        const data = (Array.isArray(payload?.items) ? payload.items : []) as CountryApi[];
         const mapped = data.map((country) => ({
           ...country,
           spanishName: country.translations?.spa?.common || country.name.common,

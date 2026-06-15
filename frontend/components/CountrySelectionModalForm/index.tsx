@@ -75,10 +75,9 @@ export default function CountrySelectionModalForm({
 
   const fetchCountries = async () => {
     try {
-      const response = await fetch(
-        "https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags"
-      );
-      const data = (await response.json()) as CountryApi[];
+      const response = await fetch("/api/countries");
+      const payload = await response.json().catch(() => ({}));
+      const data = (Array.isArray(payload?.items) ? payload.items : []) as CountryApi[];
 
       const countriesWithSpanish: Country[] = data.map((country) => ({
         ...country,

@@ -58,10 +58,9 @@ export default function PaisPasaporte({
   // Fetch países de la API gratuita
   const fetchCountries = async () => {
     try {
-      const response = await fetch(
-        "https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags"
-      );
-      const data = await response.json();
+      const response = await fetch("/api/countries");
+      const payload = await response.json().catch(() => ({}));
+      const data = Array.isArray(payload?.items) ? payload.items : [];
 
       // Mapear países con nombres en español
       const countriesWithSpanish = data.map((country: any) => ({

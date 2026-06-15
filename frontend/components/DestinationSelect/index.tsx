@@ -86,16 +86,15 @@ export default function DestinationSelect({
     (async () => {
       try {
         const [countriesRes, destinationsRes] = await Promise.all([
-          fetch(
-            "https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags"
-          ),
+          fetch("/api/countries"),
           publishedOnly
             ? fetch("/api/publications?status=active&destinationsOnly=1", {
                 cache: "no-store",
               })
             : Promise.resolve(null),
         ]);
-        const data = (await countriesRes.json()) as CountryApi[];
+        const countriesPayload = await countriesRes.json().catch(() => ({}));
+        const data = (Array.isArray(countriesPayload?.items) ? countriesPayload.items : []) as CountryApi[];
         const destinationsPayload = destinationsRes
           ? await destinationsRes.json().catch(() => ({}))
           : { items: [] as string[] };
