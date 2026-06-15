@@ -389,12 +389,13 @@ export default function FeaturedPublicationsSection() {
   useEffect(() => {
     if (!isInView || Object.keys(countryCodeCatalog).length) return;
     let mounted = true;
-    fetch("https://restcountries.com/v3.1/all?fields=name,cca2,translations", { cache: "force-cache" })
-      .then((response) => (response.ok ? response.json() : []))
+    fetch("/api/countries", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : { items: [] }))
       .then((payload) => {
-        if (!mounted || !Array.isArray(payload)) return;
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        if (!mounted || !items.length) return;
         const next: Record<string, string> = {};
-        (payload as CountryFlagItem[]).forEach((country) => {
+        (items as CountryFlagItem[]).forEach((country) => {
           const code = String(country.cca2 ?? "").trim().toUpperCase();
           if (!/^[A-Z]{2}$/.test(code)) return;
           [

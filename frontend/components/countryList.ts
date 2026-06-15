@@ -48,11 +48,15 @@ export function buildFallbackCountries(): CountryWithSpanish[] {
 
 export async function fetchCountriesWithSpanish(): Promise<CountryWithSpanish[]> {
   try {
-    const response = await fetch("https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags", {
-      cache: "force-cache",
+    const response = await fetch("/api/countries", {
+      cache: "no-store",
     });
-    if (!response.ok) throw new Error(`restcountries responded ${response.status}`);
-    const data = (await response.json()) as CountryApi[];
+    if (!response.ok) throw new Error(`/api/countries responded ${response.status}`);
+    const payload = (await response.json()) as { items?: CountryApi[] };
+    const data = Array.isArray(payload?.items) ? payload.items : [];
+    if (!data.length) {
+      return buildFallbackCountries();
+    }
     return data
       .map((country) => ({
         ...country,
