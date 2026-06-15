@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import apiCountriesData from "@/ApiCountries-main/data.json";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import countryList from "@/components/countryList";
 
 type CountryApiItem = {
@@ -51,10 +52,20 @@ function buildFallbackCountries(): CountryApiItem[] {
   });
 }
 
-function getBundledApiCountries(): CountryApiItem[] {
-  const data = Array.isArray(apiCountriesData) ? apiCountriesData : [];
-  const mapped = data.map((entry) => mapApiCountry(entry as ApiCountriesItem)).filter(Boolean) as CountryApiItem[];
-  return mapped.length ? mapped : buildFallbackCountries();
+async function getBundledApiCountries(): Promise<CountryApiItem[]> {
+  try {
+    const filePath = path.join(process.cwd(), "ApiCountries-main", "data.json");
+    const raw = await readFile(filePath, "utf8");
+    const normalized = `[${raw.trim().replace(/,+\s*$/, "")}]`;
+    const data = JSON.parse(normalized) as unknown;
+    const items = (Array.isArray(data) ? data : [])
+      .map((entry) => mapApiCountry(entry as ApiCountriesItem))
+      .filter(Boolean) as CountryApiItem[];
+
+    return items.length ? items : buildFallbackCountries();
+  } catch {
+    return buildFallbackCountries();
+  }
 }
 
 export async function GET() {
@@ -78,6 +89,6 @@ export async function GET() {
     return NextResponse.json({ ok: true, items, source: "apicountries" });
   } catch (error) {
     console.error("[frontend/api/countries] Falling back to bundled ApiCountries data", error);
-    return NextResponse.json({ ok: true, items: getBundledApiCountries(), fallback: true });
+    return NextResponse.json({ ok: true, items: await getBundledApiCountries(), fallback: true });
   }
 }
