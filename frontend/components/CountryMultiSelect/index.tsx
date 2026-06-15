@@ -52,15 +52,16 @@ export default function CountryMultiSelect({
 
   useEffect(() => {
     let active = true;
-    fetch("https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags")
+    fetch("/api/countries")
       .then((res) => res.json())
-      .then((data: CountryApi[]) => {
+      .then((payload) => {
         if (!active) return;
-        const mapped = data.map((country) => ({
+        const data = (Array.isArray(payload?.items) ? payload.items : []) as CountryApi[];
+        const mapped: Country[] = data.map((country: CountryApi) => ({
           ...country,
           spanishName: country.translations?.spa?.common || country.name.common,
         }));
-        mapped.sort((a, b) => a.spanishName.localeCompare(b.spanishName));
+        mapped.sort((a: Country, b: Country) => a.spanishName.localeCompare(b.spanishName));
         setCountries(mapped);
       })
       .catch(() => {});
@@ -199,7 +200,7 @@ export default function CountryMultiSelect({
                     <input type={selectionMode === "single" ? "radio" : "checkbox"} checked={isChecked} readOnly />
                     {country.flags?.svg || country.flags?.png ? (
                       <Image
-                        src={country.flags?.svg || country.flags?.png}
+                        src={(country.flags?.svg || country.flags?.png) as string}
                         alt={`flag ${country.spanishName}`}
                         width={20}
                         height={14}

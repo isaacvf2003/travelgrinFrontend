@@ -59,18 +59,19 @@ export default function PaisPasaporte({
   const fetchCountries = async () => {
     try {
       const response = await fetch(
-        "https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags"
+        "/api/countries"
       );
-      const data = await response.json();
+      const payload = await response.json();
+      const data = Array.isArray(payload?.items) ? payload.items : [];
 
       // Mapear países con nombres en español
-      const countriesWithSpanish = data.map((country: any) => ({
+      const countriesWithSpanish: Country[] = data.map((country: any) => ({
         ...country,
         spanishName: country.translations?.spa?.common || country.name.common,
       }));
 
       // Ordenar países alfabéticamente por nombre en español
-      const sortedCountries = countriesWithSpanish.sort((a, b) =>
+      const sortedCountries = countriesWithSpanish.sort((a: Country, b: Country) =>
         a.spanishName.localeCompare(b.spanishName)
       );
 
@@ -171,7 +172,7 @@ export default function PaisPasaporte({
                 onClick={() => selectCountry(country)}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-100 last:border-b-0"
               >
-                <Image src={country.flags?.svg || country.flags?.png} width={20} height={20} alt="flag"/>
+                <Image src={(country.flags?.svg || country.flags?.png) as string} width={20} height={20} alt="flag"/>
                 <span className="text-gray-700 text-sm">
                   {country.spanishName}
                 </span>

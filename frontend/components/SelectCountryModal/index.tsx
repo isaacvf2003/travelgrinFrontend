@@ -14,13 +14,22 @@ type Props = {
   setSelectedCountry: (country: string) => void;
 };
 
+type CountryApi = {
+  name?: { common?: string };
+  cca2?: string;
+  translations?: { spa?: { common?: string } };
+  flags?: { svg?: string; png?: string };
+};
+
+type Country = CountryApi & { spanishName: string };
+
 const CountrySelectionModal = ({
   selectedCountry,
   setSelectedCountry,
 }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [countries, setCountries] = useState([]);
+  const [countries, setCountries] = useState<Country[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [countryError, setCountryError] = useState(false);
@@ -28,9 +37,9 @@ const CountrySelectionModal = ({
   const [inputFocused, setInputFocused] = useState(false);
   const isClient = useIsClient();
   const { t, locale } = useTranslation();
-  const searchInputRef = useRef(null);
-  const modalRef = useRef(null);
-  const dropdownRef = useRef(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 //
   // Bloquear scroll del body y configurar viewport
   useEffect(() => {
@@ -230,16 +239,17 @@ const CountrySelectionModal = ({
   const fetchCountries = async () => {
     try {
       const response = await fetch(
-        "https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags"
+        "/api/countries"
       );
-      const data = await response.json();
+      const payload = await response.json().catch(() => ({}));
+      const data = (Array.isArray(payload?.items) ? payload.items : []) as CountryApi[];
 
-      const countriesWithSpanish = data.map((country) => ({
+      const countriesWithSpanish: Country[] = data.map((country: CountryApi) => ({
         ...country,
-        spanishName: country.translations?.spa?.common || country.name.common,
+        spanishName: country.translations?.spa?.common || country.name?.common || "",
       }));
 
-      const sortedCountries = countriesWithSpanish.sort((a, b) =>
+      const sortedCountries = countriesWithSpanish.sort((a: Country, b: Country) =>
         a.spanishName.localeCompare(b.spanishName)
       );
 

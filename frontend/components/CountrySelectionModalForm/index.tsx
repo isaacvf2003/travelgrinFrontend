@@ -76,9 +76,10 @@ export default function CountrySelectionModalForm({
   const fetchCountries = async () => {
     try {
       const response = await fetch(
-        "https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags"
+        "/api/countries"
       );
-      const data = (await response.json()) as CountryApi[];
+      const payload = await response.json().catch(() => ({}));
+      const data = (Array.isArray(payload?.items) ? payload.items : []) as CountryApi[];
 
       const countriesWithSpanish: Country[] = data.map((country) => ({
         ...country,
@@ -136,7 +137,7 @@ export default function CountrySelectionModalForm({
               />
               {internalCountry && (
                 <Image
-                  src={internalCountry.flags?.svg || internalCountry.flags?.png}
+                  src={(internalCountry.flags?.svg || internalCountry.flags?.png) as string}
                   className="top-1.5 relative mr-2"
                   width={20}
                   height={20}
@@ -247,7 +248,7 @@ export default function CountrySelectionModalForm({
                   >
                     <span className="text-2xl group-hover/item:scale-110 transition-transform duration-200">
                       <Image
-                        src={country.flags?.svg || country.flags?.png}
+                        src={(country.flags?.svg || country.flags?.png) as string}
                         className="top-1.5 relative mr-2"
                         width={20}
                         height={20}
