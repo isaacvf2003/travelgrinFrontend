@@ -89,6 +89,14 @@ type PortalDashboard = {
   publications: PortalPublication[];
 };
 
+type VisiblePublicationEntry = {
+  publication: PortalPublication;
+  relatedSubmission: PortalSubmission | null;
+  effectivePlanType: "basic_free" | "featured" | "monthly";
+  effectiveExpiration: string | null;
+  needsInfoSubmission: PortalSubmission | null;
+};
+
 type PlanPriceResponseItem = {
   country: string | null;
   planType?: "featured_120d" | "featured_monthly";
@@ -1324,6 +1332,14 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
   function openResumeSubmission(submission: PortalSubmission) {
     const resumePlan = submission.planType === "monthly" ? "monthly" : submission.planType === "featured" ? "featured" : "basic_free";
     const requestedPlan = String(submission.requestedPlan ?? "").trim().toLowerCase();
+    const draftPaymentStatus = String(submission.draftData?.paymentStatus ?? "").trim().toLowerCase();
+    const draftPaymentReturnStatus = String(submission.draftData?.paymentReturnStatus ?? "").trim().toLowerCase();
+    const resumePaymentState =
+      [String(submission.paymentStatus ?? "").trim().toLowerCase(), draftPaymentStatus, draftPaymentReturnStatus].some((value) =>
+        ["paid", "approved", "completed", "success", "ok"].includes(value),
+      )
+        ? "paid"
+        : String(submission.paymentStatus ?? submission.draftData?.paymentStatus ?? submission.draftData?.paymentReturnStatus ?? "");
     setModalPlanIntent(resumePlan);
     setPreferredPaidPlanType(
       requestedPlan === "featured_monthly" || resumePlan === "monthly" ? "featured_monthly" : "featured_120d",
@@ -1334,6 +1350,10 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     setModalSourceServiceId(submission.sourceServiceId || undefined);
     setModalInitialData({
       ...(submission.draftData ?? {}),
+      name: submission.profileName || (submission.draftData as any)?.name || "",
+      category: submission.category || (submission.draftData as any)?.category || [],
+      country: submission.country || (submission.draftData as any)?.country || "",
+      destinationCountry: submission.destinationCountry || (submission.draftData as any)?.destinationCountry || "",
       whatSearchingRaw: submission.whatSearchingRaw ?? "",
       statusReason: submission.statusReason ?? "",
       paymentStatus: submission.paymentStatus ?? "",
@@ -1341,7 +1361,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     });
     setModalResumeMode(true);
     setModalResumeSubmissionId(submission.id);
-    setModalResumePaymentState(String(submission.paymentStatus ?? ""));
+    setModalResumePaymentState(resumePaymentState);
     setModalResumeStatusReason(String(submission.statusReason ?? ""));
     setOpenSubmissionModal(true);
   }
@@ -1402,6 +1422,14 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
         const bTime = new Date(b.updatedAt ?? b.approvedAt ?? b.createdAt ?? 0).getTime();
         return bTime - aTime;
       });
+    const latestSubmissionsBySourceId = new Map<string, PortalSubmission>();
+    [...submissions].sort((a, b) => {
+      const aTime = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+      const bTime = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
+      return aTime - bTime; // oldest first so newest overwrites
+    }).forEach(sub => {
+      if (sub.sourceServiceId) latestSubmissionsBySourceId.set(sub.sourceServiceId, sub);
+    });
     const usedSubmissionIds = new Set<string>();
     return publications
       .sort((a, b) => {
@@ -1444,16 +1472,20 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
           effectivePlanType !== "basic_free" && relatedSubmission?.expirationAt
             ? relatedSubmission.expirationAt
             : publication.expiration;
+        const latestInfoSubmission =
+          relatedSubmission?.id ? latestSubmissionsBySourceId.get(relatedSubmission.id) : null;
+
         return {
           publication,
           relatedSubmission,
           effectivePlanType,
           effectiveExpiration,
+          needsInfoSubmission: latestInfoSubmission?.status === "needs_info" ? latestInfoSubmission : null,
         };
       });
   }, [dashboard?.publications, dashboard?.submissions]);
 
-  const sortedVisiblePublicationEntries = useMemo(() => {
+  const sortedVisiblePublicationEntries = useMemo<VisiblePublicationEntry[]>(() => {
     return [...visiblePublicationEntries].sort((a, b) => {
       const aStatus = String(a.publication.status ?? "").trim().toLowerCase();
       const bStatus = String(b.publication.status ?? "").trim().toLowerCase();
@@ -1499,10 +1531,6 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     }
     return Array.from(groups.values()).sort((a, b) => planSortRank(a.planType) - planSortRank(b.planType));
   }, [dashboard?.submissions, planSortRank, sortedVisiblePublicationEntries]);
-
-  const actionableSubmissionEntries = useMemo(() => {
-    return sortedSubmissions.filter((item) => ["needs_info", "rejected"].includes(String(item.status ?? "").trim().toLowerCase()));
-  }, [sortedSubmissions]);
 
   const planCards = useMemo(() => {
     const featuredReady = Boolean(featured120Price && Number(featured120Price.amount ?? 0) > 0);
@@ -1746,11 +1774,12 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                     const statusLabel = visualSubmissionLabel(item);
                     const paymentLabel = visualPaymentLabel(item.paymentStatus);
                     const canDelete = !["aprobado", "approved", "active", "paid"].includes(String(item.status).toLowerCase()) && String(item.paymentStatus || "").toLowerCase() !== "paid";
-                    const canResume = ["needs_info", "rejected"].includes(String(item.status ?? "").trim().toLowerCase());
+                    const normalizedStatus = String(item.status ?? "").trim().toLowerCase();
+                    const canResume = true;
                     const refundStatus = String(item.refundStatus ?? "").trim().toLowerCase();
                     const paymentConfirmed = isConfirmedPortalPayment(item.paymentStatus);
                     const canRequestRefund =
-                      ["rejected", "needs_info"].includes(String(item.status ?? "").trim().toLowerCase()) &&
+                      normalizedStatus === "rejected" &&
                       paymentConfirmed &&
                       !["refund_requested", "refund_reviewing", "refund_processing", "refunded"].includes(refundStatus);
                     return (
@@ -1773,7 +1802,9 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                                   onClick={() => openResumeSubmission(item)}
                                   className="rounded-xl border border-cyan-200 bg-white px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50"
                                 >
-                                  {locale === "en" ? "Update publication" : locale === "pt" ? "Atualizar publicação" : locale === "it" ? "Aggiorna pubblicazione" : "Actualizar publicación"}
+                                  {normalizedStatus === "rejected"
+                                    ? (locale === "en" ? "Edit and resubmit" : locale === "pt" ? "Editar e reenviar" : locale === "it" ? "Modifica e reinvia" : "Editar y reenviar")
+                                    : (locale === "en" ? "Update information" : locale === "pt" ? "Atualizar informação" : locale === "it" ? "Aggiorna informazioni" : "Actualizar información")}
                                 </button>
                               ) : null}
                               {canRequestRefund ? (
@@ -1863,7 +1894,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-slate-900">{copy.publicationsTitle}</h3>
                 <div className="mt-4 space-y-3">
-                  {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration }) => {
+                  {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration, needsInfoSubmission }) => {
                     const badge = planBadge(effectivePlanType);
                     const canOpenFromHistory = relatedSubmission ?? latestApprovedSubmission;
                     return (
@@ -1880,6 +1911,15 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                         <div><span className="font-medium text-slate-800">{planCopy.linkedRequest}:</span> {relatedSubmission?.id || publication.sourceServiceId || "-"}</div>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
+                        {needsInfoSubmission ? (
+                          <button
+                            type="button"
+                            onClick={() => openResumeSubmission(needsInfoSubmission)}
+                            className="rounded-xl border border-orange-200 bg-white px-3 py-2 text-xs font-semibold text-orange-700 hover:bg-orange-50"
+                          >
+                            {locale === "en" ? "Update information" : locale === "pt" ? "Atualizar informação" : locale === "it" ? "Aggiorna informazioni" : "Actualizar información"}
+                          </button>
+                        ) : null}
                         {effectivePlanType === "basic_free" ? (
                           <>
                             <button
@@ -1934,54 +1974,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                         ) : null}
                       </div>
                     </div>
-                  )}) : actionableSubmissionEntries.length ? actionableSubmissionEntries.map((item) => {
-                    const plan = planBadge(item.planType);
-                    const canResume = ["needs_info", "rejected"].includes(String(item.status ?? "").trim().toLowerCase());
-                    const refundStatus = String(item.refundStatus ?? "").trim().toLowerCase();
-                    const paymentConfirmed = isConfirmedPortalPayment(item.paymentStatus);
-                    const canRequestRefund =
-                      ["rejected", "needs_info"].includes(String(item.status ?? "").trim().toLowerCase()) &&
-                      paymentConfirmed &&
-                      !["refund_requested", "refund_reviewing", "refund_processing", "refunded"].includes(refundStatus);
-                    return (
-                      <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-slate-900">{item.profileName || item.email}</span>
-                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(plan.kind)}`}>{plan.label}</span>
-                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(visualSubmissionKind(item))}`}>{copy.status}: {decodeLikelyMojibake(visualSubmissionLabel(item))}</span>
-                        </div>
-                        <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                          <div><span className="font-medium text-slate-800">{copy.destination}:</span> {item.destinationCountry || "-"}</div>
-                          <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(item.createdAt, locale)}</div>
-                          <div><span className="font-medium text-slate-800">{t("admin.request.reason")}:</span> {decodeLikelyMojibake(item.statusReason || "-")}</div>
-                          <div><span className="font-medium text-slate-800">{planCopy.linkedRequest}:</span> {item.id}</div>
-                        </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {canResume ? (
-                            <button
-                              type="button"
-                              onClick={() => openResumeSubmission(item)}
-                              className="rounded-xl border border-cyan-200 bg-white px-3 py-2 text-xs font-semibold text-cyan-700 hover:bg-cyan-50"
-                            >
-                              {locale === "en" ? "Update publication" : locale === "pt" ? "Atualizar publicação" : locale === "it" ? "Aggiorna pubblicazione" : "Actualizar publicación"}
-                            </button>
-                          ) : null}
-                          {canRequestRefund ? (
-                            <button
-                              type="button"
-                              onClick={() => void requestRefund(item)}
-                              disabled={refundingSubmissionId === item.id}
-                              className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {refundingSubmissionId === item.id
-                                ? (locale === "en" ? "Requesting..." : locale === "pt" ? "Solicitando..." : locale === "it" ? "Richiesta..." : "Solicitando...")
-                                : (locale === "en" ? "Request refund" : locale === "pt" ? "Solicitar reembolso" : locale === "it" ? "Richiedi rimborso" : "Solicitar reembolso")}
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  }) : (
+                  )}) : (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
                       {copy.emptyPublications}
                     </div>
