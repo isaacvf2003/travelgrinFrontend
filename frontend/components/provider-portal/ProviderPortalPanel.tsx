@@ -935,7 +935,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     nextUrl.searchParams.delete("submission_id");
     window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
     const targetSubmission = dashboard.submissions.find((item) => item.id === portalSubmissionId);
-    if (!targetSubmission || String(targetSubmission.status ?? "").trim().toLowerCase() !== "needs_info") {
+    if (!targetSubmission || !["needs_info", "rejected"].includes(String(targetSubmission.status ?? "").trim().toLowerCase())) {
       toast.error(t("enlace_reanudacion_invalido"));
       return;
     }
@@ -1500,6 +1500,10 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     return Array.from(groups.values()).sort((a, b) => planSortRank(a.planType) - planSortRank(b.planType));
   }, [dashboard?.submissions, planSortRank, sortedVisiblePublicationEntries]);
 
+  const actionableSubmissionEntries = useMemo(() => {
+    return sortedSubmissions.filter((item) => ["needs_info", "rejected"].includes(String(item.status ?? "").trim().toLowerCase()));
+  }, [sortedSubmissions]);
+
   const planCards = useMemo(() => {
     const featuredReady = Boolean(featured120Price && Number(featured120Price.amount ?? 0) > 0);
     const monthlyReady = Boolean(monthlyPrice && Number(monthlyPrice.amount ?? 0) > 0);
@@ -1742,7 +1746,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                     const statusLabel = visualSubmissionLabel(item);
                     const paymentLabel = visualPaymentLabel(item.paymentStatus);
                     const canDelete = !["aprobado", "approved", "active", "paid"].includes(String(item.status).toLowerCase()) && String(item.paymentStatus || "").toLowerCase() !== "paid";
-                    const canResume = String(item.status ?? "").trim().toLowerCase() === "needs_info";
+                    const canResume = ["needs_info", "rejected"].includes(String(item.status ?? "").trim().toLowerCase());
                     const refundStatus = String(item.refundStatus ?? "").trim().toLowerCase();
                     const paymentConfirmed = isConfirmedPortalPayment(item.paymentStatus);
                     const canRequestRefund =
@@ -1930,7 +1934,54 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                         ) : null}
                       </div>
                     </div>
-                  )}) : (
+                  )}) : actionableSubmissionEntries.length ? actionableSubmissionEntries.map((item) => {
+                    const plan = planBadge(item.planType);
+                    const canResume = ["needs_info", "rejected"].includes(String(item.status ?? "").trim().toLowerCase());
+                    const refundStatus = String(item.refundStatus ?? "").trim().toLowerCase();
+                    const paymentConfirmed = isConfirmedPortalPayment(item.paymentStatus);
+                    const canRequestRefund =
+                      ["rejected", "needs_info"].includes(String(item.status ?? "").trim().toLowerCase()) &&
+                      paymentConfirmed &&
+                      !["refund_requested", "refund_reviewing", "refund_processing", "refunded"].includes(refundStatus);
+                    return (
+                      <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-semibold text-slate-900">{item.profileName || item.email}</span>
+                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(plan.kind)}`}>{plan.label}</span>
+                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(visualSubmissionKind(item))}`}>{copy.status}: {decodeLikelyMojibake(visualSubmissionLabel(item))}</span>
+                        </div>
+                        <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                          <div><span className="font-medium text-slate-800">{copy.destination}:</span> {item.destinationCountry || "-"}</div>
+                          <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(item.createdAt, locale)}</div>
+                          <div><span className="font-medium text-slate-800">{t("admin.request.reason")}:</span> {decodeLikelyMojibake(item.statusReason || "-")}</div>
+                          <div><span className="font-medium text-slate-800">{planCopy.linkedRequest}:</span> {item.id}</div>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {canResume ? (
+                            <button
+                              type="button"
+                              onClick={() => openResumeSubmission(item)}
+                              className="rounded-xl border border-cyan-200 bg-white px-3 py-2 text-xs font-semibold text-cyan-700 hover:bg-cyan-50"
+                            >
+                              {locale === "en" ? "Update publication" : locale === "pt" ? "Atualizar publicação" : locale === "it" ? "Aggiorna pubblicazione" : "Actualizar publicación"}
+                            </button>
+                          ) : null}
+                          {canRequestRefund ? (
+                            <button
+                              type="button"
+                              onClick={() => void requestRefund(item)}
+                              disabled={refundingSubmissionId === item.id}
+                              className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {refundingSubmissionId === item.id
+                                ? (locale === "en" ? "Requesting..." : locale === "pt" ? "Solicitando..." : locale === "it" ? "Richiesta..." : "Solicitando...")
+                                : (locale === "en" ? "Request refund" : locale === "pt" ? "Solicitar reembolso" : locale === "it" ? "Richiedi rimborso" : "Solicitar reembolso")}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  }) : (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
                       {copy.emptyPublications}
                     </div>

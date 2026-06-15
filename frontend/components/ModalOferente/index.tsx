@@ -760,7 +760,10 @@ export default function ModalOferente({
   const modalLocale: OferenteModalLocale = locale in OFERENTE_MODAL_TEXT ? (locale as OferenteModalLocale) : "es";
   const mt = (key: OferenteModalTextKey) => OFERENTE_MODAL_TEXT[modalLocale][key] ?? OFERENTE_MODAL_TEXT.es[key];
   const fillText = (key: OferenteModalTextKey, replacements: Record<string, string>) =>
-    Object.entries(replacements).reduce((text, [token, value]) => text.replace(`{${token}}`, value), mt(key));
+    (Object.entries(replacements) as Array<[string, string]>).reduce<string>(
+      (text, [token, value]) => text.replace(`{${token}}`, value),
+      mt(key),
+    );
   const promoMessageKey = (payload: any): OferenteModalTextKey => {
     const code = String(payload?.errorCode ?? payload?.reason ?? "").trim().toLowerCase();
     if (code.includes("empty")) return "oferente_promo_empty_code";
@@ -1692,6 +1695,13 @@ export default function ModalOferente({
   const paidPlanTitle = selectedPlan === "monthly"
     ? (locale === "en" ? "Monthly plan" : locale === "pt" ? "Plano mensal" : locale === "it" ? "Piano mensile" : "Plan mensual")
     : mt("oferente_publicacion_destacada");
+  const resumeSubmitLabel = locale === "en"
+    ? "Update publication"
+    : locale === "pt"
+      ? "Atualizar publicação"
+      : locale === "it"
+        ? "Aggiorna pubblicazione"
+        : "Actualizar publicación";
   const monthlyContinueLabel = locale === "en" ? "Continue monthly" : locale === "pt" ? "Continuar mensal" : locale === "it" ? "Continua mensile" : "Continuar mensual";
   const monthlySubmitLabel = locale === "en" ? "Subscribe monthly" : locale === "pt" ? "Assinar mensal" : locale === "it" ? "Attiva piano mensile" : "Contratar mensual";
   const visiblePlanSet = new Set(visiblePlans);
@@ -1836,7 +1846,7 @@ export default function ModalOferente({
             tone="free"
             price="$ 0"
             items={basicItems}
-            buttonLabel={isLoading ? t("guardando") : mt("oferente_publicar_gratis")}
+            buttonLabel={isLoading ? t("guardando") : (resumeMode ? resumeSubmitLabel : mt("oferente_publicar_gratis"))}
             onClick={() => submit("basic_free")}
             disabled={isLoading || isPaymentBusy}
             promoPlaceholder={mt("oferente_codigo_promocional")}
@@ -2051,7 +2061,7 @@ export default function ModalOferente({
           showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
           priceCaption={`Moneda: ${effectivePlanPricing.currency}`}
           items={featuredItems}
-          buttonLabel={isLoading ? t("guardando") : (selectedPlan === "monthly" ? monthlySubmitLabel : mt("oferente_publicar_destacado"))}
+          buttonLabel={isLoading ? t("guardando") : (resumeMode ? resumeSubmitLabel : (selectedPlan === "monthly" ? monthlySubmitLabel : mt("oferente_publicar_destacado")))}
           onClick={() => submit(selectedPlan === "monthly" ? "monthly" : "featured")}
           disabled={isLoading || isPaymentBusy}
           showPromo
