@@ -30,6 +30,10 @@ type Props = {
   previousPlan?: "basic_free" | "featured" | "monthly";
   sourceServiceId?: string;
   initialData?: Record<string, any> | null;
+  resumeMode?: boolean;
+  resumeSubmissionId?: string;
+  resumePaymentState?: string;
+  resumeStatusReason?: string;
   compactPlanCards?: boolean;
   onSubmitted?: (info: { serviceId: string; plan: "basic_free" | "featured" | "monthly" }) => void;
   onPaymentResolved?: (info: { serviceId: string; plan: "featured" | "monthly"; status: "success" | "cancel" }) => void;
@@ -470,6 +474,15 @@ type ContactEntry = { kind: ContactKind; url: string; label: string };
 
 const normalize = (value: string) => String(value ?? "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
 
+function parseUnknownJsonObject(value: unknown) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(String(value ?? "{}"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+  } catch {}
+  return {};
+}
+
 function uniqueOptions(options: SelectOption[]) {
   const seen = new Set<string>();
   return options.filter((option) => {
@@ -734,6 +747,10 @@ export default function ModalOferente({
   previousPlan,
   sourceServiceId = "",
   initialData = null,
+  resumeMode = false,
+  resumeSubmissionId = "",
+  resumePaymentState = "",
+  resumeStatusReason = "",
   compactPlanCards = false,
   onSubmitted,
   onPaymentResolved,
@@ -849,6 +866,8 @@ export default function ModalOferente({
   const [isEmptyEmail, setIsEmptyEmail] = useState(false);
   const [isEmptyTerms, setIsEmptyTerms] = useState(false);
   const [featuredTypeFocusKey, setFeaturedTypeFocusKey] = useState(0);
+  const effectiveResumePaymentState = String(resumePaymentState || initialData?.paymentStatus || initialData?.paymentReturnStatus || "").trim().toLowerCase();
+  const canReuseCompletedPayment = resumeMode && ["paid", "approved", "completed", "success", "ok"].includes(effectiveResumePaymentState);
 
   const effectiveCountry = String(fixedCountry || selectedCountry || "").trim();
   const effectivePlanPricing = selectedPlan === "monthly" ? monthlyPlanPricing : featured120PlanPricing;
@@ -889,72 +908,80 @@ export default function ModalOferente({
     setIsEmptyEmail(false);
   }, [initialEmail]);
   useEffect(() => {
+    if (!resumeMode) return;
+    setSelectedPlan(initialPlan);
+    setSelectedPaidPlanType(preferredPaidPlanType);
+    setStep(initialPlan === "basic_free" ? "basic" : "featured");
+  }, [initialPlan, preferredPaidPlanType, resumeMode]);
+  useEffect(() => {
     if (!initialData) return;
-    setProfileName(String(initialData.name ?? initialData.profileName ?? "").trim());
+    const fallbackExtra = parseUnknownJsonObject(initialData.whatSearchingRaw ?? initialData.whatSearching ?? null);
+    const mergedInitialData = { ...fallbackExtra, ...initialData };
+    setProfileName(String(mergedInitialData.name ?? mergedInitialData.profileName ?? "").trim());
     setProposalCategories(
-      Array.isArray(initialData.category)
-        ? initialData.category.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+      Array.isArray(mergedInitialData.category)
+        ? mergedInitialData.category.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
         : [],
     );
-    setIsOfrezco(Boolean(initialData.isOfrezco));
-    setIsIntermediario(Boolean(initialData.isIntermediario));
-    setDestinationCountry(String(initialData.destinationCountry ?? "").trim());
-    setDestinationAvailabilityMode(initialData.receivingCountriesMode === "only" ? "some" : "all");
+    setIsOfrezco(Boolean(mergedInitialData.isOfrezco));
+    setIsIntermediario(Boolean(mergedInitialData.isIntermediario));
+    setDestinationCountry(String(mergedInitialData.destinationCountry ?? "").trim());
+    setDestinationAvailabilityMode(mergedInitialData.receivingCountriesMode === "only" ? "some" : "all");
     setDestinationAvailabilityCountries(
-      Array.isArray(initialData.receivingCountries)
-        ? initialData.receivingCountries.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+      Array.isArray(mergedInitialData.receivingCountries)
+        ? mergedInitialData.receivingCountries.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
         : [],
     );
     setPassportCountries(
-      Array.isArray(initialData.receivingCountries)
-        ? initialData.receivingCountries.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+      Array.isArray(mergedInitialData.receivingCountries)
+        ? mergedInitialData.receivingCountries.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
         : [],
     );
     setLanguages(
-      Array.isArray(initialData.languages)
-        ? initialData.languages.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+      Array.isArray(mergedInitialData.languages)
+        ? mergedInitialData.languages.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
         : [],
     );
     const firstVenue =
-      Array.isArray(initialData.venues) && initialData.venues[0] && typeof initialData.venues[0] === "object"
-        ? (initialData.venues[0] as Record<string, unknown>)
+      Array.isArray(mergedInitialData.venues) && mergedInitialData.venues[0] && typeof mergedInitialData.venues[0] === "object"
+        ? (mergedInitialData.venues[0] as Record<string, unknown>)
         : null;
     setPrimaryVenue({
-      country: String(firstVenue?.country ?? initialData.headquarterCountry ?? "").trim(),
-      city: String(firstVenue?.city ?? initialData.headquarterCity ?? initialData.city ?? "").trim(),
-      mapUrl: String(firstVenue?.mapUrl ?? initialData.headquarterMapUrl ?? initialData.destinationMapUrl ?? "").trim(),
+      country: String(firstVenue?.country ?? mergedInitialData.headquarterCountry ?? "").trim(),
+      city: String(firstVenue?.city ?? mergedInitialData.headquarterCity ?? mergedInitialData.city ?? "").trim(),
+      mapUrl: String(firstVenue?.mapUrl ?? mergedInitialData.headquarterMapUrl ?? mergedInitialData.destinationMapUrl ?? "").trim(),
     });
-    setDescription(String(initialData.contanos ?? initialData.description ?? "").trim());
-    setWebsite(String(initialData.website ?? "").trim());
-    setProviderLogo(String(initialData.providerLogo ?? "").trim());
-    setProviderLogoAsset(initialData.providerLogoAsset && typeof initialData.providerLogoAsset === "object" ? initialData.providerLogoAsset as ImageAsset : null);
+    setDescription(String(mergedInitialData.contanos ?? mergedInitialData.description ?? "").trim());
+    setWebsite(String(mergedInitialData.website ?? "").trim());
+    setProviderLogo(String(mergedInitialData.providerLogo ?? "").trim());
+    setProviderLogoAsset(mergedInitialData.providerLogoAsset && typeof mergedInitialData.providerLogoAsset === "object" ? mergedInitialData.providerLogoAsset as ImageAsset : null);
     setProviderType(
-      Array.isArray(initialData.typeProfile)
-        ? String(initialData.typeProfile[0] ?? "").trim()
-        : String(initialData.providerType ?? "").trim(),
+      Array.isArray(mergedInitialData.typeProfile)
+        ? String(mergedInitialData.typeProfile[0] ?? "").trim()
+        : String(mergedInitialData.providerType ?? "").trim(),
     );
     setServiceImages(
-      Array.isArray(initialData.images)
-        ? initialData.images.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
+      Array.isArray(mergedInitialData.images)
+        ? mergedInitialData.images.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean)
         : [],
     );
     setServiceImageAssets(
-      Array.isArray(initialData.imageAssets)
-        ? initialData.imageAssets.filter((entry: unknown) => entry && typeof entry === "object") as ImageAsset[]
+      Array.isArray(mergedInitialData.imageAssets)
+        ? mergedInitialData.imageAssets.filter((entry: unknown) => entry && typeof entry === "object") as ImageAsset[]
         : [],
     );
     setIncluded(
-      Array.isArray(initialData.included)
-        ? initialData.included.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean).join("\n")
-        : String(initialData.included ?? "").trim(),
+      Array.isArray(mergedInitialData.included)
+        ? mergedInitialData.included.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean).join("\n")
+        : String(mergedInitialData.included ?? "").trim(),
     );
     setNotIncluded(
-      Array.isArray(initialData.notIncluded)
-        ? initialData.notIncluded.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean).join("\n")
-        : String(initialData.notIncluded ?? "").trim(),
+      Array.isArray(mergedInitialData.notIncluded)
+        ? mergedInitialData.notIncluded.map((entry: unknown) => String(entry ?? "").trim()).filter(Boolean).join("\n")
+        : String(mergedInitialData.notIncluded ?? "").trim(),
     );
-    const detailedLinks = Array.isArray(initialData.socialLinksDetailed)
-      ? initialData.socialLinksDetailed
+    const detailedLinks = Array.isArray(mergedInitialData.socialLinksDetailed)
+      ? mergedInitialData.socialLinksDetailed
           .map((entry: unknown) => {
             if (!entry || typeof entry !== "object") return null;
             const item = entry as Record<string, unknown>;
@@ -967,8 +994,8 @@ export default function ModalOferente({
           .filter(Boolean) as ContactEntry[]
       : [];
     setContactLinks(detailedLinks.length ? detailedLinks : [{ kind: "web", url: "", label: "" }]);
-    const nextPrices = Array.isArray(initialData.priceByCurrency)
-      ? initialData.priceByCurrency
+    const nextPrices = Array.isArray(mergedInitialData.priceByCurrency)
+      ? mergedInitialData.priceByCurrency
           .map((entry: unknown) => {
             if (!entry || typeof entry !== "object") return null;
             const item = entry as Record<string, unknown>;
@@ -980,9 +1007,9 @@ export default function ModalOferente({
           .filter(Boolean) as PriceEntry[]
       : [];
     setPriceEntries(nextPrices.length ? nextPrices : [{ currency: "USD", amount: "" }]);
-    setPriceNegotiable(Boolean(initialData.priceNegotiable));
-    setPricePeriod(String(initialData.pricePeriod ?? "month").trim() || "month");
-    setAcceptedTerms(Boolean(initialData.acceptedTerms ?? true));
+    setPriceNegotiable(Boolean(mergedInitialData.priceNegotiable));
+    setPricePeriod(String(mergedInitialData.pricePeriod ?? "month").trim() || "month");
+    setAcceptedTerms(Boolean(mergedInitialData.acceptedTerms ?? true));
   }, [initialData]);
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
@@ -1470,12 +1497,13 @@ export default function ModalOferente({
     if (!validateBasic()) return;
     const isPaidPlan = publicationPlan === "featured" || publicationPlan === "monthly";
     if (isPaidPlan && !validateFeatured()) return;
+    const isResumePaidWithoutNewCharge = isPaidPlan && canReuseCompletedPayment;
 
     let preparedPaymentTab: Window | null = null;
     let keepPaymentLoading = false;
-    if (isPaidPlan) {
+    if (isPaidPlan && !isResumePaidWithoutNewCharge) {
       setPaymentUi({ status: "preparing", messageKey: "oferente_pago_preparando" });
-      const pendingServiceId = String(submittedServiceIdRef.current || "pending").trim() || "pending";
+      const pendingServiceId = String((resumeMode ? resumeSubmissionId : submittedServiceIdRef.current) || "pending").trim() || "pending";
       const preparingUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(pendingServiceId)}&locale=${encodeURIComponent(locale)}&state=preparing`;
       preparedPaymentTab = window.open(preparingUrl, "_blank");
       if (!preparedPaymentTab) {
@@ -1487,7 +1515,7 @@ export default function ModalOferente({
       setPaymentUi({ status: "idle" });
     }
 
-    if (isPaidPlan && promoCode.trim()) {
+    if (isPaidPlan && !isResumePaidWithoutNewCharge && promoCode.trim()) {
       const valid = await applyPromoCode();
       if (!valid) {
         try {
@@ -1500,8 +1528,15 @@ export default function ModalOferente({
     }
     setIsLoading(true);
     try {
-      const response = await fetch("/api/travel-services", {
-        method: "POST",
+      if (resumeMode && !String(resumeSubmissionId || "").trim()) {
+        throw new Error(t("enlace_reanudacion_invalido"));
+      }
+      const endpoint = resumeMode
+        ? `/api/provider-portal/submissions/${encodeURIComponent(String(resumeSubmissionId || "").trim())}`
+        : "/api/travel-services";
+      const response = await fetch(endpoint, {
+        method: resumeMode ? "PUT" : "POST",
+        credentials: resumeMode ? "include" : undefined,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildPayload(publicationPlan)),
       });
@@ -1525,10 +1560,14 @@ export default function ModalOferente({
         }
         throw new Error(String(data?.details ?? data?.error ?? ""));
       }
-      submittedServiceIdRef.current = String(data?.id ?? "");
-      if (publicationPlan === "basic_free") {
-        onSubmitted?.({ serviceId: String(data?.id ?? ""), plan: publicationPlan });
+      const serviceId = String(data?.item?.id ?? data?.id ?? resumeSubmissionId ?? "").trim();
+      submittedServiceIdRef.current = serviceId;
+      if (publicationPlan === "basic_free" || isResumePaidWithoutNewCharge) {
+        toast.success(t("solicitud_reenviada"));
+        onSubmitted?.({ serviceId, plan: publicationPlan });
         submittedServiceIdRef.current = null;
+        setIsLoading(false);
+        return;
       }
 
       if (isPaidPlan) {
@@ -1537,7 +1576,7 @@ export default function ModalOferente({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            serviceId: String(data?.id ?? ""),
+            serviceId,
             country: effectiveCountry,
             amount: paidPayload.discountedPlanAmount,
             currency: paidPayload.planCurrency,
@@ -1553,7 +1592,7 @@ export default function ModalOferente({
           throw new Error("payment_checkout_failed");
         }
         const redirectUrl = String(checkoutData.redirectUrl);
-        const launchUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(String(data?.id ?? ""))}&locale=${encodeURIComponent(locale)}&redirect=${encodeURIComponent(btoa(redirectUrl))}&state=connecting`;
+        const launchUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(serviceId)}&locale=${encodeURIComponent(locale)}&redirect=${encodeURIComponent(btoa(redirectUrl))}&state=connecting`;
         const paymentTab = preparedPaymentTab ?? window.open(launchUrl, "_blank");
         if (!paymentTab) {
           if (submittedServiceIdRef.current) {
@@ -2061,6 +2100,17 @@ export default function ModalOferente({
               <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? mt("oferente_destacado_heading") : t("cambiamos_la_manera")}</h2>
             </div>
             <PaymentStatusPanel state={paymentUi} text={mt} />
+            {resumeMode ? (
+              <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
+                <div className="font-semibold">{t("reanudar_solicitud")}</div>
+                <div className="mt-1">{t("si_ya_pagaste_no_pagas_de_nuevo")}</div>
+                {resumeStatusReason ? (
+                  <div className="mt-2 text-xs">
+                    <span className="font-semibold">{t("completar_info")}:</span> {resumeStatusReason}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {step === "basic" ? basicStep : featuredStep}
             <div className="flex items-center justify-center gap-2 text-xs text-slate-600">
               <Globe2 className="h-4 w-4" />
