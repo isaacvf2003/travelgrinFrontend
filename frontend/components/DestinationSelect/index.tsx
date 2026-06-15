@@ -14,6 +14,7 @@ type CountryApi = {
 };
 
 type Country = CountryApi & { spanishName: string };
+const EMPTY_ALLOWED_COUNTRIES: string[] = [];
 
 type Props = {
   destinationCountry: string;
@@ -26,6 +27,9 @@ type Props = {
   isInModal?: boolean;
   textBuscarPais?: string;
   noHayPaises?: string;
+  publishedOnly?: boolean;
+  allowedCountries?: string[];
+  error?: boolean;
 };
 
 function normalize(value: string) {
@@ -47,6 +51,9 @@ export default function DestinationSelect({
   isInModal = false,
   textBuscarPais = "",
   noHayPaises = "",
+  publishedOnly = false,
+  allowedCountries = EMPTY_ALLOWED_COUNTRIES,
+  error = false,
 }: Props) {
   const { t } = useTranslation();
 
@@ -58,20 +65,66 @@ export default function DestinationSelect({
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
+  const allowedCountrySignature = useMemo(
+    () => (Array.isArray(allowedCountries) ? allowedCountries : []).map((entry) => String(entry ?? "").trim()).filter(Boolean).join("|"),
+    [allowedCountries]
+  );
+
+  const allowedCountryKeys = useMemo(
+    () =>
+      new Set(
+        allowedCountrySignature
+          .split("|")
+          .map((entry) => normalize(String(entry ?? "")))
+          .filter(Boolean)
+      ),
+    [allowedCountrySignature]
+  );
+
   useEffect(() => {
     setIsClient(true);
     (async () => {
       try {
-        const res = await fetch(
-          "https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags"
+        const [countriesRes, destinationsRes] = await Promise.all([
+          fetch(
+            "https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags"
+          ),
+          publishedOnly
+            ? fetch("/api/publications?status=active&destinationsOnly=1", {
+                cache: "no-store",
+              })
+            : Promise.resolve(null),
+        ]);
+        const data = (await countriesRes.json()) as CountryApi[];
+        const destinationsPayload = destinationsRes
+          ? await destinationsRes.json().catch(() => ({}))
+          : { items: [] as string[] };
+        const destinationKeys = new Set(
+          (Array.isArray(destinationsPayload?.items) ? destinationsPayload.items : [])
+            .map((entry: unknown) => normalize(String(entry ?? "")))
+            .filter(Boolean)
         );
-        const data = (await res.json()) as CountryApi[];
 
         const items: Country[] = data
           .map((c) => ({
             ...c,
             spanishName: c.translations?.spa?.common || c.name.common,
           }))
+          .filter((country) => {
+            if (allowedCountryKeys.size) {
+              const isAllowed =
+                allowedCountryKeys.has(normalize(country.spanishName)) ||
+                allowedCountryKeys.has(normalize(country.name.common)) ||
+                allowedCountryKeys.has(normalize(country.cca2));
+              if (!isAllowed) return false;
+            }
+            if (!publishedOnly) return true;
+            return (
+              destinationKeys.has(normalize(country.spanishName)) ||
+              destinationKeys.has(normalize(country.name.common)) ||
+              destinationKeys.has(normalize(country.cca2))
+            );
+          })
           .sort((a, b) => a.spanishName.localeCompare(b.spanishName));
 
         setCountries(items);
@@ -79,7 +132,7 @@ export default function DestinationSelect({
         console.error("Error fetching countries:", e);
       }
     })();
-  }, []);
+  }, [publishedOnly, allowedCountryKeys]);
 
   const selectedCountryObj = useMemo(() => {
     if (!destinationCountry) return null;
@@ -144,7 +197,7 @@ export default function DestinationSelect({
       const dropdownHeight = 320;
 
       const spaceBelow = viewportHeight - rect.bottom;
-      const showAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+      const showAbove = window.innerWidth >= 768 && spaceBelow < dropdownHeight && rect.top > dropdownHeight;
 
       setPos({
         top: showAbove ? rect.top - dropdownHeight - 8 : rect.bottom + 8,
@@ -266,7 +319,9 @@ export default function DestinationSelect({
         ref={buttonRef}
         type="button"
         onClick={handleButtonClick}
-        className={`group relative w-full rounded-lg border border-gray-200 bg-white text-left shadow-sm transition-all duration-200 hover:border-teal-200 hover:shadow-md ${
+        className={`group relative w-full rounded-lg border bg-white text-left shadow-sm transition-all duration-200 hover:shadow-md ${
+          error ? "border-rose-300 ring-2 ring-rose-100" : "border-gray-200 hover:border-teal-200"
+        } ${
           !isInModal ? "pl-10" : "pl-12 pr-12"
         } ${buttonClass} ${hasCustomButtonSizing ? "" : "p-4 pt-6"}`}
         style={{
