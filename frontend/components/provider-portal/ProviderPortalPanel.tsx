@@ -1485,8 +1485,20 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
       if (nextExpiration < savedExpiration) current.nearestExpiration = entry.effectiveExpiration;
       groups.set(planType, current);
     }
+    for (const submission of dashboard?.submissions ?? []) {
+      if (!["aprobado", "approved", "active", "activo", "paid"].includes(String(submission.status ?? "").trim().toLowerCase())) continue;
+      if (sortedVisiblePublicationEntries.some((entry) => entry.relatedSubmission?.id === submission.id)) continue;
+      const planType = normalizePortalPlanType(submission.requestedPlan ?? submission.planType);
+      const current = groups.get(planType) ?? { planType, count: 0, nearestExpiration: null, statuses: [] };
+      current.count += 1;
+      current.statuses.push(String(submission.status ?? ""));
+      const nextExpiration = submission.expirationAt ? new Date(submission.expirationAt).getTime() : Number.POSITIVE_INFINITY;
+      const savedExpiration = current.nearestExpiration ? new Date(current.nearestExpiration).getTime() : Number.POSITIVE_INFINITY;
+      if (nextExpiration < savedExpiration) current.nearestExpiration = submission.expirationAt;
+      groups.set(planType, current);
+    }
     return Array.from(groups.values()).sort((a, b) => planSortRank(a.planType) - planSortRank(b.planType));
-  }, [planSortRank, sortedVisiblePublicationEntries]);
+  }, [dashboard?.submissions, planSortRank, sortedVisiblePublicationEntries]);
 
   const planCards = useMemo(() => {
     const featuredReady = Boolean(featured120Price && Number(featured120Price.amount ?? 0) > 0);
@@ -1639,6 +1651,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                 <div className="flex items-center gap-3 text-slate-500"><CircleDollarSign className="h-4 w-4" /> <span className="text-xs font-semibold uppercase tracking-wide">{copy.statsPlans}</span></div>
                 <div className="mt-3 space-y-2">
                   <div className="text-sm font-semibold text-slate-900">{planCopy.currentPlan}</div>
+                  {!planDistribution.length ? (
                   <div className="flex flex-wrap gap-2">
                     {currentPlanCreatedAt ? (
                       <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
@@ -1654,7 +1667,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                       </span>
                     ) : null}
                   </div>
-                  <p className="text-xs leading-relaxed text-slate-500">{planCopy.currentPlanBody}</p>
+                  ) : null}
                   {planDistribution.length ? (
                     <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
                       {planDistribution.map((group) => {
@@ -1678,7 +1691,9 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                         );
                       })}
                     </div>
-                  ) : null}
+                  ) : (
+                    <p className="text-xs leading-relaxed text-slate-500">{planCopy.currentPlanBody}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1754,7 +1769,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                                   onClick={() => openResumeSubmission(item)}
                                   className="rounded-xl border border-cyan-200 bg-white px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50"
                                 >
-                                  {t("completar_info")}
+                                  {locale === "en" ? "Update publication" : locale === "pt" ? "Atualizar publicação" : locale === "it" ? "Aggiorna pubblicazione" : "Actualizar publicación"}
                                 </button>
                               ) : null}
                               {canRequestRefund ? (
