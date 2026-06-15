@@ -279,9 +279,9 @@ export default function SearchBar() {
   }, [destinationCountry]);
 
   return (
-    <div className="relative isolate z-[60] w-full max-w-6xl mx-auto px-4">
+    <div className="relative isolate z-[90] w-full max-w-6xl mx-auto px-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-center">
-        <div className="w-full md:flex-1 shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg relative z-40">
+        <div className="w-full md:flex-1 shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg relative z-[110]">
           <button
             type="button"
             onClick={() => setOpenCategoryDropdown((prev) => !prev)}
@@ -305,7 +305,7 @@ export default function SearchBar() {
           </button>
 
           {openCategoryDropdown ? (
-            <div className="absolute left-0 right-0 z-30 mt-2 max-h-80 overflow-y-auto rounded-xl bg-white p-2 shadow-2xl">
+            <div className="absolute left-0 right-0 z-[140] mt-2 max-h-80 overflow-y-auto rounded-xl bg-white p-2 shadow-2xl">
               {!categoryBlocks.length ? (
                 <div className="px-3 py-2 text-sm text-gray-500">No hay categorías disponibles</div>
               ) : (
