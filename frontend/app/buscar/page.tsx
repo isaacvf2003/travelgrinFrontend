@@ -450,6 +450,7 @@ export default async function BuscarPage({
 
                 <div>
                   {hasDestinationSelected ? (
+                  <>
                   <div id="publicaciones-normales">
                   <ResultsGrid items={sortedItems} />
 
@@ -487,6 +488,7 @@ export default async function BuscarPage({
                     />
                   </section>
                 ) : null}
+                  </>
                   ) : (
                     <div className="rounded-3xl border border-[#BDECF2] bg-[#EFFBFD] p-6 text-center text-[#0B6B7A] shadow-sm">
                       <h2 className="text-lg font-semibold"><TranslatedText id="elegir_destino_para_oportunidades" /></h2>
