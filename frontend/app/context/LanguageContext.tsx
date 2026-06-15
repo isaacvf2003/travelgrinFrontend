@@ -75,7 +75,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }
 
   const t = (key: TranslationKey): string => {
-    const value = translations[locale]?.[key] || translations.es[key]
+    const localeMap = translations[locale] as Record<string, string>
+    const fallbackMap = translations.es as Record<string, string>
+    const value = localeMap?.[key] || fallbackMap?.[key] || String(key)
     return normalizeVisibleText(value)
   }
 

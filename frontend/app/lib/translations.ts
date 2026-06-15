@@ -1793,5 +1793,215 @@ export const translations = {
     }
 }
 
-export type TranslationKey = keyof typeof translations.es
+export const providerPortalResumeTranslations = {
+    es: {
+        reanudar_solicitud: "Reanudar solicitud",
+        completar_info: "Completar info",
+        solicitud_reenviada: "Solicitud reenviada correctamente.",
+        si_ya_pagaste_no_pagas_de_nuevo: "Si ya pagaste, no pagás de nuevo.",
+        enlace_reanudacion_invalido: "Este enlace de reanudación ya no es válido.",
+    },
+    en: {
+        reanudar_solicitud: "Resume request",
+        completar_info: "Complete info",
+        solicitud_reenviada: "Request resubmitted successfully.",
+        si_ya_pagaste_no_pagas_de_nuevo: "If you already paid, you will not be charged again.",
+        enlace_reanudacion_invalido: "This resume link is no longer valid.",
+    },
+    pt: {
+        reanudar_solicitud: "Retomar solicitação",
+        completar_info: "Completar info",
+        solicitud_reenviada: "Solicitação reenviada com sucesso.",
+        si_ya_pagaste_no_pagas_de_nuevo: "Se você já pagou, não paga de novo.",
+        enlace_reanudacion_invalido: "Este link de retomada não é mais válido.",
+    },
+    it: {
+        reanudar_solicitud: "Riprendi richiesta",
+        completar_info: "Completa info",
+        solicitud_reenviada: "Richiesta reinviata correttamente.",
+        si_ya_pagaste_no_pagas_de_nuevo: "Se hai già pagato, non paghi di nuovo.",
+        enlace_reanudacion_invalido: "Questo link di ripresa non è più valido.",
+    }
+} as const
+
+export const providerPortalEmailTranslations = {
+    es: {
+        "providerPortal.email.needsInfo.subject": "Necesitamos que completes información de tu publicación",
+        "providerPortal.email.needsInfo.title": "Necesitamos que completes información de tu publicación",
+        "providerPortal.email.needsInfo.reasonLabel": "Motivo",
+        "providerPortal.email.needsInfo.paidNotice": "Si ya pagaste, no tendrás que pagar nuevamente.",
+        "providerPortal.email.needsInfo.cta": "Completar información",
+        "providerPortal.email.rejected.subject": "Tu solicitud fue rechazada",
+        "providerPortal.email.rejected.title": "Tu solicitud fue rechazada",
+        "providerPortal.email.rejected.reasonLabel": "Motivo",
+        "providerPortal.email.rejected.refundNotice": "Si ya realizaste el pago, podrás solicitar un reembolso desde tu panel. El equipo revisará tu solicitud y, si corresponde, se procesará el reembolso mediante el proveedor de pago.",
+    },
+    en: {
+        "providerPortal.email.needsInfo.subject": "We need you to complete information about your publication",
+        "providerPortal.email.needsInfo.title": "We need you to complete information about your publication",
+        "providerPortal.email.needsInfo.reasonLabel": "Reason",
+        "providerPortal.email.needsInfo.paidNotice": "If you already paid, you will not have to pay again.",
+        "providerPortal.email.needsInfo.cta": "Complete information",
+        "providerPortal.email.rejected.subject": "Your request was rejected",
+        "providerPortal.email.rejected.title": "Your request was rejected",
+        "providerPortal.email.rejected.reasonLabel": "Reason",
+        "providerPortal.email.rejected.refundNotice": "If you already completed the payment, you will be able to request a refund from your panel. The team will review your request and, if it applies, the refund will be processed through the payment provider.",
+    },
+    pt: {
+        "providerPortal.email.needsInfo.subject": "Precisamos que você complete informações da sua publicação",
+        "providerPortal.email.needsInfo.title": "Precisamos que você complete informações da sua publicação",
+        "providerPortal.email.needsInfo.reasonLabel": "Motivo",
+        "providerPortal.email.needsInfo.paidNotice": "Se você já pagou, não terá que pagar novamente.",
+        "providerPortal.email.needsInfo.cta": "Completar informações",
+        "providerPortal.email.rejected.subject": "Sua solicitação foi rejeitada",
+        "providerPortal.email.rejected.title": "Sua solicitação foi rejeitada",
+        "providerPortal.email.rejected.reasonLabel": "Motivo",
+        "providerPortal.email.rejected.refundNotice": "Se você já realizou o pagamento, poderá solicitar um reembolso pelo seu painel. A equipe revisará sua solicitação e, se corresponder, o reembolso será processado pelo provedor de pagamento.",
+    },
+    it: {
+        "providerPortal.email.needsInfo.subject": "Abbiamo bisogno che completi le informazioni della tua pubblicazione",
+        "providerPortal.email.needsInfo.title": "Abbiamo bisogno che completi le informazioni della tua pubblicazione",
+        "providerPortal.email.needsInfo.reasonLabel": "Motivo",
+        "providerPortal.email.needsInfo.paidNotice": "Se hai già pagato, non dovrai pagare di nuovo.",
+        "providerPortal.email.needsInfo.cta": "Completa le informazioni",
+        "providerPortal.email.rejected.subject": "La tua richiesta è stata rifiutata",
+        "providerPortal.email.rejected.title": "La tua richiesta è stata rifiutata",
+        "providerPortal.email.rejected.reasonLabel": "Motivo",
+        "providerPortal.email.rejected.refundNotice": "Se hai già effettuato il pagamento, potrai richiedere un rimborso dal tuo pannello. Il team esaminerà la tua richiesta e, se applicabile, il rimborso verrà elaborato tramite il fornitore di pagamento.",
+    }
+} as const
+
+export const providerPortalVisualTranslations = {
+    es: {
+        "providerPortal.status.pendingReview": "Pendiente de revisión",
+        "providerPortal.status.resubmittedForReview": "Reenviado para revisión",
+        "providerPortal.status.needsInfo": "Falta información",
+        "providerPortal.status.rejected": "Rechazado",
+        "providerPortal.status.approved": "Aprobado",
+        "providerPortal.status.expired": "Vencido",
+        "providerPortal.status.cancelled": "Cancelado",
+        "providerPortal.payment.paid": "Pago pagado",
+        "providerPortal.payment.processing": "Pago procesando",
+        "providerPortal.payment.notCompleted": "Pago no completado",
+        "providerPortal.payment.rejected": "Pago rechazado",
+        "providerPortal.refund.requested": "Reembolso solicitado",
+        "providerPortal.refund.reviewing": "Reembolso en revisión",
+        "providerPortal.refund.processing": "Reembolso procesándose",
+        "providerPortal.refund.completed": "Reembolsado",
+        "providerPortal.refund.rejected": "Reembolso rechazado",
+        "providerPortal.refund.failed": "Reembolso fallido",
+        "providerPortal.refund.pendingNotice": "Estamos esperando confirmación del proveedor de pago.",
+        "admin.request.reason": "Motivo visible",
+        "admin.request.paymentReference": "Referencia de pago",
+        "admin.request.resumeLink": "Link de reanudación generado",
+        "admin.request.refundStatus": "Estado de reembolso",
+        "admin.request.refundAmount": "Monto de reembolso",
+        "admin.request.providerError": "Error del proveedor",
+        "admin.request.resubmittedAt": "Reenviado",
+        "admin.request.updatedAt": "Última actualización",
+    },
+    en: {
+        "providerPortal.status.pendingReview": "Pending review",
+        "providerPortal.status.resubmittedForReview": "Resubmitted for review",
+        "providerPortal.status.needsInfo": "More information required",
+        "providerPortal.status.rejected": "Rejected",
+        "providerPortal.status.approved": "Approved",
+        "providerPortal.status.expired": "Expired",
+        "providerPortal.status.cancelled": "Cancelled",
+        "providerPortal.payment.paid": "Payment paid",
+        "providerPortal.payment.processing": "Payment processing",
+        "providerPortal.payment.notCompleted": "Payment not completed",
+        "providerPortal.payment.rejected": "Payment rejected",
+        "providerPortal.refund.requested": "Refund requested",
+        "providerPortal.refund.reviewing": "Refund under review",
+        "providerPortal.refund.processing": "Refund processing",
+        "providerPortal.refund.completed": "Refunded",
+        "providerPortal.refund.rejected": "Refund rejected",
+        "providerPortal.refund.failed": "Refund failed",
+        "providerPortal.refund.pendingNotice": "We are waiting for confirmation from the payment provider.",
+        "admin.request.reason": "Visible reason",
+        "admin.request.paymentReference": "Payment reference",
+        "admin.request.resumeLink": "Resume link generated",
+        "admin.request.refundStatus": "Refund status",
+        "admin.request.refundAmount": "Refund amount",
+        "admin.request.providerError": "Provider error",
+        "admin.request.resubmittedAt": "Resubmitted",
+        "admin.request.updatedAt": "Last update",
+    },
+    pt: {
+        "providerPortal.status.pendingReview": "Pendente de revisão",
+        "providerPortal.status.resubmittedForReview": "Reenviado para revisão",
+        "providerPortal.status.needsInfo": "Faltam informações",
+        "providerPortal.status.rejected": "Rejeitado",
+        "providerPortal.status.approved": "Aprovado",
+        "providerPortal.status.expired": "Vencido",
+        "providerPortal.status.cancelled": "Cancelado",
+        "providerPortal.payment.paid": "Pagamento pago",
+        "providerPortal.payment.processing": "Pagamento processando",
+        "providerPortal.payment.notCompleted": "Pagamento não concluído",
+        "providerPortal.payment.rejected": "Pagamento rejeitado",
+        "providerPortal.refund.requested": "Reembolso solicitado",
+        "providerPortal.refund.reviewing": "Reembolso em revisão",
+        "providerPortal.refund.processing": "Reembolso em processamento",
+        "providerPortal.refund.completed": "Reembolsado",
+        "providerPortal.refund.rejected": "Reembolso rejeitado",
+        "providerPortal.refund.failed": "Reembolso falhou",
+        "providerPortal.refund.pendingNotice": "Estamos aguardando a confirmação do provedor de pagamento.",
+        "admin.request.reason": "Motivo visível",
+        "admin.request.paymentReference": "Referência de pagamento",
+        "admin.request.resumeLink": "Link de retomada gerado",
+        "admin.request.refundStatus": "Status do reembolso",
+        "admin.request.refundAmount": "Valor do reembolso",
+        "admin.request.providerError": "Erro do provedor",
+        "admin.request.resubmittedAt": "Reenviado",
+        "admin.request.updatedAt": "Última atualização",
+    },
+    it: {
+        "providerPortal.status.pendingReview": "In attesa di revisione",
+        "providerPortal.status.resubmittedForReview": "Reinviata per revisione",
+        "providerPortal.status.needsInfo": "Mancano informazioni",
+        "providerPortal.status.rejected": "Rifiutata",
+        "providerPortal.status.approved": "Approvata",
+        "providerPortal.status.expired": "Scaduta",
+        "providerPortal.status.cancelled": "Annullata",
+        "providerPortal.payment.paid": "Pagamento pagato",
+        "providerPortal.payment.processing": "Pagamento in elaborazione",
+        "providerPortal.payment.notCompleted": "Pagamento non completato",
+        "providerPortal.payment.rejected": "Pagamento rifiutato",
+        "providerPortal.refund.requested": "Rimborso richiesto",
+        "providerPortal.refund.reviewing": "Rimborso in revisione",
+        "providerPortal.refund.processing": "Rimborso in elaborazione",
+        "providerPortal.refund.completed": "Rimborsato",
+        "providerPortal.refund.rejected": "Rimborso rifiutato",
+        "providerPortal.refund.failed": "Rimborso fallito",
+        "providerPortal.refund.pendingNotice": "Stiamo aspettando la conferma del fornitore di pagamento.",
+        "admin.request.reason": "Motivo visibile",
+        "admin.request.paymentReference": "Riferimento di pagamento",
+        "admin.request.resumeLink": "Link di ripresa generato",
+        "admin.request.refundStatus": "Stato del rimborso",
+        "admin.request.refundAmount": "Importo del rimborso",
+        "admin.request.providerError": "Errore del provider",
+        "admin.request.resubmittedAt": "Reinviata",
+        "admin.request.updatedAt": "Ultimo aggiornamento",
+    }
+} as const
+
+Object.assign(translations.es, providerPortalResumeTranslations.es)
+Object.assign(translations.en, providerPortalResumeTranslations.en)
+Object.assign(translations.pt, providerPortalResumeTranslations.pt)
+Object.assign(translations.it, providerPortalResumeTranslations.it)
+Object.assign(translations.es, providerPortalEmailTranslations.es)
+Object.assign(translations.en, providerPortalEmailTranslations.en)
+Object.assign(translations.pt, providerPortalEmailTranslations.pt)
+Object.assign(translations.it, providerPortalEmailTranslations.it)
+Object.assign(translations.es, providerPortalVisualTranslations.es)
+Object.assign(translations.en, providerPortalVisualTranslations.en)
+Object.assign(translations.pt, providerPortalVisualTranslations.pt)
+Object.assign(translations.it, providerPortalVisualTranslations.it)
+
+export type ProviderPortalResumeTranslationKey = keyof typeof providerPortalResumeTranslations.es
+export type ProviderPortalEmailTranslationKey = keyof typeof providerPortalEmailTranslations.es
+export type ProviderPortalVisualTranslationKey = keyof typeof providerPortalVisualTranslations.es
+
+export type TranslationKey = keyof typeof translations.es | ProviderPortalResumeTranslationKey | ProviderPortalEmailTranslationKey | ProviderPortalVisualTranslationKey
 export type Locale = keyof typeof translations

@@ -652,6 +652,10 @@ function normalizeAdminDomTree(root: HTMLElement) {
 
 function serviceEffectiveStatus(service: TravelService): string {
   const raw = String(service.status ?? service.whatStop ?? "").trim().toLowerCase();
+  if (["approved", "active", "activo"].includes(raw)) return "aprobado";
+  if (raw === "rejected") return "rechazado";
+  if (raw === "needs_info") return "falta info";
+  if (["pending", ""].includes(raw)) return "pendiente";
   return raw || "pendiente";
 }
 
@@ -730,6 +734,27 @@ function readRefundSnapshot(raw: unknown): string {
     if (nestedValue) return nestedValue;
   }
   return "-";
+}
+
+function parseRefundSnapshot(raw: unknown) {
+  if (!raw || typeof raw !== "object") return {} as Record<string, unknown>;
+  return raw as Record<string, unknown>;
+}
+
+function refundStatusLabel(value: unknown): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "refund_requested") return "Solicitado";
+  if (normalized === "refund_reviewing") return "En revisión";
+  if (normalized === "refund_rejected") return "Rechazado";
+  if (normalized === "refund_processing") return "Procesando";
+  if (normalized === "refunded") return "Reembolsado";
+  if (normalized === "refund_failed") return "Fallido";
+  return String(value ?? "-") || "-";
+}
+
+function paymentConfirmedForRefund(value: unknown) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return ["paid", "approved", "completed", "success"].includes(normalized);
 }
 
 function providerRequestKindLabel(value: unknown): string {
@@ -1179,7 +1204,7 @@ function AdminEditorSection({
 }
 
 export default function AdminPanel({ section, publicationsView = "overview" }: AdminPanelProps) {
-  const { locale } = useTranslation();
+  const { locale, t } = useTranslation();
   const router = useRouter();
   const adminRootRef = useRef<HTMLDivElement | null>(null);
   const isNewPublicationPage = publicationsView === "new";
@@ -4455,18 +4480,59 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const updateTravelServiceStatus = async (id: string, status: "aprobado" | "rechazado" | "falta info" | "pendiente") => {
     const needsReason = status === "rechazado" || status === "falta info";
     const reason = needsReason
-      ? window.prompt(`Ingresá el motivo para "${status}" (se enviará por email al oferente):`, "") ?? ""
+      ? window.prompt(`Ingresá el motivo visible para "${status}":`, "") ?? ""
       : "";
-    if (needsReason && !reason.trim()) return;
+    if (needsReason && !reason.trim()) {
+      window.alert("El motivo es obligatorio para marcar la solicitud como Rechazado o Falta info.");
+      return;
+    }
+
+    const statusPayload =
+      status === "rechazado"
+        ? "rejected"
+        : status === "falta info"
+          ? "needs_info"
+          : status;
 
     await api<{ ok: boolean }>("/api/travel-services", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, status, reason: reason.trim() }),
+      body: JSON.stringify({ id, status: statusPayload, reason: reason.trim() }),
     });
-    if (status === "rechazado" || status === "falta info") {
-      await deleteTravelService(id);
+    await refresh();
+  };
+
+  const updateRefundStatus = async (
+    submissionId: string,
+    action: "review" | "reject" | "approve_and_execute",
+  ) => {
+    const reason = action === "reject"
+      ? (window.prompt("Ingresá el motivo interno para rechazar el reembolso:", "") ?? "").trim()
+      : "";
+    if (action === "reject" && !reason) {
+      window.alert("El motivo es obligatorio para rechazar el reembolso.");
       return;
+    }
+
+    const response = await api<{ ok: boolean; item?: { refundStatus?: string; refundProviderError?: string } }>(
+      "/api/admin/travel-service-payments/refund",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ submissionId, action, reason }),
+      },
+    );
+
+    if (response?.item?.refundStatus === "refund_failed" && response?.item?.refundProviderError) {
+      window.alert(`El refund quedó en estado fallido: ${response.item.refundProviderError}`);
+    }
+
+    if (detailTravelService?.id === submissionId) {
+      setDetailTravelService(null);
+      setDetailImageExpanded(null);
+    }
+    if (detailPaymentEmail) {
+      setDetailPaymentEmail(null);
     }
     await refresh();
   };
@@ -4633,6 +4699,30 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const detailRelatedPayments = detailTravelService && !isDetailDemandante
     ? travelServicePayments.filter((item) => detailRelatedServices.some((service) => service.id === item.serviceId))
     : [];
+  const detailCurrentPayment = detailTravelService && !isDetailDemandante
+    ? [...detailRelatedPayments]
+        .filter((item) => item.serviceId === detailTravelService.id)
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        })[0] ?? null
+    : null;
+  const detailCurrentRefund = parseRefundSnapshot({
+    ...(detailCurrentPayment?.raw && typeof detailCurrentPayment.raw === "object" ? detailCurrentPayment.raw as Record<string, unknown> : {}),
+    ...(detailExtra ?? {}),
+  });
+  const detailResumeUrl = String(detailExtra?.resumeUrl ?? "").trim();
+  const detailResubmittedAt = String(detailExtra?.resubmittedAt ?? "").trim();
+  const detailVisibleStatus = !isDetailDemandante
+    ? (String(detailTravelService?.status ?? "").trim().toLowerCase() === "needs_info" && detailResubmittedAt
+      ? t("providerPortal.status.resubmittedForReview")
+      : String(detailTravelService?.status ?? "").trim().toLowerCase() === "needs_info"
+        ? t("providerPortal.status.needsInfo")
+        : String(detailTravelService?.status ?? "").trim().toLowerCase() === "rejected"
+          ? t("providerPortal.status.rejected")
+          : serviceEffectiveStatus(detailTravelService as TravelService))
+    : serviceEffectiveStatus(detailTravelService as TravelService);
   const detailPaymentServices = detailPaymentEmail
     ? userOferentes
         .filter((item) => String(item.email ?? "").trim().toLowerCase() === detailPaymentEmail)
@@ -4674,41 +4764,88 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div><b>Fecha:</b> {detailTravelService.createdAt ? new Date(detailTravelService.createdAt).toLocaleDateString("es-AR") : "-"}</div>
           </div>
         ) : (
-          <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-            <div><b>Nombre:</b> {detailTravelService.name || String(detailExtra?.name ?? "-")}</div>
-            <div><b>Email:</b> {detailTravelService.email || "-"}</div>
-            <div><b>Teléfono:</b> {detailTravelService.phone || String(detailExtra?.phone ?? "-")}</div>
-            <div><b>Estado:</b> {serviceEffectiveStatus(detailTravelService)}</div>
-            <div><b>Motivo estado:</b> {String(detailExtra?.statusReason ?? "-") || "-"}</div>
-            <div><b>Tipo de solicitud:</b> {providerRequestKindLabel(detailExtra?.requestKind)}</div>
-            <div><b>Plan solicitado:</b> {normalizeProviderPlanLabel(detailExtra?.requestedPlan ?? detailExtra?.planType)}</div>
-            <div><b>Plan anterior:</b> {detailExtra?.previousPlan ? normalizeProviderPlanLabel(detailExtra?.previousPlan) : "-"}</div>
-            <div><b>Origen:</b> {detailExtra?.sourceServiceId ? normalizeVisibleText(`solicitud/publicación ${String(detailExtra.sourceServiceId)}`) : "-"}</div>
-            <div><b>Tipo perfil:</b> {normalizeStringArray((detailExtra?.typeProfile as string[] | string | undefined) ?? detailTravelService.typeProfile).join(", ") || "-"}</div>
-            <div><b>Categorías:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
-            <div><b>Actividad:</b> {normalizeStringArray((detailExtra?.activity as string[] | string | undefined) ?? detailTravelService.activity).join(", ") || "-"}</div>
-            <div><b>Modalidad:</b> {normalizeStringArray((detailExtra?.modality as string[] | string | undefined) ?? detailTravelService.modality).join(", ") || "-"}</div>
-            <div><b>Idiomas:</b> {normalizeStringArray((detailExtra?.languages as string[] | string | undefined) ?? detailTravelService.languages).join(", ") || "-"}</div>
-            <div><b>Destino:</b> {detailTravelService.destinationCountry || "-"} / {detailTravelService.city || String(detailExtra?.city ?? "-")}</div>
-            <div><b>Sede principal:</b> {detailTravelService.headquarterCountry || String(detailExtra?.headquarterCountry ?? "-")}</div>
-            <div className="md:col-span-2"><b>Web/red:</b> {detailTravelService.website || "-"}</div>
-            <div className="md:col-span-2"><b>Descripción:</b> {detailTravelService.contanos || "-"}</div>
-            <div className="md:col-span-2"><b>¿Qué está buscando?:</b> {String(detailExtra?.whatSearching ?? "") || "-"}</div>
-            <div className="md:col-span-2"><b>¿Qué lo frena o preocupa?:</b> {String(detailExtra?.whatStop ?? "") || "-"}</div>
-            <div className="md:col-span-2">
-              <b>Tipos de viajeros:</b> {receivingModeLabel(detailExtra?.receivingCountriesMode)}
-              {normalizeStringArray(detailExtra?.receivingCountries).length
-                ? ` (${normalizeStringArray(detailExtra?.receivingCountries).join(", ")})`
-                : ""}
+          <div className="space-y-3 text-sm text-slate-700">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-sm font-semibold text-slate-900">Solicitud</div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div><b>Nombre:</b> {detailTravelService.name || String(detailExtra?.name ?? "-")}</div>
+                  <div><b>Email:</b> {detailTravelService.email || "-"}</div>
+                  <div><b>Teléfono:</b> {detailTravelService.phone || String(detailExtra?.phone ?? "-")}</div>
+                  <div><b>Estado:</b> {detailVisibleStatus}</div>
+                  <div><b>Tipo de solicitud:</b> {providerRequestKindLabel(detailExtra?.requestKind)}</div>
+                  <div><b>Plan solicitado:</b> {normalizeProviderPlanLabel(detailExtra?.requestedPlan ?? detailExtra?.planType)}</div>
+                  <div><b>Plan anterior:</b> {detailExtra?.previousPlan ? normalizeProviderPlanLabel(detailExtra?.previousPlan) : "-"}</div>
+                  <div><b>{t("admin.request.reason")}:</b> {String(detailExtra?.statusReason ?? "-") || "-"}</div>
+                  <div><b>Creada:</b> {detailTravelService.createdAt ? new Date(detailTravelService.createdAt).toLocaleString("es-AR") : "-"}</div>
+                  <div><b>{t("admin.request.updatedAt")}:</b> {detailExtra?.statusUpdatedAt ? new Date(String(detailExtra.statusUpdatedAt)).toLocaleString("es-AR") : "-"}</div>
+                  <div><b>{t("admin.request.resubmittedAt")}:</b> {detailResubmittedAt ? new Date(detailResubmittedAt).toLocaleString("es-AR") : "-"}</div>
+                  <div><b>Origen:</b> {detailExtra?.sourceServiceId ? normalizeVisibleText(`solicitud/publicación ${String(detailExtra.sourceServiceId)}`) : "-"}</div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-sm font-semibold text-slate-900">Pago</div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div><b>Estado:</b> {paymentStatusLabel(detailCurrentPayment?.status ?? detailExtra?.paymentStatus ?? "-")}</div>
+                  <div><b>{t("admin.request.paymentReference")}:</b> {detailCurrentPayment?.externalReference || "-"}</div>
+                  <div><b>Monto:</b> {String(detailCurrentPayment?.currency ?? "-")} {String(detailCurrentPayment?.amount ?? "-")}</div>
+                  <div><b>dLocal payment id:</b> {detailCurrentPayment?.providerPaymentId || "-"}</div>
+                </div>
+                {String(detailTravelService.status ?? "").trim().toLowerCase() === "needs_info" && detailResumeUrl ? (
+                  <div className="mt-3 rounded-lg border border-cyan-200 bg-cyan-50 p-2 text-xs text-cyan-900">
+                    <b>{t("admin.request.resumeLink")}:</b> <span className="break-all">{detailResumeUrl}</span>
+                  </div>
+                ) : null}
+              </div>
             </div>
-            <div className="md:col-span-2">
-              <b>Imágenes cargadas:</b>
-              <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-                {normalizeStringArray(detailExtra?.images).length ? normalizeStringArray(detailExtra?.images).map((img, idx) => (
-                  <button key={`${idx}-${img.slice(0, 20)}`} type="button" onClick={() => setDetailImageExpanded(img)} className="overflow-hidden rounded-lg border border-slate-200">
-                    <img src={img} alt={`imagen-oferente-${idx + 1}`} className="h-24 w-full object-cover transition hover:scale-105" />
-                  </button>
-                )) : <span>-</span>}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="mb-2 text-sm font-semibold text-slate-900">Reembolso</div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div><b>{t("admin.request.refundStatus")}:</b> {String(detailCurrentRefund.refundStatus ?? "").trim() ? refundStatusLabel(detailCurrentRefund.refundStatus) : "-"}</div>
+                  <div><b>{t("admin.request.refundAmount")}:</b> {String(detailCurrentRefund.refundCurrency ?? detailCurrentPayment?.currency ?? "-")} {String(detailCurrentRefund.refundAmount ?? detailCurrentPayment?.amount ?? "-")}</div>
+                  <div><b>Refund ref:</b> {String(detailCurrentRefund.refundProviderReference ?? "-") || "-"}</div>
+                  <div><b>{t("admin.request.providerError")}:</b> {String(detailCurrentRefund.refundProviderError ?? "-") || "-"}</div>
+                  <div><b>Solicitado:</b> {detailCurrentRefund.refundRequestedAt ? new Date(String(detailCurrentRefund.refundRequestedAt)).toLocaleString("es-AR") : "-"}</div>
+                  <div><b>Procesando:</b> {detailCurrentRefund.refundProcessingAt ? new Date(String(detailCurrentRefund.refundProcessingAt)).toLocaleString("es-AR") : "-"}</div>
+                </div>
+                {String(detailCurrentRefund.refundStatus ?? "").trim().toLowerCase() === "refund_processing" ? (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                    {t("providerPortal.refund.pendingNotice")}
+                  </div>
+                ) : null}
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="mb-2 text-sm font-semibold text-slate-900">Datos enviados</div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div><b>Tipo perfil:</b> {normalizeStringArray((detailExtra?.typeProfile as string[] | string | undefined) ?? detailTravelService.typeProfile).join(", ") || "-"}</div>
+                  <div><b>Categorías:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
+                  <div><b>Actividad:</b> {normalizeStringArray((detailExtra?.activity as string[] | string | undefined) ?? detailTravelService.activity).join(", ") || "-"}</div>
+                  <div><b>Modalidad:</b> {normalizeStringArray((detailExtra?.modality as string[] | string | undefined) ?? detailTravelService.modality).join(", ") || "-"}</div>
+                  <div><b>Idiomas:</b> {normalizeStringArray((detailExtra?.languages as string[] | string | undefined) ?? detailTravelService.languages).join(", ") || "-"}</div>
+                  <div><b>Destino:</b> {detailTravelService.destinationCountry || "-"} / {detailTravelService.city || String(detailExtra?.city ?? "-")}</div>
+                  <div><b>Sede principal:</b> {detailTravelService.headquarterCountry || String(detailExtra?.headquarterCountry ?? "-")}</div>
+                  <div className="md:col-span-2"><b>Web/red:</b> {detailTravelService.website || "-"}</div>
+                  <div className="md:col-span-2"><b>Descripción:</b> {detailTravelService.contanos || "-"}</div>
+                  <div className="md:col-span-2"><b>¿Qué está buscando?:</b> {String(detailExtra?.whatSearching ?? "") || "-"}</div>
+                  <div className="md:col-span-2"><b>¿Qué lo frena o preocupa?:</b> {String(detailExtra?.whatStop ?? "") || "-"}</div>
+                  <div className="md:col-span-2">
+                    <b>Tipos de viajeros:</b> {receivingModeLabel(detailExtra?.receivingCountriesMode)}
+                    {normalizeStringArray(detailExtra?.receivingCountries).length
+                      ? ` (${normalizeStringArray(detailExtra?.receivingCountries).join(", ")})`
+                      : ""}
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <b>Imágenes cargadas:</b>
+                  <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                    {normalizeStringArray(detailExtra?.images).length ? normalizeStringArray(detailExtra?.images).map((img, idx) => (
+                      <button key={`${idx}-${img.slice(0, 20)}`} type="button" onClick={() => setDetailImageExpanded(img)} className="overflow-hidden rounded-lg border border-slate-200">
+                        <img src={img} alt={`imagen-oferente-${idx + 1}`} className="h-24 w-full object-cover transition hover:scale-105" />
+                      </button>
+                    )) : <span>-</span>}
+                  </div>
+                </div>
               </div>
             </div>
             <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -4736,20 +4873,44 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   const extra = parseTravelServiceExtra(service);
                   const payment = detailRelatedPayments.find((item) => item.serviceId === service.id);
                   const currentStatus = serviceEffectiveStatus(service);
+                  const refundData = parseRefundSnapshot({
+                    ...(payment?.raw && typeof payment.raw === "object" ? payment.raw as Record<string, unknown> : {}),
+                    ...extra,
+                  });
+                  const refundStatus = String(refundData.refundStatus ?? "").trim().toLowerCase();
+                  const canHandleRefund = ["refund_requested", "refund_reviewing"].includes(refundStatus)
+                    && paymentConfirmedForRefund(payment?.status ?? extra.paymentStatus ?? "");
                   return (
                     <div key={`history-${service.id}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-white px-2 py-1 font-semibold">{normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan)}</span>
                         <span className="rounded-full bg-white px-2 py-1">{providerRequestKindLabel(extra.requestKind)}</span>
-                        <span className="rounded-full bg-white px-2 py-1">{currentStatus}</span>
+                        <span className="rounded-full bg-white px-2 py-1">{currentStatus === "falta info" && extra.resubmittedAt ? t("providerPortal.status.resubmittedForReview") : currentStatus}</span>
                         <span className={`rounded-full px-2 py-1 ${paymentStatusClasses(payment?.status ?? extra.paymentStatus ?? "-")}`}>Pago: {paymentStatusLabel(payment?.status ?? extra.paymentStatus ?? "-")}</span>
+                        {refundStatus ? <span className="rounded-full bg-white px-2 py-1">{refundStatusLabel(refundStatus)}</span> : null}
                       </div>
                       <div className="mt-2 grid gap-2 md:grid-cols-2">
                         <div><b>ID solicitud:</b> {service.id}</div>
                         <div><b>Fecha:</b> {service.createdAt ? new Date(service.createdAt).toLocaleString("es-AR") : "-"}</div>
                         <div><b>Plan anterior:</b> {extra.previousPlan ? normalizeProviderPlanLabel(extra.previousPlan) : "-"}</div>
                         <div><b>Referencia de pago:</b> {payment?.externalReference || "-"}</div>
+                        <div><b>{t("admin.request.reason")}:</b> {String(extra.statusReason ?? "-") || "-"}</div>
+                        <div><b>{t("admin.request.updatedAt")}:</b> {extra.statusUpdatedAt ? new Date(String(extra.statusUpdatedAt)).toLocaleString("es-AR") : "-"}</div>
+                        <div><b>{t("admin.request.refundStatus")}:</b> {refundStatus ? refundStatusLabel(refundStatus) : "-"}</div>
+                        <div><b>Refund ref:</b> {String(refundData.refundProviderReference ?? "-") || "-"}</div>
                       </div>
+                      {refundStatus ? (
+                        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
+                          <div><b>{t("admin.request.refundAmount")}:</b> {String(refundData.refundCurrency ?? payment?.currency ?? "-")} {String(refundData.refundAmount ?? payment?.amount ?? "-")}</div>
+                          {String(refundData.refundAdminReason ?? "").trim() ? <div><b>Motivo admin:</b> {String(refundData.refundAdminReason)}</div> : null}
+                          {String(refundData.refundProviderError ?? "").trim() ? <div><b>{t("admin.request.providerError")}:</b> {String(refundData.refundProviderError)}</div> : null}
+                        </div>
+                      ) : null}
+                      {refundStatus === "refund_processing" ? (
+                        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
+                          {t("providerPortal.refund.pendingNotice")}
+                        </div>
+                      ) : null}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Ver solicitud</button>
                         {currentStatus === "pendiente" ? (
@@ -4757,6 +4918,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             <button type="button" onClick={() => updateTravelServiceStatus(service.id, "aprobado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Aprobado</button>
                             <button type="button" onClick={() => updateTravelServiceStatus(service.id, "rechazado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Rechazado</button>
                             <button type="button" onClick={() => updateTravelServiceStatus(service.id, "falta info")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Falta info</button>
+                          </>
+                        ) : null}
+                        {canHandleRefund ? (
+                          <>
+                            {refundStatus === "refund_requested" ? (
+                              <button type="button" onClick={() => updateRefundStatus(service.id, "review")} className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 hover:bg-amber-50">Revisar refund</button>
+                            ) : null}
+                            <button type="button" onClick={() => updateRefundStatus(service.id, "reject")} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 hover:bg-rose-50">Rechazar refund</button>
+                            <button type="button" onClick={() => updateRefundStatus(service.id, "approve_and_execute")} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 hover:bg-emerald-50">Aprobar y ejecutar refund</button>
                           </>
                         ) : null}
                       </div>
@@ -4792,6 +4962,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {detailPaymentItems.map((item) => {
             const linkedService = detailPaymentServices.find((service) => service.id === item.serviceId);
             const linkedExtra = linkedService ? parseTravelServiceExtra(linkedService) : {};
+            const refundData = parseRefundSnapshot({
+              ...(item.raw && typeof item.raw === "object" ? item.raw as Record<string, unknown> : {}),
+              ...linkedExtra,
+            });
+            const refundStatus = String(refundData.refundStatus ?? "").trim().toLowerCase();
+            const canHandleRefund = Boolean(linkedService)
+              && ["refund_requested", "refund_reviewing"].includes(refundStatus)
+              && paymentConfirmedForRefund(item.status);
             return (
               <div key={`detail-payment-${item.id}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                 <div className="flex flex-wrap items-center gap-2">
@@ -4807,9 +4985,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Pago dLocal:</b> {item.providerPaymentId || "-"}</div>
                   <div><b>Pagado:</b> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
                   <div><b>Retorno:</b> {item.returnStatus || "-"}</div>
-                  <div><b>Reembolso:</b> {readRefundSnapshot(item.raw)}</div>
+                  <div><b>Reembolso:</b> {refundStatus ? refundStatusLabel(refundStatus) : "-"}</div>
+                  <div><b>Refund ref:</b> {String(refundData.refundProviderReference ?? "-") || "-"}</div>
                   <div><b>Tipo de solicitud:</b> {providerRequestKindLabel(linkedExtra.requestKind)}</div>
                 </div>
+                {refundStatus ? (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                    <div><b>Monto:</b> {String(refundData.refundCurrency ?? item.currency ?? "-")} {String(refundData.refundAmount ?? item.amount ?? "-")}</div>
+                    {String(refundData.refundAdminReason ?? "").trim() ? <div><b>Motivo admin:</b> {String(refundData.refundAdminReason)}</div> : null}
+                    {String(refundData.refundProviderError ?? "").trim() ? <div><b>Error provider:</b> {String(refundData.refundProviderError)}</div> : null}
+                  </div>
+                ) : null}
                 {linkedService ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button type="button" onClick={() => { setDetailPaymentEmail(null); setDetailTravelService(linkedService); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">
@@ -4820,6 +5006,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <button type="button" onClick={() => updateTravelServiceStatus(linkedService.id, "aprobado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">Aprobado</button>
                         <button type="button" onClick={() => updateTravelServiceStatus(linkedService.id, "rechazado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">Rechazado</button>
                         <button type="button" onClick={() => updateTravelServiceStatus(linkedService.id, "falta info")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">Falta info</button>
+                      </>
+                    ) : null}
+                    {canHandleRefund ? (
+                      <>
+                        {refundStatus === "refund_requested" ? (
+                          <button type="button" onClick={() => updateRefundStatus(linkedService.id, "review")} className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-amber-50">Revisar refund</button>
+                        ) : null}
+                        <button type="button" onClick={() => updateRefundStatus(linkedService.id, "reject")} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-rose-50">Rechazar refund</button>
+                        <button type="button" onClick={() => updateRefundStatus(linkedService.id, "approve_and_execute")} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-50">Aprobar y ejecutar refund</button>
                       </>
                     ) : null}
                   </div>
@@ -5571,6 +5766,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <span className="rounded-full bg-slate-100 px-2 py-0.5">Favoritos: {aggregated.favorites}</span>
                         <span className="rounded-full bg-slate-100 px-2 py-0.5">Compartidos: {aggregated.shares}</span>
                       </div>
+                      {String(serviceExtra.statusReason ?? "").trim() ? (
+                        <p className="mt-2 text-xs text-slate-600">
+                          <b>Motivo estado:</b> {String(serviceExtra.statusReason)}
+                        </p>
+                      ) : null}
+                      {serviceExtra.statusUpdatedAt ? (
+                        <p className="mt-1 text-xs text-slate-600">
+                          <b>Estado actualizado:</b> {new Date(String(serviceExtra.statusUpdatedAt)).toLocaleString("es-AR")}
+                        </p>
+                      ) : null}
                     </>
                   )}
                 </div>
