@@ -4714,15 +4714,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   });
   const detailResumeUrl = String(detailExtra?.resumeUrl ?? "").trim();
   const detailResubmittedAt = String(detailExtra?.resubmittedAt ?? "").trim();
-  const detailVisibleStatus = !isDetailDemandante
-    ? (String(detailTravelService?.status ?? "").trim().toLowerCase() === "needs_info" && detailResubmittedAt
-      ? t("providerPortal.status.resubmittedForReview")
-      : String(detailTravelService?.status ?? "").trim().toLowerCase() === "needs_info"
-        ? t("providerPortal.status.needsInfo")
-        : String(detailTravelService?.status ?? "").trim().toLowerCase() === "rejected"
-          ? t("providerPortal.status.rejected")
-          : serviceEffectiveStatus(detailTravelService as TravelService))
-    : serviceEffectiveStatus(detailTravelService as TravelService);
+  const detailVisibleStatus = !detailTravelService
+    ? "-"
+    : !isDetailDemandante
+      ? (String(detailTravelService.status ?? "").trim().toLowerCase() === "needs_info" && detailResubmittedAt
+        ? t("providerPortal.status.resubmittedForReview")
+        : String(detailTravelService.status ?? "").trim().toLowerCase() === "needs_info"
+          ? t("providerPortal.status.needsInfo")
+          : String(detailTravelService.status ?? "").trim().toLowerCase() === "rejected"
+            ? t("providerPortal.status.rejected")
+            : serviceEffectiveStatus(detailTravelService))
+      : serviceEffectiveStatus(detailTravelService);
   const detailPaymentServices = detailPaymentEmail
     ? userOferentes
         .filter((item) => String(item.email ?? "").trim().toLowerCase() === detailPaymentEmail)
