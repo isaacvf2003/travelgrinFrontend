@@ -16,6 +16,11 @@ type CountryApi = {
 type Country = CountryApi & { spanishName: string };
 const EMPTY_ALLOWED_COUNTRIES: string[] = [];
 
+type PublicationDestinationItem = {
+  country?: string | null;
+  fields?: Record<string, unknown> | null;
+};
+
 type Props = {
   destinationCountry: string;
   setDestinationCountry: (country: string) => void;
@@ -38,6 +43,34 @@ function normalize(value: string) {
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .trim();
+}
+
+function extractDestinationKeys(items: PublicationDestinationItem[]) {
+  const destinationKeys = new Set<string>();
+
+  for (const item of items) {
+    const fields = item.fields && typeof item.fields === "object" ? item.fields : {};
+    const candidates = new Set<string>();
+
+    const directCountry = String(item.country ?? "").trim();
+    if (directCountry) candidates.add(directCountry);
+
+    const destinationCountries = Array.isArray((fields as Record<string, unknown>).destinationCountries)
+      ? ((fields as Record<string, unknown>).destinationCountries as unknown[])
+      : [];
+
+    for (const entry of destinationCountries) {
+      const country = String(entry ?? "").trim();
+      if (country) candidates.add(country);
+    }
+
+    for (const country of candidates) {
+      const normalized = normalize(country);
+      if (normalized) destinationKeys.add(normalized);
+    }
+  }
+
+  return destinationKeys;
 }
 
 export default function DestinationSelect({
@@ -90,7 +123,7 @@ export default function DestinationSelect({
             "/api/countries"
           ),
           publishedOnly
-            ? fetch("/api/publications?status=active&destinationsOnly=1", {
+            ? fetch("/api/publications?status=active&page=1&perPage=240", {
                 cache: "no-store",
               })
             : Promise.resolve(null),
@@ -99,11 +132,9 @@ export default function DestinationSelect({
         const data = (Array.isArray(countriesPayload?.items) ? countriesPayload.items : []) as CountryApi[];
         const destinationsPayload = destinationsRes
           ? await destinationsRes.json().catch(() => ({}))
-          : { items: [] as string[] };
-        const destinationKeys = new Set(
-          (Array.isArray(destinationsPayload?.items) ? destinationsPayload.items : [])
-            .map((entry: unknown) => normalize(String(entry ?? "")))
-            .filter(Boolean)
+          : { items: [] as PublicationDestinationItem[] };
+        const destinationKeys = extractDestinationKeys(
+          (Array.isArray(destinationsPayload?.items) ? destinationsPayload.items : []) as PublicationDestinationItem[]
         );
 
         const items: Country[] = data
