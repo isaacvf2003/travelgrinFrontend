@@ -4,18 +4,14 @@ import { ChevronDown } from "lucide-react";
 import { useIsClient } from "@/app/hooks/isClient";
 import Image from "next/image";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { fetchCountriesWithSpanish, type CountryWithSpanish } from "@/components/countryList";
 type Props = {
   selectedCountry: string | null;
   setSelectedCountry: (country: string) => void;
   isMobile?: boolean;
 };
 
-type Country = {
-  spanishName: string;
-  name?: { common?: string };
-  flags?: { svg?: string; png?: string };
-  cca2?: string;
-};
+type Country = CountryWithSpanish;
 
 const getCountryLabel = (value: unknown) => {
   if (typeof value === "string") return value;

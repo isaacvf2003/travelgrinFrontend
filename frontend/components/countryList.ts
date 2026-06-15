@@ -3,6 +3,17 @@ export type CountryListItem = {
   name: string;
 };
 
+export type CountryApi = {
+  name: { common: string };
+  cca2: string;
+  translations?: { spa?: { common?: string } };
+  flags?: { svg?: string; png?: string };
+};
+
+export type CountryWithSpanish = CountryApi & {
+  spanishName: string;
+};
+
 export const countryList: CountryListItem[] = [
   { code: "AR", name: "Argentina" },
   { code: "BR", name: "Brasil" },
@@ -15,5 +26,42 @@ export const countryList: CountryListItem[] = [
   { code: "US", name: "Estados Unidos" },
   { code: "UY", name: "Uruguay" }
 ];
+
+export function buildFallbackCountries(): CountryWithSpanish[] {
+  return countryList
+    .map((country) => {
+      const code = String(country.code ?? "").trim().toUpperCase();
+      const name = String(country.name ?? "").trim();
+      return {
+        name: { common: name },
+        cca2: code,
+        translations: { spa: { common: name } },
+        flags: {
+          svg: `https://flagcdn.com/${code.toLowerCase()}.svg`,
+          png: `https://flagcdn.com/w40/${code.toLowerCase()}.png`,
+        },
+        spanishName: name,
+      };
+    })
+    .sort((a, b) => a.spanishName.localeCompare(b.spanishName));
+}
+
+export async function fetchCountriesWithSpanish(): Promise<CountryWithSpanish[]> {
+  try {
+    const response = await fetch("https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags", {
+      cache: "force-cache",
+    });
+    if (!response.ok) throw new Error(`restcountries responded ${response.status}`);
+    const data = (await response.json()) as CountryApi[];
+    return data
+      .map((country) => ({
+        ...country,
+        spanishName: country.translations?.spa?.common || country.name.common,
+      }))
+      .sort((a, b) => a.spanishName.localeCompare(b.spanishName));
+  } catch {
+    return buildFallbackCountries();
+  }
+}
 
 export default countryList;
