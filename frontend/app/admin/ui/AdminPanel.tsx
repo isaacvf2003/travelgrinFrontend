@@ -1704,12 +1704,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   useEffect(() => {
     let active = true;
-    fetch("https://restcountries.com/v3.1/all?fields=name,translations")
+    fetch("/api/countries")
       .then((res) => res.json())
-      .then((data) => {
+      .then((payload) => {
         if (!active) return;
-        const names = Array.isArray(data)
-          ? data
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        const names = Array.isArray(items)
+          ? items
               .map((entry: any) =>
                 firstNonEmpty(
                   entry?.translations?.spa?.common,

@@ -256,27 +256,33 @@ export default function SearchBar() {
   const selectedLabels = [...selectedCategoryValues];
 
   const onSearch = () => {
-    if (!destinationCountry.trim()) {
+    const hasCategoryFilter = Boolean(selectedCategory.trim() || selectedSubcategory.trim());
+    const hasDestinationFilter = Boolean(destinationCountry.trim());
+    if (!hasCategoryFilter && !hasDestinationFilter) {
       setDestinationError(true);
       return;
     }
-    fetch("/api/destination-searches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        destinationCountry: destinationCountry.trim(),
-        passportCountry: selectedCountry || "",
-        category: selectedCategory || selectedSubcategory || "",
-        source: "buscar-search",
-      }),
-      keepalive: true,
-    }).catch(() => null);
+    if (hasDestinationFilter) {
+      fetch("/api/destination-searches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destinationCountry: destinationCountry.trim(),
+          passportCountry: selectedCountry || "",
+          category: selectedCategory || selectedSubcategory || "",
+          source: "buscar-search",
+        }),
+        keepalive: true,
+      }).catch(() => null);
+    }
     applySearchBarSelection();
   };
 
   useEffect(() => {
-    if (destinationCountry.trim()) setDestinationError(false);
-  }, [destinationCountry]);
+    if (destinationCountry.trim() || selectedCategory.trim() || selectedSubcategory.trim()) {
+      setDestinationError(false);
+    }
+  }, [destinationCountry, selectedCategory, selectedSubcategory]);
 
   return (
     <div className="relative isolate z-[60] w-full max-w-6xl mx-auto px-4">
@@ -307,7 +313,7 @@ export default function SearchBar() {
           {openCategoryDropdown ? (
             <div className="absolute left-0 right-0 z-30 mt-2 max-h-80 overflow-y-auto rounded-xl bg-white p-2 shadow-2xl">
               {!categoryBlocks.length ? (
-                <div className="px-3 py-2 text-sm text-gray-500">{t("no_hay_categorias_disponibles") || "No hay categorías disponibles"}</div>
+                <div className="px-3 py-2 text-sm text-gray-500">No hay categorías disponibles</div>
               ) : (
                 <div className="space-y-1">
                   {principalCategories.map((category) => {

@@ -19,7 +19,6 @@ import ServicesPromoPanel from "./_components/ServicesPromoPanel";
 import PrestacionesSectionHeader from "./_components/PrestacionesSectionHeader";
 import HideOnScroll from "./_components/HideOnScroll";
 import ScrollAwareFiltersAside from "./_components/ScrollAwareFiltersAside";
-import TranslatedText from "@/components/TranslatedText";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -304,16 +303,12 @@ export default async function BuscarPage({
   const hasPrestacionFilter = hasSelectedPrestacionFilter(sp, filterGroups);
   const normalPage = spGet(sp, "page") ?? "1";
   const prestacionesPage = spGet(sp, "prestacionesPage") ?? "1";
-  const emptyPublicationsPayload = { items: [], total: 0, page: 1, perPage: 15, totalPages: 1 };
-  const emptyPrestacionesPayload = { items: [], total: 0, page: 1, perPage: 10, totalPages: 1 };
-  const [publicationsPayload, prestacionesPayload] = hasDestinationSelected
-    ? hasPrestacionFilter
-      ? [await loadPublications(sp, { page: normalPage, perPage: "15", prestacionesPage: undefined }), null]
-      : await Promise.all([
-          loadPublications(sp, { page: normalPage, perPage: "15", excludePrimaryGroupKey: "prestacion", prestacionesPage: undefined }),
-          loadPublications(sp, { page: prestacionesPage, perPage: "10", primaryGroupKey: "prestacion", prestacionesPage: undefined }),
-        ])
-    : [emptyPublicationsPayload, hasPrestacionFilter ? null : emptyPrestacionesPayload];
+  const [publicationsPayload, prestacionesPayload] = hasPrestacionFilter
+    ? [await loadPublications(sp, { page: normalPage, perPage: "15", prestacionesPage: undefined }), null]
+    : await Promise.all([
+        loadPublications(sp, { page: normalPage, perPage: "15", excludePrimaryGroupKey: "prestacion", prestacionesPage: undefined }),
+        loadPublications(sp, { page: prestacionesPage, perPage: "10", primaryGroupKey: "prestacion", prestacionesPage: undefined }),
+      ]);
   const visibleBlockIds = new Set(filterGroups.map((group) => group.id));
   const publicCategories = categories.filter(
     (category) => category.isPublicVisible !== false && (!category.blockId || visibleBlockIds.has(category.blockId))
@@ -449,8 +444,6 @@ export default async function BuscarPage({
                 ) : null}
 
                 <div>
-                  {hasDestinationSelected ? (
-                    <>
                   <div id="publicaciones-normales">
                   <ResultsGrid items={sortedItems} />
 
@@ -488,15 +481,6 @@ export default async function BuscarPage({
                     />
                   </section>
                 ) : null}
-                    </>
-                  ) : (
-                    <div className="rounded-3xl border border-[#BDECF2] bg-[#EFFBFD] p-6 text-center text-[#0B6B7A] shadow-sm">
-                      <h2 className="text-lg font-semibold"><TranslatedText id="elegir_destino_para_oportunidades" /></h2>
-                      <p className="mt-2 text-sm text-slate-600">
-                        <TranslatedText id="destino_activa_publicaciones" />
-                      </p>
-                    </div>
-                  )}
                 </div>
               </section>
             </div>
