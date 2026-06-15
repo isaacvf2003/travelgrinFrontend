@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import countryList from "@/components/countryList";
+import { forwardApiRequest } from "@/app/api/admin/auth/_lib/backend";
 
 type CountryApiItem = {
   name: { common: string };
@@ -26,19 +27,14 @@ function buildFallbackCountries(): CountryApiItem[] {
 
 export async function GET() {
   try {
-    const response = await fetch(
-      "https://restcountries.com/v3.1/all?fields=name,cca2,translations,flags",
-      { next: { revalidate: 86400 } }
-    );
-
-    if (!response.ok) {
-      throw new Error(`restcountries responded ${response.status}`);
+    const response = await forwardApiRequest("/api/countries", { method: "GET" });
+    if (response?.ok) {
+      const payload = await response.json().catch(() => ({}));
+      if (Array.isArray(payload?.items) && payload.items.length) {
+        return NextResponse.json(payload, { status: response.status });
+      }
     }
+  } catch {}
 
-    const items = (await response.json()) as CountryApiItem[];
-    return NextResponse.json({ ok: true, items });
-  } catch (error) {
-    console.error("[api/countries] Falling back to bundled country list", error);
-    return NextResponse.json({ ok: true, items: buildFallbackCountries(), fallback: true });
-  }
+  return NextResponse.json({ ok: true, items: buildFallbackCountries(), fallback: true });
 }

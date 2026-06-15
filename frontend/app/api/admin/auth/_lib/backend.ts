@@ -30,3 +30,13 @@ export async function forwardJson(path: string, body: unknown) {
   const data = await response.json().catch(() => ({}));
   return { response, data } as const;
 }
+
+export async function forwardApiRequest(path: string, init?: RequestInit) {
+  const backendApiUrl = getBackendApiUrl();
+  if (!backendApiUrl) return null;
+
+  return fetch(`${backendApiUrl}${path}`, {
+    ...init,
+    cache: "no-store",
+  });
+}
