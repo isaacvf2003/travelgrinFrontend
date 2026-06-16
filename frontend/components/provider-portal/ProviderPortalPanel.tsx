@@ -1171,7 +1171,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     setModalRequestKind("new_publication");
     setModalPreviousPlan(undefined);
     setModalSourceServiceId(undefined);
-    setModalInitialData((latestApprovedSubmission?.draftData as Record<string, unknown> | undefined) ?? null);
+    setModalInitialData(null);
     setModalResumeMode(false);
     setModalResumeSubmissionId(undefined);
     setModalResumePaymentState("");
