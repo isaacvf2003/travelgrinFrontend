@@ -683,7 +683,25 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     if (planType === "monthly") return { label: copy.monthly, kind: "monthly" as const };
     return { label: copy.free, kind: "free" as const };
   };
-
+  const getVisualSubmissionStage = useCallback((submission: PortalSubmission) => {
+    const normalizedStatus = String(submission.status ?? "").trim().toLowerCase();
+    const normalizedPayment = String(submission.paymentStatus ?? "").trim().toLowerCase();
+    const expiration = submission.expirationAt ? new Date(submission.expirationAt).getTime() : 0;
+    const isExpired = Boolean(expiration) && !Number.isNaN(expiration) && expiration < Date.now();
+    const isResubmitted = Boolean(submission.resubmittedAt || submission.draftData?.resubmittedAt);
+    if (normalizedStatus === "rejected") return "rejected" as const;
+    if (normalizedStatus === "needs_info") return "needsInfo" as const;
+    if (["cancelled", "canceled"].includes(normalizedStatus)) return "cancelled" as const;
+    if (["aprobado", "approved", "active", "activo", "paid"].includes(normalizedStatus)) {
+      return isExpired ? "expired" as const : "approved" as const;
+    }
+    if (["pendiente_pago", "payment_pending"].includes(normalizedStatus) || ["processing", "pending", "failed", "cancelled", "canceled", "rejected"].includes(normalizedPayment)) {
+      return ["failed", "cancelled", "canceled", "rejected"].includes(normalizedPayment) ? "cancelled" as const : "paymentPending" as const;
+    }
+    if (isExpired) return "expired" as const;
+    if (isResubmitted) return "resubmitted" as const;
+    return "pending" as const;
+  }, []);
   const visualSubmissionLabel = useCallback((submission: PortalSubmission) => {
     const stage = getVisualSubmissionStage(submission);
     if (stage === "approved") return t("providerPortal.status.approved");
@@ -738,25 +756,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     return "default" as const;
   }, []);
 
-  const getVisualSubmissionStage = useCallback((submission: PortalSubmission) => {
-    const normalizedStatus = String(submission.status ?? "").trim().toLowerCase();
-    const normalizedPayment = String(submission.paymentStatus ?? "").trim().toLowerCase();
-    const expiration = submission.expirationAt ? new Date(submission.expirationAt).getTime() : 0;
-    const isExpired = Boolean(expiration) && !Number.isNaN(expiration) && expiration < Date.now();
-    const isResubmitted = Boolean(submission.resubmittedAt || submission.draftData?.resubmittedAt);
-    if (normalizedStatus === "rejected") return "rejected" as const;
-    if (normalizedStatus === "needs_info") return "needsInfo" as const;
-    if (["cancelled", "canceled"].includes(normalizedStatus)) return "cancelled" as const;
-    if (["aprobado", "approved", "active", "activo", "paid"].includes(normalizedStatus)) {
-      return isExpired ? "expired" as const : "approved" as const;
-    }
-    if (["pendiente_pago", "payment_pending"].includes(normalizedStatus) || ["processing", "pending", "failed", "cancelled", "canceled", "rejected"].includes(normalizedPayment)) {
-      return ["failed", "cancelled", "canceled", "rejected"].includes(normalizedPayment) ? "cancelled" as const : "paymentPending" as const;
-    }
-    if (isExpired) return "expired" as const;
-    if (isResubmitted) return "resubmitted" as const;
-    return "pending" as const;
-  }, []);
+  
 
   const submissionSortRank = useCallback((submission: PortalSubmission) => {
     const stage = getVisualSubmissionStage(submission);
