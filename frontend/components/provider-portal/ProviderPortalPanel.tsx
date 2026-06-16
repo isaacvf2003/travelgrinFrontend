@@ -46,6 +46,7 @@ type PortalSubmission = {
   profileName: string;
   planType: "basic_free" | "featured" | "monthly";
   paymentStatus: string;
+  providerPaymentId?: string;
   paymentType: string;
   approvedAt: string;
   expirationAt: string | null;
@@ -1779,9 +1780,11 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                     const canResume = ["needs_info", "rejected"].includes(normalizedStatus);
                     const refundStatus = String(item.refundStatus ?? "").trim().toLowerCase();
                     const paymentConfirmed = isConfirmedPortalPayment(item.paymentStatus);
+                    const hasProviderPaymentId = Boolean(item.providerPaymentId && item.providerPaymentId.trim());
                     const canRequestRefund =
-                      normalizedStatus === "rejected" &&
+                      ["rejected", "needs_info"].includes(normalizedStatus) &&
                       paymentConfirmed &&
+                      hasProviderPaymentId &&
                       !["refund_requested", "refund_reviewing", "refund_processing", "refunded"].includes(refundStatus);
                     return (
                       <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -1880,7 +1883,19 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                                     ? "Se il pagamento e gia stato confermato, l'admin puo rivedere ed eseguire il rimborso da qui."
                                     : "Si tu pago ya fue confirmado, el admin puede revisar y ejecutar el reembolso desde aca."}
                             </div>
-                          ) : null}
+                          ) : (
+                            paymentConfirmed && !hasProviderPaymentId && ["rejected", "needs_info"].includes(normalizedStatus) && !["refunded"].includes(refundStatus) ? (
+                              <div className="sm:col-span-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                                {locale === "en"
+                                  ? "This payment requires manual review before requesting a refund."
+                                  : locale === "pt"
+                                    ? "Este pagamento requer revisao manual antes de solicitar um reembolso."
+                                    : locale === "it"
+                                      ? "Questo pagamento richiede una revisione manuale prima di richiedere un rimborso."
+                                      : "Este pago requiere revisión manual antes de solicitar un reembolso."}
+                              </div>
+                            ) : null
+                          )}
                         </div>
                       </div>
                     );
