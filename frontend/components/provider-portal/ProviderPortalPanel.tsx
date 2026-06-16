@@ -959,25 +959,66 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     if (planType === "monthly") return { label: copy.monthly, kind: "monthly" as const };
     return { label: copy.free, kind: "free" as const };
   };
+  const getPortalPaymentView = useCallback((submission: PortalSubmission) => {
+  const draft = submission.draftData ?? {};
+
+  const values = [
+    submission.paymentStatus,
+    submission.paymentReturnStatus,
+    draft.paymentStatus,
+    draft.paymentReturnStatus,
+    draft.status,
+    draft.returnStatus,
+  ].map((value) => String(value ?? "").trim().toLowerCase()).filter(Boolean);
+
+  const hasPaymentReference = [
+    submission.providerPaymentId,
+    draft.providerPaymentId,
+    draft.paymentId,
+    draft.externalReference,
+    draft.paymentReference,
+    draft.merchantCheckoutToken,
+    draft.checkoutId,
+  ].some((value) => String(value ?? "").trim());
+
+  if (values.some((value) => ["paid", "approved", "completed", "success", "ok", "accepted", "aceptado"].includes(value))) {
+    return "confirmed" as const;
+  }
+
+  if (values.some((value) => ["failed", "rejected", "cancelled", "canceled", "error", "declined"].includes(value))) {
+    return "failed" as const;
+  }
+
+  if (hasPaymentReference || values.some((value) => ["processing", "pending", "in_process", "in_review"].includes(value))) {
+    return "review" as const;
+  }
+
+  return "none" as const;
+}, []);
  const getVisualSubmissionStage = useCallback((submission: PortalSubmission) => {
     const normalizedStatus = String(submission.status ?? "").trim().toLowerCase();
-    const normalizedPayment = String(submission.paymentStatus ?? "").trim().toLowerCase();
+    const paymentView = getPortalPaymentView(submission);
     const expiration = submission.expirationAt ? new Date(submission.expirationAt).getTime() : 0;
     const isExpired = Boolean(expiration) && !Number.isNaN(expiration) && expiration < Date.now();
     const isResubmitted = Boolean(submission.resubmittedAt || submission.draftData?.resubmittedAt);
     if (normalizedStatus === "rejected") return "rejected" as const;
     if (normalizedStatus === "needs_info") return "needsInfo" as const;
-    if (["cancelled", "canceled"].includes(normalizedStatus)) return "cancelled" as const;
+    if (["cancelled", "canceled"].includes(normalizedStatus) && paymentView !== "confirmed" && paymentView !== "review") {
+  return "cancelled" as const;}
     if (["aprobado", "approved", "active", "activo", "paid"].includes(normalizedStatus)) {
       return isExpired ? "expired" as const : "approved" as const;
     }
-    if (["pendiente_pago", "payment_pending"].includes(normalizedStatus) || ["processing", "pending", "failed", "cancelled", "canceled", "rejected"].includes(normalizedPayment)) {
-      return ["failed", "cancelled", "canceled", "rejected"].includes(normalizedPayment) ? "cancelled" as const : "paymentPending" as const;
+    if (paymentView === "confirmed" || paymentView === "review") {
+    return "paymentPending" as const;
+    }
+    
+    if (["pendiente_pago", "payment_pending"].includes(normalizedStatus) || paymentView === "failed") {
+      return paymentView === "failed" ? "cancelled" as const : "paymentPending" as const;
     }
     if (isExpired) return "expired" as const;
     if (isResubmitted) return "resubmitted" as const;
     return "pending" as const;
-  }, []);
+    }, [getPortalPaymentView]);
   const visualSubmissionLabel = useCallback((submission: PortalSubmission) => {
     const stage = getVisualSubmissionStage(submission);
     if (stage === "approved") return t("providerPortal.status.approved");
@@ -998,20 +1039,30 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     return "pending" as const;
   }, [getVisualSubmissionStage]);
 
-  const visualPaymentLabel = useCallback((value?: string) => {
-    const normalized = String(value ?? "").trim().toLowerCase();
-    if (["paid", "approved", "completed", "success"].includes(normalized)) return t("providerPortal.payment.paid");
-    if (["processing", "pending"].includes(normalized)) return t("providerPortal.payment.processing");
-    if (["failed", "rejected"].includes(normalized)) return t("providerPortal.payment.rejected");
-    return t("providerPortal.payment.notCompleted");
-  }, [t]);
+  const visualPaymentLabel = useCallback((submission: PortalSubmission) => {
+  const paymentView = getPortalPaymentView(submission);
 
-  const visualPaymentKind = useCallback((value?: string) => {
-    const normalized = String(value ?? "").trim().toLowerCase();
-    if (["paid", "approved", "completed", "success"].includes(normalized)) return "approved" as const;
-    if (["failed", "rejected", "cancelled", "canceled"].includes(normalized)) return "rejected" as const;
-    return "pending" as const;
-  }, []);
+  if (paymentView === "confirmed") {
+    return locale === "en" ? "Payment accepted" : locale === "pt" ? "Pagamento aceito" : locale === "it" ? "Pagamento accettato" : "Pago aceptado";
+  }
+
+  if (paymentView === "review") {
+    return locale === "en" ? "Payment under review" : locale === "pt" ? "Pagamento em revisão" : locale === "it" ? "Pagamento in revisione" : "Pago en revisión";
+  }
+
+  if (paymentView === "failed") return t("providerPortal.payment.rejected");
+
+  return t("providerPortal.payment.notCompleted");
+}, [getPortalPaymentView, locale, t]);
+
+const visualPaymentKind = useCallback((submission: PortalSubmission) => {
+  const paymentView = getPortalPaymentView(submission);
+
+  if (paymentView === "confirmed") return "approved" as const;
+  if (paymentView === "failed") return "rejected" as const;
+
+  return "pending" as const;
+}, [getPortalPaymentView]);
 
   const visualRefundLabel = useCallback((value?: string) => {
     const normalized = String(value ?? "").trim().toLowerCase();
@@ -1051,10 +1102,9 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     return 2;
   }, []);
 
-  const isConfirmedPortalPayment = useCallback((value?: string) => {
-    const normalized = String(value ?? "").trim().toLowerCase();
-    return ["paid", "approved", "completed", "success"].includes(normalized);
-  }, []);
+ const isConfirmedPortalPayment = useCallback((submission: PortalSubmission) => {
+  return getPortalPaymentView(submission) === "confirmed";
+}, [getPortalPaymentView]);
 
   const planBenefits = useMemo(() => sanitizeVisibleCopy({
     featured: [
@@ -1585,12 +1635,13 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                     const plan = planBadge(item.planType);
                     const statusKind = visualSubmissionKind(item);
                     const statusLabel = visualSubmissionLabel(item);
-                    const paymentLabel = visualPaymentLabel(item.paymentStatus);
+                    const paymentView = getPortalPaymentView(item);
+                    const paymentLabel = visualPaymentLabel(item);
                     const normalizedStatus = String(item.status ?? "").trim().toLowerCase();
                     const isApproved = ["aprobado", "approved", "active", "activo", "paid"].includes(normalizedStatus);
-                    const canDelete = !isApproved && String(item.paymentStatus || "").toLowerCase() !== "paid";
+                    const canDelete = !isApproved && paymentView !== "confirmed" && paymentView !== "review";
                     const refundStatus = String(item.refundStatus ?? "").trim().toLowerCase();
-                    const paymentConfirmed = isConfirmedPortalPayment(item.paymentStatus);
+                    const paymentConfirmed = isConfirmedPortalPayment(item);
                     const hasProviderPaymentId = Boolean(item.providerPaymentId && item.providerPaymentId.trim());
                     const isResubmitted = Boolean(item.resubmittedAt || item.draftData?.resubmittedAt);
                     const showEditButton = normalizedStatus === "needs_info" && !isResubmitted;
@@ -1615,7 +1666,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                             <span className="text-sm font-semibold text-slate-900">{item.profileName || item.email}</span>
                             <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(plan.kind)}`}>{plan.label}</span>
                             <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(statusKind)}`}>{copy.status}: {decodeLikelyMojibake(statusLabel)}</span>
-                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(visualPaymentKind(item.paymentStatus))}`}>{paymentLabel}</span>
+                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(visualPaymentKind(item))}`}>{paymentLabel}</span>
                             {refundStatus ? (
                               <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(visualRefundKind(item.refundStatus))}`}>{visualRefundLabel(item.refundStatus)}</span>
                             ) : null}
