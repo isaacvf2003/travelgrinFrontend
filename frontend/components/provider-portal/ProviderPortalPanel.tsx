@@ -389,7 +389,283 @@ export default function ProviderPortalPanel() {
   const [refundingSubmissionId, setRefundingSubmissionId] = useState<string | null>(null);
   const publishCardsRef = useRef<HTMLDivElement | null>(null);
   const resumeHandledRef = useRef(false);
-
+  const copy = useMemo(() => sanitizePortalVisibleTree({
+    title:
+      locale === "en" ? "Provider mini panel" :
+      locale === "pt" ? "Mini painel do oferente" :
+      locale === "it" ? "Mini pannello fornitore" :
+      "Mini panel del oferente",
+    subtitle:
+      locale === "en" ? "Access your submissions, publications and request a new one from the same secure place." :
+      locale === "pt" ? "Acesse seus envios, publicaÃ§Ãµes e peÃ§a uma nova publicaÃ§Ã£o do mesmo lugar seguro." :
+      locale === "it" ? "Accedi ai tuoi invii, pubblicazioni e richiedi una nuova pubblicazione dallo stesso posto sicuro." :
+      "AccedÃ© a tus envÃ­os, publicaciones y pedÃ­ una nueva publicaciÃ³n desde el mismo lugar seguro.",
+    requestTitle:
+      locale === "en" ? "Enter with a secure link" :
+      locale === "pt" ? "Entrar com link seguro" :
+      locale === "it" ? "Entra con link sicuro" :
+      "Entrar con enlace seguro",
+    requestBody:
+      locale === "en" ? "Use the same email you left in your Travelgrin form. We will send you a one-time access link." :
+      locale === "pt" ? "Use o mesmo email que vocÃª deixou no formulÃ¡rio da Travelgrin. Vamos te enviar um link de acesso de uso Ãºnico." :
+      locale === "it" ? "Usa la stessa email che hai lasciato nel modulo Travelgrin. Ti invieremo un link monouso." :
+      "UsÃ¡ el mismo email que dejaste en tu formulario de Travelgrin. Te vamos a enviar un enlace de acceso de un solo uso.",
+    emailPlaceholder:
+      locale === "en" ? "Your contact email" :
+      locale === "pt" ? "Seu email de contato" :
+      locale === "it" ? "La tua email di contatto" :
+      "Tu email de contacto",
+    sendLink:
+      locale === "en" ? "Send secure link" :
+      locale === "pt" ? "Enviar link seguro" :
+      locale === "it" ? "Invia link sicuro" :
+      "Enviar enlace seguro",
+    sending:
+      locale === "en" ? "Sending..." :
+      locale === "pt" ? "Enviando..." :
+      locale === "it" ? "Invio..." :
+      "Enviando...",
+    invalidEmail:
+      locale === "en" ? "Enter a valid email." :
+      locale === "pt" ? "Insira um email vÃ¡lido." :
+      locale === "it" ? "Inserisci un'email valida." :
+      "IngresÃ¡ un email vÃ¡lido.",
+    securityHint:
+      locale === "en" ? "The link expires in 20 minutes and the session stays active for 15 days on this device." :
+      locale === "pt" ? "O link vence em 20 minutos e a sessÃ£o fica ativa por 15 dias neste dispositivo." :
+      locale === "it" ? "Il link scade in 20 minuti e la sessione resta attiva per 15 giorni su questo dispositivo." :
+      "El enlace vence en 20 minutos y la sesiÃ³n queda activa por 15 dÃ­as en este dispositivo.",
+    accessOk:
+      locale === "en" ? "Access verified. Welcome back." :
+      locale === "pt" ? "Acesso verificado. Bem-vindo de volta." :
+      locale === "it" ? "Accesso verificato. Bentornato." :
+      "Acceso verificado. Bienvenido de nuevo.",
+    accessInvalid:
+      locale === "en" ? "That access link is no longer valid. Request a new one." :
+      locale === "pt" ? "Esse link de acesso nÃ£o Ã© mais vÃ¡lido. PeÃ§a um novo." :
+      locale === "it" ? "Quel link di accesso non Ã¨ piÃ¹ valido. Richiedine uno nuovo." :
+      "Ese enlace de acceso ya no es vÃ¡lido. PedÃ­ uno nuevo.",
+    activeSession:
+      locale === "en" ? "Active session" :
+      locale === "pt" ? "SessÃ£o ativa" :
+      locale === "it" ? "Sessione attiva" :
+      "SesiÃ³n activa",
+    logout:
+      locale === "en" ? "Log out" :
+      locale === "pt" ? "Salir" :
+      locale === "it" ? "Esci" :
+      "Cerrar sesiÃ³n",
+    refreshing:
+      locale === "en" ? "Refreshing..." :
+      locale === "pt" ? "Atualizando..." :
+      locale === "it" ? "Aggiornamento..." :
+      "Actualizando...",
+    refresh:
+      locale === "en" ? "Refresh panel" :
+      locale === "pt" ? "Atualizar painel" :
+      locale === "it" ? "Aggiorna pannello" :
+      "Actualizar panel",
+    newSubmissionHint:
+      locale === "en" ? "Use this when you want to start a brand-new publication request without changing your current plan." :
+      locale === "pt" ? "Use isto quando quiser iniciar um pedido de publicaÃ§Ã£o totalmente novo sem mudar seu plano atual." :
+      locale === "it" ? "Usa questo quando vuoi avviare una richiesta di pubblicazione completamente nuova senza cambiare il tuo piano attuale." :
+      "UsÃ¡ esto cuando quieras iniciar una solicitud de publicaciÃ³n totalmente nueva sin cambiar tu plan actual.",
+    newSubmission:
+      locale === "en" ? "Request another publication" :
+      locale === "pt" ? "Pedir outra publicaÃ§Ã£o" :
+      locale === "it" ? "Richiedi un'altra pubblicazione" :
+      "Pedir otra publicaciÃ³n",
+    jumpToPublishOptions:
+      locale === "en" ? "Create another publication" :
+      locale === "pt" ? "Criar outra publicação" :
+      locale === "it" ? "Crea un'altra pubblicazione" :
+      "Crear otra publicación",
+    publishOptionsTitle:
+      locale === "en" ? "Create a new publication" :
+      locale === "pt" ? "Criar uma nova publicaÃƒÂ§ÃƒÂ£o" :
+      locale === "it" ? "Crea una nuova pubblicazione" :
+      "Crear una nueva publicaciÃƒÂ³n",
+    publishOptionsBody:
+      locale === "en" ? "Choose the type of new publication you want to create with this same provider account." :
+      locale === "pt" ? "Escolha o tipo de nova publicaÃƒÂ§ÃƒÂ£o que vocÃƒÂª quer criar com esta mesma conta de oferente." :
+      locale === "it" ? "Scegli il tipo di nuova pubblicazione che vuoi creare con questo stesso account fornitore." :
+      "ElegÃƒÂ­ el tipo de nueva publicaciÃƒÂ³n que querÃƒÂ©s crear con esta misma cuenta de oferente.",
+    publishFreeAction:
+      locale === "en" ? "Publish basic listing" :
+      locale === "pt" ? "Publicar publicação básica" :
+      locale === "it" ? "Pubblica pubblicazione base" :
+      "Publicar publicación básica",
+    publishFeaturedAction:
+      locale === "en" ? "Publish featured listing" :
+      locale === "pt" ? "Publicar destaque 120 dias" :
+      locale === "it" ? "Pubblica evidenza 120 giorni" :
+      "Publicar destacado",
+    publishMonthlyAction:
+      locale === "en" ? "Publish monthly plan" :
+      locale === "pt" ? "Publicar plano mensal" :
+      locale === "it" ? "Pubblica piano mensile" :
+      "Publicar plan mensual",
+    submissionDelete:
+      locale === "en" ? "Delete" :
+      locale === "pt" ? "Excluir" :
+      locale === "it" ? "Elimina" :
+      "Eliminar",
+    deletingSubmission:
+      locale === "en" ? "Deleting..." :
+      locale === "pt" ? "Excluindo..." :
+      locale === "it" ? "Eliminazione..." :
+      "Eliminando...",
+    submissionDeleted:
+      locale === "en" ? "Request deleted." :
+      locale === "pt" ? "SolicitaÃƒÂ§ÃƒÂ£o excluÃƒÂ­da." :
+      locale === "it" ? "Richiesta eliminata." :
+      "Solicitud eliminada.",
+    submissionDeleteConfirm:
+      locale === "en" ? "Do you want to delete this request from your history?" :
+      locale === "pt" ? "Quer excluir esta solicitaÃƒÂ§ÃƒÂ£o do seu histÃƒÂ³rico?" :
+      locale === "it" ? "Vuoi eliminare questa richiesta dal tuo storico?" :
+      "Ã‚Â¿QuerÃƒÂ©s eliminar esta solicitud de tu historial?",
+    compactHistoryHint:
+      locale === "en" ? "Latest requests first. You can delete cancelled or pending requests from here." :
+      locale === "pt" ? "Pedidos mais recentes primeiro. VocÃƒÂª pode excluir daqui os pedidos cancelados ou pendentes." :
+      locale === "it" ? "Richieste piÃƒÂ¹ recenti per prime. Da qui puoi eliminare le richieste annullate o in sospeso." :
+      "Las solicitudes mÃƒÂ¡s nuevas van primero. Desde acÃƒÂ¡ podÃƒÂ©s eliminar las canceladas o pendientes.",
+    statsSubmissions:
+      locale === "en" ? "Submitted forms" :
+      locale === "pt" ? "FormulÃ¡rios enviados" :
+      locale === "it" ? "Moduli inviati" :
+      "Formularios enviados",
+    statsPublications:
+      locale === "en" ? "Admin-built publications" :
+      locale === "pt" ? "PublicaÃ§Ãµes armadas pelo admin" :
+      locale === "it" ? "Pubblicazioni create dall'admin" :
+      "Publicaciones armadas por admin",
+    statsPending:
+      locale === "en" ? "Pending review" :
+      locale === "pt" ? "Pendentes de revisÃ£o" :
+      locale === "it" ? "In attesa di revisione" :
+      "Pendientes de revisiÃ³n",
+    statsPlans:
+      locale === "en" ? "Plan mix" :
+      locale === "pt" ? "DistribuiÃ§Ã£o de planos" :
+      locale === "it" ? "Mix dei piani" :
+      "DistribuciÃ³n de planes",
+    submissionsTitle:
+      locale === "en" ? "Your submitted requests" :
+      locale === "pt" ? "Seus pedidos enviados" :
+      locale === "it" ? "Le tue richieste inviate" :
+      "Tus solicitudes enviadas",
+    publicationsTitle:
+      locale === "en" ? "Publications visible for your account" :
+      locale === "pt" ? "PublicaÃ§Ãµes visÃ­veis para sua conta" :
+      locale === "it" ? "Pubblicazioni visibili per il tuo account" :
+      "Publicaciones visibles para tu cuenta",
+    emptySubmissions:
+      locale === "en" ? "You still have no submissions with this email." :
+      locale === "pt" ? "VocÃª ainda nÃ£o tem envios com este email." :
+      locale === "it" ? "Non hai ancora invii con questa email." :
+      "TodavÃ­a no tenÃ©s envÃ­os con este email.",
+    emptyPublications:
+      locale === "en" ? "The admin has not built publications from your requests yet." :
+      locale === "pt" ? "O admin ainda nÃ£o armou publicaÃ§Ãµes a partir dos seus pedidos." :
+      locale === "it" ? "L'admin non ha ancora creato pubblicazioni dalle tue richieste." :
+      "El admin todavÃ­a no armÃ³ publicaciones a partir de tus solicitudes.",
+    createdAt:
+      locale === "en" ? "Created" :
+      locale === "pt" ? "Creado em" :
+      locale === "it" ? "Creato il" :
+      "Creada",
+    expiresAt:
+      locale === "en" ? "Expires" :
+      locale === "pt" ? "Vence" :
+      locale === "it" ? "Scade" :
+      "Vence",
+    destination:
+      locale === "en" ? "Destination" :
+      locale === "pt" ? "Destino" :
+      locale === "it" ? "Destinazione" :
+      "Destino",
+    status:
+      locale === "en" ? "Status" :
+      locale === "pt" ? "Estado" :
+      locale === "it" ? "Stato" :
+      "Estado",
+    payment:
+      locale === "en" ? "Payment" :
+      locale === "pt" ? "Pagamento" :
+      locale === "it" ? "Pagamento" :
+      "Pago",
+    featured:
+      locale === "en" ? "Featured 120 days" :
+      locale === "pt" ? "Destaque 120 dias" :
+      locale === "it" ? "In evidenza 120 giorni" :
+      "Destacado 120 dÃ­as",
+    monthly:
+      locale === "en" ? "Monthly plan" :
+      locale === "pt" ? "Plano mensal" :
+      locale === "it" ? "Piano mensile" :
+      "Plan mensual",
+    free:
+      locale === "en" ? "Free 60 days" :
+      locale === "pt" ? "GrÃ¡tis 60 dias" :
+      locale === "it" ? "Gratis 60 giorni" :
+      "Gratis 60 dÃ­as",
+    planSelectorTitle:
+      locale === "en" ? "Choose how you want to continue" :
+      locale === "pt" ? "Escolha como vocÃƒÂª quer continuar" :
+      locale === "it" ? "Scegli come vuoi continuare" :
+      "ElegÃƒÂ­ cÃƒÂ³mo querÃƒÂ©s continuar",
+    planSelectorBody:
+      locale === "en" ? "Stay free, upgrade to featured for 120 days, or switch to a monthly plan. Paid plans use the prices configured by the admin for your passport country." :
+      locale === "pt" ? "Continue no gratuito, passe para destaque por 120 dias ou mude para o plano mensal. Os planos pagos usam os preÃƒÂ§os configurados pelo admin para o paÃƒÂ­s do seu passaporte." :
+      locale === "it" ? "Resta nel gratuito, passa all'evidenza per 120 giorni oppure attiva il piano mensile. I piani a pagamento usano i prezzi configurati dall'admin per il paese del tuo passaporto." :
+      "SeguÃƒÂ­ en gratis, pasÃƒÂ¡ a destacado por 120 dÃƒÂ­as o cambiÃƒÂ¡ al plan mensual. Los planes pagos usan los precios configurados por el admin para el paÃƒÂ­s de tu pasaporte.",
+    freeCta:
+      locale === "en" ? "Renew / request free" :
+      locale === "pt" ? "Renovar / pedir grÃƒÂ¡tis" :
+      locale === "it" ? "Rinnova / richiedi gratis" :
+      "Renovar / pedir gratis",
+    featuredCta:
+      locale === "en" ? "Switch to featured 120 days" :
+      locale === "pt" ? "Passar para destaque 120 dias" :
+      locale === "it" ? "Passa a evidenza 120 giorni" :
+      "Pasar a destacado 120 dÃƒÂ­as",
+    monthlyCta:
+      locale === "en" ? "Switch to monthly plan" :
+      locale === "pt" ? "Passar para plano mensal" :
+      locale === "it" ? "Passa al piano mensile" :
+      "Pasar a plan mensual",
+    freeDescription:
+      locale === "en" ? "Visible in the listing for 60 days. When it expires, you can renew it from here and the request goes back to the admin." :
+      locale === "pt" ? "VisÃƒÂ­vel na listagem por 60 dias. Quando vencer, vocÃƒÂª pode renovar por aqui e o pedido volta para o admin." :
+      locale === "it" ? "Visibile nell'elenco per 60 giorni. Quando scade, puoi rinnovarlo da qui e la richiesta torna all'admin." :
+      "Visible en el listado por 60 dÃƒÂ­as. Cuando vence, podÃƒÂ©s renovarla desde acÃƒÂ¡ y la solicitud vuelve al admin.",
+    featuredDescription:
+      locale === "en" ? "One-time payment. Includes the same featured benefits from the publication form for 120 days." :
+      locale === "pt" ? "Pagamento ÃƒÂºnico. Inclui os mesmos benefÃƒÂ­cios destacados do formulÃƒÂ¡rio de publicaÃƒÂ§ÃƒÂ£o por 120 dias." :
+      locale === "it" ? "Pagamento unico. Include gli stessi vantaggi in evidenza del modulo di pubblicazione per 120 giorni." :
+      "Pago ÃƒÂºnico. Incluye los mismos beneficios destacados del formulario de publicaciÃƒÂ³n por 120 dÃƒÂ­as.",
+    monthlyDescription:
+      locale === "en" ? "Recurring monthly billing with the same featured benefits to keep your publication boosted continuously." :
+      locale === "pt" ? "CobranÃƒÂ§a mensal recorrente com os mesmos benefÃƒÂ­cios destacados para manter sua publicaÃƒÂ§ÃƒÂ£o impulsionada de forma continua." :
+      locale === "it" ? "Addebito mensile ricorrente con gli stessi vantaggi del piano in evidenza per mantenere la tua pubblicazione potenziata in modo continuo." :
+      "Cobro mensual recurrente con los mismos beneficios destacados para mantener tu publicaciÃƒÂ³n impulsionada de forma continua.",
+    includesTitle:
+      locale === "en" ? "Includes" :
+      locale === "pt" ? "Inclui" :
+      locale === "it" ? "Include" :
+      "Incluye",
+    noPriceConfigured:
+      locale === "en" ? "Price not configured yet" :
+      locale === "pt" ? "PreÃƒÂ§o ainda nÃƒÂ£o configurado" :
+      locale === "it" ? "Prezzo non ancora configurato" :
+      "Precio todavÃƒÂ­a no configurado",
+    priceUnavailableHint:
+      locale === "en" ? "The admin still needs to configure this price for your passport country." :
+      locale === "pt" ? "O admin ainda precisa configurar este preÃ§o para o paÃ­s do seu passaporte." :
+      locale === "it" ? "L'admin deve ancora configurare questo prezzo per il paese del tuo passaporto." :
+      "El admin todavÃ­a tiene que configurar este precio para el paÃ­s de tu pasaporte.",
+  }), [locale]);
   const portalStatus = String(searchParams.get("portal_status") ?? "").trim().toLowerCase();
   const portalAction = String(searchParams.get("portal_action") ?? "").trim().toLowerCase();
   const portalSubmissionId = String(searchParams.get("submission_id") ?? "").trim();
@@ -601,7 +877,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     nextUrl.searchParams.delete("submission_id");
     window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
     const targetSubmission = dashboard.submissions.find((item) => item.id === portalSubmissionId);
-    if (!targetSubmission || !["needs_info", "rejected"].includes(String(targetSubmission.status ?? "").trim().toLowerCase())) {
+    if (!targetSubmission || String(targetSubmission.status ?? "").trim().toLowerCase() !== "needs_info") {
       toast.error(t("enlace_reanudacion_invalido"));
       return;
     }
@@ -683,25 +959,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     if (planType === "monthly") return { label: copy.monthly, kind: "monthly" as const };
     return { label: copy.free, kind: "free" as const };
   };
-  const getVisualSubmissionStage = useCallback((submission: PortalSubmission) => {
-    const normalizedStatus = String(submission.status ?? "").trim().toLowerCase();
-    const normalizedPayment = String(submission.paymentStatus ?? "").trim().toLowerCase();
-    const expiration = submission.expirationAt ? new Date(submission.expirationAt).getTime() : 0;
-    const isExpired = Boolean(expiration) && !Number.isNaN(expiration) && expiration < Date.now();
-    const isResubmitted = Boolean(submission.resubmittedAt || submission.draftData?.resubmittedAt);
-    if (normalizedStatus === "rejected") return "rejected" as const;
-    if (normalizedStatus === "needs_info") return "needsInfo" as const;
-    if (["cancelled", "canceled"].includes(normalizedStatus)) return "cancelled" as const;
-    if (["aprobado", "approved", "active", "activo", "paid"].includes(normalizedStatus)) {
-      return isExpired ? "expired" as const : "approved" as const;
-    }
-    if (["pendiente_pago", "payment_pending"].includes(normalizedStatus) || ["processing", "pending", "failed", "cancelled", "canceled", "rejected"].includes(normalizedPayment)) {
-      return ["failed", "cancelled", "canceled", "rejected"].includes(normalizedPayment) ? "cancelled" as const : "paymentPending" as const;
-    }
-    if (isExpired) return "expired" as const;
-    if (isResubmitted) return "resubmitted" as const;
-    return "pending" as const;
-  }, []);
+
   const visualSubmissionLabel = useCallback((submission: PortalSubmission) => {
     const stage = getVisualSubmissionStage(submission);
     if (stage === "approved") return t("providerPortal.status.approved");
@@ -756,7 +1014,25 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     return "default" as const;
   }, []);
 
-  
+  const getVisualSubmissionStage = useCallback((submission: PortalSubmission) => {
+    const normalizedStatus = String(submission.status ?? "").trim().toLowerCase();
+    const normalizedPayment = String(submission.paymentStatus ?? "").trim().toLowerCase();
+    const expiration = submission.expirationAt ? new Date(submission.expirationAt).getTime() : 0;
+    const isExpired = Boolean(expiration) && !Number.isNaN(expiration) && expiration < Date.now();
+    const isResubmitted = Boolean(submission.resubmittedAt || submission.draftData?.resubmittedAt);
+    if (normalizedStatus === "rejected") return "rejected" as const;
+    if (normalizedStatus === "needs_info") return "needsInfo" as const;
+    if (["cancelled", "canceled"].includes(normalizedStatus)) return "cancelled" as const;
+    if (["aprobado", "approved", "active", "activo", "paid"].includes(normalizedStatus)) {
+      return isExpired ? "expired" as const : "approved" as const;
+    }
+    if (["pendiente_pago", "payment_pending"].includes(normalizedStatus) || ["processing", "pending", "failed", "cancelled", "canceled", "rejected"].includes(normalizedPayment)) {
+      return ["failed", "cancelled", "canceled", "rejected"].includes(normalizedPayment) ? "cancelled" as const : "paymentPending" as const;
+    }
+    if (isExpired) return "expired" as const;
+    if (isResubmitted) return "resubmitted" as const;
+    return "pending" as const;
+  }, []);
 
   const submissionSortRank = useCallback((submission: PortalSubmission) => {
     const stage = getVisualSubmissionStage(submission);
@@ -1318,6 +1594,20 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                     const hasProviderPaymentId = Boolean(item.providerPaymentId && item.providerPaymentId.trim());
                     const isResubmitted = Boolean(item.resubmittedAt || item.draftData?.resubmittedAt);
                     const showEditButton = normalizedStatus === "needs_info" && !isResubmitted;
+                    const refundActiveOrFinal = ["refund_requested", "refund_reviewing", "refund_processing", "refunded", "refund_failed"].includes(refundStatus);
+                    const canRequestRefund =
+                      ["rejected", "needs_info"].includes(normalizedStatus) &&
+                      paymentConfirmed &&
+                      hasProviderPaymentId &&
+                      !refundActiveOrFinal &&
+                      !(normalizedStatus === "needs_info" && isResubmitted);
+
+                    const canShowManualRefundReview =
+                      ["rejected", "needs_info"].includes(normalizedStatus) &&
+                      paymentConfirmed &&
+                      !hasProviderPaymentId &&
+                      !refundActiveOrFinal &&
+                      !(normalizedStatus === "needs_info" && isResubmitted);
                     return (
                       <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1330,7 +1620,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                               <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(visualRefundKind(item.refundStatus))}`}>{visualRefundLabel(item.refundStatus)}</span>
                             ) : null}
                           </div>
-                          {showEditButton || canDelete || (["rejected", "needs_info"].includes(normalizedStatus) && paymentConfirmed && hasProviderPaymentId && !isResubmitted && !["refund_requested", "refund_reviewing", "refund_processing", "refunded", "refund_failed"].includes(refundStatus)) ? (
+                         {showEditButton || canDelete || canRequestRefund ? (
                             <div className="flex flex-wrap gap-2">
                               {showEditButton ? (
                                 <button
@@ -1341,7 +1631,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                                   {locale === "en" ? "Update information" : locale === "pt" ? "Actualizar informação" : locale === "it" ? "Aggiorna informazioni" : "Actualizar información"}
                                 </button>
                               ) : null}
-                              {["rejected", "needs_info"].includes(normalizedStatus) && paymentConfirmed && hasProviderPaymentId && !isResubmitted && !["refund_requested", "refund_reviewing", "refund_processing", "refunded", "refund_failed"].includes(refundStatus) ? (
+                              {canRequestRefund ? (
                                 <button
                                   type="button"
                                   onClick={() => void requestRefund(item)}
@@ -1403,7 +1693,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                               <span className="font-semibold">{t("reanudar_solicitud")}:</span> {t("si_ya_pagaste_no_pagas_de_nuevo")}
                             </div>
                           ) : null}
-                          {["rejected", "needs_info"].includes(normalizedStatus) && paymentConfirmed && hasProviderPaymentId && !["refund_requested", "refund_reviewing", "refund_processing", "refunded", "refund_failed"].includes(refundStatus) ? (
+                          {canRequestRefund ? (
                             <div className="sm:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                               {locale === "en"
                                 ? "If your payment was already confirmed, the admin can review and execute the refund from here."
@@ -1414,7 +1704,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
                                     : "Si tu pago ya fue confirmado, el admin puede revisar y ejecutar el reembolso desde aca."}
                             </div>
                           ) : (
-                            paymentConfirmed && !hasProviderPaymentId && ["rejected", "needs_info"].includes(normalizedStatus) && !["refunded"].includes(refundStatus) ? (
+                           canShowManualRefundReview ? (
                               <div className="sm:col-span-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
                                 {locale === "en"
                                   ? "This payment requires manual review before requesting a refund."
