@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -5416,42 +5416,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 placeholder="Máximo de períodos (opcional)"
                 className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
               />
-              <div className="md:col-span-2">
-                <button
-                  type="button"
-                  onClick={() => setPriceRuleShowUrlConfigDraft((current) => !current)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  {priceRuleShowUrlConfigDraft ? "Ocultar URLs" : "Colocar URLs"}
-                </button>
-              </div>
-              {priceRuleShowUrlConfigDraft ? (
+              {priceRuleProviderModeDraft === "manual" ? (
                 <>
-                  <input
-                    value={priceRuleSubscriptionSuccessUrlDraft}
-                    onChange={(event) => setPriceRuleSubscriptionSuccessUrlDraft(event.target.value)}
-                    placeholder="success_url"
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
-                  />
-                  <input
-                    value={priceRuleSubscriptionBackUrlDraft}
-                    onChange={(event) => setPriceRuleSubscriptionBackUrlDraft(event.target.value)}
-                    placeholder="back_url"
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                  />
-                  <input
-                    value={priceRuleSubscriptionErrorUrlDraft}
-                    onChange={(event) => setPriceRuleSubscriptionErrorUrlDraft(event.target.value)}
-                    placeholder="error_url"
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                  />
-                  <input
-                    value={priceRuleSubscriptionNotificationUrlDraft}
-                    onChange={(event) => setPriceRuleSubscriptionNotificationUrlDraft(event.target.value)}
-                    placeholder="notification_url / webhook"
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm md:col-span-2"
-                  />
-                  {priceRuleProviderModeDraft === "manual" ? (
+                  <div className="md:col-span-2">
+                    <button
+                      type="button"
+                      onClick={() => setPriceRuleShowUrlConfigDraft((current) => !current)}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      {priceRuleShowUrlConfigDraft ? "Ocultar URL manual" : "Añadir URL manual"}
+                    </button>
+                  </div>
+                  {priceRuleShowUrlConfigDraft ? (
                     <input
                       value={priceRuleSubscriptionManualUrlDraft}
                       onChange={(event) => setPriceRuleSubscriptionManualUrlDraft(event.target.value)}
