@@ -1310,11 +1310,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   useEffect(() => {
     if (priceRulePlanTypeDraft !== "featured_monthly") return;
-    const defaults = getDefaultSubscriptionUrls();
-    if (!priceRuleSubscriptionSuccessUrlDraft) setPriceRuleSubscriptionSuccessUrlDraft(defaults.successUrl);
-    if (!priceRuleSubscriptionBackUrlDraft) setPriceRuleSubscriptionBackUrlDraft(defaults.backUrl);
-    if (!priceRuleSubscriptionErrorUrlDraft) setPriceRuleSubscriptionErrorUrlDraft(defaults.errorUrl);
-    if (!priceRuleSubscriptionNotificationUrlDraft) setPriceRuleSubscriptionNotificationUrlDraft(defaults.notificationUrl);
     if (!priceRuleSubscriptionNameDraft) {
       setPriceRuleSubscriptionNameDraft(priceRuleCountryDraft && priceRuleCountryDraft !== "__ALL__"
         ? `Plan mensual ${priceRuleCountryDraft}`
@@ -1323,11 +1318,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [
     priceRuleCountryDraft,
     priceRulePlanTypeDraft,
-    priceRuleSubscriptionBackUrlDraft,
-    priceRuleSubscriptionErrorUrlDraft,
     priceRuleSubscriptionNameDraft,
-    priceRuleSubscriptionNotificationUrlDraft,
-    priceRuleSubscriptionSuccessUrlDraft,
   ]);
 
   // --- Category form ---
@@ -1352,24 +1343,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [catCardImageUrl, setCatCardImageUrl] = useState("");
   const [catIconImageTouched, setCatIconImageTouched] = useState(false);
   const [catCardImageTouched, setCatCardImageTouched] = useState(false);
-
-  const getDefaultSubscriptionUrls = () => {
-    if (typeof window === "undefined") {
-      return {
-        successUrl: "",
-        backUrl: "",
-        errorUrl: "",
-        notificationUrl: "",
-      };
-    }
-    const origin = window.location.origin.replace(/\/$/, "");
-    return {
-      successUrl: `${origin}/featured-payment-return?status=success`,
-      backUrl: `${origin}/featured-payment-return?status=cancel`,
-      errorUrl: `${origin}/featured-payment-return?status=cancel`,
-      notificationUrl: `${origin}/api/dlocalgo/webhook`,
-    };
-  };
 
   const [blockLang, setBlockLang] = useState<Lang>("es");
   const [blockLabelI18n, setBlockLabelI18n] = useState<I18nRecord>({ es: "" });
@@ -5109,10 +5082,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           description: priceRuleSubscriptionDescriptionDraft,
           dayOfMonth: priceRuleSubscriptionDayOfMonthDraft || null,
           maxPeriods: priceRuleSubscriptionMaxPeriodsDraft || null,
-          successUrl: priceRuleSubscriptionSuccessUrlDraft || null,
-          backUrl: priceRuleSubscriptionBackUrlDraft || null,
-          errorUrl: priceRuleSubscriptionErrorUrlDraft || null,
-          notificationUrl: priceRuleSubscriptionNotificationUrlDraft || null,
           manualSubscribeUrl: priceRuleProviderModeDraft === "manual" ? (priceRuleSubscriptionManualUrlDraft || null) : null,
         };
         const response = await api<{ ok: true; items: DlocalSubscriptionPlanItem[]; priceItems: FeaturedPlanPriceItem[] }>("/api/admin/dlocal-subscription-plans", {
@@ -5163,10 +5132,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRuleSubscriptionDescriptionDraft(linkedPlan?.description ?? "");
     setPriceRuleSubscriptionDayOfMonthDraft(linkedPlan?.dayOfMonth ? String(linkedPlan.dayOfMonth) : "");
     setPriceRuleSubscriptionMaxPeriodsDraft(linkedPlan?.maxPeriods ? String(linkedPlan.maxPeriods) : "");
-    setPriceRuleSubscriptionSuccessUrlDraft(linkedPlan?.successUrl ?? "");
-    setPriceRuleSubscriptionBackUrlDraft(linkedPlan?.backUrl ?? "");
-    setPriceRuleSubscriptionErrorUrlDraft(linkedPlan?.errorUrl ?? "");
-    setPriceRuleSubscriptionNotificationUrlDraft(linkedPlan?.notificationUrl ?? "");
+    setPriceRuleSubscriptionSuccessUrlDraft("");
+    setPriceRuleSubscriptionBackUrlDraft("");
+    setPriceRuleSubscriptionErrorUrlDraft("");
+    setPriceRuleSubscriptionNotificationUrlDraft("");
     setPriceRuleSubscriptionManualUrlDraft(linkedPlan?.manualSubscribeUrl ?? "");
     setPriceRuleShowUrlConfigDraft(false);
     setPriceRuleMessage("");
@@ -8622,5 +8591,4 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     </div>
   );
 }
-
 
