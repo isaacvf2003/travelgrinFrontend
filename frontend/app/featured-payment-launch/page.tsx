@@ -111,10 +111,10 @@ export default function FeaturedPaymentLaunchPage() {
     fetch("/api/payments/featured/return", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serviceId, status: "cancel" }),
+      body: JSON.stringify({ serviceId, status: "abandoned" }),
     })
       .then((response) => response.json().catch(() => ({})))
-      .then((data) => normalizeResult(String(data?.status ?? "cancel")))
+      .then((data) => normalizeResult(String(data?.status ?? "cancelled")))
       .catch(() => "cancel" as const)
       .then((resolvedStatus) => {
         const payload = JSON.stringify({
