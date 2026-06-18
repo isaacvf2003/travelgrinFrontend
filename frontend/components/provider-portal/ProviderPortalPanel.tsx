@@ -387,7 +387,6 @@ export default function ProviderPortalPanel() {
   const [monthlyPrice, setMonthlyPrice] = useState<PlanPriceResponseItem | null>(null);
   const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
   const [refundingSubmissionId, setRefundingSubmissionId] = useState<string | null>(null);
-  const [cancellingSubscriptionId, setCancellingSubscriptionId] = useState<string | null>(null);
   const publishCardsRef = useRef<HTMLDivElement | null>(null);
   const resumeHandledRef = useRef(false);
   const copy = useMemo(() => sanitizePortalVisibleTree({
@@ -661,26 +660,6 @@ export default function ProviderPortalPanel() {
       locale === "pt" ? "PreÃƒÂ§o ainda nÃƒÂ£o configurado" :
       locale === "it" ? "Prezzo non ancora configurato" :
       "Precio todavÃƒÂ­a no configurado",
-    cancelSubscription:
-      locale === "en" ? "Cancel subscription" :
-      locale === "pt" ? "Cancelar assinatura" :
-      locale === "it" ? "Annulla iscrizione" :
-      "Cancelar suscripción",
-    cancelling:
-      locale === "en" ? "Cancelling..." :
-      locale === "pt" ? "Cancelando..." :
-      locale === "it" ? "Annullamento..." :
-      "Cancelando...",
-    subscriptionCancelledSuccess:
-      locale === "en" ? "Subscription cancelled. Your publication will remain active until the end of the paid period." :
-      locale === "pt" ? "Assinatura cancelada. Sua publicação continuará ativa até o fim do período pago." :
-      locale === "it" ? "Iscrizione annullata. La tua pubblicazione rimarrà attiva fino alla fine del periodo pagato." :
-      "Suscripción cancelada. Tu publicación seguirá activa hasta que termine el periodo pago.",
-    subscriptionCancelledMessage:
-      locale === "en" ? "Subscription cancelled. Your publication will remain active until {date}." :
-      locale === "pt" ? "Assinatura cancelada. Sua publicação continuará ativa até {date}." :
-      locale === "it" ? "Iscrizione annullata. La tua pubblicazione rimarrà attiva fino al {date}." :
-      "Suscripción cancelada. Tu publicación seguirá activa hasta el {date}.",
     priceUnavailableHint:
       locale === "en" ? "The admin still needs to configure this price for your passport country." :
       locale === "pt" ? "O admin ainda precisa configurar este preÃ§o para o paÃ­s do seu passaporte." :
@@ -1295,30 +1274,6 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     }
   }, [loadSession, locale]);
 
-  const cancelSubscription = useCallback(async (submission: PortalSubmission) => {
-    if (!window.confirm(locale === "en" ? "Are you sure you want to cancel your monthly subscription? Your publication will remain active until the end of the paid period." : " ¿Seguro que quieres cancelar tu suscripción mensual? Tu publicación seguirá activa hasta que termine el periodo pago.")) return;
-    setCancellingSubscriptionId(submission.id);
-    try {
-      const response = await fetch(`/api/provider-portal/submissions/${encodeURIComponent(submission.id)}`, {
-        method: "PUT",
-        cache: "no-store",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel_subscription" }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data?.ok === false) {
-        throw new Error(String(data?.error ?? "No se pudo cancelar la suscripción."));
-      }
-      toast.success(copy.subscriptionCancelledSuccess);
-      await loadSession();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo cancelar la suscripción.");
-    } finally {
-      setCancellingSubscriptionId(null);
-    }
-  }, [copy.subscriptionCancelledSuccess, loadSession, locale]);
-
   const visiblePublicationEntries = useMemo(() => {
     const publications = [...(dashboard?.publications ?? [])];
     const submissions = [...(dashboard?.submissions ?? [])];
@@ -1690,7 +1645,6 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                     const hasProviderPaymentId = Boolean(item.providerPaymentId && item.providerPaymentId.trim());
                     const isResubmitted = Boolean(item.resubmittedAt || item.draftData?.resubmittedAt);
                     const showEditButton = normalizedStatus === "needs_info" && !isResubmitted;
-                    const canCancelSubscription = item.planType === "monthly" && isApproved && paymentConfirmed && item.recurringStatus !== "cancelled_at_period_end";
                     const refundActiveOrFinal = ["refund_requested", "refund_reviewing", "refund_processing", "refunded", "refund_failed"].includes(refundStatus);
                     const canRequestRefund =
                       ["rejected", "needs_info"].includes(normalizedStatus) &&
@@ -1717,7 +1671,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                               <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(visualRefundKind(item.refundStatus))}`}>{visualRefundLabel(item.refundStatus)}</span>
                             ) : null}
                           </div>
-                         {showEditButton || canDelete || canRequestRefund || canCancelSubscription ? (
+                         {showEditButton || canDelete || canRequestRefund ? (
                             <div className="flex flex-wrap gap-2">
                               {showEditButton ? (
                                 <button
@@ -1726,16 +1680,6 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                                   className="rounded-xl border border-cyan-200 bg-white px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50"
                                 >
                                   {locale === "en" ? "Update information" : locale === "pt" ? "Actualizar informação" : locale === "it" ? "Aggiorna informazioni" : "Actualizar información"}
-                                </button>
-                              ) : null}
-                              {canCancelSubscription ? (
-                                <button
-                                  type="button"
-                                  onClick={() => void cancelSubscription(item)}
-                                  disabled={cancellingSubscriptionId === item.id}
-                                  className="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {cancellingSubscriptionId === item.id ? copy.cancelling : copy.cancelSubscription}
                                 </button>
                               ) : null}
                               {canRequestRefund ? (
@@ -1788,11 +1732,6 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                             <div className="sm:col-span-2">
                               <span className="font-medium text-slate-800">{t("admin.request.refundStatus")}:</span> {visualRefundLabel(item.refundStatus)}
                               {item.refundProviderReference ? ` · ${item.refundProviderReference}` : ""}
-                            </div>
-                          ) : null}
-                          {item.recurringStatus === "cancelled_at_period_end" ? (
-                            <div className="sm:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-                              {copy.subscriptionCancelledMessage.replace("{date}", formatDate(item.recurringCancelEffectiveAt || item.expirationAt, locale))}
                             </div>
                           ) : null}
                           {refundStatus === "refund_processing" ? (
