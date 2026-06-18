@@ -48,6 +48,9 @@ type PortalSubmission = {
   paymentStatus: string;
   providerPaymentId?: string;
   paymentType: string;
+  monthlyAutoRenew?: boolean;
+  monthlySubscriptionStatus?: string;
+  monthlySubscriptionCancelledAt?: string;
   approvedAt: string;
   expirationAt: string | null;
   category: string[];
@@ -81,6 +84,9 @@ type PortalPublication = {
   requestedPlan?: string;
   relatedSubmissionId?: string;
   relatedProfileName?: string;
+  monthlyAutoRenew?: boolean;
+  monthlySubscriptionStatus?: string;
+  monthlySubscriptionCancelledAt?: string;
 };
 
 type PortalDashboard = {
@@ -96,6 +102,8 @@ type VisiblePublicationEntry = {
   effectivePlanType: "basic_free" | "featured" | "monthly";
   effectiveExpiration: string | null;
   needsInfoSubmission: PortalSubmission | null;
+  monthlyCancellationScheduled: boolean;
+  monthlyCancellationAt: string | null;
 };
 
 type PlanPriceResponseItem = {
@@ -147,6 +155,18 @@ function normalizePortalPlanType(value: unknown): "basic_free" | "featured" | "m
   if (raw === "featured" || raw === "featured_120d") return "featured";
   if (raw === "monthly" || raw === "featured_monthly") return "monthly";
   return "basic_free";
+}
+
+function hasMonthlyCancellationScheduled(value: {
+  planType?: "basic_free" | "featured" | "monthly";
+  monthlyAutoRenew?: boolean;
+  monthlySubscriptionStatus?: string;
+} | null | undefined) {
+  if (!value || value.planType !== "monthly") return false;
+  return (
+    value.monthlyAutoRenew === false ||
+    String(value.monthlySubscriptionStatus ?? "").trim().toLowerCase() === "cancelled"
+  );
 }
 
 function normalizeBrokenLatinText(value: string) {
@@ -1344,6 +1364,19 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           effectivePlanType,
           effectiveExpiration,
           needsInfoSubmission: latestInfoSubmission?.status === "needs_info" ? latestInfoSubmission : null,
+          monthlyCancellationScheduled:
+            hasMonthlyCancellationScheduled(relatedSubmission)
+            || hasMonthlyCancellationScheduled({
+              planType: effectivePlanType,
+              monthlyAutoRenew: publication.monthlyAutoRenew,
+              monthlySubscriptionStatus: publication.monthlySubscriptionStatus,
+            }),
+          monthlyCancellationAt:
+            String(
+              relatedSubmission?.monthlySubscriptionCancelledAt ??
+              publication.monthlySubscriptionCancelledAt ??
+              "",
+            ).trim() || null,
         };
       });
   }, [dashboard?.publications, dashboard?.submissions]);
@@ -1659,6 +1692,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                       !hasProviderPaymentId &&
                       !refundActiveOrFinal &&
                       !(normalizedStatus === "needs_info" && isResubmitted);
+                    const monthlyCancellationScheduled = hasMonthlyCancellationScheduled(item);
                     return (
                       <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1744,6 +1778,17 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                               <span className="font-semibold">{t("reanudar_solicitud")}:</span> {t("si_ya_pagaste_no_pagas_de_nuevo")}
                             </div>
                           ) : null}
+                          {monthlyCancellationScheduled ? (
+                            <div className="sm:col-span-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-900">
+                              {locale === "en"
+                                ? `Monthly subscription cancelled. The publication stays active until ${formatDate(item.expirationAt, locale)} and will not renew again.`
+                                : locale === "pt"
+                                  ? `A assinatura mensal foi cancelada. A publicaçao continua ativa até ${formatDate(item.expirationAt, locale)} e nao vai renovar novamente.`
+                                  : locale === "it"
+                                    ? `L'abbonamento mensile e stato annullato. La pubblicazione resta attiva fino al ${formatDate(item.expirationAt, locale)} e non si rinnoverà di nuovo.`
+                                    : `La suscripción mensual fue cancelada. La publicación sigue activa hasta ${formatDate(item.expirationAt, locale)} y no volverá a renovarse.`}
+                            </div>
+                          ) : null}
                           {canRequestRefund ? (
                             <div className="sm:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                               {locale === "en"
@@ -1781,7 +1826,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-slate-900">{copy.publicationsTitle}</h3>
                 <div className="mt-4 space-y-3">
-                  {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration, needsInfoSubmission }) => {
+                  {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration, needsInfoSubmission, monthlyCancellationScheduled }) => {
                     const badge = planBadge(effectivePlanType);
                     const canOpenFromHistory = relatedSubmission ?? latestApprovedSubmission;
                     return (
@@ -1798,6 +1843,17 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                         <div><span className="font-medium text-slate-800">{planCopy.linkedRequest}:</span> {relatedSubmission?.id || publication.sourceServiceId || "-"}</div>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
+                        {monthlyCancellationScheduled ? (
+                          <div className="w-full rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-900">
+                            {locale === "en"
+                              ? `Monthly cancellation scheduled. This publication remains active until ${formatDate(effectiveExpiration, locale)}.`
+                              : locale === "pt"
+                                ? `Cancelamento mensal agendado. Esta publicaçao continua ativa até ${formatDate(effectiveExpiration, locale)}.`
+                                : locale === "it"
+                                  ? `Cancellazione mensile programmata. Questa pubblicazione resta attiva fino al ${formatDate(effectiveExpiration, locale)}.`
+                                  : `Cancelación mensual programada. Esta publicación sigue activa hasta ${formatDate(effectiveExpiration, locale)}.`}
+                          </div>
+                        ) : null}
                         {needsInfoSubmission ? (
                           <button
                             type="button"
@@ -1854,9 +1910,12 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                           <button
                             type="button"
                             onClick={() => openPlanRequest("basic_free", canOpenFromHistory)}
-                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                            disabled={monthlyCancellationScheduled}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {planCopy.cancelMonthly}
+                            {monthlyCancellationScheduled
+                              ? (locale === "en" ? "Monthly cancellation scheduled" : locale === "pt" ? "Cancelamento mensal agendado" : locale === "it" ? "Cancellazione mensile programmata" : "Cancelación mensual programada")
+                              : planCopy.cancelMonthly}
                           </button>
                         ) : null}
                       </div>
