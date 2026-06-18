@@ -1592,7 +1592,7 @@ export default function ModalOferente({
         });
         const checkoutData = await checkoutResponse.json().catch(() => ({}));
         if (!checkoutResponse.ok || !checkoutData?.redirectUrl) {
-          throw new Error("payment_checkout_failed");
+          throw new Error(String(checkoutData?.error ?? "payment_checkout_failed"));
         }
         const redirectUrl = String(checkoutData.redirectUrl);
         const launchUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(serviceId)}&locale=${encodeURIComponent(locale)}&redirect=${encodeURIComponent(btoa(redirectUrl))}&state=connecting`;
@@ -1661,7 +1661,10 @@ export default function ModalOferente({
         preparedPaymentTab?.close();
       } catch {}
       if (isPaidPlan) {
-        setPaymentUi({ status: "error", messageKey: "oferente_pago_error" });
+        const detail = error instanceof Error && error.message && error.message !== "payment_checkout_failed"
+          ? error.message
+          : undefined;
+        setPaymentUi({ status: "error", messageKey: "oferente_pago_error", detail });
       } else {
         toast.error(error instanceof Error && error.message ? error.message : t("error_form"));
       }
