@@ -407,6 +407,7 @@ export default function ProviderPortalPanel() {
   const [monthlyPrice, setMonthlyPrice] = useState<PlanPriceResponseItem | null>(null);
   const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
   const [refundingSubmissionId, setRefundingSubmissionId] = useState<string | null>(null);
+  const [cancellingMonthlySubmissionId, setCancellingMonthlySubmissionId] = useState<string | null>(null);
   const publishCardsRef = useRef<HTMLDivElement | null>(null);
   const resumeHandledRef = useRef(false);
   const copy = useMemo(() => sanitizePortalVisibleTree({
@@ -778,10 +779,10 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
       locale === "it" ? "Riporta questa pubblicazione al gratuito" :
       "Volver esta publicaciÃ³n al gratis",
     cancelMonthly:
-      locale === "en" ? "Cancel monthly / go back to free" :
-      locale === "pt" ? "Cancelar mensal / voltar ao gratuito" :
-      locale === "it" ? "Annulla mensile / torna al gratuito" :
-      "Cancelar mensual / volver al gratis",
+      locale === "en" ? "Cancel monthly subscription" :
+      locale === "pt" ? "Cancelar assinatura mensal" :
+      locale === "it" ? "Annulla abbonamento mensile" :
+      "Cancelar suscripción mensual",
     upgradeToFeatured:
       locale === "en" ? "Upgrade this publication to featured" :
       locale === "pt" ? "Passar esta publicaÃ§Ã£o a destaque" :
@@ -1189,17 +1190,33 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     return planCopy.requestNew;
   }, [planCopy]);
 
+  const compactHistoryHint = useMemo(() => (
+    locale === "en"
+      ? "Latest requests first. You can delete cancelled or pending requests from here."
+      : locale === "pt"
+        ? "Os pedidos mais recentes aparecem primeiro. Daqui você pode excluir os cancelados ou pendentes."
+        : locale === "it"
+          ? "Le richieste più recenti vengono mostrate per prime. Da qui puoi eliminare quelle annullate o in sospeso."
+          : "Las solicitudes más nuevas van primero. Desde acá podés eliminar las canceladas o pendientes."
+  ), [locale]);
+
+  const cancelMonthlyLabel = useMemo(() => (
+    locale === "en"
+      ? "Cancel monthly subscription"
+      : locale === "pt"
+        ? "Cancelar assinatura mensal"
+        : locale === "it"
+          ? "Annulla abbonamento mensile"
+          : "Cancelar suscripción mensual"
+  ), [locale]);
+
   const sortedSubmissions = useMemo(() => {
     return [...(dashboard?.submissions ?? [])].sort((a, b) => {
-      const rankDiff = submissionSortRank(a) - submissionSortRank(b);
-      if (rankDiff !== 0) return rankDiff;
-      const planDiff = planSortRank(a.planType) - planSortRank(b.planType);
-      if (planDiff !== 0) return planDiff;
       const aTime = new Date(a.updatedAt ?? a.resubmittedAt ?? a.createdAt ?? 0).getTime();
       const bTime = new Date(b.updatedAt ?? b.resubmittedAt ?? b.createdAt ?? 0).getTime();
       return bTime - aTime;
     });
-  }, [dashboard?.submissions, planSortRank, submissionSortRank]);
+  }, [dashboard?.submissions]);
 
   const openPlanRequest = useCallback((
     plan: "basic_free" | "featured" | "monthly",
@@ -1291,6 +1308,39 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
       toast.error(error instanceof Error ? error.message : "No se pudo solicitar el reembolso.");
     } finally {
       setRefundingSubmissionId(null);
+    }
+  }, [loadSession, locale]);
+
+  const cancelMonthlySubscription = useCallback(async (submission: PortalSubmission | null | undefined) => {
+    const submissionId = String(submission?.id ?? "").trim();
+    if (!submissionId) {
+      toast.error(locale === "en" ? "We could not find the linked monthly request." : locale === "pt" ? "Nao foi possivel encontrar a solicitacao mensal vinculada." : locale === "it" ? "Non è stato possibile trovare la richiesta mensile collegata." : "No pudimos encontrar la solicitud mensual vinculada.");
+      return;
+    }
+    setCancellingMonthlySubmissionId(submissionId);
+    try {
+      const response = await fetch(`/api/provider-portal/submissions/${encodeURIComponent(submissionId)}`, {
+        method: "PUT",
+        cache: "no-store",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cancel_monthly_subscription",
+          publicationPlan: "basic_free",
+          requestKind: "downgrade_free",
+          previousPlan: "monthly",
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok === false) {
+        throw new Error(String(data?.error ?? "No se pudo cancelar la suscripción mensual."));
+      }
+      toast.success(locale === "en" ? "Monthly subscription cancelled." : locale === "pt" ? "Assinatura mensal cancelada." : locale === "it" ? "Abbonamento mensile annullato." : "Suscripción mensual cancelada.");
+      await loadSession();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo cancelar la suscripción mensual.");
+    } finally {
+      setCancellingMonthlySubmissionId(null);
     }
   }, [loadSession, locale]);
 
@@ -1657,7 +1707,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-semibold text-slate-900">{copy.submissionsTitle}</h3>
-                    <p className="mt-1 text-xs text-slate-500">{copy.compactHistoryHint}</p>
+                    <p className="mt-1 text-xs text-slate-500">{compactHistoryHint}</p>
                   </div>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
                     {dashboard?.submissions.length ?? 0}
@@ -1909,13 +1959,15 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                         {effectivePlanType === "monthly" ? (
                           <button
                             type="button"
-                            onClick={() => openPlanRequest("basic_free", canOpenFromHistory)}
-                            disabled={monthlyCancellationScheduled}
+                            onClick={() => void cancelMonthlySubscription(relatedSubmission)}
+                            disabled={monthlyCancellationScheduled || !relatedSubmission?.id || cancellingMonthlySubmissionId === (relatedSubmission?.id ?? "")}
                             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {monthlyCancellationScheduled
                               ? (locale === "en" ? "Monthly cancellation scheduled" : locale === "pt" ? "Cancelamento mensal agendado" : locale === "it" ? "Cancellazione mensile programmata" : "Cancelación mensual programada")
-                              : planCopy.cancelMonthly}
+                              : cancellingMonthlySubmissionId === (relatedSubmission?.id ?? "")
+                                ? (locale === "en" ? "Cancelling..." : locale === "pt" ? "Cancelando..." : locale === "it" ? "Annullamento..." : "Cancelando...")
+                                : cancelMonthlyLabel}
                           </button>
                         ) : null}
                       </div>
