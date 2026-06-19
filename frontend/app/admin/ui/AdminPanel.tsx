@@ -4788,6 +4788,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <b>{t("admin.request.resumeLink")}:</b> <span className="break-all">{detailResumeUrl}</span>
                   </div>
                 ) : null}
+                {String(detailExtra?.monthlySubscriptionStatus ?? "").trim().toLowerCase() === "cancelled" ? (
+                  <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50 p-2 text-xs text-violet-900">
+                    <b>Suscripción mensual cancelada:</b> esta publicación queda activa hasta {detailExtra?.expirationAt ? new Date(String(detailExtra.expirationAt)).toLocaleString("es-AR") : "su vencimiento actual"} y después queda pausada si no se reactiva.
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
@@ -5734,6 +5739,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <span className="rounded-full bg-slate-100 px-2 py-0.5">Favoritos: {aggregated.favorites}</span>
                         <span className="rounded-full bg-slate-100 px-2 py-0.5">Compartidos: {aggregated.shares}</span>
                       </div>
+                      {String(serviceExtra.monthlySubscriptionStatus ?? "").trim().toLowerCase() === "cancelled" ? (
+                        <p className="mt-2 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-xs text-violet-900">
+                          <b>Suscripción mensual cancelada:</b> la publicación vinculada sigue activa hasta su vencimiento actual y luego queda pausada si no se reactiva.
+                        </p>
+                      ) : null}
                       {String(serviceExtra.statusReason ?? "").trim() ? (
                         <p className="mt-2 text-xs text-slate-600">
                           <b>Motivo estado:</b> {String(serviceExtra.statusReason)}
@@ -8591,4 +8601,3 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     </div>
   );
 }
-
