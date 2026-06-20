@@ -691,6 +691,7 @@ export default function ProviderPortalPanel() {
   const portalAction = String(searchParams.get("portal_action") ?? "").trim().toLowerCase();
   const portalSubmissionId = String(searchParams.get("submission_id") ?? "").trim();
   const featuredPaymentStatus = String(searchParams.get("featuredPayment") ?? "").trim().toLowerCase();
+  const featuredPaymentServiceId = String(searchParams.get("serviceId") ?? "").trim();
 
 const planCopy = useMemo(() => sanitizePortalVisibleTree({
     currentPlan:
@@ -832,16 +833,43 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
 
   useEffect(() => {
     if (!featuredPaymentStatus) return;
-    if (featuredPaymentStatus === "success") {
-      toast.success(locale === "en" ? "Your payment was accepted." : locale === "pt" ? "Seu pagamento foi aceito." : locale === "it" ? "Il tuo pagamento e stato accettato." : "Tu pago fue aceptado.", { duration: 7000 });
-      void loadSession();
-      return;
-    }
-    if (featuredPaymentStatus === "cancel") {
-      toast(locale === "en" ? "The payment window was closed without completing the payment." : locale === "pt" ? "A janela de pagamento foi fechada sem concluir o pagamento." : locale === "it" ? "La finestra di pagamento e stata chiusa senza completare il pagamento." : "La ventana de pago se cerro sin completar el pago.", { duration: 7000 });
-      void loadSession();
-    }
-  }, [featuredPaymentStatus, loadSession, locale]);
+    const paidText = locale === "en" ? "Your payment was accepted." : locale === "pt" ? "Seu pagamento foi aceito." : locale === "it" ? "Il tuo pagamento e stato accettato." : "Tu pago fue aceptado.";
+    const cancelText = locale === "en" ? "The payment window was closed without completing the payment." : locale === "pt" ? "A janela de pagamento foi fechada sem concluir o pagamento." : locale === "it" ? "La finestra di pagamento e stata chiusa senza completare il pagamento." : "La ventana de pago se cerro sin completar el pago.";
+    const reviewText = locale === "en" ? "We are checking your payment status." : locale === "pt" ? "Estamos verificando o status do seu pagamento." : locale === "it" ? "Stiamo verificando lo stato del pagamento." : "Estamos verificando el estado de tu pago.";
+
+    const reconcile = async () => {
+      let resolvedStatus = featuredPaymentStatus;
+      if (featuredPaymentServiceId) {
+        try {
+          const response = await fetch("/api/payments/featured/return", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ serviceId: featuredPaymentServiceId, status: featuredPaymentStatus }),
+          });
+          const data = await response.json().catch(() => ({}));
+          const backendStatus = String(data?.status ?? "").trim().toLowerCase();
+          if (response.ok && backendStatus) {
+            resolvedStatus =
+              ["paid", "approved", "completed", "success"].includes(backendStatus) ? "success" :
+              ["processing", "pending"].includes(backendStatus) ? "check" :
+              ["failed", "cancelled"].includes(backendStatus) ? "cancel" :
+              featuredPaymentStatus;
+          }
+        } catch {}
+      }
+
+      if (resolvedStatus === "success") {
+        toast.success(paidText, { duration: 7000 });
+      } else if (resolvedStatus === "cancel") {
+        toast(cancelText, { duration: 7000 });
+      } else {
+        toast(reviewText, { duration: 7000 });
+      }
+      await loadSession();
+    };
+
+    void reconcile();
+  }, [featuredPaymentServiceId, featuredPaymentStatus, loadSession, locale]);
 
   useEffect(() => {
     if (!featuredPaymentStatus) return;
@@ -1015,6 +1043,17 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
   }
 
   return "none" as const;
+}, []);
+ const getResolvedProviderPaymentId = useCallback((submission: PortalSubmission) => {
+  const draft = submission.draftData ?? {};
+  return [
+    submission.providerPaymentId,
+    draft.providerPaymentId,
+    draft.paymentId,
+    draft.externalReference,
+    draft.paymentReference,
+    draft.checkoutId,
+  ].map((value) => String(value ?? "").trim()).find(Boolean) ?? "";
 }, []);
  const getVisualSubmissionStage = useCallback((submission: PortalSubmission) => {
     const normalizedStatus = String(submission.status ?? "").trim().toLowerCase();
@@ -1723,7 +1762,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                     const canDelete = !isApproved && paymentView !== "confirmed" && paymentView !== "review";
                     const refundStatus = String(item.refundStatus ?? "").trim().toLowerCase();
                     const paymentConfirmed = isConfirmedPortalPayment(item);
-                    const hasProviderPaymentId = Boolean(item.providerPaymentId && item.providerPaymentId.trim());
+                    const hasProviderPaymentId = Boolean(getResolvedProviderPaymentId(item));
                     const isResubmitted = Boolean(item.resubmittedAt || item.draftData?.resubmittedAt);
                     const showEditButton = normalizedStatus === "needs_info" && !isResubmitted;
                     const refundActiveOrFinal = ["refund_requested", "refund_reviewing", "refund_processing", "refunded", "refund_failed"].includes(refundStatus);
