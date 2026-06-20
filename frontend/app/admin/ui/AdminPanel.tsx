@@ -665,6 +665,23 @@ function isReviewableTravelService(service: TravelService, extra?: Record<string
   return currentStatus === "pendiente" || (currentStatus === "falta info" && wasResubmitted);
 }
 
+function travelServiceActivityTime(service: TravelService): number {
+  const extra = parseTravelServiceExtra(service);
+  const candidates = [
+    extra.resubmittedAt,
+    extra.statusUpdatedAt,
+    service.updatedAt,
+    service.createdAt,
+  ];
+  for (const candidate of candidates) {
+    const value = String(candidate ?? "").trim();
+    if (!value) continue;
+    const time = new Date(value).getTime();
+    if (!Number.isNaN(time)) return time;
+  }
+  return 0;
+}
+
 function normalizeLifecycleStatus(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
 }
@@ -4292,13 +4309,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const email = String(item.email ?? "").trim().toLowerCase();
       if (!email) return;
       const current = grouped.get(email);
-      const currentTime = current?.createdAt ? new Date(current.createdAt).getTime() : 0;
-      const nextTime = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+      const currentTime = current ? travelServiceActivityTime(current) : 0;
+      const nextTime = travelServiceActivityTime(item);
       if (!current || nextTime >= currentTime) grouped.set(email, item);
     });
     return Array.from(grouped.values()).sort((a, b) => {
-      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      const aTime = travelServiceActivityTime(a);
+      const bTime = travelServiceActivityTime(b);
       return bTime - aTime;
     });
   }, [selectedUsers]);
