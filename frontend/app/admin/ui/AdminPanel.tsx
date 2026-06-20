@@ -390,6 +390,18 @@ function providerDisplayName(service: TravelService): string {
   return email.split("@")[0] || email;
 }
 
+function providerRootEmail(service: TravelService): string {
+  const extra = parseTravelServiceExtra(service);
+  return [
+    extra.portalOwnerEmail,
+    extra.ownerEmail,
+    extra.submittedEmail,
+    service.email,
+  ]
+    .map((value) => String(value ?? "").trim().toLowerCase())
+    .find((value) => value.includes("@")) ?? "";
+}
+
 function normalizeVisibleText(value: string): string {
   const raw = String(value ?? "");
   if (!raw) return "";
@@ -3963,8 +3975,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const uniqueUserOferentes = useMemo(() => {
     const grouped = new Map<string, TravelService>();
     userOferentes.forEach((item) => {
-      const email = String(item.email ?? "").trim().toLowerCase();
-      const key = email || `service:${item.id}`;
+      const key = providerRootEmail(item) || `service:${item.id}`;
       const current = grouped.get(key);
       const currentTime = current ? travelServiceActivityTime(current) : 0;
       const nextTime = travelServiceActivityTime(item);
@@ -4318,12 +4329,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const grouped = new Map<string, TravelService>();
     selectedUsers.forEach((item) => {
       if (String(item.taxonomyType ?? "").toLowerCase() !== "oferente") return;
-      const email = String(item.email ?? "").trim().toLowerCase();
-      if (!email) return;
-      const current = grouped.get(email);
+      const key = providerRootEmail(item);
+      if (!key) return;
+      const current = grouped.get(key);
       const currentTime = current ? travelServiceActivityTime(current) : 0;
       const nextTime = travelServiceActivityTime(item);
-      if (!current || nextTime >= currentTime) grouped.set(email, item);
+      if (!current || nextTime >= currentTime) grouped.set(key, item);
     });
     return Array.from(grouped.values()).sort((a, b) => {
       const aTime = travelServiceActivityTime(a);
@@ -4339,7 +4350,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const serviceSubmissionCountsByEmail = useMemo(() => {
     const map = new Map<string, number>();
     travelServices.forEach((service) => {
-      const email = String(service.email ?? "").trim().toLowerCase();
+      const email = providerRootEmail(service);
       if (!email) return;
       map.set(email, (map.get(email) ?? 0) + 1);
     });
@@ -4356,7 +4367,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const approvedOferentesGrouped = useMemo(() => {
     const groups = new Map<string, { email: string; label: string; services: TravelService[] }>();
     filteredApprovedOferentes.forEach((service) => {
-      const email = String(service.email ?? "").trim().toLowerCase();
+      const email = providerRootEmail(service);
       if (!email) return;
       const label = providerDisplayName(service);
       const current = groups.get(email) ?? { email, label, services: [] };
@@ -4429,37 +4440,32 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     return [
       {
-        key: "monthly",
-        title: "Planes mensuales",
-        items: buildGroups(travelServicePayments.filter((item) => item.planType === "featured_monthly")),
-      },
-      {
         key: "featured120",
         title: "Destacado 120 días",
-        items: buildGroups(travelServicePayments.filter((item) => item.planType !== "featured_monthly")),
+        items: buildGroups(visibleTravelServicePayments),
       },
       {
         key: "paid",
         title: "Aceptados",
-        items: buildGroups(travelServicePayments.filter((item) => item.status === "paid")),
+        items: buildGroups(visibleTravelServicePayments.filter((item) => item.status === "paid")),
       },
       {
         key: "pending",
         title: "Pendientes / proceso",
-        items: buildGroups(travelServicePayments.filter((item) => item.status === "pending" || item.status === "processing")),
+        items: buildGroups(visibleTravelServicePayments.filter((item) => item.status === "pending" || item.status === "processing")),
       },
       {
         key: "rejected",
         title: "Rechazados / cancelados",
-        items: buildGroups(travelServicePayments.filter((item) => item.status === "failed" || item.status === "cancelled")),
+        items: buildGroups(visibleTravelServicePayments.filter((item) => item.status === "failed" || item.status === "cancelled")),
       },
       {
         key: "refunded",
         title: "Reembolsos",
-        items: buildGroups(travelServicePayments.filter((item) => readRefundSnapshot(item.raw) !== "-")),
+        items: buildGroups(visibleTravelServicePayments.filter((item) => readRefundSnapshot(item.raw) !== "-")),
       },
     ];
-  }, [travelServicePayments, userOferentes]);
+  }, [userOferentes, visibleTravelServicePayments]);
   const visiblePaymentSections = useMemo(() => {
     const query = paymentSearch.trim().toLowerCase();
     if (!query) return paymentSections;
@@ -5285,7 +5291,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DashboardStatCard
           label="Total Oferentes"
-          total={userOferentes.length}
+          total={uniqueUserOferentes.length}
           active={activeUserOferentes}
           monthly={monthlyUserOferentes}
           activeMonthly={monthlyActiveUserOferentes}
@@ -5302,7 +5308,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><b>Total oferentes registrados:</b> {userOferentes.length}</div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><b>Total oferentes registrados:</b> {uniqueUserOferentes.length}</div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><b>Activos/aprobados:</b> {oferentesAprobados}</div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><b>Pendientes:</b> {oferentesPendientes}</div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><b>Rechazados:</b> {oferentesRechazados}</div>
@@ -5322,12 +5328,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
           <div className="mb-3">
           <p className="text-sm font-semibold text-slate-900">Precios de planes por pais</p>
-            <p className="text-xs text-slate-500">Configura los valores del destacado por 120 dias y del plan mensual por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
+            <p className="text-xs text-slate-500">Configura los valores del destacado por 120 dias por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
           </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
-            <select value={priceRulePlanTypeDraft} onChange={(event) => setPriceRulePlanTypeDraft(event.target.value === "featured_monthly" ? "featured_monthly" : "featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
+            <select value="featured_120d" onChange={() => setPriceRulePlanTypeDraft("featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
               <option value="featured_120d">Pago unico 120 dias</option>
-              <option value="featured_monthly">Plan mensual</option>
             </select>
             <select value={priceRuleCountryDraft} onChange={(event) => {
               const value = event.target.value;
@@ -5462,7 +5467,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {priceRuleMessage ? <span className="text-xs font-medium text-emerald-600">{priceRuleMessage}</span> : null}
         </div>
         <div className="mt-3 space-y-2">
-          {featuredPlanPrices.length ? featuredPlanPrices.map((item) => {
+          {visibleFeaturedPlanPrices.length ? visibleFeaturedPlanPrices.map((item) => {
             const linkedPlan = item.planType === "featured_monthly" ? findSubscriptionPlanForPriceRule(item.id) : null;
             return (
             <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
@@ -5595,13 +5600,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-900">Pagos y cobros de planes</p>
-            <p className="text-xs text-slate-500">Registro interno de cada intento y pago asociado a publicaciones destacadas o mensuales.</p>
+            <p className="text-xs text-slate-500">Registro interno de cada intento y pago asociado a publicaciones destacadas de 120 dias.</p>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{travelServicePayments.length} registros</span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{visibleTravelServicePayments.length} registros</span>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {[
-            { key: "monthly", label: "Mensuales", count: paymentCounts.monthly },
             { key: "featured120", label: "120 dias", count: paymentCounts.featured120 },
             { key: "paid", label: "Aceptados", count: paymentCounts.paid },
             { key: "pending", label: "Pendientes", count: paymentCounts.pending },
