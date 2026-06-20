@@ -394,7 +394,7 @@ export default function ProviderPortalPanel() {
   const [openSubmissionModal, setOpenSubmissionModal] = useState(false);
   const [modalPlanIntent, setModalPlanIntent] = useState<"basic_free" | "featured" | "monthly">("basic_free");
   const [preferredPaidPlanType, setPreferredPaidPlanType] = useState<"featured_120d" | "featured_monthly">("featured_120d");
-  const [modalVisiblePlans, setModalVisiblePlans] = useState<Array<"basic_free" | "featured" | "monthly">>(["basic_free", "featured", "monthly"]);
+  const [modalVisiblePlans, setModalVisiblePlans] = useState<Array<"basic_free" | "featured" | "monthly">>(["basic_free", "featured"]);
   const [modalRequestKind, setModalRequestKind] = useState<"new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free">("new_publication");
   const [modalPreviousPlan, setModalPreviousPlan] = useState<"basic_free" | "featured" | "monthly" | undefined>(undefined);
   const [modalSourceServiceId, setModalSourceServiceId] = useState<string | undefined>(undefined);
@@ -1517,7 +1517,6 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
 
   const planCards = useMemo(() => {
     const featuredReady = Boolean(featured120Price && Number(featured120Price.amount ?? 0) > 0);
-    const monthlyReady = Boolean(monthlyPrice && Number(monthlyPrice.amount ?? 0) > 0);
     return [
       {
         key: "free",
@@ -1547,22 +1546,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
         actionLabel: copy.publishFeaturedAction,
         action: () => openSpecificNewPublicationRequest("featured"),
       },
-      {
-        key: "monthly",
-        kind: "monthly",
-        icon: Sparkles,
-        title: copy.monthly,
-        description: copy.monthlyDescription,
-        price: monthlyLabel,
-        benefits: planBenefits.featured,
-        current: false,
-        disabled: !monthlyReady,
-        helper: monthlyReady ? copy.newSubmissionHint : copy.priceUnavailableHint,
-        actionLabel: copy.publishMonthlyAction,
-        action: () => openSpecificNewPublicationRequest("monthly"),
-      },
     ];
-  }, [copy.featured, copy.featuredDescription, copy.free, copy.freeDescription, copy.monthly, copy.monthlyDescription, copy.newSubmissionHint, copy.priceUnavailableHint, copy.publishFeaturedAction, copy.publishFreeAction, copy.publishMonthlyAction, featured120Label, featured120Price, locale, monthlyLabel, monthlyPrice, openSpecificNewPublicationRequest, planBenefits.featured, planBenefits.free]);
+  }, [copy.featured, copy.featuredDescription, copy.free, copy.freeDescription, copy.newSubmissionHint, copy.priceUnavailableHint, copy.publishFeaturedAction, copy.publishFreeAction, featured120Label, featured120Price, locale, openSpecificNewPublicationRequest, planBenefits.featured, planBenefits.free]);
 
   if (loading) {
     return (
@@ -1981,13 +1966,6 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                             >
                               {planCopy.upgradeToFeatured}
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => openPlanRequest("monthly", canOpenFromHistory)}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                            >
-                              {planCopy.upgradeToMonthly}
-                            </button>
                           </>
                         ) : null}
                         {effectivePlanType === "featured" ? (
@@ -1998,13 +1976,6 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                               className="rounded-xl bg-[#0B8FA3] px-3 py-2 text-xs font-semibold text-white hover:opacity-95"
                             >
                               {planCopy.renewFeatured}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openPlanRequest("monthly", canOpenFromHistory)}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                            >
-                              {planCopy.switchMonthly}
                             </button>
                             <button
                               type="button"
@@ -2110,7 +2081,6 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           }}
           initialEmail={sessionEmail}
           lockEmail
-          showMonthlyPlanOption
           visiblePlans={modalVisiblePlans}
           fixedCountry={baseCountry}
           initialPlan={modalPlanIntent}
