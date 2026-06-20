@@ -1494,7 +1494,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [pEditorMode, setPEditorMode] = useState<"publicacion" | "prestacion">("publicacion");
   const [pApprovedProviderSearch, setPApprovedProviderSearch] = useState("");
   const [paymentSearch, setPaymentSearch] = useState("");
-  const [paymentSectionTab, setPaymentSectionTab] = useState<"monthly" | "featured120" | "paid" | "pending" | "rejected" | "refunded">("monthly");
+  const [paymentSectionTab, setPaymentSectionTab] = useState<"featured120" | "paid" | "pending" | "rejected" | "refunded">("featured120");
   const [approvedProviderPickerOpen, setApprovedProviderPickerOpen] = useState(false);
   const [approvedProviderExpandedEmail, setApprovedProviderExpandedEmail] = useState<string | null>(null);
   const [pPrestacionResources, setPPrestacionResources] = useState<PrestacionResource[]>([createEmptyPrestacionResource()]);
@@ -3960,13 +3960,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const userOferentes = travelServices.filter((item) => String(item.taxonomyType ?? "").toLowerCase() === "oferente");
   const userDemandantes = travelServices.filter((item) => String(item.taxonomyType ?? "").toLowerCase() !== "oferente");
-  const activeUserOferentes = userOferentes.filter((item) => isActiveServiceLifecycle(serviceEffectiveStatus(item))).length;
-  const inactiveUserOferentes = Math.max(userOferentes.length - activeUserOferentes, 0);
+  const uniqueUserOferentes = useMemo(() => {
+    const grouped = new Map<string, TravelService>();
+    userOferentes.forEach((item) => {
+      const email = String(item.email ?? "").trim().toLowerCase();
+      const key = email || `service:${item.id}`;
+      const current = grouped.get(key);
+      const currentTime = current ? travelServiceActivityTime(current) : 0;
+      const nextTime = travelServiceActivityTime(item);
+      if (!current || nextTime >= currentTime) grouped.set(key, item);
+    });
+    return Array.from(grouped.values()).sort((a, b) => travelServiceActivityTime(b) - travelServiceActivityTime(a));
+  }, [userOferentes]);
+  const activeUserOferentes = uniqueUserOferentes.filter((item) => isActiveServiceLifecycle(serviceEffectiveStatus(item))).length;
+  const inactiveUserOferentes = Math.max(uniqueUserOferentes.length - activeUserOferentes, 0);
   const activeUserDemandantes = userDemandantes.filter((item) => isActiveServiceLifecycle(serviceEffectiveStatus(item))).length;
   const inactiveUserDemandantes = Math.max(userDemandantes.length - activeUserDemandantes, 0);
-  const oferentesPendientes = userOferentes.filter((item) => serviceEffectiveStatus(item) === "pendiente").length;
-  const oferentesAprobados = userOferentes.filter((item) => serviceEffectiveStatus(item) === "aprobado").length;
-  const oferentesRechazados = userOferentes.filter((item) => serviceEffectiveStatus(item) === "rechazado").length;
+  const oferentesPendientes = uniqueUserOferentes.filter((item) => serviceEffectiveStatus(item) === "pendiente").length;
+  const oferentesAprobados = uniqueUserOferentes.filter((item) => serviceEffectiveStatus(item) === "aprobado").length;
+  const oferentesRechazados = uniqueUserOferentes.filter((item) => serviceEffectiveStatus(item) === "rechazado").length;
 
   const categoryDashboardRows = useMemo(() => {
     const normalize = (value: string) =>
@@ -4321,8 +4333,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [selectedUsers]);
 
   const approvedOferentes = useMemo(
-    () => userOferentes.filter((item) => serviceEffectiveStatus(item) === "aprobado"),
-    [userOferentes]
+    () => uniqueUserOferentes.filter((item) => serviceEffectiveStatus(item) === "aprobado"),
+    [uniqueUserOferentes]
   );
   const serviceSubmissionCountsByEmail = useMemo(() => {
     const map = new Map<string, number>();
@@ -4367,14 +4379,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         return bTime - aTime;
       });
   }, [filteredApprovedOferentes]);
+  const visibleFeaturedPlanPrices = useMemo(
+    () => featuredPlanPrices.filter((item) => item.planType !== "featured_monthly"),
+    [featuredPlanPrices]
+  );
+  const visibleTravelServicePayments = useMemo(
+    () => travelServicePayments.filter((item) => item.planType !== "featured_monthly"),
+    [travelServicePayments]
+  );
   const paymentCounts = useMemo(() => ({
-    monthly: travelServicePayments.filter((item) => item.planType === "featured_monthly").length,
-    featured120: travelServicePayments.filter((item) => item.planType !== "featured_monthly").length,
-    paid: travelServicePayments.filter((item) => item.status === "paid").length,
-    pending: travelServicePayments.filter((item) => item.status === "pending" || item.status === "processing").length,
-    rejected: travelServicePayments.filter((item) => item.status === "failed" || item.status === "cancelled").length,
-    refunded: travelServicePayments.filter((item) => readRefundSnapshot(item.raw) !== "-").length,
-  }), [travelServicePayments]);
+    featured120: visibleTravelServicePayments.length,
+    paid: visibleTravelServicePayments.filter((item) => item.status === "paid").length,
+    pending: visibleTravelServicePayments.filter((item) => item.status === "pending" || item.status === "processing").length,
+    rejected: visibleTravelServicePayments.filter((item) => item.status === "failed" || item.status === "cancelled").length,
+    refunded: visibleTravelServicePayments.filter((item) => readRefundSnapshot(item.raw) !== "-").length,
+  }), [visibleTravelServicePayments]);
   const paymentSections = useMemo(() => {
     const buildGroups = (items: TravelServicePaymentItem[]) => {
       const grouped = new Map<string, { email: string; label: string; latestAt: number; items: TravelServicePaymentItem[] }>();
