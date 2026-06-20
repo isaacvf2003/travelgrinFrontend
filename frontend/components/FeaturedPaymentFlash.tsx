@@ -17,6 +17,7 @@ export default function FeaturedPaymentFlash() {
   useEffect(() => {
     if (shownRef.current) return;
     const status = String(searchParams.get("featuredPayment") ?? "").trim().toLowerCase();
+    const serviceId = String(searchParams.get("serviceId") ?? "").trim();
     if (!status) return;
     shownRef.current = true;
 
@@ -56,31 +57,60 @@ export default function FeaturedPaymentFlash() {
     } as const;
     const tx = i18n[(locale as keyof typeof i18n) ?? "es"] ?? i18n.es;
 
-    if (status === "success" || status === "approved" || status === "paid") {
-      toast.success(tx.paid, { duration: 7000 });
-    } else if (status === "cancel" || status === "cancelled" || status === "back") {
-      toast(tx.cancel, { duration: 6000 });
-      setTimeout(() => {
-        setIsOpenModal(true);
-        setIsOpenModalOferente(true);
-      }, 350);
-    } else if (status === "keep_free") {
-      toast.success(tx.free, { duration: 6000 });
-    } else if (status === "upgrade_one_time") {
-      toast.success(tx.u120, { duration: 6000 });
-      setTimeout(() => {
-        setIsOpenModal(true);
-        setIsOpenModalOferente(true);
-      }, 350);
-    } else if (status === "upgrade_monthly") {
-      toast.success(tx.umonth, { duration: 6000 });
-      setTimeout(() => {
-        setIsOpenModal(true);
-        setIsOpenModalOferente(true);
-      }, 350);
-    } else {
-      toast(tx.check, { duration: 6000 });
-    }
+    const showToastForStatus = (resolvedStatus: string) => {
+      if (resolvedStatus === "success" || resolvedStatus === "approved" || resolvedStatus === "paid") {
+        toast.success(tx.paid, { duration: 7000 });
+      } else if (resolvedStatus === "cancel" || resolvedStatus === "cancelled" || resolvedStatus === "back" || resolvedStatus === "failed") {
+        toast(tx.cancel, { duration: 6000 });
+        setTimeout(() => {
+          setIsOpenModal(true);
+          setIsOpenModalOferente(true);
+        }, 350);
+      } else if (resolvedStatus === "keep_free") {
+        toast.success(tx.free, { duration: 6000 });
+      } else if (resolvedStatus === "upgrade_one_time") {
+        toast.success(tx.u120, { duration: 6000 });
+        setTimeout(() => {
+          setIsOpenModal(true);
+          setIsOpenModalOferente(true);
+        }, 350);
+      } else if (resolvedStatus === "upgrade_monthly") {
+        toast.success(tx.umonth, { duration: 6000 });
+        setTimeout(() => {
+          setIsOpenModal(true);
+          setIsOpenModalOferente(true);
+        }, 350);
+      } else {
+        toast(tx.check, { duration: 6000 });
+      }
+    };
+
+    const reconcile = async () => {
+      let resolvedStatus = status;
+      if (serviceId) {
+        try {
+          const response = await fetch("/api/payments/featured/return", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ serviceId, status }),
+          });
+          const data = await response.json().catch(() => ({}));
+          const backendStatus = String(data?.status ?? "").trim().toLowerCase();
+          if (response.ok && backendStatus) {
+            resolvedStatus =
+              ["paid", "approved", "completed", "success"].includes(backendStatus) ? "paid" :
+              ["processing", "pending"].includes(backendStatus) ? "check" :
+              ["failed", "cancelled"].includes(backendStatus) ? "cancel" :
+              status;
+          }
+        } catch {
+          resolvedStatus = status;
+        }
+      }
+      showToastForStatus(resolvedStatus);
+    };
+
+    void reconcile();
 
     const next = new URLSearchParams(searchParams.toString());
     next.delete("featuredPayment");
