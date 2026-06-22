@@ -4344,8 +4344,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [selectedUsers]);
 
   const approvedOferentes = useMemo(
-    () => uniqueUserOferentes.filter((item) => serviceEffectiveStatus(item) === "aprobado"),
-    [uniqueUserOferentes]
+    () => userOferentes.filter((item) => serviceEffectiveStatus(item) === "aprobado"),
+    [userOferentes]
   );
   const serviceSubmissionCountsByEmail = useMemo(() => {
     const map = new Map<string, number>();
