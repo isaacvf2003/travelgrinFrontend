@@ -3983,6 +3983,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     });
     return Array.from(grouped.values()).sort((a, b) => travelServiceActivityTime(b) - travelServiceActivityTime(a));
   }, [userOferentes]);
+  const firstOferenteDisplayNameByEmail = useMemo(() => {
+    const grouped = new Map<string, TravelService>();
+    userOferentes.forEach((item) => {
+      const key = providerRootEmail(item) || `service:${item.id}`;
+      const current = grouped.get(key);
+      const currentTime = current?.createdAt ? new Date(current.createdAt).getTime() : Number.POSITIVE_INFINITY;
+      const nextTime = item.createdAt ? new Date(item.createdAt).getTime() : Number.POSITIVE_INFINITY;
+      if (!current || nextTime < currentTime) grouped.set(key, item);
+    });
+    return new Map(Array.from(grouped.entries()).map(([key, item]) => [key, providerDisplayName(item)]));
+  }, [userOferentes]);
   const activeUserOferentes = uniqueUserOferentes.filter((item) => isActiveServiceLifecycle(serviceEffectiveStatus(item))).length;
   const inactiveUserOferentes = Math.max(uniqueUserOferentes.length - activeUserOferentes, 0);
   const activeUserDemandantes = userDemandantes.filter((item) => isActiveServiceLifecycle(serviceEffectiveStatus(item))).length;
@@ -5740,7 +5751,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     </div>
                   ) : (
                     <>
-                      <p className="mt-2 text-sm font-semibold text-slate-900">{providerDisplayName(service)}</p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">{firstOferenteDisplayNameByEmail.get(providerRootEmail(service) || `service:${service.id}`) ?? providerDisplayName(service)}</p>
                       <p className="mt-1 text-xs text-slate-500">{service.email}</p>
                       <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
                       <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
