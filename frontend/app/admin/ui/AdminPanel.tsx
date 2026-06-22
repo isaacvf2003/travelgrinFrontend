@@ -4933,8 +4933,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   const refundStatus = String(refundData.refundStatus ?? "").trim().toLowerCase();
                   const canHandleRefund = ["refund_requested", "refund_reviewing"].includes(refundStatus)
                     && paymentConfirmedForRefund(payment?.status ?? extra.paymentStatus ?? "");
+                  const isSelectedHistory = service.id === detailTravelService.id;
                   return (
-                    <div key={`history-${service.id}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                    <div
+                      key={`history-${service.id}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDetailTravelService(service)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setDetailTravelService(service);
+                        }
+                      }}
+                      className={`cursor-pointer rounded-xl border p-3 text-xs text-slate-700 outline-none transition hover:border-[#00A9C6]/70 hover:bg-cyan-50/40 focus:ring-2 focus:ring-[#00A9C6]/30 ${isSelectedHistory ? "border-[#00A9C6] bg-cyan-50 shadow-[0_0_0_3px_rgba(0,169,198,0.12)]" : "border-slate-200 bg-slate-50"}`}
+                    >
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-white px-2 py-1 font-semibold">{normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan)}</span>
                         <span className="rounded-full bg-white px-2 py-1">{providerRequestKindLabel(extra.requestKind)}</span>
@@ -4965,21 +4978,23 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         </div>
                       ) : null}
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Ver solicitud</button>
+                        {isSelectedHistory ? (
+                          <span className="rounded-lg border border-[#00A9C6]/30 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#007D94]">Solicitud seleccionada</span>
+                        ) : null}
                         {canReviewUpdatedSubmission ? (
                           <>
-                            <button type="button" onClick={() => updateTravelServiceStatus(service.id, "aprobado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Aprobado</button>
-                            <button type="button" onClick={() => updateTravelServiceStatus(service.id, "rechazado")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Rechazado</button>
-                            <button type="button" onClick={() => updateTravelServiceStatus(service.id, "falta info")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Falta info</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "aprobado"); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Aprobado</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "rechazado"); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Rechazado</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "falta info"); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Falta info</button>
                           </>
                         ) : null}
                         {canHandleRefund ? (
                           <>
                             {refundStatus === "refund_requested" ? (
-                              <button type="button" onClick={() => updateRefundStatus(service.id, "review")} className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 hover:bg-amber-50">Revisar refund</button>
+                              <button type="button" onClick={(event) => { event.stopPropagation(); updateRefundStatus(service.id, "review"); }} className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 hover:bg-amber-50">Revisar refund</button>
                             ) : null}
-                            <button type="button" onClick={() => updateRefundStatus(service.id, "reject")} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 hover:bg-rose-50">Rechazar refund</button>
-                            <button type="button" onClick={() => updateRefundStatus(service.id, "approve_and_execute")} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 hover:bg-emerald-50">Aprobar y ejecutar refund</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateRefundStatus(service.id, "reject"); }} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 hover:bg-rose-50">Rechazar refund</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateRefundStatus(service.id, "approve_and_execute"); }} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 hover:bg-emerald-50">Aprobar y ejecutar refund</button>
                           </>
                         ) : null}
                       </div>
