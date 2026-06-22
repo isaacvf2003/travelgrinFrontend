@@ -4263,9 +4263,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     () => dashboardServiceHistory.filter((item) => normalizeLifecycleStatus(item.taxonomyType) !== "oferente"),
     [dashboardServiceHistory]
   );
-  const monthlyUserOferentes = oferenteHistoryRows.filter((item) => isCurrentMonthDate(item.createdAt)).length;
-  const monthlyActiveUserOferentes = oferenteHistoryRows.filter(
-    (item) => !item.isDeleted && isActiveServiceLifecycle(item.lifecycleStatus) && isCurrentMonthDate(item.createdAt)
+  const monthlyUserOferentes = uniqueUserOferentes.filter((item) => isCurrentMonthDate(item.createdAt)).length;
+  const monthlyActiveUserOferentes = uniqueUserOferentes.filter(
+    (item) => isActiveServiceLifecycle(serviceEffectiveStatus(item)) && isCurrentMonthDate(item.createdAt)
   ).length;
   const monthlyUserDemandantes = demandanteHistoryRows.filter((item) => isCurrentMonthDate(item.createdAt)).length;
   const monthlyActiveUserDemandantes = demandanteHistoryRows.filter(
@@ -5878,7 +5878,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <DashboardStatCard
           label="Usuarios Oferentes"
-          total={userOferentes.length}
+          total={uniqueUserOferentes.length}
           active={activeUserOferentes}
           monthly={monthlyUserOferentes}
           activeMonthly={monthlyActiveUserOferentes}
