@@ -52,7 +52,7 @@ export default function OthersCarousel({ items }: { items: Publication[] }) {
         </div>
       </div>
 
-      <div ref={containerRef} className="mt-4 flex gap-4 overflow-x-auto pb-2">
+      <div ref={containerRef} className="tg-hide-scrollbar mt-4 flex gap-4 overflow-x-auto scroll-smooth pb-2">
         {items.map((p) => {
           const pImgsRaw = (p.images as any) ?? [];
           const pImgs = Array.isArray(pImgsRaw) ? pImgsRaw.map(safeUrl).filter(Boolean) : [];

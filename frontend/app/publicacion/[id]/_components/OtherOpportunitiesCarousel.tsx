@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import type { Publication } from "@/app/lib/types";
 import I18nText from "@/components/I18nText";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -19,40 +19,18 @@ function safeUrl(src: unknown) {
 export default function OtherOpportunitiesCarousel({ items }: { items: Publication[] }) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [mobilePage, setMobilePage] = useState(0);
-  const [mobilePages, setMobilePages] = useState(1);
+  const hasMobileControls = items.length > 1;
 
   const scrollBy = (offset: number) => {
     if (!containerRef.current) return;
     containerRef.current.scrollBy({ left: offset, behavior: "smooth" });
   };
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const recalculate = () => {
-      const pages = Math.max(1, Math.ceil(el.scrollWidth / el.clientWidth));
-      setMobilePages(pages);
-      const page = Math.round(el.scrollLeft / el.clientWidth);
-      setMobilePage(Math.max(0, Math.min(pages - 1, page)));
-    };
-
-    recalculate();
-    el.addEventListener("scroll", recalculate, { passive: true });
-    window.addEventListener("resize", recalculate);
-
-    return () => {
-      el.removeEventListener("scroll", recalculate);
-      window.removeEventListener("resize", recalculate);
-    };
-  }, [items.length]);
-
   return (
     <div className="mt-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-lg font-semibold text-gray-900">{t("otras_oportunidades")}</h3>
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="items-center gap-2 hidden md:flex">
           <button
             type="button"
             onClick={() => scrollBy(-320)}
@@ -72,10 +50,17 @@ export default function OtherOpportunitiesCarousel({ items }: { items: Publicati
         </div>
       </div>
 
-      <div
-        ref={containerRef}
-        className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 pb-3 pt-2 scroll-smooth [scroll-padding-inline:0.5rem] before:block before:w-0.5 before:shrink-0 before:content-[''] after:block after:w-0.5 after:shrink-0 after:content-[''] sm:px-3 sm:[scroll-padding-inline:0.75rem] md:gap-4 md:px-0 md:pb-4 md:before:hidden md:after:hidden"
-      >
+      <div className="relative">
+        {hasMobileControls ? (
+          <>
+            <button type="button" onClick={() => scrollBy(-260)} className="absolute left-0 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white shadow md:hidden" aria-label="Anterior">←</button>
+            <button type="button" onClick={() => scrollBy(260)} className="absolute right-0 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white shadow md:hidden" aria-label="Siguiente">→</button>
+          </>
+        ) : null}
+        <div
+          ref={containerRef}
+          className="tg-hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 pb-3 pt-2 scroll-smooth [scroll-padding-inline:0.5rem] before:block before:w-0.5 before:shrink-0 before:content-[''] after:block after:w-0.5 after:shrink-0 after:content-[''] sm:px-3 sm:[scroll-padding-inline:0.75rem] md:gap-4 md:px-0 md:pb-4 md:before:hidden md:after:hidden"
+        >
         {items.map((p) => {
           const pImgsRaw = Array.isArray(p.images) ? p.images : [];
           const pImgs = pImgsRaw.map(safeUrl).filter(Boolean);
@@ -107,15 +92,7 @@ export default function OtherOpportunitiesCarousel({ items }: { items: Publicati
             </Link>
           );
         })}
-      </div>
-
-      <div className="mt-2 flex items-center justify-center gap-2 md:hidden">
-        {Array.from({ length: mobilePages }).map((_, idx) => (
-          <span
-            key={`mobile-other-dot-${idx}`}
-            className={`h-2 w-2 rounded-full transition ${idx === mobilePage ? "bg-teal-600" : "bg-slate-300"}`}
-          />
-        ))}
+        </div>
       </div>
     </div>
   );
