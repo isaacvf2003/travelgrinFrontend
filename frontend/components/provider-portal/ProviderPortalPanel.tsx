@@ -503,14 +503,14 @@ export default function ProviderPortalPanel() {
       "Crear otra publicación",
     publishOptionsTitle:
       locale === "en" ? "Create a new publication" :
-      locale === "pt" ? "Criar uma nova publicaÃƒÂ§ÃƒÂ£o" :
+      locale === "pt" ? "Criar uma nova publicação" :
       locale === "it" ? "Crea una nuova pubblicazione" :
-      "Crear una nueva publicaciÃƒÂ³n",
+      "Crear una nueva publicación",
     publishOptionsBody:
       locale === "en" ? "Choose the type of new publication you want to create with this same provider account." :
-      locale === "pt" ? "Escolha o tipo de nova publicaÃƒÂ§ÃƒÂ£o que vocÃƒÂª quer criar com esta mesma conta de oferente." :
+      locale === "pt" ? "Escolha o tipo de nova publicação que você quer criar com esta mesma conta de oferente." :
       locale === "it" ? "Scegli il tipo di nuova pubblicazione che vuoi creare con questo stesso account fornitore." :
-      "ElegÃƒÂ­ el tipo de nueva publicaciÃƒÂ³n que querÃƒÂ©s crear con esta misma cuenta de oferente.",
+      "Elegí el tipo de nueva publicación que querés crear con esta misma cuenta de oferente.",
     publishFreeAction:
       locale === "en" ? "Publish basic listing" :
       locale === "pt" ? "Publicar publicação básica" :
@@ -1514,6 +1514,10 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     }
     return Array.from(groups.values()).sort((a, b) => planSortRank(a.planType) - planSortRank(b.planType));
   }, [dashboard?.submissions, planSortRank, sortedVisiblePublicationEntries]);
+  const visiblePlanDistribution = useMemo(
+    () => planDistribution.filter((group) => group.planType !== "monthly"),
+    [planDistribution]
+  );
 
   const planCards = useMemo(() => {
     const featuredReady = Boolean(featured120Price && Number(featured120Price.amount ?? 0) > 0);
@@ -1651,15 +1655,15 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                 <div className="flex items-center gap-3 text-slate-500"><CircleDollarSign className="h-4 w-4" /> <span className="text-xs font-semibold uppercase tracking-wide">{copy.statsPlans}</span></div>
                 <div className="mt-3 space-y-2">
                   <div className="text-sm font-semibold text-slate-900">{planCopy.currentPlan}</div>
-                  {!planDistribution.length ? (
+                  {!visiblePlanDistribution.length ? (
                   <div className="flex flex-wrap gap-2">
                     {currentPlanCreatedAt ? (
                       <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
                         {copy.createdAt}: {formatDate(currentPlanCreatedAt, locale)}
                       </span>
                     ) : null}
-                    <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${badgeClasses(currentPlanType === "monthly" ? "monthly" : currentPlanType === "featured" ? "featured" : "free")}`}>
-                      {currentPlanType === "monthly" ? copy.monthly : currentPlanType === "featured" ? copy.featured : copy.free}
+                    <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${badgeClasses(currentPlanType === "featured" ? "featured" : "free")}`}>
+                      {currentPlanType === "featured" ? copy.featured : copy.free}
                     </span>
                     {currentPlanExpiresAt ? (
                       <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
@@ -1668,9 +1672,9 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                     ) : null}
                   </div>
                   ) : null}
-                  {planDistribution.length ? (
+                  {visiblePlanDistribution.length ? (
                     <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      {planDistribution.map((group) => {
+                      {visiblePlanDistribution.map((group) => {
                         const badge = planBadge(group.planType);
                         const topStatus = group.statuses.find(Boolean) ?? "";
                         return (
@@ -2015,13 +2019,13 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
               ref={publishCardsRef}
               className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
             >
-              <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="mx-auto max-w-3xl text-center">
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900">{copy.publishOptionsTitle}</h3>
-                  <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600">{copy.publishOptionsBody}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">{copy.publishOptionsBody}</p>
                 </div>
               </div>
-              <div className="mx-auto mt-5 grid max-w-[980px] gap-5 lg:grid-cols-3">
+              <div className="mx-auto mt-6 grid max-w-[720px] gap-5 sm:grid-cols-2">
                 {planCards.map((card) => (
                   <article
                     key={card.key}
