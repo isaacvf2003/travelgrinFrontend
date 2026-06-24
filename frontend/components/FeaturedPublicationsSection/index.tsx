@@ -259,6 +259,7 @@ export default function FeaturedPublicationsSection() {
   const [isLoading, setIsLoading] = useState(true);
   const [isInView, setIsInView] = useState(false);
   const [isPrestacionesPaused, setIsPrestacionesPaused] = useState(false);
+  const prestCategoryTrackRef = useRef<HTMLDivElement | null>(null);
   const [prestacionCategories, setPrestacionCategories] = useState<
     PrestCategoryLite[]
   >([]);
@@ -575,8 +576,13 @@ export default function FeaturedPublicationsSection() {
     });
   });
   const showPrestacionesSection = categoriesWithPublications.length > 0;
-  const showPrestCategoryScrollButtons =
-    categoriesWithPublications.length > 5 && cardsPerView >= 2;
+  const showPrestCategoryScrollButtons = categoriesWithPublications.length > 1;
+  const showPrestCategoryDesktopScrollButtons = categoriesWithPublications.length > 5 && cardsPerView >= 2;
+  const scrollPrestCategoryTrack = (direction: -1 | 1) => {
+    const track = prestCategoryTrackRef.current;
+    if (!track) return;
+    track.scrollBy({ left: direction * track.clientWidth, behavior: "smooth" });
+  };
 
   const prestVisibleCount = carouselWindowSize(cardsPerView);
   const safePrestSlide = positiveModulo(
@@ -1041,19 +1047,16 @@ export default function FeaturedPublicationsSection() {
               <button
               type="button"
               aria-label="Categorías anteriores"
-              onClick={() =>
-                document
-                  .getElementById("prest-cats")
-                  ?.scrollBy({ left: -180, behavior: "smooth" })
-              }
-              className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 md:inline-flex"
+              onClick={() => scrollPrestCategoryTrack(-1)}
+              className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 ${showPrestCategoryDesktopScrollButtons ? "md:inline-flex" : "md:hidden"}`}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             ) : null}
             <div
               id="prest-cats"
-              className={`flex gap-2 overflow-x-auto pb-1 ${showPrestCategoryScrollButtons ? "flex-1 justify-start" : "mx-auto justify-center"}`}
+              ref={prestCategoryTrackRef}
+              className={`tg-hide-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth pb-1 md:snap-none ${showPrestCategoryScrollButtons ? "flex-1 justify-start" : "mx-auto justify-center"}`}
             >
               {categoriesWithPublications.map((category) => {
                 const active = selectedPrestCategory === category.description;
@@ -1064,7 +1067,7 @@ export default function FeaturedPublicationsSection() {
                     onClick={() =>
                       setSelectedPrestCategory(category.description)
                     }
-                    className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    className={`inline-flex min-w-full snap-center items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition md:min-w-0 ${
                       active
                         ? "bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.28)]"
                         : "border border-[#BFDBFE] bg-white text-[#1D4ED8]"
@@ -1080,12 +1083,8 @@ export default function FeaturedPublicationsSection() {
               <button
               type="button"
               aria-label="Más categorías"
-              onClick={() =>
-                document
-                  .getElementById("prest-cats")
-                  ?.scrollBy({ left: 180, behavior: "smooth" })
-              }
-              className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 md:inline-flex"
+              onClick={() => scrollPrestCategoryTrack(1)}
+              className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 ${showPrestCategoryDesktopScrollButtons ? "md:inline-flex" : "md:hidden"}`}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
