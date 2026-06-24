@@ -97,6 +97,25 @@ function formatPricePresetLabel(rawValue: string, baseLabel: string, selectedCur
   return baseLabel;
 }
 
+function pricePresetIdentity(rawValue: string, rawLabel: string) {
+  const compactValue = String(rawValue || rawLabel || "")
+    .toLowerCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, "")
+    .trim();
+  const labelKey = normKey(rawLabel);
+
+  if (compactValue === "negotiable" || labelKey === "precio a convenir") return "negotiable";
+
+  const rangeMatch = compactValue.match(/^(\d+)-(\d+)$/);
+  if (rangeMatch) return `range:${rangeMatch[1]}-${rangeMatch[2]}`;
+
+  const openMatch = compactValue.match(/^(\d+)\+$/) ?? compactValue.match(/^\+(\d+)$/);
+  if (openMatch) return `open:${openMatch[1]}`;
+
+  return normKey(rawValue || rawLabel);
+}
+
 function toSentenceCase(text: string) {
   if (!text) return "";
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -565,7 +584,16 @@ export default function Filters({
             { value: "800000+", label: "+800.000" },
             { value: "negotiable", label: "Precio a convenir" },
           ];
-          const presets = (basePresets.length ? basePresets : fallbackPresets).map((preset) => {
+          const seenPresetKeys = new Set<string>();
+          const uniquePresets = (basePresets.length ? basePresets : fallbackPresets).filter((preset) => {
+            const raw = String(preset.value ?? "");
+            const baseLabel = pickI18nText("labelI18n" in preset ? preset.labelI18n ?? null : null, locale, preset.label ?? raw);
+            const presetKey = pricePresetIdentity(raw, baseLabel);
+            if (!presetKey || seenPresetKeys.has(presetKey)) return false;
+            seenPresetKeys.add(presetKey);
+            return true;
+          });
+          const presets = uniquePresets.map((preset) => {
             const raw = String(preset.value ?? "");
             const baseLabel = pickI18nText("labelI18n" in preset ? preset.labelI18n ?? null : null, locale, preset.label ?? raw);
             return { ...preset, label: formatPricePresetLabel(raw, baseLabel, selectedCurrency) };
