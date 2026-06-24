@@ -58,7 +58,6 @@ export default function RelatedPublicationsCarousel({ items }: { items: RelatedC
   );
 
   const hasControls = visibleItems.length > 1;
-  const visibleDots = useMemo(() => visibleItems.map((_, idx) => idx), [visibleItems]);
   const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
 
   useEffect(() => {
@@ -147,7 +146,28 @@ export default function RelatedPublicationsCarousel({ items }: { items: RelatedC
         </div>
       ) : null}
 
-      <div ref={trackRef} className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+      <div className="relative">
+        {hasControls ? (
+          <>
+            <button
+              type="button"
+              onClick={() => scrollByStep(-1)}
+              className="absolute left-1 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow md:hidden"
+              aria-label="Anterior"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollByStep(1)}
+              className="absolute right-1 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow md:hidden"
+              aria-label="Siguiente"
+            >
+              →
+            </button>
+          </>
+        ) : null}
+        <div ref={trackRef} className="tg-hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth pb-2">
         {visibleItems.map((pub) => {
           const href = `${pub.href}${pub.href.includes("?") ? "&" : "?"}returnTo=${encodeURIComponent(returnTo)}`;
           const previewDescription = descriptionPreview(pub.description);
@@ -178,23 +198,8 @@ export default function RelatedPublicationsCarousel({ items }: { items: RelatedC
             </Link>
           );
         })}
-      </div>
-
-      {hasControls ? (
-        <div className="mt-2 flex items-center justify-center gap-1.5 md:hidden">
-          {visibleDots.map((idx) => (
-            <button
-              key={`dot-${idx}`}
-              type="button"
-              aria-label={`Ir a tarjeta ${idx + 1}`}
-              onClick={() => scrollToIndex(idx)}
-              className={`h-2.5 w-2.5 rounded-full transition ${
-                idx === activeIndex ? "bg-[#4F46E5]" : "bg-slate-300"
-              }`}
-            />
-          ))}
         </div>
-      ) : null}
+      </div>
       {filteredItems.length > 12 ? (
         <div className="mt-3 flex justify-center">
           <button
