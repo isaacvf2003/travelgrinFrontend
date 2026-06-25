@@ -71,6 +71,9 @@ export default function PublicationGallery({ images, title }: PublicationGallery
         <div className="relative aspect-[4/3] w-full md:aspect-[16/10]">
           <Image src={mainImage} alt={title} fill className="object-cover" />
         </div>
+        <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center rounded-full bg-slate-900/20 px-2 py-1 backdrop-blur-sm md:hidden">
+          <span className="h-2.5 w-2.5 rounded-full bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.08)]" />
+        </div>
       </div>
     );
   }
@@ -103,7 +106,7 @@ export default function PublicationGallery({ images, title }: PublicationGallery
         <div
           ref={mobileScrollRef}
           onScroll={handleMobileScroll}
-          className="flex w-full snap-x snap-mandatory overflow-x-auto scroll-smooth md:hidden"
+          className="tg-hide-scrollbar flex w-full snap-x snap-mandatory overflow-x-auto scroll-smooth md:hidden"
         >
           {sanitizedImages.map((src, idx) => (
             <div key={`${src}-${idx}`} className="relative w-full flex-shrink-0 snap-center">
@@ -125,11 +128,21 @@ export default function PublicationGallery({ images, title }: PublicationGallery
           </div>
         </button>
 
-        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 md:hidden">
+        <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900/20 px-2.5 py-1.5 backdrop-blur-sm md:hidden">
           {sanitizedImages.map((_, idx) => (
-            <span
+            <button
               key={`dot-${idx}`}
-              className={`h-2 w-2 rounded-full transition ${idx === activeIndex ? "bg-white" : "bg-white/50"}`}
+              type="button"
+              aria-label={`Ver imagen ${idx + 1}`}
+              onClick={() => {
+                setActiveIndex(idx);
+                const scroller = mobileScrollRef.current;
+                if (!scroller) return;
+                scroller.scrollTo({ left: idx * scroller.clientWidth, behavior: "smooth" });
+              }}
+              className={`h-2.5 rounded-full transition-all duration-200 ${
+                idx === activeIndex ? "w-5 bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.08)]" : "w-2.5 bg-white/55"
+              }`}
             />
           ))}
         </div>
