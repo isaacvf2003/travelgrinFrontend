@@ -152,7 +152,7 @@ export default function RelatedPublicationsCarousel({ items }: { items: RelatedC
             <button
               type="button"
               onClick={() => scrollByStep(-1)}
-              className="absolute left-1 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow md:hidden"
+              className="absolute left-3 top-20 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/95 text-sm text-slate-700 shadow-lg ring-1 ring-slate-200/70 md:hidden"
               aria-label="Anterior"
             >
               ←
@@ -160,7 +160,7 @@ export default function RelatedPublicationsCarousel({ items }: { items: RelatedC
             <button
               type="button"
               onClick={() => scrollByStep(1)}
-              className="absolute right-1 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-700 shadow md:hidden"
+              className="absolute right-3 top-20 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/95 text-sm text-slate-700 shadow-lg ring-1 ring-slate-200/70 md:hidden"
               aria-label="Siguiente"
             >
               →
