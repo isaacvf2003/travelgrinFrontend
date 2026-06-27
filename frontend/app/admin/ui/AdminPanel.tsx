@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, Plus, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
@@ -99,6 +99,10 @@ type ReportItem = {
   email?: string | null;
   createdAt?: string;
 };
+
+function isFeedbackReport(item: ReportItem) {
+  return String(item.reason ?? "").toLowerCase() === "feedback" || String(item.publicationId ?? "") === "feedback-general";
+}
 
 type PromoCodeItem = {
   id: string;
@@ -1267,6 +1271,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [publicationTab, setPublicationTab] = useState<"publicaciones" | "denuncias">("publicaciones");
   const [publicationSearch, setPublicationSearch] = useState("");
   const [publicationTypeFilter, setPublicationTypeFilter] = useState<"todas" | "publicacion" | "prestacion">("todas");
+  const [feedbackSearch, setFeedbackSearch] = useState("");
+  const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
   const [promoCodeDraft, setPromoCodeDraft] = useState("");
   const [promoDiscountDraft, setPromoDiscountDraft] = useState("10");
   const [promoExpiresDraft, setPromoExpiresDraft] = useState("");
@@ -3881,6 +3887,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const isUsersSection = section === "usuarios";
   const isCategoriesSection = section === "categorias";
   const isPublicationsSection = section === "publicaciones";
+  const isFeedbackSection = section === "feedback";
   const isHowWorksSection = section === "como-funciona";
   const isConfigSection = section === "configuracion";
   const isContactSection = section === "contacto";
@@ -4311,12 +4318,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             .filter((item) => !String(item.price ?? "").trim() || item.price === "0")
             .map((item) => item.createdAt)
         )
-      ),
+    ),
     [dashboardPublicationHistory]
   );
-  const reportsData = useMemo(
-    () => seriesFromDates(toDates(reports.map((item) => item.createdAt))),
+  const feedbackReports = useMemo(
+    () => reports.filter(isFeedbackReport),
     [reports]
+  );
+  const complaintReports = useMemo(
+    () => reports.filter((item) => !isFeedbackReport(item)),
+    [reports]
+  );
+  const reportsData = useMemo(
+    () => seriesFromDates(toDates(complaintReports.map((item) => item.createdAt))),
+    [complaintReports]
   );
 
   const selectedUsers = (userTab === "oferentes" ? userOferentes : userDemandantes).filter((item) => {
@@ -5877,13 +5892,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         || (publicationTypeFilter === "prestacion" ? item.primaryGroupKey === "prestacion" : item.primaryGroupKey !== "prestacion");
     return matchesSearch && matchesType;
   });
-  const filteredReports = reports.filter((item) => {
+  const filteredReports = complaintReports.filter((item) => {
     const query = publicationSearch.toLowerCase().trim();
     if (!query) return true;
     return [item.publicationTitle, item.fullName, item.email, item.contact, item.details]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(query));
   });
+  const filteredFeedbackReports = feedbackReports.filter((item) => {
+    const query = feedbackSearch.toLowerCase().trim();
+    if (!query) return true;
+    return [item.fullName, item.email, item.details, item.createdAt]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
+  const selectedFeedback =
+    filteredFeedbackReports.find((item) => item.id === selectedFeedbackId) ??
+    filteredFeedbackReports[0] ??
+    null;
 
   if (loading) {
     return (
@@ -5933,15 +5959,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           </div>
           <div className="mt-3 flex items-end justify-between">
             <div>
-              <p className="text-4xl font-bold tracking-tight">{reports.length.toLocaleString()}</p>
+              <p className="text-4xl font-bold tracking-tight">{complaintReports.length.toLocaleString()}</p>
               <p className="text-xs opacity-70">en el mes</p>
             </div>
             <div className="text-right">
-              <p className="text-xl font-semibold">{new Set(reports.map((report) => report.publicationId).filter(Boolean)).size.toLocaleString()}</p>
+              <p className="text-xl font-semibold">{new Set(complaintReports.map((report) => report.publicationId).filter(Boolean)).size.toLocaleString()}</p>
               <p className="text-xs opacity-70">usuarios afectados</p>
             </div>
           </div>
-          <div className="mt-3 border-t border-rose-200 pt-2 text-xs">+ {reports.length.toLocaleString()} acumulado</div>
+          <div className="mt-3 border-t border-rose-200 pt-2 text-xs">+ {complaintReports.length.toLocaleString()} acumulado</div>
         </div>
       </div>
 
@@ -6110,6 +6136,92 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       ) : null}
 
       {isUsersSection ? usersSectionCard : null}
+
+      {isFeedbackSection ? (
+        <section className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-2xl font-semibold text-slate-900">
+                <MessageSquareMore className="h-6 w-6 text-indigo-600" />
+                Feedback
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">Mensajes enviados desde el boton de feedback del sitio.</p>
+            </div>
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-right">
+              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500">Total</p>
+              <p className="text-2xl font-bold text-indigo-700">{feedbackReports.length.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(260px,360px)_1fr]">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+              <input
+                value={feedbackSearch}
+                onChange={(event) => setFeedbackSearch(event.target.value)}
+                placeholder="Buscar por usuario, email o mensaje..."
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+              <div className="mt-3 max-h-[560px] space-y-2 overflow-y-auto pr-1">
+                {filteredFeedbackReports.map((item) => {
+                  const active = selectedFeedback?.id === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedFeedbackId(item.id)}
+                      className={`w-full rounded-2xl border p-3 text-left transition ${
+                        active
+                          ? "border-indigo-200 bg-white shadow-sm"
+                          : "border-transparent bg-white/70 hover:border-slate-200 hover:bg-white"
+                      }`}
+                    >
+                      <div className="text-sm font-semibold text-slate-900">{normalizeVisibleText(item.fullName || "Usuario sin nombre")}</div>
+                      <div className="mt-1 break-all text-xs text-slate-500">{normalizeVisibleText(item.email || item.contact || "-")}</div>
+                      <div className="mt-2 line-clamp-2 text-xs text-slate-500">{normalizeVisibleText(item.details || "Sin mensaje")}</div>
+                      <div className="mt-2 text-[11px] font-medium text-indigo-500">
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString("es-AR") : ""}
+                      </div>
+                    </button>
+                  );
+                })}
+                {!filteredFeedbackReports.length ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
+                    No hay feedback para mostrar.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="min-h-[360px] rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
+              {selectedFeedback ? (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Usuario</p>
+                      <h3 className="mt-1 text-xl font-semibold text-slate-900">{normalizeVisibleText(selectedFeedback.fullName || "Usuario sin nombre")}</h3>
+                      <p className="mt-1 break-all text-sm text-slate-500">{normalizeVisibleText(selectedFeedback.email || selectedFeedback.contact || "-")}</p>
+                    </div>
+                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600">
+                      {selectedFeedback.createdAt ? new Date(selectedFeedback.createdAt).toLocaleString("es-AR") : "Sin fecha"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Mensaje</p>
+                    <div className="mt-2 whitespace-pre-wrap rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                      {normalizeVisibleText(selectedFeedback.details || "Sin mensaje")}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex h-full min-h-[300px] items-center justify-center rounded-2xl border border-dashed border-slate-200 text-sm text-slate-500">
+                  Selecciona un usuario para ver el mensaje.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {isConfigSection ? (
         <section className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">

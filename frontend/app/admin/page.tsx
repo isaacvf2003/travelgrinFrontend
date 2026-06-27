@@ -11,7 +11,7 @@ type AdminPageProps = {
   }>;
 };
 
-const allowedSections: AdminSection[] = ["panel", "usuarios", "categorias", "publicaciones", "como-funciona", "configuracion", "contacto"];
+const allowedSections: AdminSection[] = ["panel", "usuarios", "categorias", "publicaciones", "feedback", "como-funciona", "configuracion", "contacto"];
 
 function resolveSection(raw: string | string[] | undefined): AdminSection {
   const value = Array.isArray(raw) ? raw[0] : raw;

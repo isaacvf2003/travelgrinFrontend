@@ -7,6 +7,7 @@ import {
   FileText,
   LayoutDashboard,
   Menu,
+  MessageSquareMore,
   Tag,
   Users,
   X,
@@ -17,6 +18,7 @@ export type AdminSection =
   | "usuarios"
   | "categorias"
   | "publicaciones"
+  | "feedback"
   | "como-funciona"
   | "configuracion"
   | "contacto";
@@ -36,6 +38,7 @@ const navItems: Array<{
   { label: "Categor\u00edas", icon: Tag, section: "categorias" },
   { label: "Publicaciones", icon: FileText, section: "publicaciones" },
   { label: "C\u00f3mo funciona", icon: FileText, section: "como-funciona" },
+  { label: "Feedback", icon: MessageSquareMore, section: "feedback" },
 ];
 
 export default function AdminControlLayout({
