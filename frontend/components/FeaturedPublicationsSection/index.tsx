@@ -1042,7 +1042,7 @@ export default function FeaturedPublicationsSection() {
               {t("explorar_prestaciones_que_son")}
             </p>
           </div>
-          <div className={`mt-4 flex items-center ${showPrestCategoryScrollButtons ? "gap-2" : "justify-center"}`}>
+          <div className={`mt-4 flex items-center md:justify-center ${showPrestCategoryScrollButtons ? "gap-2" : "justify-center"}`}>
             {showPrestCategoryScrollButtons ? (
               <button
               type="button"
@@ -1056,7 +1056,7 @@ export default function FeaturedPublicationsSection() {
             <div
               id="prest-cats"
               ref={prestCategoryTrackRef}
-              className={`tg-hide-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth pb-1 md:snap-none ${showPrestCategoryScrollButtons ? "flex-1 justify-start" : "mx-auto justify-center"}`}
+              className={`tg-hide-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth pb-1 md:snap-none md:justify-center md:overflow-visible md:pb-0 ${showPrestCategoryScrollButtons ? "flex-1 justify-start" : "mx-auto justify-center"} ${showPrestCategoryDesktopScrollButtons ? "md:flex-1 md:justify-start md:overflow-x-auto" : "md:flex-none"}`}
             >
               {categoriesWithPublications.map((category) => {
                 const active = selectedPrestCategory === category.description;
@@ -1266,4 +1266,3 @@ export default function FeaturedPublicationsSection() {
     </section>
   );
 }
-
