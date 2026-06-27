@@ -2,7 +2,7 @@
 
 import { MessageSquareMore, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function FeedbackFloatingButton() {
@@ -15,6 +15,14 @@ export default function FeedbackFloatingButton() {
   const [sending, setSending] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const timeoutId = window.setTimeout(() => {
+      setSuccessMessage("");
+    }, 4500);
+    return () => window.clearTimeout(timeoutId);
+  }, [successMessage]);
 
   const labels =
     locale === "en"
