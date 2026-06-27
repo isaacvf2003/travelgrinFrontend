@@ -1,14 +1,15 @@
 "use client";
 
 import { MessageSquareMore, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function FeedbackFloatingButton() {
   const { locale } = useTranslation();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [details, setDetails] = useState("");
   const [sending, setSending] = useState(false);
@@ -25,15 +26,13 @@ export default function FeedbackFloatingButton() {
           fullNamePlaceholder: "Enter your full name",
           email: "Email",
           emailPlaceholder: "Enter your email",
-          phone: "Phone number",
-          phonePlaceholder: "Enter your phone number",
           details: "Message",
           detailsPlaceholder: "Write your feedback",
           cancel: "Close",
           send: "Send feedback",
           sending: "Sending...",
           success: "Thanks! We received your feedback.",
-          required: "Please complete name, phone and message.",
+          required: "Please complete name, email and message.",
           invalidEmail: "Please enter a valid email.",
           fail: "Could not send feedback.",
         }
@@ -46,15 +45,13 @@ export default function FeedbackFloatingButton() {
             fullNamePlaceholder: "Digite seu nome e sobrenome",
             email: "Email",
             emailPlaceholder: "Digite seu email",
-            phone: "Numero de telefone",
-            phonePlaceholder: "Digite seu numero de telefone",
             details: "Mensagem",
             detailsPlaceholder: "Escreva seu feedback",
             cancel: "Fechar",
             send: "Enviar feedback",
             sending: "Enviando...",
             success: "Obrigado! Recebemos seu feedback.",
-            required: "Complete nome, telefone e mensagem.",
+            required: "Complete nome, email e mensagem.",
             invalidEmail: "Digite um email valido.",
             fail: "Nao foi possivel enviar o feedback.",
           }
@@ -67,15 +64,13 @@ export default function FeedbackFloatingButton() {
               fullNamePlaceholder: "Inserisci nome e cognome",
               email: "Email",
               emailPlaceholder: "Inserisci la tua email",
-              phone: "Numero di telefono",
-              phonePlaceholder: "Inserisci il numero di telefono",
               details: "Messaggio",
               detailsPlaceholder: "Scrivi il tuo feedback",
               cancel: "Chiudi",
               send: "Invia feedback",
               sending: "Invio...",
               success: "Grazie! Abbiamo ricevuto il tuo feedback.",
-              required: "Compila nome, telefono e messaggio.",
+              required: "Compila nome, email e messaggio.",
               invalidEmail: "Inserisci un'email valida.",
               fail: "Impossibile inviare il feedback.",
             }
@@ -87,25 +82,23 @@ export default function FeedbackFloatingButton() {
               fullNamePlaceholder: "Ingresa tu nombre y apellido",
               email: "Email",
               emailPlaceholder: "Ingresa tu email",
-              phone: "Numero de telefono",
-              phonePlaceholder: "Ingresa tu numero de telefono",
               details: "Mensaje",
               detailsPlaceholder: "Escribe tu feedback",
               cancel: "Cerrar",
               send: "Enviar feedback",
               sending: "Enviando...",
               success: "Gracias. Recibimos tu feedback.",
-              required: "Completa nombre, telefono y mensaje.",
+              required: "Completa nombre, email y mensaje.",
               invalidEmail: "Ingresa un email valido.",
               fail: "No se pudo enviar el feedback.",
             };
 
   async function submitFeedback() {
-    if (!fullName.trim() || !phone.trim() || !details.trim()) {
+    if (!fullName.trim() || !email.trim() || !details.trim()) {
       setError(labels.required);
       return;
     }
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError(labels.invalidEmail);
       return;
     }
@@ -122,7 +115,7 @@ export default function FeedbackFloatingButton() {
           reason: "Feedback",
           details,
           fullName,
-          contact: phone,
+          contact: email,
           email,
         }),
       });
@@ -135,7 +128,6 @@ export default function FeedbackFloatingButton() {
 
       setSuccessMessage(labels.success);
       setFullName("");
-      setPhone("");
       setEmail("");
       setDetails("");
       setOpen(false);
@@ -145,6 +137,8 @@ export default function FeedbackFloatingButton() {
       setSending(false);
     }
   }
+
+  if (pathname?.startsWith("/admin")) return null;
 
   return (
     <>
@@ -181,8 +175,6 @@ export default function FeedbackFloatingButton() {
               <input value={fullName} onChange={(event) => setFullName(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900" placeholder={labels.fullNamePlaceholder} />
               <label className="text-sm font-medium text-black">{labels.email}</label>
               <input value={email} onChange={(event) => setEmail(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900" placeholder={labels.emailPlaceholder} />
-              <label className="text-sm font-medium text-black">{labels.phone}</label>
-              <input value={phone} onChange={(event) => setPhone(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900" placeholder={labels.phonePlaceholder} />
               <label className="text-sm font-medium text-black">{labels.details}</label>
               <textarea value={details} onChange={(event) => setDetails(event.target.value)} className="min-h-[110px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900" placeholder={labels.detailsPlaceholder} />
 
@@ -207,4 +199,3 @@ export default function FeedbackFloatingButton() {
     </>
   );
 }
-
