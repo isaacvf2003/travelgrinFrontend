@@ -16,7 +16,7 @@ export function getDefaultAdminEmail() {
 }
 
 export function getDefaultAdminPassword() {
-  return process.env.ADMIN_DEFAULT_PASSWORD || DEFAULT_ADMIN_PASSWORD;
+  return process.env.ADMIN_DEFAULT_PASSWORD || (process.env.NODE_ENV === "production" ? "" : DEFAULT_ADMIN_PASSWORD);
 }
 
 export function getAllowedAdminEmails() {

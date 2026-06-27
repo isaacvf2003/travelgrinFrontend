@@ -76,8 +76,12 @@ export function hashResetCode(code: string) {
 }
 
 export function getJwtSecret() {
-  const secret = process.env.ADMIN_JWT_SECRET || "travelgrin-admin-dev-secret-2026";
-  return secret;
+  const secret = process.env.ADMIN_JWT_SECRET?.trim();
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("ADMIN_JWT_SECRET is required in production.");
+  }
+  return "travelgrin-admin-dev-secret-2026";
 }
 
 function getAdminCookieOptions() {

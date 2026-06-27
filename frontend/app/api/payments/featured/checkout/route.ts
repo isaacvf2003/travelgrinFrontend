@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBackendApiUrl, missingBackendResponse } from "@/app/api/admin/auth/_lib/backend";
+import { getBackendApiUrl, getBackendInternalHeaders, missingBackendResponse } from "@/app/api/admin/auth/_lib/backend";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const response = await fetch(`${backendApiUrl}/api/payments/featured/checkout`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getBackendInternalHeaders() },
       body: JSON.stringify(body),
       cache: "no-store",
     });
