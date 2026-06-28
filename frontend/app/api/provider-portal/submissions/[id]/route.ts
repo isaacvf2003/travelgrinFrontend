@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { getBackendApiUrl, getBackendInternalHeaders, missingBackendResponse } from "@/app/api/admin/auth/_lib/backend";
+import { getBackendApiUrl, missingBackendResponse } from "@/app/api/admin/auth/_lib/backend";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,7 +18,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     method: "PUT",
     headers: {
       "Content-Type": requestHeaders.get("content-type") || "application/json",
-      ...getBackendInternalHeaders(),
       ...(cookie ? { cookie } : {}),
     },
     body,
@@ -39,7 +38,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
 
   const response = await fetch(`${backendApiUrl}/api/provider-portal/submissions/${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers: { ...getBackendInternalHeaders(), ...(cookie ? { cookie } : {}) },
+    headers: cookie ? { cookie } : undefined,
     cache: "no-store",
   });
 

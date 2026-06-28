@@ -16,18 +16,13 @@ export function missingBackendResponse() {
   );
 }
 
-export function getBackendInternalHeaders() {
-  const secret = process.env.FRONTEND_BACKEND_SHARED_SECRET?.trim();
-  return secret ? { "x-travelgrin-internal-secret": secret } : {};
-}
-
 export async function forwardJson(path: string, body: unknown) {
   const backendApiUrl = getBackendApiUrl();
   if (!backendApiUrl) return missingBackendResponse();
 
   const response = await fetch(`${backendApiUrl}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getBackendInternalHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     cache: "no-store",
   });
@@ -39,12 +34,9 @@ export async function forwardJson(path: string, body: unknown) {
 export async function forwardApiRequest(path: string, init?: RequestInit) {
   const backendApiUrl = getBackendApiUrl();
   if (!backendApiUrl) return null;
-  const headers = new Headers(init?.headers);
-  Object.entries(getBackendInternalHeaders()).forEach(([key, value]) => headers.set(key, value));
 
   return fetch(`${backendApiUrl}${path}`, {
     ...init,
-    headers,
     cache: "no-store",
   });
 }
