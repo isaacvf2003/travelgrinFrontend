@@ -1412,9 +1412,6 @@ export default function ModalOferente({
     }
   };
 
-  const [website2, setWebsite2] = useState("");
-  const [formStartedAt] = useState(() => Date.now());
-
   const buildPayload = (publicationPlan: "basic_free" | "featured" | "monthly") => {
     const cleanVenue = {
       country: primaryVenue.country.trim(),
@@ -1492,13 +1489,11 @@ export default function ModalOferente({
       sourceServiceId: sourceServiceId.trim(),
       country: effectiveCountry,
       locale,
-        acceptedTerms: true,
-        submittedViaPortal: Boolean(initialEmail.trim()),
-        portalOwnerEmail: initialEmail.trim().toLowerCase(),
-        website2,
-        formStartedAt,
-      };
+      acceptedTerms: true,
+      submittedViaPortal: Boolean(initialEmail.trim()),
+      portalOwnerEmail: initialEmail.trim().toLowerCase(),
     };
+  };
 
   const submit = async (publicationPlan: "basic_free" | "featured" | "monthly") => {
     if (isLoading) return;
@@ -2118,9 +2113,6 @@ export default function ModalOferente({
               <h2 className="mt-2" style={{ color: "#323232" }}>{step === "featured" ? mt("oferente_destacado_heading") : t("cambiamos_la_manera")}</h2>
             </div>
             <PaymentStatusPanel state={paymentUi} text={mt} />
-            <div aria-hidden="true" className="absolute left-[-10000px] top-auto h-0 w-0 overflow-hidden">
-              <input value={website2} onChange={(event) => setWebsite2(event.target.value)} tabIndex={-1} autoComplete="off" placeholder="No completar" />
-            </div>
             {resumeMode ? (
               <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
                 <div className="font-semibold">{t("reanudar_solicitud")}</div>

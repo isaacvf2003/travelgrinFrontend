@@ -15,8 +15,6 @@ export default function FeedbackFloatingButton() {
   const [sending, setSending] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState("");
-  const [website2, setWebsite2] = useState("");
-  const [formStartedAt] = useState(() => Date.now());
 
   useEffect(() => {
     if (!successMessage) return;
@@ -127,8 +125,6 @@ export default function FeedbackFloatingButton() {
           fullName,
           contact: email,
           email,
-          website2,
-          formStartedAt,
         }),
       });
 
@@ -183,9 +179,6 @@ export default function FeedbackFloatingButton() {
             </div>
 
             <div className="grid gap-2">
-              <div aria-hidden="true" className="absolute left-[-10000px] top-auto h-0 w-0 overflow-hidden">
-                <input value={website2} onChange={(event) => setWebsite2(event.target.value)} tabIndex={-1} autoComplete="off" placeholder="No completar" />
-              </div>
               <label className="text-sm font-medium text-black">{labels.fullName}</label>
               <input value={fullName} onChange={(event) => setFullName(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900" placeholder={labels.fullNamePlaceholder} />
               <label className="text-sm font-medium text-black">{labels.email}</label>
