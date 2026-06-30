@@ -40,6 +40,8 @@ type DemandanteData = {
   whatSearching: string;
   whatStop: string;
   email: string;
+  website2: string;
+  formStartedAt: number;
 };
 
 type Category = {
@@ -96,6 +98,8 @@ export default function ModalDemandante({
   const [isEmptyEmail, setIsEmptyEmail] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const [emailError, setEmailError] = useState("");
+  const [website2, setWebsite2] = React.useState("");
+  const [formStartedAt] = React.useState(() => Date.now());
 
   // Hook para mounted state
   useEffect(() => {
@@ -222,6 +226,8 @@ export default function ModalDemandante({
       matchAlertSearchUrl: searchUrl,
       matchAlertCreatedAt: new Date().toISOString(),
       interestSource: "demandante_search_form",
+      website2,
+      formStartedAt,
     };
     
     try {
@@ -388,6 +394,15 @@ export default function ModalDemandante({
 
             {/* Textareas */}
             <div className="space-y-4">
+              <div aria-hidden="true" className="absolute left-[-10000px] top-auto h-0 w-0 overflow-hidden">
+                <input
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={website2}
+                  onChange={(event) => setWebsite2(event.target.value)}
+                  placeholder="No completar"
+                />
+              </div>
               <div>
                 <MaterialTextarea
                   value={whatSearching}
