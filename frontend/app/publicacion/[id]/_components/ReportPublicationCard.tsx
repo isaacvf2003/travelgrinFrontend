@@ -14,8 +14,6 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
   const [sent, setSent] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState("");
-  const [website2, setWebsite2] = useState("");
-  const [formStartedAt] = useState(() => Date.now());
 
   const invalidEmailMessage =
     locale === "en"
@@ -49,7 +47,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
       const res = await fetch("/api/reports", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ publicationId, publicationTitle, reason: "Denuncia", details, fullName, contact: phone, email, website2, formStartedAt }),
+        body: JSON.stringify({ publicationId, publicationTitle, reason: "Denuncia", details, fullName, contact: phone, email }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -162,9 +160,6 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
               {"Publicación:"} {publicationTitle || publicationId}
             </p>
             <div className="grid gap-2">
-              <div aria-hidden="true" className="absolute left-[-10000px] top-auto h-0 w-0 overflow-hidden">
-                <input value={website2} onChange={(e) => setWebsite2(e.target.value)} tabIndex={-1} autoComplete="off" placeholder="No completar" />
-              </div>
               <label className="text-sm font-medium text-black">{labels.fullName}</label>
               <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={labels.fullNamePlaceholder} />
               <label className="text-sm font-medium text-black">{labels.email}</label>
