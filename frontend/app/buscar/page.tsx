@@ -412,7 +412,7 @@ export default async function BuscarPage({
           </div>
 
           {/* Barra de búsqueda (full width, como Figma) */}
-          <div className="relative z-30 bg-[#D8F3F0] py-4 shadow-sm shadow-[#0B2B30]/5">
+          <div className="relative z-[180] bg-[#D8F3F0] py-4 shadow-sm shadow-[#0B2B30]/5">
             <div className="mx-auto max-w-6xl px-4">
               <SearchBar />
             </div>
@@ -421,7 +421,7 @@ export default async function BuscarPage({
           <div className="mx-auto max-w-6xl px-4 pb-12 pt-7">
             {/* Título + breadcrumbs */}
             <HideOnScroll
-              className="z-40 bg-white py-3 md:sticky md:top-[5rem]"
+              className="z-20 bg-white py-3 md:sticky md:top-[5rem]"
               mobileThresholdVh={0.45}
               mobileRevealOnScrollUp={false}
             >
