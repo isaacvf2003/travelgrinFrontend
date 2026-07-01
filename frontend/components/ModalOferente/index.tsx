@@ -1187,6 +1187,32 @@ export default function ModalOferente({
     return "pending" as const;
   }, [verifyPaymentStatus]);
 
+  const keepCheckingPendingPayment = useCallback((serviceId: string, paidPlan: "featured" | "monthly") => {
+    clearPaymentWatcher();
+    let attempts = 0;
+    paymentWatcherRef.current = window.setInterval(() => {
+      attempts += 1;
+      void verifyPaymentStatus(serviceId, "check").then((nextResult) => {
+        if (nextResult === "success") {
+          clearPaymentWatcher();
+          setPaymentUi({ status: "success", messageKey: "oferente_pago_completado" });
+          onSubmitted?.({ serviceId, plan: paidPlan });
+          submittedServiceIdRef.current = null;
+          return;
+        }
+        if (nextResult === "cancel") {
+          clearPaymentWatcher();
+          setPaymentUi({ status: "cancel", messageKey: "oferente_pago_no_completado" });
+          onPaymentResolved?.({ serviceId, plan: paidPlan, status: "cancel" });
+          submittedServiceIdRef.current = null;
+        }
+      });
+      if (attempts >= 80) {
+        clearPaymentWatcher();
+      }
+    }, 3000);
+  }, [clearPaymentWatcher, onPaymentResolved, onSubmitted, verifyPaymentStatus]);
+
   const handleResolvedPaymentResult = useCallback((
     result: "success" | "cancel" | "pending",
     serviceId: string,
@@ -1205,13 +1231,13 @@ export default function ModalOferente({
     }
     if (result === "pending") {
       setPaymentUi({ status: "preparing", messageKey: "oferente_pago_verificando" });
-      onPaymentResolved?.({ serviceId, plan: paidPlan, status: "pending" });
+      keepCheckingPendingPayment(serviceId, paidPlan);
       return;
     }
     setPaymentUi({ status: "cancel", messageKey: "oferente_pago_no_completado" });
     onPaymentResolved?.({ serviceId, plan: paidPlan, status: "cancel" });
     submittedServiceIdRef.current = null;
-  }, [clearPaymentWatcher, onPaymentResolved, onSubmitted]);
+  }, [clearPaymentWatcher, keepCheckingPendingPayment, onPaymentResolved, onSubmitted]);
 
   useEffect(() => {
     const handlePaymentResult = async (rawStatus: string, payloadServiceId?: string) => {
