@@ -36,7 +36,7 @@ type Props = {
   resumeStatusReason?: string;
   compactPlanCards?: boolean;
   onSubmitted?: (info: { serviceId: string; plan: "basic_free" | "featured" | "monthly" }) => void;
-  onPaymentResolved?: (info: { serviceId: string; plan: "featured" | "monthly"; status: "success" | "cancel" }) => void;
+  onPaymentResolved?: (info: { serviceId: string; plan: "featured" | "monthly"; status: "success" | "cancel" | "pending" }) => void;
 };
 type Category = { id: string; description: string; taxonomyType: string; isPrimaryCategory?: boolean; isPublicVisible?: boolean; parentId?: string | null };
 type FilterOptionLite = { value?: string; label?: string; labelI18n?: Record<string, string> | null };
@@ -1170,21 +1170,21 @@ export default function ModalOferente({
         body: JSON.stringify({ serviceId, status: returnStatus }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || data?.ok === false) return "cancel" as const;
+      if (!response.ok || data?.ok === false) return returnStatus === "cancel" ? "cancel" as const : "pending" as const;
       return normalizePaymentResult(String(data?.status ?? ""));
     } catch {
-      return "cancel" as const;
+      return returnStatus === "cancel" ? "cancel" as const : "pending" as const;
     }
   }, [normalizePaymentResult]);
 
   const verifyPaymentWithRetries = useCallback(async (serviceId: string, returnStatus = "check") => {
     setPaymentUi({ status: "preparing", messageKey: "oferente_pago_verificando" });
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
       const result = await verifyPaymentStatus(serviceId, returnStatus);
       if (result !== "pending") return result;
       await new Promise((resolve) => window.setTimeout(resolve, 1200));
     }
-    return "cancel" as const;
+    return "pending" as const;
   }, [verifyPaymentStatus]);
 
   const handleResolvedPaymentResult = useCallback((
@@ -1201,6 +1201,11 @@ export default function ModalOferente({
       setPaymentUi({ status: "success", messageKey: "oferente_pago_completado" });
       onSubmitted?.({ serviceId, plan: paidPlan });
       submittedServiceIdRef.current = null;
+      return;
+    }
+    if (result === "pending") {
+      setPaymentUi({ status: "preparing", messageKey: "oferente_pago_verificando" });
+      onPaymentResolved?.({ serviceId, plan: paidPlan, status: "pending" });
       return;
     }
     setPaymentUi({ status: "cancel", messageKey: "oferente_pago_no_completado" });
