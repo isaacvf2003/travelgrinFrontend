@@ -1813,20 +1813,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     GBP: "£",
   };
 
-  const createEmptyBlockCategoryDraft = (parentDraftId = ""): BlockCategoryDraft => ({
+  const createEmptyBlockCategoryDraft = (
+    parentDraftId = "",
+    visibleInCardDefault = false,
+  ): BlockCategoryDraft => ({
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     lang: "es",
     parentDraftId,
     taxonomyType: "inherit",
     isPublicVisible: true,
-    isPrimaryCategory: false,
+    isPrimaryCategory: !parentDraftId && visibleInCardDefault,
     iconImageUrl: "",
     cardImageUrl: "",
     nameI18n: { es: "", en: "", pt: "", it: "" },
   });
 
   const addBlockCategoryDraft = (parentDraftId = "") => {
-    setBlockCategoryDrafts((prev) => [...prev, createEmptyBlockCategoryDraft(parentDraftId)]);
+    setBlockCategoryDrafts((prev) => [
+      ...prev,
+      createEmptyBlockCategoryDraft(parentDraftId, blockVisibleInCard),
+    ]);
   };
 
   const updateBlockCategoryDraft = (draftId: string, updater: (prev: BlockCategoryDraft) => BlockCategoryDraft) => {
@@ -2078,10 +2084,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         savedBlockId = editingBlockId;
         if (blockVisibleInCard !== initialBlockVisibleInCard) {
           const blockCategories = categories.filter((category) => category.blockId === savedBlockId);
-          const fallbackPrimaryCategoryId =
-            blockVisibleInCard && !blockCategories.some((category) => category.isPrimaryCategory === true)
-              ? (blockCategories.find((category) => !category.parentId)?.id ?? blockCategories[0]?.id ?? null)
-              : null;
           await Promise.all(blockCategories.map((category) =>
             api(`/api/admin/categories/${encodeURIComponent(category.id)}`, {
               method: "PATCH",
@@ -2093,13 +2095,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 parentId: category.parentId ?? null,
                 blockId: category.blockId ?? savedBlockId,
                 isPublicVisible: category.isPublicVisible !== false,
-                isPrimaryCategory: blockVisibleInCard ? Boolean(category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId) : false,
+                isPrimaryCategory: blockVisibleInCard ? category.isPrimaryCategory === true : false,
                 iconImageUrl:
-                  blockVisibleInCard && (category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId)
+                  blockVisibleInCard && category.isPrimaryCategory === true
                     ? (category.iconImageUrl ?? null)
                     : null,
                 cardImageUrl:
-                  blockVisibleInCard && (category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId)
+                  blockVisibleInCard && category.isPrimaryCategory === true
                     ? (category.cardImageUrl ?? null)
                     : null,
                 order: category.order ?? 0,
@@ -2127,12 +2129,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
 
       if (!editingBlockId && savedBlockId && blockCategoryDrafts.length) {
-        const normalizedDrafts = blockCategoryDrafts.map((draft, draftIndex) => {
-          if (!blockVisibleInCard) return { ...draft, isPrimaryCategory: false };
-          if (blockCategoryDrafts.some((entry) => entry.isPrimaryCategory)) return draft;
-          const shouldBePrimary = !draft.parentDraftId && draftIndex === 0;
-          return shouldBePrimary ? { ...draft, isPrimaryCategory: true } : draft;
-        });
+        const normalizedDrafts = blockCategoryDrafts.map((draft) => ({
+          ...draft,
+          isPrimaryCategory: blockVisibleInCard ? draft.isPrimaryCategory : false,
+        }));
         const draftById = new Map(normalizedDrafts.map((draft) => [draft.id, draft]));
         const draftIdsByParent = new Map<string, string[]>();
         normalizedDrafts.forEach((draft) => {
