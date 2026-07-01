@@ -119,7 +119,7 @@ export default function FeaturedPaymentReturnPage() {
   const serviceId = resolvedContext.serviceId;
   const locale = resolvedContext.locale;
   const copy = RETURN_TEXT[locale];
-  const [secondsLeft, setSecondsLeft] = useState(1);
+  const [secondsLeft, setSecondsLeft] = useState(4);
   const [resolvedResult, setResolvedResult] = useState<ReturnStatus>(queryStatus);
   const [hasNotifiedModal, setHasNotifiedModal] = useState(false);
 
@@ -146,9 +146,9 @@ export default function FeaturedPaymentReturnPage() {
             body: JSON.stringify({ serviceId, status: queryStatus }),
           });
           const data = await response.json().catch(() => ({}));
-          nextResult = response.ok && data?.ok !== false ? normalizeStatus(String(data?.status ?? queryStatus)) : "cancel";
+          nextResult = response.ok && data?.ok !== false ? normalizeStatus(String(data?.status ?? queryStatus)) : queryStatus === "cancel" ? "cancel" : "pending";
         } catch {
-          nextResult = "cancel";
+          nextResult = queryStatus === "cancel" ? "cancel" : "pending";
         }
       }
 
@@ -179,7 +179,9 @@ export default function FeaturedPaymentReturnPage() {
 
   useEffect(() => {
     if (!serviceId || resolvedResult !== "pending") return;
-    const timer = window.setTimeout(() => {
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
       fetch("/api/payments/featured/return", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -187,11 +189,16 @@ export default function FeaturedPaymentReturnPage() {
       })
         .then((response) => response.json().catch(() => ({})))
         .then((data) => {
-          if (data?.status) setResolvedResult(normalizeStatus(String(data.status)));
+          if (data?.status) {
+            const next = normalizeStatus(String(data.status));
+            setResolvedResult(next);
+            if (next !== "pending") window.clearInterval(timer);
+          }
         })
         .catch(() => null);
-    }, 700);
-    return () => window.clearTimeout(timer);
+      if (attempts >= 8) window.clearInterval(timer);
+    }, 1200);
+    return () => window.clearInterval(timer);
   }, [resolvedResult, serviceId]);
 
   useEffect(() => {
