@@ -2261,6 +2261,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   const openCreateCategoryModal = (parentId = "", blockId = "") => {
+    const shouldStartAsPrimaryCategory = Boolean(
+      blockId &&
+      !parentId &&
+      categories.some((category) => category.blockId === blockId && category.isPrimaryCategory === true)
+    );
     setCategoryModalMode("category");
     setCatError("");
     setEditingCategoryId(null);
@@ -2273,7 +2278,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setCatPriceMax("");
     setCatPriceCurrency("ARS");
     setCatIsPublicVisible(true);
-    setCatIsPrimaryCategory(false);
+    setCatIsPrimaryCategory(shouldStartAsPrimaryCategory);
     setCatIconImageUrl("");
     setCatCardImageUrl("");
     setCatIconImageTouched(false);
