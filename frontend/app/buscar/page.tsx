@@ -197,6 +197,68 @@ function publicationTextSignals(item: Publication) {
   );
 }
 
+function publicationFilterValues(item: Publication) {
+  const fields = ((item as any)?.fields ?? {}) as Record<string, unknown>;
+  const categorySelections = Array.isArray(fields.categorySelections) ? fields.categorySelections : [];
+  const subcategorySelections = Array.isArray(fields.subcategorySelections) ? fields.subcategorySelections : [];
+  const filterOptionLabels = (item.filterOptions ?? []).flatMap((entry) => [
+    String((entry as any)?.filterOption?.label ?? ""),
+    String((entry as any)?.filterOption?.value ?? ""),
+  ]);
+
+  return Array.from(
+    new Set(
+      [
+        item.category,
+        item.subcategory,
+        ...categorySelections,
+        ...subcategorySelections,
+        ...filterOptionLabels,
+      ]
+        .map((value) => normalizeFilterValue(String(value ?? "")))
+        .filter(Boolean)
+    )
+  );
+}
+
+function filterItemsByAllSelectedCategories(items: Publication[], rawCategory: string, categories: Category[]) {
+  const selected = splitCsvValue(rawCategory).map(normalizeFilterValue).filter(Boolean);
+  if (selected.length <= 1) return items;
+
+  const categoryByLabel = new Map(categories.map((category) => [normalizeFilterValue(category.description), category]));
+  const childrenByParent = new Map<string, Category[]>();
+  categories.forEach((category) => {
+    if (!category.parentId) return;
+    childrenByParent.set(category.parentId, [...(childrenByParent.get(category.parentId) ?? []), category]);
+  });
+
+  const allowedLabelsFor = (label: string) => {
+    const root = categoryByLabel.get(label);
+    const allowed = new Set<string>([label]);
+    if (!root) return allowed;
+    const queue = [root.id];
+    const seen = new Set(queue);
+    while (queue.length) {
+      const current = queue.shift()!;
+      (childrenByParent.get(current) ?? []).forEach((child) => {
+        if (seen.has(child.id)) return;
+        seen.add(child.id);
+        allowed.add(normalizeFilterValue(child.description));
+        queue.push(child.id);
+      });
+    }
+    return allowed;
+  };
+
+  return items.filter((item) => {
+    const values = publicationFilterValues(item);
+    return selected.every((selectedLabel) => {
+      const allowed = allowedLabelsFor(selectedLabel);
+      return values.some((value) => allowed.has(value));
+    });
+  });
+}
+
 function isFeaturedPublication(item: Publication) {
   const fromRoot = Boolean((item as any)?.featured);
   const signalText = publicationTextSignals(item);
@@ -319,17 +381,23 @@ export default async function BuscarPage({
     (category) => category.isPublicVisible !== false && (!category.blockId || visibleBlockIds.has(category.blockId))
   );
   const { items, total, page, perPage, totalPages } = publicationsPayload;
+  const q = spGet(sp, "q") ?? "";
+  const city = spGet(sp, "city") ?? "";
+  const categoryId = spGet(sp, "category") ?? "";
   const sort = spGet(sp, "sort") ?? "relevance";
   const priceCurrency = spGet(sp, "priceCurrency") ?? "";
   const hasActivePriceFilter = Boolean(
     spGet(sp, "pricePreset") || spGet(sp, "priceMin") || spGet(sp, "priceMax")
   );
   const sortedItems = sortPublications(items, sort, priceCurrency, hasActivePriceFilter);
+  const visibleSortedItems = filterItemsByAllSelectedCategories(sortedItems, categoryId, publicCategories);
   const prestacionesItems = prestacionesPayload ? sortPublications(prestacionesPayload.items, sort, priceCurrency, hasActivePriceFilter) : [];
+  const visiblePrestacionesItems = filterItemsByAllSelectedCategories(prestacionesItems, categoryId, publicCategories);
+  const visibleTotal = categoryId && splitCsvValue(categoryId).length > 1 ? visibleSortedItems.length : total;
+  const visibleTotalPages = categoryId && splitCsvValue(categoryId).length > 1
+    ? Math.max(1, Math.ceil(visibleTotal / perPage))
+    : totalPages;
 
-  const q = spGet(sp, "q") ?? "";
-  const city = spGet(sp, "city") ?? "";
-  const categoryId = spGet(sp, "category") ?? "";
   const preservedEntries = Object.entries(sp).filter(([key]) => key !== "q");
   const subcategoryId = spGet(sp, "subcategory") ?? "";
   const shownCountry = destinationCountry;
@@ -442,7 +510,7 @@ export default async function BuscarPage({
                   mobileThresholdVh={0.65}
                 >
                   <div className="mb-4">
-                    <ServicesPromoPanel filterGroups={filterGroups} publications={hasPrestacionFilter ? items : [...items, ...prestacionesItems]} />
+                    <ServicesPromoPanel filterGroups={filterGroups} publications={hasPrestacionFilter ? visibleSortedItems : [...visibleSortedItems, ...visiblePrestacionesItems]} />
                   </div>
                   <SearchForm q={q} preservedEntries={preservedEntries} />
                 </HideOnScroll>
@@ -452,12 +520,12 @@ export default async function BuscarPage({
                   {hasDestinationSelected ? (
                   <>
                   <div id="publicaciones-normales">
-                  <ResultsGrid items={sortedItems} />
+                  <ResultsGrid items={visibleSortedItems} />
 
                   <PaginationControls
                     currentPage={page}
-                    totalPages={totalPages}
-                    totalItems={total}
+                    totalPages={visibleTotalPages}
+                    totalItems={visibleTotal}
                     pageSize={perPage}
                     searchParams={sp}
                     pageParam="page"
@@ -468,13 +536,13 @@ export default async function BuscarPage({
                 </div>
 
                 {/* These two cards are always shown below the results (Figma) */}
-                <ClientBottomCards emptyState={!sortedItems.length && !prestacionesItems.length} />
+                <ClientBottomCards emptyState={!visibleSortedItems.length && !visiblePrestacionesItems.length} />
 
                 {!hasPrestacionFilter && prestacionesPayload ? (
                   <section id="publicaciones-prestaciones" className="mt-8">
-                    {prestacionesItems.length ? <PrestacionesSectionHeader /> : null}
+                    {visiblePrestacionesItems.length ? <PrestacionesSectionHeader /> : null}
 
-                    <ResultsGrid items={prestacionesItems} />
+                    <ResultsGrid items={visiblePrestacionesItems} />
 
                     <PaginationControls
                       currentPage={prestacionesPayload.page}
