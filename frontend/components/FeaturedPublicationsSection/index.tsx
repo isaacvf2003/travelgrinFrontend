@@ -972,7 +972,7 @@ export default function FeaturedPublicationsSection() {
         ) : null}
         </div>
 
-        <div className="hidden w-full max-w-[15rem] shrink-0 lg:block">
+        <div className="hidden w-full max-w-[15rem] shrink-0 lg:flex lg:py-3">
           <FixedMoreCard href={buildSearchHref()} title={t("ver_mas")} />
         </div>
       </div>
@@ -1238,7 +1238,7 @@ function FixedMoreCard({
   return (
     <Link
       href={href}
-      className={`group relative flex w-full overflow-hidden rounded-[28px] border border-white/15 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_16px_40px_rgba(15,23,42,0.14)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(11,143,163,0.20)] ${compact ? "min-h-[8.5rem]" : "min-h-[28rem] items-stretch"}`}
+      className={`group relative flex w-full overflow-hidden rounded-[28px] border border-white/15 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_16px_40px_rgba(15,23,42,0.14)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(11,143,163,0.20)] ${compact ? "min-h-[8.5rem]" : "h-full min-h-0 items-stretch"}`}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-[#0A8FA5]/18 via-[#0B5D72]/48 to-[#0F172A]/70" />
       <div className={`relative z-10 flex w-full flex-col items-center justify-center gap-4 text-center ${compact ? "p-5 py-6" : "p-6 py-10"}`}>
