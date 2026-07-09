@@ -14,10 +14,10 @@ export default function PrestacionesSectionHeader() {
             <Sparkles className="h-3.5 w-3.5 text-[#00A9C6]" />
             {t("prestaciones_section_kicker")}
           </span>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight text-[#1A4B8C]">
+          <h2 className="mt-3 text-[22px] font-bold tracking-tight text-[#273166] md:text-[25.76px]">
             {t("prestaciones_section_title")}
           </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5B6F75]">
+          <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#5B6F75] md:text-[16px]">
             {t("prestaciones_section_description")}
           </p>
         </div>

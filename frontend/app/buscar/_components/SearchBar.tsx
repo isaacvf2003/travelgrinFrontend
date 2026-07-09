@@ -7,7 +7,7 @@ import { Check, ChevronDown, Search, Tag } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText } from "@/app/lib/i18nContent";
 import { useCountry } from "@/app/context/CountryProvider";
-import { readStoredDestination, writeStoredDestination } from "@/app/lib/destinationStore";
+import { writeStoredDestination } from "@/app/lib/destinationStore";
 import { useSearchNavigation } from "./SearchNavigationContext";
 
 type FilterGroupLite = {
@@ -72,13 +72,8 @@ export default function SearchBar() {
     const queryDestination = params.get("destinationCountry") || "";
     if (queryDestination) {
       writeStoredDestination(queryDestination);
-      return;
     }
-    const savedDestination = readStoredDestination();
-    if (savedDestination && !destinationCountry) {
-      setDestinationCountry(savedDestination);
-    }
-  }, [params, destinationCountry]);
+  }, [params]);
 
   useEffect(() => {
     if (destinationCountry.trim()) writeStoredDestination(destinationCountry);
@@ -204,8 +199,7 @@ export default function SearchBar() {
   useEffect(() => {
     setSelectedCategory(params.get("category") || "");
     setSelectedSubcategory(params.get("subcategory") || "");
-    const queryDestination = params.get("destinationCountry") || "";
-    setDestinationCountry(queryDestination || readStoredDestination());
+    setDestinationCountry(params.get("destinationCountry") || "");
   }, [params]);
 
   useEffect(() => {
@@ -256,27 +250,31 @@ export default function SearchBar() {
   const selectedLabels = [...selectedCategoryValues];
 
   const onSearch = () => {
-    if (!destinationCountry.trim()) {
+    const hasDestination = Boolean(destinationCountry.trim());
+    const hasCategoryFilter = Boolean(selectedCategory.trim() || selectedSubcategory.trim());
+    if (!hasDestination && !hasCategoryFilter) {
       setDestinationError(true);
       return;
     }
-    fetch("/api/destination-searches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        destinationCountry: destinationCountry.trim(),
-        passportCountry: selectedCountry || "",
-        category: selectedCategory || selectedSubcategory || "",
-        source: "buscar-search",
-      }),
-      keepalive: true,
-    }).catch(() => null);
+    if (hasDestination) {
+      fetch("/api/destination-searches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destinationCountry: destinationCountry.trim(),
+          passportCountry: selectedCountry || "",
+          category: selectedCategory || selectedSubcategory || "",
+          source: "buscar-search",
+        }),
+        keepalive: true,
+      }).catch(() => null);
+    }
     applySearchBarSelection();
   };
 
   useEffect(() => {
-    if (destinationCountry.trim()) setDestinationError(false);
-  }, [destinationCountry]);
+    if (destinationCountry.trim() || selectedCategory.trim() || selectedSubcategory.trim()) setDestinationError(false);
+  }, [destinationCountry, selectedCategory, selectedSubcategory]);
 
   return (
     <div className="relative isolate z-[90] w-full max-w-6xl mx-auto px-4">

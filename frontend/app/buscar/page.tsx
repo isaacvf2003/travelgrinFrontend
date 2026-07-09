@@ -359,6 +359,21 @@ export default async function BuscarPage({
   const sp = await Promise.resolve(searchParams);
   const destinationCountry = spGet(sp, "destinationCountry") ?? "";
   const hasDestinationSelected = Boolean(destinationCountry.trim());
+  const hasUsefulSearchFilters = Boolean(
+    [
+      "q",
+      "city",
+      "category",
+      "subcategory",
+      "prestacion",
+      "primaryGroupKey",
+      "taxonomyType",
+    ].some((key) => {
+      const value = spGet(sp, key);
+      return typeof value === "string" && Boolean(value.trim());
+    })
+  );
+  const shouldActivateResults = hasDestinationSelected || hasUsefulSearchFilters;
   const [categories, filterGroups] = await Promise.all([
     loadCategories(),
     loadFilterGroups(),
@@ -368,7 +383,7 @@ export default async function BuscarPage({
   const prestacionesPage = spGet(sp, "prestacionesPage") ?? "1";
   const emptyPublicationsPayload = { items: [], total: 0, page: 1, perPage: 15, totalPages: 1 };
   const emptyPrestacionesPayload = { items: [], total: 0, page: 1, perPage: 10, totalPages: 1 };
-  const [publicationsPayload, prestacionesPayload] = hasDestinationSelected
+  const [publicationsPayload, prestacionesPayload] = shouldActivateResults
     ? hasPrestacionFilter
       ? [await loadPublications(sp, { page: normalPage, perPage: "15", prestacionesPage: undefined }), null]
       : await Promise.all([
@@ -503,7 +518,7 @@ export default async function BuscarPage({
               </ScrollAwareFiltersAside>
 
               <section id="resultados">
-                {hasDestinationSelected ? (
+                {shouldActivateResults ? (
                 <HideOnScroll
                   className="sticky top-[5.25rem] z-30 mb-6 bg-white py-2 md:top-[190px] md:py-3"
                   hiddenClassName="-translate-y-full opacity-0 pointer-events-none md:-translate-y-8"
@@ -517,7 +532,7 @@ export default async function BuscarPage({
                 ) : null}
 
                 <div>
-                  {hasDestinationSelected ? (
+                  {shouldActivateResults ? (
                   <>
                   <div id="publicaciones-normales">
                   <ResultsGrid items={visibleSortedItems} />

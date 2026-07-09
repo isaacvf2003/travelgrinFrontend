@@ -85,8 +85,8 @@ export default function ServicesPromoPanel({ filterGroups, publications }: { fil
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#2C7BE5]/15 bg-gradient-to-br from-[#F3F8FF] via-white to-[#EAF7FA] p-5 shadow-[0_18px_45px_rgba(11,143,163,0.10)]">
-      <p className="mx-auto max-w-3xl text-base font-bold leading-6 text-[#1A4B8C]">{t("servicios_promo_panel_title")}</p>
-      <div className="mt-3 flex flex-wrap justify-center gap-2">
+      <p className="mx-auto max-w-3xl text-center text-[14px] font-medium leading-6 text-[#5B6F75] md:text-[16px]">{t("servicios_promo_panel_title")}</p>
+      <div className="mt-4 flex flex-wrap justify-center gap-2.5">
         {visibleOptions.map((option) => {
             const selected = hasCsvValue(selectedValues, option.value);
             return (
@@ -103,7 +103,7 @@ export default function ServicesPromoPanel({ filterGroups, publications }: { fil
                     next.delete("prestacionesPage");
                   })
                 }
-                className={`relative inline-flex items-center gap-2 whitespace-nowrap overflow-hidden rounded-full border px-3 py-1.5 text-xs font-semibold shadow-[0_0_24px_rgba(255,255,255,0.25)] transition before:absolute before:inset-y-[-60%] before:left-[-45%] before:w-1/2 before:skew-x-12 before:bg-white/40 before:opacity-0 before:transition-all before:duration-700 hover:before:left-[120%] hover:before:opacity-100 ${
+                className={`relative inline-flex items-center gap-2 whitespace-nowrap overflow-hidden rounded-full border px-3.5 py-2 text-xs font-semibold shadow-[0_0_24px_rgba(255,255,255,0.25)] transition before:absolute before:inset-y-[-60%] before:left-[-45%] before:w-1/2 before:skew-x-12 before:bg-white/40 before:opacity-0 before:transition-all before:duration-700 hover:before:left-[120%] hover:before:opacity-100 ${
                   selected
                     ? "border-[#2C7BE5] bg-[#2C7BE5] text-white"
                     : "border-[#2C7BE5]/30 bg-white text-[#2C7BE5] hover:bg-[#2C7BE5]/10"
