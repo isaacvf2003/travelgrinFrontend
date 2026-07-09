@@ -1275,7 +1275,7 @@ function FixedMoreCard({
       <Link
         href={href}
         onClick={onClick}
-        className={`group relative flex w-full shrink-0 overflow-hidden rounded-3xl border border-white/15 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_14px_36px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(11,143,163,0.16)] ${className}`}
+        className={`group relative flex h-full min-h-[27.5rem] w-full shrink-0 overflow-hidden rounded-3xl border border-white/15 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_14px_36px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(11,143,163,0.16)] md:min-h-[28.5rem] ${className}`}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-[#0A8FA5]/18 via-[#0B5D72]/48 to-[#0F172A]/70" />
         <div
