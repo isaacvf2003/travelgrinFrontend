@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { Compass } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function PrestacionesSectionHeader() {
@@ -11,7 +11,7 @@ export default function PrestacionesSectionHeader() {
       <div className="flex flex-col items-center gap-3">
         <div>
           <span className="inline-flex items-center gap-2 rounded-full border border-[#2C7BE5]/20 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-[#1A4B8C] shadow-sm">
-            <Sparkles className="h-3.5 w-3.5 text-[#00A9C6]" />
+            <Compass className="h-3.5 w-3.5 text-[#2563EB]" />
             {t("prestaciones_section_kicker")}
           </span>
           <h2 className="mt-3 text-[22px] font-bold tracking-tight text-[#273166] md:text-[25.76px]">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { publicationPath } from "@/app/lib/publicationSlug";
-import { Share2 } from "lucide-react";
+import { Compass, Share2 } from "lucide-react";
 import SharePublicationDialog from "@/components/SharePublicationDialog";
 
 import type { Publication } from "@/app/lib/types";
@@ -529,7 +529,7 @@ export function PublicationCard({ item }: { item: Publication }) {
             <div>
               {isPrestacion ? (
                 <span className="inline-flex items-center gap-2 rounded-full border border-[#2C7BE5]/20 bg-[#EEF5FF] px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#1A4B8C] shadow-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#2C7BE5]" />
+                  <Compass className="h-3.5 w-3.5 text-[#2563EB]" />
                   {publisherLabel || t("taxonomyType_prestacion")}
                 </span>
               ) : (
