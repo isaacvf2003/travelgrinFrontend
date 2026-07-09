@@ -1300,9 +1300,8 @@ function FixedMoreCard({
             <p className={`${tabletLayout ? "text-[11px] leading-5" : sideImage ? "text-[13px] leading-5" : "text-sm leading-6"} font-medium`}>
               {t("featured_more_copy_line_2")}
             </p>
-            Explorá más oportunidades activas y seguí navegando.
           </div>
-          <span className={`${tabletLayout ? "mt-1" : ""} rounded-full bg-white px-6 py-3 text-[18px] font-extrabold leading-tight text-[#273166] shadow-[0_10px_24px_rgba(255,255,255,0.18)] transition group-hover:scale-105">
+          <span className={`${tabletLayout ? "mt-1" : ""} rounded-full bg-white px-6 py-3 text-[18px] font-extrabold leading-tight text-[#273166] shadow-[0_10px_24px_rgba(255,255,255,0.18)] transition group-hover:scale-105`}>
             {title}
           </span>
         </div>
@@ -1338,4 +1337,5 @@ function FixedMoreCard({
     </Link>
   );
 }
+
 
