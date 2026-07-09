@@ -950,7 +950,7 @@ export default function FeaturedPublicationsSection() {
               type="button"
               aria-label="Siguiente"
               onClick={() => moveFeaturedCarousel(1)}
-              className="absolute right-1 top-1/2 z-10 flex -translate-y-1/2 rounded-full bg-white p-2 shadow transition hover:scale-105 md:-right-4"
+              className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 rounded-full bg-white p-2 shadow transition hover:scale-105 md:right-2"
             >
               <ChevronRight className="h-5 w-5 text-slate-600" />
             </button>
@@ -1238,7 +1238,7 @@ function FixedMoreCard({
   return (
     <Link
       href={href}
-      className={`group relative flex w-full overflow-hidden rounded-[28px] border border-white/15 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_16px_40px_rgba(15,23,42,0.14)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(11,143,163,0.20)] ${compact ? "min-h-[8.5rem]" : "min-h-[31rem] items-stretch"}`}
+      className={`group relative flex w-full overflow-hidden rounded-[28px] border border-white/15 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_16px_40px_rgba(15,23,42,0.14)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(11,143,163,0.20)] ${compact ? "min-h-[8.5rem]" : "min-h-[28rem] items-stretch"}`}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-[#0A8FA5]/18 via-[#0B5D72]/48 to-[#0F172A]/70" />
       <div className={`relative z-10 flex w-full flex-col items-center justify-center gap-4 text-center ${compact ? "p-5 py-6" : "p-6 py-10"}`}>
