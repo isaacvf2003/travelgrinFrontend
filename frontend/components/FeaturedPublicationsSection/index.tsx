@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEventHandler, type TouchEvent } from "react";
 import { ChevronLeft, ChevronRight, Compass, Handshake, MapPin, Star } from "lucide-react";
 import { useCountry } from "@/app/context/CountryProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -36,6 +36,9 @@ type PublicationLite = {
   featured?: boolean;
   images?: unknown;
   fields?: Record<string, unknown> | null;
+};
+type MoreCardLite = {
+  id: "__more__";
 };
 
 type PrestCategoryLite = { id: string; description: string };
@@ -420,25 +423,30 @@ export default function FeaturedPublicationsSection() {
   }, [prestacionCategories, selectedPrestCategory]);
 
   const featuredItems = useMemo(() => items.slice(0, MAX_ITEMS), [items]);
+  const showFixedMoreCardDesktop = cardsPerView >= 3;
+  const featuredCarouselItems = useMemo<(PublicationLite | MoreCardLite)[]>(
+    () => (showFixedMoreCardDesktop ? featuredItems : [...featuredItems, { id: "__more__" }]),
+    [featuredItems, showFixedMoreCardDesktop],
+  );
   const featuredVisibleCount = carouselWindowSize(cardsPerView);
-  const featuredActiveIndex = positiveModulo(currentSlide, featuredItems.length);
+  const featuredActiveIndex = positiveModulo(currentSlide, featuredCarouselItems.length);
   const featuredWindowItems = carouselWindow(
-    featuredItems,
+    featuredCarouselItems,
     featuredActiveIndex,
     featuredVisibleCount,
   );
-  const showCarousel = featuredItems.length > 1;
+  const showCarousel = featuredCarouselItems.length > 1;
   const featuredPairMode = featuredWindowItems.length >= 4;
   const featuredFocusedIndex = positiveModulo(
     featuredActiveIndex + (featuredPairMode ? featuredFocusOffset : 0),
-    featuredItems.length,
+    featuredCarouselItems.length,
   );
 
   const moveFeaturedCarousel = (direction: 1 | -1) => {
-    if (!showCarousel || !featuredItems.length) return;
+    if (!showCarousel || !featuredCarouselItems.length) return;
 
     if (!featuredPairMode) {
-      setCurrentSlide((prev) => positiveModulo(prev + direction, featuredItems.length));
+      setCurrentSlide((prev) => positiveModulo(prev + direction, featuredCarouselItems.length));
       setFeaturedFocusOffset(0);
       return;
     }
@@ -449,7 +457,7 @@ export default function FeaturedPublicationsSection() {
         return;
       }
       setFeaturedFocusOffset(0);
-      setCurrentSlide((prev) => positiveModulo(prev + 2, featuredItems.length));
+      setCurrentSlide((prev) => positiveModulo(prev + 2, featuredCarouselItems.length));
       return;
     }
 
@@ -458,11 +466,11 @@ export default function FeaturedPublicationsSection() {
       return;
     }
     setFeaturedFocusOffset(1);
-    setCurrentSlide((prev) => positiveModulo(prev - 2, featuredItems.length));
+    setCurrentSlide((prev) => positiveModulo(prev - 2, featuredCarouselItems.length));
   };
 
   const focusFeaturedSource = (sourceIndex: number) => {
-    if (featuredPairMode && sourceIndex === positiveModulo(featuredActiveIndex + 1, featuredItems.length)) {
+    if (featuredPairMode && sourceIndex === positiveModulo(featuredActiveIndex + 1, featuredCarouselItems.length)) {
       setFeaturedFocusOffset(1);
       return;
     }
@@ -473,12 +481,12 @@ export default function FeaturedPublicationsSection() {
   useEffect(() => {
     setCurrentSlide(0);
     setFeaturedFocusOffset(0);
-  }, [cardsPerView, featuredItems.length]);
+  }, [cardsPerView, featuredCarouselItems.length]);
 
   useEffect(() => {
-    if (featuredItems.length)
-      setCurrentSlide((prev) => positiveModulo(prev, featuredItems.length));
-  }, [featuredItems.length]);
+    if (featuredCarouselItems.length)
+      setCurrentSlide((prev) => positiveModulo(prev, featuredCarouselItems.length));
+  }, [featuredCarouselItems.length]);
 
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (!showCarousel) return;
@@ -785,6 +793,28 @@ export default function FeaturedPublicationsSection() {
                   : featuredVisibleCount > 1
                     ? "hidden md:block"
                     : "";
+              if ("id" in item && item.id === "__more__") {
+                return (
+                  <FixedMoreCard
+                    key={`${item.id}-${sourceIndex}`}
+                    href={buildSearchHref()}
+                    title={t("ver_mas")}
+                    compact={cardsPerView < 3}
+                    className={`${sideClass} ${carouselDepthClass(
+                      isSideCard,
+                      position,
+                      centerOffset,
+                      featuredPairMode ? centerOffset + featuredFocusOffset : centerOffset,
+                    )} ${isFocused ? "max-w-[23rem] scale-100 opacity-100" : isSideCard ? "max-w-[11rem] scale-90 opacity-35 blur-[2px] grayscale hover:opacity-55 hover:blur-[1px]" : "max-w-[23rem] scale-100 opacity-95"}`}
+                    onClick={(event) => {
+                      if (!isFocused) {
+                        event.preventDefault();
+                        focusFeaturedSource(sourceIndex);
+                      }
+                    }}
+                  />
+                );
+              }
               const pub = item as PublicationLite;
               const title = pickI18nText(
                 pub.titleI18n ?? null,
@@ -955,7 +985,7 @@ export default function FeaturedPublicationsSection() {
               <ChevronRight className="h-5 w-5 text-slate-600" />
             </button>
             <div className="mt-4 flex justify-center gap-2">
-              {Array.from({ length: featuredItems.length }).map((_, idx) => (
+              {Array.from({ length: featuredCarouselItems.length }).map((_, idx) => (
                 <button
                   key={idx}
                   type="button"
@@ -972,13 +1002,9 @@ export default function FeaturedPublicationsSection() {
         ) : null}
         </div>
 
-        <div className="hidden w-full max-w-[15rem] shrink-0 lg:flex lg:py-3">
+        <div className="hidden w-full max-w-[15rem] shrink-0 lg:flex lg:py-2">
           <FixedMoreCard href={buildSearchHref()} title={t("ver_mas")} />
         </div>
-      </div>
-
-      <div className="mt-4 lg:hidden">
-        <FixedMoreCard href={buildSearchHref()} title={t("ver_mas")} compact />
       </div>
 
       {showPrestacionesSection ? (
@@ -1230,15 +1256,20 @@ function FixedMoreCard({
   href,
   title,
   compact = false,
+  className = "",
+  onClick,
 }: {
   href: string;
   title: string;
   compact?: boolean;
+  className?: string;
+  onClick?: MouseEventHandler<HTMLAnchorElement>;
 }) {
   return (
     <Link
       href={href}
-      className={`group relative flex w-full overflow-hidden rounded-[28px] border border-white/15 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_16px_40px_rgba(15,23,42,0.14)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(11,143,163,0.20)] ${compact ? "min-h-[8.5rem]" : "h-full min-h-0 items-stretch"}`}
+      onClick={onClick}
+      className={`group relative flex w-full overflow-hidden rounded-[28px] border border-white/15 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_16px_40px_rgba(15,23,42,0.14)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(11,143,163,0.20)] ${compact ? "min-h-[8.5rem]" : "h-full min-h-0 items-stretch"} ${className}`}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-[#0A8FA5]/18 via-[#0B5D72]/48 to-[#0F172A]/70" />
       <div className={`relative z-10 flex w-full flex-col items-center justify-center gap-4 text-center ${compact ? "p-5 py-6" : "p-6 py-10"}`}>
