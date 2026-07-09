@@ -1281,9 +1281,13 @@ function FixedMoreCard({
         <div
           className={`relative z-10 flex w-full flex-col items-center justify-center text-center ${sideImage ? "gap-3 p-5 py-7" : "gap-4 p-6 py-10"}`}
         >
-          <span className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/85">
-            Travelgrin
-          </span>
+          <Image
+            src="/logo-navbar.png"
+            alt="Travelgrin"
+            width={132}
+            height={36}
+            className="h-auto w-[7.5rem]"
+          />
           <span className={`${sideImage ? "max-w-[8rem] text-[13px] leading-5" : "max-w-[9rem] text-sm leading-6"} font-medium text-white/80`}>
             Explorá más oportunidades activas y seguí navegando.
           </span>
@@ -1303,9 +1307,13 @@ function FixedMoreCard({
     >
       <div className="absolute inset-0 bg-gradient-to-b from-[#0A8FA5]/18 via-[#0B5D72]/48 to-[#0F172A]/70" />
       <div className={`relative z-10 flex w-full flex-col items-center justify-center gap-4 text-center ${compact ? "p-5 py-6" : "p-6 py-10"}`}>
-        <span className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/85">
-          Travelgrin
-        </span>
+        <Image
+          src="/logo-navbar.png"
+          alt="Travelgrin"
+          width={132}
+          height={36}
+          className="h-auto w-[7.5rem]"
+        />
         {!compact ? <span className="max-w-[9rem] text-sm font-medium leading-6 text-white/80">Explorá más oportunidades activas y seguí navegando.</span> : null}
         <span className="rounded-full bg-white px-6 py-3 text-[18px] font-extrabold leading-tight text-[#273166] shadow-[0_10px_24px_rgba(255,255,255,0.18)] transition group-hover:scale-105">
           {title}
