@@ -356,7 +356,7 @@ function ServiceCard({
         {icon ? (
           <div className="mb-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={icon} alt={`${title} icon`} className="h-16 w-16 object-contain drop-shadow-lg md:h-20 md:w-20" />
+            <img src={icon} alt={`${title} icon`} className="h-20 w-20 object-contain drop-shadow-lg md:h-24 md:w-24" />
           </div>
         ) : null}
 

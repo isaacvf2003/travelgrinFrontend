@@ -56,7 +56,7 @@ function CountryFlag({ code, country }: { code: string; country: string }) {
     <img
       src={`https://flagcdn.com/w40/${normalized}.png`}
       alt={`Bandera de ${country}`}
-      className="h-4 w-5 rounded-[3px] object-cover shadow-sm"
+      className="h-5 w-7 rounded-[4px] object-cover shadow-sm"
       loading="lazy"
     />
   );
@@ -134,26 +134,26 @@ export default function ActiveDestinationCountriesStrip() {
     <section className="px-4 pt-2 md:px-0 md:pt-3">
       <div className="mx-auto w-full max-w-[1152px] rounded-[22px] bg-gradient-to-r from-[#1bc8c0] via-[#149fba] to-[#116d8a] px-5 py-3 text-white shadow-[0_10px_18px_rgba(17,109,138,0.10)] md:px-7 md:py-4">
         <div className="text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-white/70">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/78">
             {t("destinos_activos")}
           </p>
-          <h2 className="mt-1 text-[18px] font-bold md:text-[22px]">
+          <h2 className="mt-1 text-[22px] font-bold text-[#273166] md:text-[25.76px]">
             {t("paises_que_te_esperan")}
           </h2>
-          <p className="mx-auto mt-1 max-w-3xl text-[11px] text-white/86 md:text-[13px]">
+          <p className="mx-auto mt-2 max-w-3xl text-[14px] font-medium text-white/92 md:text-[16px]">
             {t("explora_paises_oportunidades_activas")}
           </p>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
           {visibleCountries.map((entry) => (
             <div
               key={entry.country}
-              className="flex min-w-[176px] items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 backdrop-blur-sm"
+              className="flex min-w-[188px] items-center gap-3 rounded-full border border-white/15 bg-white/10 px-3.5 py-2 backdrop-blur-sm"
             >
               <span
                 aria-hidden="true"
-                className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/14 shadow-sm"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/16 shadow-sm"
               >
                 <CountryFlag code={entry.code} country={entry.country} />
               </span>

@@ -201,6 +201,7 @@ export default function SearchDestination() {
 
   const selectedCategoryValues = selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE ? [selectedCategory] : [];
   const isAllCategoriesSelected = selectedCategory === ALL_CATEGORIES_VALUE;
+  const showAllDestinationsHint = Boolean(!destinationCountry.trim() && selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE);
   const principalCategories = categoryBlocks
     .flatMap((block) => block.roots)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.description || "").localeCompare(b.description || ""));
@@ -359,8 +360,12 @@ export default function SearchDestination() {
         />
       </div>
 
-      <p className="text-gray-600 text-center mt-[12px] text-[14px]">
-        {destinationError ? homeSearchLabels.categoryOrDestinationRequired : t("filtramos_para_ti")}
+      <p className={`text-center mt-[12px] text-[14px] ${destinationError ? "text-[#B42318]" : showAllDestinationsHint ? "text-[#0B8FA3]" : "text-gray-600"}`}>
+        {destinationError
+          ? homeSearchLabels.categoryOrDestinationRequired
+          : showAllDestinationsHint
+            ? t("home_categoria_sin_destino_hint")
+            : t("filtramos_para_ti")}
       </p>
 
       {openCategoryDropdown ? (

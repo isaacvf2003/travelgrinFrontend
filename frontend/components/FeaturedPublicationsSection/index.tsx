@@ -38,10 +38,6 @@ type PublicationLite = {
   fields?: Record<string, unknown> | null;
 };
 
-type MoreCardLite = {
-  id: "__more__";
-  featured?: false;
-};
 type PrestCategoryLite = { id: string; description: string };
 type CategoryApiLite = {
   id?: string | number;
@@ -423,30 +419,26 @@ export default function FeaturedPublicationsSection() {
     }
   }, [prestacionCategories, selectedPrestCategory]);
 
-  const list = useMemo(() => items.slice(0, MAX_ITEMS), [items]);
-  const listWithMore = useMemo<(PublicationLite | MoreCardLite)[]>(
-    () => [...list, { id: "__more__" }],
-    [list],
-  );
+  const featuredItems = useMemo(() => items.slice(0, MAX_ITEMS), [items]);
   const featuredVisibleCount = carouselWindowSize(cardsPerView);
-  const featuredActiveIndex = positiveModulo(currentSlide, listWithMore.length);
+  const featuredActiveIndex = positiveModulo(currentSlide, featuredItems.length);
   const featuredWindowItems = carouselWindow(
-    listWithMore,
+    featuredItems,
     featuredActiveIndex,
     featuredVisibleCount,
   );
-  const showCarousel = listWithMore.length > 1;
+  const showCarousel = featuredItems.length > 1;
   const featuredPairMode = featuredWindowItems.length >= 4;
   const featuredFocusedIndex = positiveModulo(
     featuredActiveIndex + (featuredPairMode ? featuredFocusOffset : 0),
-    listWithMore.length,
+    featuredItems.length,
   );
 
   const moveFeaturedCarousel = (direction: 1 | -1) => {
-    if (!showCarousel || !listWithMore.length) return;
+    if (!showCarousel || !featuredItems.length) return;
 
     if (!featuredPairMode) {
-      setCurrentSlide((prev) => positiveModulo(prev + direction, listWithMore.length));
+      setCurrentSlide((prev) => positiveModulo(prev + direction, featuredItems.length));
       setFeaturedFocusOffset(0);
       return;
     }
@@ -457,7 +449,7 @@ export default function FeaturedPublicationsSection() {
         return;
       }
       setFeaturedFocusOffset(0);
-      setCurrentSlide((prev) => positiveModulo(prev + 2, listWithMore.length));
+      setCurrentSlide((prev) => positiveModulo(prev + 2, featuredItems.length));
       return;
     }
 
@@ -466,11 +458,11 @@ export default function FeaturedPublicationsSection() {
       return;
     }
     setFeaturedFocusOffset(1);
-    setCurrentSlide((prev) => positiveModulo(prev - 2, listWithMore.length));
+    setCurrentSlide((prev) => positiveModulo(prev - 2, featuredItems.length));
   };
 
   const focusFeaturedSource = (sourceIndex: number) => {
-    if (featuredPairMode && sourceIndex === positiveModulo(featuredActiveIndex + 1, listWithMore.length)) {
+    if (featuredPairMode && sourceIndex === positiveModulo(featuredActiveIndex + 1, featuredItems.length)) {
       setFeaturedFocusOffset(1);
       return;
     }
@@ -481,12 +473,12 @@ export default function FeaturedPublicationsSection() {
   useEffect(() => {
     setCurrentSlide(0);
     setFeaturedFocusOffset(0);
-  }, [cardsPerView, list.length]);
+  }, [cardsPerView, featuredItems.length]);
 
   useEffect(() => {
-    if (listWithMore.length)
-      setCurrentSlide((prev) => positiveModulo(prev, listWithMore.length));
-  }, [listWithMore.length]);
+    if (featuredItems.length)
+      setCurrentSlide((prev) => positiveModulo(prev, featuredItems.length));
+  }, [featuredItems.length]);
 
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (!showCarousel) return;
@@ -740,7 +732,7 @@ export default function FeaturedPublicationsSection() {
       </section>
     );
   }
-  if (!list.length) return null;
+  if (!featuredItems.length) return null;
 
   const phrasesThePractice = [
     t("el_asesor"),
@@ -769,13 +761,14 @@ export default function FeaturedPublicationsSection() {
         </h2>
       </div>
 
-      <div
-        className="relative"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-      >
-        <div className="flex items-stretch justify-center gap-3 overflow-hidden px-8 py-3 md:gap-4 md:px-12">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 lg:flex-row lg:items-stretch">
+        <div
+          className="relative min-w-0 flex-1"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          <div className="flex items-stretch justify-center gap-3 overflow-hidden px-8 py-3 md:gap-4 md:px-12">
           {featuredWindowItems.map(
             ({ entry: item, sourceIndex, position, centerOffset }) => {
               const isFocused =
@@ -792,49 +785,6 @@ export default function FeaturedPublicationsSection() {
                   : featuredVisibleCount > 1
                     ? "hidden md:block"
                     : "";
-              if (item.id === "__more__") {
-                const cardDepthClass = carouselDepthClass(
-                  isSideCard,
-                  position,
-                  centerOffset,
-                  featuredPairMode ? centerOffset + featuredFocusOffset : centerOffset,
-                );
-                const moreCardClass = `group w-full shrink-0 transform-gpu overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-0.5 hover:shadow-md ${sideClass} ${cardDepthClass} ${isFocused ? "max-w-[23rem] scale-100 opacity-100 shadow-[0_0_0_2px_rgba(11,143,163,0.35),0_24px_60px_rgba(11,143,163,0.24)]" : isSideCard ? "max-w-[11rem] scale-90 opacity-35 blur-[2px] grayscale hover:opacity-55 hover:blur-[1px]" : "max-w-[23rem] scale-100 opacity-95 shadow-[0_14px_36px_rgba(15,23,42,0.10)]"}`;
-                const moreCardContent = (
-                  <>
-                    <div className="relative h-full min-h-[18rem] w-full bg-slate-100">
-                      <Image
-                        src="https://i.ibb.co/VmrmGrx/sin-foto.jpg"
-                        alt="Travelgrin"
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 1280px) 50vw, 25vw"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-b from-slate-900/20 via-slate-900/40 to-slate-900/60" />
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
-                      <span className="rounded-full bg-white/90 px-5 py-2.5 text-base font-extrabold leading-tight text-[#273166] shadow transition group-hover:scale-105">
-                        {t("ver_mas")}
-                      </span>
-                    </div>
-                  </>
-                );
-                return (
-                  <Link
-                    key={`${item.id}-${sourceIndex}`}
-                    href={buildSearchHref()}
-                    onClick={(event) => {
-                      if (!isFocused) {
-                        event.preventDefault();
-                        focusFeaturedSource(sourceIndex);
-                      }
-                    }}
-                    className={moreCardClass}
-                  >
-                    {moreCardContent}
-                  </Link>
-                );
-              }
               const pub = item as PublicationLite;
               const title = pickI18nText(
                 pub.titleI18n ?? null,
@@ -1005,7 +955,7 @@ export default function FeaturedPublicationsSection() {
               <ChevronRight className="h-5 w-5 text-slate-600" />
             </button>
             <div className="mt-4 flex justify-center gap-2">
-              {Array.from({ length: listWithMore.length }).map((_, idx) => (
+              {Array.from({ length: featuredItems.length }).map((_, idx) => (
                 <button
                   key={idx}
                   type="button"
@@ -1020,25 +970,34 @@ export default function FeaturedPublicationsSection() {
             </div>
           </>
         ) : null}
+        </div>
+
+        <div className="hidden w-full max-w-[15rem] shrink-0 lg:block">
+          <FixedMoreCard href={buildSearchHref()} title={t("ver_mas")} />
+        </div>
+      </div>
+
+      <div className="mt-4 lg:hidden">
+        <FixedMoreCard href={buildSearchHref()} title={t("ver_mas")} compact />
       </div>
 
       {showPrestacionesSection ? (
         <>
-        <div className="mb-6 mt-10">
+        <div className="mx-auto mb-6 mt-10 w-full max-w-6xl">
           <PharseWithBackground onlyOne />
         </div>
         <section className="mt-8 rounded-[28px] border border-[#BFD6FF] bg-gradient-to-b from-[#EEF5FF] via-[#F5F9FF] to-[#F8FBFF] p-4 shadow-[0_14px_36px_rgba(37,99,235,0.12)] md:p-8">
           <div className="text-center">
-            <h3 className="inline-flex items-center justify-center gap-2 text-2xl font-bold text-[#273166]">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#DBEAFE] text-[#2563EB] shadow-[0_10px_24px_rgba(37,99,235,0.18)]">
+            <h3 className="inline-flex items-center justify-center gap-3 text-[22px] font-bold text-[#273166] md:text-[25.76px]">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#DBEAFE] text-[#2563EB] shadow-[0_10px_24px_rgba(37,99,235,0.18)]">
                 <Compass className="h-5 w-5" />
               </span>
               {t("suma_prestaciones_plan_viaje")}
             </h3>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-2 text-[14px] font-medium text-slate-500 md:text-[16px]">
               {t("explorar_prestaciones_subtitulo")}
             </p>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-[14px] text-slate-600 md:text-[16px]">
               {t("explorar_prestaciones_que_son")}
             </p>
           </div>
@@ -1264,5 +1223,32 @@ export default function FeaturedPublicationsSection() {
         </>
       ) : null}
     </section>
+  );
+}
+
+function FixedMoreCard({
+  href,
+  title,
+  compact = false,
+}: {
+  href: string;
+  title: string;
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`group relative flex h-full min-h-[12rem] w-full overflow-hidden rounded-3xl border border-[#0B8FA3]/20 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_14px_36px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(11,143,163,0.16)] ${compact ? "min-h-[7.5rem]" : "items-stretch"}`}
+    >
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-900/15 via-slate-900/35 to-slate-900/60" />
+      <div className={`relative z-10 flex w-full flex-col items-center justify-center gap-3 p-5 text-center ${compact ? "py-6" : "py-8"}`}>
+        <span className="text-xs font-semibold uppercase tracking-[0.28em] text-white/80">
+          Travelgrin
+        </span>
+        <span className="rounded-full bg-white/92 px-5 py-2.5 text-base font-extrabold leading-tight text-[#273166] shadow transition group-hover:scale-105">
+          {title}
+        </span>
+      </div>
+    </Link>
   );
 }
