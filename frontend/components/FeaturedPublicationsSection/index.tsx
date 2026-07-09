@@ -1275,34 +1275,21 @@ function FixedMoreCard({
       <Link
         href={href}
         onClick={onClick}
-        className={`group relative w-full shrink-0 overflow-hidden rounded-3xl border border-[#0B8FA3]/25 bg-white text-left shadow-[0_14px_36px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(11,143,163,0.16)] ${className}`}
+        className={`group relative flex w-full shrink-0 overflow-hidden rounded-3xl border border-white/15 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_14px_36px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(11,143,163,0.16)] ${className}`}
       >
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0A8FA5]/18 via-[#0B5D72]/48 to-[#0F172A]/70" />
         <div
-          className={`relative w-full overflow-hidden bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center ${sideImage ? "h-40" : "h-48"}`}
+          className={`relative z-10 flex w-full flex-col items-center justify-center text-center ${sideImage ? "gap-3 p-5 py-7" : "gap-4 p-6 py-10"}`}
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0A8FA5]/18 via-[#0B5D72]/48 to-[#0F172A]/70" />
-          <div className="relative z-10 flex h-full items-center justify-center px-6">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/85">
-              Travelgrin
-            </span>
-          </div>
-        </div>
-        <div className="space-y-2 p-4 text-center">
-          <p className="text-xs text-slate-500">Travelgrin</p>
-          <h3 className="text-lg font-semibold leading-tight text-[#273166] md:text-xl">
-            Explorá más oportunidades activas
-          </h3>
-          <p className="text-sm text-slate-600">
-            Seguí navegando y descubrí más publicaciones.
-          </p>
-          <p className="text-sm font-semibold text-[#0B8FA3]">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/85">
+            Travelgrin
+          </span>
+          <span className={`${sideImage ? "max-w-[8rem] text-[13px] leading-5" : "max-w-[9rem] text-sm leading-6"} font-medium text-white/80`}>
+            Explorá más oportunidades activas y seguí navegando.
+          </span>
+          <span className="rounded-full bg-white px-6 py-3 text-[18px] font-extrabold leading-tight text-[#273166] shadow-[0_10px_24px_rgba(255,255,255,0.18)] transition group-hover:scale-105">
             {title}
-          </p>
-          <div className="pt-1">
-            <span className="inline-flex w-full items-center justify-center rounded-lg bg-[#EAF9FB] px-4 py-2 text-sm font-semibold text-[#0B6B7A]">
-              {title}
-            </span>
-          </div>
+          </span>
         </div>
       </Link>
     );
