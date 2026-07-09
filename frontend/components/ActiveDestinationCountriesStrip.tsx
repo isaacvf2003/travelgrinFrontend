@@ -137,7 +137,7 @@ export default function ActiveDestinationCountriesStrip() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/78">
             {t("destinos_activos")}
           </p>
-          <h2 className="mt-1 text-[22px] font-bold text-[#273166] md:text-[25.76px]">
+          <h2 className="mt-1 text-[22px] font-bold text-white md:text-[25.76px]">
             {t("paises_que_te_esperan")}
           </h2>
           <p className="mx-auto mt-2 max-w-3xl text-[14px] font-medium text-white/92 md:text-[16px]">

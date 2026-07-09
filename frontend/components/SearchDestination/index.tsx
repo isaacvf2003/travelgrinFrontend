@@ -77,30 +77,35 @@ export default function SearchDestination() {
     noCategories: string;
     categoryOrDestinationRequired: string;
     categoriesFallback: string;
+    destinationOptionalHint: string;
   }> = {
     es: {
       allCategories: "Ver todas",
       noCategories: "No hay categorías disponibles",
       categoryOrDestinationRequired: "Elegí una categoría o un destino para continuar.",
       categoriesFallback: "Categorías",
+      destinationOptionalHint: "Podés seleccionar un destino para ver publicaciones de países específicos o dejar la búsqueda abierta.",
     },
     en: {
       allCategories: "View all",
       noCategories: "No categories available",
       categoryOrDestinationRequired: "Choose a category or a destination to continue.",
       categoriesFallback: "Categories",
+      destinationOptionalHint: "You can select a destination to see publications from specific countries or keep the search broad.",
     },
     pt: {
       allCategories: "Ver todas",
       noCategories: "Não há categorias disponíveis",
       categoryOrDestinationRequired: "Escolha uma categoria ou um destino para continuar.",
       categoriesFallback: "Categorias",
+      destinationOptionalHint: "Você pode selecionar um destino para ver publicações de países específicos ou manter a busca aberta.",
     },
     it: {
       allCategories: "Vedi tutte",
       noCategories: "Nessuna categoria disponibile",
       categoryOrDestinationRequired: "Scegli una categoria o una destinazione per continuare.",
       categoriesFallback: "Categorie",
+      destinationOptionalHint: "Puoi selezionare una destinazione per vedere pubblicazioni di paesi specifici oppure mantenere la ricerca aperta.",
     },
   };
   const homeSearchLabels = Object.fromEntries(
@@ -201,15 +206,16 @@ export default function SearchDestination() {
 
   const selectedCategoryValues = selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE ? [selectedCategory] : [];
   const isAllCategoriesSelected = selectedCategory === ALL_CATEGORIES_VALUE;
-  const showAllDestinationsHint = Boolean(!destinationCountry.trim() && selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE);
+  const showAllDestinationsHint = Boolean(!destinationCountry.trim() && selectedCategory);
   const principalCategories = categoryBlocks
     .flatMap((block) => block.roots)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.description || "").localeCompare(b.description || ""));
 
   const handleSearch = () => {
     const hasCategoryFilter = Boolean(selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE);
+    const hasAllCategoriesSelection = selectedCategory === ALL_CATEGORIES_VALUE;
     const hasDestinationFilter = Boolean(destinationCountry.trim());
-    if (!hasCategoryFilter && !hasDestinationFilter) {
+    if (!hasCategoryFilter && !hasAllCategoriesSelection && !hasDestinationFilter) {
       setDestinationError(true);
       return;
     }
@@ -228,6 +234,7 @@ export default function SearchDestination() {
     }
     const params = new URLSearchParams();
     if (hasCategoryFilter) params.set("category", selectedCategory);
+    if (hasAllCategoriesSelection) params.set("browse", "all");
     if (selectedCountry) params.set("country", selectedCountry);
     if (hasDestinationFilter) params.set("destinationCountry", destinationCountry.trim());
     params.set("page", "1");
@@ -235,7 +242,7 @@ export default function SearchDestination() {
   };
 
   useEffect(() => {
-    if (destinationCountry.trim() || (selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE)) setDestinationError(false);
+    if (destinationCountry.trim() || selectedCategory) setDestinationError(false);
   }, [destinationCountry, selectedCategory]);
 
   useEffect(() => {
@@ -364,7 +371,7 @@ export default function SearchDestination() {
         {destinationError
           ? homeSearchLabels.categoryOrDestinationRequired
           : showAllDestinationsHint
-            ? t("home_categoria_sin_destino_hint")
+            ? homeSearchLabels.destinationOptionalHint
             : t("filtramos_para_ti")}
       </p>
 

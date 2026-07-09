@@ -1238,14 +1238,15 @@ function FixedMoreCard({
   return (
     <Link
       href={href}
-      className={`group relative flex h-full min-h-[12rem] w-full overflow-hidden rounded-3xl border border-[#0B8FA3]/20 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_14px_36px_rgba(15,23,42,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(11,143,163,0.16)] ${compact ? "min-h-[7.5rem]" : "items-stretch"}`}
+      className={`group relative flex w-full overflow-hidden rounded-[28px] border border-white/15 bg-[url('/fondo-frase-el-cliente.webp')] bg-cover bg-center shadow-[0_16px_40px_rgba(15,23,42,0.14)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(11,143,163,0.20)] ${compact ? "min-h-[8.5rem]" : "min-h-[31rem] items-stretch"}`}
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-900/15 via-slate-900/35 to-slate-900/60" />
-      <div className={`relative z-10 flex w-full flex-col items-center justify-center gap-3 p-5 text-center ${compact ? "py-6" : "py-8"}`}>
-        <span className="text-xs font-semibold uppercase tracking-[0.28em] text-white/80">
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0A8FA5]/18 via-[#0B5D72]/48 to-[#0F172A]/70" />
+      <div className={`relative z-10 flex w-full flex-col items-center justify-center gap-4 text-center ${compact ? "p-5 py-6" : "p-6 py-10"}`}>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/85">
           Travelgrin
         </span>
-        <span className="rounded-full bg-white/92 px-5 py-2.5 text-base font-extrabold leading-tight text-[#273166] shadow transition group-hover:scale-105">
+        {!compact ? <span className="max-w-[9rem] text-sm font-medium leading-6 text-white/80">Explorá más oportunidades activas y seguí navegando.</span> : null}
+        <span className="rounded-full bg-white px-6 py-3 text-[18px] font-extrabold leading-tight text-[#273166] shadow-[0_10px_24px_rgba(255,255,255,0.18)] transition group-hover:scale-105">
           {title}
         </span>
       </div>
