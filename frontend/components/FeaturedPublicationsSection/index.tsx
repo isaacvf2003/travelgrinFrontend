@@ -799,7 +799,6 @@ export default function FeaturedPublicationsSection() {
                     key={`${item.id}-${sourceIndex}`}
                     href={buildSearchHref()}
                     title={t("ver_mas")}
-                    compact={cardsPerView < 3}
                     className={`${sideClass} ${carouselDepthClass(
                       isSideCard,
                       position,
@@ -1002,7 +1001,7 @@ export default function FeaturedPublicationsSection() {
         ) : null}
         </div>
 
-        <div className="hidden w-full max-w-[15rem] shrink-0 lg:flex lg:py-2">
+        <div className="hidden w-full max-w-[15rem] shrink-0 lg:flex lg:pt-2 lg:pb-0">
           <FixedMoreCard href={buildSearchHref()} title={t("ver_mas")} />
         </div>
       </div>
