@@ -1273,6 +1273,8 @@ function FixedMoreCard({
   className?: string;
   onClick?: MouseEventHandler<HTMLAnchorElement>;
 }) {
+  const { t } = useTranslation();
+
   if (matchPublicationCard) {
     return (
       <Link
@@ -1282,7 +1284,7 @@ function FixedMoreCard({
       >
         <div className="absolute inset-0 bg-gradient-to-b from-[#0A8FA5]/18 via-[#0B5D72]/48 to-[#0F172A]/70" />
         <div
-          className={`relative z-10 flex w-full flex-col items-center justify-center text-center ${tabletLayout ? "gap-4 p-5 py-8" : sideImage ? "gap-3 p-5 py-7" : "gap-4 p-6 py-10"}`}
+          className={`relative z-10 flex w-full flex-col items-center justify-center text-center ${tabletLayout ? "gap-5 px-5 py-11" : sideImage ? "gap-3 p-5 py-7" : "gap-4 p-6 py-10"}`}
         >
           <Image
             src="/logo-navbar.png"
@@ -1291,10 +1293,16 @@ function FixedMoreCard({
             height={36}
             className={`mx-auto block h-auto ${tabletLayout ? "w-[6.75rem]" : "w-[7.5rem]"}`}
           />
-          <span className={`${tabletLayout ? "max-w-[8.25rem] text-[12px] leading-5" : sideImage ? "max-w-[8rem] text-[13px] leading-5" : "max-w-[9rem] text-sm leading-6"} font-medium text-white/80`}>
+          <div className={`${tabletLayout ? "max-w-[8.75rem] space-y-1.5 text-[0]" : sideImage ? "max-w-[8rem]" : "max-w-[9rem]"} text-white/80`}>
+            <p className={`${tabletLayout ? "text-[14px] leading-5" : sideImage ? "text-[13px] leading-5" : "text-sm leading-6"} font-semibold`}>
+              {t("featured_more_copy_line_1")}
+            </p>
+            <p className={`${tabletLayout ? "text-[11px] leading-5" : sideImage ? "text-[13px] leading-5" : "text-sm leading-6"} font-medium`}>
+              {t("featured_more_copy_line_2")}
+            </p>
             Explorá más oportunidades activas y seguí navegando.
-          </span>
-          <span className="rounded-full bg-white px-6 py-3 text-[18px] font-extrabold leading-tight text-[#273166] shadow-[0_10px_24px_rgba(255,255,255,0.18)] transition group-hover:scale-105">
+          </div>
+          <span className={`${tabletLayout ? "mt-1" : ""} rounded-full bg-white px-6 py-3 text-[18px] font-extrabold leading-tight text-[#273166] shadow-[0_10px_24px_rgba(255,255,255,0.18)] transition group-hover:scale-105">
             {title}
           </span>
         </div>
@@ -1317,7 +1325,12 @@ function FixedMoreCard({
           height={36}
           className="h-auto w-[7.5rem]"
         />
-        {!compact ? <span className="max-w-[9rem] text-sm font-medium leading-6 text-white/80">Explorá más oportunidades activas y seguí navegando.</span> : null}
+                {!compact ? (
+          <div className="max-w-[9rem] space-y-1 text-white/80">
+            <p className="text-sm font-semibold leading-6">{t("featured_more_copy_line_1")}</p>
+            <p className="text-sm font-medium leading-6">{t("featured_more_copy_line_2")}</p>
+          </div>
+        ) : null}
         <span className="rounded-full bg-white px-6 py-3 text-[18px] font-extrabold leading-tight text-[#273166] shadow-[0_10px_24px_rgba(255,255,255,0.18)] transition group-hover:scale-105">
           {title}
         </span>
@@ -1325,3 +1338,4 @@ function FixedMoreCard({
     </Link>
   );
 }
+
