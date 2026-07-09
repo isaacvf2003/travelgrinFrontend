@@ -368,6 +368,7 @@ export default async function BuscarPage({
       "prestacion",
       "primaryGroupKey",
       "taxonomyType",
+      "browse",
     ].some((key) => {
       const value = spGet(sp, key);
       return typeof value === "string" && Boolean(value.trim());
@@ -443,7 +444,7 @@ export default async function BuscarPage({
 
   for (const [key, value] of Object.entries(sp)) {
     if (
-      ["q", "country", "destinationCountry", "city", "category", "subcategory", "page", "prestacionesPage", "sort", "priceCurrency"].includes(key)
+      ["q", "country", "destinationCountry", "city", "category", "subcategory", "page", "prestacionesPage", "sort", "priceCurrency", "browse"].includes(key)
     )
       continue;
     const rawValues = Array.isArray(value)
