@@ -1823,6 +1823,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
   };
+  const formatAdminBlockLabel = (label: string, taxonomyType: string) => {
+    const trimmedLabel = String(label ?? "").trim();
+    if (!trimmedLabel) return formatAdminTaxonomyTypeLabel(taxonomyType);
+    return normalizeComparable(trimmedLabel) === normalizeComparable(taxonomyType)
+      ? formatAdminTaxonomyTypeLabel(taxonomyType)
+      : trimmedLabel;
+  };
 
   const priceSymbolByCurrency: Record<string, string> = {
     ARS: "$",
@@ -2357,7 +2364,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const nextBlockLabelI18n = { es: "", en: "", pt: "", it: "", ...((group.labelI18n as I18nRecord) ?? { es: group.label }) };
     const rawSpanishLabel = String(nextBlockLabelI18n.es || group.label || "").trim();
     const taxonomyAlias = normalizeTaxonomyTypeAlias(group.taxonomyType ?? "categoria");
-    if (rawSpanishLabel === taxonomyAlias) {
+    if (normalizeComparable(rawSpanishLabel) === normalizeComparable(taxonomyAlias)) {
       nextBlockLabelI18n.es = formatAdminTaxonomyTypeLabel(taxonomyAlias);
     }
     setBlockLabelI18n(nextBlockLabelI18n);
@@ -6380,7 +6387,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             {hasBlockContent ? (isBlockOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />) : <span className="h-4 w-4" />}
                           </span>
                           <span>
-                            <p className="text-sm font-semibold text-slate-900">{pickI18nText(block.labelI18n ?? null, catLang, block.label)}</p>
+                            <p className="text-sm font-semibold text-slate-900">{formatAdminBlockLabel(pickI18nText(block.labelI18n ?? null, catLang, block.label), block.taxonomyType ?? "categoria")}</p>
                             <p className="text-xs text-slate-500">Tipo de filtro: {formatAdminTaxonomyTypeLabel(block.taxonomyType ?? "categoria")}</p>{block.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Este bloque es invisible</p> : null}
                             {blockHasVisibleCardCategory ? <p className="mt-1 text-xs font-semibold text-indigo-600">Visible en tarjeta</p> : null}
                           </span>
@@ -6609,7 +6616,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <select value={catBlockId} onChange={(e) => setCatBlockId(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" disabled={Boolean(catParentId)}>
                       <option value="">Seleccionar bloque</option>
                       {categoryBlocks.map((block) => (
-                        <option key={block.id} value={block.id}>{pickI18nText(block.labelI18n ?? null, catLang, block.label)}</option>
+                        <option key={block.id} value={block.id}>{formatAdminBlockLabel(pickI18nText(block.labelI18n ?? null, catLang, block.label), block.taxonomyType ?? "categoria")}</option>
                       ))}
                     </select>
                   </div>
