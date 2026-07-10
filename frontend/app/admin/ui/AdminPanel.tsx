@@ -1803,6 +1803,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (["voluntariado", "voluntario", "voluntariados", "destino", "destinos"].includes(normalized)) return "categoria";
     return normalized;
   };
+  const formatAdminTaxonomyTypeLabel = (input: string) => {
+    switch (normalizeTaxonomyTypeAlias(input || "categoria")) {
+      case "categoria":
+        return "Categoría";
+      case "prestacion":
+        return "Prestación";
+      case "idiomas":
+        return "Idiomas";
+      case "modalidad":
+        return "Modalidad";
+      case "actividad":
+        return "Actividad";
+      case "tipos":
+        return "Tipos";
+      default: {
+        const trimmed = String(input ?? "").trim();
+        return trimmed ? `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}` : "Categoría";
+      }
+    }
+  };
 
   const priceSymbolByCurrency: Record<string, string> = {
     ARS: "$",
@@ -2084,6 +2104,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         savedBlockId = editingBlockId;
         if (blockVisibleInCard !== initialBlockVisibleInCard) {
           const blockCategories = categories.filter((category) => category.blockId === savedBlockId);
+          const fallbackPrimaryCategoryId =
+            blockVisibleInCard && !blockCategories.some((category) => category.isPrimaryCategory === true)
+              ? (blockCategories.find((category) => !category.parentId)?.id ?? blockCategories[0]?.id ?? null)
+              : null;
           await Promise.all(blockCategories.map((category) =>
             api(`/api/admin/categories/${encodeURIComponent(category.id)}`, {
               method: "PATCH",
@@ -2095,13 +2119,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 parentId: category.parentId ?? null,
                 blockId: category.blockId ?? savedBlockId,
                 isPublicVisible: category.isPublicVisible !== false,
-                isPrimaryCategory: blockVisibleInCard ? category.isPrimaryCategory === true : false,
+                isPrimaryCategory: blockVisibleInCard
+                  ? Boolean(category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId)
+                  : false,
                 iconImageUrl:
-                  blockVisibleInCard && category.isPrimaryCategory === true
+                  blockVisibleInCard && (category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId)
                     ? (category.iconImageUrl ?? null)
                     : null,
                 cardImageUrl:
-                  blockVisibleInCard && category.isPrimaryCategory === true
+                  blockVisibleInCard && (category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId)
                     ? (category.cardImageUrl ?? null)
                     : null,
                 order: category.order ?? 0,
@@ -2129,10 +2155,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
 
       if (!editingBlockId && savedBlockId && blockCategoryDrafts.length) {
-        const normalizedDrafts = blockCategoryDrafts.map((draft) => ({
-          ...draft,
-          isPrimaryCategory: blockVisibleInCard ? draft.isPrimaryCategory : false,
-        }));
+        const normalizedDrafts = blockCategoryDrafts.map((draft, draftIndex) => {
+          if (!blockVisibleInCard) return { ...draft, isPrimaryCategory: false };
+          if (blockCategoryDrafts.some((entry) => entry.isPrimaryCategory)) return draft;
+          const shouldBePrimary = !draft.parentDraftId && draftIndex === 0;
+          return shouldBePrimary ? { ...draft, isPrimaryCategory: true } : draft;
+        });
         const draftById = new Map(normalizedDrafts.map((draft) => [draft.id, draft]));
         const draftIdsByParent = new Map<string, string[]>();
         normalizedDrafts.forEach((draft) => {
@@ -2326,7 +2354,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setEditingBlockId(group.id);
     setEditingCategoryId(null);
     setBlockLang("es");
-    setBlockLabelI18n((group.labelI18n as I18nRecord) ?? { es: group.label });
+    const nextBlockLabelI18n = { es: "", en: "", pt: "", it: "", ...((group.labelI18n as I18nRecord) ?? { es: group.label }) };
+    const rawSpanishLabel = String(nextBlockLabelI18n.es || group.label || "").trim();
+    const taxonomyAlias = normalizeTaxonomyTypeAlias(group.taxonomyType ?? "categoria");
+    if (rawSpanishLabel === taxonomyAlias) {
+      nextBlockLabelI18n.es = formatAdminTaxonomyTypeLabel(taxonomyAlias);
+    }
+    setBlockLabelI18n(nextBlockLabelI18n);
     setBlockImageUrl(group.imageUrl ?? "");
     setBlockTaxonomyType(group.taxonomyType ?? "categoria");
     setBlockIsPublicVisible(group.isPublicVisible !== false);
@@ -6347,7 +6381,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           </span>
                           <span>
                             <p className="text-sm font-semibold text-slate-900">{pickI18nText(block.labelI18n ?? null, catLang, block.label)}</p>
-                            <p className="text-xs text-slate-500">Tipo de filtro: {normalizeTaxonomyTypeAlias(block.taxonomyType ?? "categoria")}</p>{block.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Este bloque es invisible</p> : null}
+                            <p className="text-xs text-slate-500">Tipo de filtro: {formatAdminTaxonomyTypeLabel(block.taxonomyType ?? "categoria")}</p>{block.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Este bloque es invisible</p> : null}
                             {blockHasVisibleCardCategory ? <p className="mt-1 text-xs font-semibold text-indigo-600">Visible en tarjeta</p> : null}
                           </span>
                         </button>
@@ -6601,12 +6635,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Tipo de filtro</label>
                     <select value={catTaxonomyType} onChange={(e) => setCatTaxonomyType(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300">
                       <option value="inherit">Predeterminado (hereda el tipo de filtro del padre)</option>
-                      <option value="categoria">categoria</option>
-                      <option value="prestacion">prestacion</option>
-                      <option value="idiomas">idiomas</option>
-                      <option value="modalidad">modalidad</option>
-                      <option value="actividad">actividad</option>
-                      <option value="tipos">tipos</option>
+                      <option value="categoria">Categoría</option>
+                      <option value="prestacion">Prestación</option>
+                      <option value="idiomas">Idiomas</option>
+                      <option value="modalidad">Modalidad</option>
+                      <option value="actividad">Actividad</option>
+                      <option value="tipos">Tipos</option>
                     </select>
                   </div>
 
@@ -6764,12 +6798,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div>
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Tipo de filtro</label>
                     <select value={blockTaxonomyType} onChange={(e) => setBlockTaxonomyType(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300">
-                      <option value="categoria">categoria</option>
-                      <option value="prestacion">prestacion</option>
-                      <option value="idiomas">idiomas</option>
-                      <option value="modalidad">modalidad</option>
-                      <option value="actividad">actividad</option>
-                      <option value="tipos">tipos</option>
+                      <option value="categoria">Categoría</option>
+                      <option value="prestacion">Prestación</option>
+                      <option value="idiomas">Idiomas</option>
+                      <option value="modalidad">Modalidad</option>
+                      <option value="actividad">Actividad</option>
+                      <option value="tipos">Tipos</option>
                     </select>
                   </div>
 
