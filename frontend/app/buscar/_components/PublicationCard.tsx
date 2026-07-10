@@ -538,7 +538,7 @@ export function PublicationCard({ item }: { item: Publication }) {
                 </p>
               )}
 
-              <h3 className={`mt-1 line-clamp-2 font-semibold ${isPrestacion ? "text-[19px] text-[#1A4B8C]" : "text-[18px] text-black"}`}>
+              <h3 className={`mt-1 line-clamp-2 font-semibold ${isPrestacion ? "text-[19px] text-[#273166]" : "text-[18px] text-black"}`}>
                 {displayTitle}
               </h3>
 
