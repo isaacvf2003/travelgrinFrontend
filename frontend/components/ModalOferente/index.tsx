@@ -42,6 +42,7 @@ type Category = { id: string; description: string; taxonomyType: string; isPrima
 type FilterOptionLite = { value?: string; label?: string; labelI18n?: Record<string, string> | null };
 type FilterGroupLite = { key?: string; label?: string; taxonomyType?: string | null; options?: FilterOptionLite[] };
 type SelectOption = { value: string; label: string };
+type SelectOptionGroup = { value: string; label: string; children: SelectOption[] };
 type Step = "basic" | "featured";
 type PromoValidationState = {
   applied: boolean;
@@ -552,6 +553,7 @@ function MultiOptionSelect({
   selectedValues,
   setSelectedValues,
   options,
+  optionGroups,
   placeholder,
   icon = "languages",
   isEmpty = false,
@@ -562,6 +564,7 @@ function MultiOptionSelect({
   selectedValues: string[];
   setSelectedValues: (values: string[]) => void;
   options: SelectOption[];
+  optionGroups?: SelectOptionGroup[];
   placeholder: string;
   icon?: "languages" | "tag" | "user";
   isEmpty?: boolean;
@@ -570,11 +573,29 @@ function MultiOptionSelect({
   onLimitReached?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const selectedLabels = selectedValues
     .map((value) => options.find((option) => normalize(option.value) === normalize(value))?.label ?? value)
     .filter(Boolean);
   const Icon = icon === "tag" ? Tag : icon === "user" ? UserRound : Languages;
   const displayText = selectedLabels.length ? selectedLabels.join(", ") : placeholder;
+  const hasGroupedOptions = Boolean(optionGroups?.length);
+
+  useEffect(() => {
+    if (!isOpen || !optionGroups?.length) return;
+    setExpandedGroups((prev) => {
+      const next = { ...prev };
+      optionGroups.forEach((group) => {
+        const shouldExpand = group.children.some((child) =>
+          selectedValues.some((entry) => normalize(entry) === normalize(child.value))
+        );
+        if (shouldExpand && next[group.value] === undefined) {
+          next[group.value] = true;
+        }
+      });
+      return next;
+    });
+  }, [isOpen, optionGroups, selectedValues]);
 
   const toggleValue = (value: string) => {
     const exists = selectedValues.some((entry) => normalize(entry) === normalize(value));
@@ -583,6 +604,10 @@ function MultiOptionSelect({
       return;
     }
     setSelectedValues(exists ? selectedValues.filter((entry) => normalize(entry) !== normalize(value)) : [...selectedValues, value]);
+  };
+
+  const toggleGroup = (value: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [value]: !prev[value] }));
   };
 
   return (
@@ -610,7 +635,58 @@ function MultiOptionSelect({
       {isOpen ? (
         <div className="absolute left-0 right-0 top-full z-[9999999] mt-2 max-h-64 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl">
           <div className="max-h-64 overflow-y-auto p-2">
-            {options.length ? options.map((option) => {
+            {hasGroupedOptions ? (
+              optionGroups?.length ? optionGroups.map((group) => {
+                const checked = selectedValues.some((entry) => normalize(entry) === normalize(group.value));
+                const isExpanded = expandedGroups[group.value] ?? false;
+                const hasChildren = group.children.length > 0;
+                return (
+                  <div key={group.value} className="mb-1 rounded-xl border border-transparent last:mb-0">
+                    <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${checked ? "bg-teal-50 text-teal-700" : "text-gray-700 hover:bg-teal-50"}`}>
+                      <button type="button" onClick={() => toggleValue(group.value)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? "border-teal-500 bg-teal-500" : "border-gray-300"}`}>
+                          {checked ? <Check className="h-3 w-3 text-white" /> : null}
+                        </span>
+                        <span className="truncate">{group.label}</span>
+                      </button>
+                      {hasChildren ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleGroup(group.value);
+                          }}
+                          aria-label={isExpanded ? "Contraer subcategorias" : "Expandir subcategorias"}
+                          className="rounded-md p-1 text-slate-400 transition hover:bg-white/70 hover:text-teal-600"
+                        >
+                          <ChevronDown className={`h-4 w-4 transition ${isExpanded ? "rotate-180" : ""}`} />
+                        </button>
+                      ) : null}
+                    </div>
+                    {hasChildren && isExpanded ? (
+                      <div className="mt-1 space-y-1 border-l border-slate-200 pl-3">
+                        {group.children.map((child) => {
+                          const childChecked = selectedValues.some((entry) => normalize(entry) === normalize(child.value));
+                          return (
+                            <button
+                              key={child.value}
+                              type="button"
+                              onClick={() => toggleValue(child.value)}
+                              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${childChecked ? "bg-teal-50 text-teal-700" : "text-gray-600 hover:bg-slate-50 hover:text-teal-700"}`}
+                            >
+                              <span className={`flex h-4 w-4 items-center justify-center rounded border ${childChecked ? "border-teal-500 bg-teal-500" : "border-gray-300"}`}>
+                                {childChecked ? <Check className="h-3 w-3 text-white" /> : null}
+                              </span>
+                              <span>{child.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }) : <div className="p-3 text-center text-sm text-gray-500">{emptyText}</div>
+            ) : options.length ? options.map((option) => {
               const checked = selectedValues.some((entry) => normalize(entry) === normalize(option.value));
               return (
                 <button
@@ -1604,26 +1680,53 @@ export default function ModalOferente({
       .filter((c) => c.value);
   }, [categories]);
 
-  const categoriaOptions = useMemo(() => {
+  const categoriaOptionGroups = useMemo<SelectOptionGroup[]>(() => {
     const byId = new Map(categories.map((category) => [category.id, category]));
-    return uniqueOptions(
-      categories
-        .filter((category) => {
-          if (category.isPublicVisible === false) return false;
-          if (normalize(taxonomyFor(category, byId)) !== "categoria") return false;
-          const root = resolveCategoryRoot(category, byId);
-          return root.isPrimaryCategory === true && root.isPublicVisible !== false;
-        })
-        .map((category) => {
-          const root = resolveCategoryRoot(category, byId);
-          return {
+    const rootMap = new Map<string, SelectOptionGroup>();
+
+    categories
+      .filter((category) => {
+        if (category.isPublicVisible === false) return false;
+        if (normalize(taxonomyFor(category, byId)) !== "categoria") return false;
+        const root = resolveCategoryRoot(category, byId);
+        return root.isPrimaryCategory === true && root.isPublicVisible !== false;
+      })
+      .forEach((category) => {
+        const root = resolveCategoryRoot(category, byId);
+        const rootKey = root.id || root.description;
+        if (!rootMap.has(rootKey)) {
+          rootMap.set(rootKey, {
+            value: root.description,
+            label: root.description,
+            children: [],
+          });
+        }
+        if (category.parentId) {
+          rootMap.get(rootKey)?.children.push({
             value: category.description,
-            label: category.parentId ? `${root.description} / ${category.description}` : category.description,
-          };
-        })
-        .filter((category) => category.value)
-    );
+            label: category.description,
+          });
+        }
+      });
+
+    return Array.from(rootMap.values()).map((group) => ({
+      ...group,
+      children: uniqueOptions(group.children),
+    }));
   }, [categories, resolveCategoryRoot]);
+
+  const categoriaOptions = useMemo(
+    () => uniqueOptions(
+      categoriaOptionGroups.flatMap((group) => [
+        { value: group.value, label: group.label },
+        ...group.children.map((child) => ({
+          value: child.value,
+          label: `${group.label} / ${child.label}`,
+        })),
+      ])
+    ),
+    [categoriaOptionGroups]
+  );
 
   const optionsByTaxonomy = useCallback((taxonomyAliases: string[]) => {
     const fromCategories = byTaxonomy(taxonomyAliases);
@@ -2148,6 +2251,7 @@ export default function ModalOferente({
             selectedValues={proposalCategories}
             setSelectedValues={setProposalCategories}
             options={categoriaOptions}
+            optionGroups={categoriaOptionGroups}
             placeholder={mt("oferente_categoria_placeholder")}
             icon="tag"
             isEmpty={isEmptyProposalCategory}
