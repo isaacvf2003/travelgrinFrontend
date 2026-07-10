@@ -17,6 +17,7 @@ export default function ModalAI({
   contanos,
   website,
   country,
+  fieldTarget = "description",
 }: {
   onClose: () => void;
   description?: string;
@@ -30,6 +31,7 @@ export default function ModalAI({
   contanos?: string;
   website?: string;
   country?: string;
+  fieldTarget?: "description" | "included" | "notIncluded";
 }) {
   const { t, locale } = useTranslation();
   const [userInput, setUserInput] = useState("");
@@ -73,9 +75,10 @@ export default function ModalAI({
   };
 
   // Clave única para localStorage basada en el email u otro identificador
-  const CHAT_STORAGE_KEY = "travelgrin_ai_chat";
-  const CHAT_TIMESTAMP_KEY = "travelgrin_ai_chat_timestamp";
-  const WAITING_FIELDS_KEY = "travelgrin_ai_waiting_fields";
+  const storageSuffix = fieldTarget || "description";
+  const CHAT_STORAGE_KEY = `travelgrin_ai_chat_${storageSuffix}`;
+  const CHAT_TIMESTAMP_KEY = `travelgrin_ai_chat_timestamp_${storageSuffix}`;
+  const WAITING_FIELDS_KEY = `travelgrin_ai_waiting_fields_${storageSuffix}`;
 
   // Cargar mensajes desde localStorage
   const loadMessagesFromStorage = () => {
@@ -201,7 +204,8 @@ export default function ModalAI({
     if (!waitingForFields) return;
 
     // Verificar si ahora ya tiene los campos completos
-    const hasRequiredFields = typeProfile && selectedCategory && (isOfrezco || isIntermediario);
+    const requiresTypeProfile = fieldTarget !== "description";
+    const hasRequiredFields = selectedCategory && (isOfrezco || isIntermediario) && (!requiresTypeProfile || typeProfile);
     
     if (hasRequiredFields) {
       // Los campos están completos, continuar automáticamente
@@ -223,7 +227,7 @@ export default function ModalAI({
       setWaitingForFields(false); // Resetear el estado
       setUserInput(description)
     }
-  }, [typeProfile, selectedCategory, isOfrezco, isIntermediario, description, waitingForFields]);
+  }, [description, fieldTarget, isIntermediario, isOfrezco, selectedCategory, typeProfile, waitingForFields]);
 
   // Efecto para guardar mensajes cada vez que cambien (excepto en la primera carga)
   useEffect(() => {
@@ -394,8 +398,9 @@ export default function ModalAI({
     let botResponse;
 
     // Verificar si tiene los campos requeridos: Tipo de perfil, Categoría y Actúo como
+    const requiresTypeProfile = fieldTarget !== "description";
     const hasRequiredFields =
-      typeProfile && selectedCategory && (isOfrezco || isIntermediario);
+      selectedCategory && (isOfrezco || isIntermediario) && (!requiresTypeProfile || typeProfile);
 
     if (hasRequiredFields) {
       // A) Ya completó los campos requeridos - ir directo al input
@@ -421,7 +426,7 @@ export default function ModalAI({
     } else {
       // B) No completó los campos requeridos - mostrar qué falta y activar detección
       const missingFields = [];
-      if (!typeProfile) missingFields.push("• " + t("tipo_perfil"));
+      if (requiresTypeProfile && !typeProfile) missingFields.push("• " + t("tipo_perfil"));
       if (!selectedCategory) missingFields.push("• " + t("categoria"));
       if (!isOfrezco && !isIntermediario) missingFields.push("• " + t("actuo_como"));
 
@@ -475,6 +480,11 @@ export default function ModalAI({
           userMessage: messageToSend,
           language: locale, // Detectar idioma
           currentDescription: description,
+          fieldTarget,
+          destinationCountry,
+          website,
+          country,
+          baseDescription: contanos,
         }),
       });
 

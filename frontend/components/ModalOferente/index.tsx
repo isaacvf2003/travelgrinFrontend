@@ -114,7 +114,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_pasaportes_helper: "Si no elegís países, tu publicación aparece para todos. Si elegís uno o más, solo aparece para esos pasaportes.",
     oferente_incluye_placeholder: "* ¿Qué incluye tu servicio o qué te diferencia?",
     oferente_no_incluye_placeholder: "¿Qué no incluye o qué debe tener en cuenta el viajero?",
-    oferente_links_contacto: "Links de contacto",
+    oferente_links_contacto: "Links para que el viajero se contacte con usted",
     oferente_anadir_link: "+ Añadir link",
     oferente_link_email_placeholder: "Link o email",
     oferente_precio_moneda: "Precio de tu propuesta por moneda",
@@ -142,7 +142,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Completá la descripción",
     oferente_toast_web: "Completá el sitio web",
     oferente_toast_terminos: "Debés aceptar términos y condiciones",
-    oferente_toast_sede: "Completá el país y la ciudad donde se cumple tu propuesta",
+    oferente_toast_sede: "Completá el país donde se cumple tu propuesta",
+    oferente_toast_categoria_limite: "Podés elegir hasta 3 categorías o subcategorías.",
     oferente_toast_revision: "Tu publicación está en revisión",
     oferente_toast_pago_pestana: "Te abrimos una nueva pestaña para completar el pago.",
     oferente_toast_pago_exitoso: "Pago exitoso. Pronto verás la publicación en la web.",
@@ -167,6 +168,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_pago_error: "No se pudo iniciar el pago. Intentá nuevamente.",
     oferente_pago_popup_error: "No se pudo abrir el checkout. Habilitá ventanas emergentes e intentá nuevamente.",
     oferente_pago_verificando: "Verificando el estado del pago...",
+    oferente_opcional: "opcional",
+    oferente_sede_helper: "La ciudad y el link de Google Maps son opcionales. Podés completarlos si querés sumar más contexto.",
   },
   en: {
     oferente_nombre_perfil: "* Profile or brand name",
@@ -210,7 +213,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_pasaportes_helper: "If you do not choose countries, your publication appears for everyone. If you choose one or more, it only appears for those passports.",
     oferente_incluye_placeholder: "* What does your service include or what makes it different?",
     oferente_no_incluye_placeholder: "What is not included or what should the traveler keep in mind?",
-    oferente_links_contacto: "Contact links",
+    oferente_links_contacto: "Links so travelers can contact you",
     oferente_anadir_link: "+ Add link",
     oferente_link_email_placeholder: "Link or email",
     oferente_precio_moneda: "Price of your proposal by currency",
@@ -238,7 +241,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Complete the description",
     oferente_toast_web: "Complete the website",
     oferente_toast_terminos: "You must accept terms and conditions",
-    oferente_toast_sede: "Complete the country and city where your proposal takes place",
+    oferente_toast_sede: "Complete the country where your proposal takes place",
+    oferente_toast_categoria_limite: "You can choose up to 3 categories or subcategories.",
     oferente_toast_revision: "Your publication is under review",
     oferente_toast_pago_pestana: "We opened a new tab for you to complete the payment.",
     oferente_toast_pago_exitoso: "Payment successful. You will soon see the publication on the website.",
@@ -263,6 +267,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_pago_error: "The payment could not be started. Please try again.",
     oferente_pago_popup_error: "The checkout could not be opened. Enable pop-ups and try again.",
     oferente_pago_verificando: "Checking payment status...",
+    oferente_opcional: "optional",
+    oferente_sede_helper: "The city and Google Maps link are optional. You can add them if you want to provide more context.",
   },
   pt: {
     oferente_nombre_perfil: "* Nome do seu perfil ou marca",
@@ -306,7 +312,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_pasaportes_helper: "Se não escolher países, sua publicação aparece para todos. Se escolher um ou mais, aparece apenas para esses passaportes.",
     oferente_incluye_placeholder: "* O que seu serviço inclui ou o que o diferencia?",
     oferente_no_incluye_placeholder: "O que não inclui ou o que o viajante deve considerar?",
-    oferente_links_contacto: "Links de contato",
+    oferente_links_contacto: "Links para que o viajante entre em contato com você",
     oferente_anadir_link: "+ Adicionar link",
     oferente_link_email_placeholder: "Link ou email",
     oferente_precio_moneda: "Preço da sua proposta por moeda",
@@ -334,7 +340,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Complete a descrição",
     oferente_toast_web: "Complete o site",
     oferente_toast_terminos: "Você deve aceitar os termos e condições",
-    oferente_toast_sede: "Complete o país e a cidade onde sua proposta acontece",
+    oferente_toast_sede: "Preencha o país onde sua proposta acontece",
+    oferente_toast_categoria_limite: "Você pode escolher até 3 categorias ou subcategorias.",
     oferente_toast_revision: "Sua publicação está em revisão",
     oferente_toast_pago_pestana: "Abrimos uma nova aba para você concluir o pagamento.",
     oferente_toast_pago_exitoso: "Pagamento realizado com sucesso. Em breve você verá a publicação no site.",
@@ -359,6 +366,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_pago_error: "Não foi possível iniciar o pagamento. Tente novamente.",
     oferente_pago_popup_error: "Não foi possível abrir o checkout. Ative pop-ups e tente novamente.",
     oferente_pago_verificando: "Verificando o estado do pagamento...",
+    oferente_opcional: "opcional",
+    oferente_sede_helper: "A cidade e o link do Google Maps são opcionais. Você pode preenchê-los se quiser adicionar mais contexto.",
   },
   it: {
     oferente_nombre_perfil: "* Nome del tuo profilo o brand",
@@ -402,7 +411,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_pasaportes_helper: "Se non scegli paesi, la tua pubblicazione appare per tutti. Se ne scegli uno o più, appare solo per quei passaporti.",
     oferente_incluye_placeholder: "* Cosa include il tuo servizio o cosa lo rende diverso?",
     oferente_no_incluye_placeholder: "Cosa non include o cosa deve tenere presente il viaggiatore?",
-    oferente_links_contacto: "Link di contatto",
+    oferente_links_contacto: "Link per permettere al viaggiatore di contattarti",
     oferente_anadir_link: "+ Aggiungi link",
     oferente_link_email_placeholder: "Link o email",
     oferente_precio_moneda: "Prezzo della tua proposta per valuta",
@@ -430,7 +439,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Completa la descrizione",
     oferente_toast_web: "Completa il sito web",
     oferente_toast_terminos: "Devi accettare termini e condizioni",
-    oferente_toast_sede: "Completa il paese e la città in cui si svolge la tua proposta",
+    oferente_toast_sede: "Completa il paese in cui si svolge la tua proposta",
+    oferente_toast_categoria_limite: "Puoi scegliere fino a 3 categorie o sottocategorie.",
     oferente_toast_revision: "La tua pubblicazione è in revisione",
     oferente_toast_pago_pestana: "Abbiamo aperto una nuova scheda per completare il pagamento.",
     oferente_toast_pago_exitoso: "Pagamento riuscito. Presto vedrai la pubblicazione sul sito.",
@@ -455,6 +465,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_pago_error: "Non è stato possibile avviare il pagamento. Riprova.",
     oferente_pago_popup_error: "Non è stato possibile aprire il checkout. Abilita i pop-up e riprova.",
     oferente_pago_verificando: "Verifica dello stato del pagamento...",
+    oferente_opcional: "opzionale",
+    oferente_sede_helper: "La città e il link di Google Maps sono opzionali. Puoi aggiungerli se vuoi fornire più contesto.",
   },
 } as const;
 
@@ -471,6 +483,45 @@ type PriceEntry = { currency: string; amount: string };
 type VenueEntry = { country: string; city: string; mapUrl: string };
 type ContactKind = "web" | "email" | "youtube" | "instagram" | "facebook" | "whatsapp" | "cellphone" | "linkedin" | "other";
 type ContactEntry = { kind: ContactKind; url: string; label: string };
+type AiFieldTarget = "description" | "included" | "notIncluded";
+type ProviderFormDraft = {
+  version: number;
+  updatedAt: number;
+  step: Step;
+  selectedPlan: "basic_free" | "featured" | "monthly";
+  selectedPaidPlanType: "featured_120d" | "featured_monthly";
+  profileName: string;
+  proposalCategories: string[];
+  isOfrezco: boolean;
+  isIntermediario: boolean;
+  destinationCountry: string;
+  destinationAvailabilityMode: "all" | "some";
+  destinationAvailabilityCountries: string[];
+  languages: string[];
+  primaryVenue: VenueEntry;
+  description: string;
+  website: string;
+  email: string;
+  acceptedTerms: boolean;
+  providerLogo: string;
+  providerLogoAsset: ImageAsset | null;
+  providerLogoName: string;
+  providerType: string;
+  serviceImages: string[];
+  serviceImageAssets: ImageAsset[];
+  serviceImageNames: string[];
+  passportCountries: string[];
+  included: string;
+  notIncluded: string;
+  contactLinks: ContactEntry[];
+  priceEntries: PriceEntry[];
+  priceNegotiable: boolean;
+  pricePeriod: string;
+  promoCode: string;
+};
+
+const MAX_PROVIDER_CATEGORIES = 3;
+const PROVIDER_DRAFT_VERSION = 1;
 
 const normalize = (value: string) => String(value ?? "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
 
@@ -505,6 +556,8 @@ function MultiOptionSelect({
   icon = "languages",
   isEmpty = false,
   emptyText,
+  maxSelections,
+  onLimitReached,
 }: {
   selectedValues: string[];
   setSelectedValues: (values: string[]) => void;
@@ -513,15 +566,22 @@ function MultiOptionSelect({
   icon?: "languages" | "tag" | "user";
   isEmpty?: boolean;
   emptyText: string;
+  maxSelections?: number;
+  onLimitReached?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const selectedLabels = selectedValues
     .map((value) => options.find((option) => normalize(option.value) === normalize(value))?.label ?? value)
     .filter(Boolean);
   const Icon = icon === "tag" ? Tag : icon === "user" ? UserRound : Languages;
+  const displayText = selectedLabels.length ? selectedLabels.join(", ") : placeholder;
 
   const toggleValue = (value: string) => {
     const exists = selectedValues.some((entry) => normalize(entry) === normalize(value));
+    if (!exists && typeof maxSelections === "number" && selectedValues.length >= maxSelections) {
+      onLimitReached?.();
+      return;
+    }
     setSelectedValues(exists ? selectedValues.filter((entry) => normalize(entry) !== normalize(value)) : [...selectedValues, value]);
   };
 
@@ -530,6 +590,7 @@ function MultiOptionSelect({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
+        title={displayText}
         className="flex w-full items-center justify-between rounded-2xl bg-white p-4 pt-6 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus:scale-[1.01]"
         style={{
           boxShadow: isEmpty
@@ -539,8 +600,8 @@ function MultiOptionSelect({
       >
         <span className="flex min-w-0 items-center gap-3">
           <Icon className="h-5 w-5 shrink-0 text-[#0B8FA3]" />
-          <span className={`truncate ${selectedLabels.length ? "text-gray-700" : "text-gray-600"}`}>
-            {selectedLabels.length ? selectedLabels.join(", ") : placeholder}
+          <span title={displayText} className={`truncate ${selectedLabels.length ? "text-gray-700" : "text-gray-600"}`}>
+            {displayText}
           </span>
         </span>
         <ChevronDown className={`h-5 w-5 text-gray-400 transition ${isOpen ? "rotate-180 text-teal-500" : ""}`} />
@@ -808,6 +869,19 @@ export default function ModalOferente({
   const submittedServiceIdRef = useRef<string | null>(null);
   const [isOpenModalAI, setIsOpenModalAI] = useState(false);
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
+  const draftLoadedRef = useRef(false);
+  const [hasHydratedInitialData, setHasHydratedInitialData] = useState(false);
+  const autoFilledVenueCountryRef = useRef("");
+
+  const draftStorageKey = useMemo(() => {
+    const keyParts = [
+      "travelgrin_oferente_draft",
+      requestKind,
+      resumeSubmissionId || sourceServiceId || initialEmail || "new",
+      initialPlan,
+    ].map((entry) => String(entry ?? "").trim()).filter(Boolean);
+    return keyParts.join("__");
+  }, [initialEmail, initialPlan, requestKind, resumeSubmissionId, sourceServiceId]);
 
   const [profileName, setProfileName] = useState("");
   const [proposalCategories, setProposalCategories] = useState<string[]>([]);
@@ -836,6 +910,7 @@ export default function ModalOferente({
   const [included, setIncluded] = useState("");
   const [notIncluded, setNotIncluded] = useState("");
   const [contactLinks, setContactLinks] = useState<ContactEntry[]>([{ kind: "web", url: "", label: "" }]);
+  const [venueCitySuggestions, setVenueCitySuggestions] = useState<string[]>([]);
   const [priceEntries, setPriceEntries] = useState<PriceEntry[]>([{ currency: "USD", amount: "" }]);
   const [priceNegotiable, setPriceNegotiable] = useState(false);
   const [pricePeriod, setPricePeriod] = useState("month");
@@ -917,7 +992,10 @@ export default function ModalOferente({
     setStep(initialPlan === "basic_free" ? "basic" : "featured");
   }, [initialPlan, preferredPaidPlanType, resumeMode]);
   useEffect(() => {
-    if (!initialData) return;
+    if (!initialData) {
+      setHasHydratedInitialData(true);
+      return;
+    }
     const fallbackExtra = parseUnknownJsonObject(initialData.whatSearchingRaw ?? initialData.whatSearching ?? null);
     const mergedInitialData = { ...fallbackExtra, ...initialData };
     setProfileName(String(mergedInitialData.name ?? mergedInitialData.profileName ?? "").trim());
@@ -1013,7 +1091,216 @@ export default function ModalOferente({
     setPriceNegotiable(Boolean(mergedInitialData.priceNegotiable));
     setPricePeriod(String(mergedInitialData.pricePeriod ?? "month").trim() || "month");
     setAcceptedTerms(Boolean(mergedInitialData.acceptedTerms ?? true));
+    autoFilledVenueCountryRef.current = String(firstVenue?.country ?? mergedInitialData.headquarterCountry ?? "").trim();
+    setHasHydratedInitialData(true);
   }, [initialData]);
+
+  const clearDraft = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.removeItem(draftStorageKey);
+    } catch {}
+  }, [draftStorageKey]);
+
+  useEffect(() => {
+    if (!mounted || !hasHydratedInitialData || draftLoadedRef.current || typeof window === "undefined") return;
+    draftLoadedRef.current = true;
+    try {
+      const stored = window.localStorage.getItem(draftStorageKey);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as Partial<ProviderFormDraft> | null;
+      if (!parsed || parsed.version !== PROVIDER_DRAFT_VERSION) return;
+      setStep(parsed.step === "featured" ? "featured" : "basic");
+      setSelectedPlan(parsed.selectedPlan === "monthly" || parsed.selectedPlan === "featured" ? parsed.selectedPlan : "basic_free");
+      setSelectedPaidPlanType(parsed.selectedPaidPlanType === "featured_monthly" ? "featured_monthly" : "featured_120d");
+      setProfileName(String(parsed.profileName ?? "").trim());
+      setProposalCategories(Array.isArray(parsed.proposalCategories) ? parsed.proposalCategories.map((entry) => String(entry ?? "").trim()).filter(Boolean) : []);
+      setIsOfrezco(Boolean(parsed.isOfrezco));
+      setIsIntermediario(Boolean(parsed.isIntermediario));
+      setDestinationCountry(String(parsed.destinationCountry ?? "").trim());
+      setDestinationAvailabilityMode(parsed.destinationAvailabilityMode === "some" ? "some" : "all");
+      setDestinationAvailabilityCountries(Array.isArray(parsed.destinationAvailabilityCountries) ? parsed.destinationAvailabilityCountries.map((entry) => String(entry ?? "").trim()).filter(Boolean) : []);
+      setLanguages(Array.isArray(parsed.languages) ? parsed.languages.map((entry) => String(entry ?? "").trim()).filter(Boolean) : []);
+      const nextVenue = parsed.primaryVenue && typeof parsed.primaryVenue === "object"
+        ? {
+            country: String(parsed.primaryVenue.country ?? "").trim(),
+            city: String(parsed.primaryVenue.city ?? "").trim(),
+            mapUrl: String(parsed.primaryVenue.mapUrl ?? "").trim(),
+          }
+        : { country: "", city: "", mapUrl: "" };
+      autoFilledVenueCountryRef.current = nextVenue.country;
+      setPrimaryVenue(nextVenue);
+      setDescription(String(parsed.description ?? "").trim());
+      setWebsite(String(parsed.website ?? "").trim());
+      if (!lockEmail) setEmail(String(parsed.email ?? initialEmail ?? "").trim());
+      setAcceptedTerms(Boolean(parsed.acceptedTerms));
+      setProviderLogo(String(parsed.providerLogo ?? "").trim());
+      setProviderLogoAsset(parsed.providerLogoAsset && typeof parsed.providerLogoAsset === "object" ? parsed.providerLogoAsset as ImageAsset : null);
+      setProviderLogoName(String(parsed.providerLogoName ?? "").trim());
+      setProviderType(String(parsed.providerType ?? "").trim());
+      setServiceImages(Array.isArray(parsed.serviceImages) ? parsed.serviceImages.map((entry) => String(entry ?? "").trim()).filter(Boolean) : []);
+      setServiceImageAssets(Array.isArray(parsed.serviceImageAssets) ? parsed.serviceImageAssets.filter((entry): entry is ImageAsset => Boolean(entry && typeof entry === "object")) : []);
+      setServiceImageNames(Array.isArray(parsed.serviceImageNames) ? parsed.serviceImageNames.map((entry) => String(entry ?? "").trim()).filter(Boolean) : []);
+      setPassportCountries(Array.isArray(parsed.passportCountries) ? parsed.passportCountries.map((entry) => String(entry ?? "").trim()).filter(Boolean) : []);
+      setIncluded(String(parsed.included ?? "").trim());
+      setNotIncluded(String(parsed.notIncluded ?? "").trim());
+      setContactLinks(Array.isArray(parsed.contactLinks) && parsed.contactLinks.length
+        ? parsed.contactLinks.map((entry) => ({
+            kind: String(entry?.kind ?? "web") as ContactKind,
+            url: String(entry?.url ?? "").trim(),
+            label: String(entry?.label ?? "").trim(),
+          }))
+        : [{ kind: "web", url: "", label: "" }]);
+      setPriceEntries(Array.isArray(parsed.priceEntries) && parsed.priceEntries.length
+        ? parsed.priceEntries.map((entry) => ({ currency: String(entry?.currency ?? "").trim(), amount: String(entry?.amount ?? "").trim() }))
+        : [{ currency: "USD", amount: "" }]);
+      setPriceNegotiable(Boolean(parsed.priceNegotiable));
+      setPricePeriod(String(parsed.pricePeriod ?? "month").trim() || "month");
+      setPromoCode(String(parsed.promoCode ?? "").trim());
+    } catch {}
+  }, [draftStorageKey, hasHydratedInitialData, initialEmail, lockEmail, mounted]);
+
+  useEffect(() => {
+    if (!mounted || !draftLoadedRef.current || typeof window === "undefined") return;
+    const draft: ProviderFormDraft = {
+      version: PROVIDER_DRAFT_VERSION,
+      updatedAt: Date.now(),
+      step,
+      selectedPlan,
+      selectedPaidPlanType,
+      profileName,
+      proposalCategories,
+      isOfrezco,
+      isIntermediario,
+      destinationCountry,
+      destinationAvailabilityMode,
+      destinationAvailabilityCountries,
+      languages,
+      primaryVenue,
+      description,
+      website,
+      email,
+      acceptedTerms,
+      providerLogo,
+      providerLogoAsset,
+      providerLogoName,
+      providerType,
+      serviceImages,
+      serviceImageAssets,
+      serviceImageNames,
+      passportCountries,
+      included,
+      notIncluded,
+      contactLinks,
+      priceEntries,
+      priceNegotiable,
+      pricePeriod,
+      promoCode,
+    };
+    try {
+      window.localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+    } catch {}
+  }, [
+    acceptedTerms,
+    contactLinks,
+    description,
+    destinationAvailabilityCountries,
+    destinationAvailabilityMode,
+    destinationCountry,
+    draftStorageKey,
+    email,
+    included,
+    isIntermediario,
+    isOfrezco,
+    languages,
+    mounted,
+    notIncluded,
+    passportCountries,
+    priceEntries,
+    priceNegotiable,
+    pricePeriod,
+    profileName,
+    promoCode,
+    proposalCategories,
+    providerLogo,
+    providerLogoAsset,
+    providerLogoName,
+    providerType,
+    primaryVenue,
+    selectedPaidPlanType,
+    selectedPlan,
+    serviceImageAssets,
+    serviceImageNames,
+    serviceImages,
+    step,
+    website,
+  ]);
+
+  useEffect(() => {
+    const nextDestinationCountry = String(destinationCountry ?? "").trim();
+    if (!nextDestinationCountry) return;
+    setPrimaryVenue((prev) => {
+      const currentCountry = String(prev.country ?? "").trim();
+      if (!currentCountry) {
+        autoFilledVenueCountryRef.current = nextDestinationCountry;
+        return { ...prev, country: nextDestinationCountry };
+      }
+      if (autoFilledVenueCountryRef.current && normalize(currentCountry) === normalize(autoFilledVenueCountryRef.current)) {
+        autoFilledVenueCountryRef.current = nextDestinationCountry;
+        if (normalize(currentCountry) === normalize(nextDestinationCountry)) return prev;
+        return { ...prev, country: nextDestinationCountry };
+      }
+      return prev;
+    });
+  }, [destinationCountry]);
+
+  useEffect(() => {
+    const venueCountry = String(primaryVenue.country ?? "").trim();
+    if (!venueCountry) {
+      setVenueCitySuggestions([]);
+      return;
+    }
+
+    let isCancelled = false;
+    const loadCitySuggestions = async () => {
+      try {
+        const params = new URLSearchParams({
+          status: "active",
+          destinationCountry: venueCountry,
+          perPage: "50",
+          page: "1",
+        });
+        const response = await fetch(`/api/publications?${params.toString()}`, { cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        const items = Array.isArray(data?.items) ? data.items : [];
+        const seen = new Set<string>();
+        const nextSuggestions = items
+          .flatMap((item: any) => [
+            String(item?.city ?? "").trim(),
+            String(item?.headquarterCity ?? "").trim(),
+            ...(Array.isArray(item?.fields?.headquarterLocations)
+              ? item.fields.headquarterLocations.map((location: any) => String(location?.city ?? "").trim())
+              : []),
+          ])
+          .filter(Boolean)
+          .filter((city: string) => {
+            const key = normalize(city);
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .sort((a: string, b: string) => a.localeCompare(b, locale === "en" ? "en" : locale === "pt" ? "pt" : locale === "it" ? "it" : "es"));
+        if (!isCancelled) setVenueCitySuggestions(nextSuggestions);
+      } catch {
+        if (!isCancelled) setVenueCitySuggestions([]);
+      }
+    };
+
+    void loadCitySuggestions();
+    return () => {
+      isCancelled = true;
+    };
+  }, [locale, primaryVenue.country]);
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     const originalPosition = document.body.style.position;
@@ -1196,6 +1483,7 @@ export default function ModalOferente({
         if (nextResult === "success") {
           clearPaymentWatcher();
           setPaymentUi({ status: "success", messageKey: "oferente_pago_completado" });
+          clearDraft();
           onSubmitted?.({ serviceId, plan: paidPlan });
           submittedServiceIdRef.current = null;
           return;
@@ -1211,7 +1499,7 @@ export default function ModalOferente({
         clearPaymentWatcher();
       }
     }, 3000);
-  }, [clearPaymentWatcher, onPaymentResolved, onSubmitted, verifyPaymentStatus]);
+  }, [clearDraft, clearPaymentWatcher, onPaymentResolved, onSubmitted, verifyPaymentStatus]);
 
   const handleResolvedPaymentResult = useCallback((
     result: "success" | "cancel" | "pending",
@@ -1225,6 +1513,7 @@ export default function ModalOferente({
     setFeaturedTypeFocusKey((prev) => prev + 1);
     if (result === "success") {
       setPaymentUi({ status: "success", messageKey: "oferente_pago_completado" });
+      clearDraft();
       onSubmitted?.({ serviceId, plan: paidPlan });
       submittedServiceIdRef.current = null;
       return;
@@ -1237,7 +1526,7 @@ export default function ModalOferente({
     setPaymentUi({ status: "cancel", messageKey: "oferente_pago_no_completado" });
     onPaymentResolved?.({ serviceId, plan: paidPlan, status: "cancel" });
     submittedServiceIdRef.current = null;
-  }, [clearPaymentWatcher, keepCheckingPendingPayment, onPaymentResolved, onSubmitted]);
+  }, [clearDraft, clearPaymentWatcher, keepCheckingPendingPayment, onPaymentResolved, onSubmitted]);
 
   useEffect(() => {
     const handlePaymentResult = async (rawStatus: string, payloadServiceId?: string) => {
@@ -1294,6 +1583,18 @@ export default function ModalOferente({
     return normalize(category.taxonomyType);
   };
 
+  const resolveCategoryRoot = useCallback((category: Category, byId: Map<string, Category>) => {
+    let current: Category | undefined = category;
+    let depth = 0;
+    while (current?.parentId && depth < 10) {
+      const parent = byId.get(current.parentId);
+      if (!parent) break;
+      current = parent;
+      depth += 1;
+    }
+    return current ?? category;
+  }, []);
+
   const byTaxonomy = useCallback((aliases: string[]) => {
     const wanted = aliases.map(normalize);
     const byId = new Map(categories.map((c) => [c.id, c]));
@@ -1303,13 +1604,26 @@ export default function ModalOferente({
       .filter((c) => c.value);
   }, [categories]);
 
-  const categoriaOptions = useMemo(
-    () => categories
-      .filter((c) => c.isPrimaryCategory === true && c.isPublicVisible !== false)
-      .map((c) => ({ value: c.description, label: c.description }))
-      .filter((c) => c.value),
-    [categories]
-  );
+  const categoriaOptions = useMemo(() => {
+    const byId = new Map(categories.map((category) => [category.id, category]));
+    return uniqueOptions(
+      categories
+        .filter((category) => {
+          if (category.isPublicVisible === false) return false;
+          if (normalize(taxonomyFor(category, byId)) !== "categoria") return false;
+          const root = resolveCategoryRoot(category, byId);
+          return root.isPrimaryCategory === true && root.isPublicVisible !== false;
+        })
+        .map((category) => {
+          const root = resolveCategoryRoot(category, byId);
+          return {
+            value: category.description,
+            label: category.parentId ? `${root.description} / ${category.description}` : category.description,
+          };
+        })
+        .filter((category) => category.value)
+    );
+  }, [categories, resolveCategoryRoot]);
 
   const optionsByTaxonomy = useCallback((taxonomyAliases: string[]) => {
     const fromCategories = byTaxonomy(taxonomyAliases);
@@ -1323,7 +1637,7 @@ export default function ModalOferente({
   }, [byTaxonomy, filterGroups]);
 
   const languageOptions = useMemo(() => optionsByTaxonomy(["idioma", "idiomas", "language", "languages"]), [optionsByTaxonomy]);
-  const typeOptions = useMemo(() => optionsByTaxonomy(["tipo", "tipos", "type", "types"]), [optionsByTaxonomy]);
+  const typeOptions = useMemo(() => optionsByTaxonomy(["tipo", "tipos", "type", "types", "tipo perfil", "tipoperfil", "profile type", "profile_type"]), [optionsByTaxonomy]);
 
   const validateBasic = () => {
     if (!effectiveCountry) {
@@ -1390,7 +1704,7 @@ export default function ModalOferente({
   };
 
   const validateFeatured = () => {
-    if (!primaryVenue.country.trim() || !primaryVenue.city.trim()) {
+    if (!primaryVenue.country.trim()) {
       toast.error(mt("oferente_toast_sede"));
       return false;
     }
@@ -1597,6 +1911,7 @@ export default function ModalOferente({
       const serviceId = String(data?.item?.id ?? data?.id ?? resumeSubmissionId ?? "").trim();
       submittedServiceIdRef.current = serviceId;
       if (publicationPlan === "basic_free" || isResumePaidWithoutNewCharge) {
+        clearDraft();
         toast.success(t("solicitud_reenviada"));
         onSubmitted?.({ serviceId, plan: publicationPlan });
         submittedServiceIdRef.current = null;
@@ -1685,6 +2000,7 @@ export default function ModalOferente({
         keepPaymentLoading = true;
         return;
       }
+      clearDraft();
       toast.success(mt("oferente_toast_revision"), { duration: 6000 });
       onClose();
     } catch (error) {
@@ -1729,6 +2045,7 @@ export default function ModalOferente({
   const paidPlanTitle = selectedPlan === "monthly"
     ? (locale === "en" ? "Monthly plan" : locale === "pt" ? "Plano mensal" : locale === "it" ? "Piano mensile" : "Plan mensual")
     : mt("oferente_publicacion_destacada");
+  const aiFieldTarget: AiFieldTarget = step === "featured" ? "included" : "description";
   const resumeSubmitLabel = locale === "en"
     ? "Update publication"
     : locale === "pt"
@@ -1816,6 +2133,7 @@ export default function ModalOferente({
           <input
             value={profileName}
             onChange={(e) => setProfileName(e.target.value)}
+            title={mt("oferente_nombre_perfil")}
             className="w-full rounded-2xl bg-white p-4 pb-5 pl-12 pt-5 text-black outline-none transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus:scale-[1.01]"
             style={{
               boxShadow: isEmptyProfileName
@@ -1834,6 +2152,8 @@ export default function ModalOferente({
             icon="tag"
             isEmpty={isEmptyProposalCategory}
             emptyText={mt("oferente_sin_opciones")}
+            maxSelections={MAX_PROVIDER_CATEGORIES}
+            onLimitReached={() => toast.error(mt("oferente_toast_categoria_limite"))}
           />
         </div>
       </div>
@@ -1978,7 +2298,13 @@ export default function ModalOferente({
             <label className="mb-1 block text-sm font-medium text-slate-700">{mt("oferente_pais_sede")}</label>
             <DestinationSelect
               destinationCountry={primaryVenue.country}
-              setDestinationCountry={(country) => setPrimaryVenue((prev) => ({ ...prev, country }))}
+              setDestinationCountry={(country) => {
+                const nextCountry = String(country ?? "").trim();
+                if (autoFilledVenueCountryRef.current && normalize(nextCountry) !== normalize(autoFilledVenueCountryRef.current)) {
+                  autoFilledVenueCountryRef.current = "";
+                }
+                setPrimaryVenue((prev) => ({ ...prev, country: nextCountry }));
+              }}
               label={mt("oferente_pais_sede")}
               customClass="mb-0"
               isInModal
@@ -1987,15 +2313,23 @@ export default function ModalOferente({
             />
           </div>
           <div className="rounded-2xl bg-white p-3 shadow-[0_12px_36px_-18px_rgba(8,217,189,0.55),0_6px_18px_-9px_rgba(4,181,189,0.35)]">
-            <input value={primaryVenue.city} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, city: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={mt("oferente_ciudad_sede")} />
+            <input value={primaryVenue.city} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, city: event.target.value }))} list="provider-venue-city-suggestions" autoComplete="address-level2" title={`${mt("oferente_ciudad_sede")} (${mt("oferente_opcional")})`} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={`${mt("oferente_ciudad_sede")} (${mt("oferente_opcional")})`} />
+            {venueCitySuggestions.length ? (
+              <datalist id="provider-venue-city-suggestions">
+                {venueCitySuggestions.map((city) => (
+                  <option key={city} value={city} />
+                ))}
+              </datalist>
+            ) : null}
           </div>
           <div className="rounded-2xl bg-white p-3 shadow-[0_12px_36px_-18px_rgba(8,217,189,0.55),0_6px_18px_-9px_rgba(4,181,189,0.35)]">
             <div className="relative">
               <MapPin className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#0B8FA3]" />
-              <input value={primaryVenue.mapUrl} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, mapUrl: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={mt("oferente_url_maps")} />
+              <input value={primaryVenue.mapUrl} onChange={(event) => setPrimaryVenue((prev) => ({ ...prev, mapUrl: event.target.value }))} title={`${mt("oferente_url_maps")} (${mt("oferente_opcional")})`} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={`${mt("oferente_url_maps")} (${mt("oferente_opcional")})`} />
             </div>
           </div>
         </div>
+        <p className="mt-3 text-xs text-slate-500">{mt("oferente_sede_helper")}</p>
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
@@ -2052,7 +2386,7 @@ export default function ModalOferente({
               </select>
               <div className="relative">
                 <LinkIcon className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[#0B8FA3]" />
-                <input value={entry.url} onChange={(event) => setContactLinks((prev) => prev.map((item, idx) => idx === index ? { ...item, url: event.target.value } : item))} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30" placeholder={mt("oferente_link_email_placeholder")} />
+                <input value={entry.url} onChange={(event) => setContactLinks((prev) => prev.map((item, idx) => idx === index ? { ...item, url: event.target.value } : item))} title={mt("oferente_link_email_placeholder")} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30" placeholder={mt("oferente_link_email_placeholder")} />
               </div>
               <button type="button" onClick={() => setContactLinks((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== index) : prev)} disabled={contactLinks.length <= 1} className="rounded-xl border border-slate-200 px-3 text-xs text-slate-600 disabled:opacity-40">{mt("oferente_quitar")}</button>
             </div>
@@ -2176,13 +2510,14 @@ export default function ModalOferente({
           description={step === "featured" ? included : description}
           setDescription={step === "featured" ? setIncluded : setDescription}
           typeProfile={providerType}
-          selectedCategory={proposalCategories[0] ?? ""}
+          selectedCategory={proposalCategories.join(", ")}
           isOfrezco={isOfrezco}
           isIntermediario={isIntermediario}
           destinationCountry={destinationCountry}
           contanos={description}
           website={website}
           country={selectedCountry}
+          fieldTarget={aiFieldTarget}
         />
       ) : null}
     </>

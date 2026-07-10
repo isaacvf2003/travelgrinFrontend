@@ -305,6 +305,7 @@ export default function DestinationSelect({
   };
 
   const flagSelected = selectedCountryObj?.flags?.svg || selectedCountryObj?.flags?.png || null;
+  const buttonTitle = destinationCountry || innerPlaceholder || label;
 
   return (
     // ✅ w-full para que el rectángulo ocupe TODO el ancho del wrapper (y quede igual al de categoría)
@@ -318,6 +319,7 @@ export default function DestinationSelect({
         ref={buttonRef}
         type="button"
         onClick={handleButtonClick}
+        title={buttonTitle}
         className={`group relative w-full rounded-lg border bg-white text-left shadow-sm transition-all duration-200 hover:shadow-md ${
           error ? "border-rose-300 ring-2 ring-rose-100" : "border-gray-200 hover:border-teal-200"
         } ${
@@ -339,6 +341,7 @@ export default function DestinationSelect({
           {flagSelected ? <Image src={flagSelected} width={20} height={14} alt="flag" /> : null}
 
           <span
+            title={buttonTitle}
             className={`block w-full truncate whitespace-nowrap ${
               destinationCountry ? "text-gray-700" : "text-gray-500 text-sm"
             }`}
