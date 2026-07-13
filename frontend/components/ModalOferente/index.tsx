@@ -26,7 +26,7 @@ type Props = {
   fixedCountry?: string;
   initialPlan?: "basic_free" | "featured" | "monthly";
   preferredPaidPlanType?: "featured_120d" | "featured_monthly";
-  requestKind?: "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" | "edit_publication";
+  requestKind?: "new_publication" | "renew_free" | "renew_featured_120d" | "renew_featured_monthly" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" | "edit_publication";
   previousPlan?: "basic_free" | "featured" | "monthly";
   sourceServiceId?: string;
   sourcePublicationId?: string;

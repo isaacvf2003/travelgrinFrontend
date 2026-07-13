@@ -406,7 +406,7 @@ export default function ProviderPortalPanel() {
   const [modalPlanIntent, setModalPlanIntent] = useState<"basic_free" | "featured" | "monthly">("basic_free");
   const [preferredPaidPlanType, setPreferredPaidPlanType] = useState<"featured_120d" | "featured_monthly">("featured_120d");
   const [modalVisiblePlans, setModalVisiblePlans] = useState<Array<"basic_free" | "featured" | "monthly">>(["basic_free", "featured"]);
-  const [modalRequestKind, setModalRequestKind] = useState<"new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" | "edit_publication">("new_publication");
+  const [modalRequestKind, setModalRequestKind] = useState<"new_publication" | "renew_free" | "renew_featured_120d" | "renew_featured_monthly" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" | "edit_publication">("new_publication");
   const [modalPreviousPlan, setModalPreviousPlan] = useState<"basic_free" | "featured" | "monthly" | undefined>(undefined);
   const [modalSourceServiceId, setModalSourceServiceId] = useState<string | undefined>(undefined);
   const [modalSourcePublicationId, setModalSourcePublicationId] = useState<string | undefined>(undefined);
@@ -948,7 +948,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
       requestedPlan === "featured_monthly" || resumePlan === "monthly" ? "featured_monthly" : "featured_120d",
     );
     setModalVisiblePlans([resumePlan]);
-    setModalRequestKind((submission.requestKind as "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" | "edit_publication") || "new_publication");
+    setModalRequestKind((submission.requestKind as "new_publication" | "renew_free" | "renew_featured_120d" | "renew_featured_monthly" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" | "edit_publication") || "new_publication");
     setModalPreviousPlan(submission.previousPlan === "basic_free" || submission.previousPlan === "featured" || submission.previousPlan === "monthly" ? submission.previousPlan : undefined);
     setModalSourceServiceId(submission.sourceServiceId || undefined);
     setModalSourcePublicationId(String((submission.draftData as Record<string, unknown> | undefined)?.sourcePublicationId ?? "").trim() || undefined);
@@ -1278,6 +1278,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
   const requestKindLabel = useCallback((value?: string) => {
     const normalized = String(value ?? "").trim().toLowerCase();
     if (normalized === "renew_free") return planCopy.requestRenew;
+    if (normalized === "renew_featured_120d") return locale === "en" ? "Featured renewal" : locale === "pt" ? "Renovacao de destaque" : locale === "it" ? "Rinnovo in evidenza" : "Renovacion de destacado";
+    if (normalized === "renew_featured_monthly") return locale === "en" ? "Monthly plan renewal" : locale === "pt" ? "Renovacao do plano mensal" : locale === "it" ? "Rinnovo piano mensile" : "Renovacion de plan mensual";
     if (normalized === "upgrade_featured_120d") return planCopy.requestUpgrade120;
     if (normalized === "upgrade_featured_monthly") return planCopy.requestUpgradeMonthly;
     if (normalized === "downgrade_free") return planCopy.requestDowngrade;
@@ -1320,20 +1322,23 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     sourceSubmission?: PortalSubmission | null,
     sourceInitialData?: Record<string, unknown> | null,
   ) => {
+    const sourceInitialPlan = normalizePortalPlanType(sourceInitialData?.planType ?? sourceInitialData?.publicationPlan ?? sourceInitialData?.requestedPlan);
     const previous = sourceSubmission?.planType === "featured" || sourceSubmission?.planType === "monthly"
       ? sourceSubmission.planType
+      : sourceInitialPlan === "featured" || sourceInitialPlan === "monthly"
+        ? sourceInitialPlan
       : currentPlanType === "featured" || currentPlanType === "monthly"
         ? currentPlanType
         : "basic_free";
-    let requestKind: "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" = "new_publication";
+    let requestKind: "new_publication" | "renew_free" | "renew_featured_120d" | "renew_featured_monthly" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" = "new_publication";
     if (plan === "basic_free") {
       if (sourceSubmission?.id || latestApprovedSubmission?.id) {
         requestKind = previous === "basic_free" ? "renew_free" : "downgrade_free";
       }
     } else if (plan === "featured") {
-      requestKind = "upgrade_featured_120d";
+      requestKind = previous === "featured" ? "renew_featured_120d" : "upgrade_featured_120d";
     } else {
-      requestKind = "upgrade_featured_monthly";
+      requestKind = previous === "monthly" ? "renew_featured_monthly" : "upgrade_featured_monthly";
     }
     setModalPlanIntent(plan);
     setPreferredPaidPlanType(plan === "monthly" ? "featured_monthly" : "featured_120d");
@@ -1377,59 +1382,89 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     const relatedDraft = relatedSubmission?.draftData && typeof relatedSubmission.draftData === "object"
       ? relatedSubmission.draftData
       : {};
+    const textValue = (value: unknown) => String(value ?? "").trim();
+    const stringArray = (value: unknown) => Array.isArray(value)
+      ? value.map((entry) => String(entry ?? "").trim()).filter(Boolean)
+      : [];
+    const firstNonEmptyArray = (...values: unknown[]) => {
+      for (const value of values) {
+        const entries = stringArray(value);
+        if (entries.length) return entries;
+      }
+      return [];
+    };
+    const objectArray = (value: unknown) => Array.isArray(value)
+      ? value.filter((entry) => entry && typeof entry === "object") as Record<string, unknown>[]
+      : [];
+    const firstNonEmptyObjectArray = (...values: unknown[]) => {
+      for (const value of values) {
+        const entries = objectArray(value);
+        if (entries.length) return entries;
+      }
+      return [];
+    };
+    const firstText = (...values: unknown[]) => {
+      for (const value of values) {
+        const next = textValue(value);
+        if (next) return next;
+      }
+      return "";
+    };
     const firstLocation = Array.isArray(fields.headquarterLocations) && fields.headquarterLocations[0] && typeof fields.headquarterLocations[0] === "object"
       ? fields.headquarterLocations[0] as Record<string, unknown>
       : null;
-    const categorySelections = Array.isArray(fields.categorySelections)
-      ? fields.categorySelections
-      : [publication.category, publication.subcategory].filter(Boolean);
-    const socialLinksDetailed = Array.isArray(fields.socialLinksDetailed)
-      ? fields.socialLinksDetailed
+    const categorySelections = firstNonEmptyArray(
+      relatedDraft.category,
+      fields.categorySelections,
+      [publication.category, publication.subcategory],
+    );
+    const detailedLinksFromData = firstNonEmptyObjectArray(relatedDraft.socialLinksDetailed, fields.socialLinksDetailed);
+    const socialLinksDetailed = detailedLinksFromData.length
+      ? detailedLinksFromData
       : Array.isArray(publication.socialLinks)
         ? publication.socialLinks.map((url) => ({ kind: "web", url, label: "" }))
         : [];
-    const priceByCurrency = Array.isArray(fields.priceByCurrency)
-      ? fields.priceByCurrency
+    const priceByCurrencyFromData = firstNonEmptyObjectArray(relatedDraft.priceByCurrency, fields.priceByCurrency);
+    const priceByCurrency = priceByCurrencyFromData.length
+      ? priceByCurrencyFromData
       : publication.price || publication.currency
         ? [{ currency: publication.currency || "USD", amount: publication.price || "" }]
         : [];
     return {
       ...relatedDraft,
-      name: publication.providerName || String(fields.publisherName ?? relatedDraft.name ?? ""),
+      name: firstText(relatedDraft.name, relatedDraft.profileName, publication.providerName, fields.publisherName),
       category: categorySelections,
-      typeProfile: Array.isArray(fields.typeProfile)
-        ? fields.typeProfile
-        : Array.isArray(fields.providerTypes)
-          ? fields.providerTypes
-          : relatedDraft.typeProfile ?? [],
+      typeProfile: firstNonEmptyArray(relatedDraft.typeProfile, fields.typeProfile, fields.providerTypes),
       isOfrezco: fields.isOfrezco === true || relatedDraft.isOfrezco === true,
       isIntermediario: fields.isIntermediario === true || relatedDraft.isIntermediario === true,
-      destinationCountry: publication.country || String((Array.isArray(fields.travelDestinations) ? (fields.travelDestinations[0] as Record<string, unknown> | undefined)?.country : "") ?? relatedDraft.destinationCountry ?? ""),
-      country: publication.country || String(relatedDraft.country ?? ""),
-      city: publication.city || String(firstLocation?.city ?? relatedDraft.city ?? ""),
-      headquarterCountry: publication.headquarterCountry || String(firstLocation?.country ?? relatedDraft.headquarterCountry ?? publication.country ?? ""),
-      headquarterCity: publication.city || String(firstLocation?.city ?? relatedDraft.headquarterCity ?? ""),
-      headquarterMapUrl: String(firstLocation?.mapUrl ?? fields.locationAddress ?? relatedDraft.headquarterMapUrl ?? ""),
-      venues: Array.isArray(fields.headquarterLocations) ? fields.headquarterLocations : relatedDraft.venues ?? [],
-      receivingCountriesMode: String(fields.receivingCountriesMode ?? relatedDraft.receivingCountriesMode ?? "all"),
-      receivingCountries: Array.isArray(fields.receivingCountries) ? fields.receivingCountries : relatedDraft.receivingCountries ?? [],
-      languages: Array.isArray(publication.languages) && publication.languages.length ? publication.languages : Array.isArray(fields.languages) ? fields.languages : relatedDraft.languages ?? [],
-      contanos: publication.description || String(relatedDraft.contanos ?? ""),
-      description: publication.description || String(relatedDraft.description ?? ""),
-      website: publication.website || String(relatedDraft.website ?? ""),
-      images: Array.isArray(publication.images) && publication.images.length ? publication.images : Array.isArray(fields.images) ? fields.images : relatedDraft.images ?? [],
-      imageAssets: Array.isArray(fields.imageAssets) ? fields.imageAssets : relatedDraft.imageAssets ?? [],
-      providerLogo: String(fields.providerLogo ?? relatedDraft.providerLogo ?? ""),
-      providerLogoAsset: fields.providerLogoAsset ?? relatedDraft.providerLogoAsset ?? null,
-      included: String(fields.included ?? relatedDraft.included ?? ""),
-      notIncluded: String(fields.notIncluded ?? relatedDraft.notIncluded ?? ""),
+      destinationCountry: firstText(relatedDraft.destinationCountry, relatedDraft.country, publication.country, Array.isArray(fields.travelDestinations) ? (fields.travelDestinations[0] as Record<string, unknown> | undefined)?.country : ""),
+      country: firstText(relatedDraft.country, publication.country),
+      city: firstText(relatedDraft.city, publication.city, firstLocation?.city),
+      headquarterCountry: firstText(relatedDraft.headquarterCountry, publication.headquarterCountry, firstLocation?.country, publication.country),
+      headquarterCity: firstText(relatedDraft.headquarterCity, publication.city, firstLocation?.city),
+      headquarterMapUrl: firstText(relatedDraft.headquarterMapUrl, relatedDraft.destinationMapUrl, firstLocation?.mapUrl, fields.locationAddress),
+      venues: Array.isArray(relatedDraft.venues) && relatedDraft.venues.length ? relatedDraft.venues : Array.isArray(fields.headquarterLocations) ? fields.headquarterLocations : [],
+      receivingCountriesMode: firstText(relatedDraft.receivingCountriesMode, fields.receivingCountriesMode, "all"),
+      receivingCountries: firstNonEmptyArray(relatedDraft.receivingCountries, fields.receivingCountries),
+      languages: firstNonEmptyArray(relatedDraft.languages, publication.languages, fields.languages),
+      contanos: firstText(relatedDraft.contanos, relatedDraft.description, publication.description),
+      description: firstText(relatedDraft.description, relatedDraft.contanos, publication.description),
+      website: firstText(relatedDraft.website, publication.website),
+      images: firstNonEmptyArray(relatedDraft.images, publication.images, fields.images),
+      imageAssets: Array.isArray(relatedDraft.imageAssets) && relatedDraft.imageAssets.length ? relatedDraft.imageAssets : Array.isArray(fields.imageAssets) ? fields.imageAssets : [],
+      providerLogo: firstText(relatedDraft.providerLogo, fields.providerLogo),
+      providerLogoAsset: relatedDraft.providerLogoAsset ?? fields.providerLogoAsset ?? null,
+      included: firstText(relatedDraft.included, fields.included),
+      notIncluded: firstText(relatedDraft.notIncluded, fields.notIncluded),
       socialLinksDetailed,
-      socialLinks: Array.isArray(publication.socialLinks) ? publication.socialLinks : relatedDraft.socialLinks ?? [],
-      price: publication.price || String(relatedDraft.price ?? ""),
-      currency: publication.currency || String(relatedDraft.currency ?? ""),
+      socialLinks: firstNonEmptyArray(relatedDraft.socialLinks, publication.socialLinks),
+      price: firstText(relatedDraft.price, publication.price),
+      currency: firstText(relatedDraft.currency, publication.currency),
       priceByCurrency,
       priceNegotiable: fields.priceNegotiable === true || relatedDraft.priceNegotiable === true,
-      pricePeriod: String(fields.pricePeriod ?? relatedDraft.pricePeriod ?? "month"),
+      pricePeriod: firstText(relatedDraft.pricePeriod, fields.pricePeriod, "month"),
+      planType: normalizePortalPlanType(fields.publicationPlan ?? fields.requestedPlan ?? fields.planType ?? publication.requestedPlan ?? publication.planType),
+      publicationPlan: normalizePortalPlanType(fields.publicationPlan ?? fields.requestedPlan ?? fields.planType ?? publication.requestedPlan ?? publication.planType),
       sourcePublicationId: publication.id,
       sourceServiceId: publication.sourceServiceId || relatedSubmission?.id || "",
       requestKind: "edit_publication",
@@ -1437,7 +1472,21 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
   }, []);
 
   const openPublicationChangeRequest = useCallback((publication: PortalPublication, relatedSubmission?: PortalSubmission | null) => {
-    const plan = normalizePortalPlanType(publication.planType ?? relatedSubmission?.planType ?? (publication.featured ? "featured" : "basic_free"));
+    const fieldPlan = normalizePortalPlanType(
+      (publication.fields as Record<string, unknown> | undefined)?.publicationPlan ??
+      (publication.fields as Record<string, unknown> | undefined)?.requestedPlan ??
+      (publication.fields as Record<string, unknown> | undefined)?.planType ??
+      "",
+    );
+    const submissionPlan = normalizePortalPlanType(relatedSubmission?.requestedPlan ?? relatedSubmission?.planType);
+    const publicationPlan = normalizePortalPlanType(publication.requestedPlan ?? publication.planType);
+    const plan = publication.featured
+      ? (fieldPlan === "monthly" || submissionPlan === "monthly" || publicationPlan === "monthly" ? "monthly" : "featured")
+      : fieldPlan !== "basic_free"
+        ? fieldPlan
+        : submissionPlan !== "basic_free"
+          ? submissionPlan
+          : publicationPlan;
     setModalPlanIntent(plan);
     setPreferredPaidPlanType(plan === "monthly" ? "featured_monthly" : "featured_120d");
     setModalVisiblePlans([plan]);
@@ -1563,6 +1612,10 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
         const publicationTime = new Date(publication.updatedAt ?? publication.createdAt ?? 0).getTime();
         let relatedSubmission =
           approvedSubmissions.find((item) => item.id === explicitId || item.sourceServiceId === explicitId) ?? null;
+        const latestLinkedSubmission = latestSubmissionsBySourceId.get(`publication:${publication.id}`) ?? null;
+        if (latestLinkedSubmission && approvedStatuses.has(String(latestLinkedSubmission.status ?? "").trim().toLowerCase())) {
+          relatedSubmission = latestLinkedSubmission;
+        }
         if (!relatedSubmission) {
           relatedSubmission =
             approvedSubmissions
