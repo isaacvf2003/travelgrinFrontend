@@ -1280,9 +1280,10 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     if (normalized === "renew_free") return planCopy.requestRenew;
     if (normalized === "renew_featured_120d") return locale === "en" ? "Featured renewal" : locale === "pt" ? "Renovacao de destaque" : locale === "it" ? "Rinnovo in evidenza" : "Renovacion de destacado";
     if (normalized === "renew_featured_monthly") return locale === "en" ? "Monthly plan renewal" : locale === "pt" ? "Renovacao do plano mensal" : locale === "it" ? "Rinnovo piano mensile" : "Renovacion de plan mensual";
-    if (normalized === "upgrade_featured_120d") return planCopy.requestUpgrade120;
-    if (normalized === "upgrade_featured_monthly") return planCopy.requestUpgradeMonthly;
+    if (normalized === "upgrade_featured_120d") return locale === "en" ? "Free publication to featured change" : locale === "pt" ? "Alteracao de publicacao gratis para destaque" : locale === "it" ? "Cambio da pubblicazione gratis a in evidenza" : "Cambio de publicacion gratis a destacado";
+    if (normalized === "upgrade_featured_monthly") return locale === "en" ? "Free publication to monthly plan change" : locale === "pt" ? "Alteracao de publicacao gratis para plano mensal" : locale === "it" ? "Cambio da pubblicazione gratis a piano mensile" : "Cambio de publicacion gratis a plan mensual";
     if (normalized === "downgrade_free") return planCopy.requestDowngrade;
+    if (normalized === "edit_publication") return locale === "en" ? "Publication edit" : locale === "pt" ? "Edicao de publicacao" : locale === "it" ? "Modifica pubblicazione" : "Edicion de publicacion";
     if (normalized === "edit_publication") {
       return locale === "en" ? "Publication edit" : locale === "pt" ? "EdiÃ§Ã£o de publicaÃ§Ã£o" : locale === "it" ? "Modifica pubblicazione" : "EdiciÃ³n de publicaciÃ³n";
     }
