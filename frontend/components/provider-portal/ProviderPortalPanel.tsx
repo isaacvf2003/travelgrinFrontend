@@ -68,10 +68,20 @@ type PortalSubmission = {
 type PortalPublication = {
   id: string;
   title: string;
+  description?: string;
+  category?: string;
+  subcategory?: string;
   status: string;
   featured: boolean;
   country: string;
+  headquarterCountry?: string;
   city: string;
+  price?: string;
+  currency?: string;
+  languages?: string[];
+  images?: string[];
+  website?: string;
+  socialLinks?: string[];
   createdAt: string | null;
   updatedAt: string | null;
   expiration: string | null;
@@ -87,6 +97,7 @@ type PortalPublication = {
   monthlyAutoRenew?: boolean;
   monthlySubscriptionStatus?: string;
   monthlySubscriptionCancelledAt?: string;
+  fields?: Record<string, unknown>;
 };
 
 type PortalDashboard = {
@@ -395,9 +406,11 @@ export default function ProviderPortalPanel() {
   const [modalPlanIntent, setModalPlanIntent] = useState<"basic_free" | "featured" | "monthly">("basic_free");
   const [preferredPaidPlanType, setPreferredPaidPlanType] = useState<"featured_120d" | "featured_monthly">("featured_120d");
   const [modalVisiblePlans, setModalVisiblePlans] = useState<Array<"basic_free" | "featured" | "monthly">>(["basic_free", "featured"]);
-  const [modalRequestKind, setModalRequestKind] = useState<"new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free">("new_publication");
+  const [modalRequestKind, setModalRequestKind] = useState<"new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" | "edit_publication">("new_publication");
   const [modalPreviousPlan, setModalPreviousPlan] = useState<"basic_free" | "featured" | "monthly" | undefined>(undefined);
   const [modalSourceServiceId, setModalSourceServiceId] = useState<string | undefined>(undefined);
+  const [modalSourcePublicationId, setModalSourcePublicationId] = useState<string | undefined>(undefined);
+  const [modalPublicationChangeMode, setModalPublicationChangeMode] = useState(false);
   const [modalInitialData, setModalInitialData] = useState<Record<string, unknown> | null>(null);
   const [modalResumeMode, setModalResumeMode] = useState(false);
   const [modalResumeSubmissionId, setModalResumeSubmissionId] = useState<string | undefined>(undefined);
@@ -905,9 +918,11 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
       requestedPlan === "featured_monthly" || resumePlan === "monthly" ? "featured_monthly" : "featured_120d",
     );
     setModalVisiblePlans([resumePlan]);
-    setModalRequestKind((submission.requestKind as "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free") || "new_publication");
+    setModalRequestKind((submission.requestKind as "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" | "edit_publication") || "new_publication");
     setModalPreviousPlan(submission.previousPlan === "basic_free" || submission.previousPlan === "featured" || submission.previousPlan === "monthly" ? submission.previousPlan : undefined);
     setModalSourceServiceId(submission.sourceServiceId || undefined);
+    setModalSourcePublicationId(String((submission.draftData as Record<string, unknown> | undefined)?.sourcePublicationId ?? "").trim() || undefined);
+    setModalPublicationChangeMode(String(submission.requestKind ?? "").trim().toLowerCase() === "edit_publication");
     setModalInitialData({
       ...(submission.draftData ?? {}),
       name: submission.profileName || (submission.draftData as Record<string, unknown> | undefined)?.name || "",
@@ -1236,8 +1251,11 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     if (normalized === "upgrade_featured_120d") return planCopy.requestUpgrade120;
     if (normalized === "upgrade_featured_monthly") return planCopy.requestUpgradeMonthly;
     if (normalized === "downgrade_free") return planCopy.requestDowngrade;
+    if (normalized === "edit_publication") {
+      return locale === "en" ? "Publication edit" : locale === "pt" ? "EdiÃ§Ã£o de publicaÃ§Ã£o" : locale === "it" ? "Modifica pubblicazione" : "EdiciÃ³n de publicaciÃ³n";
+    }
     return planCopy.requestNew;
-  }, [planCopy]);
+  }, [locale, planCopy]);
 
   const compactHistoryHint = useMemo(() => (
     locale === "en"
@@ -1292,6 +1310,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     setModalRequestKind(requestKind);
     setModalPreviousPlan(previous);
     setModalSourceServiceId(sourceSubmission?.id || latestApprovedSubmission?.id);
+    setModalSourcePublicationId(undefined);
+    setModalPublicationChangeMode(false);
     setModalInitialData((sourceSubmission?.draftData as Record<string, unknown> | undefined) ?? null);
     setModalResumeMode(false);
     setModalResumeSubmissionId(undefined);
@@ -1307,6 +1327,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     setModalRequestKind("new_publication");
     setModalPreviousPlan(undefined);
     setModalSourceServiceId(undefined);
+    setModalSourcePublicationId(undefined);
+    setModalPublicationChangeMode(false);
     setModalInitialData(null);
     setModalResumeMode(false);
     setModalResumeSubmissionId(undefined);
@@ -1314,6 +1336,88 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     setModalResumeStatusReason("");
     setOpenSubmissionModal(true);
   }, [latestApprovedSubmission?.draftData]);
+
+  const buildPublicationEditInitialData = useCallback((publication: PortalPublication, relatedSubmission?: PortalSubmission | null) => {
+    const fields = (publication.fields && typeof publication.fields === "object" ? publication.fields : {}) as Record<string, unknown>;
+    const relatedDraft = relatedSubmission?.draftData && typeof relatedSubmission.draftData === "object"
+      ? relatedSubmission.draftData
+      : {};
+    const firstLocation = Array.isArray(fields.headquarterLocations) && fields.headquarterLocations[0] && typeof fields.headquarterLocations[0] === "object"
+      ? fields.headquarterLocations[0] as Record<string, unknown>
+      : null;
+    const categorySelections = Array.isArray(fields.categorySelections)
+      ? fields.categorySelections
+      : [publication.category, publication.subcategory].filter(Boolean);
+    const socialLinksDetailed = Array.isArray(fields.socialLinksDetailed)
+      ? fields.socialLinksDetailed
+      : Array.isArray(publication.socialLinks)
+        ? publication.socialLinks.map((url) => ({ kind: "web", url, label: "" }))
+        : [];
+    const priceByCurrency = Array.isArray(fields.priceByCurrency)
+      ? fields.priceByCurrency
+      : publication.price || publication.currency
+        ? [{ currency: publication.currency || "USD", amount: publication.price || "" }]
+        : [];
+    return {
+      ...relatedDraft,
+      name: publication.providerName || String(fields.publisherName ?? relatedDraft.name ?? ""),
+      category: categorySelections,
+      typeProfile: Array.isArray(fields.typeProfile)
+        ? fields.typeProfile
+        : Array.isArray(fields.providerTypes)
+          ? fields.providerTypes
+          : relatedDraft.typeProfile ?? [],
+      isOfrezco: fields.isOfrezco === true || relatedDraft.isOfrezco === true,
+      isIntermediario: fields.isIntermediario === true || relatedDraft.isIntermediario === true,
+      destinationCountry: publication.country || String((Array.isArray(fields.travelDestinations) ? (fields.travelDestinations[0] as Record<string, unknown> | undefined)?.country : "") ?? relatedDraft.destinationCountry ?? ""),
+      country: publication.country || String(relatedDraft.country ?? ""),
+      city: publication.city || String(firstLocation?.city ?? relatedDraft.city ?? ""),
+      headquarterCountry: publication.headquarterCountry || String(firstLocation?.country ?? relatedDraft.headquarterCountry ?? publication.country ?? ""),
+      headquarterCity: publication.city || String(firstLocation?.city ?? relatedDraft.headquarterCity ?? ""),
+      headquarterMapUrl: String(firstLocation?.mapUrl ?? fields.locationAddress ?? relatedDraft.headquarterMapUrl ?? ""),
+      venues: Array.isArray(fields.headquarterLocations) ? fields.headquarterLocations : relatedDraft.venues ?? [],
+      receivingCountriesMode: String(fields.receivingCountriesMode ?? relatedDraft.receivingCountriesMode ?? "all"),
+      receivingCountries: Array.isArray(fields.receivingCountries) ? fields.receivingCountries : relatedDraft.receivingCountries ?? [],
+      languages: Array.isArray(publication.languages) && publication.languages.length ? publication.languages : Array.isArray(fields.languages) ? fields.languages : relatedDraft.languages ?? [],
+      contanos: publication.description || String(relatedDraft.contanos ?? ""),
+      description: publication.description || String(relatedDraft.description ?? ""),
+      website: publication.website || String(relatedDraft.website ?? ""),
+      images: Array.isArray(publication.images) && publication.images.length ? publication.images : Array.isArray(fields.images) ? fields.images : relatedDraft.images ?? [],
+      imageAssets: Array.isArray(fields.imageAssets) ? fields.imageAssets : relatedDraft.imageAssets ?? [],
+      providerLogo: String(fields.providerLogo ?? relatedDraft.providerLogo ?? ""),
+      providerLogoAsset: fields.providerLogoAsset ?? relatedDraft.providerLogoAsset ?? null,
+      included: String(fields.included ?? relatedDraft.included ?? ""),
+      notIncluded: String(fields.notIncluded ?? relatedDraft.notIncluded ?? ""),
+      socialLinksDetailed,
+      socialLinks: Array.isArray(publication.socialLinks) ? publication.socialLinks : relatedDraft.socialLinks ?? [],
+      price: publication.price || String(relatedDraft.price ?? ""),
+      currency: publication.currency || String(relatedDraft.currency ?? ""),
+      priceByCurrency,
+      priceNegotiable: fields.priceNegotiable === true || relatedDraft.priceNegotiable === true,
+      pricePeriod: String(fields.pricePeriod ?? relatedDraft.pricePeriod ?? "month"),
+      sourcePublicationId: publication.id,
+      sourceServiceId: publication.sourceServiceId || relatedSubmission?.id || "",
+      requestKind: "edit_publication",
+    };
+  }, []);
+
+  const openPublicationChangeRequest = useCallback((publication: PortalPublication, relatedSubmission?: PortalSubmission | null) => {
+    const plan = normalizePortalPlanType(publication.planType ?? relatedSubmission?.planType ?? (publication.featured ? "featured" : "basic_free"));
+    setModalPlanIntent(plan);
+    setPreferredPaidPlanType(plan === "monthly" ? "featured_monthly" : "featured_120d");
+    setModalVisiblePlans([plan]);
+    setModalRequestKind("edit_publication");
+    setModalPreviousPlan(plan);
+    setModalSourceServiceId(publication.sourceServiceId || relatedSubmission?.id || undefined);
+    setModalSourcePublicationId(publication.id);
+    setModalPublicationChangeMode(true);
+    setModalInitialData(buildPublicationEditInitialData(publication, relatedSubmission));
+    setModalResumeMode(false);
+    setModalResumeSubmissionId(undefined);
+    setModalResumePaymentState("");
+    setModalResumeStatusReason("");
+    setOpenSubmissionModal(true);
+  }, [buildPublicationEditInitialData]);
 
   const deleteSubmission = useCallback(async (submission: PortalSubmission) => {
     if (typeof window !== "undefined" && !window.confirm(copy.submissionDeleteConfirm)) return;
@@ -1409,6 +1513,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
       return aTime - bTime; // oldest first so newest overwrites
     }).forEach(sub => {
       if (sub.sourceServiceId) latestSubmissionsBySourceId.set(sub.sourceServiceId, sub);
+      const sourcePublicationId = String((sub.draftData as Record<string, unknown> | undefined)?.sourcePublicationId ?? "").trim();
+      if (sourcePublicationId) latestSubmissionsBySourceId.set(`publication:${sourcePublicationId}`, sub);
     });
     const usedSubmissionIds = new Set<string>();
     return publications
@@ -1453,7 +1559,9 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
             ? relatedSubmission.expirationAt
             : publication.expiration;
         const latestInfoSubmission =
-          relatedSubmission?.id ? latestSubmissionsBySourceId.get(relatedSubmission.id) : null;
+          (relatedSubmission?.id ? latestSubmissionsBySourceId.get(relatedSubmission.id) : null)
+          ?? latestSubmissionsBySourceId.get(`publication:${publication.id}`)
+          ?? null;
 
         return {
           publication,
@@ -1979,6 +2087,13 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                         >
                           {locale === "en" ? "View publication" : locale === "pt" ? "Ver publicação" : locale === "it" ? "Vedi pubblicazione" : "Ver publicación"}
                         </a>
+                        <button
+                          type="button"
+                          onClick={() => openPublicationChangeRequest(publication, relatedSubmission)}
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                        >
+                          {locale === "en" ? "Request changes" : locale === "pt" ? "Solicitar alterações" : locale === "it" ? "Richiedi modifiche" : "Solicitar cambios"}
+                        </button>
                         {effectivePlanType === "basic_free" ? (
                           <>
                             <button
@@ -2100,6 +2215,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
             setModalResumeSubmissionId(undefined);
             setModalResumePaymentState("");
             setModalResumeStatusReason("");
+            setModalSourcePublicationId(undefined);
+            setModalPublicationChangeMode(false);
           }}
           initialEmail={sessionEmail}
           lockEmail
@@ -2110,6 +2227,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           requestKind={modalRequestKind}
           previousPlan={modalPreviousPlan}
           sourceServiceId={modalSourceServiceId}
+          sourcePublicationId={modalSourcePublicationId}
+          publicationChangeMode={modalPublicationChangeMode}
           initialData={modalInitialData}
           resumeMode={modalResumeMode}
           resumeSubmissionId={modalResumeSubmissionId}
@@ -2118,11 +2237,15 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           onSubmitted={() => {
             setOpenSubmissionModal(false);
             setModalResumeMode(false);
+            setModalSourcePublicationId(undefined);
+            setModalPublicationChangeMode(false);
             void loadSession();
           }}
           onPaymentResolved={() => {
             setOpenSubmissionModal(false);
             setModalResumeMode(false);
+            setModalSourcePublicationId(undefined);
+            setModalPublicationChangeMode(false);
             void loadSession();
           }}
         />

@@ -26,9 +26,11 @@ type Props = {
   fixedCountry?: string;
   initialPlan?: "basic_free" | "featured" | "monthly";
   preferredPaidPlanType?: "featured_120d" | "featured_monthly";
-  requestKind?: "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free";
+  requestKind?: "new_publication" | "renew_free" | "upgrade_featured_120d" | "upgrade_featured_monthly" | "downgrade_free" | "edit_publication";
   previousPlan?: "basic_free" | "featured" | "monthly";
   sourceServiceId?: string;
+  sourcePublicationId?: string;
+  publicationChangeMode?: boolean;
   initialData?: Record<string, any> | null;
   resumeMode?: boolean;
   resumeSubmissionId?: string;
@@ -883,6 +885,8 @@ export default function ModalOferente({
   requestKind = "new_publication",
   previousPlan,
   sourceServiceId = "",
+  sourcePublicationId = "",
+  publicationChangeMode = false,
   initialData = null,
   resumeMode = false,
   resumeSubmissionId = "",
@@ -953,11 +957,11 @@ export default function ModalOferente({
     const keyParts = [
       "travelgrin_oferente_draft",
       requestKind,
-      resumeSubmissionId || sourceServiceId || initialEmail || "new",
+      resumeSubmissionId || sourcePublicationId || sourceServiceId || initialEmail || "new",
       initialPlan,
     ].map((entry) => String(entry ?? "").trim()).filter(Boolean);
     return keyParts.join("__");
-  }, [initialEmail, initialPlan, requestKind, resumeSubmissionId, sourceServiceId]);
+  }, [initialEmail, initialPlan, requestKind, resumeSubmissionId, sourcePublicationId, sourceServiceId]);
 
   const [profileName, setProfileName] = useState("");
   const [proposalCategories, setProposalCategories] = useState<string[]>([]);
@@ -1935,6 +1939,7 @@ export default function ModalOferente({
       previousPlan: previousPlan ?? "",
       requestedPlan: publicationPlan === "monthly" ? "featured_monthly" : publicationPlan === "featured" ? "featured_120d" : "basic_free",
       sourceServiceId: sourceServiceId.trim(),
+      sourcePublicationId: sourcePublicationId.trim(),
       country: effectiveCountry,
       locale,
       acceptedTerms: true,
@@ -1948,7 +1953,8 @@ export default function ModalOferente({
     if (!validateBasic()) return;
     const isPaidPlan = publicationPlan === "featured" || publicationPlan === "monthly";
     if (isPaidPlan && !validateFeatured()) return;
-    const isResumePaidWithoutNewCharge = isPaidPlan && canReuseCompletedPayment;
+    const isPublicationChangeRequest = publicationChangeMode || requestKind === "edit_publication";
+    const isResumePaidWithoutNewCharge = isPaidPlan && (canReuseCompletedPayment || isPublicationChangeRequest);
 
     let preparedPaymentTab: Window | null = null;
     let keepPaymentLoading = false;
@@ -1984,10 +1990,12 @@ export default function ModalOferente({
       }
       const endpoint = resumeMode
         ? `/api/provider-portal/submissions/${encodeURIComponent(String(resumeSubmissionId || "").trim())}`
+        : isPublicationChangeRequest && sourcePublicationId.trim()
+          ? `/api/provider-portal/publications/${encodeURIComponent(sourcePublicationId.trim())}/change-request`
         : "/api/travel-services";
       const response = await fetch(endpoint, {
         method: resumeMode ? "PUT" : "POST",
-        credentials: resumeMode ? "include" : undefined,
+        credentials: resumeMode || isPublicationChangeRequest ? "include" : undefined,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildPayload(publicationPlan)),
       });
