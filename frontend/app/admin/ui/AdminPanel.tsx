@@ -6043,7 +6043,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       };
       const rankDiff = rank(a) - rank(b);
       if (rankDiff !== 0) return rankDiff;
-      return new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+      const timeFor = (item: Publication) => new Date(String((item as any).updatedAt ?? item.createdAt ?? 0)).getTime();
+      return timeFor(b) - timeFor(a);
     });
   const filteredReports = complaintReports.filter((item) => {
     const query = publicationSearch.toLowerCase().trim();
