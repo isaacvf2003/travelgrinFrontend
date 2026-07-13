@@ -38,7 +38,7 @@ type Props = {
   onSubmitted?: (info: { serviceId: string; plan: "basic_free" | "featured" | "monthly" }) => void;
   onPaymentResolved?: (info: { serviceId: string; plan: "featured" | "monthly"; status: "success" | "cancel" | "pending" }) => void;
 };
-type Category = { id: string; description: string; taxonomyType: string; isPrimaryCategory?: boolean; isPublicVisible?: boolean; parentId?: string | null };
+type Category = { id: string; description: string; taxonomyType: string; isPrimaryCategory?: boolean; visibleInCard?: boolean; isPublicVisible?: boolean; parentId?: string | null };
 type FilterOptionLite = { value?: string; label?: string; labelI18n?: Record<string, string> | null };
 type FilterGroupLite = { key?: string; label?: string; taxonomyType?: string | null; options?: FilterOptionLite[] };
 type SelectOption = { value: string; label: string };
@@ -1689,7 +1689,7 @@ export default function ModalOferente({
         if (category.isPublicVisible === false) return false;
         if (normalize(taxonomyFor(category, byId)) !== "categoria") return false;
         const root = resolveCategoryRoot(category, byId);
-        return root.isPrimaryCategory === true && root.isPublicVisible !== false;
+        return (root.visibleInCard ?? root.isPrimaryCategory) === true && root.isPublicVisible !== false;
       })
       .forEach((category) => {
         const root = resolveCategoryRoot(category, byId);

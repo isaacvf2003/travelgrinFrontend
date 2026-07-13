@@ -30,6 +30,7 @@ type CategoryLite = {
   iconImageUrl?: string | null;
   isPublicVisible?: boolean;
   isPrimaryCategory?: boolean;
+  visibleInCard?: boolean;
 };
 
 function normalizeVisibleSearchText(value: string) {
@@ -144,7 +145,7 @@ export default function SearchDestination() {
 
         const categoryItems: CategoryLite[] = Array.isArray(categoriesData?.items) ? categoriesData.items : [];
         const visibleCategories = categoryItems.filter(
-          (category) => category.isPublicVisible !== false && category.blockId && category.isPrimaryCategory === true
+          (category) => category.isPublicVisible !== false && category.blockId && (category.visibleInCard ?? category.isPrimaryCategory) === true
         );
 
         let blocks = orderedGroups

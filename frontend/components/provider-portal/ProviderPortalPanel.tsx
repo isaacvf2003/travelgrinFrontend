@@ -1961,6 +1961,14 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                             {locale === "en" ? "Update information" : locale === "pt" ? "Atualizar informação" : locale === "it" ? "Aggiorna informazioni" : "Actualizar información"}
                           </button>
                         ) : null}
+                        <a
+                          href={`/publicacion/${encodeURIComponent(publication.id)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-xl border border-cyan-200 bg-white px-3 py-2 text-xs font-semibold text-cyan-700 hover:bg-cyan-50"
+                        >
+                          {locale === "en" ? "View publication" : locale === "pt" ? "Ver publicação" : locale === "it" ? "Vedi pubblicazione" : "Ver publicación"}
+                        </a>
                         {effectivePlanType === "basic_free" ? (
                           <>
                             <button
