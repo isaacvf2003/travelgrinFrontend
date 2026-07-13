@@ -478,6 +478,36 @@ export default function ProviderPortalPanel() {
       locale === "pt" ? "O link vence em 20 minutos e a sessÃ£o fica ativa por 15 dias neste dispositivo." :
       locale === "it" ? "Il link scade in 20 minuti e la sessione resta attiva per 15 giorni su questo dispositivo." :
       "El enlace vence en 20 minutos y la sesiÃ³n queda activa por 15 dÃ­as en este dispositivo.",
+    requestLinkSent:
+      locale === "en" ? "If we find your email, we will send you a secure link to access your mini panel." :
+      locale === "pt" ? "Se encontrarmos seu email, enviaremos um link seguro para entrar no mini painel." :
+      locale === "it" ? "Se troviamo la tua email, ti invieremo un link sicuro per accedere al mini pannello." :
+      "Si encontramos tu email, te enviamos un enlace seguro para entrar al mini panel.",
+    loadPanelError:
+      locale === "en" ? "The mini panel could not be loaded." :
+      locale === "pt" ? "Nao foi possivel carregar o mini painel." :
+      locale === "it" ? "Non e stato possibile caricare il mini pannello." :
+      "No se pudo cargar el mini panel.",
+    sendLinkError:
+      locale === "en" ? "The secure link could not be sent." :
+      locale === "pt" ? "Nao foi possivel enviar o link seguro." :
+      locale === "it" ? "Non e stato possibile inviare il link sicuro." :
+      "No se pudo enviar el enlace seguro.",
+    deleteSubmissionError:
+      locale === "en" ? "The request could not be deleted." :
+      locale === "pt" ? "Nao foi possivel excluir a solicitacao." :
+      locale === "it" ? "Non e stato possibile eliminare la richiesta." :
+      "No se pudo eliminar la solicitud.",
+    refundError:
+      locale === "en" ? "The refund could not be requested." :
+      locale === "pt" ? "Nao foi possivel solicitar o reembolso." :
+      locale === "it" ? "Non e stato possibile richiedere il rimborso." :
+      "No se pudo solicitar el reembolso.",
+    cancelMonthlyError:
+      locale === "en" ? "The monthly subscription could not be cancelled." :
+      locale === "pt" ? "Nao foi possivel cancelar a assinatura mensal." :
+      locale === "it" ? "Non e stato possibile annullare l'abbonamento mensile." :
+      "No se pudo cancelar la suscripcion mensual.",
     accessOk:
       locale === "en" ? "Access verified. Welcome back." :
       locale === "pt" ? "Acesso verificado. Bem-vindo de volta." :
@@ -835,7 +865,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
       const response = await fetch("/api/provider-portal/session", { cache: "no-store", credentials: "include" });
       const data = (await response.json().catch(() => ({}))) as PortalSessionResponse;
       if (!response.ok || data?.ok === false) {
-        throw new Error(String(data?.error ?? "No se pudo cargar el mini panel."));
+        throw new Error(String(data?.error ?? copy.loadPanelError));
       }
       setAuthenticated(Boolean(data.authenticated));
       setSessionEmail(String(data?.session?.email ?? ""));
@@ -843,11 +873,11 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     } catch (error) {
       setAuthenticated(false);
       setDashboard(null);
-      setPanelError(error instanceof Error ? error.message : "No se pudo cargar el mini panel.");
+      setPanelError(error instanceof Error ? error.message : copy.loadPanelError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [copy.loadPanelError]);
 
   useEffect(() => {
     void loadSession();
@@ -1003,11 +1033,11 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok === false) {
-        throw new Error(String(data?.error ?? "No se pudo enviar el enlace seguro."));
+        throw new Error(String(data?.error ?? copy.sendLinkError));
       }
-      setRequestMessage(String(data?.message ?? ""));
+      setRequestMessage(String(data?.message ?? "") || copy.requestLinkSent);
     } catch (error) {
-      setRequestError(error instanceof Error ? error.message : "No se pudo enviar el enlace seguro.");
+      setRequestError(error instanceof Error ? error.message : copy.sendLinkError);
     } finally {
       setRequestingLink(false);
     }
@@ -1288,6 +1318,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
   const openPlanRequest = useCallback((
     plan: "basic_free" | "featured" | "monthly",
     sourceSubmission?: PortalSubmission | null,
+    sourceInitialData?: Record<string, unknown> | null,
   ) => {
     const previous = sourceSubmission?.planType === "featured" || sourceSubmission?.planType === "monthly"
       ? sourceSubmission.planType
@@ -1309,10 +1340,14 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     setModalVisiblePlans([plan]);
     setModalRequestKind(requestKind);
     setModalPreviousPlan(previous);
-    setModalSourceServiceId(sourceSubmission?.id || latestApprovedSubmission?.id);
-    setModalSourcePublicationId(undefined);
+    setModalSourceServiceId(
+      sourceSubmission?.id ||
+      String(sourceInitialData?.sourceServiceId ?? "").trim() ||
+      latestApprovedSubmission?.id,
+    );
+    setModalSourcePublicationId(String(sourceInitialData?.sourcePublicationId ?? "").trim() || undefined);
     setModalPublicationChangeMode(false);
-    setModalInitialData((sourceSubmission?.draftData as Record<string, unknown> | undefined) ?? null);
+    setModalInitialData(sourceInitialData ?? (sourceSubmission?.draftData as Record<string, unknown> | undefined) ?? null);
     setModalResumeMode(false);
     setModalResumeSubmissionId(undefined);
     setModalResumePaymentState("");
@@ -1430,16 +1465,16 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok === false) {
-        throw new Error(String(data?.error ?? "No se pudo eliminar la solicitud."));
+        throw new Error(String(data?.error ?? copy.deleteSubmissionError));
       }
       toast.success(copy.submissionDeleted);
       await loadSession();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo eliminar la solicitud.");
+      toast.error(error instanceof Error ? error.message : copy.deleteSubmissionError);
     } finally {
       setDeletingSubmissionId(null);
     }
-  }, [copy.submissionDeleteConfirm, copy.submissionDeleted, loadSession]);
+  }, [copy.deleteSubmissionError, copy.submissionDeleteConfirm, copy.submissionDeleted, loadSession]);
 
   const requestRefund = useCallback(async (submission: PortalSubmission) => {
     setRefundingSubmissionId(submission.id);
@@ -1453,16 +1488,16 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok === false) {
-        throw new Error(String(data?.error ?? "No se pudo solicitar el reembolso."));
+        throw new Error(String(data?.error ?? copy.refundError));
       }
       toast.success(locale === "en" ? "Refund requested." : locale === "pt" ? "Reembolso solicitado." : locale === "it" ? "Rimborso richiesto." : "Reembolso solicitado.");
       await loadSession();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo solicitar el reembolso.");
+      toast.error(error instanceof Error ? error.message : copy.refundError);
     } finally {
       setRefundingSubmissionId(null);
     }
-  }, [loadSession, locale]);
+  }, [copy.refundError, loadSession, locale]);
 
   const cancelMonthlySubscription = useCallback(async (submission: PortalSubmission | null | undefined) => {
     const submissionId = String(submission?.id ?? "").trim();
@@ -1484,16 +1519,16 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok === false) {
-        throw new Error(String(data?.error ?? "No se pudo cancelar la suscripción mensual."));
+        throw new Error(String(data?.error ?? copy.cancelMonthlyError));
       }
       toast.success(locale === "en" ? "Monthly subscription cancelled." : locale === "pt" ? "Assinatura mensal cancelada." : locale === "it" ? "Abbonamento mensile annullato." : "Suscripción mensual cancelada.");
       await loadSession();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo cancelar la suscripción mensual.");
+      toast.error(error instanceof Error ? error.message : copy.cancelMonthlyError);
     } finally {
       setCancellingMonthlySubmissionId(null);
     }
-  }, [loadSession, locale]);
+  }, [copy.cancelMonthlyError, loadSession, locale]);
 
   const visiblePublicationEntries = useMemo(() => {
     const publications = [...(dashboard?.publications ?? [])];
@@ -1864,6 +1899,11 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                     const statusLabel = visualSubmissionLabel(item);
                     const paymentView = getPortalPaymentView(item);
                     const paymentLabel = visualPaymentLabel(item);
+                    const requestedPlan = String(item.requestedPlan ?? "").trim().toLowerCase();
+                    const isFreeRequest =
+                      normalizePortalPlanType(item.planType) === "basic_free" &&
+                      !["featured", "featured_120d", "monthly", "featured_monthly"].includes(requestedPlan);
+                    const showPaymentInfo = !isFreeRequest;
                     const normalizedStatus = String(item.status ?? "").trim().toLowerCase();
                     const isApproved = ["aprobado", "approved", "active", "activo", "paid"].includes(normalizedStatus);
                     const canDelete = !isApproved && paymentView !== "confirmed" && paymentView !== "review";
@@ -1904,7 +1944,9 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                             <span className="text-sm font-semibold text-slate-900">{item.profileName || item.email}</span>
                             <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(plan.kind)}`}>{plan.label}</span>
                             <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(statusKind)}`}>{copy.status}: {decodeLikelyMojibake(statusLabel)}</span>
-                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(visualPaymentKind(item))}`}>{paymentLabel}</span>
+                            {showPaymentInfo ? (
+                              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(visualPaymentKind(item))}`}>{paymentLabel}</span>
+                            ) : null}
                             {refundStatus ? (
                               <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(visualRefundKind(item.refundStatus))}`}>{visualRefundLabel(item.refundStatus)}</span>
                             ) : null}
@@ -1959,7 +2001,9 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                         </div>
                         <div className="mt-2 grid gap-x-4 gap-y-1.5 text-sm text-slate-600 sm:grid-cols-2">
                           <div><span className="font-medium text-slate-800">{copy.destination}:</span> {item.destinationCountry || "-"}</div>
-                          <div><span className="font-medium text-slate-800">{copy.payment}:</span> {decodeLikelyMojibake(paymentLabel)}</div>
+                          {showPaymentInfo ? (
+                            <div><span className="font-medium text-slate-800">{copy.payment}:</span> {decodeLikelyMojibake(paymentLabel)}</div>
+                          ) : null}
                           <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(item.createdAt, locale)}</div>
                           <div><span className="font-medium text-slate-800">{copy.expiresAt}:</span> {formatDate(item.expirationAt, locale)}</div>
                           {item.statusUpdatedAt ? (
@@ -2098,7 +2142,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                           <>
                             <button
                               type="button"
-                              onClick={() => openPlanRequest("featured", canOpenFromHistory)}
+                              onClick={() => openPlanRequest("featured", canOpenFromHistory, buildPublicationEditInitialData(publication, relatedSubmission))}
                               className="rounded-xl bg-[#0B8FA3] px-3 py-2 text-xs font-semibold text-white hover:opacity-95"
                             >
                               {planCopy.upgradeToFeatured}
@@ -2109,14 +2153,14 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                           <>
                             <button
                               type="button"
-                              onClick={() => openPlanRequest("featured", canOpenFromHistory)}
+                              onClick={() => openPlanRequest("featured", canOpenFromHistory, buildPublicationEditInitialData(publication, relatedSubmission))}
                               className="rounded-xl bg-[#0B8FA3] px-3 py-2 text-xs font-semibold text-white hover:opacity-95"
                             >
                               {planCopy.renewFeatured}
                             </button>
                             <button
                               type="button"
-                              onClick={() => openPlanRequest("basic_free", canOpenFromHistory)}
+                              onClick={() => openPlanRequest("basic_free", canOpenFromHistory, buildPublicationEditInitialData(publication, relatedSubmission))}
                               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                             >
                               {planCopy.downgradeThisPublication}

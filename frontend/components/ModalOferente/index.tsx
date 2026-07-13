@@ -151,6 +151,10 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_pago_pestana: "Te abrimos una nueva pestaña para completar el pago.",
     oferente_toast_pago_exitoso: "Pago exitoso. Pronto verás la publicación en la web.",
     oferente_toast_pago_cancelado: "Pago no completado o cancelado. Podés intentarlo nuevamente.",
+    oferente_toast_nueva_publicacion: "Nueva publicacion enviada. En breve nos pondremos en contacto con usted.",
+    oferente_toast_cambios_enviados: "Solicitud de cambios enviada. El admin la revisara antes de actualizar la publicacion.",
+    oferente_toast_cambios_error: "No se pudo enviar la solicitud de cambios. Intenta nuevamente.",
+    oferente_solicitar_cambios: "Solicitar cambios",
     oferente_toast_imagen_valida: "Subí una imagen válida",
     oferente_toast_imagen_limite: "Podés subir hasta 5 imágenes. Te quedan {remaining}.",
     oferente_toast_imagen_tipo: "Solo se permiten imágenes válidas",
@@ -250,6 +254,10 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_pago_pestana: "We opened a new tab for you to complete the payment.",
     oferente_toast_pago_exitoso: "Payment successful. You will soon see the publication on the website.",
     oferente_toast_pago_cancelado: "Payment not completed or cancelled. You can try again.",
+    oferente_toast_nueva_publicacion: "New publication sent. We will contact you shortly.",
+    oferente_toast_cambios_enviados: "Change request sent. The admin will review it before updating the publication.",
+    oferente_toast_cambios_error: "The change request could not be sent. Please try again.",
+    oferente_solicitar_cambios: "Request changes",
     oferente_toast_imagen_valida: "Upload a valid image",
     oferente_toast_imagen_limite: "You can upload up to 5 images. You have {remaining} left.",
     oferente_toast_imagen_tipo: "Only valid images are allowed",
@@ -349,6 +357,10 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_pago_pestana: "Abrimos uma nova aba para você concluir o pagamento.",
     oferente_toast_pago_exitoso: "Pagamento realizado com sucesso. Em breve você verá a publicação no site.",
     oferente_toast_pago_cancelado: "Pagamento não concluído ou cancelado. Você pode tentar novamente.",
+    oferente_toast_nueva_publicacion: "Nova publicacao enviada. Entraremos em contato em breve.",
+    oferente_toast_cambios_enviados: "Solicitacao de alteracoes enviada. O admin vai revisar antes de atualizar a publicacao.",
+    oferente_toast_cambios_error: "Nao foi possivel enviar a solicitacao de alteracoes. Tente novamente.",
+    oferente_solicitar_cambios: "Solicitar alteracoes",
     oferente_toast_imagen_valida: "Carregue uma imagem válida",
     oferente_toast_imagen_limite: "Você pode carregar até 5 imagens. Restam {remaining}.",
     oferente_toast_imagen_tipo: "Somente imagens válidas são permitidas",
@@ -448,6 +460,10 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_pago_pestana: "Abbiamo aperto una nuova scheda per completare il pagamento.",
     oferente_toast_pago_exitoso: "Pagamento riuscito. Presto vedrai la pubblicazione sul sito.",
     oferente_toast_pago_cancelado: "Pagamento non completato o annullato. Puoi riprovare.",
+    oferente_toast_nueva_publicacion: "Nuova pubblicazione inviata. Ti contatteremo a breve.",
+    oferente_toast_cambios_enviados: "Richiesta di modifiche inviata. L'admin la esaminera prima di aggiornare la pubblicazione.",
+    oferente_toast_cambios_error: "Non e stato possibile inviare la richiesta di modifiche. Riprova.",
+    oferente_solicitar_cambios: "Richiedi modifiche",
     oferente_toast_imagen_valida: "Carica un'immagine valida",
     oferente_toast_imagen_limite: "Puoi caricare fino a 5 immagini. Ne restano {remaining}.",
     oferente_toast_imagen_tipo: "Sono consentite solo immagini valide",
@@ -1185,6 +1201,7 @@ export default function ModalOferente({
   useEffect(() => {
     if (!mounted || !hasHydratedInitialData || draftLoadedRef.current || typeof window === "undefined") return;
     draftLoadedRef.current = true;
+    if (initialData && (publicationChangeMode || requestKind === "edit_publication" || sourcePublicationId.trim())) return;
     try {
       const stored = window.localStorage.getItem(draftStorageKey);
       if (!stored) return;
@@ -1238,10 +1255,11 @@ export default function ModalOferente({
       setPricePeriod(String(parsed.pricePeriod ?? "month").trim() || "month");
       setPromoCode(String(parsed.promoCode ?? "").trim());
     } catch {}
-  }, [draftStorageKey, hasHydratedInitialData, initialEmail, lockEmail, mounted]);
+  }, [draftStorageKey, hasHydratedInitialData, initialData, initialEmail, lockEmail, mounted, publicationChangeMode, requestKind, sourcePublicationId]);
 
   useEffect(() => {
     if (!mounted || !draftLoadedRef.current || typeof window === "undefined") return;
+    if (publicationChangeMode || requestKind === "edit_publication" || sourcePublicationId.trim()) return;
     const draft: ProviderFormDraft = {
       version: PROVIDER_DRAFT_VERSION,
       updatedAt: Date.now(),
@@ -1312,6 +1330,9 @@ export default function ModalOferente({
     serviceImageAssets,
     serviceImageNames,
     serviceImages,
+    publicationChangeMode,
+    requestKind,
+    sourcePublicationId,
     step,
     website,
   ]);
@@ -2017,13 +2038,20 @@ export default function ModalOferente({
           setPaymentUi({ status: "idle" });
           return;
         }
-        throw new Error(String(data?.details ?? data?.error ?? ""));
+        throw new Error(String(data?.details ?? data?.error ?? "") || (isPublicationChangeRequest ? mt("oferente_toast_cambios_error") : t("error_form")));
       }
       const serviceId = String(data?.item?.id ?? data?.id ?? resumeSubmissionId ?? "").trim();
       submittedServiceIdRef.current = serviceId;
       if (publicationPlan === "basic_free" || isResumePaidWithoutNewCharge) {
         clearDraft();
-        toast.success(t("solicitud_reenviada"));
+        toast.success(
+          isPublicationChangeRequest
+            ? mt("oferente_toast_cambios_enviados")
+            : resumeMode
+              ? t("solicitud_reenviada")
+              : mt("oferente_toast_nueva_publicacion"),
+          { duration: 7000 },
+        );
         onSubmitted?.({ serviceId, plan: publicationPlan });
         submittedServiceIdRef.current = null;
         setIsLoading(false);
@@ -2124,7 +2152,7 @@ export default function ModalOferente({
           : undefined;
         setPaymentUi({ status: "error", messageKey: "oferente_pago_error", detail });
       } else {
-        toast.error(error instanceof Error && error.message ? error.message : t("error_form"));
+        toast.error(error instanceof Error && error.message ? error.message : (isPublicationChangeRequest ? mt("oferente_toast_cambios_error") : t("error_form")));
       }
     } finally {
       if (!keepPaymentLoading) setIsLoading(false);
@@ -2157,6 +2185,7 @@ export default function ModalOferente({
     ? (locale === "en" ? "Monthly plan" : locale === "pt" ? "Plano mensal" : locale === "it" ? "Piano mensile" : "Plan mensual")
     : mt("oferente_publicacion_destacada");
   const aiFieldTarget: AiFieldTarget = step === "featured" ? "included" : "description";
+  const isPublicationChangeRequestMode = publicationChangeMode || requestKind === "edit_publication";
   const resumeSubmitLabel = locale === "en"
     ? "Update publication"
     : locale === "pt"
@@ -2164,6 +2193,11 @@ export default function ModalOferente({
       : locale === "it"
         ? "Aggiorna pubblicazione"
         : "Actualizar publicación";
+  const basicSubmitLabel = isPublicationChangeRequestMode
+    ? mt("oferente_solicitar_cambios")
+    : resumeMode
+      ? resumeSubmitLabel
+      : mt("oferente_publicar_gratis");
   const monthlyContinueLabel = locale === "en" ? "Continue monthly" : locale === "pt" ? "Continuar mensal" : locale === "it" ? "Continua mensile" : "Continuar mensual";
   const monthlySubmitLabel = locale === "en" ? "Subscribe monthly" : locale === "pt" ? "Assinar mensal" : locale === "it" ? "Attiva piano mensile" : "Contratar mensual";
   const visiblePlanSet = new Set(visiblePlans);
@@ -2312,7 +2346,7 @@ export default function ModalOferente({
             tone="free"
             price="$ 0"
             items={basicItems}
-            buttonLabel={isLoading ? t("guardando") : (resumeMode ? resumeSubmitLabel : mt("oferente_publicar_gratis"))}
+            buttonLabel={isLoading ? t("guardando") : basicSubmitLabel}
             onClick={() => submit("basic_free")}
             disabled={isLoading || isPaymentBusy}
             promoPlaceholder={mt("oferente_codigo_promocional")}
@@ -2541,7 +2575,7 @@ export default function ModalOferente({
           showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
           priceCaption={`Moneda: ${effectivePlanPricing.currency}`}
           items={featuredItems}
-          buttonLabel={isLoading ? t("guardando") : (resumeMode ? resumeSubmitLabel : (selectedPlan === "monthly" ? monthlySubmitLabel : mt("oferente_publicar_destacado")))}
+          buttonLabel={isLoading ? t("guardando") : (isPublicationChangeRequestMode ? mt("oferente_solicitar_cambios") : resumeMode ? resumeSubmitLabel : (selectedPlan === "monthly" ? monthlySubmitLabel : mt("oferente_publicar_destacado")))}
           onClick={() => submit(selectedPlan === "monthly" ? "monthly" : "featured")}
           disabled={isLoading || isPaymentBusy}
           showPromo

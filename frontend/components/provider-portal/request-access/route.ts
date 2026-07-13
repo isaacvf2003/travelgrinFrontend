@@ -6,15 +6,40 @@ import { createProviderPortalMagicLink, getProviderPortalProfileName, portalEmai
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+function normalizeLocale(value: unknown) {
+  const locale = String(value ?? "es").trim().toLowerCase().split("-")[0];
+  return ["es", "en", "pt", "it"].includes(locale) ? locale : "es";
+}
+
+const messages = {
+  es: {
+    invalidEmail: "Email invalido.",
+    linkSent: "Si encontramos tu email, te enviamos un enlace seguro para entrar al mini panel.",
+  },
+  en: {
+    invalidEmail: "Invalid email.",
+    linkSent: "If we find your email, we will send you a secure link to access your mini panel.",
+  },
+  pt: {
+    invalidEmail: "Email invalido.",
+    linkSent: "Se encontrarmos seu email, enviaremos um link seguro para entrar no mini painel.",
+  },
+  it: {
+    invalidEmail: "Email non valida.",
+    linkSent: "Se troviamo la tua email, ti invieremo un link sicuro per accedere al mini pannello.",
+  },
+} as const;
+
 export async function POST(req: Request) {
   try {
     await ensureSameOriginRequest();
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email ?? "").trim().toLowerCase();
-    const locale = String(body?.locale ?? "es");
+    const locale = normalizeLocale(body?.locale);
+    const copy = messages[locale];
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ ok: false, error: "Email invalido." }, { status: 400 });
+      return NextResponse.json({ ok: false, error: copy.invalidEmail }, { status: 400 });
     }
 
     const exists = await portalEmailExists(email);
@@ -28,7 +53,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      message: "Si encontramos tu email, te enviamos un enlace seguro para entrar al mini panel.",
+      message: copy.linkSent,
     });
   } catch (error) {
     return NextResponse.json(
