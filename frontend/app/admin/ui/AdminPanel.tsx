@@ -4595,6 +4595,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     return map;
   }, [publications]);
 
+  const reviewableEditRequestByPublicationId = useMemo(() => {
+    const map = new Map<string, TravelService>();
+    [...travelServices]
+      .sort((a, b) => travelServiceActivityTime(a) - travelServiceActivityTime(b))
+      .forEach((service) => {
+        const extra = parseTravelServiceExtra(service);
+        const isEditRequest = String(extra.requestKind ?? "").trim().toLowerCase() === "edit_publication";
+        const sourcePublicationId = String(extra.sourcePublicationId ?? "").trim();
+        if (!isEditRequest || !sourcePublicationId) return;
+        if (!isReviewableTravelService(service, extra)) return;
+        map.set(sourcePublicationId, service);
+      });
+    return map;
+  }, [travelServices]);
+
   const updateTravelServiceStatus = async (id: string, status: "aprobado" | "rechazado" | "falta info" | "pendiente") => {
     const needsReason = status === "rechazado" || status === "falta info";
     const reason = needsReason
@@ -8775,7 +8790,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   ) : null}
                 </div>
               );
-            }) : filteredPublications.map((p) => (
+            }) : filteredPublications.map((p) => {
+              const publicationEditRequest = reviewableEditRequestByPublicationId.get(p.id);
+              return (
               <div key={p.id} className={`rounded-2xl border bg-white p-4 ${p.primaryGroupKey === "prestacion" ? "border-teal-200" : "border-indigo-200"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -8874,27 +8891,31 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     >
                       Ver detalle
                     </a>
-                    <button
-                      type="button"
-                      onClick={() => updatePublicationStatus(p.id, "active")}
-                      className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50"
-                    >
-                      Aceptar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updatePublicationStatus(p.id, "rejected")}
-                      className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50"
-                    >
-                      Rechazar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updatePublicationStatus(p.id, "needs_info")}
-                      className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50"
-                    >
-                      Falta info
-                    </button>
+                    {publicationEditRequest ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => updateTravelServiceStatus(publicationEditRequest.id, "aprobado")}
+                          className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50"
+                        >
+                          Aceptar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateTravelServiceStatus(publicationEditRequest.id, "rechazado")}
+                          className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50"
+                        >
+                          Rechazar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateTravelServiceStatus(publicationEditRequest.id, "falta info")}
+                          className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50"
+                        >
+                          Falta info
+                        </button>
+                      </>
+                    ) : null}
                     <button
                       onClick={() => editPublication(p)}
                       className="rounded-lg border border-[#00A9C6]/40 px-3 py-1.5 text-xs text-[#007D92] hover:bg-[#00A9C6]/10"
@@ -8916,7 +8937,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
             </div>
           </div>
           </>
