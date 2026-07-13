@@ -681,7 +681,15 @@ function serviceEffectiveStatus(service: TravelService): string {
 function isReviewableTravelService(service: TravelService, extra?: Record<string, unknown>): boolean {
   const currentStatus = serviceEffectiveStatus(service);
   const wasResubmitted = String(extra?.resubmittedAt ?? "").trim().length > 0;
-  return currentStatus === "pendiente" || (currentStatus === "falta info" && wasResubmitted);
+  const paymentStatus = String(extra?.paymentStatus ?? extra?.paymentReturnStatus ?? "").trim().toLowerCase();
+  const paymentReadyForAdminReview = extra?.paymentReadyForAdminReview === true || ["paid", "approved", "completed", "success", "ok"].includes(paymentStatus);
+  return (
+    currentStatus === "pendiente" ||
+    currentStatus === "pending_review" ||
+    currentStatus === "pendiente_revision" ||
+    (currentStatus === "pendiente_pago" && paymentReadyForAdminReview) ||
+    (currentStatus === "falta info" && wasResubmitted)
+  );
 }
 
 function isPublicationLinkedReviewRequest(extra?: Record<string, unknown>): boolean {
@@ -809,6 +817,18 @@ function refundStatusLabel(value: unknown): string {
 function paymentConfirmedForRefund(value: unknown) {
   const normalized = String(value ?? "").trim().toLowerCase();
   return ["paid", "approved", "completed", "success"].includes(normalized);
+}
+
+function providerRequestKindDisplayLabel(value: unknown): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "renew_free") return "Renovacion gratis";
+  if (normalized === "renew_featured_120d") return "Renovacion destacado 120 dias";
+  if (normalized === "renew_featured_monthly") return "Renovacion plan mensual";
+  if (normalized === "upgrade_featured_120d") return "Cambio de publicacion gratis a destacado";
+  if (normalized === "upgrade_featured_monthly") return "Cambio de publicacion gratis a plan mensual";
+  if (normalized === "downgrade_free") return "Volver a gratis";
+  if (normalized === "edit_publication") return "Edicion de publicacion";
+  return "Nueva publicacion";
 }
 
 function providerRequestKindLabel(value: unknown): string {
@@ -4626,7 +4646,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           const matchedPublication = sourceServiceId
             ? publications.find((publication) => {
                 const fields = (publication.fields && typeof publication.fields === "object" ? publication.fields : {}) as Record<string, unknown>;
-                return String(fields.sourceServiceId ?? "").trim() === sourceServiceId;
+                return (
+                  String(fields.sourceServiceId ?? "").trim() === sourceServiceId ||
+                  String((publication as any).sourceServiceId ?? "").trim() === sourceServiceId ||
+                  String((publication as any).relatedSubmissionId ?? "").trim() === sourceServiceId
+                );
               })
             : null;
           sourcePublicationId = matchedPublication ? String(matchedPublication.id) : "";
@@ -4665,7 +4689,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     });
     await refresh();
     if (status === "aprobado" && isLinkedPublicationReview) {
-      window.alert("Solicitud aprobada. La publicaciÃ³n vinculada quedÃ³ en Borrador para que la revises, ajustes y la guardes como Activo cuando estÃ© lista.");
+      const requestKind = String(currentExtra.requestKind ?? "").trim().toLowerCase();
+      const isRenewal = requestKind === "renew_free" || requestKind === "renew_featured_120d" || requestKind === "renew_featured_monthly";
+      window.alert(isRenewal
+        ? "Solicitud aprobada. La publicacion vinculada fue renovada y ya tiene nueva fecha de vencimiento."
+        : "Solicitud aprobada. La publicacion vinculada quedo en Borrador para que la revises, ajustes y la guardes como Activo cuando este lista.");
     }
   };
 
@@ -4968,7 +4996,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Email:</b> {detailTravelService.email || "-"}</div>
                   <div><b>Teléfono:</b> {detailTravelService.phone || String(detailExtra?.phone ?? "-")}</div>
                   <div><b>Estado:</b> {detailVisibleStatus}</div>
-                  <div><b>Tipo de solicitud:</b> {providerRequestKindLabel(detailExtra?.requestKind)}</div>
+                  <div><b>Tipo de solicitud:</b> {providerRequestKindDisplayLabel(detailExtra?.requestKind)}</div>
                   <div><b>Plan solicitado:</b> {normalizeProviderPlanLabel(detailExtra?.requestedPlan ?? detailExtra?.planType)}</div>
                   <div><b>Plan anterior:</b> {detailExtra?.previousPlan ? normalizeProviderPlanLabel(detailExtra?.previousPlan) : "-"}</div>
                   <div><b>{t("admin.request.reason")}:</b> {String(detailExtra?.statusReason ?? "-") || "-"}</div>
@@ -5101,7 +5129,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-white px-2 py-1 font-semibold">{normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan)}</span>
-                        <span className="rounded-full bg-white px-2 py-1">{providerRequestKindLabel(extra.requestKind)}</span>
+                        <span className="rounded-full bg-white px-2 py-1">{providerRequestKindDisplayLabel(extra.requestKind)}</span>
                         <span className="rounded-full bg-white px-2 py-1">{currentStatus === "falta info" && extra.resubmittedAt ? t("providerPortal.status.resubmittedForReview") : currentStatus}</span>
                         <span className={`rounded-full px-2 py-1 ${paymentStatusClasses(payment?.status ?? extra.paymentStatus ?? "-")}`}>Pago: {paymentStatusLabel(payment?.status ?? extra.paymentStatus ?? "-")}</span>
                         {refundStatus ? <span className="rounded-full bg-white px-2 py-1">{refundStatusLabel(refundStatus)}</span> : null}
@@ -5208,7 +5236,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Retorno:</b> {item.returnStatus || "-"}</div>
                   {refundStatus ? <div><b>Reembolso:</b> {refundStatusLabel(refundStatus)}</div> : null}
                   {refundStatus ? <div><b>Refund ref:</b> {String(refundData.refundProviderReference ?? "-") || "-"}</div> : null}
-                  <div><b>Tipo de solicitud:</b> {providerRequestKindLabel(linkedExtra.requestKind)}</div>
+                  <div><b>Tipo de solicitud:</b> {providerRequestKindDisplayLabel(linkedExtra.requestKind)}</div>
                 </div>
                 {refundStatus ? (
                   <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
@@ -5931,7 +5959,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
                       <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                         <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-200">
-                          Solicitud: {providerRequestKindLabel(serviceExtra.requestKind)}
+                          Solicitud: {providerRequestKindDisplayLabel(serviceExtra.requestKind)}
                         </span>
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700 ring-1 ring-slate-200">
                           Plan solicitado: {normalizeProviderPlanLabel(serviceExtra.requestedPlan ?? serviceExtra.planType)}
@@ -7412,7 +7440,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                     <div className="font-medium text-slate-900">{identifier}</div>
                                     <div className="mt-1 text-xs text-slate-600">
                                       {[
-                                        providerRequestKindLabel(extra.requestKind),
+                                        providerRequestKindDisplayLabel(extra.requestKind),
                                         normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan),
                                         service.createdAt ? new Date(service.createdAt).toLocaleDateString("es-AR") : "",
                                       ].filter(Boolean).join(" | ")}
@@ -8868,8 +8896,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     {publicationEditRequest || publicationNeedsAdminReview ? (
                       <div className="mt-2 rounded-xl border border-amber-200 bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900">
                         {publicationEditRequest
-                          ? `RevisiÃ³n pendiente: ${providerRequestKindLabel(parseTravelServiceExtra(publicationEditRequest).requestKind)}. Revisar solicitud antes de publicar.`
-                          : "RevisiÃ³n pendiente: upgrade aprobado. Revisar, ajustar y guardar como Activo para publicarla."}
+                          ? `Revision pendiente: ${providerRequestKindDisplayLabel(parseTravelServiceExtra(publicationEditRequest).requestKind)}. Revisar solicitud antes de publicar.`
+                          : "Revision pendiente: upgrade aprobado. Revisar, ajustar y guardar como Activo para publicarla."}
                       </div>
                     ) : null}
                     <div className="mt-1 text-sm text-slate-600">
