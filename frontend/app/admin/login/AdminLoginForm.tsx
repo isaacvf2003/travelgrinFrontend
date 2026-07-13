@@ -9,7 +9,7 @@ type AdminLoginFormProps = {
   defaultEmail: string;
 };
 
-type ViewMode = "login" | "request-reset" | "confirm-reset";
+type ViewMode = "login" | "verify-otp" | "request-reset" | "confirm-reset";
 
 function normalizeNextPath(value?: string) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
@@ -45,6 +45,8 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
   const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState("");
   const [resetCode, setResetCode] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpToken, setOtpToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -61,15 +63,44 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
     setSuccess("");
 
     try {
-      await postJson("/api/admin/auth/login", {
+      const data = await postJson("/api/admin/auth/login", {
         email: email.trim(),
         password,
       });
+
+      if (data?.otpRequired && data?.otpToken) {
+        setOtpToken(String(data.otpToken));
+        setOtpCode("");
+        setMode("verify-otp");
+        setSuccess(data?.message || "Te enviamos un codigo al correo admin.");
+        return;
+      }
 
       setSuccess("Acceso verificado. Entrando al panel...");
       window.location.assign(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesion.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleVerifyOtp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await postJson("/api/admin/auth/verify-otp", {
+        otpToken,
+        code: otpCode.trim(),
+      });
+
+      setSuccess("Acceso verificado. Entrando al panel...");
+      window.location.assign(destination);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo verificar el codigo.");
     } finally {
       setSubmitting(false);
     }
@@ -148,6 +179,8 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
                 setMode("login");
                 setError("");
                 setSuccess("");
+                setOtpCode("");
+                setOtpToken("");
               }}
               className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
             >
@@ -214,6 +247,52 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
                 className="w-full text-sm font-medium text-cyan-700 transition hover:text-cyan-900"
               >
                 Olvide mi contrasena
+              </button>
+            </form>
+          ) : null}
+
+          {mode === "verify-otp" ? (
+            <form onSubmit={handleVerifyOtp} className="mt-8 space-y-5">
+              <div className="rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+                Ingresá el código de 6 dígitos que enviamos a <b>{email.trim()}</b>. La sesión admin se abre recién después de este paso.
+              </div>
+
+              <label className="block">
+                <span className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <ShieldCheck className="h-4 w-4 text-slate-400" />
+                  Codigo de acceso
+                </span>
+                <input
+                  type="text"
+                  value={otpCode}
+                  onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-center text-sm tracking-[0.45em] text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                  placeholder="123456"
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={submitting || otpCode.length !== 6}
+                className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {submitting ? "Verificando codigo..." : "Verificar y entrar"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setOtpCode("");
+                  setOtpToken("");
+                  setSuccess("Para reenviar el codigo, volve a ingresar la contrasena.");
+                }}
+                className="w-full text-sm font-medium text-cyan-700 transition hover:text-cyan-900"
+              >
+                Reenviar codigo
               </button>
             </form>
           ) : null}

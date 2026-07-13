@@ -1599,6 +1599,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       draft: "Borrador",
       paused: "Pausado",
       hidden: "Oculto",
+      rejected: "Rechazado",
+      needs_info: "Falta info",
     };
     return map[value] ?? value;
   };
@@ -2911,6 +2913,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const label = publication?.primaryGroupKey === "prestacion" ? "prestación" : "publicación";
     if (!window.confirm(`¿Seguro que querés eliminar esta ${label}? Esta acción no se puede deshacer.`)) return;
     await api(`/api/admin/publications?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    await refresh();
+  }
+
+  async function updatePublicationStatus(id: string, status: "active" | "rejected" | "needs_info") {
+    await api("/api/admin/publications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
     await refresh();
   }
 
@@ -4515,22 +4526,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     return [
       {
         key: "featured120",
-        title: "Destacado 120 días",
+        title: "Movimientos de pago",
         items: buildGroups(visibleTravelServicePayments),
       },
       {
         key: "paid",
-        title: "Aceptados",
+        title: "Pagos aceptados",
         items: buildGroups(visibleTravelServicePayments.filter((item) => item.status === "paid")),
       },
       {
         key: "pending",
-        title: "Pendientes / proceso",
+        title: "Pagos pendientes / en proceso",
         items: buildGroups(visibleTravelServicePayments.filter((item) => item.status === "pending" || item.status === "processing")),
       },
       {
         key: "rejected",
-        title: "Rechazados / cancelados",
+        title: "Pagos rechazados / cancelados",
         items: buildGroups(visibleTravelServicePayments.filter((item) => item.status === "failed" || item.status === "cancelled")),
       },
       {
@@ -4733,9 +4744,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             ? "featured"
             : "basic_free",
     }));
+    const textSection = (title: string, value: unknown) => {
+      const text = Array.isArray(value)
+        ? value.map((entry) => String(entry ?? "").trim()).filter(Boolean).join("\n")
+        : String(value ?? "").trim();
+      return text ? `${title}\n${text}` : "";
+    };
     const publicationDescriptionParts = [
-      selected.contanos ? `Descripción\n${selected.contanos}` : "",
-      String(extra.description ?? "").trim() ? `Detalle\n${String(extra.description ?? "").trim()}` : "",
+      textSection("Descripcion general", selected.contanos || extra.contanos || extra.description),
+      textSection("Que ofrece", extra.serviceDescription ?? extra.whatSearching),
+      textSection("Incluye", extra.included),
+      textSection("No incluye", extra.notIncluded),
+      textSection("Condiciones o aclaraciones", extra.conditions ?? extra.requirements ?? extra.notes),
+      textSection("Ubicacion y modalidad", [
+        selected.destinationCountry || extra.destinationCountry ? `Destino: ${selected.destinationCountry || extra.destinationCountry}` : "",
+        selected.city || extra.city ? `Ciudad: ${selected.city || extra.city}` : "",
+        extra.receivingCountriesMode && normalizeStringArray(extra.receivingCountries).length
+          ? `Personas a las que recibe: ${normalizeStringArray(extra.receivingCountries).join(", ")}`
+          : "",
+      ]),
     ].filter(Boolean);
     const publicationDescription = publicationDescriptionParts.join("\n\n");
     if (publicationDescription) {
@@ -4907,6 +4934,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Estado:</b> {paymentStatusLabel(detailCurrentPayment?.status ?? detailExtra?.paymentStatus ?? "-")}</div>
                   <div><b>{t("admin.request.paymentReference")}:</b> {detailCurrentPayment?.externalReference || "-"}</div>
                   <div><b>Monto:</b> {String(detailCurrentPayment?.currency ?? "-")} {String(detailCurrentPayment?.amount ?? "-")}</div>
+                  <div><b>CupÃ³n:</b> {String(detailCurrentPayment?.promoCode ?? detailExtra?.promoCode ?? "").trim() || "-"}</div>
                   <div><b>dLocal payment id:</b> {detailCurrentPayment?.providerPaymentId || "-"}</div>
                 </div>
                 {String(detailTravelService.status ?? "").trim().toLowerCase() === "needs_info" && detailResumeUrl ? (
@@ -5125,6 +5153,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Fecha:</b> {item.createdAt ? new Date(item.createdAt).toLocaleString("es-AR") : "-"}</div>
                   <div><b>Referencia:</b> {item.externalReference || "-"}</div>
                   <div><b>Pago dLocal:</b> {item.providerPaymentId || "-"}</div>
+                  <div><b>CupÃ³n:</b> {String(item.promoCode ?? linkedExtra.promoCode ?? "").trim() || "-"}</div>
                   <div><b>Pagado:</b> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
                   <div><b>Retorno:</b> {item.returnStatus || "-"}</div>
                   {refundStatus ? <div><b>Reembolso:</b> {refundStatusLabel(refundStatus)}</div> : null}
@@ -5713,10 +5742,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {[
-            { key: "featured120", label: "120 dias", count: paymentCounts.featured120 },
-            { key: "paid", label: "Aceptados", count: paymentCounts.paid },
-            { key: "pending", label: "Pendientes", count: paymentCounts.pending },
-            { key: "rejected", label: "Rechazados", count: paymentCounts.rejected },
+            { key: "featured120", label: "Movimientos de pago", count: paymentCounts.featured120 },
+            { key: "paid", label: "Pagos aceptados", count: paymentCounts.paid },
+            { key: "pending", label: "Pagos pendientes", count: paymentCounts.pending },
+            { key: "rejected", label: "Pagos rechazados/cancelados", count: paymentCounts.rejected },
             { key: "refunded", label: "Reembolsos", count: paymentCounts.refunded },
           ].map((item) => (
             <button
@@ -5770,10 +5799,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         </button>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="rounded-full bg-slate-100 px-2 py-1">Movimientos: {group.items.length}</span>
-                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Aceptados: {paidCount}</span>
-                        <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">Pendientes: {pendingCount}</span>
-                        <span className="rounded-full bg-rose-50 px-2 py-1 text-rose-700">Cancelados/Rechazados: {cancelledCount}</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-1">Movimientos de pago: {group.items.length}</span>
+                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Pagos aceptados: {paidCount}</span>
+                        <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">Pagos pendientes: {pendingCount}</span>
+                        <span className="rounded-full bg-rose-50 px-2 py-1 text-rose-700">Pagos cancelados/rechazados: {cancelledCount}</span>
                       </div>
                       {latest ? (
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -8844,6 +8873,27 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     >
                       Ver detalle
                     </a>
+                    <button
+                      type="button"
+                      onClick={() => updatePublicationStatus(p.id, "active")}
+                      className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50"
+                    >
+                      Aceptar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updatePublicationStatus(p.id, "rejected")}
+                      className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50"
+                    >
+                      Rechazar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updatePublicationStatus(p.id, "needs_info")}
+                      className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50"
+                    >
+                      Falta info
+                    </button>
                     <button
                       onClick={() => editPublication(p)}
                       className="rounded-lg border border-[#00A9C6]/40 px-3 py-1.5 text-xs text-[#007D92] hover:bg-[#00A9C6]/10"

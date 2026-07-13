@@ -6,30 +6,38 @@ import { useRouter, useSearchParams } from "next/navigation";
 type LaunchLocale = "es" | "en" | "pt" | "it";
 type LaunchStatus = "success" | "cancel" | "pending";
 
-const LAUNCH_TEXT: Record<LaunchLocale, { preparingTitle: string; preparingDescription: string; connectingTitle: string; connectingDescription: string }> = {
+const LAUNCH_TEXT: Record<LaunchLocale, { preparingTitle: string; preparingDescription: string; connectingTitle: string; connectingDescription: string; trust: string; nextSteps: string }> = {
   es: {
     preparingTitle: "Preparando pago",
     preparingDescription: "Estamos generando tu checkout seguro.",
     connectingTitle: "Conectando con dLocal Go",
     connectingDescription: "Te estamos enviando al checkout seguro.",
+    trust: "TravelGrin usa servicios seguros de pago para proteger tus datos.",
+    nextSteps: "Cuando cierres el pago, recibirás por email los pasos a seguir.",
   },
   en: {
     preparingTitle: "Preparing payment",
     preparingDescription: "We are creating your secure checkout.",
     connectingTitle: "Connecting with dLocal Go",
     connectingDescription: "We are taking you to the secure checkout.",
+    trust: "TravelGrin uses secure payment services to protect your data.",
+    nextSteps: "After payment, you will receive the next steps by email.",
   },
   pt: {
     preparingTitle: "Preparando pagamento",
     preparingDescription: "Estamos criando seu checkout seguro.",
     connectingTitle: "Conectando com dLocal Go",
     connectingDescription: "Estamos levando voce ao checkout seguro.",
+    trust: "A TravelGrin usa servicos seguros de pagamento para proteger seus dados.",
+    nextSteps: "Depois do pagamento, voce recebera os proximos passos por e-mail.",
   },
   it: {
     preparingTitle: "Preparazione del pagamento",
     preparingDescription: "Stiamo creando il tuo checkout sicuro.",
     connectingTitle: "Connessione con dLocal Go",
     connectingDescription: "Ti stiamo portando al checkout sicuro.",
+    trust: "TravelGrin usa servizi di pagamento sicuri per proteggere i tuoi dati.",
+    nextSteps: "Dopo il pagamento riceverai via email i prossimi passi.",
   },
 };
 
@@ -141,12 +149,17 @@ export default function FeaturedPaymentLaunchPage() {
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-xl items-center justify-center px-4">
       <section className="w-full rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <img src="/logo-navbar.png" alt="TravelGrin" className="mx-auto mb-6 h-12 w-auto" />
         <h1 className="text-2xl font-bold text-[#273166]">
           {status === "preparing" ? copy.preparingTitle : copy.connectingTitle}
         </h1>
         <p className="mt-3 text-slate-600">
           {status === "preparing" ? copy.preparingDescription : copy.connectingDescription}
         </p>
+        <div className="mt-6 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-950">
+          <p className="font-semibold">{copy.trust}</p>
+          <p className="mt-1">{copy.nextSteps}</p>
+        </div>
       </section>
     </main>
   );

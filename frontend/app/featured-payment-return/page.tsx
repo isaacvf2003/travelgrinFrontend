@@ -15,6 +15,7 @@ const RETURN_TEXT: Record<ReturnLocale, {
   pendingDescription: string;
   redirecting: string;
   seconds: string;
+  emailNotice: string;
 }> = {
   es: {
     successTitle: "Pago procesado",
@@ -25,6 +26,7 @@ const RETURN_TEXT: Record<ReturnLocale, {
     pendingDescription: "Estamos recibiendo la confirmación del pago.",
     redirecting: "Te redirigimos en",
     seconds: "segundos.",
+    emailNotice: "En tu cuenta de mail recibiras los pasos a seguir y las novedades de tu publicacion.",
   },
   en: {
     successTitle: "Payment processed",
@@ -35,6 +37,7 @@ const RETURN_TEXT: Record<ReturnLocale, {
     pendingDescription: "We are receiving the payment confirmation.",
     redirecting: "Redirecting in",
     seconds: "seconds.",
+    emailNotice: "You will receive the next steps and publication updates in your email account.",
   },
   pt: {
     successTitle: "Pagamento processado",
@@ -45,6 +48,7 @@ const RETURN_TEXT: Record<ReturnLocale, {
     pendingDescription: "Estamos recebendo a confirmação do pagamento.",
     redirecting: "Redirecionamos em",
     seconds: "segundos.",
+    emailNotice: "Voce recebera por e-mail os proximos passos e as novidades da sua publicacao.",
   },
   it: {
     successTitle: "Pagamento elaborato",
@@ -55,6 +59,7 @@ const RETURN_TEXT: Record<ReturnLocale, {
     pendingDescription: "Stiamo ricevendo la conferma del pagamento.",
     redirecting: "Ti reindirizziamo tra",
     seconds: "secondi.",
+    emailNotice: "Riceverai via email i prossimi passi e gli aggiornamenti della tua pubblicazione.",
   },
 };
 
@@ -255,8 +260,12 @@ export default function FeaturedPaymentReturnPage() {
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-xl items-center justify-center px-4">
       <section className="w-full rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <img src="/logo-navbar.png" alt="TravelGrin" className="mx-auto mb-6 h-12 w-auto" />
         <h1 className="text-2xl font-bold text-[#273166]">{title}</h1>
         <p className="mt-3 text-slate-600">{description}</p>
+        <p className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-950">
+          {copy.emailNotice}
+        </p>
         {hasNotifiedModal ? (
           <p className="mt-5 text-sm text-slate-500">
             {copy.redirecting} <span className="font-semibold text-[#0B8FA3]">{secondsLeft}</span> {copy.seconds}
