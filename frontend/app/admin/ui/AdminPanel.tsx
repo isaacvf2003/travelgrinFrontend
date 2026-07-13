@@ -805,6 +805,7 @@ function providerRequestKindLabel(value: unknown): string {
   if (normalized === "upgrade_featured_120d") return "Upgrade a destacado 120 días";
   if (normalized === "upgrade_featured_monthly") return "Upgrade a plan mensual";
   if (normalized === "downgrade_free") return "Volver a gratis";
+  if (normalized === "edit_publication") return "Edición de publicación";
   return "Nueva publicación";
 }
 

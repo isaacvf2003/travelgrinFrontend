@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 import { setAdminCookie } from "@/app/api/_lib/auth";
 import { forwardJson } from "../_lib/backend";
 
-type LoginResponse = {
+type VerifyOtpResponse = {
   ok?: boolean;
   error?: string;
   message?: string;
-  otpRequired?: boolean;
-  otpToken?: string;
   admin?: {
     id?: string;
     adminId?: string;
@@ -19,20 +17,12 @@ type LoginResponse = {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const forwarded = await forwardJson("/api/admin/auth/login", body);
+    const forwarded = await forwardJson("/api/admin/auth/verify-otp", body);
     if (forwarded instanceof NextResponse) return forwarded;
 
-    const { response, data } = forwarded as { response: Response; data: LoginResponse };
-    if (!response.ok || !data?.ok) {
-      return NextResponse.json(data || { ok: false, error: "Login failed" }, { status: response.status || 401 });
-    }
-
-    if (data.otpRequired) {
-      return NextResponse.json(data);
-    }
-
-    if (!data.admin?.email) {
-      return NextResponse.json({ ok: false, error: "Login failed" }, { status: 401 });
+    const { response, data } = forwarded as { response: Response; data: VerifyOtpResponse };
+    if (!response.ok || !data?.ok || !data.admin?.email) {
+      return NextResponse.json(data || { ok: false, error: "OTP failed" }, { status: response.status || 401 });
     }
 
     await setAdminCookie({
@@ -44,7 +34,7 @@ export async function POST(req: Request) {
     return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(
-      { ok: false, error: "Login failed", message: error instanceof Error ? error.message : "Unknown error" },
+      { ok: false, error: "OTP failed", message: error instanceof Error ? error.message : "Unknown error" },
       { status: 400 },
     );
   }
