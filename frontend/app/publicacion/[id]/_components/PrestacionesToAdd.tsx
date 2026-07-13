@@ -51,6 +51,43 @@ export default function PrestacionesToAdd({ chips, currentPublicationId }: Props
   const [storedDestination, setStoredDestination] = useState("");
 
   const [availableValues, setAvailableValues] = useState<Set<string>>(new Set());
+  const copy = useMemo(() => ({
+    noAvailable:
+      locale === "en" ? "No services are available for this publication." :
+      locale === "pt" ? "Nao ha prestacoes disponiveis para esta publicacao." :
+      locale === "it" ? "Non ci sono prestazioni disponibili per questa pubblicazione." :
+      "No hay prestaciones disponibles para esta publicacion.",
+    servicesOf:
+      locale === "en" ? "Services for" :
+      locale === "pt" ? "Prestacoes de" :
+      locale === "it" ? "Prestazioni di" :
+      "Prestaciones de",
+    loading:
+      locale === "en" ? "Loading..." :
+      locale === "pt" ? "Carregando..." :
+      locale === "it" ? "Caricamento..." :
+      "Cargando...",
+    notFound:
+      locale === "en" ? "We did not find services for this category." :
+      locale === "pt" ? "Nao encontramos prestacoes para esta categoria." :
+      locale === "it" ? "Non abbiamo trovato prestazioni per questa categoria." :
+      "No encontramos prestaciones para esta categoria.",
+    previous:
+      locale === "en" ? "View previous services" :
+      locale === "pt" ? "Ver prestacoes anteriores" :
+      locale === "it" ? "Vedi prestazioni precedenti" :
+      "Ver prestaciones anteriores",
+    next:
+      locale === "en" ? "View more services" :
+      locale === "pt" ? "Ver mais prestacoes" :
+      locale === "it" ? "Vedi altre prestazioni" :
+      "Ver mas prestaciones",
+    fallbackTitle:
+      locale === "en" ? "Service" :
+      locale === "pt" ? "Prestacao" :
+      locale === "it" ? "Prestazione" :
+      "Prestacion",
+  }), [locale]);
 
   useEffect(() => {
     const syncStoredDestination = (event?: Event) => {
@@ -210,16 +247,16 @@ export default function PrestacionesToAdd({ chips, currentPublicationId }: Props
         })}
       </div>
 
-      {!visibleChips.length ? <div className="mt-3 text-sm text-slate-600">No hay prestaciones disponibles para esta publicación.</div> : null}
+      {!visibleChips.length ? <div className="mt-3 text-sm text-slate-600">{copy.noAvailable}</div> : null}
 
       {openValue ? (
         <div className="mt-4 min-w-0 overflow-hidden rounded-2xl border border-teal-100 bg-teal-50/60 p-2 sm:p-3">
-          <div className="mb-2 break-words text-sm font-semibold text-[#0B8FA3]">Prestaciones de {openValue}</div>
+          <div className="mb-2 break-words text-sm font-semibold text-[#0B8FA3]">{copy.servicesOf} {openValue}</div>
 
-          {loadingValue === openValue ? <div className="text-sm text-slate-600">Cargando...</div> : null}
+          {loadingValue === openValue ? <div className="text-sm text-slate-600">{copy.loading}</div> : null}
 
           {loadingValue !== openValue && !openItems.length ? (
-            <div className="text-sm text-slate-600">No encontramos prestaciones para esta categoría.</div>
+            <div className="text-sm text-slate-600">{copy.notFound}</div>
           ) : null}
 
           {loadingValue !== openValue && openItems.length ? (
@@ -227,7 +264,7 @@ export default function PrestacionesToAdd({ chips, currentPublicationId }: Props
               <div className="hidden items-center justify-between gap-2 md:flex">
                 <button
                   type="button"
-                  aria-label="Ver prestaciones anteriores"
+                  aria-label={copy.previous}
                   onClick={() => scrollCarouselBy("left")}
                   className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-teal-300 bg-white text-teal-700 hover:bg-teal-100"
                 >
@@ -236,7 +273,7 @@ export default function PrestacionesToAdd({ chips, currentPublicationId }: Props
 
                 <button
                   type="button"
-                  aria-label="Ver más prestaciones"
+                  aria-label={copy.next}
                   onClick={() => scrollCarouselBy("right")}
                   className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-teal-300 bg-white text-teal-700 hover:bg-teal-100"
                 >
@@ -265,7 +302,7 @@ export default function PrestacionesToAdd({ chips, currentPublicationId }: Props
                       String(fields.prestationHeroTitle ?? "").trim()
                     ) ||
                     pickI18nText(entry.titleI18n ?? null, locale, String(entry.title ?? "").trim()) ||
-                    "Prestación";
+                    copy.fallbackTitle;
                   const rawDescription =
                     pickI18nText(
                       (fields.prestationHeroSubtitleI18n as I18nRecord | null) ?? null,

@@ -19,10 +19,18 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
     locale === "en"
       ? "Please enter a valid email."
       : locale === "pt"
-        ? "Ingresa un email valido."
+        ? "Digite um email valido."
         : locale === "it"
           ? "Inserisci un'email valida."
           : "Ingresa un email valido.";
+  const submitErrorMessage =
+    locale === "en"
+      ? "The report could not be sent."
+      : locale === "pt"
+        ? "Nao foi possivel enviar a denuncia."
+        : locale === "it"
+          ? "Non e stato possibile inviare la segnalazione."
+          : "No se pudo enviar la denuncia.";
 
   const submit = async () => {
     if (!fullName.trim() || !phone.trim() || !details.trim()) {
@@ -30,7 +38,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
         locale === "en"
           ? "Please complete name, phone and details."
           : locale === "pt"
-            ? "Completa nombre, telefono y detalle."
+            ? "Complete nome, telefone e detalhes."
             : locale === "it"
               ? "Completa nome, telefono e dettaglio."
               : "Completa nombre, telefono y detalle."
@@ -51,7 +59,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        const message = typeof body?.error === "string" && body.error.trim() ? body.error : "No se pudo enviar la denuncia";
+        const message = typeof body?.error === "string" && body.error.trim() ? body.error : submitErrorMessage;
         throw new Error(message);
       }
       setSent(true);
@@ -59,7 +67,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
         locale === "en"
           ? "Thanks for your warning."
           : locale === "pt"
-            ? "Gracias por tu aviso."
+            ? "Obrigado pelo aviso."
             : locale === "it"
               ? "Grazie per il tuo avviso."
               : "Gracias por tu aviso."
@@ -70,7 +78,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
       setEmail("");
       setOpen(false);
     } catch (err) {
-      const message = err instanceof Error && err.message.trim() ? err.message : "No se pudo enviar la denuncia";
+      const message = err instanceof Error && err.message.trim() ? err.message : submitErrorMessage;
       setError(message);
     } finally {
       setSending(false);
@@ -92,6 +100,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
         details: "Write your complaint or indicate what information is incorrect",
         send: "Send report",
         sent: "Report sent",
+        publication: "Publication:",
       }
     : locale === "pt"
       ? {
@@ -108,6 +117,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
           details: "Escreva sua reclamacao ou indique qual informacao esta incorreta",
           send: "Enviar denuncia",
           sent: "Denuncia enviada",
+          publication: "Publicacao:",
         }
       : locale === "it"
         ? {
@@ -124,6 +134,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
             details: "Scrivi il tuo reclamo o indica quali informazioni sono errate",
             send: "Invia segnalazione",
             sent: "Segnalazione inviata",
+            publication: "Pubblicazione:",
           }
         : {
             report: "Denunciar",
@@ -139,6 +150,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
             details: "Escribe tu queja o indica que informacion es incorrecta",
             send: "Enviar denuncia",
             sent: "Denuncia enviada",
+            publication: "Publicacion:",
           };
 
   return (
@@ -157,7 +169,7 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
           <div className="w-full max-w-lg rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-3 text-lg font-semibold text-slate-900">{labels.title}</h3>
             <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
-              {"Publicación:"} {publicationTitle || publicationId}
+              {labels.publication} {publicationTitle || publicationId}
             </p>
             <div className="grid gap-2">
               <label className="text-sm font-medium text-black">{labels.fullName}</label>

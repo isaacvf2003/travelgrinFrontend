@@ -12,6 +12,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
   const requestHeaders = await headers();
   const cookie = requestHeaders.get("cookie") || "";
+  const origin = requestHeaders.get("origin") || "";
+  const referer = requestHeaders.get("referer") || "";
   const body = await request.text();
 
   const response = await fetch(`${backendApiUrl}/api/provider-portal/publications/${encodeURIComponent(id)}/change-request`, {
@@ -19,6 +21,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     headers: {
       "Content-Type": requestHeaders.get("content-type") || "application/json",
       ...(cookie ? { cookie } : {}),
+      ...(origin ? { origin } : {}),
+      ...(referer ? { referer } : {}),
     },
     body,
     cache: "no-store",

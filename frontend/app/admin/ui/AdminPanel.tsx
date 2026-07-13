@@ -684,6 +684,16 @@ function isReviewableTravelService(service: TravelService, extra?: Record<string
   return currentStatus === "pendiente" || (currentStatus === "falta info" && wasResubmitted);
 }
 
+function isPublicationLinkedReviewRequest(extra?: Record<string, unknown>): boolean {
+  const requestKind = String(extra?.requestKind ?? "").trim().toLowerCase();
+  const sourcePublicationId = String(extra?.sourcePublicationId ?? "").trim();
+  return Boolean(sourcePublicationId) && (
+    requestKind === "edit_publication" ||
+    requestKind === "upgrade_featured_120d" ||
+    requestKind === "upgrade_featured_monthly"
+  );
+}
+
 function travelServiceActivityTime(service: TravelService): number {
   const extra = parseTravelServiceExtra(service);
   const candidates = [
@@ -2806,6 +2816,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (socialLinksDetailed.length) {
       (payload.fields as Record<string, any>).socialLinksDetailed = socialLinksDetailed;
     }
+    if (pStatus === "active") {
+      (payload.fields as Record<string, any>).needsAdminReview = false;
+      (payload.fields as Record<string, any>).adminReviewReason = null;
+      (payload.fields as Record<string, any>).adminReviewResolvedAt = new Date().toISOString();
+    }
 
     try {
       if (editingId) {
@@ -4601,9 +4616,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       .sort((a, b) => travelServiceActivityTime(a) - travelServiceActivityTime(b))
       .forEach((service) => {
         const extra = parseTravelServiceExtra(service);
-        const isEditRequest = String(extra.requestKind ?? "").trim().toLowerCase() === "edit_publication";
         const sourcePublicationId = String(extra.sourcePublicationId ?? "").trim();
-        if (!isEditRequest || !sourcePublicationId) return;
+        if (!isPublicationLinkedReviewRequest(extra) || !sourcePublicationId) return;
         if (!isReviewableTravelService(service, extra)) return;
         map.set(sourcePublicationId, service);
       });
@@ -4611,6 +4625,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }, [travelServices]);
 
   const updateTravelServiceStatus = async (id: string, status: "aprobado" | "rechazado" | "falta info" | "pendiente") => {
+    const currentService = travelServices.find((service) => service.id === id);
+    const currentExtra = currentService ? parseTravelServiceExtra(currentService) : {};
+    const isLinkedPublicationReview = isPublicationLinkedReviewRequest(currentExtra);
     const needsReason = status === "rechazado" || status === "falta info";
     const reason = needsReason
       ? window.prompt(`Ingresá el motivo visible para "${status}":`, "") ?? ""
@@ -4633,6 +4650,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       body: JSON.stringify({ id, status: statusPayload, reason: reason.trim() }),
     });
     await refresh();
+    if (status === "aprobado" && isLinkedPublicationReview) {
+      window.alert("Solicitud aprobada. La publicaciÃ³n vinculada quedÃ³ en Borrador para que la revises, ajustes y la guardes como Activo cuando estÃ© lista.");
+    }
   };
 
   const updateRefundStatus = async (
@@ -4735,6 +4755,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       { kind: "whatsapp", label: "WhatsApp", url: String(extra.whatsappLink ?? "").trim() },
       { kind: "web", label: "Contacto viajero", url: String(extra.travelerContactLink ?? "").trim() },
     ].filter((entry) => entry.url);
+    const detailedFormLinks = Array.isArray(extra.socialLinksDetailed)
+      ? (extra.socialLinksDetailed as Array<Record<string, unknown>>)
+          .map((entry) => ({
+            kind: String(entry.kind ?? "web").trim() || "web",
+            label: String(entry.label ?? "").trim(),
+            url: String(entry.url ?? "").trim(),
+          }))
+          .filter((entry) => entry.url)
+      : [];
     const extraVenues = Array.isArray(extra.venues) ? extra.venues as Array<Record<string, unknown>> : [];
     const receivingMode = String(extra.receivingCountriesMode ?? "all").toLowerCase();
     const normalizedReceivingMode = receivingMode === "except" || receivingMode === "only" ? receivingMode : "all";
@@ -4807,13 +4836,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPCity(selected.city || String(extra.city ?? ""));
     const { website, socialLinks } = parseProviderLinks(selected.website || String(extra.website ?? ""));
     setPWebsite(website);
-    if (socialLinks.length || explicitLinks.length) {
+    if (detailedFormLinks.length || socialLinks.length || explicitLinks.length) {
       setPSocialLinksDetailed((prev) => {
-        const existingByKind = new Map(prev.map((entry) => [entry.kind, entry]));
-        [...socialLinks, ...explicitLinks].forEach((entry) => {
-          if (!existingByKind.has(entry.kind)) existingByKind.set(entry.kind, entry);
+        const existingByKey = new Map(prev.map((entry) => [`${entry.kind}:${entry.url}`, entry]));
+        [...detailedFormLinks, ...socialLinks, ...explicitLinks].forEach((entry) => {
+          const key = `${entry.kind}:${entry.url}`;
+          if (!existingByKey.has(key)) existingByKey.set(key, entry);
         });
-        return Array.from(existingByKind.values());
+        return Array.from(existingByKey.values());
       });
     }
     setPPrice(selected.price || String(extra.price ?? ""));
@@ -5992,17 +6022,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     return Array.from(langs);
   };
 
-  const filteredPublications = publications.filter((item) => {
-    if (isHomeHowPublication(item)) return false;
-    const query = publicationSearch.toLowerCase().trim();
-    const matchesSearch = !query || [item.title, item.publisherName, item.category, item.subcategory]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(query));
-    const matchesType =
-      publicationTypeFilter === "todas"
-        || (publicationTypeFilter === "prestacion" ? item.primaryGroupKey === "prestacion" : item.primaryGroupKey !== "prestacion");
-    return matchesSearch && matchesType;
-  });
+  const filteredPublications = publications
+    .filter((item) => {
+      if (isHomeHowPublication(item)) return false;
+      const query = publicationSearch.toLowerCase().trim();
+      const matchesSearch = !query || [item.title, item.publisherName, item.category, item.subcategory]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+      const matchesType =
+        publicationTypeFilter === "todas"
+          || (publicationTypeFilter === "prestacion" ? item.primaryGroupKey === "prestacion" : item.primaryGroupKey !== "prestacion");
+      return matchesSearch && matchesType;
+    })
+    .sort((a, b) => {
+      const rank = (item: Publication) => {
+        if (reviewableEditRequestByPublicationId.has(item.id)) return 0;
+        const fields = (item.fields as any) ?? {};
+        if (fields.needsAdminReview === true || String(fields.adminReviewReason ?? "").trim()) return 1;
+        return 2;
+      };
+      const rankDiff = rank(a) - rank(b);
+      if (rankDiff !== 0) return rankDiff;
+      return new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+    });
   const filteredReports = complaintReports.filter((item) => {
     const query = publicationSearch.toLowerCase().trim();
     if (!query) return true;
@@ -8792,8 +8834,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               );
             }) : filteredPublications.map((p) => {
               const publicationEditRequest = reviewableEditRequestByPublicationId.get(p.id);
+              const publicationNeedsAdminReview = Boolean((p.fields as any)?.needsAdminReview) || Boolean(String((p.fields as any)?.adminReviewReason ?? "").trim());
               return (
-              <div key={p.id} className={`rounded-2xl border bg-white p-4 ${p.primaryGroupKey === "prestacion" ? "border-teal-200" : "border-indigo-200"}`}>
+              <div key={p.id} className={`rounded-2xl border bg-white p-4 ${publicationEditRequest || publicationNeedsAdminReview ? "border-amber-300 bg-amber-50/40 shadow-[0_0_0_1px_rgba(245,158,11,0.18)]" : p.primaryGroupKey === "prestacion" ? "border-teal-200" : "border-indigo-200"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="inline-flex items-center gap-2">
@@ -8817,6 +8860,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="mt-1 text-xs text-slate-500">
                       Creada: {p.createdAt ? new Date(p.createdAt).toLocaleString("es-AR") : "-"}
                     </div>
+                    {publicationEditRequest || publicationNeedsAdminReview ? (
+                      <div className="mt-2 rounded-xl border border-amber-200 bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900">
+                        {publicationEditRequest
+                          ? `RevisiÃ³n pendiente: ${providerRequestKindLabel(parseTravelServiceExtra(publicationEditRequest).requestKind)}. Revisar solicitud antes de publicar.`
+                          : "RevisiÃ³n pendiente: upgrade aprobado. Revisar, ajustar y guardar como Activo para publicarla."}
+                      </div>
+                    ) : null}
                     <div className="mt-1 text-sm text-slate-600">
                       {(() => {
                         return "Bloque: Categorías";
