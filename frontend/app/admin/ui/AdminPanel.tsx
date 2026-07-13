@@ -686,9 +686,11 @@ function isReviewableTravelService(service: TravelService, extra?: Record<string
 
 function isPublicationLinkedReviewRequest(extra?: Record<string, unknown>): boolean {
   const requestKind = String(extra?.requestKind ?? "").trim().toLowerCase();
-  const sourcePublicationId = String(extra?.sourcePublicationId ?? "").trim();
-  return Boolean(sourcePublicationId) && (
+  return (
     requestKind === "edit_publication" ||
+    requestKind === "renew_free" ||
+    requestKind === "renew_featured_120d" ||
+    requestKind === "renew_featured_monthly" ||
     requestKind === "upgrade_featured_120d" ||
     requestKind === "upgrade_featured_monthly"
   );
@@ -812,6 +814,8 @@ function paymentConfirmedForRefund(value: unknown) {
 function providerRequestKindLabel(value: unknown): string {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (normalized === "renew_free") return "Renovación gratis";
+  if (normalized === "renew_featured_120d") return "Renovación destacado 120 días";
+  if (normalized === "renew_featured_monthly") return "Renovación plan mensual";
   if (normalized === "upgrade_featured_120d") return "Upgrade a destacado 120 días";
   if (normalized === "upgrade_featured_monthly") return "Upgrade a plan mensual";
   if (normalized === "downgrade_free") return "Volver a gratis";
@@ -4616,13 +4620,23 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       .sort((a, b) => travelServiceActivityTime(a) - travelServiceActivityTime(b))
       .forEach((service) => {
         const extra = parseTravelServiceExtra(service);
-        const sourcePublicationId = String(extra.sourcePublicationId ?? "").trim();
+        let sourcePublicationId = String(extra.sourcePublicationId ?? "").trim();
+        if (!sourcePublicationId) {
+          const sourceServiceId = String(extra.sourceServiceId ?? "").trim();
+          const matchedPublication = sourceServiceId
+            ? publications.find((publication) => {
+                const fields = (publication.fields && typeof publication.fields === "object" ? publication.fields : {}) as Record<string, unknown>;
+                return String(fields.sourceServiceId ?? "").trim() === sourceServiceId;
+              })
+            : null;
+          sourcePublicationId = matchedPublication ? String(matchedPublication.id) : "";
+        }
         if (!isPublicationLinkedReviewRequest(extra) || !sourcePublicationId) return;
         if (!isReviewableTravelService(service, extra)) return;
         map.set(sourcePublicationId, service);
       });
     return map;
-  }, [travelServices]);
+  }, [publications, travelServices]);
 
   const updateTravelServiceStatus = async (id: string, status: "aprobado" | "rechazado" | "falta info" | "pendiente") => {
     const currentService = travelServices.find((service) => service.id === id);
