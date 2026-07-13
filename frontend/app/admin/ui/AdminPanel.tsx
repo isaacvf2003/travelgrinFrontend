@@ -4772,7 +4772,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPPublisherName(providerDisplayName(selected));
     setPProviderEmail(selected.email || "");
     const selectedPlanRaw = String(extra.requestedPlan ?? extra.publicationPlan ?? selected.publicationPlan ?? "").trim().toLowerCase();
-    setPFeatured(["featured", "featured_120d", "monthly", "featured_monthly"].includes(selectedPlanRaw));
+    const isSelectedPaidPlan = ["featured", "featured_120d", "monthly", "featured_monthly"].includes(selectedPlanRaw);
+    setPFeatured(isSelectedPaidPlan);
     setPProviderLogo(providerLogo);
     setPFieldsBase((prev) => ({
       ...prev,
@@ -4797,17 +4798,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     };
     const publicationDescriptionParts = [
       textSection("Descripcion general", selected.contanos || extra.contanos || extra.description),
-      textSection("Que ofrece", extra.serviceDescription ?? extra.whatSearching),
-      textSection("Incluye", extra.included),
-      textSection("No incluye", extra.notIncluded),
-      textSection("Condiciones o aclaraciones", extra.conditions ?? extra.requirements ?? extra.notes),
-      textSection("Ubicacion y modalidad", [
-        selected.destinationCountry || extra.destinationCountry ? `Destino: ${selected.destinationCountry || extra.destinationCountry}` : "",
-        selected.city || extra.city ? `Ciudad: ${selected.city || extra.city}` : "",
-        extra.receivingCountriesMode && normalizeStringArray(extra.receivingCountries).length
-          ? `Personas a las que recibe: ${normalizeStringArray(extra.receivingCountries).join(", ")}`
-          : "",
-      ]),
+      isSelectedPaidPlan ? textSection("Incluye", extra.included) : "",
+      isSelectedPaidPlan ? textSection("No incluye", extra.notIncluded) : "",
     ].filter(Boolean);
     const publicationDescription = publicationDescriptionParts.join("\n\n");
     if (publicationDescription) {
@@ -4836,19 +4828,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPCity(selected.city || String(extra.city ?? ""));
     const { website, socialLinks } = parseProviderLinks(selected.website || String(extra.website ?? ""));
     setPWebsite(website);
-    if (detailedFormLinks.length || socialLinks.length || explicitLinks.length) {
-      setPSocialLinksDetailed((prev) => {
-        const existingByKey = new Map(prev.map((entry) => [`${entry.kind}:${entry.url}`, entry]));
-        [...detailedFormLinks, ...socialLinks, ...explicitLinks].forEach((entry) => {
-          const key = `${entry.kind}:${entry.url}`;
-          if (!existingByKey.has(key)) existingByKey.set(key, entry);
-        });
-        return Array.from(existingByKey.values());
-      });
-    }
-    setPPrice(selected.price || String(extra.price ?? ""));
-    if (selected.currency || extra.currency) setPCurrency(String(selected.currency || extra.currency));
-    setPExtraPrices(priceByCurrency.filter((entry) => entry.currency !== String(selected.currency || extra.currency || "").trim()));
+    const linkByKey = new Map<string, SocialLinkDetail>();
+    [...detailedFormLinks, ...socialLinks, ...explicitLinks].forEach((entry) => {
+      const key = `${entry.kind}:${entry.url}`;
+      if (!linkByKey.has(key)) linkByKey.set(key, entry);
+    });
+    setPSocialLinksDetailed(Array.from(linkByKey.values()));
+    const primaryPrice = selected.price || String(extra.price ?? "") || String(priceByCurrency[0]?.amount ?? "");
+    const primaryCurrency = String(selected.currency || extra.currency || priceByCurrency[0]?.currency || "").trim();
+    setPPrice(primaryPrice);
+    if (primaryCurrency) setPCurrency(primaryCurrency);
+    setPExtraPrices(priceByCurrency.filter((entry, index) => index > 0 || entry.currency !== primaryCurrency));
     const selectedExpirationRaw = String((selected as any).expirationAt || extra.expirationAt || "").trim();
     if (selectedExpirationRaw) {
       const selectedExpiration = new Date(selectedExpirationRaw);
