@@ -1065,7 +1065,7 @@ export default function ModalOferente({
     if (!resumeMode) return;
     setSelectedPlan(initialPlan);
     setSelectedPaidPlanType(preferredPaidPlanType);
-    setStep(initialPlan === "basic_free" ? "basic" : "featured");
+    setStep("basic");
   }, [initialPlan, preferredPaidPlanType, resumeMode]);
   useEffect(() => {
     if (!initialData) {

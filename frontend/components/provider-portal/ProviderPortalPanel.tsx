@@ -403,6 +403,15 @@ export default function ProviderPortalPanel() {
   const [modalResumeSubmissionId, setModalResumeSubmissionId] = useState<string | undefined>(undefined);
   const [modalResumePaymentState, setModalResumePaymentState] = useState("");
   const [modalResumeStatusReason, setModalResumeStatusReason] = useState("");
+
+  useEffect(() => {
+    document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, []);
   const [featured120Price, setFeatured120Price] = useState<PlanPriceResponseItem | null>(null);
   const [monthlyPrice, setMonthlyPrice] = useState<PlanPriceResponseItem | null>(null);
   const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
@@ -836,6 +845,7 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     const paidText = locale === "en" ? "Your payment was accepted." : locale === "pt" ? "Seu pagamento foi aceito." : locale === "it" ? "Il tuo pagamento e stato accettato." : "Tu pago fue aceptado.";
     const cancelText = locale === "en" ? "The payment window was closed without completing the payment." : locale === "pt" ? "A janela de pagamento foi fechada sem concluir o pagamento." : locale === "it" ? "La finestra di pagamento e stata chiusa senza completare il pagamento." : "La ventana de pago se cerro sin completar el pago.";
     const reviewText = locale === "en" ? "We are checking your payment status." : locale === "pt" ? "Estamos verificando o status do seu pagamento." : locale === "it" ? "Stiamo verificando lo stato del pagamento." : "Estamos verificando el estado de tu pago.";
+    const emailText = locale === "en" ? "You will receive the next steps by email." : locale === "pt" ? "Voce recebera os proximos passos por e-mail." : locale === "it" ? "Riceverai via email i prossimi passi." : "En tu cuenta de mail recibiras los pasos a seguir.";
 
     const reconcile = async () => {
       let resolvedStatus = featuredPaymentStatus;
@@ -859,11 +869,11 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
       }
 
       if (resolvedStatus === "success") {
-        toast.success(paidText, { duration: 7000 });
+        toast.success(`${paidText} ${emailText}`, { duration: 9000 });
       } else if (resolvedStatus === "cancel") {
         toast(cancelText, { duration: 7000 });
       } else {
-        toast(reviewText, { duration: 7000 });
+        toast(`${reviewText} ${emailText}`, { duration: 9000 });
       }
       await loadSession();
     };
