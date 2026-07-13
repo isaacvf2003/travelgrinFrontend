@@ -6,9 +6,11 @@ import { createProviderPortalMagicLink, getProviderPortalProfileName, portalEmai
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function normalizeLocale(value: unknown) {
+type ProviderPortalLocale = keyof typeof messages;
+
+function normalizeLocale(value: unknown): ProviderPortalLocale {
   const locale = String(value ?? "es").trim().toLowerCase().split("-")[0];
-  return ["es", "en", "pt", "it"].includes(locale) ? locale : "es";
+  return ["es", "en", "pt", "it"].includes(locale) ? locale as ProviderPortalLocale : "es";
 }
 
 const messages = {
