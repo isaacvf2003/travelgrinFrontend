@@ -31,6 +31,7 @@ type DetailCategory = {
   descriptionI18n?: Record<string, string> | null;
   parentId?: string | number | null;
   isPrimaryCategory?: boolean | null;
+  visibleInCard?: boolean | null;
   taxonomyType?: string | null;
 };
 
@@ -574,7 +575,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
   const primaryBreadcrumbSources = breadcrumbSources
     .map((entry) => {
       const matched = categoryByLabel.get(normalize(entry.value)) ?? categoryByLabel.get(normalize(entry.label));
-      if (matched?.isPrimaryCategory === true) {
+      if (matched && (matched.visibleInCard ?? matched.isPrimaryCategory) === true) {
         return {
           label: pickI18nText(matched.descriptionI18n ?? null, locale, String(matched.description ?? entry.label)),
           param: entry.param,
@@ -582,7 +583,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
         };
       }
       const parent = matched?.parentId ? categoryById.get(String(matched.parentId)) : null;
-      if (parent?.isPrimaryCategory === true) {
+      if (parent && (parent.visibleInCard ?? parent.isPrimaryCategory) === true) {
         return {
           label: pickI18nText(parent.descriptionI18n ?? null, locale, String(parent.description ?? entry.label)),
           param: "category" as const,

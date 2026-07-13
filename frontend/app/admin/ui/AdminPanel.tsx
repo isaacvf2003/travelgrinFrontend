@@ -58,6 +58,7 @@ type Category = {
   order?: number;
   isPublicVisible?: boolean;
   isPrimaryCategory?: boolean;
+  visibleInCard?: boolean;
 };
 
 type FilterOption = {
@@ -127,6 +128,7 @@ type FeaturedPlanPriceItem = {
   providerResourceId?: string | null;
   providerCheckoutUrl?: string | null;
   providerRaw?: unknown | null;
+  durationDays?: number;
   isDefault: boolean;
   isActive: boolean;
   createdAt: string;
@@ -374,6 +376,7 @@ type TravelService = {
   publicationPlan?: string | null;
   images?: string[] | null;
   createdAt?: string;
+  updatedAt?: string;
 };
 
 function parseTravelServiceExtra(service: TravelService): Record<string, unknown> {
@@ -1286,6 +1289,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [priceRulePlanTypeDraft, setPriceRulePlanTypeDraft] = useState<"featured_120d" | "featured_monthly">("featured_120d");
   const [priceRuleCurrencyDraft, setPriceRuleCurrencyDraft] = useState<"ARS" | "USD">("USD");
   const [priceRuleAmountDraft, setPriceRuleAmountDraft] = useState("");
+  const [priceRuleDurationDaysDraft, setPriceRuleDurationDaysDraft] = useState("120");
   const [priceRuleDefaultDraft, setPriceRuleDefaultDraft] = useState(false);
   const [priceRuleActiveDraft, setPriceRuleActiveDraft] = useState(true);
   const [priceRuleEditId, setPriceRuleEditId] = useState<string | null>(null);
@@ -1394,6 +1398,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     taxonomyType: string;
     isPublicVisible: boolean;
     isPrimaryCategory: boolean;
+    visibleInCard: boolean;
     iconImageUrl: string;
     cardImageUrl: string;
     nameI18n: I18nRecord;
@@ -1849,7 +1854,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     parentDraftId,
     taxonomyType: "inherit",
     isPublicVisible: true,
-    isPrimaryCategory: !parentDraftId && visibleInCardDefault,
+    isPrimaryCategory: false,
+    visibleInCard: !parentDraftId && visibleInCardDefault,
     iconImageUrl: "",
     cardImageUrl: "",
     nameI18n: { es: "", en: "", pt: "", it: "" },
@@ -1951,6 +1957,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             })(),
         isPublicVisible: catIsPublicVisible,
         isPrimaryCategory: catIsPrimaryCategory,
+        visibleInCard: catIsPrimaryCategory,
         iconImageUrl: editingCategoryId
           ? catIsPrimaryCategory
             ? (catIconImageTouched ? resolvedCatIconImageUrl : undefined)
@@ -2111,10 +2118,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         savedBlockId = editingBlockId;
         if (blockVisibleInCard !== initialBlockVisibleInCard) {
           const blockCategories = categories.filter((category) => category.blockId === savedBlockId);
-          const fallbackPrimaryCategoryId =
-            blockVisibleInCard && !blockCategories.some((category) => category.isPrimaryCategory === true)
-              ? (blockCategories.find((category) => !category.parentId)?.id ?? blockCategories[0]?.id ?? null)
-              : null;
           await Promise.all(blockCategories.map((category) =>
             api(`/api/admin/categories/${encodeURIComponent(category.id)}`, {
               method: "PATCH",
@@ -2126,15 +2129,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 parentId: category.parentId ?? null,
                 blockId: category.blockId ?? savedBlockId,
                 isPublicVisible: category.isPublicVisible !== false,
-                isPrimaryCategory: blockVisibleInCard
-                  ? Boolean(category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId)
-                  : false,
+                isPrimaryCategory: category.isPrimaryCategory === true,
+                visibleInCard: blockVisibleInCard ? (category.visibleInCard ?? category.isPrimaryCategory) === true : false,
                 iconImageUrl:
-                  blockVisibleInCard && (category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId)
+                  blockVisibleInCard && ((category.visibleInCard ?? category.isPrimaryCategory) === true)
                     ? (category.iconImageUrl ?? null)
                     : null,
                 cardImageUrl:
-                  blockVisibleInCard && (category.isPrimaryCategory || category.id === fallbackPrimaryCategoryId)
+                  blockVisibleInCard && ((category.visibleInCard ?? category.isPrimaryCategory) === true)
                     ? (category.cardImageUrl ?? null)
                     : null,
                 order: category.order ?? 0,
@@ -2162,12 +2164,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
 
       if (!editingBlockId && savedBlockId && blockCategoryDrafts.length) {
-        const normalizedDrafts = blockCategoryDrafts.map((draft, draftIndex) => {
-          if (!blockVisibleInCard) return { ...draft, isPrimaryCategory: false };
-          if (blockCategoryDrafts.some((entry) => entry.isPrimaryCategory)) return draft;
-          const shouldBePrimary = !draft.parentDraftId && draftIndex === 0;
-          return shouldBePrimary ? { ...draft, isPrimaryCategory: true } : draft;
-        });
+        const normalizedDrafts = blockCategoryDrafts.map((draft) => ({
+          ...draft,
+          visibleInCard: blockVisibleInCard ? draft.visibleInCard : false,
+        }));
         const draftById = new Map(normalizedDrafts.map((draft) => [draft.id, draft]));
         const draftIdsByParent = new Map<string, string[]>();
         normalizedDrafts.forEach((draft) => {
@@ -2226,8 +2226,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 order,
                 isPublicVisible: draft.isPublicVisible,
                 isPrimaryCategory: draft.isPrimaryCategory,
-                iconImageUrl: draft.isPrimaryCategory ? (draft.iconImageUrl.trim() || null) : null,
-                cardImageUrl: draft.isPrimaryCategory ? (draft.cardImageUrl.trim() || null) : null,
+                visibleInCard: draft.visibleInCard,
+                iconImageUrl: draft.visibleInCard ? (draft.iconImageUrl.trim() || null) : null,
+                cardImageUrl: draft.visibleInCard ? (draft.cardImageUrl.trim() || null) : null,
               }),
             });
 
@@ -2299,7 +2300,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const shouldStartAsPrimaryCategory = Boolean(
       blockId &&
       !parentId &&
-      categories.some((category) => category.blockId === blockId && category.isPrimaryCategory === true)
+    categories.some((category) => category.blockId === blockId && (category.visibleInCard ?? category.isPrimaryCategory) === true)
     );
     setCategoryModalMode("category");
     setCatError("");
@@ -2371,9 +2372,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setBlockImageUrl(group.imageUrl ?? "");
     setBlockTaxonomyType(group.taxonomyType ?? "categoria");
     setBlockIsPublicVisible(group.isPublicVisible !== false);
-    const hasPrimaryCategory = categories.some((category) => category.blockId === group.id && category.isPrimaryCategory === true);
-    setBlockVisibleInCard(hasPrimaryCategory);
-    setInitialBlockVisibleInCard(hasPrimaryCategory);
+    const hasVisibleInCard = categories.some((category) => category.blockId === group.id && (category.visibleInCard ?? category.isPrimaryCategory) === true);
+    setBlockVisibleInCard(hasVisibleInCard);
+    setInitialBlockVisibleInCard(hasVisibleInCard);
     setBlockCategoryDrafts([]);
     setShowCategoryModal(true);
   };
@@ -3631,8 +3632,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             order: category.order ?? 0,
             isPublicVisible: source.isPublicVisible !== false,
             isPrimaryCategory: source.isPrimaryCategory === true,
-            iconImageUrl: source.isPrimaryCategory === true ? (source.iconImageUrl ?? null) : null,
-            cardImageUrl: source.isPrimaryCategory === true ? (source.cardImageUrl ?? null) : null,
+            visibleInCard: (source.visibleInCard ?? source.isPrimaryCategory) === true,
+            iconImageUrl: (source.visibleInCard ?? source.isPrimaryCategory) === true ? (source.iconImageUrl ?? null) : null,
+            cardImageUrl: (source.visibleInCard ?? source.isPrimaryCategory) === true ? (source.cardImageUrl ?? null) : null,
           }),
         });
       })
@@ -4731,7 +4733,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             ? "featured"
             : "basic_free",
     }));
-    setPProviderInfoI18n((prev) => ({ ...prev, es: selected.contanos || prev.es || "" }));
+    const publicationDescriptionParts = [
+      selected.contanos ? `Descripción\n${selected.contanos}` : "",
+      String(extra.description ?? "").trim() ? `Detalle\n${String(extra.description ?? "").trim()}` : "",
+    ].filter(Boolean);
+    const publicationDescription = publicationDescriptionParts.join("\n\n");
+    if (publicationDescription) {
+      setPDescription(publicationDescription);
+      setPDescriptionI18n((prev) => ({ ...prev, es: publicationDescription }));
+    }
+    const providerProfileText = String(extra.providerDescription ?? extra.providerInfo ?? "").trim();
+    setPProviderInfoI18n((prev) => ({ ...prev, es: providerProfileText || prev.es || "" }));
     setPProviderActivities(activities);
     setPProviderTypes(profileTypes);
     setPProviderModalities(modalities);
@@ -5176,6 +5188,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRulePlanTypeDraft("featured_120d");
     setPriceRuleCurrencyDraft("USD");
     setPriceRuleAmountDraft("");
+    setPriceRuleDurationDaysDraft("120");
     setPriceRuleDefaultDraft(false);
     setPriceRuleActiveDraft(true);
     setPriceRuleProviderModeDraft("api");
@@ -5209,6 +5222,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           providerCountry: isDefaultRule ? "Todos los países" : priceRuleCountryDraft,
           currency: priceRuleCurrencyDraft,
           amount: Number(priceRuleAmountDraft),
+          durationDays: Number(priceRuleDurationDaysDraft || 120),
           isDefault: isDefaultRule,
           isActive: priceRuleActiveDraft,
           providerMode: priceRuleProviderModeDraft,
@@ -5232,6 +5246,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           country: isDefaultRule ? "" : priceRuleCountryDraft,
           currency: priceRuleCurrencyDraft,
           amount: Number(priceRuleAmountDraft),
+          durationDays: Number(priceRuleDurationDaysDraft || 120),
           isDefault: isDefaultRule,
           isActive: priceRuleActiveDraft,
         };
@@ -5259,6 +5274,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRulePlanTypeDraft(item.planType === "featured_monthly" ? "featured_monthly" : "featured_120d");
     setPriceRuleCurrencyDraft(item.currency === "ARS" ? "ARS" : "USD");
     setPriceRuleAmountDraft(String(item.amount ?? ""));
+    setPriceRuleDurationDaysDraft(String(item.durationDays ?? 120));
     setPriceRuleDefaultDraft(Boolean(item.isDefault));
     setPriceRuleActiveDraft(Boolean(item.isActive));
     setPriceRuleProviderModeDraft(linkedPlan?.providerMode === "manual" ? "manual" : "api");
@@ -5319,11 +5335,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPromoSaving(true);
     setPromoMessage("");
     try {
+      const normalizedExpiresAt = promoExpiresDraft
+        ? (/^\d{4}-\d{2}-\d{2}$/.test(promoExpiresDraft) ? `${promoExpiresDraft}T00:00` : promoExpiresDraft)
+        : null;
       const payload = {
         id: promoEditId ?? undefined,
         code: promoCodeDraft,
         discountPercent: Number(promoDiscountDraft),
-        expiresAt: promoExpiresDraft || null,
+        expiresAt: normalizedExpiresAt,
         maxUses: promoMaxUsesDraft || null,
         scope: promoScopeDraft,
         isActive: promoActiveDraft,
@@ -5417,7 +5436,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           <p className="text-sm font-semibold text-slate-900">Precios de planes por pais</p>
             <p className="text-xs text-slate-500">Configura los valores del destacado por 120 dias por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
           </div>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-8">
             <select value="featured_120d" onChange={() => setPriceRulePlanTypeDraft("featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
               <option value="featured_120d">Pago unico 120 dias</option>
             </select>
@@ -5438,6 +5457,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <option value="ARS">ARS</option>
           </select>
           <input value={priceRuleAmountDraft} onChange={(event) => setPriceRuleAmountDraft(event.target.value)} placeholder="Monto" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <input value={priceRuleDurationDaysDraft} onChange={(event) => setPriceRuleDurationDaysDraft(event.target.value.replace(/\D/g, ""))} placeholder="Días" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" title="Duración del pago único en días" />
           <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs text-slate-700">
             <input type="checkbox" checked={priceRuleDefaultDraft} onChange={(event) => {
               const checked = event.target.checked;
@@ -5560,7 +5580,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
               <div className="flex flex-1 flex-wrap items-center gap-2">
                   <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.isDefault ? "DEFECTO" : (item.country || "-")}</span>
-                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : "120 DIAS"}</span>
+                  <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : `${item.durationDays ?? 120} DIAS`}</span>
                   <span>{item.currency}</span>
                   <span>{item.amount}</span>
                 <span className="rounded-full bg-white px-2 py-1">
@@ -6372,8 +6392,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   const isBlockOpen = expandedBlocks[block.id] ?? false;
                   const hasBlockContent = rootsInBlock.length > 0 || optionRoots.length > 0;
                   const blockHasVisibleCardCategory = rootsInBlock.some((category) => {
-                    if (category.isPrimaryCategory) return true;
-                    return (childrenBy.get(category.id) ?? []).some((child) => child.isPrimaryCategory);
+                    if ((category.visibleInCard ?? category.isPrimaryCategory) === true) return true;
+                    return (childrenBy.get(category.id) ?? []).some((child) => (child.visibleInCard ?? child.isPrimaryCategory) === true);
                   });
                   return (
                     <div key={block.id} className="rounded-2xl border border-slate-100 bg-white">
@@ -6455,6 +6475,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                         <p className="text-sm font-semibold text-slate-900">
                                           {pickI18nText(root.descriptionI18n ?? null, catLang, root.description)}
                                           {root.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
+                                          {(root.visibleInCard ?? root.isPrimaryCategory) ? <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-700">Visible en tarjeta</span> : null}
                                         </p>{root.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Esta categoría es invisible</p> : null}
                                         {getCategoryCustomTaxonomyNotice(root) ? <p className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(root)}</p> : null}
                                       </span>
@@ -6478,6 +6499,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                                 <div className="text-sm font-medium text-slate-800">
                                                   {pickI18nText(child.descriptionI18n ?? null, catLang, child.description)}
                                                   {child.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
+                                                  {(child.visibleInCard ?? child.isPrimaryCategory) ? <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-700">Visible en tarjeta</span> : null}
                                                 </div>{child.isPublicVisible === false ? <div className="mt-1 text-xs font-medium text-amber-600">Esta categoría es invisible</div> : null}
                                                 {getCategoryCustomTaxonomyNotice(child) ? <div className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(child)}</div> : null}
                                               </div>
@@ -6880,9 +6902,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
                                     <input
                                       type="checkbox"
-                                      checked={draft.isPrimaryCategory}
+                                      checked={draft.visibleInCard}
                                       onChange={(e) =>
-                                        updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
+                                        updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, visibleInCard: e.target.checked }))
                                       }
                                       className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
                                     />
@@ -6890,7 +6912,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                   </label>
                                 ) : null}
                               </div>
-                              {draft.isPrimaryCategory ? (
+                              <label className="mt-2 flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={draft.isPrimaryCategory}
+                                  onChange={(e) =>
+                                    updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
+                                  }
+                                  className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                                />
+                                Categoría principal del bloque
+                              </label>
+                              {draft.visibleInCard ? (
                                 <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
                                   <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
                                   <input
@@ -7040,9 +7073,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                           <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
                                             <input
                                               type="checkbox"
-                                              checked={subDraft.isPrimaryCategory}
+                                              checked={subDraft.visibleInCard}
                                               onChange={(e) =>
-                                                updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
+                                                updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, visibleInCard: e.target.checked }))
                                               }
                                               className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
                                             />
@@ -7050,7 +7083,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                           </label>
                                         ) : null}
                                       </div>
-                                      {subDraft.isPrimaryCategory ? (
+                                      <label className="mt-2 flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                                        <input
+                                          type="checkbox"
+                                          checked={subDraft.isPrimaryCategory}
+                                          onChange={(e) =>
+                                            updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
+                                          }
+                                          className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                                        />
+                                        Categoría principal del bloque
+                                      </label>
+                                      {subDraft.visibleInCard ? (
                                         <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
                                   <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
                                           <input
@@ -8792,6 +8836,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   </div>
 
                   <div className="flex flex-wrap items-center justify-end gap-2">
+                    <a
+                      href={p.primaryGroupKey === "prestacion" ? `/prestaciones/${encodeURIComponent(p.id)}` : `/publicacion/${encodeURIComponent(p.id)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg border border-cyan-200 px-3 py-1.5 text-xs text-cyan-700 hover:bg-cyan-50"
+                    >
+                      Ver detalle
+                    </a>
                     <button
                       onClick={() => editPublication(p)}
                       className="rounded-lg border border-[#00A9C6]/40 px-3 py-1.5 text-xs text-[#007D92] hover:bg-[#00A9C6]/10"
