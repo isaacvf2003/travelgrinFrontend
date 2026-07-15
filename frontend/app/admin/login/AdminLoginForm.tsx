@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { ArrowLeft, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 
 type AdminLoginFormProps = {
@@ -55,9 +55,12 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const submittingRef = useRef(false);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError("");
     setSuccess("");
@@ -79,14 +82,17 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
       setSuccess("Acceso verificado. Entrando al panel...");
       window.location.assign(destination);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo iniciar sesion.");
+      setError("No se pudo iniciar sesion. Intenta nuevamente.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
 
   async function handleVerifyOtp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError("");
     setSuccess("");
@@ -100,14 +106,17 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
       setSuccess("Acceso verificado. Entrando al panel...");
       window.location.assign(destination);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo verificar el codigo.");
+      setError("No se pudo verificar el codigo.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
 
   async function handleRequestReset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError("");
     setSuccess("");
@@ -119,21 +128,25 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
       setSuccess(data?.message || "Te enviamos un codigo al correo.");
       setMode("confirm-reset");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo enviar el codigo.");
+      setError("No se pudo enviar el codigo.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
 
   async function handleConfirmReset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError("");
     setSuccess("");
 
     try {
       if (newPassword !== confirmPassword) {
-        throw new Error("Las contraseñas no coinciden.");
+        setError("Las contrasenas no coinciden.");
+        return;
       }
       const data = await postJson("/api/admin/auth/reset-password", {
         email: email.trim(),
@@ -147,8 +160,9 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cambiar la contrasena.");
+      setError("No se pudo cambiar la contrasena.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }

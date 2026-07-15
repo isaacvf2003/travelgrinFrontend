@@ -9,8 +9,7 @@ export function missingBackendResponse() {
   return NextResponse.json(
     {
       ok: false,
-      error: "Backend API URL is not configured.",
-      message: "Configura BACKEND_API_URL o NEXT_API_PROXY_TARGET apuntando al backend.",
+      error: "Servicio no disponible. Intenta nuevamente.",
     },
     { status: 500 },
   );

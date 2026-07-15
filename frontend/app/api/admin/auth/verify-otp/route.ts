@@ -33,8 +33,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json(data);
   } catch (error) {
+    console.error("[admin-verify-otp-proxy] OTP proxy failed", error);
     return NextResponse.json(
-      { ok: false, error: "OTP failed", message: error instanceof Error ? error.message : "Unknown error" },
+      { ok: false, error: "No se pudo verificar el codigo." },
       { status: 400 },
     );
   }
