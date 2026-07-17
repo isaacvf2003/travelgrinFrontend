@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { FormEvent, useRef, useState } from "react";
 import { ArrowLeft, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 type AdminLoginFormProps = {
   nextPath?: string;
@@ -55,6 +56,8 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const submittingRef = useRef(false);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -66,15 +69,22 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
     setSuccess("");
 
     try {
+      if (!turnstileToken) {
+        setError("Completa la verificacion.");
+        return;
+      }
       const data = await postJson("/api/admin/auth/login", {
         email: email.trim(),
         password,
+        turnstileToken,
       });
 
       if (data?.otpRequired && data?.otpToken) {
         setOtpToken(String(data.otpToken));
         setOtpCode("");
         setMode("verify-otp");
+        setTurnstileToken("");
+        setTurnstileResetKey((value) => value + 1);
         setSuccess(data?.message || "Te enviamos un codigo al correo admin.");
         return;
       }
@@ -243,9 +253,15 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
                 </div>
               </label>
 
+              <TurnstileWidget
+                resetKey={turnstileResetKey}
+                onTokenChange={setTurnstileToken}
+                className="rounded-2xl border border-slate-200 bg-slate-50 p-2"
+              />
+
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !turnstileToken}
                 className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {submitting ? "Verificando acceso..." : "Entrar al panel"}
