@@ -15,6 +15,7 @@ import MaterialInputs from "../MaterialInput";
 import FloatingAIButton from "../FloatingAIButton";
 import ModalAI from "../ModalAI";
 import CountryMultiSelect from "../CountryMultiSelect";
+import TurnstileWidget from "@/components/TurnstileWidget";
 import { uploadImageAsset, type ImageAsset } from "@/app/lib/cloudinaryUpload";
 
 type Props = {
@@ -145,6 +146,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Completá la descripción",
     oferente_toast_web: "Completá el sitio web",
     oferente_toast_terminos: "Debés aceptar términos y condiciones",
+    oferente_turnstile_required: "Completa la verificacion.",
     oferente_toast_sede: "Completá el país donde se cumple tu propuesta",
     oferente_toast_categoria_limite: "Podés elegir hasta 3 categorías o subcategorías.",
     oferente_toast_revision: "Tu publicación está en revisión",
@@ -248,6 +250,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Complete the description",
     oferente_toast_web: "Complete the website",
     oferente_toast_terminos: "You must accept terms and conditions",
+    oferente_turnstile_required: "Please complete the verification.",
     oferente_toast_sede: "Complete the country where your proposal takes place",
     oferente_toast_categoria_limite: "You can choose up to 3 categories or subcategories.",
     oferente_toast_revision: "Your publication is under review",
@@ -351,6 +354,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Complete a descrição",
     oferente_toast_web: "Complete o site",
     oferente_toast_terminos: "Você deve aceitar os termos e condições",
+    oferente_turnstile_required: "Complete a verificacao.",
     oferente_toast_sede: "Preencha o país onde sua proposta acontece",
     oferente_toast_categoria_limite: "Você pode escolher até 3 categorias ou subcategorias.",
     oferente_toast_revision: "Sua publicação está em revisão",
@@ -454,6 +458,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_descripcion: "Completa la descrizione",
     oferente_toast_web: "Completa il sito web",
     oferente_toast_terminos: "Devi accettare termini e condizioni",
+    oferente_turnstile_required: "Completa la verifica.",
     oferente_toast_sede: "Completa il paese in cui si svolge la tua proposta",
     oferente_toast_categoria_limite: "Puoi scegliere fino a 3 categorie o sottocategorie.",
     oferente_toast_revision: "La tua pubblicazione è in revisione",
@@ -994,6 +999,8 @@ export default function ModalOferente({
   const [email, setEmail] = useState(initialEmail);
   const [emailError, setEmailError] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const [providerLogo, setProviderLogo] = useState("");
   const [providerLogoAsset, setProviderLogoAsset] = useState<ImageAsset | null>(null);
@@ -1966,6 +1973,7 @@ export default function ModalOferente({
       acceptedTerms: true,
       submittedViaPortal: Boolean(initialEmail.trim()),
       portalOwnerEmail: initialEmail.trim().toLowerCase(),
+      turnstileToken,
     };
   };
 
@@ -1974,6 +1982,10 @@ export default function ModalOferente({
     if (!validateBasic()) return;
     const isPaidPlan = publicationPlan === "featured" || publicationPlan === "monthly";
     if (isPaidPlan && !validateFeatured()) return;
+    if (!turnstileToken) {
+      toast.error(mt("oferente_turnstile_required"));
+      return;
+    }
     const isPublicationChangeRequest = publicationChangeMode || requestKind === "edit_publication";
     const isResumePaidWithoutNewCharge = isPaidPlan && (canReuseCompletedPayment || isPublicationChangeRequest);
 
@@ -2054,6 +2066,8 @@ export default function ModalOferente({
         );
         onSubmitted?.({ serviceId, plan: publicationPlan });
         submittedServiceIdRef.current = null;
+        setTurnstileToken("");
+        setTurnstileResetKey((value) => value + 1);
         setIsLoading(false);
         return;
       }
@@ -2162,6 +2176,10 @@ export default function ModalOferente({
   const goPaid = async (plan: "featured" | "monthly", planType: "featured_120d" | "featured_monthly") => {
     if (isLoading) return;
     if (!validateBasic()) return;
+    if (!turnstileToken) {
+      toast.error(mt("oferente_turnstile_required"));
+      return;
+    }
     setPaymentUi({ status: "idle" });
     setSelectedPlan(plan);
     setSelectedPaidPlanType(planType);
@@ -2339,6 +2357,12 @@ export default function ModalOferente({
         </Link>
       </label>
 
+      <TurnstileWidget
+        resetKey={turnstileResetKey}
+        onTokenChange={setTurnstileToken}
+        className="rounded-2xl border border-[#BFEAF3] bg-white/80 p-2 shadow-sm"
+      />
+
       <div className={`mx-auto grid w-full gap-4 ${planCardsGridClass}`}>
         {visiblePlanSet.has("basic_free") ? (
           <PlanCard
@@ -2348,7 +2372,7 @@ export default function ModalOferente({
             items={basicItems}
             buttonLabel={isLoading ? t("guardando") : basicSubmitLabel}
             onClick={() => submit("basic_free")}
-            disabled={isLoading || isPaymentBusy}
+            disabled={isLoading || isPaymentBusy || !turnstileToken}
             promoPlaceholder={mt("oferente_codigo_promocional")}
             compact={useCompactPlanCardSize}
           />
@@ -2364,7 +2388,7 @@ export default function ModalOferente({
             items={featuredItems}
             buttonLabel={mt("oferente_continuar_destacado")}
             onClick={() => { void goPaid("featured", "featured_120d"); }}
-            disabled={isLoading || isPaymentBusy}
+            disabled={isLoading || isPaymentBusy || !turnstileToken}
             showPromo
             promoCode={promoCode}
             onPromoCodeChange={setPromoCode}
@@ -2388,7 +2412,7 @@ export default function ModalOferente({
             items={featuredItems}
             buttonLabel={monthlyContinueLabel}
             onClick={() => { void goPaid("monthly", "featured_monthly"); }}
-            disabled={isLoading || isPaymentBusy}
+            disabled={isLoading || isPaymentBusy || !turnstileToken}
             showPromo
             promoCode={promoCode}
             onPromoCodeChange={setPromoCode}
@@ -2577,7 +2601,7 @@ export default function ModalOferente({
           items={featuredItems}
           buttonLabel={isLoading ? t("guardando") : (isPublicationChangeRequestMode ? mt("oferente_solicitar_cambios") : resumeMode ? resumeSubmitLabel : (selectedPlan === "monthly" ? monthlySubmitLabel : mt("oferente_publicar_destacado")))}
           onClick={() => submit(selectedPlan === "monthly" ? "monthly" : "featured")}
-          disabled={isLoading || isPaymentBusy}
+          disabled={isLoading || isPaymentBusy || !turnstileToken}
           showPromo
           promoCode={promoCode}
           onPromoCodeChange={setPromoCode}

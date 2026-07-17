@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import ModalOferente from "@/components/ModalOferente";
+import TurnstileWidget from "@/components/TurnstileWidget";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCountry } from "@/app/context/CountryProvider";
 import { Briefcase, CalendarClock, CheckCircle2, CircleDollarSign, Crown, FilePlus2, LogOut, Mail, RefreshCcw, ShieldCheck, Sparkles } from "lucide-react";
@@ -396,6 +397,8 @@ export default function ProviderPortalPanel() {
   const [requestingLink, setRequestingLink] = useState(false);
   const [requestMessage, setRequestMessage] = useState("");
   const [requestError, setRequestError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [sessionEmail, setSessionEmail] = useState("");
@@ -1021,6 +1024,10 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
       setRequestError(copy.invalidEmail);
       return;
     }
+    if (!turnstileToken) {
+      setRequestError(locale === "en" ? "Please complete the verification." : locale === "pt" ? "Complete a verificacao." : locale === "it" ? "Completa la verifica." : "Completa la verificacion.");
+      return;
+    }
     setRequestingLink(true);
     setRequestMessage("");
     setRequestError("");
@@ -1029,13 +1036,15 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email: normalizedEmail, locale }),
+        body: JSON.stringify({ email: normalizedEmail, locale, turnstileToken }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok === false) {
         throw new Error(String(data?.error ?? copy.sendLinkError));
       }
       setRequestMessage(String(data?.message ?? "") || copy.requestLinkSent);
+      setTurnstileToken("");
+      setTurnstileResetKey((value) => value + 1);
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : copy.sendLinkError);
     } finally {
@@ -1830,12 +1839,17 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                 <button
                   type="button"
                   onClick={() => void submitRequestAccess()}
-                  disabled={requestingLink}
+                  disabled={requestingLink || !turnstileToken}
                   className="rounded-2xl bg-[#0B8FA3] px-5 py-3 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60"
                 >
                   {requestingLink ? copy.sending : copy.sendLink}
                 </button>
               </div>
+              <TurnstileWidget
+                resetKey={turnstileResetKey}
+                onTokenChange={setTurnstileToken}
+                className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-2"
+              />
               {requestError ? <p className="mt-3 text-sm text-red-600">{requestError}</p> : null}
               {requestMessage ? <p className="mt-3 text-sm text-emerald-700">{requestMessage}</p> : null}
               <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">

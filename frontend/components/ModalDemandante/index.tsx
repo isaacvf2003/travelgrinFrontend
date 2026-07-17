@@ -11,6 +11,7 @@ import ButtonSolid from "../ButtonSolid";
 import toast from "react-hot-toast";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText } from "@/app/lib/i18nContent";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 type Props = {
   selectedCountry: string | null;
@@ -97,6 +98,8 @@ export default function ModalDemandante({
   const [isEmptyEmail, setIsEmptyEmail] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const [emailError, setEmailError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   // Hook para mounted state
   useEffect(() => {
@@ -199,6 +202,10 @@ export default function ModalDemandante({
     } else {
       setIsEmptyEmail(false);
     }
+    if (!turnstileToken) {
+      toast.error("Completa la verificacion.");
+      return;
+    }
 
     setIsLoading(true);
     const searchUrl =
@@ -223,11 +230,14 @@ export default function ModalDemandante({
       matchAlertSearchUrl: searchUrl,
       matchAlertCreatedAt: new Date().toISOString(),
       interestSource: "demandante_search_form",
+      turnstileToken,
     };
     
     try {
       await createTravelService(serviceData);
       setIsLoading(false);
+      setTurnstileToken("");
+      setTurnstileResetKey((value) => value + 1);
       onClose();
       toast.success(t("success_form"));
     } catch (error) {
@@ -239,7 +249,8 @@ export default function ModalDemandante({
   const isDisabled =
     getCountryName(country).length === 0 ||
     email.length === 0 ||
-    emailError.length > 0;
+    emailError.length > 0 ||
+    !turnstileToken;
 
   // Función para manejar el cierre del modal
   const handleClose = (e?: React.MouseEvent) => {
@@ -429,6 +440,11 @@ export default function ModalDemandante({
               />
             </div>
             <div className="text-black flex text-sm space-y-4 text-center justify-center items-center flex-col">
+              <TurnstileWidget
+                resetKey={turnstileResetKey}
+                onTokenChange={setTurnstileToken}
+                className="w-full max-w-full rounded-2xl border border-white/80 bg-white/70 p-2 shadow-sm"
+              />
               <p style={{ color: "#273166" }}>
                 {t("hay_oportunidades_esperandote")}
               </p>

@@ -4,6 +4,7 @@ import { MessageSquareMore, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 export default function FeedbackFloatingButton() {
   const { locale } = useTranslation();
@@ -15,6 +16,8 @@ export default function FeedbackFloatingButton() {
   const [sending, setSending] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   useEffect(() => {
     if (!successMessage) return;
@@ -42,6 +45,7 @@ export default function FeedbackFloatingButton() {
           success: "Thanks! We received your feedback.",
           required: "Please complete name, email and message.",
           invalidEmail: "Please enter a valid email.",
+          captchaRequired: "Please complete the verification.",
           fail: "Could not send feedback.",
         }
       : locale === "pt"
@@ -61,6 +65,7 @@ export default function FeedbackFloatingButton() {
             success: "Obrigado! Recebemos seu feedback.",
             required: "Complete nome, email e mensagem.",
             invalidEmail: "Digite um email valido.",
+            captchaRequired: "Complete a verificacao.",
             fail: "Nao foi possivel enviar o feedback.",
           }
         : locale === "it"
@@ -80,6 +85,7 @@ export default function FeedbackFloatingButton() {
               success: "Grazie! Abbiamo ricevuto il tuo feedback.",
               required: "Compila nome, email e messaggio.",
               invalidEmail: "Inserisci un'email valida.",
+              captchaRequired: "Completa la verifica.",
               fail: "Impossibile inviare il feedback.",
             }
           : {
@@ -98,6 +104,7 @@ export default function FeedbackFloatingButton() {
               success: "Gracias. Recibimos tu feedback.",
               required: "Completa nombre, email y mensaje.",
               invalidEmail: "Ingresa un email valido.",
+              captchaRequired: "Completa la verificacion.",
               fail: "No se pudo enviar el feedback.",
             };
 
@@ -108,6 +115,10 @@ export default function FeedbackFloatingButton() {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError(labels.invalidEmail);
+      return;
+    }
+    if (!turnstileToken) {
+      setError(labels.captchaRequired);
       return;
     }
 
@@ -125,6 +136,7 @@ export default function FeedbackFloatingButton() {
           fullName,
           contact: email,
           email,
+          turnstileToken,
         }),
       });
 
@@ -138,6 +150,8 @@ export default function FeedbackFloatingButton() {
       setFullName("");
       setEmail("");
       setDetails("");
+      setTurnstileToken("");
+      setTurnstileResetKey((value) => value + 1);
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error && err.message.trim() ? err.message : labels.fail);
@@ -152,7 +166,12 @@ export default function FeedbackFloatingButton() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setError("");
+          setTurnstileToken("");
+          setTurnstileResetKey((value) => value + 1);
+          setOpen(true);
+        }}
         className="fixed bottom-6 left-6 z-[401] inline-flex items-center gap-2 rounded-full bg-[#0D9488] px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-[#0f766e]"
       >
         <MessageSquareMore size={16} />
@@ -166,14 +185,27 @@ export default function FeedbackFloatingButton() {
       ) : null}
 
       {open ? (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
+        <div
+          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => {
+            setOpen(false);
+            setTurnstileToken("");
+          }}
+        >
           <div className="w-full max-w-xl rounded-2xl bg-white p-5" onClick={(event) => event.stopPropagation()}>
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">{labels.title}</h3>
                 <p className="text-sm text-slate-500">{labels.subtitle}</p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-1 text-slate-500 hover:bg-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setTurnstileToken("");
+                }}
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -185,14 +217,26 @@ export default function FeedbackFloatingButton() {
               <input value={email} onChange={(event) => setEmail(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900" placeholder={labels.emailPlaceholder} />
               <label className="text-sm font-medium text-black">{labels.details}</label>
               <textarea value={details} onChange={(event) => setDetails(event.target.value)} className="min-h-[110px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900" placeholder={labels.detailsPlaceholder} />
+              <TurnstileWidget
+                resetKey={turnstileResetKey}
+                onTokenChange={setTurnstileToken}
+                className="mt-2 rounded-xl border border-slate-100 bg-slate-50/70 p-2"
+              />
 
               <div className="mt-1 flex flex-wrap gap-2">
-                <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    setTurnstileToken("");
+                  }}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
                   {labels.cancel}
                 </button>
                 <button
                   type="button"
-                  disabled={sending}
+                  disabled={sending || !turnstileToken}
                   onClick={submitFeedback}
                   className="rounded-lg bg-[#0D9488] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
                 >
