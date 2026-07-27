@@ -373,8 +373,8 @@ function ServiceCard({
         </div>
 
         {/* Sección inferior: Botón Ver más */}
-        <div className="mt-5 w-full flex justify-center shrink-0">
-          <span className="rounded-full bg-white/15 px-3 py-1.5 text-[11px] md:text-[13px] font-medium text-white backdrop-blur-sm transition-colors group-hover:bg-white/30">
+        <div className="mt-2 mb-6 w-full flex justify-center shrink-0">
+          <span className="rounded-full bg-white/20 px-4 py-1.5 text-[16px] md:text-[17px] font-medium text-white backdrop-blur-sm transition-colors group-hover:bg-white/30">
             {t("ver_mas")}
           </span>
         </div>
