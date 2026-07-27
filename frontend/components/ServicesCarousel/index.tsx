@@ -249,7 +249,7 @@ export default function ServicesCarousel() {
         <div className="mx-auto mb-6 h-8 w-72 rounded-full bg-white/40" />
         <div className="grid grid-cols-1 gap-4 px-6 py-4 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: cardsPerView }).map((_, index) => (
-            <div key={`services-skeleton-${index}`} className="h-72 rounded-[36px] bg-black/20" />
+            <div key={`services-skeleton-${index}`} className="h-80 rounded-[36px] bg-black/20" />
           ))}
         </div>
       </div>
@@ -341,7 +341,7 @@ function ServiceCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group relative h-72 w-full cursor-pointer overflow-hidden rounded-[36px] shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
+      className="group relative h-80 w-full cursor-pointer overflow-hidden rounded-[36px] shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
     >
       <div
         className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
@@ -353,17 +353,17 @@ function ServiceCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
       </div>
 
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6">
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-5">
         {icon ? (
-          <div className="mb-4">
+          <div className="mb-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={icon} alt={`${title} icon`} className="h-30 w-30 object-contain drop-shadow-lg md:h-35 md:w-35" />
+            <img src={icon} alt={`${title} icon`} className="h-32 w-32 object-contain drop-shadow-lg md:h-36 md:w-36" />
           </div>
         ) : null}
 
         <h3 className="text-center text-[19px] md:text-[22px] font-bold leading-tight text-white drop-shadow-lg">{title}</h3>
 
-        <div className="mt-3 inline-flex items-center">
+        <div className="mt-2 inline-flex items-center">
           <span className="rounded-full bg-white/20 px-3 py-1 text-[14px] text-white backdrop-blur-sm">{t("ver_mas")}</span>
         </div>
       </div>
