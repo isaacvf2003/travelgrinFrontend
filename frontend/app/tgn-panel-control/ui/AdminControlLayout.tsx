@@ -107,8 +107,8 @@ export default function AdminControlLayout({
                 key={item.section}
                 href={
                   item.section === "panel"
-                    ? "/tgn-panel-control"
-                    : `/tgn-panel-control?section=${item.section}`
+                    ? "/admin"
+                    : `/admin?section=${item.section}`
                 }
                 onClick={() => setSidebarOpen(false)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${

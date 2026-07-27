@@ -895,7 +895,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   if (!res.ok || data?.ok === false) {
     if (res.status === 401 && typeof window !== "undefined") {
       const next = `${window.location.pathname}${window.location.search}`;
-      window.location.href = `/tgn-panel-control/login?next=${encodeURIComponent(next)}`;
+      window.location.href = `/admin/login?next=${encodeURIComponent(next)}`;
     }
     throw new Error(data?.error || data?.message || `Error ${res.status}`);
   }
@@ -2934,7 +2934,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setPublicationTab("publicaciones");
       setPublicationSearch("");
       if (isNewPublicationPage) {
-        router.push("/tgn-panel-control?section=publicaciones");
+        router.push("/admin?section=publicaciones");
       } else {
         setShowPublicationEditor(false);
         window.setTimeout(() => publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
@@ -4813,6 +4813,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     setPPublisherName(providerDisplayName(selected));
     setPProviderEmail(selected.email || "");
+    const titleVal = String(extra.publicationTitle ?? "").trim();
+    setPTitle(titleVal);
+    setPTitleI18n({ es: titleVal });
     const selectedPlanRaw = String(extra.requestedPlan ?? extra.publicationPlan ?? selected.publicationPlan ?? "").trim().toLowerCase();
     const isSelectedPaidPlan = ["featured", "featured_120d", "monthly", "featured_monthly"].includes(selectedPlanRaw);
     setPFeatured(isSelectedPaidPlan);
@@ -5049,6 +5052,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="mb-2 text-sm font-semibold text-slate-900">Datos enviados</div>
                 <div className="grid gap-2 md:grid-cols-2">
+                  <div className="md:col-span-2"><b>Título de la publicación:</b> {String(detailExtra?.publicationTitle ?? "-")}</div>
                   <div><b>Tipo perfil:</b> {normalizeStringArray((detailExtra?.typeProfile as string[] | string | undefined) ?? detailTravelService.typeProfile).join(", ") || "-"}</div>
                   <div><b>Categorías:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
                   <div><b>Actividad:</b> {normalizeStringArray((detailExtra?.activity as string[] | string | undefined) ?? detailTravelService.activity).join(", ") || "-"}</div>
@@ -6033,7 +6037,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   );
 
   const openNewPublicationEditor = () => {
-    router.push("/tgn-panel-control/publicaciones/nueva");
+    router.push("/admin/publicaciones/nueva");
   };
 
   const publicationTypeLabel = (item: Publication) => (item.primaryGroupKey === "prestacion" ? "Prestación" : "Publicación");
@@ -7357,7 +7361,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
-              <button type="button" onClick={() => (isNewPublicationPage ? router.push("/tgn-panel-control?section=publicaciones") : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
+              <button type="button" onClick={() => (isNewPublicationPage ? router.push("/admin?section=publicaciones") : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
             </div>
           <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
           {pEditorMode === "prestacion" ? (
