@@ -341,7 +341,7 @@ function ServiceCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group relative h-80 w-full cursor-pointer overflow-hidden rounded-[36px] shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
+       className="group relative h-[360px] w-full cursor-pointer overflow-hidden rounded-[36px] shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
     >
       <div
         className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
@@ -353,18 +353,30 @@ function ServiceCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
       </div>
 
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-5">
-        {icon ? (
-          <div className="mb-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={icon} alt={`${title} icon`} className="h-32 w-32 object-contain drop-shadow-lg md:h-36 md:w-36" />
-          </div>
-        ) : null}
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-between p-5 h-full">
+        {/* Sección superior: Icono y Título */}
+        <div className="flex flex-col items-center justify-center flex-grow w-full">
+          {icon ? (
+            <div className="mb-2 transition-transform duration-300 group-hover:scale-110">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src={icon} 
+                alt={`${title} icon`} 
+                className="h-36 w-36 object-contain drop-shadow-lg md:h-40 md:w-40 max-h-[160px]" 
+              />
+            </div>
+          ) : null}
 
-        <h3 className="text-center text-[19px] md:text-[22px] font-bold leading-tight text-white drop-shadow-lg">{title}</h3>
+         h3 className="text-center text-[19px] md:text-[21px] font-bold leading-tight text-white drop-shadow-lg px-2 line-clamp-3 w-full overflow-hidden">
+            {title}
+          </h3>
+        </div>
 
-        <div className="mt-2 inline-flex items-center">
-          <span className="rounded-full bg-white/20 px-3 py-1 text-[14px] text-white backdrop-blur-sm">{t("ver_mas")}</span>
+        {/* Sección inferior: Botón Ver más */}
+        <div className="mt-2 w-full flex justify-center shrink-0">
+          <span className="rounded-full bg-white/20 px-4 py-1.5 text-[16px] md:text-[17px] font-medium text-white backdrop-blur-sm transition-colors group-hover:bg-white/30">
+            {t("ver_mas")}
+          </span>
         </div>
       </div>
     </button>
