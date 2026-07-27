@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Check, CheckCircle2, ChevronDown, Globe2, ImagePlus, Languages, Link as LinkIcon, Loader2, MapPin, Tag, Upload, UserRound, XCircle } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, FileText, Globe2, ImagePlus, Languages, Link as LinkIcon, Loader2, MapPin, Tag, Upload, UserRound, XCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCountry } from "@/app/context/CountryProvider";
 import { RoundedCheckbox } from "../MaterialCheckbox";
@@ -77,11 +77,13 @@ function formatMoneyLabel(amount: number | null, currency: "ARS" | "USD" = "USD"
 
 const OFERENTE_MODAL_TEXT = {
   es: {
+    oferente_titulo_publicacion: "* Título de la publicación",
+    oferente_toast_titulo: "Completá el título de la publicación",
     oferente_nombre_perfil: "* Nombre de tu perfil o marca",
-    oferente_categoria_placeholder: "¿En qué categoría encaja tu propuesta?",
-    oferente_destino_label: "País destino que aplica tu propuesta",
-    oferente_idiomas_placeholder: "Idiomas que te comunicas",
-    oferente_email_label: "Tu email de contacto con Travelgrin",
+    oferente_categoria_placeholder: "* ¿En qué categoría encaja tu propuesta?",
+    oferente_destino_label: "* País destino que aplica tu propuesta",
+    oferente_idiomas_placeholder: "* Idiomas que te comunicas",
+    oferente_email_label: "* Tu email de contacto con Travelgrin",
     oferente_aceptar_terminos: "* Aceptar términos y condiciones",
     oferente_publicacion_basica: "Publicación Básica (gratis)",
     oferente_publicacion_destacada: "Publicación Destacada",
@@ -181,11 +183,13 @@ const OFERENTE_MODAL_TEXT = {
     oferente_sede_helper: "La ciudad y el link de Google Maps son opcionales. Podés completarlos si querés sumar más contexto.",
   },
   en: {
+    oferente_titulo_publicacion: "* Publication title",
+    oferente_toast_titulo: "Complete the publication title",
     oferente_nombre_perfil: "* Profile or brand name",
-    oferente_categoria_placeholder: "Which category fits your proposal?",
-    oferente_destino_label: "Destination country for your proposal",
-    oferente_idiomas_placeholder: "Languages you communicate in",
-    oferente_email_label: "Your contact email with Travelgrin",
+    oferente_categoria_placeholder: "* Which category fits your proposal?",
+    oferente_destino_label: "* Destination country for your proposal",
+    oferente_idiomas_placeholder: "* Languages you communicate in",
+    oferente_email_label: "* Your contact email with Travelgrin",
     oferente_aceptar_terminos: "* Accept terms and conditions",
     oferente_publicacion_basica: "Basic Publication (free)",
     oferente_publicacion_destacada: "Featured Publication",
@@ -285,11 +289,13 @@ const OFERENTE_MODAL_TEXT = {
     oferente_sede_helper: "The city and Google Maps link are optional. You can add them if you want to provide more context.",
   },
   pt: {
+    oferente_titulo_publicacion: "* Título da publicação",
+    oferente_toast_titulo: "Complete o título da publicação",
     oferente_nombre_perfil: "* Nome do seu perfil ou marca",
-    oferente_categoria_placeholder: "Em qual categoria sua proposta se encaixa?",
-    oferente_destino_label: "País de destino da sua proposta",
-    oferente_idiomas_placeholder: "Idiomas em que você se comunica",
-    oferente_email_label: "Seu email de contato com a Travelgrin",
+    oferente_categoria_placeholder: "* Em qual categoria sua proposta se encaixa?",
+    oferente_destino_label: "* País de destino da sua proposta",
+    oferente_idiomas_placeholder: "* Idiomas em que você se comunica",
+    oferente_email_label: "* Seu email de contato com a Travelgrin",
     oferente_aceptar_terminos: "* Aceitar termos e condições",
     oferente_publicacion_basica: "Publicação Básica (grátis)",
     oferente_publicacion_destacada: "Publicação em Destaque",
@@ -389,11 +395,13 @@ const OFERENTE_MODAL_TEXT = {
     oferente_sede_helper: "A cidade e o link do Google Maps são opcionais. Você pode preenchê-los se quiser adicionar mais contexto.",
   },
   it: {
+    oferente_titulo_publicacion: "* Titolo della pubblicazione",
+    oferente_toast_titulo: "Completa il titolo della pubblicazione",
     oferente_nombre_perfil: "* Nome del tuo profilo o brand",
-    oferente_categoria_placeholder: "In quale categoria rientra la tua proposta?",
-    oferente_destino_label: "Paese di destinazione della tua proposta",
-    oferente_idiomas_placeholder: "Lingue in cui comunichi",
-    oferente_email_label: "La tua email di contatto con Travelgrin",
+    oferente_categoria_placeholder: "* In quale categoria rientra la tua proposta?",
+    oferente_destino_label: "* Paese di destinazione della tua proposta",
+    oferente_idiomas_placeholder: "* Lingue in cui comunichi",
+    oferente_email_label: "* La tua email di contatto con Travelgrin",
     oferente_aceptar_terminos: "* Accetta termini e condizioni",
     oferente_publicacion_basica: "Pubblicazione Base (gratis)",
     oferente_publicacion_destacada: "Pubblicazione in Evidenza",
@@ -514,6 +522,7 @@ type ProviderFormDraft = {
   step: Step;
   selectedPlan: "basic_free" | "featured" | "monthly";
   selectedPaidPlanType: "featured_120d" | "featured_monthly";
+  publicationTitle: string;
   profileName: string;
   proposalCategories: string[];
   isOfrezco: boolean;
@@ -984,6 +993,8 @@ export default function ModalOferente({
     return keyParts.join("__");
   }, [initialEmail, initialPlan, requestKind, resumeSubmissionId, sourcePublicationId, sourceServiceId]);
 
+  const [publicationTitle, setPublicationTitle] = useState("");
+  const [isEmptyPublicationTitle, setIsEmptyPublicationTitle] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [proposalCategories, setProposalCategories] = useState<string[]>([]);
   const [isOfrezco, setIsOfrezco] = useState(false);
@@ -1101,6 +1112,7 @@ export default function ModalOferente({
     }
     const fallbackExtra = parseUnknownJsonObject(initialData.whatSearchingRaw ?? initialData.whatSearching ?? null);
     const mergedInitialData = { ...fallbackExtra, ...initialData };
+    setPublicationTitle(String(mergedInitialData.publicationTitle ?? mergedInitialData.title ?? "").trim());
     setProfileName(String(mergedInitialData.name ?? mergedInitialData.profileName ?? "").trim());
     setProposalCategories(
       Array.isArray(mergedInitialData.category)
@@ -1217,6 +1229,7 @@ export default function ModalOferente({
       setStep(parsed.step === "featured" ? "featured" : "basic");
       setSelectedPlan(parsed.selectedPlan === "monthly" || parsed.selectedPlan === "featured" ? parsed.selectedPlan : "basic_free");
       setSelectedPaidPlanType(parsed.selectedPaidPlanType === "featured_monthly" ? "featured_monthly" : "featured_120d");
+      setPublicationTitle(String(parsed.publicationTitle ?? "").trim());
       setProfileName(String(parsed.profileName ?? "").trim());
       setProposalCategories(Array.isArray(parsed.proposalCategories) ? parsed.proposalCategories.map((entry) => String(entry ?? "").trim()).filter(Boolean) : []);
       setIsOfrezco(Boolean(parsed.isOfrezco));
@@ -1273,6 +1286,7 @@ export default function ModalOferente({
       step,
       selectedPlan,
       selectedPaidPlanType,
+      publicationTitle,
       profileName,
       proposalCategories,
       isOfrezco,
@@ -1334,6 +1348,7 @@ export default function ModalOferente({
     primaryVenue,
     selectedPaidPlanType,
     selectedPlan,
+    publicationTitle,
     serviceImageAssets,
     serviceImageNames,
     serviceImages,
@@ -1787,6 +1802,13 @@ export default function ModalOferente({
       toast.error(t("email_valido"));
       return false;
     }
+    if (!publicationTitle.trim()) {
+      setIsEmptyPublicationTitle(true);
+      toast.error(mt("oferente_toast_titulo"));
+      return false;
+    }
+    setIsEmptyPublicationTitle(false);
+
     if (!profileName.trim()) {
       setIsEmptyProfileName(true);
       toast.error(mt("oferente_toast_nombre"));
@@ -1923,6 +1945,7 @@ export default function ModalOferente({
       taxonomyType: "oferente",
       status: "pendiente",
       publicationPlan,
+      publicationTitle: publicationTitle.trim(),
       name: profileName.trim(),
       phone: "",
       email,
@@ -2290,7 +2313,23 @@ export default function ModalOferente({
 
   const basicStep = (
     <>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="relative w-full sm:col-span-2">
+          <FileText className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#0B8FA3]" />
+          <input
+            value={publicationTitle}
+            onChange={(e) => setPublicationTitle(e.target.value)}
+            title={mt("oferente_titulo_publicacion")}
+            className="w-full rounded-2xl bg-white p-4 pb-5 pl-12 pt-5 text-black outline-none transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus:scale-[1.01]"
+            style={{
+              boxShadow: isEmptyPublicationTitle
+                ? "0 8px 25px -8px rgba(220, 38, 38, 0.4), 0 4px 12px -4px rgba(220, 38, 38, 0.2)"
+                : "0 12px 36px -18px rgba(8, 217, 189, 0.55), 0 6px 18px -9px rgba(4, 181, 189, 0.35)",
+            }}
+            placeholder={mt("oferente_titulo_publicacion")}
+          />
+        </div>
+
         <div className="relative w-full">
           <Tag className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#0B8FA3]" />
           <input
@@ -2323,7 +2362,7 @@ export default function ModalOferente({
       </div>
 
       <div className="rounded-2xl bg-white/60 p-4 shadow-inner">
-        <p className="text-black text-md text-center">*{t("como_actuas")}</p>
+        <p className="text-[#273166] text-[17px] font-semibold text-center">*{t("como_actuas")}</p>
         <div className="mt-4 flex flex-col items-start justify-start space-y-4 w-full lg:px-4">
           <RoundedCheckbox id="ofrezco" checked={isOfrezco} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setIsOfrezco(e.target.checked); setIsIntermediario(false); }} label={t("ofrezco_directamente")} />
           <div className="ml-5 md:-ml-0">
@@ -2342,8 +2381,8 @@ export default function ModalOferente({
       </div>
 
       <div className="space-y-4">
-        <MaterialTextarea value={description} setValue={setDescription} isContanos placeholder={t("contanos")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
-        <MaterialTextarea value={website} setValue={setWebsite} placeholder={t("web")} isWeb textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        <MaterialTextarea value={description} setValue={setDescription} isContanos placeholder={"* " + t("contanos")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        <MaterialTextarea value={website} setValue={setWebsite} placeholder={"* " + t("web")} isWeb textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
       </div>
 
       <div>

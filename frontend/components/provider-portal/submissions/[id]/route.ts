@@ -243,6 +243,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
     const nextExtra = {
       ...currentExtra,
+      publicationTitle: body.publicationTitle ?? currentExtra.publicationTitle ?? "",
       name: body.name ?? currentExtra.name ?? "",
       phone: body.phone ?? currentExtra.phone ?? "",
       city: body.city ?? currentExtra.city ?? "",
