@@ -249,7 +249,7 @@ export default function ServicesCarousel() {
         <div className="mx-auto mb-6 h-8 w-72 rounded-full bg-white/40" />
         <div className="grid grid-cols-1 gap-4 px-6 py-4 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: cardsPerView }).map((_, index) => (
-            <div key={`services-skeleton-${index}`} className="h-[360px] rounded-[36px] bg-black/20" />
+            <div key={`services-skeleton-${index}`} className="h-[300px] md:h-[360px] rounded-[36px] bg-black/20" />
           ))}
         </div>
       </div>
@@ -341,7 +341,7 @@ function ServiceCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group relative h-[360px] w-full cursor-pointer overflow-hidden rounded-[36px] shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
+      className="group relative h-[300px] md:h-[360px] w-full cursor-pointer overflow-hidden rounded-[36px] shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
     >
       <div
         className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
@@ -355,25 +355,25 @@ function ServiceCard({
 
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-between p-5 h-full">
         {/* Sección superior: Icono y Título */}
-        <div className="flex flex-col items-center justify-start flex-grow w-full pt-4">
+        <div className="flex flex-col items-center justify-start flex-grow w-full pt-3 md:pt-4">
           {icon ? (
             <div className="mb-0 transition-transform duration-300 group-hover:scale-110">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
                 src={icon} 
                 alt={`${title} icon`} 
-                className="h-36 w-36 object-contain drop-shadow-lg md:h-40 md:w-40 max-h-[160px]" 
+                className="h-28 w-28 object-contain drop-shadow-lg md:h-40 md:w-40 max-h-[160px]" 
               />
             </div>
           ) : null}
 
-          <h3 className="text-center text-[19px] md:text-[21px] font-bold leading-tight text-white drop-shadow-lg px-2 line-clamp-3 w-full overflow-hidden -mt-4">
+          <h3 className="text-center text-[17px] md:text-[21px] font-bold leading-tight text-white drop-shadow-lg px-2 line-clamp-3 w-full overflow-hidden -mt-2 md:-mt-4">
             {title}
           </h3>
         </div>
 
         {/* Sección inferior: Botón Ver más */}
-        <div className="mt-2 mb-6 w-full flex justify-center shrink-0">
+        <div className="mt-2 mb-4 md:mb-6 w-full flex justify-center shrink-0">
           <span className="rounded-full bg-white/15 px-4 py-1.5 text-[14px] md:text-[15px] font-medium text-white backdrop-blur-sm transition-colors group-hover:bg-white/30">
             {t("ver_mas")}
           </span>
@@ -382,4 +382,3 @@ function ServiceCard({
     </button>
   );
 }
-
