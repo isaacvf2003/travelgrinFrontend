@@ -249,7 +249,7 @@ export default function ServicesCarousel() {
         <div className="mx-auto mb-6 h-8 w-72 rounded-full bg-white/40" />
         <div className="grid grid-cols-1 gap-4 px-6 py-4 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: cardsPerView }).map((_, index) => (
-            <div key={`services-skeleton-${index}`} className="h-80 rounded-[36px] bg-black/20" />
+            <div key={`services-skeleton-${index}`} className="h-[360px] rounded-[36px] bg-black/20" />
           ))}
         </div>
       </div>
@@ -341,7 +341,7 @@ function ServiceCard({
     <button
       type="button"
       onClick={onOpen}
-       className="group relative h-[360px] w-full cursor-pointer overflow-hidden rounded-[36px] shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
+      className="group relative h-[360px] w-full cursor-pointer overflow-hidden rounded-[36px] shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
     >
       <div
         className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
@@ -367,7 +367,7 @@ function ServiceCard({
             </div>
           ) : null}
 
-         h3 className="text-center text-[19px] md:text-[21px] font-bold leading-tight text-white drop-shadow-lg px-2 line-clamp-3 w-full overflow-hidden">
+          <h3 className="text-center text-[19px] md:text-[21px] font-bold leading-tight text-white drop-shadow-lg px-2 line-clamp-3 w-full overflow-hidden">
             {title}
           </h3>
         </div>
