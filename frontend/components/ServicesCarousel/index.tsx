@@ -355,9 +355,9 @@ function ServiceCard({
 
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-between p-5 h-full">
         {/* Sección superior: Icono y Título */}
-        <div className="flex flex-col items-center justify-center flex-grow w-full">
+        <div className="flex flex-col items-center justify-start flex-grow w-full pt-4">
           {icon ? (
-            <div className="mb-2 transition-transform duration-300 group-hover:scale-110">
+            <div className="mb-0 transition-transform duration-300 group-hover:scale-110">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
                 src={icon} 
@@ -367,7 +367,7 @@ function ServiceCard({
             </div>
           ) : null}
 
-          <h3 className="text-center text-[19px] md:text-[21px] font-bold leading-tight text-white drop-shadow-lg px-2 line-clamp-3 w-full overflow-hidden">
+          <h3 className="text-center text-[19px] md:text-[21px] font-bold leading-tight text-white drop-shadow-lg px-2 line-clamp-3 w-full overflow-hidden -mt-4">
             {title}
           </h3>
         </div>
@@ -382,3 +382,4 @@ function ServiceCard({
     </button>
   );
 }
+
