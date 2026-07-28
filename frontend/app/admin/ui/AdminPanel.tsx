@@ -80,6 +80,7 @@ type FilterGroup = {
   taxonomyType?: string | null;
   isProfileBlock?: boolean | null;
   isPublicVisible?: boolean | null;
+  visibleInCard?: boolean;
   type: "multi" | "single" | "range";
   order?: number | null;
   options: FilterOption[];
@@ -2149,44 +2150,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             imageUrl: blockImageUrl.trim() || null,
             taxonomyType: blockTaxonomyType,
             isPublicVisible: blockIsPublicVisible,
+            visibleInCard: blockVisibleInCard,
             type: blockType,
           }),
         });
         savedBlockId = editingBlockId;
-        if (blockVisibleInCard !== initialBlockVisibleInCard) {
-          const blockCategories = categories.filter((category) => category.blockId === savedBlockId);
-          // When turning ON at block level: root categories (no parentId) become visible in card.
-          // When turning OFF: all categories get visibleInCard=false.
-          const resolveVisibleInCard = (category: Category): boolean => {
-            if (!blockVisibleInCard) return false;
-            // If the block was previously OFF, activate root-level categories.
-            if (!initialBlockVisibleInCard) {
-              return !category.parentId; // root categories → true, children → keep existing
-            }
-            // Block was already ON — preserve per-category setting.
-            return (category.visibleInCard ?? category.isPrimaryCategory) === true;
-          };
-          await Promise.all(blockCategories.map((category) => {
-            const newVisibleInCard = resolveVisibleInCard(category);
-            return api(`/api/admin/categories/${encodeURIComponent(category.id)}`, {
-              method: "PATCH",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                description: category.description,
-                descriptionI18n: category.descriptionI18n ?? { es: category.description },
-                taxonomyType: category.taxonomyType || "inherit",
-                parentId: category.parentId ?? null,
-                blockId: category.blockId ?? savedBlockId,
-                isPublicVisible: category.isPublicVisible !== false,
-                isPrimaryCategory: category.isPrimaryCategory === true,
-                visibleInCard: newVisibleInCard,
-                iconImageUrl: newVisibleInCard ? (category.iconImageUrl ?? null) : null,
-                cardImageUrl: newVisibleInCard ? (category.cardImageUrl ?? null) : null,
-                order: category.order ?? 0,
-              }),
-            });
-          }));
-        }
       } else {
         const maxOrder = filterGroups.reduce((acc, group) => Math.max(acc, group.order ?? 0), 0);
         const createdGroup = await api<{ ok: true; group: FilterGroup }>("/api/admin/filters", {
@@ -2415,7 +2383,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setBlockImageUrl(group.imageUrl ?? "");
     setBlockTaxonomyType(group.taxonomyType ?? "categoria");
     setBlockIsPublicVisible(group.isPublicVisible !== false);
-    const hasVisibleInCard = categories.some((category) => category.blockId === group.id && (category.visibleInCard ?? category.isPrimaryCategory) === true);
+    const hasVisibleInCard = group.visibleInCard === true;
     setBlockVisibleInCard(hasVisibleInCard);
     setInitialBlockVisibleInCard(hasVisibleInCard);
     setBlockCategoryDrafts([]);
