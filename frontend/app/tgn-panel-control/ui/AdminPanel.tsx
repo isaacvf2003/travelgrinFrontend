@@ -2155,8 +2155,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         savedBlockId = editingBlockId;
         if (blockVisibleInCard !== initialBlockVisibleInCard) {
           const blockCategories = categories.filter((category) => category.blockId === savedBlockId);
-          await Promise.all(blockCategories.map((category) =>
-            api(`/api/admin/categories/${encodeURIComponent(category.id)}`, {
+          // When turning ON at block level: root categories (no parentId) become visible in card.
+          // When turning OFF: all categories get visibleInCard=false.
+          const resolveVisibleInCard = (category: Category): boolean => {
+            if (!blockVisibleInCard) return false;
+            // If the block was previously OFF, activate root-level categories.
+            if (!initialBlockVisibleInCard) {
+              return !category.parentId; // root categories → true, children → keep existing
+            }
+            // Block was already ON — preserve per-category setting.
+            return (category.visibleInCard ?? category.isPrimaryCategory) === true;
+          };
+          await Promise.all(blockCategories.map((category) => {
+            const newVisibleInCard = resolveVisibleInCard(category);
+            return api(`/api/admin/categories/${encodeURIComponent(category.id)}`, {
               method: "PATCH",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({
@@ -2167,19 +2179,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 blockId: category.blockId ?? savedBlockId,
                 isPublicVisible: category.isPublicVisible !== false,
                 isPrimaryCategory: category.isPrimaryCategory === true,
-                visibleInCard: blockVisibleInCard ? (category.visibleInCard ?? category.isPrimaryCategory) === true : false,
-                iconImageUrl:
-                  blockVisibleInCard && ((category.visibleInCard ?? category.isPrimaryCategory) === true)
-                    ? (category.iconImageUrl ?? null)
-                    : null,
-                cardImageUrl:
-                  blockVisibleInCard && ((category.visibleInCard ?? category.isPrimaryCategory) === true)
-                    ? (category.cardImageUrl ?? null)
-                    : null,
+                visibleInCard: newVisibleInCard,
+                iconImageUrl: newVisibleInCard ? (category.iconImageUrl ?? null) : null,
+                cardImageUrl: newVisibleInCard ? (category.cardImageUrl ?? null) : null,
                 order: category.order ?? 0,
               }),
-            })
-          ));
+            });
+          }));
         }
       } else {
         const maxOrder = filterGroups.reduce((acc, group) => Math.max(acc, group.order ?? 0), 0);
