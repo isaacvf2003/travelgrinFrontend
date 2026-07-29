@@ -2168,6 +2168,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             type: blockType,
             taxonomyType: blockTaxonomyType,
             isPublicVisible: blockIsPublicVisible,
+            visibleInCard: blockVisibleInCard,
             order: maxOrder + 1,
           }),
         });
@@ -3657,9 +3658,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             order: category.order ?? 0,
             isPublicVisible: source.isPublicVisible !== false,
             isPrimaryCategory: source.isPrimaryCategory === true,
-            visibleInCard: (source.visibleInCard ?? source.isPrimaryCategory) === true,
-            iconImageUrl: (source.visibleInCard ?? source.isPrimaryCategory) === true ? (source.iconImageUrl ?? null) : null,
-            cardImageUrl: (source.visibleInCard ?? source.isPrimaryCategory) === true ? (source.cardImageUrl ?? null) : null,
+            visibleInCard: source.isPrimaryCategory === true,
+            iconImageUrl: source.isPrimaryCategory === true ? (source.iconImageUrl ?? null) : null,
+            cardImageUrl: source.isPrimaryCategory === true ? (source.cardImageUrl ?? null) : null,
           }),
         });
       })
@@ -6489,10 +6490,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   });
                   const isBlockOpen = expandedBlocks[block.id] ?? false;
                   const hasBlockContent = rootsInBlock.length > 0 || optionRoots.length > 0;
-                  const blockHasVisibleCardCategory = rootsInBlock.some((category) => {
-                    if ((category.visibleInCard ?? category.isPrimaryCategory) === true) return true;
-                    return (childrenBy.get(category.id) ?? []).some((child) => (child.visibleInCard ?? child.isPrimaryCategory) === true);
-                  });
+                  const isBlockVisibleOnCard = block.visibleInCard === true;
                   return (
                     <div key={block.id} className="rounded-2xl border border-slate-100 bg-white">
                       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-3 py-3 sm:px-4">
@@ -6507,7 +6505,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           <span>
                             <p className="text-sm font-semibold text-slate-900">{formatAdminBlockLabel(pickI18nText(block.labelI18n ?? null, catLang, block.label), block.taxonomyType ?? "categoria")}</p>
                             <p className="text-xs text-slate-500">Tipo de filtro: {formatAdminTaxonomyTypeLabel(block.taxonomyType ?? "categoria")}</p>{block.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Este bloque es invisible</p> : null}
-                            {blockHasVisibleCardCategory ? <p className="mt-1 text-xs font-semibold text-indigo-600">Visible en tarjeta</p> : null}
+                            {isBlockVisibleOnCard ? <p className="mt-1 text-xs font-semibold text-indigo-600">Visible en tarjeta</p> : null}
                           </span>
                         </button>
                         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -6573,7 +6571,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                         <p className="text-sm font-semibold text-slate-900">
                                           {pickI18nText(root.descriptionI18n ?? null, catLang, root.description)}
                                           {root.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
-                                          {(root.visibleInCard ?? root.isPrimaryCategory) ? <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-700">Visible en tarjeta</span> : null}
                                         </p>{root.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Esta categoría es invisible</p> : null}
                                         {getCategoryCustomTaxonomyNotice(root) ? <p className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(root)}</p> : null}
                                       </span>
@@ -6597,7 +6594,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                                 <div className="text-sm font-medium text-slate-800">
                                                   {pickI18nText(child.descriptionI18n ?? null, catLang, child.description)}
                                                   {child.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
-                                                  {(child.visibleInCard ?? child.isPrimaryCategory) ? <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-700">Visible en tarjeta</span> : null}
                                                 </div>{child.isPublicVisible === false ? <div className="mt-1 text-xs font-medium text-amber-600">Esta categoría es invisible</div> : null}
                                                 {getCategoryCustomTaxonomyNotice(child) ? <div className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(child)}</div> : null}
                                               </div>
