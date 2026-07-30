@@ -8,7 +8,7 @@ import { publicationPath } from "@/app/lib/publicationSlug";
 import { Compass, Share2 } from "lucide-react";
 import SharePublicationDialog from "@/components/SharePublicationDialog";
 
-import type { Publication } from "@/app/lib/types";
+import type { Publication, Category, FilterGroup } from "@/app/lib/types";
 import { usePlan } from "./PlanStore";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
@@ -343,7 +343,15 @@ function getCountryCode(country: string) {
   return "";
 }
 
-export function PublicationCard({ item }: { item: Publication }) {
+export function PublicationCard({
+  item,
+  categories,
+  filterGroups,
+}: {
+  item: Publication;
+  categories?: Category[];
+  filterGroups?: FilterGroup[];
+}) {
   const { toggle, has } = usePlan();
   const isSaved = has(item.id);
   const { locale, t } = useTranslation();
@@ -413,6 +421,54 @@ export function PublicationCard({ item }: { item: Publication }) {
   }, [item, locale, t]);
 
   const tags = useMemo(() => {
+    const resolveCategoryTagText = (tagText: string) => {
+      if (!categories || !filterGroups) return tagText;
+
+      const normTag = tagText.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+
+      const matchedCategory = categories.find((c) => {
+        if (c.id === tagText) return true;
+        const desc = c.description ?? "";
+        const normDesc = desc.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+        if (normDesc === normTag) return true;
+        if (c.descriptionI18n) {
+          return Object.values(c.descriptionI18n).some((val) => {
+            const normVal = String(val ?? "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+            return normVal === normTag;
+          });
+        }
+        return false;
+      });
+
+      if (matchedCategory?.blockId) {
+        const block = filterGroups.find((g) => g.id === matchedCategory.blockId);
+        if (block) {
+          const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
+          const isVisibleInCard = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
+          if (isVisibleInCard) {
+            return pickI18nText(block.labelI18n ?? null, locale, block.label);
+          }
+        }
+      }
+
+      return tagText;
+    };
+
+    const resolveOptionTag = (f: any) => {
+      const optionLabel = pickI18nText(f.filterOption.labelI18n ?? null, locale, f.filterOption.label);
+      if (filterGroups) {
+        const block = filterGroups.find((g) => g.id === f.filterOption.groupId);
+        if (block) {
+          const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
+          const isVisibleInCard = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
+          if (isVisibleInCard) {
+            return pickI18nText(block.labelI18n ?? null, locale, block.label);
+          }
+        }
+      }
+      return optionLabel;
+    };
+
     const fieldCategoryTags = Array.isArray((item as any)?.fields?.categorySelections)
       ? (item as any).fields.categorySelections.map((value: any) => String(value ?? "").trim()).filter(Boolean)
       : [];
@@ -424,30 +480,28 @@ export function PublicationCard({ item }: { item: Publication }) {
         const taxonomyType = normalizeTaxonomyType((entry as any)?.filterOption?.group?.taxonomyType);
         return taxonomyType === "prestacion" || taxonomyType === "prestaciones";
       })
-      .map((entry) => pickI18nText((entry as any)?.filterOption?.labelI18n ?? null, locale, String((entry as any)?.filterOption?.label ?? "").trim()))
+      .map((entry) => resolveOptionTag(entry))
       .filter(Boolean);
 
     const raw = (item.primaryGroupKey === "prestacion"
       ? [
           ...(Array.isArray((item as any)?.fields?.prestaciones)
-            ? (item as any).fields.prestaciones.map((value: any) => String(value ?? "").trim()).filter(Boolean)
+            ? (item as any).fields.prestaciones.map((value: any) => resolveCategoryTagText(String(value ?? "").trim())).filter(Boolean)
             : []),
-          ...fieldSubcategoryTags,
-          ...fieldCategoryTags,
+          ...fieldSubcategoryTags.map(resolveCategoryTagText),
+          ...fieldCategoryTags.map(resolveCategoryTagText),
           ...prestacionFilterTags,
         ]
       : [
           item.category
-            ? pickI18nText(item.categoryI18n ?? null, locale, item.category)
+            ? resolveCategoryTagText(pickI18nText(item.categoryI18n ?? null, locale, item.category))
             : null,
-          ...fieldCategoryTags,
+          ...fieldCategoryTags.map(resolveCategoryTagText),
           item.subcategory
-            ? pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory)
+            ? resolveCategoryTagText(pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory))
             : null,
-          ...fieldSubcategoryTags,
-          ...(item.filterOptions ?? []).map((f) =>
-            pickI18nText(f.filterOption.labelI18n ?? null, locale, f.filterOption.label)
-          ),
+          ...fieldSubcategoryTags.map(resolveCategoryTagText),
+          ...(item.filterOptions ?? []).map((f) => resolveOptionTag(f)),
         ]).filter(Boolean) as string[];
 
     const seen = new Set<string>();
@@ -460,7 +514,7 @@ export function PublicationCard({ item }: { item: Publication }) {
       out.push(tag);
     }
     return out.slice(0, 4);
-  }, [item.category, item.subcategory, item.filterOptions, item.fields, locale]);
+  }, [item.category, item.subcategory, item.filterOptions, item.fields, locale, categories, filterGroups]);
 
   const friendlyPrice = useMemo(() => {
     if (!item.price) return t("precio_convenir");

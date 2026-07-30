@@ -536,7 +536,7 @@ export default async function BuscarPage({
                   {shouldActivateResults ? (
                   <>
                   <div id="publicaciones-normales">
-                  <ResultsGrid items={visibleSortedItems} />
+                  <ResultsGrid items={visibleSortedItems} categories={publicCategories} filterGroups={filterGroups} />
 
                   <PaginationControls
                     currentPage={page}
@@ -558,7 +558,7 @@ export default async function BuscarPage({
                   <section id="publicaciones-prestaciones" className="mt-8">
                     {visiblePrestacionesItems.length ? <PrestacionesSectionHeader /> : null}
 
-                    <ResultsGrid items={visiblePrestacionesItems} />
+                    <ResultsGrid items={visiblePrestacionesItems} categories={publicCategories} filterGroups={filterGroups} />
 
                     <PaginationControls
                       currentPage={prestacionesPayload.page}
