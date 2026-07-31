@@ -1700,7 +1700,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   async function refresh() {
     const [cats, groups, pubs, services, reportsData, oferenteDestinations, dashboardHistory, promoCodesData, featuredPlanPricesData, dlocalSubscriptionPlansData, travelServicePaymentsData] = await Promise.all([
-      api<{ ok: true; items: Category[] }>("/api/categories").then((d) => d.items),
+      api<{ ok: true; items: Category[] }>(`/api/categories?t=${Date.now()}`).then((d) => d.items),
       api<{ ok: true; groups: FilterGroup[] }>("/api/admin/filters").then((d) => d.groups),
       api<{ ok: true; items: Publication[] }>("/api/admin/publications").then((d) => d.items),
       api<{ ok: true; items: TravelService[] }>("/api/travel-services").then((d) => d.items),
