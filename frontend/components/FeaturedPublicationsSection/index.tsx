@@ -344,12 +344,10 @@ export default function FeaturedPublicationsSection() {
 
       if (mounted) setItems(ordered);
       const [catsPayload, prestacionesPayload] = await Promise.all([
-        fetch("/api/categories", { cache: "no-store" })
+        fetch("/api/categories")
           .then((r) => (r.ok ? r.json() : { items: [] }))
           .catch(() => ({ items: [] })),
-        fetch(`/api/publications?status=active&page=1&perPage=48`, {
-          cache: "no-store",
-        })
+        fetch(`/api/publications?status=active&page=1&perPage=48`)
           .then((r) => (r.ok ? r.json() : { items: [] }))
           .catch(() => ({ items: [] })),
       ]);
@@ -389,7 +387,7 @@ export default function FeaturedPublicationsSection() {
   useEffect(() => {
     if (!isInView || Object.keys(countryCodeCatalog).length) return;
     let mounted = true;
-    fetch("/api/countries", { cache: "no-store" })
+    fetch("/api/countries")
       .then((response) => (response.ok ? response.json() : { items: [] }))
       .then((payload) => {
         const items = Array.isArray(payload?.items) ? payload.items : [];

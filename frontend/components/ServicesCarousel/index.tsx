@@ -138,8 +138,8 @@ export default function ServicesCarousel() {
     let mounted = true;
     setIsLoading(true);
     Promise.all([
-      fetch("/api/categories", { cache: "no-store" }).then((r) => r.json()),
-      fetch("/api/filters", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ groups: [] })),
+      fetch("/api/categories").then((r) => r.json()),
+      fetch("/api/filters").then((r) => r.json()).catch(() => ({ groups: [] })),
     ])
       .then(([categoriesData, filtersData]) => {
         if (!mounted) return;

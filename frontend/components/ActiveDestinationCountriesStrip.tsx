@@ -71,9 +71,7 @@ export default function ActiveDestinationCountriesStrip() {
 
     const load = async () => {
       try {
-        const res = await fetch("/api/publications?status=active&page=1&perPage=120", {
-          cache: "no-store",
-        });
+        const res = await fetch("/api/publications?status=active&page=1&perPage=120");
         if (!res.ok) return;
 
         const data = await res.json();

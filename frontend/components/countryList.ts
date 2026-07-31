@@ -48,9 +48,7 @@ export function buildFallbackCountries(): CountryWithSpanish[] {
 
 export async function fetchCountriesWithSpanish(): Promise<CountryWithSpanish[]> {
   try {
-    const response = await fetch("/api/countries", {
-      cache: "no-store",
-    });
+    const response = await fetch("/api/countries");
     if (!response.ok) throw new Error(`/api/countries responded ${response.status}`);
     const payload = (await response.json()) as { items?: CountryApi[] };
     const data = Array.isArray(payload?.items) ? payload.items : [];
