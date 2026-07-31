@@ -1141,13 +1141,13 @@ export default function FeaturedPublicationsSection() {
                   const prestacionCardContent = (
                     <>
                       <div
-                        className={`relative w-full bg-white ${isSideCard ? "h-28" : "h-40"}`}
+                        className={`relative w-full bg-slate-50 ${isSideCard ? "h-28" : "h-48"}`}
                       >
                         <Image
                           src={firstPrestacionImage(item, locale)}
                           alt={title}
                           fill
-                          className="object-contain p-2"
+                          className="object-cover"
                         />
                       </div>
                       <div className="space-y-2 p-4">
