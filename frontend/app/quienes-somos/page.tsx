@@ -27,7 +27,7 @@ export default function QuienesSomosPage() {
           <section className="mt-8">
             <WhyTravel />
           </section>
-          <section className="mt-8 flex flex-col items-center justify-center text-center font-bold">
+          <section className="mt-8 mb-12 flex flex-col items-center justify-center text-center font-bold">
             <PharseWithBackground onlyOne />
           </section>
         </div>

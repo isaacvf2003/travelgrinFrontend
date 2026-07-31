@@ -342,28 +342,28 @@ const CountrySelectionModal = ({
   }> = {
     es: {
       skip: "Omitir por ahora",
-      selectCountry: "Selecciona un país",
+      selectCountry: "Selecciona tu país",
       searchCountry: "Buscar país...",
       noCountries: "No se encontraron países",
       countryRequired: "Elegí tu país de pasaporte para continuar.",
     },
     en: {
       skip: "Skip for now",
-      selectCountry: "Select a country",
+      selectCountry: "Select your country",
       searchCountry: "Search country...",
       noCountries: "No countries found",
       countryRequired: "Choose your passport country to continue.",
     },
     pt: {
       skip: "Pular por agora",
-      selectCountry: "Selecione um país",
+      selectCountry: "Selecione seu país",
       searchCountry: "Buscar país...",
       noCountries: "Nenhum país encontrado",
       countryRequired: "Escolha o país do seu passaporte para continuar.",
     },
     it: {
       skip: "Salta per ora",
-      selectCountry: "Seleziona un paese",
+      selectCountry: "Seleziona il tuo paese",
       searchCountry: "Cerca paese...",
       noCountries: "Nessun paese trovato",
       countryRequired: "Scegli il paese del tuo passaporto per continuare.",

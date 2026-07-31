@@ -20,7 +20,7 @@ export const translations = {
 
         // landing content
         aqui_comienza_tu_viaje: "Aquí comienza tu viaje",
-        lugar_de_destino: "Lugar de destino",
+        lugar_de_destino: "País de destino",
         buscar: "Buscar",
         categoria_que_te_interesa: "Categoría que te interesa",
         categoria_de_mi_propuesta: "Categoría de mi propuesta",
@@ -469,7 +469,7 @@ export const translations = {
 
         // landing content
         aqui_comienza_tu_viaje: "Your journey starts here",
-        lugar_de_destino: "Destination",
+        lugar_de_destino: "Destination country",
         buscar: "Search",
         categoria_que_te_interesa: "Category of interest",
         categoria_de_mi_propuesta: "Category of my proposal",
@@ -916,7 +916,7 @@ export const translations = {
 
         // landing content
         aqui_comienza_tu_viaje: "Aqui começa sua viagem",
-        lugar_de_destino: "Destino",
+        lugar_de_destino: "País de destino",
         buscar: "Buscar",
         categoria_que_te_interesa: "Categoria de interesse",
         categoria_de_mi_propuesta: "Categoria da minha proposta",
@@ -1372,7 +1372,7 @@ export const translations = {
 
         // landing content
         aqui_comienza_tu_viaje: "Il tuo viaggio inizia qui",
-        lugar_de_destino: "Destinazione",
+        lugar_de_destino: "Paese di destinazione",
         buscar: "Cerca",
         categoria_que_te_interesa: "Categoria di interesse",
         categoria_de_mi_propuesta: "Categoria della mia proposta",
