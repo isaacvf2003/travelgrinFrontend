@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import type { Metadata } from "next";
 import PublicationGallery from "./_components/PublicationGallery";
 
@@ -347,8 +347,8 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
 
   const locale = (item.contentLanguage ?? "es") as Parameters<typeof pickI18nText>[1];
   const [filtersRes, categoriesRes] = await Promise.all([
-    fetch(`${base}/api/filters`, { cache: "no-store" }),
-    fetch(`${base}/api/categories`, { cache: "no-store" }),
+    fetch(`${base}/api/filters`, { next: { tags: ["filters"] } }),
+    fetch(`${base}/api/categories`, { next: { tags: ["categories"] } }),
   ]);
   const filtersPayload = filtersRes.ok ? await filtersRes.json() : { groups: [] };
   const filterGroups = Array.isArray(filtersPayload?.groups) ? filtersPayload.groups : [];

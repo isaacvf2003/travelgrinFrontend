@@ -89,7 +89,7 @@ function buildQuery(sp: SearchParams, overrides: Record<string, string | undefin
 async function loadCategories() {
   const base = await getBaseUrl();
   const res = await fetch(`${base}/api/categories`, {
-    cache: "no-store",
+    next: { tags: ["categories"] },
   });
   if (!res.ok) return [] as Category[];
   const data = (await res.json()) as { items?: Category[]; tree?: Category[] };
@@ -132,7 +132,7 @@ async function loadPublications(sp: SearchParams, overrides: Record<string, stri
 
 async function loadFilterGroups() {
   const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/filters`, { cache: "no-store" });
+  const res = await fetch(`${base}/api/filters`, { next: { tags: ["filters"] } });
   if (!res.ok) return [] as FilterGroup[];
   const data = (await res.json()) as { ok?: boolean; groups?: FilterGroup[] };
   return data.groups ?? [];
