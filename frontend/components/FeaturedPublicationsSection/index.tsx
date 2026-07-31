@@ -1133,21 +1133,21 @@ export default function FeaturedPublicationsSection() {
                   );
                   const prestacionCardClass = `group w-full shrink-0 transform-gpu overflow-hidden rounded-2xl border bg-white text-left transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-0.5 ${sideClass} ${cardDepthClass} ${
                     isFocused
-                      ? "max-w-[22rem] scale-100 border-[#2563EB]/75 opacity-100 shadow-[0_0_0_2px_rgba(37,99,235,0.22),0_20px_52px_rgba(37,99,235,0.18)]"
+                      ? "max-w-[19rem] scale-100 border-[#2563EB]/75 opacity-100 shadow-[0_0_0_2px_rgba(37,99,235,0.22),0_20px_52px_rgba(37,99,235,0.18)]"
                       : isSideCard
                         ? "max-w-[10rem] scale-90 border-slate-200 bg-slate-50 opacity-35 blur-[2px] grayscale shadow-sm hover:opacity-55 hover:blur-[1px]"
-                        : "max-w-[22rem] scale-100 border-[#93C5FD] opacity-95 shadow-[0_16px_34px_rgba(37,99,235,0.14)]"
+                        : "max-w-[19rem] scale-100 border-[#93C5FD] opacity-95 shadow-[0_16px_34px_rgba(37,99,235,0.14)]"
                   }`;
                   const prestacionCardContent = (
                     <>
                       <div
-                        className={`relative w-full bg-slate-100 ${isSideCard ? "h-28" : "h-36"}`}
+                        className={`relative w-full bg-white ${isSideCard ? "h-28" : "h-40"}`}
                       >
                         <Image
                           src={firstPrestacionImage(item, locale)}
                           alt={title}
                           fill
-                          className="object-cover"
+                          className="object-contain p-2"
                         />
                       </div>
                       <div className="space-y-2 p-4">
