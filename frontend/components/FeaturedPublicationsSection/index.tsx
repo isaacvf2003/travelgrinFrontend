@@ -1147,7 +1147,7 @@ export default function FeaturedPublicationsSection() {
                           src={firstPrestacionImage(item, locale)}
                           alt={title}
                           fill
-                          className="object-contain p-2"
+                          className="object-cover"
                         />
                       </div>
                       <div className="space-y-2 p-4">
