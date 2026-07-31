@@ -29,11 +29,11 @@ const TextChangerEffect = ({phrases, isNotAlone, isBlackText, isBiggerText}: Pro
   }, [phrases.length]);
 
   return (
-    <div className={`items-center justify-center p-8 `}>
+    <div className={`items-center justify-center p-4 md:p-6 `}>
       <div className="text-center max-w-4xl mx-auto">
         <h1 className="text-[16px] md:text-6xl lg:text-7xl font-bold text-white mb-0">
           {/* Contenedor con altura fija para todo el texto */}
-          <div className={` flex items-center justify-center ${isNotAlone ? "h-[80px] md:h-[120px] lg:h-[140px]" : "h-[0rem]"}`}>
+          <div className={` flex items-center justify-center ${isNotAlone ? "h-[65px] md:h-[90px] lg:h-[105px]" : "h-[0rem]"}`}>
             <div className={`leading-tight text-[21px] md:text-[25.76px]`}>
               {/* Texto dinámico con efecto flip */}
               <span 

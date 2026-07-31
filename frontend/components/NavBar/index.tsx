@@ -154,7 +154,7 @@ export default function NavBar() {
               selectedCountry={selectedCountry}
             />
             {/* 240x52 */}
-            <Link href="/quienes-somos" className="hidden lg:flex h-[52px] shrink-0 items-center whitespace-nowrap rounded-full border border-white/50 bg-white/10 px-4 text-xs font-semibold text-white hover:bg-white/20">{t("quienes_somos")}</Link>
+            <Link href="/quienes-somos" className="hidden lg:flex h-[52px] shrink-0 items-center whitespace-nowrap rounded-full border border-white/50 bg-white/10 px-4 text-sm font-semibold text-white hover:bg-white/20">{t("quienes_somos")}</Link>
             <ButtonSolid title={t("publicarGratis")} isDesktopHeader={true} hexButton="#273166" classStyle="w-[100%] h-[52px]" />
 
             {/* Mi plan (solo UI por ahora) */}

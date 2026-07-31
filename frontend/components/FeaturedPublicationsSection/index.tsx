@@ -757,7 +757,7 @@ export default function FeaturedPublicationsSection() {
       ref={sectionRef}
       className="mt-6 px-4 sm:px-5 md:mt-8 md:px-6 lg:px-0"
     >
-      <div className="mx-auto mb-10 w-full max-w-6xl overflow-hidden rounded-[28px] bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-8 text-center text-white shadow md:px-8 md:py-10">
+      <div className="mx-auto mb-10 w-full max-w-6xl overflow-hidden rounded-3xl bg-[url(/fondo-frase-el-cliente.webp)] bg-cover bg-center px-6 py-5 text-center text-white shadow md:px-8 md:py-6">
         <ChangingText phrases={phrasesThePractice} isNotAlone isBlackText />
       </div>
 
@@ -1147,7 +1147,7 @@ export default function FeaturedPublicationsSection() {
                           src={firstPrestacionImage(item, locale)}
                           alt={title}
                           fill
-                          className="object-cover"
+                          className="object-contain p-2"
                         />
                       </div>
                       <div className="space-y-2 p-4">

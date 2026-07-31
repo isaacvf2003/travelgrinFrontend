@@ -56,7 +56,7 @@ function CountryFlag({ code, country }: { code: string; country: string }) {
     <img
       src={`https://flagcdn.com/w40/${normalized}.png`}
       alt={`Bandera de ${country}`}
-      className="h-5 w-7 rounded-[4px] object-cover shadow-sm"
+      className="h-6 w-8 rounded-[4px] object-cover shadow-sm"
       loading="lazy"
     />
   );
@@ -147,18 +147,18 @@ export default function ActiveDestinationCountriesStrip() {
           {visibleCountries.map((entry) => (
             <div
               key={entry.country}
-              className="flex min-w-[188px] items-center gap-3 rounded-full border border-white/15 bg-white/10 px-3.5 py-2 backdrop-blur-sm"
+              className="flex min-w-[210px] items-center gap-3 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 backdrop-blur-sm"
             >
               <span
                 aria-hidden="true"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/16 shadow-sm"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/16 shadow-sm"
               >
                 <CountryFlag code={entry.code} country={entry.country} />
               </span>
 
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[12px] font-semibold leading-none">{entry.country}</div>
-                <div className="mt-0.5 text-[9px] text-white/72">
+                <div className="truncate text-[14px] font-bold leading-none">{entry.country}</div>
+                <div className="mt-0.5 text-[10px] text-white/80 font-medium">
                   {entry.count} {entry.count === 1 ? t("oportunidad_singular") : t("oportunidad_plural")}
                 </div>
               </div>

@@ -25,7 +25,7 @@ export default function PharseWithBackground({ onlyOne = false }: Props) {
     <>
       <div className="relative w-full ">
         {/* 1. Fondo SVG del mapa */}
-        <div className="w-full rounded-[60px]">
+        <div className="w-full rounded-3xl">
           <Image
             src={
               !onlyOne
@@ -33,7 +33,7 @@ export default function PharseWithBackground({ onlyOne = false }: Props) {
                 : "/fondo-frase-libre.webp"
             }
             alt="Mapa mundial"
-            className={`w-full  object-cover rounded-[60px] ${
+            className={`w-full  object-cover rounded-3xl ${
               !onlyOne ? "md:h-[11rem]" : " md:h-[11rem] "
             }`}
             width={1024}
