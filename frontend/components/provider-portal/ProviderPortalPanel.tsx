@@ -750,6 +750,9 @@ export default function ProviderPortalPanel() {
       locale === "pt" ? "O admin ainda precisa configurar este preÃ§o para o paÃ­s do seu passaporte." :
       locale === "it" ? "L'admin deve ancora configurare questo prezzo per il paese del tuo passaporto." :
       "El admin todavÃ­a tiene que configurar este precio para el paÃ­s de tu pasaporte.",
+  }), [locale]);
+
+  const mfaCopy = useMemo(() => ({
     mfaSetupTitle:
       locale === "en" ? "Set up Multi-Factor Authentication (MFA)" :
       locale === "pt" ? "Configurar Autenticação de Dois Fatores (MFA)" :
@@ -807,7 +810,7 @@ export default function ProviderPortalPanel() {
       "Código de Autenticador:",
     mfaInstallTitle:
       locale === "en" ? "Don't have an authenticator app?" :
-      locale === "pt" ? "Não tem um aplicativo de autenticação?" :
+      locale === "pt" ? "Não tem un aplicativo de autenticação?" :
       locale === "it" ? "Non hai un'app di autenticazione?" :
       "¿No tenés un autenticador?",
     mfaInstallBody:
@@ -2009,10 +2012,10 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm max-w-lg mx-auto">
             <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <ShieldCheck className="h-6 w-6 text-[#0B8FA3]" />
-              {copy.mfaSetupTitle}
+              {mfaCopy.mfaSetupTitle}
             </h3>
             <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-              {copy.mfaSetupBody}
+              {mfaCopy.mfaSetupBody}
             </p>
             
             <div className="mt-6 flex flex-col items-center gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
@@ -2021,18 +2024,18 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
               ) : null}
               
               <div className="text-center w-full">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">{copy.mfaSetupSecretLabel}</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">{mfaCopy.mfaSetupSecretLabel}</span>
                 <span className="mt-1 inline-block bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-mono font-bold text-slate-800 tracking-widest select-all">
                   {mfaSecretText}
                 </span>
-                <span className="text-[11px] text-slate-400 block mt-1">{copy.mfaSetupHint}</span>
+                <span className="text-[11px] text-slate-400 block mt-1">{mfaCopy.mfaSetupHint}</span>
               </div>
             </div>
 
             <div className="mt-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">
-                  {copy.mfaCodeLabel}
+                  {mfaCopy.mfaCodeLabel}
                 </label>
                 <input
                   type="text"
@@ -2052,28 +2055,30 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                 disabled={mfaCode.length !== 6 || mfaSubmitting}
                 className="w-full h-12 rounded-2xl bg-[#0B8FA3] text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60 flex items-center justify-center transition-opacity"
               >
-                {mfaSubmitting ? copy.mfaVerifying : copy.mfaSetupSubmit}
+                {mfaSubmitting ? mfaCopy.mfaVerifying : mfaCopy.mfaSetupSubmit}
               </button>
 
               <div className="border-t border-slate-100 mt-6 pt-5 space-y-3">
-                <h4 className="text-sm font-semibold text-slate-800">{copy.mfaInstallTitle}</h4>
-                <p className="text-xs text-slate-500">{copy.mfaInstallBody}</p>
-                <div className="flex flex-wrap gap-2 pt-1">
+                <h4 className="text-sm font-semibold text-slate-800">{mfaCopy.mfaInstallTitle}</h4>
+                <p className="text-xs text-slate-500">{mfaCopy.mfaInstallBody}</p>
+                <div className="flex flex-wrap gap-2.5 pt-1">
                   <a
                     href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
                   >
-                    🤖 {copy.mfaGooglePlay}
+                    <img src="/google-play.webp" alt="Google Play" className="h-4 w-auto object-contain" />
+                    <span>{mfaCopy.mfaGooglePlay}</span>
                   </a>
                   <a
                     href="https://apps.apple.com/app/google-authenticator/id388497605"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
                   >
-                    🍎 {copy.mfaAppStore}
+                    <img src="/logotipo-de-apple.webp" alt="App Store" className="h-4 w-auto object-contain" />
+                    <span>{mfaCopy.mfaAppStore}</span>
                   </a>
                 </div>
               </div>
@@ -2083,16 +2088,16 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm max-w-md mx-auto">
             <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <ShieldCheck className="h-6 w-6 text-[#0B8FA3]" />
-              {copy.mfaVerifyTitle}
+              {mfaCopy.mfaVerifyTitle}
             </h3>
             <p className="mt-2 text-sm text-slate-600">
-              {copy.mfaVerifyBody}
+              {mfaCopy.mfaVerifyBody}
             </p>
 
             <div className="mt-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">
-                  {copy.mfaVerifyCodeLabel}
+                  {mfaCopy.mfaVerifyCodeLabel}
                 </label>
                 <input
                   type="text"
@@ -2112,28 +2117,30 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                 disabled={mfaCode.length !== 6 || mfaSubmitting}
                 className="w-full h-12 rounded-2xl bg-[#0B8FA3] text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60 flex items-center justify-center transition-opacity"
               >
-                {mfaSubmitting ? copy.mfaVerifying : copy.mfaVerifySubmit}
+                {mfaSubmitting ? mfaCopy.mfaVerifying : mfaCopy.mfaVerifySubmit}
               </button>
 
               <div className="border-t border-slate-100 mt-6 pt-5 space-y-3">
-                <h4 className="text-sm font-semibold text-slate-800">{copy.mfaInstallTitle}</h4>
-                <p className="text-xs text-slate-500">{copy.mfaInstallBody}</p>
-                <div className="flex flex-wrap gap-2 pt-1">
+                <h4 className="text-sm font-semibold text-slate-800">{mfaCopy.mfaInstallTitle}</h4>
+                <p className="text-xs text-slate-500">{mfaCopy.mfaInstallBody}</p>
+                <div className="flex flex-wrap gap-2.5 pt-1">
                   <a
                     href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
                   >
-                    🤖 {copy.mfaGooglePlay}
+                    <img src="/google-play.webp" alt="Google Play" className="h-4 w-auto object-contain" />
+                    <span>{mfaCopy.mfaGooglePlay}</span>
                   </a>
                   <a
                     href="https://apps.apple.com/app/google-authenticator/id388497605"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
                   >
-                    🍎 {copy.mfaAppStore}
+                    <img src="/logotipo-de-apple.webp" alt="App Store" className="h-4 w-auto object-contain" />
+                    <span>{mfaCopy.mfaAppStore}</span>
                   </a>
                 </div>
               </div>
