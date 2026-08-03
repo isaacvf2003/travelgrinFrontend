@@ -12,7 +12,7 @@
     "@prisma/client": "^6.13.0",
     "bcryptjs": "^2.4.3",
     "country-flag-icons": "^1.5.19",
-    "jose": "^5.9.6",
+    "jose": "^6.2.6",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.536.0",
     "next": "15.4.8",
