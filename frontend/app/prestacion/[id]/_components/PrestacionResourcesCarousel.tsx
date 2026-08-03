@@ -87,7 +87,11 @@ export default function PrestacionResourcesCarousel({ items }: { items: Resource
       <div ref={trackRef} className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 md:justify-center">
         {items.map((card) => (
           <article key={card.id} className="w-full flex-[0_0_100%] snap-start overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm md:flex-[0_0_48%] lg:flex-[0_0_32%]">
-            {card.image ? <img src={card.image} alt={card.title || "Recurso"} className="h-44 w-full object-cover" /> : null}
+            {card.image ? (
+              <div className="h-44 w-full bg-slate-50 p-4 flex items-center justify-center border-b border-slate-100">
+                <img src={card.image} alt={card.title || "Recurso"} className="h-full w-full object-contain" />
+              </div>
+            ) : null}
             <div className="space-y-3 p-5">
               <h3 className="text-xl font-bold text-slate-900">{card.title}</h3>
               {card.subtitle ? <RichText value={card.subtitle} className="text-sm text-slate-600" /> : null}

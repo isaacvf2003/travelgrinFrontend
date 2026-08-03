@@ -64,3 +64,12 @@ __pycache__/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+
+# Next.js and Web build artifacts
+.next/
+frontend/.next/
+backend/.next/
+out/
+dist/
+build/
+*.tsbuildinfo

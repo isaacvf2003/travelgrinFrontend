@@ -405,6 +405,15 @@ export default function ProviderPortalPanel() {
   const [dashboard, setDashboard] = useState<PortalDashboard | null>(null);
   const [panelError, setPanelError] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // Google Authenticator MFA States
+  const [mfaStep, setMfaStep] = useState<"" | "setup" | "verify">("");
+  const [mfaToken, setMfaToken] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaSecretText, setMfaSecretText] = useState("");
+  const [mfaQrUrl, setMfaQrUrl] = useState("");
+  const [mfaSubmitting, setMfaSubmitting] = useState(false);
+  const [mfaError, setMfaError] = useState("");
   const [openSubmissionModal, setOpenSubmissionModal] = useState(false);
   const [modalPlanIntent, setModalPlanIntent] = useState<"basic_free" | "featured" | "monthly">("basic_free");
   const [preferredPaidPlanType, setPreferredPaidPlanType] = useState<"featured_120d" | "featured_monthly">("featured_120d");
@@ -881,6 +890,110 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
       setLoading(false);
     }
   }, [copy.loadPanelError]);
+
+  // Handle MFA tokens from URL
+  useEffect(() => {
+    const action = searchParams.get("mfa_action");
+    const token = searchParams.get("mfa_token");
+    if (action === "setup" && token) {
+      setMfaStep("setup");
+      setMfaToken(token);
+      try {
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+          if (payload.tempSecret) {
+            setMfaSecretText(payload.tempSecret);
+            const emailVal = payload.email || "travelgrin-provider";
+            const issuer = "Travelgrin";
+            const uri = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(emailVal)}?secret=${payload.tempSecret}&issuer=${encodeURIComponent(issuer)}`;
+            setMfaQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(uri)}`);
+          }
+        }
+      } catch (err) {
+        console.error("Error decoding MFA setup token:", err);
+      }
+    } else if (action === "verify" && token) {
+      setMfaStep("verify");
+      setMfaToken(token);
+    }
+  }, [searchParams]);
+
+  const handleMfaSetupSubmit = async () => {
+    setMfaSubmitting(true);
+    setMfaError("");
+    try {
+      const res = await fetch("/api/provider-portal/mfa/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mfaToken, code: mfaCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok === false) {
+        throw new Error(data?.error || "Error al verificar código.");
+      }
+      toast.success(copy.accessOk);
+      
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete("mfa_action");
+      nextUrl.searchParams.delete("mfa_token");
+      nextUrl.searchParams.set("portal_status", "ok");
+      
+      if (data.redirectParams) {
+        const parts = new URLSearchParams(data.redirectParams);
+        parts.forEach((val, key) => {
+          nextUrl.searchParams.set(key, val);
+        });
+      }
+      
+      window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+      setMfaStep("");
+      setMfaCode("");
+      await loadSession();
+    } catch (err) {
+      setMfaError(err instanceof Error ? err.message : "Error de red.");
+    } finally {
+      setMfaSubmitting(false);
+    }
+  };
+
+  const handleMfaVerifySubmit = async () => {
+    setMfaSubmitting(true);
+    setMfaError("");
+    try {
+      const res = await fetch("/api/provider-portal/mfa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mfaToken, code: mfaCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok === false) {
+        throw new Error(data?.error || "Código de verificación incorrecto.");
+      }
+      toast.success(copy.accessOk);
+      
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete("mfa_action");
+      nextUrl.searchParams.delete("mfa_token");
+      nextUrl.searchParams.set("portal_status", "ok");
+      
+      if (data.redirectParams) {
+        const parts = new URLSearchParams(data.redirectParams);
+        parts.forEach((val, key) => {
+          nextUrl.searchParams.set(key, val);
+        });
+      }
+      
+      window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+      setMfaStep("");
+      setMfaCode("");
+      await loadSession();
+    } catch (err) {
+      setMfaError(err instanceof Error ? err.message : "Error de red.");
+    } finally {
+      setMfaSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     void loadSession();
@@ -1817,7 +1930,95 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           ) : null}
         </div>
 
-        {!authenticated ? (
+        {mfaStep === "setup" ? (
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm max-w-lg mx-auto">
+            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="h-6 w-6 text-[#0B8FA3]" />
+              Configurar Doble Factor (MFA)
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              Para proteger tu cuenta, vinculala con tu aplicación de autenticación (Google Authenticator, Authy, etc.).
+            </p>
+            
+            <div className="mt-6 flex flex-col items-center gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
+              {mfaQrUrl ? (
+                <img src={mfaQrUrl} alt="Código QR de Autenticación" className="w-48 h-48 border rounded-xl bg-white p-2 animate-fade-in" />
+              ) : null}
+              
+              <div className="text-center w-full">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Código Secreto Manual</span>
+                <span className="mt-1 inline-block bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-mono font-bold text-slate-800 tracking-widest select-all">
+                  {mfaSecretText}
+                </span>
+                <span className="text-[11px] text-slate-400 block mt-1">Hacé doble clic para copiar</span>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Ingresa el código de 6 dígitos:
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="000000"
+                  className="h-12 w-full text-center text-2xl tracking-[0.5em] font-bold rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-[#0B8FA3]/25"
+                />
+              </div>
+
+              {mfaError ? <p className="text-sm text-red-600 font-semibold">{mfaError}</p> : null}
+
+              <button
+                type="button"
+                onClick={handleMfaSetupSubmit}
+                disabled={mfaCode.length !== 6 || mfaSubmitting}
+                className="w-full h-12 rounded-2xl bg-[#0B8FA3] text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60 flex items-center justify-center transition-opacity"
+              >
+                {mfaSubmitting ? "Verificando..." : "Confirmar y Activar"}
+              </button>
+            </div>
+          </div>
+        ) : mfaStep === "verify" ? (
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm max-w-md mx-auto">
+            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="h-6 w-6 text-[#0B8FA3]" />
+              Verificación de Seguridad
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Ingresa el código de 6 dígitos generado por tu aplicación de autenticación para este email.
+            </p>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Código de Autenticador:
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="000000"
+                  className="h-12 w-full text-center text-2xl tracking-[0.5em] font-bold rounded-2xl border border-slate-200 bg-white outline-none focus:ring-2 focus:ring-[#0B8FA3]/25"
+                />
+              </div>
+
+              {mfaError ? <p className="text-sm text-red-600 font-semibold">{mfaError}</p> : null}
+
+              <button
+                type="button"
+                onClick={handleMfaVerifySubmit}
+                disabled={mfaCode.length !== 6 || mfaSubmitting}
+                className="w-full h-12 rounded-2xl bg-[#0B8FA3] text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60 flex items-center justify-center transition-opacity"
+              >
+                {mfaSubmitting ? "Verificando..." : "Iniciar Sesión"}
+              </button>
+            </div>
+          </div>
+        ) : !authenticated ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="max-w-2xl">
               <h3 className="text-lg font-semibold text-slate-900">{copy.requestTitle}</h3>
