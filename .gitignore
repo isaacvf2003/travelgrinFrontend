@@ -1,75 +1,22 @@
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-dist/
-build/
-target/
+# Ignore backend folder (since it belongs to a separate repository)
+backend/
 
-# Dependencies
-node_modules/
-venv/
-.venv/
+# Local env files
 .env
 .env.local
 *.env.*
 
-# Editors and IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
+# Compiled / build outputs
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
 
-# Logs and temporary files
+# System and temporary files
+.DS_Store
+Thumbs.db
 *.log
 *.tmp
 *.temp
-
-# System files
-.DS_Store
-Thumbs.db
-
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-
-# Python specific
-.mypy_cache/
-.pytest_cache/
-*.pyc
-__pycache__/
-
-# Compression and archives
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-
-# Next.js and Web build artifacts
-.next/
-frontend/.next/
-backend/.next/
-out/
-dist/
-build/
-*.tsbuildinfo
