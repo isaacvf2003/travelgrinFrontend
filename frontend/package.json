@@ -14,7 +14,7 @@
     "country-flag-icons": "^1.5.19",
     "jose": "^5.9.6",
     "jsonwebtoken": "^9.0.2",
-    "lucide-react": "^0.536.0",
+    "lucide-react": "^1.28.0",
     "next": "15.4.8",
     "openai": "^5.16.0",
     "react": "19.1.2",
