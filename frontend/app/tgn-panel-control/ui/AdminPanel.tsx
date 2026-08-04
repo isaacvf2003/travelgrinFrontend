@@ -4794,6 +4794,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const selectedPlanRaw = String(extra.requestedPlan ?? extra.publicationPlan ?? selected.publicationPlan ?? "").trim().toLowerCase();
     const isSelectedPaidPlan = ["featured", "featured_120d", "monthly", "featured_monthly"].includes(selectedPlanRaw);
     setPFeatured(isSelectedPaidPlan);
+    setPPartner(Boolean(selected.isIntermediario || extra.isIntermediario || extra.isIntermediario === "true" || extra.isIntermediario === true));
     setPProviderLogo(providerLogo);
     setPFieldsBase((prev) => ({
       ...prev,
