@@ -2310,9 +2310,13 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                     const paymentConfirmed = isConfirmedPortalPayment(item);
                     const hasProviderPaymentId = Boolean(getResolvedProviderPaymentId(item));
                     const isResubmitted = Boolean(item.resubmittedAt || item.draftData?.resubmittedAt);
-                    const showEditButton = normalizedStatus === "needs_info" && !isResubmitted;
+                    const isChangeRequest = String(item.requestKind ?? "").trim().toLowerCase() === "edit_publication";
+                    const showEditButton =
+                      (normalizedStatus === "needs_info" && !isResubmitted) ||
+                      (isChangeRequest && normalizedStatus === "rejected" && !isResubmitted);
                     const refundActiveOrFinal = ["refund_requested", "refund_reviewing", "refund_processing", "refunded", "refund_failed"].includes(refundStatus);
                     const canRequestRefund =
+                      !isChangeRequest &&
                       ["rejected", "needs_info"].includes(normalizedStatus) &&
                       paymentConfirmed &&
                       hasProviderPaymentId &&
@@ -2331,6 +2335,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                       !refundActiveOrFinal;
 
                     const canShowManualRefundReview =
+                      !isChangeRequest &&
                       ["rejected", "needs_info"].includes(normalizedStatus) &&
                       paymentConfirmed &&
                       !hasProviderPaymentId &&

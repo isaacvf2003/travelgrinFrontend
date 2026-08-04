@@ -226,7 +226,8 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       });
     }
 
-    if (currentStatus === "rejected") {
+    const isChangeRequest = String(currentExtra.requestKind ?? "").trim().toLowerCase() === "edit_publication";
+    if (currentStatus === "rejected" && !isChangeRequest) {
       return NextResponse.json({ ok: false, error: "Rejected submissions cannot be edited from this flow." }, { status: 409 });
     }
     const publicationPlan = normalizePlanType(body.publicationPlan ?? currentExtra.publicationPlan ?? currentExtra.requestedPlan ?? currentExtra.planType);
