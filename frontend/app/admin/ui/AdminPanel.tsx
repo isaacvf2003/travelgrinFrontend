@@ -4810,22 +4810,38 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             ? "featured"
             : "basic_free",
     }));
-    const textSection = (title: string, value: unknown) => {
-      const text = Array.isArray(value)
-        ? value.map((entry) => String(entry ?? "").trim()).filter(Boolean).join("\n")
-        : String(value ?? "").trim();
-      return text ? `${title}\n${text}` : "";
-    };
-    const publicationDescriptionParts = [
-      textSection("Descripcion general", selected.contanos || extra.contanos || extra.description),
-      isSelectedPaidPlan ? textSection("Incluye", extra.included) : "",
-      isSelectedPaidPlan ? textSection("No incluye", extra.notIncluded) : "",
-    ].filter(Boolean);
-    const publicationDescription = publicationDescriptionParts.join("\n\n");
-    if (publicationDescription) {
-      setPDescription(publicationDescription);
-      setPDescriptionI18n((prev) => ({ ...prev, es: publicationDescription }));
+    const baseDescription = String(selected.contanos || extra.contanos || extra.description || "").trim();
+    if (baseDescription) {
+      setPDescription(baseDescription);
+      setPDescriptionI18n((prev) => ({ ...prev, es: baseDescription }));
     }
+
+    const newExtraDescriptions: ExtraDescription[] = [];
+    if (isSelectedPaidPlan) {
+      const includedText = String(extra.included || "").trim();
+      if (includedText) {
+        newExtraDescriptions.push({
+          title: "Incluye",
+          body: includedText,
+          titleI18n: { es: "Incluye" },
+          bodyI18n: { es: includedText },
+          lang: "es",
+          visibleInCard: false,
+        });
+      }
+      const notIncludedText = String(extra.notIncluded || "").trim();
+      if (notIncludedText) {
+        newExtraDescriptions.push({
+          title: "No incluye",
+          body: notIncludedText,
+          titleI18n: { es: "No incluye" },
+          bodyI18n: { es: notIncludedText },
+          lang: "es",
+          visibleInCard: false,
+        });
+      }
+    }
+    setPExtraDescriptions(newExtraDescriptions);
     const providerProfileText = String(extra.providerDescription ?? extra.providerInfo ?? "").trim();
     setPProviderInfoI18n((prev) => ({ ...prev, es: providerProfileText || prev.es || "" }));
     setPProviderActivities(activities);
