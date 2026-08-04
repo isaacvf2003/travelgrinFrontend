@@ -4903,6 +4903,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const originalPub = detailTravelService && detailExtra?.sourcePublicationId
     ? publications.find((p) => p.id === detailExtra.sourcePublicationId)
     : null;
+  const proposedImages = normalizeStringArray(detailExtra?.images);
+  const activeImages = originalPub && Array.isArray(originalPub.images)
+    ? originalPub.images.map((img) => String(img ?? "").trim()).filter(Boolean)
+    : [];
+  const imagesAreIdentical = proposedImages.length === activeImages.length &&
+    proposedImages.every((img, idx) => img === activeImages[idx]);
   const detailLinkedPublications = detailTravelService && !isDetailDemandante
     ? (publicationsByProviderEmail.get(String(detailTravelService.email ?? "").toLowerCase()) ?? [])
     : [];
@@ -5077,7 +5083,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="mt-3">
                   <b>Imágenes propuestas en solicitud:</b>
                   <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-                    {normalizeStringArray(detailExtra?.images).length ? normalizeStringArray(detailExtra?.images).map((img, idx) => (
+                    {originalPub && imagesAreIdentical ? (
+                      <span className="text-slate-500 text-xs md:col-span-4">- (No se modificaron las imágenes)</span>
+                    ) : normalizeStringArray(detailExtra?.images).length ? normalizeStringArray(detailExtra?.images).map((img, idx) => (
                       <button key={`${idx}-${img.slice(0, 20)}`} type="button" onClick={() => setDetailImageExpanded(img)} className="overflow-hidden rounded-lg border border-slate-200">
                         <img src={img} alt={`imagen-oferente-${idx + 1}`} className="h-24 w-full object-cover transition hover:scale-105" />
                       </button>
