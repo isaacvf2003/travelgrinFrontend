@@ -1909,6 +1909,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
     }
     for (const submission of dashboard?.submissions ?? []) {
       if (!["aprobado", "approved", "active", "activo", "paid"].includes(String(submission.status ?? "").trim().toLowerCase())) continue;
+      const requestKind = String(submission.requestKind ?? "").trim().toLowerCase();
+      if (requestKind && requestKind !== "new_publication") continue;
       if (sortedVisiblePublicationEntries.some((entry) => entry.relatedSubmission?.id === submission.id)) continue;
       const planType = normalizePortalPlanType(submission.requestedPlan ?? submission.planType);
       const current = groups.get(planType) ?? { planType, count: 0, nearestExpiration: null, statuses: [] };

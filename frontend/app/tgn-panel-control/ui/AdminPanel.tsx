@@ -4900,6 +4900,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const detailExtra = detailTravelService ? parseTravelServiceExtra(detailTravelService) : null;
   const isDetailDemandante = String(detailTravelService?.taxonomyType ?? "").toLowerCase() === "demandante";
+  const originalPub = detailTravelService && detailExtra?.sourcePublicationId
+    ? publications.find((p) => p.id === detailExtra.sourcePublicationId)
+    : null;
   const detailLinkedPublications = detailTravelService && !isDetailDemandante
     ? (publicationsByProviderEmail.get(String(detailTravelService.email ?? "").toLowerCase()) ?? [])
     : [];
@@ -5045,6 +5048,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="mb-2 text-sm font-semibold text-slate-900">Datos enviados</div>
                 <div className="grid gap-2 md:grid-cols-2">
                   <div className="md:col-span-2"><b>Título de la publicación:</b> {String(detailExtra?.publicationTitle ?? "-")}</div>
+                  {originalPub && originalPub.title !== detailExtra?.publicationTitle && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">Actual: {originalPub.title || "-"}</div>
+                  )}
                   <div><b>Tipo perfil:</b> {normalizeStringArray((detailExtra?.typeProfile as string[] | string | undefined) ?? detailTravelService.typeProfile).join(", ") || "-"}</div>
                   <div><b>Categorías:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
                   <div><b>Actividad:</b> {normalizeStringArray((detailExtra?.activity as string[] | string | undefined) ?? detailTravelService.activity).join(", ") || "-"}</div>
@@ -5054,6 +5060,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Sede principal:</b> {detailTravelService.headquarterCountry || String(detailExtra?.headquarterCountry ?? "-")}</div>
                   <div className="md:col-span-2"><b>Web/red:</b> {detailTravelService.website || "-"}</div>
                   <div className="md:col-span-2"><b>Descripción:</b> {detailTravelService.contanos || "-"}</div>
+                  {originalPub && originalPub.description !== detailTravelService.contanos && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through max-h-20 overflow-y-auto pl-2 border-l border-rose-300">Actual: {originalPub.description || "-"}</div>
+                  )}
                   <div className="md:col-span-2"><b>¿Qué está buscando?:</b> {String(detailExtra?.whatSearching ?? "") || "-"}</div>
                   <div className="md:col-span-2"><b>¿Qué lo frena o preocupa?:</b> {String(detailExtra?.whatStop ?? "") || "-"}</div>
                   <div className="md:col-span-2">
@@ -5063,16 +5072,32 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       : ""}
                   </div>
                 </div>
+                
+                {/* Proposed gallery images */}
                 <div className="mt-3">
-                  <b>Imágenes cargadas:</b>
+                  <b>Imágenes propuestas en solicitud:</b>
                   <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
                     {normalizeStringArray(detailExtra?.images).length ? normalizeStringArray(detailExtra?.images).map((img, idx) => (
                       <button key={`${idx}-${img.slice(0, 20)}`} type="button" onClick={() => setDetailImageExpanded(img)} className="overflow-hidden rounded-lg border border-slate-200">
                         <img src={img} alt={`imagen-oferente-${idx + 1}`} className="h-24 w-full object-cover transition hover:scale-105" />
                       </button>
-                    )) : <span>-</span>}
+                    )) : <span className="text-slate-500 text-xs">- (No se enviaron imágenes nuevas)</span>}
                   </div>
                 </div>
+
+                {/* Original publication gallery images for comparison */}
+                {originalPub && (
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    <b className="text-slate-600 text-xs">Imágenes actuales de la publicación activa:</b>
+                    <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                      {Array.isArray(originalPub.images) && originalPub.images.length ? originalPub.images.map((img: any, idx: number) => (
+                        <button key={`orig-img-${idx}`} type="button" onClick={() => setDetailImageExpanded(String(img))} className="overflow-hidden rounded-lg border border-slate-200">
+                          <img src={String(img)} alt={`original-${idx}`} className="h-20 w-full object-cover transition hover:scale-105" />
+                        </button>
+                      )) : <span className="text-slate-500 text-xs">-</span>}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
