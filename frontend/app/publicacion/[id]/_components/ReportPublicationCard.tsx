@@ -1,11 +1,13 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 export default function ReportPublicationCard({ publicationId, publicationTitle }: { publicationId: string; publicationTitle: string }) {
   const { locale } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("Denuncia");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -14,6 +16,8 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
   const [sent, setSent] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const invalidEmailMessage =
     locale === "en"
@@ -49,13 +53,25 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
       setError(invalidEmailMessage);
       return;
     }
+    if (!turnstileToken) {
+      setError(
+        locale === "en"
+          ? "Please complete the verification challenge."
+          : locale === "pt"
+            ? "Por favor, complete a verificacao de seguranca."
+            : locale === "it"
+              ? "Per favore, completa la verifica di sicurezza."
+              : "Por favor, completa la verificacion de seguridad."
+      );
+      return;
+    }
     setSending(true);
     setError("");
     try {
       const res = await fetch("/api/reports", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ publicationId, publicationTitle, reason: "Denuncia", details, fullName, contact: phone, email }),
+        body: JSON.stringify({ publicationId, publicationTitle, reason, details, fullName, contact: phone, email, turnstileToken }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -76,10 +92,14 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
       setFullName("");
       setPhone("");
       setEmail("");
+      setTurnstileToken("");
+      setTurnstileResetKey((prev) => prev + 1);
       setOpen(false);
     } catch (err) {
       const message = err instanceof Error && err.message.trim() ? err.message : submitErrorMessage;
       setError(message);
+      setTurnstileToken("");
+      setTurnstileResetKey((prev) => prev + 1);
     } finally {
       setSending(false);
     }
@@ -156,10 +176,10 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
   return (
     <>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <button type="button" onClick={() => setOpen(true)} className="rounded-xl border border-red-600 bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
+        <button type="button" onClick={() => { setReason("Denuncia"); setOpen(true); }} className="rounded-xl border border-red-600 bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
           {labels.report}
         </button>
-        <button type="button" onClick={() => setOpen(true)} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50">
+        <button type="button" onClick={() => { setReason("Se ve algo raro"); setOpen(true); }} className="rounded-xl border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50">
           {labels.suspicious}
         </button>
       </div>
@@ -180,7 +200,15 @@ export default function ReportPublicationCard({ publicationId, publicationTitle 
               <input value={phone} onChange={(e) => setPhone(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={labels.phonePlaceholder} />
               <label className="text-sm font-medium text-black">{labels.detailsLabel}</label>
               <textarea value={details} onChange={(e) => setDetails(e.target.value)} className="min-h-[110px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-400 dark:bg-white dark:text-slate-900" style={{ colorScheme: "light" }} placeholder={labels.details} />
-              <button disabled={sending || sent} onClick={submit} className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+              
+              <div className="my-2 flex justify-center">
+                <TurnstileWidget
+                  resetKey={turnstileResetKey}
+                  onTokenChange={setTurnstileToken}
+                />
+              </div>
+
+              <button disabled={sending || sent || !turnstileToken} onClick={submit} className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
                 {sent ? labels.sent : sending ? "..." : labels.send}
               </button>
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
