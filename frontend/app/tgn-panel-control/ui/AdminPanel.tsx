@@ -4759,14 +4759,37 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const activities = Array.from(new Set([...normalizeStringArray((extra.activity as string[] | string | undefined) ?? selected.activity), ...categoryActivities]));
     const modalities = Array.from(new Set([...normalizeStringArray((extra.modality as string[] | string | undefined) ?? selected.modality), ...categoryModalities]));
     const languages = normalizeStringArray((extra.languages as string[] | string | undefined) ?? selected.languages);
-    const images = normalizeStringArray(extra.images as string[] | string | undefined);
-    const imageAssets = Array.isArray(extra.imageAssets) ? (extra.imageAssets as ImageAsset[]) : [];
+    const existingPub = extra.sourcePublicationId
+      ? publications.find((p) => p.id === extra.sourcePublicationId)
+      : null;
+
+    let images = normalizeStringArray(extra.images as string[] | string | undefined);
+    let imageAssets = Array.isArray(extra.imageAssets) ? (extra.imageAssets as ImageAsset[]) : [];
+    
+    const existingImages = existingPub && Array.isArray(existingPub.images) ? existingPub.images.map(String) : [];
+    const imagesAreIdentical = images.length === existingImages.length &&
+      images.every((img, idx) => img === existingImages[idx]);
+
+    if ((images.length === 0 || imagesAreIdentical) && existingPub && Array.isArray(existingPub.images)) {
+      images = existingPub.images.map(String);
+      imageAssets = Array.isArray(existingPub.imageAssets) ? (existingPub.imageAssets as ImageAsset[]) : [];
+    }
+
     const priceByCurrency = Array.isArray(extra.priceByCurrency)
       ? (extra.priceByCurrency as Array<Record<string, unknown>>)
           .map((entry) => ({ currency: String(entry.currency ?? "").trim(), amount: String(entry.amount ?? "").trim() }))
           .filter((entry, index, self) => entry.currency && entry.amount && self.findIndex((item) => item.currency === entry.currency) === index)
       : [];
-    const providerLogo = String(extra.providerLogo ?? "").trim();
+
+    let providerLogo = String(extra.providerLogo ?? "").trim();
+    let providerLogoAsset = (extra.providerLogoAsset as ImageAsset | undefined) ?? null;
+
+    const existingLogo = existingPub ? String(existingPub.providerLogo ?? "").trim() : "";
+    if ((!providerLogo || providerLogo === existingLogo) && existingPub && existingPub.providerLogo) {
+      providerLogo = String(existingPub.providerLogo).trim();
+      providerLogoAsset = (existingPub.providerLogoAsset as ImageAsset | undefined) ?? null;
+    }
+
     const explicitLinks = [
       { kind: "linkedin", label: "Profesional", url: String(extra.professionalLink ?? "").trim() },
       { kind: "whatsapp", label: "WhatsApp", url: String(extra.whatsappLink ?? "").trim() },
@@ -4799,7 +4822,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPFieldsBase((prev) => ({
       ...prev,
       imageAssets,
-      providerLogoAsset: (extra.providerLogoAsset as ImageAsset | undefined) ?? null,
+      providerLogoAsset,
       sourceServiceId: selected.id,
       requestKind: String(extra.requestKind ?? "").trim() || null,
       previousPlan: String(extra.previousPlan ?? "").trim() || null,
