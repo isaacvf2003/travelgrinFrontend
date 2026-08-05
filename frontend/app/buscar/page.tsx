@@ -109,7 +109,7 @@ async function loadPublications(sp: SearchParams, overrides: Record<string, stri
   const base = await getBaseUrl();
   const qs = buildQuery(sp, overrides);
   const res = await fetch(`${base}/api/publications${qs ? `?${qs}` : ""}`, {
-    cache: "no-store",
+    next: { tags: ["publications"] },
   });
   if (!res.ok) return { items: [], total: 0, page: 1, perPage: Number(overrides.perPage ?? 12), totalPages: 1 };
   const data = (await res.json()) as {

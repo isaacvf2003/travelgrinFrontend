@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "npm --prefix backend install",
+  "buildCommand": "npm --prefix backend run vercel-build",
+  "crons": [
+    {
+      "path": "/api/cron/travel-service-reminders",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}

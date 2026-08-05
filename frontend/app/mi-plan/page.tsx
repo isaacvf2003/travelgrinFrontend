@@ -302,7 +302,7 @@ function PlanContent() {
       const pairs = await Promise.all(
         items.map(async (item) => {
           try {
-            const res = await fetch(`/api/publications/${item.publicationId}`, { cache: "no-store" });
+            const res = await fetch(`/api/publications/${item.publicationId}`, { next: { tags: ["publications"] } });
             if (!res.ok) return [item.publicationId, null] as const;
             const payload = await res.json();
             const pub = payload?.item ?? payload;

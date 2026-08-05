@@ -298,7 +298,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const base = await getBaseUrl();
     const res = await fetch(`${base}/api/publications/${resolvedId}`, {
-      cache: "no-store",
+      next: { tags: ["publications"] },
     });
     if (!res.ok) return { title: "TravelGrin" };
 
@@ -320,7 +320,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
   const base = await getBaseUrl();
 
   const res = await fetch(`${base}/api/publications/${resolvedId}`, {
-    cache: "no-store",
+    next: { tags: ["publications"] },
   });
 
   if (!res.ok) {

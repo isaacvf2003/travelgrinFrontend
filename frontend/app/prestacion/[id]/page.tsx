@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
@@ -88,7 +88,7 @@ function resolveDetailPath(pub: Publication) {
 }
 
 async function fetchPublication(base: string, id: string) {
-  const res = await fetch(`${base}/api/publications/${id}`, { cache: "no-store" });
+  const res = await fetch(`${base}/api/publications/${id}`, { next: { tags: ["publications"] } });
   if (!res.ok) return null;
   const payload = (await res.json()) as { item?: Publication } | Publication;
   return ("item" in payload ? payload.item : payload) as Publication;
