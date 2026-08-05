@@ -1,7 +1,34 @@
 import Image from 'next/image';
 import React from 'react';
+import { useTranslation } from '@/app/hooks/useTranslation';
+
+const headerTranslations: Record<string, { title: string; subtitle: string; version: string }> = {
+  es: {
+    title: "Términos de Uso · Privacidad · Reglas de Plataforma",
+    subtitle: "Información clara, ordenada y actualizada para usar Travelgrin con confianza.",
+    version: "Versión 1.0"
+  },
+  en: {
+    title: "Terms of Use · Privacy · Platform Rules",
+    subtitle: "Clear, structured and updated information to use Travelgrin with confidence.",
+    version: "Version 1.0"
+  },
+  pt: {
+    title: "Termos de Uso · Privacidade · Regras da Plataforma",
+    subtitle: "Informação clara, organizada e atualizada para usar o Travelgrin com confiança.",
+    version: "Versão 1.0"
+  },
+  it: {
+    title: "Termini di Utilizzo · Privacy · Regole della Piattaforma",
+    subtitle: "Informazioni chiare, ordinate e aggiornate per usare Travelgrin in sicurezza.",
+    version: "Versione 1.0"
+  }
+};
 
 export default function TermsHeader() {
+  const { locale } = useTranslation();
+  const t = headerTranslations[locale] || headerTranslations.es;
+
   return (
     <header className="relative isolate overflow-hidden bg-[#075965] bg-[url(/fondo-frase-libre.webp)] bg-cover bg-center px-5 pb-20 pt-20 text-center sm:px-6 lg:pb-24 lg:pt-24">
       <div className="absolute inset-0 bg-[#075965]/55" />
@@ -16,14 +43,14 @@ export default function TermsHeader() {
           className="mx-auto mb-5 h-auto w-[130px] object-contain sm:w-[150px]"
         />
         <h1 className="text-balance text-3xl font-black leading-tight text-white sm:text-4xl lg:text-6xl">
-          Términos de Uso · Privacidad · Reglas de Plataforma
+          {t.title}
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/82 sm:text-lg">
-          Información clara, ordenada y actualizada para usar Travelgrin con confianza.
+          {t.subtitle}
         </p>
         <div className="mt-8 inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/12 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(0,0,0,0.14)] backdrop-blur-md">
           <span className="h-2 w-2 rounded-full bg-[#08d9bd] shadow-[0_0_16px_rgba(8,217,189,0.9)]" />
-          Versión 1.0
+          {t.version}
         </div>
       </div>
     </header>
