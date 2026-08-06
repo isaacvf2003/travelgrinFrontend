@@ -34,8 +34,7 @@ function isUsableImageUrl(value: string) {
       const uploadIndex = parts.indexOf("upload");
       if (uploadIndex >= 0) {
         const afterUpload = parts.slice(uploadIndex + 1);
-        const last = afterUpload.at(-1) ?? "";
-        return afterUpload.length >= 2 && /\.[a-z0-9]+($|\?)/i.test(last);
+        return afterUpload.length >= 2;
       }
     }
     return true;
@@ -701,7 +700,8 @@ function isPublicationLinkedReviewRequest(extra?: Record<string, unknown>): bool
     requestKind === "renew_featured_120d" ||
     requestKind === "renew_featured_monthly" ||
     requestKind === "upgrade_featured_120d" ||
-    requestKind === "upgrade_featured_monthly"
+    requestKind === "upgrade_featured_monthly" ||
+    requestKind === "downgrade_free"
   );
 }
 
