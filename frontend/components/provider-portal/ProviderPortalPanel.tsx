@@ -1859,6 +1859,14 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           ?? latestSubmissionsBySourceId.get(`publication:${publication.id}`)
           ?? null;
 
+        const downgradeSubmission = submissions.find(
+          (sub) =>
+            (sub.sourcePublicationId === publication.id ||
+             String((sub.draftData as Record<string, unknown> | undefined)?.sourcePublicationId ?? "").trim() === publication.id) &&
+            String(sub.requestKind ?? "").trim().toLowerCase() === "downgrade_free" &&
+            ["pendiente", "pendiente_pago", "aprobado", "approved", "active"].includes(String(sub.status ?? "").trim().toLowerCase())
+        ) || null;
+
         return {
           publication,
           relatedSubmission,
@@ -1878,6 +1886,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
               publication.monthlySubscriptionCancelledAt ??
               "",
             ).trim() || null,
+          downgradeScheduled: Boolean(downgradeSubmission),
+          downgradeSubmission,
         };
       });
   }, [dashboard?.publications, dashboard?.submissions]);
@@ -2497,7 +2507,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-slate-900">{copy.publicationsTitle}</h3>
                 <div className="mt-4 space-y-3">
-                  {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration, needsInfoSubmission, monthlyCancellationScheduled }) => {
+                  {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration, needsInfoSubmission, monthlyCancellationScheduled, downgradeScheduled }) => {
                     const badge = planBadge(effectivePlanType);
                     const canOpenFromHistory = relatedSubmission ?? latestApprovedSubmission;
                     return (
@@ -2523,6 +2533,50 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                                 : locale === "it"
                                   ? `Cancellazione mensile programmata. Questa pubblicazione resta attiva fino al ${formatDate(effectiveExpiration, locale)}.`
                                   : `Cancelación mensual programada. Esta publicación sigue activa hasta ${formatDate(effectiveExpiration, locale)}.`}
+                          </div>
+                        ) : null}
+                        {downgradeScheduled ? (
+                          <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                            {(() => {
+                              const now = new Date();
+                              const exp = new Date(effectiveExpiration);
+                              const diffMs = exp.getTime() - now.getTime();
+                              if (diffMs <= 0) {
+                                return locale === "en"
+                                  ? "Returning to free now..."
+                                  : locale === "pt"
+                                    ? "Voltando para grátis agora..."
+                                    : locale === "it"
+                                      ? "Ritorno a gratuito in corso..."
+                                      : "Volviendo a ser gratuita ahora...";
+                              }
+                              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                              const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+                              if (locale === "en") {
+                                if (diffDays > 0) {
+                                  return `This publication is scheduled to return to free in ${diffDays} day${diffDays > 1 ? "s" : ""} and ${diffHours} hour${diffHours > 1 ? "s" : ""}.`;
+                                }
+                                return `This publication is scheduled to return to free in ${diffHours} hour${diffHours > 1 ? "s" : ""}.`;
+                              }
+                              if (locale === "pt") {
+                                if (diffDays > 0) {
+                                  return `Esta publicação voltará a ser gratuita em ${diffDays} dia${diffDays > 1 ? "s" : ""} e ${diffHours} hora${diffHours > 1 ? "s" : ""}.`;
+                                }
+                                return `Esta publicação voltará a ser gratuita em ${diffHours} hora${diffHours > 1 ? "s" : ""}.`;
+                              }
+                              if (locale === "it") {
+                                if (diffDays > 0) {
+                                  return `Questa pubblicazione tornerà gratuita tra ${diffDays} giorn${diffDays > 1 ? "i" : "o"} e ${diffHours} or${diffHours > 1 ? "e" : "a"}.`;
+                                }
+                                return `Questa pubblicazione tornerà gratuita tra ${diffHours} or${diffHours > 1 ? "e" : "a"}.`;
+                              }
+                              // Spanish fallback
+                              if (diffDays > 0) {
+                                return `Esta publicación volverá a ser gratuita en ${diffDays} día${diffDays > 1 ? "s" : ""} y ${diffHours} hora${diffHours > 1 ? "s" : ""}.`;
+                              }
+                              return `Esta publicación volverá a ser gratuita en ${diffHours} hora${diffHours > 1 ? "s" : ""}.`;
+                            })()}
                           </div>
                         ) : null}
                         {needsInfoSubmission ? (
@@ -2560,7 +2614,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                             </button>
                           </>
                         ) : null}
-                        {effectivePlanType === "featured" ? (
+                        {effectivePlanType === "featured" && !downgradeScheduled ? (
                           <>
                             <button
                               type="button"
@@ -2575,6 +2629,17 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                             >
                               {planCopy.downgradeThisPublication}
+                            </button>
+                          </>
+                        ) : null}
+                        {effectivePlanType === "featured" && downgradeScheduled ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openPlanRequest("featured", canOpenFromHistory, buildPublicationEditInitialData(publication, relatedSubmission))}
+                              className="rounded-xl bg-[#0B8FA3] px-3 py-2 text-xs font-semibold text-white hover:opacity-95"
+                            >
+                              {planCopy.renewFeatured}
                             </button>
                           </>
                         ) : null}
