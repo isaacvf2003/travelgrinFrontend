@@ -1864,7 +1864,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
             (sub.sourcePublicationId === publication.id ||
              String((sub.draftData as Record<string, unknown> | undefined)?.sourcePublicationId ?? "").trim() === publication.id) &&
             String(sub.requestKind ?? "").trim().toLowerCase() === "downgrade_free" &&
-            ["pendiente", "pendiente_pago", "aprobado", "approved", "active"].includes(String(sub.status ?? "").trim().toLowerCase())
+            ["pendiente", "pendiente_pago"].includes(String(sub.status ?? "").trim().toLowerCase())
         ) || null;
 
         return {
