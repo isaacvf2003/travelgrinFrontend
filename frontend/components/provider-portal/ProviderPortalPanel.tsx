@@ -2507,7 +2507,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-slate-900">{copy.publicationsTitle}</h3>
                 <div className="mt-4 space-y-3">
-                  {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration, needsInfoSubmission, monthlyCancellationScheduled, downgradeScheduled }) => {
+                  {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration, needsInfoSubmission, monthlyCancellationScheduled, downgradeScheduled, downgradeSubmission }) => {
                     const badge = planBadge(effectivePlanType);
                     const canOpenFromHistory = relatedSubmission ?? latestApprovedSubmission;
                     return (
@@ -2561,15 +2561,15 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                               }
                               if (locale === "pt") {
                                 if (diffDays > 0) {
-                                  return `Esta publicação voltará a ser gratuita em ${diffDays} dia${diffDays > 1 ? "s" : ""} e ${diffHours} hora${diffHours > 1 ? "s" : ""}.`;
+                                  return `Esta publicação voltará a ser gratuita em ${diffDays} dia${diffDays > 1 ? "s" : ""} e ${diffHours} hora${diffDays > 1 ? "s" : ""}.`;
                                 }
-                                return `Esta publicação voltará a ser gratuita em ${diffHours} hora${diffHours > 1 ? "s" : ""}.`;
+                                return `Esta publicação voltará a ser gratuita em ${diffHours} hora${diffDays > 1 ? "s" : ""}.`;
                               }
                               if (locale === "it") {
                                 if (diffDays > 0) {
-                                  return `Questa pubblicazione tornerà gratuita tra ${diffDays} giorn${diffDays > 1 ? "i" : "o"} e ${diffHours} or${diffHours > 1 ? "e" : "a"}.`;
+                                  return `Questa pubblicazione tornerà gratuita tra ${diffDays} giorn${diffDays > 1 ? "i" : "o"} e ${diffHours} or${diffDays > 1 ? "e" : "a"}.`;
                                 }
-                                return `Questa pubblicazione tornerà gratuita tra ${diffHours} or${diffHours > 1 ? "e" : "a"}.`;
+                                return `Questa pubblicazione tornerà gratuita tra ${diffHours} or${diffDays > 1 ? "e" : "a"}.`;
                               }
                               // Spanish fallback
                               if (diffDays > 0) {
@@ -2641,6 +2641,18 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                             >
                               {planCopy.renewFeatured}
                             </button>
+                            {downgradeSubmission ? (
+                              <button
+                                type="button"
+                                onClick={() => void deleteSubmission(downgradeSubmission)}
+                                disabled={deletingSubmissionId === downgradeSubmission.id}
+                                className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {deletingSubmissionId === downgradeSubmission.id
+                                  ? (locale === "en" ? "Cancelling..." : locale === "pt" ? "Cancelando..." : locale === "it" ? "Annullamento..." : "Cancelando...")
+                                  : (locale === "en" ? "Cancel return to free" : locale === "pt" ? "Cancelar retorno ao gratuito" : locale === "it" ? "Annulla ritorno al gratuito" : "Cancelar vuelta a gratis")}
+                              </button>
+                            ) : null}
                           </>
                         ) : null}
                         {false ? (
