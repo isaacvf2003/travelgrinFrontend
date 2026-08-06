@@ -1847,7 +1847,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           (publication.featured ? "featured" : "basic_free"),
         );
         const effectivePlanType =
-          publicationPlanType === "basic_free" && submissionPlanType !== "basic_free"
+          publicationPlanType === "basic_free" && submissionPlanType !== "basic_free" && !["approved", "active"].includes(String(publication.status ?? "").trim().toLowerCase())
             ? submissionPlanType
             : publicationPlanType;
         const effectiveExpiration =
