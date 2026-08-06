@@ -85,7 +85,7 @@ export default function ServicesPromoPanel({ filterGroups, publications }: { fil
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#2C7BE5]/15 bg-gradient-to-br from-[#F3F8FF] via-white to-[#EAF7FA] p-5 shadow-[0_18px_45px_rgba(11,143,163,0.10)]">
-      <h2 className="mx-auto max-w-3xl text-center text-[14px] font-bold tracking-tight text-[#273166] md:text-[17px]">{t("servicios_promo_panel_title")}</h2>
+      <h2 className="mx-auto max-w-3xl text-center text-[15px] font-bold tracking-tight text-[#273166] md:text-[18px]">{t("servicios_promo_panel_title")}</h2>
       <div className="mt-4 flex flex-wrap justify-center gap-2.5">
         {visibleOptions.map((option) => {
             const selected = hasCsvValue(selectedValues, option.value);
