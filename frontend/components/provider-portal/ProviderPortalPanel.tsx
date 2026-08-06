@@ -1264,6 +1264,13 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     return { label: copy.free, kind: "free" as const };
   };
   const getPortalPaymentView = useCallback((submission: PortalSubmission) => {
+  const isChangeRequest = String(submission.requestKind ?? "").trim().toLowerCase() === "edit_publication";
+  const planType = String(submission.planType ?? "").trim().toLowerCase();
+  const isPaidPlan = ["featured", "featured_120d", "monthly", "featured_monthly"].includes(planType);
+  if (isChangeRequest && isPaidPlan) {
+    return "confirmed" as const;
+  }
+
   const draft = submission.draftData ?? {};
 
   const values = [
