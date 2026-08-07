@@ -5087,6 +5087,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Destino:</b> {detailTravelService.destinationCountry || "-"} / {detailTravelService.city || String(detailExtra?.city ?? "-")}</div>
                   <div><b>Sede principal:</b> {detailTravelService.headquarterCountry || String(detailExtra?.headquarterCountry ?? "-")}</div>
                   <div className="md:col-span-2"><b>Web/red:</b> {detailTravelService.website || "-"}</div>
+                  <div className="md:col-span-2"><b>Enlace WhatsApp:</b> {String(detailExtra?.whatsappLink ?? "").trim() || "-"}</div>
+                  {originalPub && String((originalPub.socialLinks as any)?.whatsapp ?? "").trim() !== String(detailExtra?.whatsappLink ?? "").trim() && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">Actual: {String((originalPub.socialLinks as any)?.whatsapp ?? "-")}</div>
+                  )}
+                  <div className="md:col-span-2"><b>Enlace Profesional / LinkedIn:</b> {String(detailExtra?.professionalLink ?? "").trim() || "-"}</div>
+                  {originalPub && String((originalPub.socialLinks as any)?.linkedin ?? "").trim() !== String(detailExtra?.professionalLink ?? "").trim() && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">Actual: {String((originalPub.socialLinks as any)?.linkedin ?? "-")}</div>
+                  )}
+                  <div className="md:col-span-2"><b>Contacto Viajero / Web:</b> {String(detailExtra?.travelerContactLink ?? "").trim() || "-"}</div>
+                  {originalPub && String((originalPub.socialLinks as any)?.web ?? "").trim() !== String(detailExtra?.travelerContactLink ?? "").trim() && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">Actual: {String((originalPub.socialLinks as any)?.web ?? "-")}</div>
+                  )}
                   <div className="md:col-span-2"><b>Descripción:</b> {detailTravelService.contanos || "-"}</div>
                   {originalPub && originalPub.description !== detailTravelService.contanos && (
                     <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through max-h-20 overflow-y-auto pl-2 border-l border-rose-300">Actual: {originalPub.description || "-"}</div>
@@ -5099,6 +5111,45 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   {originalPub && String((originalPub.fields as any)?.notIncluded ?? "").trim() !== String(detailExtra?.notIncluded ?? "").trim() && (
                     <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through max-h-20 overflow-y-auto pl-2 border-l border-rose-300">Actual: {String((originalPub.fields as any)?.notIncluded ?? "-")}</div>
                   )}
+                  <div className="md:col-span-2">
+                    <b>Precio del servicio:</b> {detailExtra?.price ? `${detailExtra.currency} ${detailExtra.price} / ${detailExtra.pricePeriod === "person" ? "Persona" : "Mes"}` : "Gratis / No especificado"}
+                    {detailExtra?.priceNegotiable ? " (Negociable)" : ""}
+                  </div>
+                  {originalPub && (
+                    (originalPub.price !== detailExtra?.price) ||
+                    (originalPub.currency !== detailExtra?.currency) ||
+                    (String((originalPub.fields as any)?.pricePeriod ?? "") !== String(detailExtra?.pricePeriod ?? "")) ||
+                    (Boolean((originalPub.fields as any)?.priceNegotiable) !== Boolean(detailExtra?.priceNegotiable))
+                  ) && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">
+                      Actual: {originalPub.price ? `${originalPub.currency} ${originalPub.price} / ${String((originalPub.fields as any)?.pricePeriod === "person" ? "Persona" : "Mes")}` : "Gratis / No especificado"}
+                      {Boolean((originalPub.fields as any)?.priceNegotiable) ? " (Negociable)" : ""}
+                    </div>
+                  )}
+                  {Array.isArray(detailExtra?.priceByCurrency) && detailExtra.priceByCurrency.length > 0 && (
+                    <div className="md:col-span-2 text-xs text-slate-500">
+                      <b>Precios alternativos:</b> {detailExtra.priceByCurrency.map((p: any) => `${p.currency} ${p.amount}`).join(", ")}
+                    </div>
+                  )}
+                  <div className="md:col-span-2 mt-1">
+                    <b>Logo del oferente:</b>
+                    <div className="mt-2 flex items-center gap-4">
+                      {detailExtra?.providerLogo ? (
+                        <div className="text-center">
+                          <div className="text-[10px] text-slate-500 font-medium mb-1">Propuesto:</div>
+                          <img src={String(detailExtra.providerLogo)} alt="Logo propuesto" className="h-16 w-16 rounded-xl border border-slate-200 object-cover" />
+                        </div>
+                      ) : (
+                        <span className="text-slate-500 text-xs">- (Sin logo propuesto)</span>
+                      )}
+                      {originalPub && originalPub.providerLogo && String(originalPub.providerLogo).trim() !== String(detailExtra?.providerLogo ?? "").trim() && (
+                        <div className="text-center border-l border-rose-200 pl-4">
+                          <div className="text-[10px] text-rose-600 font-medium mb-1">Actual:</div>
+                          <img src={String(originalPub.providerLogo)} alt="Logo actual" className="h-16 w-16 rounded-xl border border-rose-200 object-cover opacity-60 line-through" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="md:col-span-2"><b>¿Qué está buscando?:</b> {String(detailExtra?.whatSearching ?? "") || "-"}</div>
                   <div className="md:col-span-2"><b>¿Qué lo frena o preocupa?:</b> {String(detailExtra?.whatStop ?? "") || "-"}</div>
                   <div className="md:col-span-2">
