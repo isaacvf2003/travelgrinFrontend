@@ -34,8 +34,7 @@ function isUsableImageUrl(value: string) {
       const uploadIndex = parts.indexOf("upload");
       if (uploadIndex >= 0) {
         const afterUpload = parts.slice(uploadIndex + 1);
-        const last = afterUpload.at(-1) ?? "";
-        return afterUpload.length >= 2 && /\.[a-z0-9]+($|\?)/i.test(last);
+        return afterUpload.length >= 2;
       }
     }
     return true;
@@ -5091,6 +5090,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div className="md:col-span-2"><b>Descripción:</b> {detailTravelService.contanos || "-"}</div>
                   {originalPub && originalPub.description !== detailTravelService.contanos && (
                     <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through max-h-20 overflow-y-auto pl-2 border-l border-rose-300">Actual: {originalPub.description || "-"}</div>
+                  )}
+                  <div className="md:col-span-2"><b>Incluye:</b> {String(detailExtra?.included ?? "").trim() || "-"}</div>
+                  {originalPub && String((originalPub.fields as any)?.included ?? "").trim() !== String(detailExtra?.included ?? "").trim() && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through max-h-20 overflow-y-auto pl-2 border-l border-rose-300">Actual: {String((originalPub.fields as any)?.included ?? "-")}</div>
+                  )}
+                  <div className="md:col-span-2"><b>No incluye:</b> {String(detailExtra?.notIncluded ?? "").trim() || "-"}</div>
+                  {originalPub && String((originalPub.fields as any)?.notIncluded ?? "").trim() !== String(detailExtra?.notIncluded ?? "").trim() && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through max-h-20 overflow-y-auto pl-2 border-l border-rose-300">Actual: {String((originalPub.fields as any)?.notIncluded ?? "-")}</div>
                   )}
                   <div className="md:col-span-2"><b>¿Qué está buscando?:</b> {String(detailExtra?.whatSearching ?? "") || "-"}</div>
                   <div className="md:col-span-2"><b>¿Qué lo frena o preocupa?:</b> {String(detailExtra?.whatStop ?? "") || "-"}</div>
