@@ -2330,7 +2330,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                     const isChangeRequest = String(item.requestKind ?? "").trim().toLowerCase() === "edit_publication";
                     const showEditButton =
                       (normalizedStatus === "needs_info" && !isResubmitted) ||
-                      (isChangeRequest && normalizedStatus === "rejected" && !isResubmitted);
+                      (normalizedStatus === "rejected" && !isResubmitted);
                     const refundActiveOrFinal = ["refund_requested", "refund_reviewing", "refund_processing", "refunded", "refund_failed"].includes(refundStatus);
                     const canRequestRefund =
                       !isChangeRequest &&
