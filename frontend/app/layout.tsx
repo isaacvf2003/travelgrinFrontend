@@ -7,6 +7,7 @@ import { Toaster } from 'react-hot-toast';
 import { LanguageProvider } from "./context/LanguageContext";
 import GlobalActionModals from "@/components/GlobalActionModals";
 import FeedbackFloatingButton from "@/components/FeedbackFloatingButton";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export const metadata: Metadata = {
   title: "TravelGrin - Viajar por oportunidades | Conecta con el mundo",
@@ -72,6 +73,7 @@ export default function RootLayout({
       >
         <LanguageProvider>
         <CountryProvider>
+        <ScrollToTop />
         {children}
         <GlobalActionModals />
         <FeedbackFloatingButton />
