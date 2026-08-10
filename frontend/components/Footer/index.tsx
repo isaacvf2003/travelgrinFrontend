@@ -7,11 +7,22 @@ import GoUpArrow from "../GoUpArrow";
 import ModalOferente from "../ModalOferente";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import toast from "react-hot-toast";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function Footer() {
   const [email, setEmail] = React.useState("");
   const [isOpenOferente, setIsOpenOferente] = React.useState(false);
   const { t } = useTranslation();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const handleInicioClick = () => {
+    if (pathname === "/") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      router.push("/");
+    }
+  };
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -85,7 +96,7 @@ export default function Footer() {
             <ul className="text-[#F9F9F9] space-y-4">
               <li
                 className="cursor-pointer"
-                onClick={() => goToSection("#home")}
+                onClick={handleInicioClick}
               >
                 {t("inicio")}
               </li>
@@ -162,7 +173,7 @@ export default function Footer() {
             height={100}
             alt="icono arrow go top"
             src={"/arrow-up.png"}
-            onClick={() => goToSection("#home")}
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           />
         </div>
       </div>
@@ -190,7 +201,7 @@ export default function Footer() {
             <ul className="text-[#F9F9F9] space-y-4">
               <li
                 className="cursor-pointer"
-                onClick={() => goToSection("#home")}
+                onClick={handleInicioClick}
               >
                 {t("inicio")}
               </li>
