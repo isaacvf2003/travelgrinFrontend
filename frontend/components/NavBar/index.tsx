@@ -29,6 +29,16 @@ export default function NavBar() {
   const [planCount, setPlanCount] = useState(0);
   const [isNavVisible, setIsNavVisible] = useState(true);
 
+  const handleLinkClick = (href: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (pathname === href) {
+      e.preventDefault();
+      setMenuOpen(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      setMenuOpen(false);
+    }
+  };
+
   useEffect(() => {
     const loadPlanCount = () => {
       try {
@@ -122,7 +132,7 @@ export default function NavBar() {
       >
         <div className="max-w-6xl flex justify-between items-center mx-auto relative -top-[6px]">
           <div className="mt-2 sm:mt-0">
-            <Link href="/" aria-label="TravelGrin">
+            <Link href="/" onClick={handleLinkClick("/")} aria-label="TravelGrin">
               <Image
                 width={123}
                 height={51}
@@ -206,7 +216,7 @@ export default function NavBar() {
               <div className="flex flex-col p-4 space-y-3">
               <Link
                 href="/"
-                onClick={() => setMenuOpen(false)}
+                onClick={handleLinkClick("/")}
                 className="flex items-center gap-3 rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-white hover:bg-white/20"
               >
                 <Home className="h-4 w-4" />
@@ -214,7 +224,7 @@ export default function NavBar() {
               </Link>
               <Link
                 href="/quienes-somos"
-                onClick={() => setMenuOpen(false)}
+                onClick={handleLinkClick("/quienes-somos")}
                 className="flex items-center gap-3 rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-white hover:bg-white/20"
               >
                 <Home className="h-4 w-4" />
@@ -222,7 +232,7 @@ export default function NavBar() {
               </Link>
               <Link
                 href="/buscar"
-                onClick={() => setMenuOpen(false)}
+                onClick={handleLinkClick("/buscar")}
                 className="flex items-center gap-3 rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-white hover:bg-white/20"
               >
                 <Search className="h-4 w-4" />
@@ -230,7 +240,7 @@ export default function NavBar() {
               </Link>
               <Link
                 href="/mi-plan"
-                onClick={() => setMenuOpen(false)}
+                onClick={handleLinkClick("/mi-plan")}
                 className="flex items-center gap-3 rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-white hover:bg-white/20"
               >
                 <Heart className="h-4 w-4" />
