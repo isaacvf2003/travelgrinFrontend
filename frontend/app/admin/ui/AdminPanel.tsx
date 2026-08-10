@@ -1756,16 +1756,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         setLoading(false);
       }
     })();
-
-    const interval = setInterval(async () => {
-      try {
-        await refresh();
-      } catch (error) {
-        console.error("Error en auto-refresco del panel admin", error);
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
