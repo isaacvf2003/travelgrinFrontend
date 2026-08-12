@@ -421,8 +421,8 @@ export function PublicationCard({
   }, [item, locale, t]);
 
   const tags = useMemo(() => {
-    const isCategoryVisibleInCard = (tagText: string) => {
-      if (!categories || !filterGroups) return false;
+    const getVisibleBlockLabelForCategory = (tagText: string): string | null => {
+      if (!categories || !filterGroups) return null;
 
       const normTag = tagText.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
 
@@ -445,23 +445,27 @@ export function PublicationCard({
         if (block) {
           const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
           const isVisible = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
-          return isVisible;
+          if (isVisible) {
+            return pickI18nText(block.labelI18n ?? null, locale, block.label);
+          }
         }
       }
 
-      return false;
+      return null;
     };
 
-    const isOptionVisibleInCard = (f: any) => {
+    const getVisibleBlockLabelForOption = (f: any): string | null => {
       if (filterGroups) {
         const block = filterGroups.find((g) => g.id === f.filterOption.groupId);
         if (block) {
           const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
           const isVisible = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
-          return isVisible;
+          if (isVisible) {
+            return pickI18nText(block.labelI18n ?? null, locale, block.label);
+          }
         }
       }
-      return false;
+      return null;
     };
 
     const fieldCategoryTags = Array.isArray((item as any)?.fields?.categorySelections)
@@ -474,32 +478,30 @@ export function PublicationCard({
       .filter((entry) => {
         const taxonomyType = normalizeTaxonomyType((entry as any)?.filterOption?.group?.taxonomyType);
         const isPrestacion = taxonomyType === "prestacion" || taxonomyType === "prestaciones";
-        return isPrestacion && isOptionVisibleInCard(entry);
+        return isPrestacion;
       })
-      .map((entry) => pickI18nText((entry as any)?.filterOption?.labelI18n ?? null, locale, String((entry as any)?.filterOption?.label ?? "").trim()))
-      .filter(Boolean);
+      .map((entry) => getVisibleBlockLabelForOption(entry))
+      .filter(Boolean) as string[];
 
     const raw = (item.primaryGroupKey === "prestacion"
       ? [
           ...(Array.isArray((item as any)?.fields?.prestaciones)
-            ? (item as any).fields.prestaciones.map((value: any) => String(value ?? "").trim()).filter((v) => isCategoryVisibleInCard(v))
+            ? (item as any).fields.prestaciones.map((value: any) => String(value ?? "").trim()).map((v) => getVisibleBlockLabelForCategory(v))
             : []),
-          ...fieldSubcategoryTags.filter(isCategoryVisibleInCard),
-          ...fieldCategoryTags.filter(isCategoryVisibleInCard),
+          ...fieldSubcategoryTags.map(getVisibleBlockLabelForCategory),
+          ...fieldCategoryTags.map(getVisibleBlockLabelForCategory),
           ...prestacionFilterTags,
         ]
       : [
-          item.category && isCategoryVisibleInCard(pickI18nText(item.categoryI18n ?? null, locale, item.category))
-            ? pickI18nText(item.categoryI18n ?? null, locale, item.category)
+          item.category
+            ? getVisibleBlockLabelForCategory(pickI18nText(item.categoryI18n ?? null, locale, item.category))
             : null,
-          ...fieldCategoryTags.filter(isCategoryVisibleInCard),
-          item.subcategory && isCategoryVisibleInCard(pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory))
-            ? pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory)
+          ...fieldCategoryTags.map(getVisibleBlockLabelForCategory),
+          item.subcategory
+            ? getVisibleBlockLabelForCategory(pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory))
             : null,
-          ...fieldSubcategoryTags.filter(isCategoryVisibleInCard),
-          ...(item.filterOptions ?? [])
-            .filter(isOptionVisibleInCard)
-            .map((f) => pickI18nText(f.filterOption.labelI18n ?? null, locale, f.filterOption.label)),
+          ...fieldSubcategoryTags.map(getVisibleBlockLabelForCategory),
+          ...(item.filterOptions ?? []).map((f) => getVisibleBlockLabelForOption(f)),
         ]).filter(Boolean) as string[];
 
     const seen = new Set<string>();
