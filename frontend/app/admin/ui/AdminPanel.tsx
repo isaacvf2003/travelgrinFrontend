@@ -2311,7 +2311,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const shouldStartAsPrimaryCategory = Boolean(
       blockId &&
       !parentId &&
-    categories.some((category) => category.blockId === blockId && (category.visibleInCard ?? category.isPrimaryCategory) === true)
+    categories.some((category) => category.blockId === blockId && category.isPrimaryCategory === true)
     );
     setCategoryModalMode("category");
     setCatError("");
@@ -4815,11 +4815,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPTitleI18n({ es: titleVal });
     const selectedPlanRaw = String(extra.requestedPlan ?? extra.publicationPlan ?? selected.publicationPlan ?? "").trim().toLowerCase();
     const isSelectedPaidPlan = ["featured", "featured_120d", "monthly", "featured_monthly"].includes(selectedPlanRaw);
-    const usedCode = String(extra.promoCode ?? "").trim().toUpperCase();
-    const matchedPromo = promoCodes.find((p) => p.code.trim().toUpperCase() === usedCode);
-    const isPartnerPromo = matchedPromo?.scope === "partners";
-    setPFeatured(isSelectedPaidPlan || isPartnerPromo);
-    setPPartner(isPartnerPromo);
+    setPFeatured(isSelectedPaidPlan);
+    setPPartner(Boolean(selected.isIntermediario || extra.isIntermediario || extra.isIntermediario === "true" || extra.isIntermediario === true));
     setPProviderLogo(providerLogo);
     setPFieldsBase((prev) => ({
       ...prev,
@@ -5041,7 +5038,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Estado:</b> {paymentStatusLabel(detailCurrentPayment?.status ?? detailExtra?.paymentStatus ?? "-")}</div>
                   <div><b>{t("admin.request.paymentReference")}:</b> {detailCurrentPayment?.externalReference || "-"}</div>
                   <div><b>Monto:</b> {String(detailCurrentPayment?.currency ?? "-")} {String(detailCurrentPayment?.amount ?? "-")}</div>
-                  <div><b>Cupón:</b> {String(detailCurrentPayment?.promoCode ?? detailExtra?.promoCode ?? "").trim() || "-"}</div>
+                  <div><b>CupÃ³n:</b> {String(detailCurrentPayment?.promoCode ?? detailExtra?.promoCode ?? "").trim() || "-"}</div>
                   <div><b>dLocal payment id:</b> {detailCurrentPayment?.providerPaymentId || "-"}</div>
                 </div>
                 {String(detailTravelService.status ?? "").trim().toLowerCase() === "needs_info" && detailResumeUrl ? (
@@ -5083,7 +5080,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">Actual: {originalPub.title || "-"}</div>
                   )}
                   <div><b>Tipo perfil:</b> {normalizeStringArray((detailExtra?.typeProfile as string[] | string | undefined) ?? detailTravelService.typeProfile).join(", ") || "-"}</div>
-                  <div><b>¿Cómo actúa?:</b> {detailTravelService.isOfrezco ? "Ofrece el servicio directamente" : detailTravelService.isIntermediario ? "Intermediario" : "-"}</div>
                   <div><b>Categorías:</b> {normalizeStringArray((detailExtra?.category as string[] | string | undefined) ?? detailTravelService.category).join(", ") || "-"}</div>
                   <div><b>Actividad:</b> {normalizeStringArray((detailExtra?.activity as string[] | string | undefined) ?? detailTravelService.activity).join(", ") || "-"}</div>
                   <div><b>Modalidad:</b> {normalizeStringArray((detailExtra?.modality as string[] | string | undefined) ?? detailTravelService.modality).join(", ") || "-"}</div>
