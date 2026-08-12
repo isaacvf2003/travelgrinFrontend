@@ -1736,7 +1736,7 @@ export default function ModalOferente({
         if (category.isPublicVisible === false) return false;
         if (normalize(taxonomyFor(category, byId)) !== "categoria") return false;
         const root = resolveCategoryRoot(category, byId);
-        return (root.visibleInCard ?? root.isPrimaryCategory) === true && root.isPublicVisible !== false;
+        return root.isPrimaryCategory === true && root.isPublicVisible !== false;
       })
       .forEach((category) => {
         const root = resolveCategoryRoot(category, byId);

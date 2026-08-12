@@ -74,7 +74,7 @@ export default function ModalDemandante({
 
   const categories = React.useMemo(
     () => categoryItems
-      .filter((category) => (category.visibleInCard ?? category.isPrimaryCategory) === true && category.isPublicVisible !== false)
+      .filter((category) => category.isPrimaryCategory === true && category.isPublicVisible !== false)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.description || "").localeCompare(b.description || ""))
       .map((category) => ({
         value: category.description,
@@ -101,12 +101,10 @@ export default function ModalDemandante({
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
-  // Hook para mounted state
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Hook para inicializar el país desde selectedCountry
   useEffect(() => {
     if (selectedCountry) {
       setCountry(selectedCountry);
@@ -130,21 +128,16 @@ export default function ModalDemandante({
     };
   }, []);
 
-  // Hook para bloquear el scroll del body y manejar iOS específico
   useEffect(() => {
-    // Guardar el valor original del overflow
     const originalOverflow = document.body.style.overflow;
     const originalPosition = document.body.style.position;
     const originalTop = document.body.style.top;
     const scrollY = window.scrollY;
 
-    // Bloquear el scroll específico para iOS
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
     document.body.style.top = `-${scrollY}px`;
     document.body.style.width = "100%";
-
-    // Cleanup: restaurar el estado original cuando el modal se desmonte
     return () => {
       document.body.style.overflow = originalOverflow;
       document.body.style.position = originalPosition;
@@ -252,7 +245,6 @@ export default function ModalDemandante({
     emailError.length > 0 ||
     !turnstileToken;
 
-  // Función para manejar el cierre del modal
   const handleClose = (e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -349,7 +341,6 @@ export default function ModalDemandante({
             
             {/* Selección de país y categoría */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* REQUERIDO PAIS DE PASAPORTE */}
               <div 
                 style={{ 
                   position: 'relative',
@@ -423,7 +414,6 @@ export default function ModalDemandante({
               </div>
             </div>
 
-            {/* Input adicional */}
             <div>
               {/* REQUERIDO EMAIL */}
               <MaterialInputs
