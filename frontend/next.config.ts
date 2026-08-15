@@ -7,7 +7,7 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self';",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.clarity.ms https://*.clarity.ms;",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.clarity.ms https://*.clarity.ms;",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
       "img-src 'self' data: blob: i.ibb.co res.cloudinary.com api.qrserver.com flagcdn.com https://flagcdn.com;",
       "font-src 'self' https://fonts.gstatic.com;",
