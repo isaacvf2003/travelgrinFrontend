@@ -701,20 +701,20 @@ export default function ProviderPortalPanel() {
       locale === "it" ? "Scegli come vuoi continuare" :
       "ElegÃƒÂ­ cÃƒÂ³mo querÃƒÂ©s continuar",
     planSelectorBody:
-      locale === "en" ? "Stay free, upgrade to featured for 120 days, or switch to a monthly plan. Paid plans use the prices configured by the admin for your passport country." :
-      locale === "pt" ? "Continue no gratuito, passe para destaque por 120 dias ou mude para o plano mensal. Os planos pagos usam os preÃƒÂ§os configurados pelo admin para o paÃƒÂ­s do seu passaporte." :
-      locale === "it" ? "Resta nel gratuito, passa all'evidenza per 120 giorni oppure attiva il piano mensile. I piani a pagamento usano i prezzi configurati dall'admin per il paese del tuo passaporto." :
-      "SeguÃƒÂ­ en gratis, pasÃƒÂ¡ a destacado por 120 dÃƒÂ­as o cambiÃƒÂ¡ al plan mensual. Los planes pagos usan los precios configurados por el admin para el paÃƒÂ­s de tu pasaporte.",
+      locale === "en" ? "Stay free, upgrade to featured, or switch to a monthly plan. Paid plans use the prices configured by the admin for the destination country of your publication." :
+      locale === "pt" ? "Continue no gratuito, passe para destaque ou mude para o plano mensal. Os planos pagos usam os preços configurados pelo admin para o país de destino da sua publicação." :
+      locale === "it" ? "Resta nel gratuito, passa all'evidenza oppure attiva il piano mensile. I piani a pagamento usano i prezzi configurati dall'admin per il paese di destinazione della tua pubblicazione." :
+      "Seguí en gratis, pasá a destacado o cambiá al plan mensual. Los planes pagos usan los precios configurados por el admin para el país de destino de tu publicación.",
     freeCta:
       locale === "en" ? "Renew / request free" :
       locale === "pt" ? "Renovar / pedir grÃƒÂ¡tis" :
       locale === "it" ? "Rinnova / richiedi gratis" :
       "Renovar / pedir gratis",
     featuredCta:
-      locale === "en" ? "Switch to featured 120 days" :
-      locale === "pt" ? "Passar para destaque 120 dias" :
-      locale === "it" ? "Passa a evidenza 120 giorni" :
-      "Pasar a destacado 120 dÃƒÂ­as",
+      locale === "en" ? "Switch to featured plan" :
+      locale === "pt" ? "Passar para plano destaque" :
+      locale === "it" ? "Passa al piano in evidenza" :
+      "Pasar a plan destacado",
     monthlyCta:
       locale === "en" ? "Switch to monthly plan" :
       locale === "pt" ? "Passar para plano mensal" :
@@ -726,10 +726,10 @@ export default function ProviderPortalPanel() {
       locale === "it" ? "Visibile nell'elenco per 60 giorni. Quando scade, puoi rinnovarlo da qui e la richiesta torna all'admin." :
       "Visible en el listado por 60 dÃƒÂ­as. Cuando vence, podÃƒÂ©s renovarla desde acÃƒÂ¡ y la solicitud vuelve al admin.",
     featuredDescription:
-      locale === "en" ? "One-time payment. Includes the same featured benefits from the publication form for 120 days." :
-      locale === "pt" ? "Pagamento ÃƒÂºnico. Inclui os mesmos benefÃƒÂ­cios destacados do formulÃƒÂ¡rio de publicaÃƒÂ§ÃƒÂ£o por 120 dias." :
-      locale === "it" ? "Pagamento unico. Include gli stessi vantaggi in evidenza del modulo di pubblicazione per 120 giorni." :
-      "Pago ÃƒÂºnico. Incluye los mismos beneficios destacados del formulario de publicaciÃƒÂ³n por 120 dÃƒÂ­as.",
+      locale === "en" ? "One-time payment. Includes the featured benefits for your publication." :
+      locale === "pt" ? "Pagamento ÃƒÂºnico. Inclui os benefÃƒÂ­cios destacados para a sua publicaÃƒÂ§ÃƒÂ£o." :
+      locale === "it" ? "Pagamento unico. Include i vantaggi in evidenza per la tua pubblicazione." :
+      "Pago único. Incluye los beneficios destacados para tu publicación.",
     monthlyDescription:
       locale === "en" ? "Recurring monthly billing with the same featured benefits to keep your publication boosted continuously." :
       locale === "pt" ? "CobranÃƒÂ§a mensal recorrente com os mesmos benefÃƒÂ­cios destacados para manter sua publicaÃƒÂ§ÃƒÂ£o impulsionada de forma continua." :
@@ -746,10 +746,10 @@ export default function ProviderPortalPanel() {
       locale === "it" ? "Prezzo non ancora configurato" :
       "Precio todavÃƒÂ­a no configurado",
     priceUnavailableHint:
-      locale === "en" ? "The admin still needs to configure this price for your passport country." :
-      locale === "pt" ? "O admin ainda precisa configurar este preÃ§o para o paÃ­s do seu passaporte." :
-      locale === "it" ? "L'admin deve ancora configurare questo prezzo per il paese del tuo passaporto." :
-      "El admin todavÃ­a tiene que configurar este precio para el paÃ­s de tu pasaporte.",
+      locale === "en" ? "The admin still needs to configure this price for the destination country of your publication." :
+      locale === "pt" ? "O admin ainda precisa configurar este preço para o país de destino da sua publicação." :
+      locale === "it" ? "L'admin deve ancora configurare questo prezzo per il paese di destinazione della tua pubblicazione." :
+      "El admin todavía tiene que configurar este precio para el país de destino de tu publicación.",
   }), [locale]);
 
   const mfaCopy = useMemo(() => ({

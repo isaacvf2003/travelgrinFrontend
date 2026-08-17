@@ -51,6 +51,9 @@ type PromoValidationState = {
   applied: boolean;
   code: string;
   discountPercent: number;
+  customDurationDays?: number | null;
+  customPrice?: number | null;
+  scope?: string;
   originalAmount: number | null;
   discountedAmount: number | null;
   message: string;
@@ -66,6 +69,7 @@ type FeaturedPlanPricing = {
   planType?: "featured_120d" | "featured_monthly";
   currency: "ARS" | "USD";
   amount: number;
+  durationDays?: number;
 };
 
 const FEATURED_PLAN_AMOUNT = Number(process.env.NEXT_PUBLIC_FEATURED_MONTHLY_PRICE ?? 0);
@@ -951,9 +955,21 @@ export default function ModalOferente({
     if (raw.includes("invalido") || raw.includes("invalid")) return "oferente_promo_invalid";
     return "oferente_promo_validate_error";
   };
+  const activeDurationDays = promoValidation.applied && promoValidation.customDurationDays
+    ? promoValidation.customDurationDays
+    : (featured120PlanPricing.durationDays ?? 120);
+
+  const featuredDurationText = locale === "en"
+    ? `${activeDurationDays}-day duration`
+    : locale === "pt"
+      ? `Duração de ${activeDurationDays} dias`
+      : locale === "it"
+        ? `Durata ${activeDurationDays} giorni`
+        : `Duración ${activeDurationDays} días`;
+
   const featuredItems = [
     mt("oferente_featured_item_results"),
-    mt("oferente_featured_item_duration"),
+    featuredDurationText,
     mt("oferente_featured_item_badge"),
     mt("oferente_featured_item_description"),
     mt("oferente_featured_item_links"),
@@ -1061,7 +1077,7 @@ export default function ModalOferente({
   const effectiveResumePaymentState = String(resumePaymentState || initialData?.paymentStatus || initialData?.paymentReturnStatus || "").trim().toLowerCase();
   const canReuseCompletedPayment = resumeMode && ["paid", "approved", "completed", "success", "ok"].includes(effectiveResumePaymentState);
 
-  const effectiveCountry = String(fixedCountry || selectedCountry || "").trim();
+  const effectiveCountry = String(destinationCountry || primaryVenue.country || fixedCountry || selectedCountry || "").trim();
   const effectivePlanPricing = selectedPlan === "monthly" ? monthlyPlanPricing : featured120PlanPricing;
 
   const featuredPriceBreakdown = useMemo<PriceBreakdown>(() => {
@@ -1491,12 +1507,14 @@ export default function ModalOferente({
         const parsePricing = (raw: any, fallbackPlanType: "featured_120d" | "featured_monthly"): FeaturedPlanPricing => {
           const item = raw?.item ?? {};
           const amount = Number(item?.amount ?? 0);
+          const durationDays = item?.durationDays ? Number(item.durationDays) : 120;
           const currency = String(item?.currency ?? "USD").toUpperCase() === "ARS" ? "ARS" : "USD";
           return {
             country: item?.country ? String(item.country) : null,
             planType: fallbackPlanType,
             currency,
             amount: Number.isFinite(amount) ? amount : 0,
+            durationDays,
           };
         };
         const nextFeatured120 = parsePricing(featuredData, "featured_120d");
@@ -1508,7 +1526,9 @@ export default function ModalOferente({
           ...prev,
           originalAmount: currentPlanPricing.amount > 0 ? currentPlanPricing.amount : null,
           discountedAmount: prev.applied && !prev.error
-            ? Number((currentPlanPricing.amount * (1 - Number(prev.discountPercent || 0) / 100)).toFixed(2))
+            ? prev.customPrice !== null && prev.customPrice !== undefined
+              ? prev.customPrice
+              : Number((currentPlanPricing.amount * (1 - Number(prev.discountPercent || 0) / 100)).toFixed(2))
             : (currentPlanPricing.amount > 0 ? currentPlanPricing.amount : null),
         }));
       })
@@ -1736,7 +1756,7 @@ export default function ModalOferente({
         if (category.isPublicVisible === false) return false;
         if (normalize(taxonomyFor(category, byId)) !== "categoria") return false;
         const root = resolveCategoryRoot(category, byId);
-        return root.isPrimaryCategory === true && root.isPublicVisible !== false;
+        return (root.visibleInCard ?? root.isPrimaryCategory) === true && root.isPublicVisible !== false;
       })
       .forEach((category) => {
         const root = resolveCategoryRoot(category, byId);
@@ -1894,13 +1914,26 @@ export default function ModalOferente({
         return false;
       }
       const discountPercent = Number(data?.promo?.discountPercent ?? 0);
+      const customDurationDays = data?.promo?.customDurationDays ? Number(data.promo.customDurationDays) : null;
+      const customPrice = data?.promo?.customPrice !== null && data?.promo?.customPrice !== undefined ? Number(data.promo.customPrice) : null;
+      const scope = String(data?.promo?.scope ?? "all");
       const discountedAmount = data?.pricing?.discountedAmount === null || data?.pricing?.discountedAmount === undefined
         ? effectivePlanPricing.amount
         : Number(data.pricing.discountedAmount);
+
+      if (scope === "partners") {
+        setIsIntermediario(true);
+        setIsOfrezco(false);
+        setSelectedPlan("featured");
+      }
+
       setPromoValidation({
         applied: true,
         code: String(data?.promo?.code ?? code).toUpperCase(),
         discountPercent,
+        customDurationDays,
+        customPrice,
+        scope,
         originalAmount: effectivePlanPricing.amount > 0 ? effectivePlanPricing.amount : null,
         discountedAmount: Number.isFinite(discountedAmount) ? discountedAmount : effectivePlanPricing.amount,
         message: fillText("oferente_promo_applied", { discount: String(discountPercent) }),
@@ -1984,6 +2017,7 @@ export default function ModalOferente({
       planAmount: isPaidPlan ? effectivePlanAmount : 0,
       planCurrency: isPaidPlan ? currentPlanPricing.currency : "USD",
       discountedPlanAmount: isPaidPlan ? discountedPlanAmount : 0,
+      planDurationDays: promoValidation.applied && promoValidation.customDurationDays ? promoValidation.customDurationDays : (featured120PlanPricing.durationDays ?? 120),
       paymentType: publicationPlan === "monthly" ? "monthly" : publicationPlan === "featured" ? "one_time" : "",
       planType: publicationPlan === "monthly" ? "featured_monthly" : publicationPlan === "featured" ? "featured_120d" : "",
       requestKind,
