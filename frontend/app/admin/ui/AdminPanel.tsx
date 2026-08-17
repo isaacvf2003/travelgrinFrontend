@@ -1660,11 +1660,31 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const normalizedDate = String(pExpirationDate ?? "").trim();
     if (!normalizedDate) return null;
 
-    const [yearText, monthText, dayText] = normalizedDate.split("-");
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
+    let year: number, month: number, day: number;
+    if (normalizedDate.includes("-")) {
+      const parts = normalizedDate.split("-");
+      if (parts[0].length === 4) {
+        [year, month, day] = parts.map(Number);
+      } else {
+        [day, month, year] = parts.map(Number);
+      }
+    } else if (normalizedDate.includes("/")) {
+      const parts = normalizedDate.split("/");
+      if (parts[0].length === 4) {
+        [year, month, day] = parts.map(Number);
+      } else {
+        [day, month, year] = parts.map(Number);
+      }
+    } else {
+      const d = new Date(normalizedDate);
+      if (!Number.isNaN(d.getTime()) && d.getFullYear() >= 1970 && d.getFullYear() <= 2100) {
+        return d.toISOString();
+      }
+      return null;
+    }
+
     if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+    if (year < 1970 || year > 2100) return null;
 
     const normalizedTime = String(pExpirationTime ?? "").trim();
     const [hourText = "0", minuteText = "0"] = normalizedTime ? normalizedTime.split(":") : [];
@@ -8274,23 +8294,80 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
           <div className="grid gap-3 md:grid-cols-3">
             <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
-              <label className="text-sm font-medium text-slate-700">Fecha y hora de expiración</label>
+              <div className="flex flex-wrap items-center justify-between gap-1">
+                <label className="text-sm font-medium text-slate-700">Fecha y hora de expiración</label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const future = new Date();
+                      future.setDate(future.getDate() + 120);
+                      const y = future.getFullYear();
+                      const m = String(future.getMonth() + 1).padStart(2, "0");
+                      const d = String(future.getDate()).padStart(2, "0");
+                      setPExpirationDate(`${y}-${m}-${d}`);
+                      if (!pExpirationTime) setPExpirationTime("23:59");
+                    }}
+                    className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+                    title="Sumar 120 días desde hoy"
+                  >
+                    +120d
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const future = new Date();
+                      future.setDate(future.getDate() + 365);
+                      const y = future.getFullYear();
+                      const m = String(future.getMonth() + 1).padStart(2, "0");
+                      const d = String(future.getDate()).padStart(2, "0");
+                      setPExpirationDate(`${y}-${m}-${d}`);
+                      if (!pExpirationTime) setPExpirationTime("23:59");
+                    }}
+                    className="rounded-md bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-800 hover:bg-cyan-100"
+                    title="Sumar 365 días (1 año) desde hoy"
+                  >
+                    +365d (1 año)
+                  </button>
+                  {pExpirationDate ? (
+                    <button
+                      type="button"
+                      onClick={() => { setPExpirationDate(""); setPExpirationTime(""); }}
+                      className="rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-100"
+                    >
+                      Limpiar
+                    </button>
+                  ) : null}
+                </div>
+              </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
                   type="date"
                   value={pExpirationDate}
-                  onChange={(e) => setPExpirationDate(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                  onChange={(e) => {
+                    let val = e.target.value.trim();
+                    if (val.includes("/")) {
+                      const parts = val.split("/");
+                      if (parts.length === 3) {
+                        if (parts[2].length === 4) val = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+                        else if (parts[0].length === 4) val = `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
+                      }
+                    }
+                    setPExpirationDate(val);
+                  }}
+                  className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                  title="Toca para desplegar el calendario o ingresa los números"
                 />
                 <input
                   type="time"
                   value={pExpirationTime}
                   onChange={(e) => setPExpirationTime(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                  className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
                   step={60}
+                  title="Hora opcional (HH:MM)"
                 />
               </div>
-              <p className="text-xs text-slate-500">La hora es opcional.</p>
+              <p className="text-xs text-slate-500">Toca el calendario para desplegar la fecha o usa los botones rápidos +120d / +365d.</p>
             </div>
             <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
               <label className="text-sm font-medium text-slate-700">Página web</label>
