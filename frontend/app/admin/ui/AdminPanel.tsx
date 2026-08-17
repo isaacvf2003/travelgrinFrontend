@@ -109,6 +109,8 @@ type PromoCodeItem = {
   id: string;
   code: string;
   discountPercent: number;
+  customDurationDays?: number | null;
+  customPrice?: number | null;
   expiresAt: string | null;
   maxUses: number | null;
   usedCount: number;
@@ -1313,6 +1315,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
   const [promoCodeDraft, setPromoCodeDraft] = useState("");
   const [promoDiscountDraft, setPromoDiscountDraft] = useState("10");
+  const [promoDurationDaysDraft, setPromoDurationDaysDraft] = useState("");
+  const [promoCustomPriceDraft, setPromoCustomPriceDraft] = useState("");
   const [promoExpiresDraft, setPromoExpiresDraft] = useState("");
   const [promoMaxUsesDraft, setPromoMaxUsesDraft] = useState("");
   const [promoScopeDraft, setPromoScopeDraft] = useState<"all" | "partners">("all");
@@ -1756,6 +1760,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         setLoading(false);
       }
     })();
+
+    const interval = setInterval(async () => {
+      try {
+        await refresh();
+      } catch (error) {
+        console.error("Error en auto-refresco del panel admin", error);
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -2311,7 +2325,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const shouldStartAsPrimaryCategory = Boolean(
       blockId &&
       !parentId &&
-    categories.some((category) => category.blockId === blockId && category.isPrimaryCategory === true)
+    categories.some((category) => category.blockId === blockId && (category.visibleInCard ?? category.isPrimaryCategory) === true)
     );
     setCategoryModalMode("category");
     setCatError("");
@@ -5393,6 +5407,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPromoEditId(null);
     setPromoCodeDraft("");
     setPromoDiscountDraft("10");
+    setPromoDurationDaysDraft("");
+    setPromoCustomPriceDraft("");
     setPromoExpiresDraft("");
     setPromoMaxUsesDraft("");
     setPromoScopeDraft("all");
@@ -5558,7 +5574,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const payload = {
         id: promoEditId ?? undefined,
         code: promoCodeDraft,
-        discountPercent: Number(promoDiscountDraft),
+        discountPercent: Number(promoDiscountDraft || 0),
+        customDurationDays: promoDurationDaysDraft ? Number(promoDurationDaysDraft) : null,
+        customPrice: promoCustomPriceDraft !== "" ? Number(promoCustomPriceDraft) : null,
         expiresAt: normalizedExpiresAt,
         maxUses: promoMaxUsesDraft || null,
         scope: promoScopeDraft,
@@ -5582,7 +5600,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const editPromoCode = (item: PromoCodeItem) => {
     setPromoEditId(item.id);
     setPromoCodeDraft(item.code);
-    setPromoDiscountDraft(String(item.discountPercent || 0));
+    setPromoDiscountDraft(String(item.discountPercent ?? 0));
+    setPromoDurationDaysDraft(item.customDurationDays ? String(item.customDurationDays) : "");
+    setPromoCustomPriceDraft(item.customPrice !== null && item.customPrice !== undefined ? String(item.customPrice) : "");
     setPromoExpiresDraft(item.expiresAt ? new Date(item.expiresAt).toISOString().slice(0, 16) : "");
     setPromoMaxUsesDraft(item.maxUses === null ? "" : String(item.maxUses));
     setPromoScopeDraft(item.scope === "partners" ? "partners" : "all");
@@ -5650,8 +5670,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
           <div className="mb-3">
-          <p className="text-sm font-semibold text-slate-900">Precios de planes por pais</p>
-            <p className="text-xs text-slate-500">Configura los valores del destacado por 120 dias por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
+          <p className="text-sm font-semibold text-slate-900">Precios de planes por país de destino</p>
+            <p className="text-xs text-slate-500">Configura los valores del destacado por país de destino de la publicación. Si no hay regla del país, se usa la regla por defecto.</p>
           </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-8">
             <select value="featured_120d" onChange={() => setPriceRulePlanTypeDraft("featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
@@ -5861,16 +5881,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-900">Códigos promocionales</p>
-            <p className="text-xs text-slate-500">Se aplican al plan mensual de publicación destacada.</p>
+            <p className="text-xs text-slate-500">Se aplican al plan de publicación destacada.</p>
           </div>
           <button type="button" onClick={generateRandomPromoCode} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
             Generar aleatorio
           </button>
         </div>
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid gap-3 md:grid-cols-7">
           <input value={promoCodeDraft} onChange={(event) => setPromoCodeDraft(event.target.value.toUpperCase())} placeholder="Código" className="h-10 rounded-xl border border-slate-200 px-3 text-sm md:col-span-1" />
-          <input value={promoDiscountDraft} onChange={(event) => setPromoDiscountDraft(event.target.value)} placeholder="% descuento" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
-          <input type="datetime-local" value={promoExpiresDraft} onChange={(event) => setPromoExpiresDraft(event.target.value)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700" title="Fecha de vencimiento" />
+          <input value={promoDiscountDraft} onChange={(event) => setPromoDiscountDraft(event.target.value)} placeholder="% desc." className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <input value={promoDurationDaysDraft} onChange={(event) => setPromoDurationDaysDraft(event.target.value.replace(/\D/g, ""))} placeholder="Días pub. (ej: 365)" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" title="Días de la publicación para este código" />
+          <input value={promoCustomPriceDraft} onChange={(event) => setPromoCustomPriceDraft(event.target.value)} placeholder="Precio fijo ($)" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" title="Precio fijo opcional para este código" />
+          <input type="datetime-local" value={promoExpiresDraft} onChange={(event) => setPromoExpiresDraft(event.target.value)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 md:col-span-1" title="Fecha de vencimiento del código" />
           <input value={promoMaxUsesDraft} onChange={(event) => setPromoMaxUsesDraft(event.target.value)} placeholder="Límite usos" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
           <select value={promoScopeDraft} onChange={(event) => setPromoScopeDraft(event.target.value === "partners" ? "partners" : "all")} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700">
             <option value="all">Todas las personas</option>
@@ -5895,15 +5917,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <div className="mt-3 space-y-2">
           {promoCodes.length ? promoCodes.map((item) => {
             const remaining = item.maxUses === null ? "Ilimitado" : Math.max(item.maxUses - item.usedCount, 0).toString();
+            const durationLabel = item.customDurationDays ? `${item.customDurationDays} días` : "Días por defecto";
+            const priceLabel = item.customPrice !== null && item.customPrice !== undefined ? `$${item.customPrice} fijo` : `${item.discountPercent}% desc.`;
             return (
               <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.code}</span>
-                  <span>{item.discountPercent}%</span>
+                  <span className="rounded-full bg-cyan-50 px-2 py-1 font-semibold text-cyan-800">{priceLabel}</span>
+                  <span className="rounded-full bg-indigo-50 px-2 py-1 font-semibold text-indigo-800">{durationLabel}</span>
                   <span>Usos: {item.usedCount}{item.maxUses !== null ? `/${item.maxUses}` : ""}</span>
                   <span>Disponibles: {remaining}</span>
-                  <span>Vence: {item.expiresAt ? new Date(item.expiresAt).toLocaleString("es-AR") : "Sin vencimiento"}</span>
-                  <span className={`rounded-full px-2 py-0.5 ${(item.scope ?? "all") === "partners" ? "bg-cyan-100 text-cyan-700" : "bg-white text-slate-600"}`}>
+                  <span>Vence código: {item.expiresAt ? new Date(item.expiresAt).toLocaleString("es-AR") : "Sin vencimiento"}</span>
+                  <span className={`rounded-full px-2 py-0.5 ${(item.scope ?? "all") === "partners" ? "bg-cyan-100 text-cyan-700 font-semibold" : "bg-white text-slate-600"}`}>
                     {(item.scope ?? "all") === "partners" ? "Solo partners" : "Todas las personas"}
                   </span>
                   <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
