@@ -955,33 +955,6 @@ export default function ModalOferente({
     if (raw.includes("invalido") || raw.includes("invalid")) return "oferente_promo_invalid";
     return "oferente_promo_validate_error";
   };
-  const activeDurationDays = promoValidation.applied && promoValidation.customDurationDays
-    ? promoValidation.customDurationDays
-    : (featured120PlanPricing.durationDays ?? 120);
-
-  const featuredDurationText = locale === "en"
-    ? `${activeDurationDays}-day duration`
-    : locale === "pt"
-      ? `Duração de ${activeDurationDays} dias`
-      : locale === "it"
-        ? `Durata ${activeDurationDays} giorni`
-        : `Duración ${activeDurationDays} días`;
-
-  const featuredItems = [
-    mt("oferente_featured_item_results"),
-    featuredDurationText,
-    mt("oferente_featured_item_badge"),
-    mt("oferente_featured_item_description"),
-    mt("oferente_featured_item_links"),
-    mt("oferente_featured_item_languages"),
-    mt("oferente_featured_item_gallery"),
-  ];
-  const basicItems = [
-    mt("oferente_plan_visible_listado"),
-    mt("oferente_plan_duracion_60"),
-    mt("oferente_plan_descripcion_breve"),
-    mt("oferente_plan_link_contacto"),
-  ];
 
   const [mounted, setMounted] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -1074,6 +1047,35 @@ export default function ModalOferente({
   const [isEmptyEmail, setIsEmptyEmail] = useState(false);
   const [isEmptyTerms, setIsEmptyTerms] = useState(false);
   const [featuredTypeFocusKey, setFeaturedTypeFocusKey] = useState(0);
+
+  const activeDurationDays = promoValidation.applied && promoValidation.customDurationDays
+    ? promoValidation.customDurationDays
+    : (featured120PlanPricing.durationDays ?? 120);
+
+  const featuredDurationText = locale === "en"
+    ? `${activeDurationDays}-day duration`
+    : locale === "pt"
+      ? `Duração de ${activeDurationDays} dias`
+      : locale === "it"
+        ? `Durata ${activeDurationDays} giorni`
+        : `Duración ${activeDurationDays} días`;
+
+  const featuredItems = [
+    mt("oferente_featured_item_results"),
+    featuredDurationText,
+    mt("oferente_featured_item_badge"),
+    mt("oferente_featured_item_description"),
+    mt("oferente_featured_item_links"),
+    mt("oferente_featured_item_languages"),
+    mt("oferente_featured_item_gallery"),
+  ];
+  const basicItems = [
+    mt("oferente_plan_visible_listado"),
+    mt("oferente_plan_duracion_60"),
+    mt("oferente_plan_descripcion_breve"),
+    mt("oferente_plan_link_contacto"),
+  ];
+
   const effectiveResumePaymentState = String(resumePaymentState || initialData?.paymentStatus || initialData?.paymentReturnStatus || "").trim().toLowerCase();
   const canReuseCompletedPayment = resumeMode && ["paid", "approved", "completed", "success", "ok"].includes(effectiveResumePaymentState);
 
