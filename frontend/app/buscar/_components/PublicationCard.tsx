@@ -343,61 +343,6 @@ function getCountryCode(country: string) {
   return "";
 }
 
-function getVisibleBlockLabelForCategory(
-  tagText: string | null | undefined,
-  categories: Category[] | undefined,
-  filterGroups: FilterGroup[] | undefined,
-  locale: "es" | "en" | "pt" | "it"
-): string | null {
-  if (!tagText || typeof tagText !== "string" || !categories || !filterGroups) return null;
-
-  const normTag = tagText.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
-
-  const matchedCategory = categories.find((c) => {
-    if (c.id === tagText) return true;
-    const desc = c.description ?? "";
-    const normDesc = desc.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
-    if (normDesc === normTag) return true;
-    if (c.descriptionI18n) {
-      return Object.values(c.descriptionI18n).some((val) => {
-        const normVal = String(val ?? "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
-        return normVal === normTag;
-      });
-    }
-    return false;
-  });
-
-  if (matchedCategory?.blockId) {
-    const block = filterGroups.find((g) => g.id === matchedCategory.blockId);
-    if (block) {
-      const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
-      const isVisible = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
-      if (isVisible) {
-        return pickI18nText(block.labelI18n ?? null, locale, block.label);
-      }
-    }
-  }
-
-  return null;
-}
-
-function getVisibleBlockLabelForOption(
-  f: any,
-  filterGroups: FilterGroup[] | undefined,
-  locale: "es" | "en" | "pt" | "it"
-): string | null {
-  if (!filterGroups || !f?.filterOption?.groupId) return null;
-  const block = filterGroups.find((g) => g.id === f.filterOption.groupId);
-  if (block) {
-    const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
-    const isVisible = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
-    if (isVisible) {
-      return pickI18nText(block.labelI18n ?? null, locale, block.label);
-    }
-  }
-  return null;
-}
-
 export function PublicationCard({
   item,
   categories,
@@ -476,6 +421,49 @@ export function PublicationCard({
   }, [item, locale, t]);
 
   const tags = useMemo(() => {
+    const isCategoryVisibleInCard = (tagText: string) => {
+      if (!categories || !filterGroups) return false;
+
+      const normTag = tagText.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+
+      const matchedCategory = categories.find((c) => {
+        if (c.id === tagText) return true;
+        const desc = c.description ?? "";
+        const normDesc = desc.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+        if (normDesc === normTag) return true;
+        if (c.descriptionI18n) {
+          return Object.values(c.descriptionI18n).some((val) => {
+            const normVal = String(val ?? "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+            return normVal === normTag;
+          });
+        }
+        return false;
+      });
+
+      if (matchedCategory?.blockId) {
+        const block = filterGroups.find((g) => g.id === matchedCategory.blockId);
+        if (block) {
+          const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
+          const isVisible = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
+          return isVisible;
+        }
+      }
+
+      return false;
+    };
+
+    const isOptionVisibleInCard = (f: any) => {
+      if (filterGroups) {
+        const block = filterGroups.find((g) => g.id === f.filterOption.groupId);
+        if (block) {
+          const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
+          const isVisible = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
+          return isVisible;
+        }
+      }
+      return false;
+    };
+
     const fieldCategoryTags = Array.isArray((item as any)?.fields?.categorySelections)
       ? (item as any).fields.categorySelections.map((value: any) => String(value ?? "").trim()).filter(Boolean)
       : [];
@@ -486,30 +474,32 @@ export function PublicationCard({
       .filter((entry) => {
         const taxonomyType = normalizeTaxonomyType((entry as any)?.filterOption?.group?.taxonomyType);
         const isPrestacion = taxonomyType === "prestacion" || taxonomyType === "prestaciones";
-        return isPrestacion;
+        return isPrestacion && isOptionVisibleInCard(entry);
       })
-      .map((entry) => getVisibleBlockLabelForOption(entry, filterGroups, locale))
-      .filter(Boolean) as string[];
+      .map((entry) => pickI18nText((entry as any)?.filterOption?.labelI18n ?? null, locale, String((entry as any)?.filterOption?.label ?? "").trim()))
+      .filter(Boolean);
 
     const raw = (item.primaryGroupKey === "prestacion"
       ? [
           ...(Array.isArray((item as any)?.fields?.prestaciones)
-            ? (item as any).fields.prestaciones.map((value: any) => String(value ?? "").trim()).map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale))
+            ? (item as any).fields.prestaciones.map((value: any) => String(value ?? "").trim()).filter((v) => isCategoryVisibleInCard(v))
             : []),
-          ...fieldSubcategoryTags.map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale)),
-          ...fieldCategoryTags.map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale)),
+          ...fieldSubcategoryTags.filter(isCategoryVisibleInCard),
+          ...fieldCategoryTags.filter(isCategoryVisibleInCard),
           ...prestacionFilterTags,
         ]
       : [
-          item.category
-            ? getVisibleBlockLabelForCategory(pickI18nText(item.categoryI18n ?? null, locale, item.category), categories, filterGroups, locale)
+          item.category && isCategoryVisibleInCard(pickI18nText(item.categoryI18n ?? null, locale, item.category))
+            ? pickI18nText(item.categoryI18n ?? null, locale, item.category)
             : null,
-          ...fieldCategoryTags.map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale)),
-          item.subcategory
-            ? getVisibleBlockLabelForCategory(pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory), categories, filterGroups, locale)
+          ...fieldCategoryTags.filter(isCategoryVisibleInCard),
+          item.subcategory && isCategoryVisibleInCard(pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory))
+            ? pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory)
             : null,
-          ...fieldSubcategoryTags.map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale)),
-          ...(item.filterOptions ?? []).map((f) => getVisibleBlockLabelForOption(f, filterGroups, locale)),
+          ...fieldSubcategoryTags.filter(isCategoryVisibleInCard),
+          ...(item.filterOptions ?? [])
+            .filter(isOptionVisibleInCard)
+            .map((f) => pickI18nText(f.filterOption.labelI18n ?? null, locale, f.filterOption.label)),
         ]).filter(Boolean) as string[];
 
     const seen = new Set<string>();

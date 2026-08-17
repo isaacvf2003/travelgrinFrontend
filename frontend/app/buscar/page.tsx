@@ -374,7 +374,7 @@ export default async function BuscarPage({
       return typeof value === "string" && Boolean(value.trim());
     })
   );
-  const shouldActivateResults = hasDestinationSelected || hasUsefulSearchFilters;
+  const shouldActivateResults = true;
   const [categories, filterGroups] = await Promise.all([
     loadCategories(),
     loadFilterGroups(),
