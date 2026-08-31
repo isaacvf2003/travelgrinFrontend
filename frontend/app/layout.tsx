@@ -8,6 +8,7 @@ import { LanguageProvider } from "./context/LanguageContext";
 import GlobalActionModals from "@/components/GlobalActionModals";
 import FeedbackFloatingButton from "@/components/FeedbackFloatingButton";
 import ScrollToTop from "@/components/ScrollToTop";
+import CookieConsentBanner from "@/components/CookieConsentBanner";
 
 export const metadata: Metadata = {
   title: "TravelGrin - Viajar por oportunidades | Conecta con el mundo",
@@ -44,6 +45,34 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+      <Script id="google-consent-mode" strategy="beforeInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          
+          var hasConsent = false;
+          try {
+            var consent = localStorage.getItem('tg_cookie_consent');
+            hasConsent = consent === 'accepted' || consent === 'custom';
+          } catch(e) {}
+          
+          gtag('consent', 'default', {
+            'ad_storage': hasConsent ? 'granted' : 'denied',
+            'ad_user_data': hasConsent ? 'granted' : 'denied',
+            'ad_personalization': hasConsent ? 'granted' : 'denied',
+            'analytics_storage': hasConsent ? 'granted' : 'denied'
+          });
+        `}
+      </Script>
+      <Script async src="https://www.googletagmanager.com/gtag/js?id=G-Y3PLZ67DHS" strategy="afterInteractive" />
+      <Script id="google-analytics-gtag" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-Y3PLZ67DHS');
+        `}
+      </Script>
       <script 
       type="text/javascript"
       dangerouslySetInnerHTML={{
@@ -68,6 +97,7 @@ export default function RootLayout({
         {children}
         <GlobalActionModals />
         <FeedbackFloatingButton />
+        <CookieConsentBanner />
         <Toaster 
         containerClassName="z-[99999999999]"
           position="top-right"
