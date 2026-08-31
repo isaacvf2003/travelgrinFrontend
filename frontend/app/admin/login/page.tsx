@@ -14,7 +14,7 @@ type AdminLoginPageProps = {
 export default async function AdminLoginPage({ searchParams }: AdminLoginPageProps) {
   const admin = await getAdminFromCookie();
   if (admin) {
-    redirect("/admin");
+    redirect("/tgn-panel-control");
   }
 
   const params = await searchParams;

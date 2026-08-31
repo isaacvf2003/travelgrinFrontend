@@ -24,7 +24,7 @@ function resolveSection(raw: string | string[] | undefined): AdminSection {
 export default async function AdminPage({ searchParams }: AdminPageProps) {
   const admin = await getAdminFromCookie();
   if (!admin) {
-    redirect("/admin/login?next=/admin");
+    redirect("/tgn-panel-control/login?next=/tgn-panel-control");
   }
 
   const params = await searchParams;

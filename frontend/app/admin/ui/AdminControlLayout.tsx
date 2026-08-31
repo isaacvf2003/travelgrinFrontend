@@ -46,6 +46,7 @@ export default function AdminControlLayout({
   activeSection,
 }: AdminControlLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const basePath = "/tgn-panel-control";
 
   const currentTitle = useMemo(() => {
     return navItems.find((item) => item.section === activeSection)?.label ?? "Panel";
@@ -94,7 +95,7 @@ export default function AdminControlLayout({
             <p className="text-sm font-bold leading-tight text-slate-800">
               TravelGrinAdmin
             </p>
-            <p className="text-xs text-slate-400">Panel de administraci\u00f3n</p>
+            <p className="text-xs text-slate-400">Panel de administración</p>
           </div>
         </div>
 
@@ -107,8 +108,8 @@ export default function AdminControlLayout({
                 key={item.section}
                 href={
                   item.section === "panel"
-                    ? "/admin"
-                    : `/admin?section=${item.section}`
+                    ? basePath
+                    : `${basePath}?section=${item.section}`
                 }
                 onClick={() => setSidebarOpen(false)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
