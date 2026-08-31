@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import ButtonSolid from "../ButtonSolid";
 import SelectCountry from "../SelectCountry";
-import { Heart, Home, Menu, Search, X } from "lucide-react";
+import { Heart, Home, LayoutDashboard, Menu, Search, X } from "lucide-react";
 import PaisPasaporte from "../PaisPasaporte";
 import CountrySelectionModal from "../SelectCountryModal";
 import { useCountry } from "@/app/context/CountryProvider";
@@ -22,7 +22,7 @@ export default function NavBar() {
   } = useCountry();
 
 
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const pathname = usePathname();
   const isBuscarPage = pathname === "/buscar";
   const [menuOpen, setMenuOpen] = useState(false);
@@ -250,6 +250,22 @@ export default function NavBar() {
                     {planCount}
                   </span>
                 ) : null}
+              </Link>
+              <Link
+                href="/panel-oferente"
+                onClick={handleLinkClick("/panel-oferente")}
+                className="flex items-center gap-3 rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-white hover:bg-white/20"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                <span className="text-sm font-semibold">
+                  {locale === "en"
+                    ? "Provider Portal"
+                    : locale === "pt"
+                      ? "Portal do oferente"
+                      : locale === "it"
+                        ? "Portale offerente"
+                        : "Portal oferente"}
+                </span>
               </Link>
               <div onClick={() => setMenuOpen(false)}>
               <ButtonSolid

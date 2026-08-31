@@ -51,9 +51,9 @@ type PromoValidationState = {
   applied: boolean;
   code: string;
   discountPercent: number;
-  customDurationDays?: number | null;
   customPrice?: number | null;
-  scope?: string;
+  durationDays?: number | null;
+  scope?: string | null;
   originalAmount: number | null;
   discountedAmount: number | null;
   message: string;
@@ -140,6 +140,9 @@ const OFERENTE_MODAL_TEXT = {
     oferente_periodo_anio: "Por año",
     oferente_periodo_unico: "Único",
     oferente_publicar_destacado: "Publicar Destacado",
+    oferente_publicar_destacado_gratis: "Publicar Destacado Gratis",
+    oferente_destacado_gratis_procesando: "Activando tu publicación destacada gratuita...",
+    oferente_destacado_gratis_exito: "¡Publicación destacada gratis activada con éxito!",
     oferente_volver_atras: "Volver atrás",
     oferente_datos_seguros: "Tus datos están seguros.",
     oferente_sin_opciones: "No hay opciones disponibles",
@@ -154,7 +157,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_terminos: "Debés aceptar términos y condiciones",
     oferente_turnstile_required: "Completa la verificacion.",
     oferente_toast_sede: "Completá el país donde se cumple tu propuesta",
-    oferente_toast_categoria_limite: "Podés elegir hasta 3 categorías o subcategorías.",
+    oferente_toast_categoria_limite: "Podés elegir hasta 3 subcategorías.",
+    oferente_toast_subcategoria_requerida: "Debés seleccionar al menos 1 subcategoría (hasta 3).",
     oferente_toast_revision: "Tu publicación está en revisión",
     oferente_toast_pago_pestana: "Te abrimos una nueva pestaña para completar el pago.",
     oferente_toast_pago_exitoso: "Pago exitoso. Pronto verás la publicación en la web.",
@@ -173,6 +177,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_promo_partner_only: "Este código promocional aplica solo a partners/intermediarios.",
     oferente_promo_expired: "El código promocional ya venció.",
     oferente_promo_max_uses_reached: "El código promocional ya alcanzó su límite de uso.",
+    oferente_promo_already_used_by_user: "Ya has utilizado este código de descuento anteriormente.",
     oferente_promo_inactive: "El código promocional no está activo.",
     oferente_promo_validate_error: "No se pudo validar el código.",
     oferente_promo_applied: "Código aplicado. Descuento: {discount}%.",
@@ -246,6 +251,9 @@ const OFERENTE_MODAL_TEXT = {
     oferente_periodo_anio: "Per year",
     oferente_periodo_unico: "One time",
     oferente_publicar_destacado: "Post Featured",
+    oferente_publicar_destacado_gratis: "Post Featured for Free",
+    oferente_destacado_gratis_procesando: "Activating your free featured publication...",
+    oferente_destacado_gratis_exito: "Free featured publication successfully activated!",
     oferente_volver_atras: "Go back",
     oferente_datos_seguros: "Your data is safe.",
     oferente_sin_opciones: "No options available",
@@ -260,7 +268,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_terminos: "You must accept terms and conditions",
     oferente_turnstile_required: "Please complete the verification.",
     oferente_toast_sede: "Complete the country where your proposal takes place",
-    oferente_toast_categoria_limite: "You can choose up to 3 categories or subcategories.",
+    oferente_toast_categoria_limite: "You can choose up to 3 subcategories.",
+    oferente_toast_subcategoria_requerida: "You must select at least 1 subcategory (up to 3).",
     oferente_toast_revision: "Your publication is under review",
     oferente_toast_pago_pestana: "We opened a new tab for you to complete the payment.",
     oferente_toast_pago_exitoso: "Payment successful. You will soon see the publication on the website.",
@@ -279,6 +288,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_promo_partner_only: "This promo code applies only to partners/intermediaries.",
     oferente_promo_expired: "This promo code has expired.",
     oferente_promo_max_uses_reached: "This promo code has reached its usage limit.",
+    oferente_promo_already_used_by_user: "You have already used this promo code previously.",
     oferente_promo_inactive: "This promo code is not active.",
     oferente_promo_validate_error: "The promo code could not be validated.",
     oferente_promo_applied: "Code applied. Discount: {discount}%.",
@@ -352,6 +362,9 @@ const OFERENTE_MODAL_TEXT = {
     oferente_periodo_anio: "Por ano",
     oferente_periodo_unico: "Único",
     oferente_publicar_destacado: "Publicar em Destaque",
+    oferente_publicar_destacado_gratis: "Publicar em Destaque Grátis",
+    oferente_destacado_gratis_procesando: "Ativando sua publicação destacada gratuita...",
+    oferente_destacado_gratis_exito: "Publicação destacada gratuita ativada com sucesso!",
     oferente_volver_atras: "Voltar",
     oferente_datos_seguros: "Seus dados estão seguros.",
     oferente_sin_opciones: "Não há opções disponíveis",
@@ -366,7 +379,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_terminos: "Você deve aceitar os termos e condições",
     oferente_turnstile_required: "Complete a verificacao.",
     oferente_toast_sede: "Preencha o país onde sua proposta acontece",
-    oferente_toast_categoria_limite: "Você pode escolher até 3 categorias ou subcategorias.",
+    oferente_toast_categoria_limite: "Você pode escolher até 3 subcategorias.",
+    oferente_toast_subcategoria_requerida: "Você deve escolher pelo menos 1 subcategoria (até 3).",
     oferente_toast_revision: "Sua publicação está em revisão",
     oferente_toast_pago_pestana: "Abrimos uma nova aba para você concluir o pagamento.",
     oferente_toast_pago_exitoso: "Pagamento realizado com sucesso. Em breve você verá a publicação no site.",
@@ -385,6 +399,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_promo_partner_only: "Este código promocional se aplica apenas a partners/intermediários.",
     oferente_promo_expired: "Este código promocional expirou.",
     oferente_promo_max_uses_reached: "Este código promocional atingiu seu limite de uso.",
+    oferente_promo_already_used_by_user: "Você já utilizou este código de desconto anteriormente.",
     oferente_promo_inactive: "Este código promocional não está ativo.",
     oferente_promo_validate_error: "Não foi possível validar o código.",
     oferente_promo_applied: "Código aplicado. Desconto: {discount}%.",
@@ -458,6 +473,9 @@ const OFERENTE_MODAL_TEXT = {
     oferente_periodo_anio: "All'anno",
     oferente_periodo_unico: "Una volta",
     oferente_publicar_destacado: "Pubblica in Evidenza",
+    oferente_publicar_destacado_gratis: "Pubblica in Evidenza Gratis",
+    oferente_destacado_gratis_procesando: "Attivazione della pubblicazione in evidenza gratuita...",
+    oferente_destacado_gratis_exito: "Pubblicazione in evidenza gratuita attivata con successo!",
     oferente_volver_atras: "Torna indietro",
     oferente_datos_seguros: "I tuoi dati sono al sicuro.",
     oferente_sin_opciones: "Nessuna opzione disponibile",
@@ -472,7 +490,8 @@ const OFERENTE_MODAL_TEXT = {
     oferente_toast_terminos: "Devi accettare termini e condizioni",
     oferente_turnstile_required: "Completa la verifica.",
     oferente_toast_sede: "Completa il paese in cui si svolge la tua proposta",
-    oferente_toast_categoria_limite: "Puoi scegliere fino a 3 categorie o sottocategorie.",
+    oferente_toast_categoria_limite: "Puoi scegliere fino a 3 sottocategorie.",
+    oferente_toast_subcategoria_requerida: "Devi selezionare almeno 1 sottocategoria (fino a 3).",
     oferente_toast_revision: "La tua pubblicazione è in revisione",
     oferente_toast_pago_pestana: "Abbiamo aperto una nuova scheda per completare il pagamento.",
     oferente_toast_pago_exitoso: "Pagamento riuscito. Presto vedrai la pubblicazione sul sito.",
@@ -491,6 +510,7 @@ const OFERENTE_MODAL_TEXT = {
     oferente_promo_partner_only: "Questo codice promozionale si applica solo a partner/intermediari.",
     oferente_promo_expired: "Questo codice promozionale è scaduto.",
     oferente_promo_max_uses_reached: "Questo codice promozionale ha raggiunto il limite di utilizzo.",
+    oferente_promo_already_used_by_user: "Hai già utilizzato questo codice promozionale in precedenza.",
     oferente_promo_inactive: "Questo codice promozionale non è attivo.",
     oferente_promo_validate_error: "Non è stato possibile validare il codice.",
     oferente_promo_applied: "Codice applicato. Sconto: {discount}%.",
@@ -571,10 +591,19 @@ function parseUnknownJsonObject(value: unknown) {
   return {};
 }
 
+function normalizeOptionKey(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[-_]/g, " ")
+    .trim();
+}
+
 function uniqueOptions(options: SelectOption[]) {
   const seen = new Set<string>();
   return options.filter((option) => {
-    const key = normalize(option.value || option.label);
+    const key = normalizeOptionKey(option.label || option.value);
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -596,6 +625,7 @@ function MultiOptionSelect({
   emptyText,
   maxSelections,
   onLimitReached,
+  allowParentSelect = false,
 }: {
   selectedValues: string[];
   setSelectedValues: (values: string[]) => void;
@@ -607,6 +637,7 @@ function MultiOptionSelect({
   emptyText: string;
   maxSelections?: number;
   onLimitReached?: () => void;
+  allowParentSelect?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -661,83 +692,112 @@ function MultiOptionSelect({
       >
         <span className="flex min-w-0 items-center gap-3">
           <Icon className="h-5 w-5 shrink-0 text-[#0B8FA3]" />
-          <span title={displayText} className={`truncate ${selectedLabels.length ? "text-gray-700" : "text-gray-600"}`}>
+          <span title={displayText} className={`truncate ${selectedLabels.length ? "text-gray-700 font-medium" : "text-gray-600"}`}>
             {displayText}
           </span>
         </span>
-        <ChevronDown className={`h-5 w-5 text-gray-400 transition ${isOpen ? "rotate-180 text-teal-500" : ""}`} />
+        <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180 text-teal-500" : ""}`} />
       </button>
 
       {isOpen ? (
         <div className="absolute left-0 right-0 top-full z-[9999999] mt-2 max-h-64 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl">
           <div className="max-h-64 overflow-y-auto p-2">
             {hasGroupedOptions ? (
-              optionGroups?.length ? optionGroups.map((group) => {
-                const checked = selectedValues.some((entry) => normalize(entry) === normalize(group.value));
-                const isExpanded = expandedGroups[group.value] ?? false;
-                const hasChildren = group.children.length > 0;
-                return (
-                  <div key={group.value} className="mb-1 rounded-xl border border-transparent last:mb-0">
-                    <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${checked ? "bg-teal-50 text-teal-700" : "text-gray-700 hover:bg-teal-50"}`}>
-                      <button type="button" onClick={() => toggleValue(group.value)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? "border-teal-500 bg-teal-500" : "border-gray-300"}`}>
-                          {checked ? <Check className="h-3 w-3 text-white" /> : null}
-                        </span>
-                        <span className="truncate">{group.label}</span>
-                      </button>
-                      {hasChildren ? (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
+              optionGroups?.length ? (
+                optionGroups.map((group) => {
+                  const hasChildren = group.children.length > 0;
+                  const isParentSelectable = allowParentSelect || !hasChildren;
+                  const checked = isParentSelectable && selectedValues.some((entry) => normalize(entry) === normalize(group.value));
+                  const isExpanded = expandedGroups[group.value] ?? false;
+
+                  return (
+                    <div key={group.value} className="mb-1 rounded-xl border border-transparent last:mb-0">
+                      <div
+                        className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
+                          checked ? "bg-teal-50 text-teal-700 font-medium" : "text-gray-700 hover:bg-teal-50/60 hover:text-teal-700 font-medium"
+                        } ${!isParentSelectable && hasChildren ? "cursor-pointer" : ""}`}
+                        onClick={() => {
+                          if (isParentSelectable) {
+                            toggleValue(group.value);
+                          } else if (hasChildren) {
                             toggleGroup(group.value);
-                          }}
-                          aria-label={isExpanded ? "Contraer subcategorias" : "Expandir subcategorias"}
-                          className="rounded-md p-1 text-slate-400 transition hover:bg-white/70 hover:text-teal-600"
-                        >
-                          <ChevronDown className={`h-4 w-4 transition ${isExpanded ? "rotate-180" : ""}`} />
-                        </button>
+                          }
+                        }}
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+                          {isParentSelectable ? (
+                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? "border-teal-500 bg-teal-500" : "border-gray-300"}`}>
+                              {checked ? <Check className="h-3 w-3 text-white" /> : null}
+                            </span>
+                          ) : (
+                            <Tag className="h-4 w-4 shrink-0 text-[#0B8FA3]" />
+                          )}
+                          <span className="truncate font-medium text-gray-700">{group.label}</span>
+                        </div>
+                        {hasChildren ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleGroup(group.value);
+                            }}
+                            aria-label={isExpanded ? "Contraer subcategorias" : "Expandir subcategorias"}
+                            className="rounded-md p-1 text-slate-400 transition hover:bg-white/80 hover:text-teal-600"
+                          >
+                            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? "rotate-180 text-teal-600" : ""}`} />
+                          </button>
+                        ) : null}
+                      </div>
+                      {hasChildren && isExpanded ? (
+                        <div className="mt-1 space-y-1 border-l-2 border-teal-100 pl-3 ml-2">
+                          {group.children.map((child) => {
+                            const childChecked = selectedValues.some((entry) => normalize(entry) === normalize(child.value));
+                            return (
+                              <button
+                                key={child.value}
+                                type="button"
+                                onClick={() => toggleValue(child.value)}
+                                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${
+                                  childChecked ? "bg-teal-50 text-teal-700 font-medium" : "text-gray-600 hover:bg-slate-50 hover:text-teal-700"
+                                }`}
+                              >
+                                <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${childChecked ? "border-teal-500 bg-teal-500" : "border-gray-300"}`}>
+                                  {childChecked ? <Check className="h-3 w-3 text-white" /> : null}
+                                </span>
+                                <span>{child.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       ) : null}
                     </div>
-                    {hasChildren && isExpanded ? (
-                      <div className="mt-1 space-y-1 border-l border-slate-200 pl-3">
-                        {group.children.map((child) => {
-                          const childChecked = selectedValues.some((entry) => normalize(entry) === normalize(child.value));
-                          return (
-                            <button
-                              key={child.value}
-                              type="button"
-                              onClick={() => toggleValue(child.value)}
-                              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${childChecked ? "bg-teal-50 text-teal-700" : "text-gray-600 hover:bg-slate-50 hover:text-teal-700"}`}
-                            >
-                              <span className={`flex h-4 w-4 items-center justify-center rounded border ${childChecked ? "border-teal-500 bg-teal-500" : "border-gray-300"}`}>
-                                {childChecked ? <Check className="h-3 w-3 text-white" /> : null}
-                              </span>
-                              <span>{child.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
+                  );
+                })
+              ) : (
+                <div className="p-3 text-center text-sm text-gray-500">{emptyText}</div>
+              )
+            ) : options.length ? (
+              options.map((option) => {
+                const checked = selectedValues.some((entry) => normalize(entry) === normalize(option.value));
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => toggleValue(option.value)}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${
+                      checked ? "bg-teal-50 text-teal-700 font-medium" : "text-gray-700 hover:bg-teal-50"
+                    }`}
+                  >
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? "border-teal-500 bg-teal-500" : "border-gray-300"}`}>
+                      {checked ? <Check className="h-3 w-3 text-white" /> : null}
+                    </span>
+                    <span>{option.label}</span>
+                  </button>
                 );
-              }) : <div className="p-3 text-center text-sm text-gray-500">{emptyText}</div>
-            ) : options.length ? options.map((option) => {
-              const checked = selectedValues.some((entry) => normalize(entry) === normalize(option.value));
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => toggleValue(option.value)}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${checked ? "bg-teal-50 text-teal-700" : "text-gray-700 hover:bg-teal-50"}`}
-                >
-                  <span className={`flex h-4 w-4 items-center justify-center rounded border ${checked ? "border-teal-500 bg-teal-500" : "border-gray-300"}`}>
-                    {checked ? <Check className="h-3 w-3 text-white" /> : null}
-                  </span>
-                  <span>{option.label}</span>
-                </button>
-              );
-            }) : <div className="p-3 text-center text-sm text-gray-500">{emptyText}</div>}
+              })
+            ) : (
+              <div className="p-3 text-center text-sm text-gray-500">{emptyText}</div>
+            )}
           </div>
         </div>
       ) : null}
@@ -941,6 +1001,7 @@ export default function ModalOferente({
     );
   const promoMessageKey = (payload: any): OferenteModalTextKey => {
     const code = String(payload?.errorCode ?? payload?.reason ?? "").trim().toLowerCase();
+    if (code.includes("already_used") || code.includes("user")) return "oferente_promo_already_used_by_user";
     if (code.includes("empty")) return "oferente_promo_empty_code";
     if (code.includes("partner")) return "oferente_promo_partner_only";
     if (code.includes("expired")) return "oferente_promo_expired";
@@ -948,6 +1009,7 @@ export default function ModalOferente({
     if (code.includes("inactive")) return "oferente_promo_inactive";
     if (code.includes("invalid")) return "oferente_promo_invalid";
     const raw = normalize(String(payload?.error ?? ""));
+    if (raw.includes("anteriormente") || raw.includes("ya fue utilizado")) return "oferente_promo_already_used_by_user";
     if (raw.includes("partner") || raw.includes("intermediario")) return "oferente_promo_partner_only";
     if (raw.includes("limite") || raw.includes("uso")) return "oferente_promo_max_uses_reached";
     if (raw.includes("vencio") || raw.includes("expired")) return "oferente_promo_expired";
@@ -955,6 +1017,12 @@ export default function ModalOferente({
     if (raw.includes("invalido") || raw.includes("invalid")) return "oferente_promo_invalid";
     return "oferente_promo_validate_error";
   };
+  const basicItems = [
+    mt("oferente_plan_visible_listado"),
+    mt("oferente_plan_duracion_60"),
+    mt("oferente_plan_descripcion_breve"),
+    mt("oferente_plan_link_contacto"),
+  ];
 
   const [mounted, setMounted] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -1047,39 +1115,10 @@ export default function ModalOferente({
   const [isEmptyEmail, setIsEmptyEmail] = useState(false);
   const [isEmptyTerms, setIsEmptyTerms] = useState(false);
   const [featuredTypeFocusKey, setFeaturedTypeFocusKey] = useState(0);
-
-  const activeDurationDays = promoValidation.applied && promoValidation.customDurationDays
-    ? promoValidation.customDurationDays
-    : (featured120PlanPricing.durationDays ?? 120);
-
-  const featuredDurationText = locale === "en"
-    ? `${activeDurationDays}-day duration`
-    : locale === "pt"
-      ? `Duração de ${activeDurationDays} dias`
-      : locale === "it"
-        ? `Durata ${activeDurationDays} giorni`
-        : `Duración ${activeDurationDays} días`;
-
-  const featuredItems = [
-    mt("oferente_featured_item_results"),
-    featuredDurationText,
-    mt("oferente_featured_item_badge"),
-    mt("oferente_featured_item_description"),
-    mt("oferente_featured_item_links"),
-    mt("oferente_featured_item_languages"),
-    mt("oferente_featured_item_gallery"),
-  ];
-  const basicItems = [
-    mt("oferente_plan_visible_listado"),
-    mt("oferente_plan_duracion_60"),
-    mt("oferente_plan_descripcion_breve"),
-    mt("oferente_plan_link_contacto"),
-  ];
-
   const effectiveResumePaymentState = String(resumePaymentState || initialData?.paymentStatus || initialData?.paymentReturnStatus || "").trim().toLowerCase();
   const canReuseCompletedPayment = resumeMode && ["paid", "approved", "completed", "success", "ok"].includes(effectiveResumePaymentState);
 
-  const effectiveCountry = String(destinationCountry || primaryVenue.country || fixedCountry || selectedCountry || "").trim();
+  const effectiveCountry = String(fixedCountry || selectedCountry || "").trim();
   const effectivePlanPricing = selectedPlan === "monthly" ? monthlyPlanPricing : featured120PlanPricing;
 
   const featuredPriceBreakdown = useMemo<PriceBreakdown>(() => {
@@ -1098,17 +1137,59 @@ export default function ModalOferente({
     };
   }, [effectivePlanPricing.amount, effectivePlanPricing.currency, promoValidation]);
 
-  const featured120PriceBreakdown = useMemo<PriceBreakdown>(() => ({
-    baseLabel: formatMoneyLabel(featured120PlanPricing.amount > 0 ? featured120PlanPricing.amount : null, featured120PlanPricing.currency),
-    finalLabel: formatMoneyLabel(featured120PlanPricing.amount > 0 ? featured120PlanPricing.amount : null, featured120PlanPricing.currency),
-    showStrikethrough: false,
-  }), [featured120PlanPricing.amount, featured120PlanPricing.currency]);
+  const featured120PriceBreakdown = useMemo<PriceBreakdown>(() => {
+    const baseAmount = featured120PlanPricing.amount > 0 ? featured120PlanPricing.amount : null;
+    if (promoValidation.applied && !promoValidation.error && baseAmount !== null && promoValidation.discountedAmount !== null) {
+      return {
+        baseLabel: formatMoneyLabel(baseAmount, featured120PlanPricing.currency),
+        finalLabel: formatMoneyLabel(promoValidation.discountedAmount, featured120PlanPricing.currency),
+        showStrikethrough: promoValidation.discountedAmount !== baseAmount,
+      };
+    }
+    return {
+      baseLabel: formatMoneyLabel(baseAmount, featured120PlanPricing.currency),
+      finalLabel: formatMoneyLabel(baseAmount, featured120PlanPricing.currency),
+      showStrikethrough: false,
+    };
+  }, [featured120PlanPricing.amount, featured120PlanPricing.currency, promoValidation]);
 
-  const monthlyPriceBreakdown = useMemo<PriceBreakdown>(() => ({
-    baseLabel: formatMoneyLabel(monthlyPlanPricing.amount > 0 ? monthlyPlanPricing.amount : null, monthlyPlanPricing.currency),
-    finalLabel: formatMoneyLabel(monthlyPlanPricing.amount > 0 ? monthlyPlanPricing.amount : null, monthlyPlanPricing.currency),
-    showStrikethrough: false,
-  }), [monthlyPlanPricing.amount, monthlyPlanPricing.currency]);
+  const monthlyPriceBreakdown = useMemo<PriceBreakdown>(() => {
+    const baseAmount = monthlyPlanPricing.amount > 0 ? monthlyPlanPricing.amount : null;
+    if (promoValidation.applied && !promoValidation.error && baseAmount !== null && promoValidation.discountedAmount !== null) {
+      return {
+        baseLabel: formatMoneyLabel(baseAmount, monthlyPlanPricing.currency),
+        finalLabel: formatMoneyLabel(promoValidation.discountedAmount, monthlyPlanPricing.currency),
+        showStrikethrough: promoValidation.discountedAmount !== baseAmount,
+      };
+    }
+    return {
+      baseLabel: formatMoneyLabel(baseAmount, monthlyPlanPricing.currency),
+      finalLabel: formatMoneyLabel(baseAmount, monthlyPlanPricing.currency),
+      showStrikethrough: false,
+    };
+  }, [monthlyPlanPricing.amount, monthlyPlanPricing.currency, promoValidation]);
+
+  const effectiveFeaturedDurationDays = promoValidation.applied && promoValidation.durationDays
+    ? promoValidation.durationDays
+    : (featured120PlanPricing.durationDays || 120);
+
+  const featuredDurationLabel = locale === "en"
+    ? `${effectiveFeaturedDurationDays}-day duration`
+    : locale === "pt"
+      ? `Duração de ${effectiveFeaturedDurationDays} dias`
+      : locale === "it"
+        ? `Durata ${effectiveFeaturedDurationDays} giorni`
+        : `Duración ${effectiveFeaturedDurationDays} días`;
+
+  const featuredItems = [
+    mt("oferente_featured_item_results"),
+    featuredDurationLabel,
+    mt("oferente_featured_item_badge"),
+    mt("oferente_featured_item_description"),
+    mt("oferente_featured_item_links"),
+    mt("oferente_featured_item_languages"),
+    mt("oferente_featured_item_gallery"),
+  ];
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -1499,7 +1580,7 @@ export default function ModalOferente({
   }, [destinationAvailabilityMode, destinationAvailabilityCountries, destinationCountry]);
 
   useEffect(() => {
-    const country = effectiveCountry;
+    const country = destinationCountry.trim() || effectiveCountry;
     if (!country) return;
     Promise.all([
       fetch(`/api/featured-plan-pricing?country=${encodeURIComponent(country)}&planType=featured_120d`, { cache: "no-store" }).then((res) => res.json()).catch(() => ({})),
@@ -1509,14 +1590,14 @@ export default function ModalOferente({
         const parsePricing = (raw: any, fallbackPlanType: "featured_120d" | "featured_monthly"): FeaturedPlanPricing => {
           const item = raw?.item ?? {};
           const amount = Number(item?.amount ?? 0);
-          const durationDays = item?.durationDays ? Number(item.durationDays) : 120;
           const currency = String(item?.currency ?? "USD").toUpperCase() === "ARS" ? "ARS" : "USD";
+          const durationDays = Number(item?.durationDays);
           return {
             country: item?.country ? String(item.country) : null,
             planType: fallbackPlanType,
             currency,
             amount: Number.isFinite(amount) ? amount : 0,
-            durationDays,
+            durationDays: Number.isFinite(durationDays) && durationDays > 0 ? Math.round(durationDays) : 120,
           };
         };
         const nextFeatured120 = parsePricing(featuredData, "featured_120d");
@@ -1528,14 +1609,14 @@ export default function ModalOferente({
           ...prev,
           originalAmount: currentPlanPricing.amount > 0 ? currentPlanPricing.amount : null,
           discountedAmount: prev.applied && !prev.error
-            ? prev.customPrice !== null && prev.customPrice !== undefined
-              ? prev.customPrice
-              : Number((currentPlanPricing.amount * (1 - Number(prev.discountPercent || 0) / 100)).toFixed(2))
+            ? (prev.customPrice !== null && prev.customPrice !== undefined
+                ? prev.customPrice
+                : Number((currentPlanPricing.amount * (1 - Number(prev.discountPercent || 0) / 100)).toFixed(2)))
             : (currentPlanPricing.amount > 0 ? currentPlanPricing.amount : null),
         }));
       })
       .catch(() => null);
-  }, [effectiveCountry, selectedPlan]);
+  }, [destinationCountry, effectiveCountry, selectedPlan]);
 
   useEffect(() => {
     if (!promoCode.trim()) {
@@ -1564,20 +1645,20 @@ export default function ModalOferente({
     }
   }, [effectivePlanPricing.amount, promoCode, promoValidation.applied, promoValidation.code]);
 
-  useEffect(() => {
-    if (previousIntermediarioRef.current === isIntermediario) return;
-    previousIntermediarioRef.current = isIntermediario;
-    if (!promoValidation.applied) return;
-    setPromoValidation((prev) => ({
-      ...prev,
-      applied: false,
-      code: "",
-      discountPercent: 0,
-      discountedAmount: effectivePlanPricing.amount > 0 ? effectivePlanPricing.amount : null,
-      message: "",
-      error: false,
-    }));
-  }, [effectivePlanPricing.amount, isIntermediario, promoValidation.applied]);
+  // useEffect(() => {
+  //   if (previousIntermediarioRef.current === isIntermediario) return;
+  //   previousIntermediarioRef.current = isIntermediario;
+  //   if (!promoValidation.applied) return;
+  //   setPromoValidation((prev) => ({
+  //     ...prev,
+  //     applied: false,
+  //     code: "",
+  //     discountPercent: 0,
+  //     discountedAmount: effectivePlanPricing.amount > 0 ? effectivePlanPricing.amount : null,
+  //     message: "",
+  //     error: false,
+  //   }));
+  // }, [effectivePlanPricing.amount, isIntermediario, promoValidation.applied]);
 
   const clearPaymentWatcher = useCallback(() => {
     if (paymentWatcherRef.current !== null) {
@@ -1758,7 +1839,7 @@ export default function ModalOferente({
         if (category.isPublicVisible === false) return false;
         if (normalize(taxonomyFor(category, byId)) !== "categoria") return false;
         const root = resolveCategoryRoot(category, byId);
-        return (root.visibleInCard ?? root.isPrimaryCategory) === true && root.isPublicVisible !== false;
+        return root.isPrimaryCategory === true && root.isPublicVisible !== false;
       })
       .forEach((category) => {
         const root = resolveCategoryRoot(category, byId);
@@ -1840,7 +1921,7 @@ export default function ModalOferente({
 
     if (!proposalCategories.length) {
       setIsEmptyProposalCategory(true);
-      toast.error(t("elegir_categoria"));
+      toast.error(mt("oferente_toast_subcategoria_requerida"));
       return false;
     }
     setIsEmptyProposalCategory(false);
@@ -1883,6 +1964,19 @@ export default function ModalOferente({
   };
 
   const validateFeatured = () => {
+    if (!validateBasic()) return false;
+    if (!included.trim()) {
+      toast.error(
+        locale === "en"
+          ? "Please fill in what your service includes"
+          : locale === "pt"
+            ? "Por favor preencha o que seu serviço inclui"
+            : locale === "it"
+              ? "Compila cosa include il tuo servizio"
+              : "Por favor completa el campo obligatorio: ¿Qué incluye tu servicio?",
+      );
+      return false;
+    }
     if (!primaryVenue.country.trim()) {
       toast.error(mt("oferente_toast_sede"));
       return false;
@@ -1897,10 +1991,11 @@ export default function ModalOferente({
       return false;
     }
     try {
+      const applicantEmail = initialEmail.trim() || email.trim();
       const response = await fetch("/api/promo-codes/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, planAmount: effectivePlanPricing.amount, isIntermediario }),
+        body: JSON.stringify({ code, planAmount: effectivePlanPricing.amount, isIntermediario, email: applicantEmail }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok === false) {
@@ -1915,30 +2010,28 @@ export default function ModalOferente({
         }));
         return false;
       }
-      const discountPercent = Number(data?.promo?.discountPercent ?? 0);
-      const customDurationDays = data?.promo?.customDurationDays ? Number(data.promo.customDurationDays) : null;
+      const promoScope = String(data?.promo?.scope ?? "").toLowerCase();
       const customPrice = data?.promo?.customPrice !== null && data?.promo?.customPrice !== undefined ? Number(data.promo.customPrice) : null;
-      const scope = String(data?.promo?.scope ?? "all");
+      const durationDays = data?.promo?.durationDays !== null && data?.promo?.durationDays !== undefined ? Number(data.promo.durationDays) : null;
+      const discountPercent = Number(data?.promo?.discountPercent ?? 0);
       const discountedAmount = data?.pricing?.discountedAmount === null || data?.pricing?.discountedAmount === undefined
         ? effectivePlanPricing.amount
         : Number(data.pricing.discountedAmount);
 
-      if (scope === "partners") {
-        setIsIntermediario(true);
-        setIsOfrezco(false);
-        setSelectedPlan("featured");
-      }
+      const appliedMessage = customPrice !== null
+        ? (locale === "en" ? `Promo code applied! Fixed price: ${effectivePlanPricing.currency} ${customPrice}` : `¡Código promocional aplicado! Precio fijo: ${effectivePlanPricing.currency} ${customPrice}`)
+        : fillText("oferente_promo_applied", { discount: String(discountPercent) });
 
       setPromoValidation({
         applied: true,
         code: String(data?.promo?.code ?? code).toUpperCase(),
         discountPercent,
-        customDurationDays,
         customPrice,
-        scope,
+        durationDays,
+        scope: promoScope,
         originalAmount: effectivePlanPricing.amount > 0 ? effectivePlanPricing.amount : null,
         discountedAmount: Number.isFinite(discountedAmount) ? discountedAmount : effectivePlanPricing.amount,
-        message: fillText("oferente_promo_applied", { discount: String(discountPercent) }),
+        message: appliedMessage,
         error: false,
       });
       setPromoCode(String(data?.promo?.code ?? code).toUpperCase());
@@ -1976,6 +2069,10 @@ export default function ModalOferente({
       ? Number(promoValidation.discountedAmount)
       : effectivePlanAmount;
     const isPaidPlan = publicationPlan === "featured" || publicationPlan === "monthly";
+    const effectivePlanDurationDays = promoValidation.applied && promoValidation.durationDays
+      ? promoValidation.durationDays
+      : (featured120PlanPricing.durationDays || 120);
+
     return {
       taxonomyType: "oferente",
       status: "pendiente",
@@ -1991,6 +2088,7 @@ export default function ModalOferente({
       languages,
       isOfrezco,
       isIntermediario,
+      isPartnerPromoApplicant: promoValidation.applied && promoValidation.scope === "partners",
       destinationCountry,
       city: cleanVenue.city,
       destinationMapUrl: cleanVenue.mapUrl,
@@ -2019,7 +2117,7 @@ export default function ModalOferente({
       planAmount: isPaidPlan ? effectivePlanAmount : 0,
       planCurrency: isPaidPlan ? currentPlanPricing.currency : "USD",
       discountedPlanAmount: isPaidPlan ? discountedPlanAmount : 0,
-      planDurationDays: promoValidation.applied && promoValidation.customDurationDays ? promoValidation.customDurationDays : (featured120PlanPricing.durationDays ?? 120),
+      planDurationDays: effectivePlanDurationDays,
       paymentType: publicationPlan === "monthly" ? "monthly" : publicationPlan === "featured" ? "one_time" : "",
       planType: publicationPlan === "monthly" ? "featured_monthly" : publicationPlan === "featured" ? "featured_120d" : "",
       requestKind,
@@ -2027,7 +2125,7 @@ export default function ModalOferente({
       requestedPlan: publicationPlan === "monthly" ? "featured_monthly" : publicationPlan === "featured" ? "featured_120d" : "basic_free",
       sourceServiceId: sourceServiceId.trim(),
       sourcePublicationId: sourcePublicationId.trim(),
-      country: effectiveCountry,
+      country: destinationCountry.trim() || effectiveCountry,
       locale,
       acceptedTerms: true,
       submittedViaPortal: Boolean(initialEmail.trim()),
@@ -2047,10 +2145,14 @@ export default function ModalOferente({
     }
     const isPublicationChangeRequest = publicationChangeMode || requestKind === "edit_publication";
     const isResumePaidWithoutNewCharge = isPaidPlan && (canReuseCompletedPayment || isPublicationChangeRequest);
+    const effectivePlanAmount = promoValidation.applied && promoValidation.discountedAmount !== null
+      ? promoValidation.discountedAmount
+      : (effectivePlanPricing.amount > 0 ? effectivePlanPricing.amount : 0);
+    const isZeroAmountPlan = isPaidPlan && effectivePlanAmount === 0;
 
     let preparedPaymentTab: Window | null = null;
     let keepPaymentLoading = false;
-    if (isPaidPlan && !isResumePaidWithoutNewCharge) {
+    if (isPaidPlan && !isResumePaidWithoutNewCharge && !isZeroAmountPlan) {
       setPaymentUi({ status: "preparing", messageKey: "oferente_pago_preparando" });
       const pendingServiceId = String((resumeMode ? resumeSubmissionId : submittedServiceIdRef.current) || "pending").trim() || "pending";
       const preparingUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(pendingServiceId)}&locale=${encodeURIComponent(locale)}&state=preparing`;
@@ -2060,6 +2162,8 @@ export default function ModalOferente({
         return;
       }
       setIsLoading(true);
+    } else if (isZeroAmountPlan) {
+      setPaymentUi({ status: "preparing", messageKey: "oferente_destacado_gratis_procesando" });
     } else {
       setPaymentUi({ status: "idle" });
     }
@@ -2138,7 +2242,7 @@ export default function ModalOferente({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             serviceId,
-            country: effectiveCountry,
+            country: destinationCountry.trim() || effectiveCountry,
             amount: paidPayload.discountedPlanAmount,
             currency: paidPayload.planCurrency,
             promoCode,
@@ -2151,6 +2255,13 @@ export default function ModalOferente({
         const checkoutData = await checkoutResponse.json().catch(() => ({}));
         if (!checkoutResponse.ok || !checkoutData?.redirectUrl) {
           throw new Error(String(checkoutData?.error ?? "payment_checkout_failed"));
+        }
+        if (isZeroAmountPlan || checkoutData?.providerMode === "free_promo") {
+          clearDraft();
+          toast.success(mt("oferente_destacado_gratis_exito"), { duration: 6000 });
+          onSubmitted?.({ serviceId, plan: publicationPlan });
+          onClose();
+          return;
         }
         const redirectUrl = String(checkoutData.redirectUrl);
         const launchUrl = `${window.location.origin}/featured-payment-launch?serviceId=${encodeURIComponent(serviceId)}&locale=${encodeURIComponent(locale)}&redirect=${encodeURIComponent(btoa(redirectUrl))}&state=connecting`;
@@ -2184,32 +2295,9 @@ export default function ModalOferente({
           setPaymentUi({ status: "error", messageKey: "oferente_pago_popup_error" });
           return;
         }
-        paymentResultReceivedRef.current = false;
-        paymentTabRef.current = paymentTab;
-        setPaymentUi({ status: "redirected", messageKey: "oferente_pago_redirigiendo" });
-        if (paymentWatcherRef.current !== null) {
-          window.clearInterval(paymentWatcherRef.current);
-        }
-        paymentWatcherRef.current = window.setInterval(() => {
-          const opened = paymentTabRef.current;
-          if (!opened) return;
-          if (opened.closed) {
-            if (paymentWatcherRef.current !== null) {
-              window.clearInterval(paymentWatcherRef.current);
-              paymentWatcherRef.current = null;
-            }
-            if (!paymentResultReceivedRef.current) {
-              const currentServiceId = submittedServiceIdRef.current;
-              if (currentServiceId) {
-                void verifyPaymentWithRetries(currentServiceId, "check").then((result) => {
-                  handleResolvedPaymentResult(result, currentServiceId, publicationPlan === "monthly" ? "monthly" : "featured");
-                });
-              }
-            }
-          }
-        }, 700);
-        setStep("featured");
-        keepPaymentLoading = true;
+        clearDraft();
+        toast.success(mt("oferente_pago_redirigiendo") || "Te estamos llevando al checkout seguro para completar tu pago.", { duration: 6000 });
+        onClose();
         return;
       }
       clearDraft();
@@ -2674,7 +2762,19 @@ export default function ModalOferente({
           showStrikethroughPrice={featuredPriceBreakdown.showStrikethrough}
           priceCaption={`Moneda: ${effectivePlanPricing.currency}`}
           items={featuredItems}
-          buttonLabel={isLoading ? t("guardando") : (isPublicationChangeRequestMode ? mt("oferente_solicitar_cambios") : resumeMode ? resumeSubmitLabel : (selectedPlan === "monthly" ? monthlySubmitLabel : mt("oferente_publicar_destacado")))}
+          buttonLabel={
+            isLoading
+              ? t("guardando")
+              : isPublicationChangeRequestMode
+                ? mt("oferente_solicitar_cambios")
+                : resumeMode
+                  ? resumeSubmitLabel
+                  : ((promoValidation.applied && promoValidation.discountedAmount === 0) || effectivePlanPricing.amount === 0)
+                    ? mt("oferente_publicar_destacado_gratis")
+                    : selectedPlan === "monthly"
+                      ? monthlySubmitLabel
+                      : mt("oferente_publicar_destacado")
+          }
           onClick={() => submit(selectedPlan === "monthly" ? "monthly" : "featured")}
           disabled={isLoading || isPaymentBusy || !turnstileToken}
           showPromo
@@ -2741,11 +2841,13 @@ export default function ModalOferente({
             </div>
           </div>
 
-          <div className="pointer-events-none absolute bottom-4 right-4 z-[2147483000] h-16 w-16 md:h-14 md:w-14">
-            <div className="pointer-events-auto relative h-full w-full">
-              <FloatingAIButton is425w={false} onClick={() => setIsOpenModalAI(true)} isInFooter />
+          {step !== "featured" ? (
+            <div className="pointer-events-none absolute bottom-4 right-4 z-[2147483000] h-16 w-16 md:h-14 md:w-14">
+              <div className="pointer-events-auto relative h-full w-full">
+                <FloatingAIButton is425w={false} onClick={() => setIsOpenModalAI(true)} isInFooter />
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
 

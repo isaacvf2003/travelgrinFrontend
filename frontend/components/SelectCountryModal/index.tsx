@@ -36,7 +36,8 @@ const CountrySelectionModal = ({
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const isClient = useIsClient();
-  const { t, locale } = useTranslation();
+  const translation = useTranslation();
+  const t = translation.t;
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -369,7 +370,7 @@ const CountrySelectionModal = ({
       countryRequired: "Scegli il paese del tuo passaporto per continuare.",
     },
   };
-  const modalLabels = modalLabelsByLocale[locale] ?? modalLabelsByLocale.es;
+  const modalLabels = modalLabelsByLocale[translation.locale] ?? modalLabelsByLocale.es;
 
   return (
     <div

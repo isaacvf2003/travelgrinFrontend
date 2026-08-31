@@ -701,20 +701,20 @@ export default function ProviderPortalPanel() {
       locale === "it" ? "Scegli come vuoi continuare" :
       "ElegÃƒÂ­ cÃƒÂ³mo querÃƒÂ©s continuar",
     planSelectorBody:
-      locale === "en" ? "Stay free, upgrade to featured, or switch to a monthly plan. Paid plans use the prices configured by the admin for the destination country of your publication." :
-      locale === "pt" ? "Continue no gratuito, passe para destaque ou mude para o plano mensal. Os planos pagos usam os preços configurados pelo admin para o país de destino da sua publicação." :
-      locale === "it" ? "Resta nel gratuito, passa all'evidenza oppure attiva il piano mensile. I piani a pagamento usano i prezzi configurati dall'admin per il paese di destinazione della tua pubblicazione." :
-      "Seguí en gratis, pasá a destacado o cambiá al plan mensual. Los planes pagos usan los precios configurados por el admin para el país de destino de tu publicación.",
+      locale === "en" ? "Stay free, upgrade to featured for 120 days, or switch to a monthly plan. Paid plans use the prices configured by the admin for your passport country." :
+      locale === "pt" ? "Continue no gratuito, passe para destaque por 120 dias ou mude para o plano mensal. Os planos pagos usam os preÃƒÂ§os configurados pelo admin para o paÃƒÂ­s do seu passaporte." :
+      locale === "it" ? "Resta nel gratuito, passa all'evidenza per 120 giorni oppure attiva il piano mensile. I piani a pagamento usano i prezzi configurati dall'admin per il paese del tuo passaporto." :
+      "SeguÃƒÂ­ en gratis, pasÃƒÂ¡ a destacado por 120 dÃƒÂ­as o cambiÃƒÂ¡ al plan mensual. Los planes pagos usan los precios configurados por el admin para el paÃƒÂ­s de tu pasaporte.",
     freeCta:
       locale === "en" ? "Renew / request free" :
       locale === "pt" ? "Renovar / pedir grÃƒÂ¡tis" :
       locale === "it" ? "Rinnova / richiedi gratis" :
       "Renovar / pedir gratis",
     featuredCta:
-      locale === "en" ? "Switch to featured plan" :
-      locale === "pt" ? "Passar para plano destaque" :
-      locale === "it" ? "Passa al piano in evidenza" :
-      "Pasar a plan destacado",
+      locale === "en" ? "Switch to featured 120 days" :
+      locale === "pt" ? "Passar para destaque 120 dias" :
+      locale === "it" ? "Passa a evidenza 120 giorni" :
+      "Pasar a destacado 120 dÃƒÂ­as",
     monthlyCta:
       locale === "en" ? "Switch to monthly plan" :
       locale === "pt" ? "Passar para plano mensal" :
@@ -726,10 +726,10 @@ export default function ProviderPortalPanel() {
       locale === "it" ? "Visibile nell'elenco per 60 giorni. Quando scade, puoi rinnovarlo da qui e la richiesta torna all'admin." :
       "Visible en el listado por 60 dÃƒÂ­as. Cuando vence, podÃƒÂ©s renovarla desde acÃƒÂ¡ y la solicitud vuelve al admin.",
     featuredDescription:
-      locale === "en" ? "One-time payment. Includes the featured benefits for your publication." :
-      locale === "pt" ? "Pagamento ÃƒÂºnico. Inclui os benefÃƒÂ­cios destacados para a sua publicaÃƒÂ§ÃƒÂ£o." :
-      locale === "it" ? "Pagamento unico. Include i vantaggi in evidenza per la tua pubblicazione." :
-      "Pago único. Incluye los beneficios destacados para tu publicación.",
+      locale === "en" ? "One-time payment. Includes the same featured benefits from the publication form for 120 days." :
+      locale === "pt" ? "Pagamento ÃƒÂºnico. Inclui os mesmos benefÃƒÂ­cios destacados do formulÃƒÂ¡rio de publicaÃƒÂ§ÃƒÂ£o por 120 dias." :
+      locale === "it" ? "Pagamento unico. Include gli stessi vantaggi in evidenza del modulo di pubblicazione per 120 giorni." :
+      "Pago ÃƒÂºnico. Incluye los mismos beneficios destacados del formulario de publicaciÃƒÂ³n por 120 dÃƒÂ­as.",
     monthlyDescription:
       locale === "en" ? "Recurring monthly billing with the same featured benefits to keep your publication boosted continuously." :
       locale === "pt" ? "CobranÃƒÂ§a mensal recorrente com os mesmos benefÃƒÂ­cios destacados para manter sua publicaÃƒÂ§ÃƒÂ£o impulsionada de forma continua." :
@@ -746,10 +746,10 @@ export default function ProviderPortalPanel() {
       locale === "it" ? "Prezzo non ancora configurato" :
       "Precio todavÃƒÂ­a no configurado",
     priceUnavailableHint:
-      locale === "en" ? "The admin still needs to configure this price for the destination country of your publication." :
-      locale === "pt" ? "O admin ainda precisa configurar este preço para o país de destino da sua publicação." :
-      locale === "it" ? "L'admin deve ancora configurare questo prezzo per il paese di destinazione della tua pubblicazione." :
-      "El admin todavía tiene que configurar este precio para el país de destino de tu publicación.",
+      locale === "en" ? "The admin still needs to configure this price for your passport country." :
+      locale === "pt" ? "O admin ainda precisa configurar este preÃ§o para o paÃ­s do seu passaporte." :
+      locale === "it" ? "L'admin deve ancora configurare questo prezzo per il paese del tuo passaporto." :
+      "El admin todavÃ­a tiene que configurar este precio para el paÃ­s de tu pasaporte.",
   }), [locale]);
 
   const mfaCopy = useMemo(() => ({
@@ -1184,7 +1184,9 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
 
   useEffect(() => {
     const country = String(
+      dashboard?.submissions.find((item) => ["aprobado", "approved", "active", "activo", "paid"].includes(String(item.status ?? "").trim().toLowerCase()) && String((item.destinationCountry || item.country) ?? "").trim())?.destinationCountry ??
       dashboard?.submissions.find((item) => ["aprobado", "approved", "active", "activo", "paid"].includes(String(item.status ?? "").trim().toLowerCase()) && String(item.country ?? "").trim())?.country ??
+      dashboard?.submissions.find((item) => String((item.destinationCountry || item.country) ?? "").trim())?.destinationCountry ??
       dashboard?.submissions.find((item) => String(item.country ?? "").trim())?.country ??
       selectedCountry ??
       "",
@@ -2016,8 +2018,34 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
             </div>
           ) : null}
           {portalStatus === "invalid" ? (
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              {copy.accessInvalid}
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                <span>⚠️</span>
+                <span>{copy.accessInvalid}</span>
+              </p>
+              <p className="mt-1.5 text-xs text-amber-800 leading-relaxed">
+                {locale === "en"
+                  ? "Magic links sent by email are single-use for security. If you already signed in before or your link expired, you can request a new access link with your email below."
+                  : locale === "pt"
+                    ? "Os links de acesso por e-mail são de uso único por segurança. Se você já entrou antes ou seu link expirou, pode pedir um novo link abaixo."
+                    : locale === "it"
+                      ? "I link di accesso inviati per email sono monouso per sicurezza. Se sei già entrato prima o il tuo link è scaduto, puoi chiederne uno nuovo qui sotto."
+                      : "Los enlaces de acceso por correo son de un solo uso por seguridad. Si ya ingresaste antes o tu enlace venció, podés solicitar uno nuevo ingresando tu correo a continuación."}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.querySelector<HTMLInputElement>('input[type="email"]');
+                  if (input) {
+                    input.focus();
+                    input.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#0B8FA3] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition-opacity"
+              >
+                <Mail className="h-4 w-4" />
+                <span>{locale === "en" ? "Request new access link" : locale === "pt" ? "Solicitar novo link de acesso" : locale === "it" ? "Richiedi nuovo link" : "Pedir nuevo enlace a mi correo"}</span>
+              </button>
             </div>
           ) : null}
           {panelError ? (
@@ -2510,6 +2538,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                   {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration, needsInfoSubmission, monthlyCancellationScheduled, downgradeScheduled, downgradeSubmission }) => {
                     const badge = planBadge(effectivePlanType);
                     const canOpenFromHistory = relatedSubmission ?? latestApprovedSubmission;
+                    const pubStatusRaw = String(publication.status ?? "").toLowerCase().trim();
+                    const isInactivePub = !["active", "approved"].includes(pubStatusRaw);
                     return (
                     <div key={publication.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex flex-wrap items-center gap-2">
@@ -2517,6 +2547,23 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                         <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(badge.kind)}`}>{badge.label}</span>
                         <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(publication.status?.toLowerCase() === "approved" ? "approved" : "default")}`}>{copy.status}: {publication.status || "-"}</span>
                       </div>
+                      {isInactivePub ? (
+                        <div className="mt-2.5 w-full rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+                          <p className="font-bold flex items-center gap-1.5 text-amber-950">
+                            <span>⚠️</span>
+                            <span>Publicación no disponible públicamente (Estado: {publication.status || "Pausado"})</span>
+                          </p>
+                          <p className="mt-1 leading-relaxed text-amber-900">
+                            {locale === "en"
+                              ? "This publication is currently paused or inactive. You can view it as preview, but it is not publicly visible to users nor available to share."
+                              : locale === "pt"
+                                ? "Esta publicação está pausada ou inativa no momento. Você pode visualizá-la no modo de pré-visualização, mas não está visível para o público nem disponível para compartir."
+                                : locale === "it"
+                                  ? "Questa pubblicazione è attualmente in pausa o inattiva. Puoi vederla in modalità anteprima, ma non è visibile al pubblico né disponibile per la condivisione."
+                                  : "Esta publicación se encuentra en estado pausado o inactivo por administración o vencimiento. Puedes verla como oferente, pero no está disponible públicamente en las búsquedas ni se puede compartir."}
+                          </p>
+                        </div>
+                      ) : null}
                       <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
                         <div><span className="font-medium text-slate-800">{copy.destination}:</span> {[publication.city, publication.country].filter(Boolean).join(", ") || "-"}</div>
                         <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(publication.createdAt, locale)}</div>

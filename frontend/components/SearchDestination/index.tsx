@@ -145,7 +145,7 @@ export default function SearchDestination() {
 
         const categoryItems: CategoryLite[] = Array.isArray(categoriesData?.items) ? categoriesData.items : [];
         const visibleCategories = categoryItems.filter(
-          (category) => category.isPublicVisible !== false && category.blockId && (category.visibleInCard ?? category.isPrimaryCategory) === true
+          (category) => category.isPublicVisible !== false && category.blockId && category.isPrimaryCategory === true
         );
 
         let blocks = orderedGroups
@@ -214,7 +214,7 @@ export default function SearchDestination() {
 
   const handleSearch = () => {
     const hasCategoryFilter = Boolean(selectedCategory && selectedCategory !== ALL_CATEGORIES_VALUE);
-    const hasAllCategoriesSelection = selectedCategory === ALL_CATEGORIES_VALUE || (!hasCategoryFilter && !destinationCountry.trim());
+    const hasAllCategoriesSelection = selectedCategory === ALL_CATEGORIES_VALUE;
     const hasDestinationFilter = Boolean(destinationCountry.trim());
     if (hasDestinationFilter) {
       fetch("/api/destination-searches", {
