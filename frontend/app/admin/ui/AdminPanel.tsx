@@ -753,18 +753,46 @@ function receivingModeLabel(mode: unknown): string {
   return "Recibe viajeros de todos los países";
 }
 
-function normalizeProviderPlanLabel(value: unknown): string {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  if (normalized === "featured_monthly" || normalized === "monthly") return "Plan mensual";
-  if (normalized === "featured_120d" || normalized === "featured") return "Destacado 120 días";
+function normalizeProviderPlanLabel(value: unknown, extra?: any): string {
+  const raw = String(value ?? "").trim();
+  const lower = raw.toLowerCase();
+
+  const duration = Number(
+    extra?.planDurationDays ??
+      extra?.promoMeta?.durationDays ??
+      extra?.durationDays ??
+      0,
+  );
+
+  const matchDays = raw.match(/(\d+)\s*(días|dias|d)/i);
+  if (matchDays && matchDays[1]) {
+    const d = Number(matchDays[1]);
+    if (d > 0) {
+      if (lower.includes("mensual") || lower.includes("monthly")) return "Plan mensual";
+      if (lower.includes("gratis") || lower.includes("free")) return `Gratis ${d} días`;
+      return `Destacado ${d} días`;
+    }
+  }
+
+  if (lower === "featured_monthly" || lower === "monthly" || lower === "plan mensual") return "Plan mensual";
+
+  if (lower.includes("featured") || lower.includes("destacado") || lower.includes("120d")) {
+    if (duration > 0) return `Destacado ${duration} días`;
+    return "Destacado 120 días";
+  }
+
+  if (duration > 0) return `Gratis ${duration} días`;
+  if (raw && !lower.includes("featured_") && !lower.includes("basic_")) return raw;
   return "Gratis 60 días";
 }
 
 function linkedPublicationPlanLabel(publication: Publication): string {
   const fields = (publication.fields && typeof publication.fields === "object" ? publication.fields : {}) as Record<string, unknown>;
   const explicitPlan = fields.publicationPlan ?? fields.requestedPlan ?? fields.planType;
-  if (String(explicitPlan ?? "").trim()) return normalizeProviderPlanLabel(explicitPlan);
-  return publication.featured ? "Destacado 120 días" : "Gratis 60 días";
+  if (String(explicitPlan ?? "").trim()) return normalizeProviderPlanLabel(explicitPlan, fields);
+  const duration = Number(fields.planDurationDays ?? fields.durationDays ?? 0);
+  if (publication.featured) return duration > 0 ? `Destacado ${duration} días` : "Destacado 120 días";
+  return duration > 0 ? `Gratis ${duration} días` : "Gratis 60 días";
 }
 
 function paymentStatusLabel(value: unknown): string {
@@ -5084,8 +5112,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Teléfono:</b> {detailTravelService.phone || String(detailExtra?.phone ?? "-")}</div>
                   <div><b>Estado:</b> {detailVisibleStatus}</div>
                   <div><b>Tipo de solicitud:</b> {providerRequestKindDisplayLabel(detailExtra?.requestKind)}</div>
-                  <div><b>Plan solicitado:</b> {normalizeProviderPlanLabel(detailExtra?.requestedPlan ?? detailExtra?.planType)}</div>
-                  <div><b>Plan anterior:</b> {detailExtra?.previousPlan ? normalizeProviderPlanLabel(detailExtra?.previousPlan) : "-"}</div>
+                  <div><b>Plan solicitado:</b> {normalizeProviderPlanLabel(detailExtra?.requestedPlan ?? detailExtra?.planType, detailExtra)}</div>
+                  <div><b>Plan anterior:</b> {detailExtra?.previousPlan ? normalizeProviderPlanLabel(detailExtra?.previousPlan, detailExtra) : "-"}</div>
                   <div><b>{t("admin.request.reason")}:</b> {String(detailExtra?.statusReason ?? "-") || "-"}</div>
                   <div><b>Creada:</b> {detailTravelService.createdAt ? new Date(detailTravelService.createdAt).toLocaleString("es-AR") : "-"}</div>
                   <div><b>{t("admin.request.updatedAt")}:</b> {detailExtra?.statusUpdatedAt ? new Date(String(detailExtra.statusUpdatedAt)).toLocaleString("es-AR") : "-"}</div>
@@ -5310,7 +5338,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       className={`cursor-pointer rounded-xl border p-3 text-xs text-slate-700 outline-none transition hover:border-[#00A9C6]/70 hover:bg-cyan-50/40 focus:ring-2 focus:ring-[#00A9C6]/30 ${isSelectedHistory ? "border-[#00A9C6] bg-cyan-50 shadow-[0_0_0_3px_rgba(0,169,198,0.12)]" : "border-slate-200 bg-slate-50"}`}
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-white px-2 py-1 font-semibold">{normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan)}</span>
+                        <span className="rounded-full bg-white px-2 py-1 font-semibold">{normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan, extra)}</span>
                         <span className="rounded-full bg-white px-2 py-1">{providerRequestKindDisplayLabel(extra.requestKind)}</span>
                         <span className="rounded-full bg-white px-2 py-1">{currentStatus === "falta info" && extra.resubmittedAt ? t("providerPortal.status.resubmittedForReview") : currentStatus}</span>
                         <span className={`rounded-full px-2 py-1 ${paymentStatusClasses(payment?.status ?? extra.paymentStatus ?? "-")}`}>Pago: {paymentStatusLabel(payment?.status ?? extra.paymentStatus ?? "-")}</span>
@@ -5323,7 +5351,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <div className="mt-2 grid gap-2 md:grid-cols-2">
                         <div><b>ID solicitud:</b> {service.id}</div>
                         <div><b>Fecha:</b> {service.createdAt ? new Date(service.createdAt).toLocaleString("es-AR") : "-"}</div>
-                        <div><b>Plan anterior:</b> {extra.previousPlan ? normalizeProviderPlanLabel(extra.previousPlan) : "-"}</div>
+                        <div><b>Plan anterior:</b> {extra.previousPlan ? normalizeProviderPlanLabel(extra.previousPlan, extra) : "-"}</div>
                         <div><b>Referencia de pago:</b> {payment?.externalReference || "-"}</div>
                         <div><b>{t("admin.request.reason")}:</b> {String(extra.statusReason ?? "-") || "-"}</div>
                         <div><b>{t("admin.request.updatedAt")}:</b> {extra.statusUpdatedAt ? new Date(String(extra.statusUpdatedAt)).toLocaleString("es-AR") : "-"}</div>
