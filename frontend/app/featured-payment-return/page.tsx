@@ -244,15 +244,20 @@ export default function FeaturedPaymentReturnPage() {
     router.replace(`/panel-oferente?${params.toString()}`);
   }, [hasNotifiedModal, resolvedResult, router, secondsLeft, serviceId]);
 
+  const isFree = searchParams.get("isFree") === "1";
   const title =
     resolvedResult === "success"
-      ? copy.successTitle
+      ? isFree
+        ? locale === "en" ? "Featured publication activated" : locale === "pt" ? "Publicação destacada ativada" : locale === "it" ? "Pubblicazione in evidenza attivata" : "Publicación destacada activada"
+        : copy.successTitle
       : resolvedResult === "cancel"
         ? copy.cancelTitle
         : copy.pendingTitle;
   const description =
     resolvedResult === "success"
-      ? copy.successDescription
+      ? isFree
+        ? locale === "en" ? "Your free featured publication benefit was activated successfully." : locale === "pt" ? "Seu benefício de publicação destacada gratuita foi ativado com sucesso." : locale === "it" ? "Il tuo beneficio di pubblicazione in evidenza gratuita è stato attivato con successo." : "Tu beneficio de publicación destacada gratuita fue activado con éxito."
+        : copy.successDescription
       : resolvedResult === "cancel"
         ? copy.cancelDescription
         : copy.pendingDescription;

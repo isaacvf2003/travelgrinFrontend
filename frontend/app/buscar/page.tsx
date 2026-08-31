@@ -272,9 +272,31 @@ function publicationPriority(item: Publication) {
   return 0;
 }
 
-function sortPublications(list: Publication[], sort?: string, priceCurrency?: string, prioritizeCurrency = false) {
+function sortPublications(list: Publication[], sort?: string, priceCurrency?: string, prioritizeCurrency = false, shouldShuffle = false) {
   const arr = [...list];
   const effectiveSort = sort === "featured" ? "relevance" : sort;
+
+  if (shouldShuffle && effectiveSort === "relevance") {
+    const seed = new Date().getDate();
+    let seedState = seed;
+    const random = () => {
+      const x = Math.sin(seedState++) * 10000;
+      return x - Math.floor(x);
+    };
+
+    const itemsWithScores = arr.map((item) => ({
+      item,
+      priority: publicationPriority(item),
+      score: random(),
+    }));
+
+    itemsWithScores.sort((a, b) => {
+      if (b.priority !== a.priority) return b.priority - a.priority;
+      return a.score - b.score;
+    });
+
+    return itemsWithScores.map((x) => x.item);
+  }
 
   // precio: menor a mayor
   if (effectiveSort === "priceAsc") {
@@ -382,16 +404,12 @@ export default async function BuscarPage({
   const hasPrestacionFilter = hasSelectedPrestacionFilter(sp, filterGroups);
   const normalPage = spGet(sp, "page") ?? "1";
   const prestacionesPage = spGet(sp, "prestacionesPage") ?? "1";
-  const emptyPublicationsPayload = { items: [], total: 0, page: 1, perPage: 15, totalPages: 1 };
-  const emptyPrestacionesPayload = { items: [], total: 0, page: 1, perPage: 10, totalPages: 1 };
-  const [publicationsPayload, prestacionesPayload] = shouldActivateResults
-    ? hasPrestacionFilter
-      ? [await loadPublications(sp, { page: normalPage, perPage: "15", prestacionesPage: undefined }), null]
-      : await Promise.all([
-          loadPublications(sp, { page: normalPage, perPage: "15", excludePrimaryGroupKey: "prestacion", prestacionesPage: undefined }),
-          loadPublications(sp, { page: prestacionesPage, perPage: "10", primaryGroupKey: "prestacion", prestacionesPage: undefined }),
-        ])
-    : [emptyPublicationsPayload, hasPrestacionFilter ? null : emptyPrestacionesPayload];
+  const [publicationsPayload, prestacionesPayload] = hasPrestacionFilter
+    ? [await loadPublications(sp, { page: normalPage, perPage: "15", prestacionesPage: undefined }), null]
+    : await Promise.all([
+        loadPublications(sp, { page: normalPage, perPage: "15", excludePrimaryGroupKey: "prestacion", prestacionesPage: undefined }),
+        loadPublications(sp, { page: prestacionesPage, perPage: "10", primaryGroupKey: "prestacion", prestacionesPage: undefined }),
+      ]);
   const visibleBlockIds = new Set(filterGroups.map((group) => group.id));
   const publicCategories = categories.filter(
     (category) => category.isPublicVisible !== false && (!category.blockId || visibleBlockIds.has(category.blockId))
@@ -405,9 +423,10 @@ export default async function BuscarPage({
   const hasActivePriceFilter = Boolean(
     spGet(sp, "pricePreset") || spGet(sp, "priceMin") || spGet(sp, "priceMax")
   );
-  const sortedItems = sortPublications(items, sort, priceCurrency, hasActivePriceFilter);
+  const shouldShuffle = !hasDestinationSelected && !hasUsefulSearchFilters;
+  const sortedItems = sortPublications(items, sort, priceCurrency, hasActivePriceFilter, shouldShuffle);
   const visibleSortedItems = filterItemsByAllSelectedCategories(sortedItems, categoryId, publicCategories);
-  const prestacionesItems = prestacionesPayload ? sortPublications(prestacionesPayload.items, sort, priceCurrency, hasActivePriceFilter) : [];
+  const prestacionesItems = prestacionesPayload ? sortPublications(prestacionesPayload.items, sort, priceCurrency, hasActivePriceFilter, shouldShuffle) : [];
   const visiblePrestacionesItems = filterItemsByAllSelectedCategories(prestacionesItems, categoryId, publicCategories);
   const visibleTotal = categoryId && splitCsvValue(categoryId).length > 1 ? visibleSortedItems.length : total;
   const visibleTotalPages = categoryId && splitCsvValue(categoryId).length > 1

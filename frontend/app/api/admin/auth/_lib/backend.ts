@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export function getBackendApiUrl() {
   const raw = process.env.BACKEND_API_URL || process.env.NEXT_API_PROXY_TARGET || process.env.NEXT_PUBLIC_API_URL;
-  return raw?.trim().replace(/\/$/, "") || "";
+  return raw?.trim().replace(/\/$/, "") || "https://backend-eight-eta-16.vercel.app";
 }
 
 export function missingBackendResponse() {

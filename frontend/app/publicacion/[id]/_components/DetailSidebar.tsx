@@ -106,17 +106,26 @@ export default function DetailSidebar({
             <button className="rounded-full p-2 hover:bg-gray-50" aria-label="Favorito" onClick={() => trackPublicationMetric(publicationId, "favorite")}>
               <Heart className="h-5 w-5" />
             </button>
-            <button className="rounded-full p-2 hover:bg-gray-50" aria-label="Compartir" onClick={async () => {
-              trackPublicationMetric(publicationId, "share");
-              const shareUrl = typeof window !== "undefined" ? window.location.href : "";
-              try {
-                if (navigator?.share) await navigator.share({ title: publisherName || t("nombre_oferente"), url: shareUrl });
-                else if (shareUrl && navigator?.clipboard) await navigator.clipboard.writeText(shareUrl);
-                else if (shareUrl) window.prompt("Copiá el link:", shareUrl);
-              } catch {
-                // no-op
-              }
-            }}>
+            <button
+              className={`rounded-full p-2 hover:bg-gray-50 ${isInactive ? "opacity-50 cursor-not-allowed" : ""}`}
+              aria-label="Compartir"
+              title={isInactive ? "Publicación pausada o cancelada (no compartible)" : "Compartir"}
+              onClick={async () => {
+                if (isInactive) {
+                  window.alert("Esta publicación se encuentra pausada o cancelada y no puede compartirse mientras no esté activa.");
+                  return;
+                }
+                trackPublicationMetric(publicationId, "share");
+                const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+                try {
+                  if (navigator?.share) await navigator.share({ title: publisherName || t("nombre_oferente"), url: shareUrl });
+                  else if (shareUrl && navigator?.clipboard) await navigator.clipboard.writeText(shareUrl);
+                  else if (shareUrl) window.prompt("Copiá el link:", shareUrl);
+                } catch {
+                  // no-op
+                }
+              }}
+            >
               <Share2 className="h-5 w-5" />
             </button>
           </div>

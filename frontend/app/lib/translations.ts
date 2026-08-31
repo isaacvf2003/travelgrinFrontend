@@ -270,7 +270,7 @@ export const translations = {
         // navigation
         inicio: "Inicio",
         categorias: "Categorías",
-        sobre_travelgrin: "Sobre Travelgrin",
+        sobre_travelgrin: "¿Quiénes somos?",
         registra_ong: "Registrá tu ONG, negocio o profesión",
         como_funciona_publicar: "¿Cómo funciona publicar en Travelgrin?",
         querer_conectar_viajar: "Querer + Conectar + Viajar",
@@ -719,7 +719,7 @@ export const translations = {
         // navigation
         inicio: "Home",
         categorias: "Categories",
-        sobre_travelgrin: "About Travelgrin",
+        sobre_travelgrin: "Who are we?",
         registra_ong: "Register your NGO, business, or profession",
         como_funciona_publicar: "How does posting on Travelgrin work?",
         querer_conectar_viajar: "Want + Connect + Travel",
@@ -1174,7 +1174,7 @@ export const translations = {
         registra_ong: "Registre sua ONG, negócio ou profissão",
         como_funciona_publicar: "Como funciona publicar na Travelgrin?",
 
-        sobre_travelgrin: "Sobre a Travelgrin",
+        sobre_travelgrin: "Quem somos?",
         querer_conectar_viajar: "Querer + Conectar + Viajar",
         sentirse_ciudadano_del_mundo: "Sinta-se cidadão do mundo!",
         ingresa_tu_correo: "Digite seu e-mail",
@@ -1625,7 +1625,7 @@ export const translations = {
         registra_ong: "Registrati la tua ONG, attività o professione",
         como_funciona_publicar: "Come funziona pubblicare su Travelgrin?",
 
-        sobre_travelgrin: "Su Travelgrin",
+        sobre_travelgrin: "Chi siamo?",
         querer_conectar_viajar: "Volere + Connettere + Viaggiare",
         sentirse_ciudadano_del_mundo: "Sentirsi cittadino del mondo!",
         ingresa_tu_correo: "Inserisci la tua e-mail",

@@ -91,8 +91,9 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
 
       setSuccess("Acceso verificado. Entrando al panel...");
       window.location.assign(destination);
-    } catch (err) {
-      setError("No se pudo iniciar sesion. Intenta nuevamente.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "No se pudo iniciar sesion. Intenta nuevamente.";
+      setError(msg);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);

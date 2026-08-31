@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, Trash2, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
@@ -109,12 +109,12 @@ type PromoCodeItem = {
   id: string;
   code: string;
   discountPercent: number;
-  customDurationDays?: number | null;
-  customPrice?: number | null;
   expiresAt: string | null;
   maxUses: number | null;
   usedCount: number;
   scope?: "all" | "partners";
+  durationDays?: number | null;
+  customPrice?: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -897,7 +897,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   if (!res.ok || data?.ok === false) {
     if (res.status === 401 && typeof window !== "undefined") {
       const next = `${window.location.pathname}${window.location.search}`;
-      window.location.href = `/admin/login?next=${encodeURIComponent(next)}`;
+      window.location.href = `/tgn-panel-control/login?next=${encodeURIComponent(next)}`;
     }
     throw new Error(data?.error || data?.message || `Error ${res.status}`);
   }
@@ -1285,6 +1285,7 @@ function AdminEditorSection({
 export default function AdminPanel({ section, publicationsView = "overview" }: AdminPanelProps) {
   const { locale, t } = useTranslation();
   const router = useRouter();
+  const basePath = "/tgn-panel-control";
   const adminRootRef = useRef<HTMLDivElement | null>(null);
   const isNewPublicationPage = publicationsView === "new";
   const [loading, setLoading] = useState(true);
@@ -1347,6 +1348,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [priceRuleSubscriptionManualUrlDraft, setPriceRuleSubscriptionManualUrlDraft] = useState("");
   const [priceRuleShowUrlConfigDraft, setPriceRuleShowUrlConfigDraft] = useState(false);
   const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
+  const [confirmDeleteModal, setConfirmDeleteModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => Promise<void> | void;
+    isLoading?: boolean;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    isLoading: false,
+  });
   const [expandedPanelBlocks, setExpandedPanelBlocks] = useState<Record<string, boolean>>({});
   const [destinationCountrySearch, setDestinationCountrySearch] = useState("");
   const [originCountrySearch, setOriginCountrySearch] = useState("");
@@ -1660,34 +1674,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const normalizedDate = String(pExpirationDate ?? "").trim();
     if (!normalizedDate) return null;
 
-    let year: number, month: number, day: number;
-    if (normalizedDate.includes("-")) {
-      const parts = normalizedDate.split("-");
-      if (parts[0].length === 4) {
-        [year, month, day] = parts.map(Number);
-      } else {
-        [day, month, year] = parts.map(Number);
-      }
-    } else if (normalizedDate.includes("/")) {
-      const parts = normalizedDate.split("/");
-      if (parts[0].length === 4) {
-        [year, month, day] = parts.map(Number);
-      } else {
-        [day, month, year] = parts.map(Number);
-      }
-    } else {
-      const d = new Date(normalizedDate);
-      if (!Number.isNaN(d.getTime()) && d.getFullYear() >= 1970 && d.getFullYear() <= 2100) {
-        return d.toISOString();
-      }
-      return null;
-    }
-
+    const [yearText, monthText, dayText] = normalizedDate.split("-");
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
     if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
-    if (year < 1970 || year > 2100) return null;
 
     const normalizedTime = String(pExpirationTime ?? "").trim();
-    const [hourText = "0", minuteText = "0"] = normalizedTime ? normalizedTime.split(":") : [];
+    const [hourText = "23", minuteText = "59"] = normalizedTime ? normalizedTime.split(":") : [];
     const hour = Number(hourText);
     const minute = Number(minuteText);
     if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
@@ -1780,16 +1774,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         setLoading(false);
       }
     })();
-
-    const interval = setInterval(async () => {
-      try {
-        await refresh();
-      } catch (error) {
-        console.error("Error en auto-refresco del panel admin", error);
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -2336,9 +2320,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   async function deleteCategory(id: string) {
-    if (!window.confirm("¿Seguro que querés eliminar esta categoría?")) return;
-    await api(`/api/admin/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
-    await refresh();
+    const category = categories.find((item) => item.id === id);
+    const name = category?.description ? `"${category.description}"` : "esta categoría";
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: "Eliminar categoría",
+      message: `¿Seguro que querés eliminar la categoría ${name}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        await api(`/api/admin/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
+        await refresh();
+      },
+    });
   }
 
   const openCreateCategoryModal = (parentId = "", blockId = "") => {
@@ -2482,9 +2474,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       window.alert("El bloque Precio es obligatorio y no se puede eliminar.");
       return;
     }
-    if (!window.confirm("¿Seguro que querés eliminar este bloque?")) return;
-    await api(`/api/admin/filters?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    await refresh();
+    const name = block?.label ? `"${block.label}"` : "este bloque";
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: "Eliminar bloque",
+      message: `¿Seguro que querés eliminar el bloque ${name}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        await api(`/api/admin/filters?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+        await refresh();
+      },
+    });
   }
 
   const getFoDraft = (groupId: string) => foDrafts[groupId] ?? defaultFilterOptionDraft;
@@ -2549,8 +2548,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   async function deleteFilterOption(id: string) {
-    await api(`/api/admin/filter-options?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    await refresh();
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: "Eliminar opción de filtro",
+      message: "¿Seguro que querés eliminar esta opción de filtro? Esta acción no se puede deshacer.",
+      onConfirm: async () => {
+        await api(`/api/admin/filter-options?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+        await refresh();
+      },
+    });
   }
 
   function toggleFilterOption(optionId: string, checked: boolean) {
@@ -2942,7 +2948,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setPublicationTab("publicaciones");
       setPublicationSearch("");
       if (isNewPublicationPage) {
-        router.push("/admin?section=publicaciones");
+        router.push(`${basePath}?section=publicaciones`);
       } else {
         setShowPublicationEditor(false);
         window.setTimeout(() => publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
@@ -2959,9 +2965,40 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   async function deletePublication(id: string) {
     const publication = publications.find((item) => item.id === id);
     const label = publication?.primaryGroupKey === "prestacion" ? "prestación" : "publicación";
-    if (!window.confirm(`¿Seguro que querés eliminar esta ${label}? Esta acción no se puede deshacer.`)) return;
-    await api(`/api/admin/publications?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    await refresh();
+    const title = publication?.title ? `"${publication.title}"` : `esta ${label}`;
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: `Eliminar ${label}`,
+      message: `¿Seguro que querés eliminar la ${label} ${title}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        await api(`/api/admin/publications?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+        await refresh();
+      },
+    });
+  }
+
+  async function deleteTravelService(id: string) {
+    const service = travelServices.find((item) => item.id === id);
+    const serviceExtra = parseTravelServiceExtra(service ?? ({} as any));
+    const rootEmailKey = providerRootEmail(service ?? ({} as any)) || `service:${id}`;
+    const nameByEmail = firstOferenteDisplayNameByEmail.get(rootEmailKey);
+    const fallbackName = providerDisplayName(service ?? ({} as any));
+    const name = nameByEmail || service?.email || fallbackName || "solicitud";
+    const kind = providerRequestKindDisplayLabel(serviceExtra.requestKind) || "solicitud";
+
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: `Eliminar ${kind.toLowerCase()}`,
+      message: `¿Seguro que querés eliminar la ${kind.toLowerCase()} de "${name}"? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        await api(`/api/travel-services?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+        if (detailTravelService?.id === id) {
+          setDetailTravelService(null);
+          setDetailImageExpanded(null);
+        }
+        await refresh();
+      },
+    });
   }
 
   async function updatePublicationStatus(id: string, status: "active" | "rejected" | "needs_info") {
@@ -4740,17 +4777,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     await refresh();
   };
 
-  const deleteTravelService = async (id: string) => {
-    await api<{ ok: boolean }>(`/api/travel-services?id=${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-    if (detailTravelService?.id === id) {
-      setDetailTravelService(null);
-      setDetailImageExpanded(null);
-    }
-    await refresh();
-  };
-
   const applyOferenteToPublication = (serviceId: string) => {
     const selected = approvedOferentes.find((item) => item.id === serviceId);
     if (!selected) return;
@@ -4849,8 +4875,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPTitleI18n({ es: titleVal });
     const selectedPlanRaw = String(extra.requestedPlan ?? extra.publicationPlan ?? selected.publicationPlan ?? "").trim().toLowerCase();
     const isSelectedPaidPlan = ["featured", "featured_120d", "monthly", "featured_monthly"].includes(selectedPlanRaw);
-    setPFeatured(isSelectedPaidPlan);
-    setPPartner(Boolean(selected.isIntermediario || extra.isIntermediario || extra.isIntermediario === "true" || extra.isIntermediario === true));
+    const isPartnerPromo = extra.promoMeta && typeof extra.promoMeta === "object" && (extra.promoMeta as any).scope === "partners";
+    setPFeatured(isSelectedPaidPlan || isPartnerPromo);
+    setPPartner(Boolean(selected.isIntermediario || extra.isIntermediario || extra.isIntermediario === "true" || extra.isIntermediario === true || isPartnerPromo));
     setPProviderLogo(providerLogo);
     setPFieldsBase((prev) => ({
       ...prev,
@@ -5239,10 +5266,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               ) : <div className="mt-2 text-xs text-slate-500">Este oferente todavía no tiene publicaciones vinculadas.</div>}
             </div>
             <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white p-3">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="text-sm font-semibold text-slate-900">Historial de solicitudes del oferente</div>
                 <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">{detailRelatedServices.length} solicitud(es)</span>
               </div>
+              {detailRelatedServices.length > 1 ? (
+                <div className="mb-3 rounded-xl border border-sky-200 bg-sky-50/80 p-2.5 text-xs text-sky-900 flex items-start gap-2">
+                  <span className="text-base leading-none">📌</span>
+                  <div>
+                    <span className="font-bold">Múltiples solicitudes ({detailRelatedServices.length}):</span>{" "}
+                    Este oferente posee varias publicaciones. Haz clic en cualquiera de las tarjetas del historial a continuación para seleccionar e inspeccionar su información detallada.
+                  </div>
+                </div>
+              ) : null}
               <div className="mt-3 space-y-2">
                 {detailRelatedServices.map((service) => {
                   const extra = parseTravelServiceExtra(service);
@@ -5257,6 +5293,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   const canHandleRefund = ["refund_requested", "refund_reviewing"].includes(refundStatus)
                     && paymentConfirmedForRefund(payment?.status ?? extra.paymentStatus ?? "");
                   const isSelectedHistory = service.id === detailTravelService.id;
+                  const pubTitle = String(extra.publicationTitle ?? "").trim() || "Sin título propuesto";
+
                   return (
                     <div
                       key={`history-${service.id}`}
@@ -5277,6 +5315,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <span className="rounded-full bg-white px-2 py-1">{currentStatus === "falta info" && extra.resubmittedAt ? t("providerPortal.status.resubmittedForReview") : currentStatus}</span>
                         <span className={`rounded-full px-2 py-1 ${paymentStatusClasses(payment?.status ?? extra.paymentStatus ?? "-")}`}>Pago: {paymentStatusLabel(payment?.status ?? extra.paymentStatus ?? "-")}</span>
                         {refundStatus ? <span className="rounded-full bg-white px-2 py-1">{refundStatusLabel(refundStatus)}</span> : null}
+                      </div>
+                      <div className="mt-2 rounded-lg border border-slate-200/90 bg-white p-2 text-xs font-semibold text-slate-900">
+                        <span className="text-[#007D94] mr-1">📌 Publicación propuesta:</span>
+                        <span>"{pubTitle}"</span>
                       </div>
                       <div className="mt-2 grid gap-2 md:grid-cols-2">
                         <div><b>ID solicitud:</b> {service.id}</div>
@@ -5306,9 +5348,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         ) : null}
                         {canReviewUpdatedSubmission ? (
                           <>
-                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "aprobado"); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Aprobado</button>
-                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "rechazado"); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Rechazado</button>
-                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "falta info"); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Falta info</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "aprobado"); }} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-800 hover:bg-emerald-100">Aprobar esta solicitud</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "rechazado"); }} className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 font-semibold text-rose-800 hover:bg-rose-100">Rechazar</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "falta info"); }} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 font-semibold text-amber-800 hover:bg-amber-100">Falta info</button>
                           </>
                         ) : null}
                         {canHandleRefund ? (
@@ -5351,7 +5393,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         </div>
         <div className="space-y-3">
           {detailPaymentItems.map((item) => {
-            const linkedService = detailPaymentServices.find((service) => service.id === item.serviceId);
+            const linkedService =
+              detailPaymentServices.find((service) => service.id === item.serviceId) ||
+              travelServices.find((service) => service.id === item.serviceId || String(service.id) === String(item.serviceId)) ||
+              (item.serviceId ? ({
+                id: item.serviceId,
+                email: item.payerEmail || detailPaymentEmail || "-",
+                taxonomyType: "oferente",
+                createdAt: item.createdAt,
+                status: "pendiente_pago",
+                whatSearching: JSON.stringify({
+                  name: item.payerEmail ? item.payerEmail.split("@")[0] : "Solicitante",
+                  email: item.payerEmail || detailPaymentEmail || "-",
+                  requestedPlan: item.planType,
+                  paymentStatus: item.status,
+                  serviceId: item.serviceId,
+                  externalReference: item.externalReference,
+                }),
+              } as unknown as TravelService) : null);
+
             const linkedExtra = linkedService ? parseTravelServiceExtra(linkedService) : {};
             const canReviewUpdatedSubmission = linkedService ? isReviewableTravelService(linkedService, linkedExtra) : false;
             const refundData = parseRefundSnapshot({
@@ -5362,6 +5422,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             const canHandleRefund = Boolean(linkedService)
               && ["refund_requested", "refund_reviewing"].includes(refundStatus)
               && paymentConfirmedForRefund(item.status);
+
+            const getDlocalGoHumanExplanation = (status?: string | null, returnStatus?: string | null) => {
+              const s = String(status ?? "").trim().toLowerCase();
+              const r = String(returnStatus ?? "").trim().toLowerCase();
+              if (s === "paid") return "✅ Pago acreditado exitosamente por dLocal Go.";
+              if (s === "processing") return "🔄 Pago en proceso de verificación por dLocal Go / red bancaria.";
+              if (s === "cancelled" || r.includes("cancel")) return "❌ Checkout cancelado por el usuario antes de completar la transacción en dLocal Go.";
+              if (s === "failed" || r.includes("fail") || r.includes("reject")) return "⛔ Transacción rechazada por dLocal Go o entidad bancaria.";
+              return "⏳ Intento registrado. El usuario inició la transacción pero aún no completó los datos de cobro en dLocal Go.";
+            };
+
             return (
               <div key={`detail-payment-${item.id}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                 <div className="flex flex-wrap items-center gap-2">
@@ -5375,12 +5446,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Fecha:</b> {item.createdAt ? new Date(item.createdAt).toLocaleString("es-AR") : "-"}</div>
                   <div><b>Referencia:</b> {item.externalReference || "-"}</div>
                   <div><b>Pago dLocal:</b> {item.providerPaymentId || "-"}</div>
-                  <div><b>CupÃ³n:</b> {String(item.promoCode ?? linkedExtra.promoCode ?? "").trim() || "-"}</div>
+                  <div><b>Cupón:</b> {String(item.promoCode ?? linkedExtra.promoCode ?? "").trim() || "-"}</div>
                   <div><b>Pagado:</b> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
                   <div><b>Retorno:</b> {item.returnStatus || "-"}</div>
                   {refundStatus ? <div><b>Reembolso:</b> {refundStatusLabel(refundStatus)}</div> : null}
                   {refundStatus ? <div><b>Refund ref:</b> {String(refundData.refundProviderReference ?? "-") || "-"}</div> : null}
                   <div><b>Tipo de solicitud:</b> {providerRequestKindDisplayLabel(linkedExtra.requestKind)}</div>
+                </div>
+
+                <div className="mt-2.5 rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-700">
+                  <b>Informe dLocal Go:</b> {getDlocalGoHumanExplanation(item.status, item.returnStatus)}
                 </div>
                 {refundStatus ? (
                   <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
@@ -5544,39 +5619,46 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRuleMessage("");
   };
 
-  const deletePriceRule = async (id: string) => {
-    setPriceRuleSaving(true);
-    setPriceRuleMessage("");
-    try {
-      const item = featuredPlanPrices.find((entry) => entry.id === id) ?? null;
-      if (item?.planType === "featured_monthly") {
-        const linkedPlan = findSubscriptionPlanForPriceRule(id);
-        if (linkedPlan?.id) {
-          const response = await api<{ ok: true; items: DlocalSubscriptionPlanItem[]; priceItems: FeaturedPlanPriceItem[] }>(
-            `/api/admin/dlocal-subscription-plans?id=${encodeURIComponent(linkedPlan.id)}`,
-            { method: "DELETE" },
-          );
-          setDlocalSubscriptionPlans(Array.isArray(response.items) ? response.items : []);
-          setFeaturedPlanPrices(Array.isArray(response.priceItems) ? response.priceItems : []);
-        } else {
-          const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
-            method: "DELETE",
-          });
-          setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+  const deletePriceRule = (id: string) => {
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: "Eliminar precio",
+      message: "¿Seguro que querés eliminar este precio configurado? Esta acción no se puede deshacer.",
+      onConfirm: async () => {
+        setPriceRuleSaving(true);
+        setPriceRuleMessage("");
+        try {
+          const item = featuredPlanPrices.find((entry) => entry.id === id) ?? null;
+          if (item?.planType === "featured_monthly") {
+            const linkedPlan = findSubscriptionPlanForPriceRule(id);
+            if (linkedPlan?.id) {
+              const response = await api<{ ok: true; items: DlocalSubscriptionPlanItem[]; priceItems: FeaturedPlanPriceItem[] }>(
+                `/api/admin/dlocal-subscription-plans?id=${encodeURIComponent(linkedPlan.id)}`,
+                { method: "DELETE" },
+              );
+              setDlocalSubscriptionPlans(Array.isArray(response.items) ? response.items : []);
+              setFeaturedPlanPrices(Array.isArray(response.priceItems) ? response.priceItems : []);
+            } else {
+              const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
+                method: "DELETE",
+              });
+              setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+            }
+          } else {
+            const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
+              method: "DELETE",
+            });
+            setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+          }
+          if (priceRuleEditId === id) resetPriceRuleForm();
+          setPriceRuleMessage("Precio eliminado.");
+        } catch (error) {
+          setPriceRuleMessage(error instanceof Error ? error.message : "No se pudo eliminar el precio.");
+        } finally {
+          setPriceRuleSaving(false);
         }
-      } else {
-        const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
-          method: "DELETE",
-        });
-        setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
-      }
-      if (priceRuleEditId === id) resetPriceRuleForm();
-      setPriceRuleMessage("Precio eliminado.");
-    } catch (error) {
-      setPriceRuleMessage(error instanceof Error ? error.message : "No se pudo eliminar el precio.");
-    } finally {
-      setPriceRuleSaving(false);
-    }
+      },
+    });
   };
 
   const generateRandomPromoCode = () => {
@@ -5595,7 +5677,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         id: promoEditId ?? undefined,
         code: promoCodeDraft,
         discountPercent: Number(promoDiscountDraft || 0),
-        customDurationDays: promoDurationDaysDraft ? Number(promoDurationDaysDraft) : null,
+        durationDays: promoDurationDaysDraft ? Number(promoDurationDaysDraft) : null,
         customPrice: promoCustomPriceDraft !== "" ? Number(promoCustomPriceDraft) : null,
         expiresAt: normalizedExpiresAt,
         maxUses: promoMaxUsesDraft || null,
@@ -5620,8 +5702,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const editPromoCode = (item: PromoCodeItem) => {
     setPromoEditId(item.id);
     setPromoCodeDraft(item.code);
-    setPromoDiscountDraft(String(item.discountPercent ?? 0));
-    setPromoDurationDaysDraft(item.customDurationDays ? String(item.customDurationDays) : "");
+    setPromoDiscountDraft(String(item.discountPercent || 0));
+    setPromoDurationDaysDraft(item.durationDays ? String(item.durationDays) : "");
     setPromoCustomPriceDraft(item.customPrice !== null && item.customPrice !== undefined ? String(item.customPrice) : "");
     setPromoExpiresDraft(item.expiresAt ? new Date(item.expiresAt).toISOString().slice(0, 16) : "");
     setPromoMaxUsesDraft(item.maxUses === null ? "" : String(item.maxUses));
@@ -5630,22 +5712,74 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPromoMessage("");
   };
 
-  const deletePromoCode = async (id: string) => {
-    setPromoSaving(true);
-    setPromoMessage("");
-    try {
-      const response = await api<{ ok: true; items: PromoCodeItem[] }>(`/api/admin/promo-codes?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
-      setPromoCodes(Array.isArray(response.items) ? response.items : []);
-      if (promoEditId === id) resetPromoForm();
-      setPromoMessage("Código promocional eliminado.");
-    } catch (error) {
-      setPromoMessage(error instanceof Error ? error.message : "No se pudo eliminar el codigo.");
-    } finally {
-      setPromoSaving(false);
-    }
+  const deletePromoCode = (id: string) => {
+    const promo = promoCodes.find((item) => item.id === id);
+    const codeName = promo?.code ? `"${promo.code}"` : "este código promocional";
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: "Eliminar código promocional",
+      message: `¿Seguro que querés eliminar el código promocional ${codeName}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        setPromoSaving(true);
+        setPromoMessage("");
+        try {
+          const response = await api<{ ok: true; items: PromoCodeItem[] }>(`/api/admin/promo-codes?id=${encodeURIComponent(id)}`, {
+            method: "DELETE",
+          });
+          setPromoCodes(Array.isArray(response.items) ? response.items : []);
+          if (promoEditId === id) resetPromoForm();
+          setPromoMessage("Código promocional eliminado.");
+        } catch (error) {
+          setPromoMessage(error instanceof Error ? error.message : "No se pudo eliminar el codigo.");
+        } finally {
+          setPromoSaving(false);
+        }
+      },
+    });
   };
+
+  const confirmDeleteModalElement = confirmDeleteModal.isOpen ? (
+    <div className="fixed inset-0 z-[9999999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 text-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+          <Trash2 className="h-7 w-7" />
+        </div>
+        <div className="mt-4 text-center">
+          <h3 className="text-lg font-bold text-slate-900">{confirmDeleteModal.title || "Confirmar eliminación"}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            {confirmDeleteModal.message || "¿Seguro que querés eliminar este ítem? Esta acción no se puede deshacer."}
+          </p>
+        </div>
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            disabled={confirmDeleteModal.isLoading}
+            onClick={() => setConfirmDeleteModal((prev) => ({ ...prev, isOpen: false }))}
+            className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={confirmDeleteModal.isLoading}
+            onClick={async () => {
+              try {
+                setConfirmDeleteModal((prev) => ({ ...prev, isLoading: true }));
+                await confirmDeleteModal.onConfirm();
+              } catch (error) {
+                console.error("Error al eliminar", error);
+              } finally {
+                setConfirmDeleteModal({ isOpen: false, title: "", message: "", onConfirm: () => {}, isLoading: false });
+              }
+            }}
+            className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-rose-700 disabled:opacity-50"
+          >
+            {confirmDeleteModal.isLoading ? "Eliminando..." : "Eliminar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   const usersSectionCard = (
     <section className="space-y-6">
@@ -5690,8 +5824,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
           <div className="mb-3">
-          <p className="text-sm font-semibold text-slate-900">Precios de planes por país de destino</p>
-            <p className="text-xs text-slate-500">Configura los valores del destacado por país de destino de la publicación. Si no hay regla del país, se usa la regla por defecto.</p>
+          <p className="text-sm font-semibold text-slate-900">Precios de planes por pais</p>
+            <p className="text-xs text-slate-500">Configura los valores del destacado por país de destino. Si no hay regla del país, se usa la regla por defecto.</p>
           </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-8">
             <select value="featured_120d" onChange={() => setPriceRulePlanTypeDraft("featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
@@ -5901,18 +6035,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-900">Códigos promocionales</p>
-            <p className="text-xs text-slate-500">Se aplican al plan de publicación destacada.</p>
+            <p className="text-xs text-slate-500">Se aplican al plan mensual de publicación destacada.</p>
           </div>
           <button type="button" onClick={generateRandomPromoCode} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
             Generar aleatorio
           </button>
         </div>
-        <div className="grid gap-3 md:grid-cols-7">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <input value={promoCodeDraft} onChange={(event) => setPromoCodeDraft(event.target.value.toUpperCase())} placeholder="Código" className="h-10 rounded-xl border border-slate-200 px-3 text-sm md:col-span-1" />
-          <input value={promoDiscountDraft} onChange={(event) => setPromoDiscountDraft(event.target.value)} placeholder="% desc." className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
-          <input value={promoDurationDaysDraft} onChange={(event) => setPromoDurationDaysDraft(event.target.value.replace(/\D/g, ""))} placeholder="Días pub. (ej: 365)" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" title="Días de la publicación para este código" />
-          <input value={promoCustomPriceDraft} onChange={(event) => setPromoCustomPriceDraft(event.target.value)} placeholder="Precio fijo ($)" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" title="Precio fijo opcional para este código" />
-          <input type="datetime-local" value={promoExpiresDraft} onChange={(event) => setPromoExpiresDraft(event.target.value)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 md:col-span-1" title="Fecha de vencimiento del código" />
+          <input value={promoDiscountDraft} onChange={(event) => setPromoDiscountDraft(event.target.value)} placeholder="% descuento" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <input value={promoDurationDaysDraft} onChange={(event) => setPromoDurationDaysDraft(event.target.value)} placeholder="Días (ej: 365)" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <input value={promoCustomPriceDraft} onChange={(event) => setPromoCustomPriceDraft(event.target.value)} placeholder="Precio fijo ($)" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <input type="datetime-local" value={promoExpiresDraft} onChange={(event) => setPromoExpiresDraft(event.target.value)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700" title="Fecha de vencimiento" />
           <input value={promoMaxUsesDraft} onChange={(event) => setPromoMaxUsesDraft(event.target.value)} placeholder="Límite usos" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
           <select value={promoScopeDraft} onChange={(event) => setPromoScopeDraft(event.target.value === "partners" ? "partners" : "all")} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700">
             <option value="all">Todas las personas</option>
@@ -5937,18 +6071,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         <div className="mt-3 space-y-2">
           {promoCodes.length ? promoCodes.map((item) => {
             const remaining = item.maxUses === null ? "Ilimitado" : Math.max(item.maxUses - item.usedCount, 0).toString();
-            const durationLabel = item.customDurationDays ? `${item.customDurationDays} días` : "Días por defecto";
-            const priceLabel = item.customPrice !== null && item.customPrice !== undefined ? `$${item.customPrice} fijo` : `${item.discountPercent}% desc.`;
             return (
               <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.code}</span>
-                  <span className="rounded-full bg-cyan-50 px-2 py-1 font-semibold text-cyan-800">{priceLabel}</span>
-                  <span className="rounded-full bg-indigo-50 px-2 py-1 font-semibold text-indigo-800">{durationLabel}</span>
+                  <span>{item.customPrice !== null && item.customPrice !== undefined ? `Precio fijo: $${item.customPrice}` : `${item.discountPercent}% desc`}</span>
+                  {item.durationDays ? <span className="rounded-full bg-cyan-50 px-2 py-0.5 font-medium text-cyan-800">{item.durationDays} días</span> : null}
                   <span>Usos: {item.usedCount}{item.maxUses !== null ? `/${item.maxUses}` : ""}</span>
                   <span>Disponibles: {remaining}</span>
-                  <span>Vence código: {item.expiresAt ? new Date(item.expiresAt).toLocaleString("es-AR") : "Sin vencimiento"}</span>
-                  <span className={`rounded-full px-2 py-0.5 ${(item.scope ?? "all") === "partners" ? "bg-cyan-100 text-cyan-700 font-semibold" : "bg-white text-slate-600"}`}>
+                  <span>Vence: {item.expiresAt ? new Date(item.expiresAt).toLocaleString("es-AR") : "Sin vencimiento"}</span>
+                  <span className={`rounded-full px-2 py-0.5 ${(item.scope ?? "all") === "partners" ? "bg-cyan-100 text-cyan-700" : "bg-white text-slate-600"}`}>
                     {(item.scope ?? "all") === "partners" ? "Solo partners" : "Todas las personas"}
                   </span>
                   <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
@@ -6112,26 +6244,77 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <p className="mt-2 text-sm font-semibold text-slate-900">{firstOferenteDisplayNameByEmail.get(providerRootEmail(service) || `service:${service.id}`) ?? providerDisplayName(service)}</p>
                       <p className="mt-1 text-xs text-slate-500">{service.email}</p>
                       <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
-                      <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-200">
-                          Solicitud: {providerRequestKindDisplayLabel(serviceExtra.requestKind)}
-                        </span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700 ring-1 ring-slate-200">
-                          Plan solicitado: {normalizeProviderPlanLabel(serviceExtra.requestedPlan ?? serviceExtra.planType)}
-                        </span>
-                        {serviceExtra.previousPlan ? (
-                          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700 ring-1 ring-indigo-200">
-                            Plan anterior: {normalizeProviderPlanLabel(serviceExtra.previousPlan)}
-                          </span>
-                        ) : null}
-                      </div>
-                      {serviceExtra.sourceServiceId ? (
-                        <p className="mt-2 text-xs text-slate-600">
-                          <b>Origen:</b> {normalizeVisibleText(`solicitud/publicación ${String(serviceExtra.sourceServiceId)}`)}
-                        </p>
+                      {totalSubmissionsByEmail > 1 ? (
+                        <div className="mt-2.5 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-semibold">⚠️ Múltiples publicaciones ({totalSubmissionsByEmail}):</span>
+                            <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-[11px] font-bold text-amber-900 hover:bg-amber-100 shadow-sm">
+                              Ver todas en Detalle
+                            </button>
+                          </div>
+                          <p className="mt-1 text-[11px] text-amber-800 leading-relaxed">
+                            Este usuario cargó varias publicaciones. Revisa abajo el título de cada publicación antes de aprobar o rechazar.
+                          </p>
+                        </div>
                       ) : null}
+                      {(() => {
+                        const rootEmail = providerRootEmail(service) || String(service.email ?? "").toLowerCase();
+                        const allUserServices = travelServices.filter((s) => (providerRootEmail(s) || String(s.email ?? "").toLowerCase()) === rootEmail);
+                        if (!allUserServices.length) return null;
+                        return (
+                          <div className="mt-2.5 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs">
+                            <p className="font-bold text-slate-700 text-[11px] uppercase tracking-wide">
+                              Solicitudes cargadas ({allUserServices.length}):
+                            </p>
+                            {allUserServices.map((subService) => {
+                              const subExtra = parseTravelServiceExtra(subService);
+                              const subStatus = serviceEffectiveStatus(subService);
+                              const subTitle = String(subExtra.publicationTitle ?? "").trim() || "Sin título propuesto";
+                              const subPlan = normalizeProviderPlanLabel(subExtra.requestedPlan ?? subExtra.publicationPlan);
+                              const isCurrentActiveCard = subService.id === service.id;
+                              const isPending = isReviewableTravelService(subService, subExtra);
+                              return (
+                                <div key={`user-sub-${subService.id}`} className={`rounded-xl border p-2.5 transition ${isCurrentActiveCard ? "border-[#00A9C6] bg-white shadow-sm" : "border-slate-200 bg-white"}`}>
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="font-bold text-slate-900 text-xs">📌 "{subTitle}"</span>
+                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{subPlan}</span>
+                                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${subStatus === "aprobado" ? "bg-emerald-100 text-emerald-800" : subStatus === "rechazado" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>
+                                          {subStatus}
+                                        </span>
+                                      </div>
+                                      <div className="mt-1 text-[11px] text-slate-500">
+                                        ID: {subService.id.slice(0, 8)}... | Solicitud: {providerRequestKindDisplayLabel(subExtra.requestKind)} | Fecha: {subService.createdAt ? new Date(subService.createdAt).toLocaleDateString("es-AR") : "-"}
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1">
+                                      <button type="button" onClick={() => setDetailTravelService(subService)} className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
+                                        Inspeccionar
+                                      </button>
+                                      {isPending ? (
+                                        <>
+                                          <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "aprobado")} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100" title={`Aprobar "${subTitle}"`}>
+                                            Aprobar
+                                          </button>
+                                          <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "rechazado")} className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-800 hover:bg-rose-100" title={`Rechazar "${subTitle}"`}>
+                                            Rechazar
+                                          </button>
+                                          <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "falta info")} className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100" title={`Pedir info para "${subTitle}"`}>
+                                            Falta info
+                                          </button>
+                                        </>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                       <div className="mt-2 text-xs text-slate-600">
-                        <b>Tiene {linkedPublications.length} publicación(es)</b>
+                        <b>Tiene {linkedPublications.length} publicación(es) activa(s)</b>
                         {linkedPublications.length ? (
                           <div className="mt-1 space-y-1">
                             {linkedPublications.slice(0, 3).map((publication) => (
@@ -6188,7 +6371,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   );
 
   const openNewPublicationEditor = () => {
-    router.push("/admin/publicaciones/nueva");
+    router.push(`${basePath}/publicaciones/nueva`);
   };
 
   const publicationTypeLabel = (item: Publication) => (item.primaryGroupKey === "prestacion" ? "Prestación" : "Publicación");
@@ -6546,6 +6729,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       {selectedFeedback.createdAt ? new Date(selectedFeedback.createdAt).toLocaleString("es-AR") : "Sin fecha"}
                     </span>
                   </div>
+
+                  {selectedFeedback.publicationTitle && selectedFeedback.publicationTitle !== "Feedback general" && (
+                    <div className="border-b border-slate-100 pb-4">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Pantalla de origen</p>
+                      <p className="mt-1 break-all text-sm font-medium text-indigo-600">
+                        <a href={selectedFeedback.publicationTitle} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                          {selectedFeedback.publicationTitle}
+                        </a>
+                      </p>
+                    </div>
+                  )}
 
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Mensaje</p>
@@ -7507,7 +7701,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
-              <button type="button" onClick={() => (isNewPublicationPage ? router.push("/admin?section=publicaciones") : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
+              <button type="button" onClick={() => (isNewPublicationPage ? router.push(`${basePath}?section=publicaciones`) : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
             </div>
           <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
           {pEditorMode === "prestacion" ? (
@@ -8293,81 +8487,89 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-1">
+            <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="text-sm font-medium text-slate-700">Fecha y hora de expiración</label>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-slate-400 font-medium mr-1">Calcular:</span>
                   <button
                     type="button"
                     onClick={() => {
-                      const future = new Date();
-                      future.setDate(future.getDate() + 120);
-                      const y = future.getFullYear();
-                      const m = String(future.getMonth() + 1).padStart(2, "0");
-                      const d = String(future.getDate()).padStart(2, "0");
-                      setPExpirationDate(`${y}-${m}-${d}`);
-                      if (!pExpirationTime) setPExpirationTime("23:59");
+                      const d = new Date();
+                      d.setDate(d.getDate() + 60);
+                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                      setPExpirationTime("23:59");
                     }}
-                    className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
-                    title="Sumar 120 días desde hoy"
+                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
+                  >
+                    +60d
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 120);
+                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                      setPExpirationTime("23:59");
+                    }}
+                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
                   >
                     +120d
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      const future = new Date();
-                      future.setDate(future.getDate() + 365);
-                      const y = future.getFullYear();
-                      const m = String(future.getMonth() + 1).padStart(2, "0");
-                      const d = String(future.getDate()).padStart(2, "0");
-                      setPExpirationDate(`${y}-${m}-${d}`);
-                      if (!pExpirationTime) setPExpirationTime("23:59");
+                      const d = new Date();
+                      d.setDate(d.getDate() + 180);
+                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                      setPExpirationTime("23:59");
                     }}
-                    className="rounded-md bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-800 hover:bg-cyan-100"
-                    title="Sumar 365 días (1 año) desde hoy"
+                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
                   >
-                    +365d (1 año)
+                    +180d
                   </button>
-                  {pExpirationDate ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 365);
+                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                      setPExpirationTime("23:59");
+                    }}
+                    className="rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 font-semibold transition-colors border border-emerald-200"
+                  >
+                    +365d (Partner)
+                  </button>
+                  {(pExpirationDate || pExpirationTime) && (
                     <button
                       type="button"
-                      onClick={() => { setPExpirationDate(""); setPExpirationTime(""); }}
-                      className="rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-100"
+                      onClick={() => {
+                        setPExpirationDate("");
+                        setPExpirationTime("");
+                      }}
+                      className="rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 px-2 py-1 font-medium transition-colors"
                     >
                       Limpiar
                     </button>
-                  ) : null}
+                  )}
                 </div>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
                   type="date"
                   value={pExpirationDate}
-                  onChange={(e) => {
-                    let val = e.target.value.trim();
-                    if (val.includes("/")) {
-                      const parts = val.split("/");
-                      if (parts.length === 3) {
-                        if (parts[2].length === 4) val = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-                        else if (parts[0].length === 4) val = `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
-                      }
-                    }
-                    setPExpirationDate(val);
-                  }}
-                  className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  title="Toca para desplegar el calendario o ingresa los números"
+                  onChange={(e) => setPExpirationDate(e.target.value)}
+                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
                 />
                 <input
                   type="time"
                   value={pExpirationTime}
                   onChange={(e) => setPExpirationTime(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
                   step={60}
-                  title="Hora opcional (HH:MM)"
                 />
               </div>
-              <p className="text-xs text-slate-500">Toca el calendario para desplegar la fecha o usa los botones rápidos +120d / +365d.</p>
+              <p className="text-xs text-slate-500">Selecciona la fecha en el calendario. La hora es opcional (por defecto 23:59).</p>
             </div>
             <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
               <label className="text-sm font-medium text-slate-700">Página web</label>
@@ -9236,6 +9438,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         </details>
       </section>
       ) : null}
+      {confirmDeleteModalElement}
     </div>
   );
 }

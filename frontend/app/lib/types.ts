@@ -34,7 +34,6 @@ export type FilterGroup = {
   imageUrl?: string | null;
   taxonomyType?: string | null;
   isProfileBlock?: boolean | null;
-  // "multi" = checkboxes; "range" = min/max; "single" reserved
   type: "multi" | "range" | "single";
   order: number;
   isPublicVisible?: boolean | null;

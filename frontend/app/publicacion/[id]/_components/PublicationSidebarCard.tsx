@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { Share2 } from "lucide-react";
@@ -36,6 +36,7 @@ type PublicationSidebarCardProps = {
   displayCurrency?: string | null;
   priceOverrides?: PriceOverride[];
   imageUrl?: string | null;
+  isInactive?: boolean;
 };
 
 export default function PublicationSidebarCard({
@@ -43,6 +44,7 @@ export default function PublicationSidebarCard({
   publicationId,
   title,
   titleI18n,
+  isInactive = false,
   layout = "stack",
   featured,
   partner,
@@ -171,9 +173,14 @@ export default function PublicationSidebarCard({
               </button>
               <button
                 type="button"
-                className="rounded-full p-2 hover:bg-gray-50"
+                className={`rounded-full p-2 hover:bg-gray-50 ${isInactive ? "opacity-50 cursor-not-allowed" : ""}`}
                 aria-label="Compartir"
+                title={isInactive ? "Publicación pausada o cancelada (no compartible)" : "Compartir"}
                 onClick={() => {
+                  if (isInactive) {
+                    window.alert("Esta publicación se encuentra pausada o cancelada y no puede compartirse mientras no esté activa.");
+                    return;
+                  }
                   if (!publicationId) return;
                   trackPublicationMetric(publicationId, "share");
                   setShareMenuOpen(true);
