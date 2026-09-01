@@ -41,9 +41,15 @@ export interface ScrapedPublicationDraft {
   languages: string;
   website: string;
   socialLinksDetailed: SocialLinkDetail[];
-  images: string[];
   category: string;
   subcategory: string;
+  headquarterCountry?: string;
+  headquarterCity?: string;
+  categorySelections?: string[];
+  subcategorySelections?: string[];
+  providerActivities?: string[];
+  providerTypes?: string[];
+  providerModalities?: string[];
 }
 
 interface AiScraperModalProps {
