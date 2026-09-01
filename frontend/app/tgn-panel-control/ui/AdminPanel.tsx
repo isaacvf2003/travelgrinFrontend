@@ -8,6 +8,7 @@ import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
 import CountryMultiSelect from "@/components/CountryMultiSelect";
 import RichTextEditor from "@/components/RichTextEditor";
+import AiScraperModal, { type ScrapedPublicationDraft } from "@/components/admin/AiScraperModal";
 import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
@@ -1394,6 +1395,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [originCountrySearch, setOriginCountrySearch] = useState("");
   const [passportCountrySearch, setPassportCountrySearch] = useState("");
   const [showPublicationEditor, setShowPublicationEditor] = useState(isNewPublicationPage);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   useEffect(() => {
     const root = adminRootRef.current;
@@ -2990,6 +2992,84 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
   }
 
+  const applyAiDraftToForm = (draft: ScrapedPublicationDraft) => {
+    setPTitle(draft.title || "");
+    setPTitleI18n(draft.titleI18n || { es: draft.title || "" });
+    setPDescription(draft.description || "");
+    setPDescriptionI18n(draft.descriptionI18n || { es: draft.description || "" });
+    setPExtraDescriptions(draft.extraDescriptions || []);
+    setPPublisherName(draft.publisherName || "");
+    setPProviderInfoI18n(draft.providerInfoI18n || { es: "" });
+    setPProviderStartYear(draft.providerStartYear || "");
+    setPProviderRating(draft.providerRating || "");
+    setPProviderReviewCount(draft.providerReviewCount || "");
+    setPProviderCommentsUrl(draft.providerCommentsUrl || "");
+    setPProviderLogo(draft.providerLogo || "");
+    setPCountry(draft.country || "");
+    setPCity(draft.city || "");
+    setPLocationAddress(draft.locationAddress || "");
+    setPCurrency(draft.currency || "USD");
+    setPPrice(draft.price || "");
+    setPPricePeriod(draft.pricePeriod || "");
+    setPLanguages(draft.languages || "Español");
+    setPWebsite(draft.website || "");
+    setPSocialLinksDetailed(draft.socialLinksDetailed || []);
+    if (draft.images && draft.images.length) {
+      setPImageUrls(draft.images.join("\n"));
+    }
+    setShowPublicationEditor(true);
+  };
+
+  const handleApproveAiDraftDirectly = async (draft: ScrapedPublicationDraft): Promise<boolean> => {
+    try {
+      const payload = {
+        title: draft.title,
+        titleI18n: draft.titleI18n,
+        description: draft.description,
+        descriptionI18n: draft.descriptionI18n,
+        publisherName: draft.publisherName || null,
+        status: "active",
+        featured: false,
+        category: draft.category || null,
+        subcategory: draft.subcategory || null,
+        primaryGroupKey: "category",
+        country: draft.country || null,
+        city: draft.city || null,
+        currency: draft.currency || "USD",
+        price: draft.price || null,
+        pricePeriod: draft.pricePeriod || null,
+        languages: draft.languages ? draft.languages.split(",").map((s) => s.trim()).filter(Boolean) : null,
+        images: draft.images && draft.images.length ? draft.images : null,
+        website: draft.website || null,
+        fields: {
+          locationAddress: draft.locationAddress || null,
+          providerInfoI18n: draft.providerInfoI18n || null,
+          providerRating: draft.providerRating || null,
+          providerReviewCount: draft.providerReviewCount || null,
+          providerCommentsUrl: draft.providerCommentsUrl || null,
+          providerStartYear: draft.providerStartYear || null,
+          extraDescriptions: draft.extraDescriptions || [],
+          socialLinksDetailed: draft.socialLinksDetailed || [],
+        },
+      };
+
+      const res = await fetch("/api/publications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await refresh();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Error approving AI draft directly:", err);
+      return false;
+    }
+  };
+
   async function deletePublication(id: string) {
     const publication = publications.find((item) => item.id === id);
     const label = publication?.primaryGroupKey === "prestacion" ? "prestación" : "publicación";
@@ -2999,7 +3079,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       title: `Eliminar ${label}`,
       message: `¿Seguro que querés eliminar la ${label} ${title}? Esta acción no se puede deshacer.`,
       onConfirm: async () => {
-        await api(`/api/admin/publications?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+        setPublications((prev) => prev.filter((p) => p.id !== id));
+        setConfirmDeleteModal({ isOpen: false });
+        await api(`/api/admin/publications?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
         await refresh();
       },
     });
@@ -3019,11 +3101,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       title: `Eliminar ${kind.toLowerCase()}`,
       message: `¿Seguro que querés eliminar la ${kind.toLowerCase()} de "${name}"? Esta acción no se puede deshacer.`,
       onConfirm: async () => {
-        await api(`/api/travel-services?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+        setTravelServices((prev) => prev.filter((item) => item.id !== id));
         if (detailTravelService?.id === id) {
           setDetailTravelService(null);
           setDetailImageExpanded(null);
         }
+        setConfirmDeleteModal({ isOpen: false });
+        await api(`/api/travel-services?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
         await refresh();
       },
     });
@@ -7729,7 +7813,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
-              <button type="button" onClick={() => (isNewPublicationPage ? router.push(`${basePath}?section=publicaciones`) : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-[#007D92] hover:bg-cyan-100">Generar con IA</button>
+                <button type="button" onClick={() => (isNewPublicationPage ? router.push(`${basePath}?section=publicaciones`) : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
+              </div>
             </div>
           <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
           {pEditorMode === "prestacion" ? (
@@ -9253,6 +9340,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <option value="prestacion">Prestaciones</option>
                 </select>
                 <input value={publicationSearch} onChange={(event) => setPublicationSearch(event.target.value)} placeholder="Buscar..." className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200 sm:w-64" />
+                <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0095AE]">Generar con IA / Web Scraper</button>
                 <button type="button" onClick={openNewPublicationEditor} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Nueva</button>
               </div>
             </div>
@@ -9467,6 +9555,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       </section>
       ) : null}
       {confirmDeleteModalElement}
+      <AiScraperModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        onSelectDraftToEdit={applyAiDraftToForm}
+        onApproveDirectly={handleApproveAiDraftDirectly}
+      />
     </div>
   );
 }
