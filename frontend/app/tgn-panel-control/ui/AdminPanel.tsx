@@ -3005,8 +3005,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPProviderReviewCount(draft.providerReviewCount || "");
     setPProviderCommentsUrl(draft.providerCommentsUrl || "");
     setPProviderLogo(draft.providerLogo || "");
-    setPCountry(draft.country || "");
-    setPCity(draft.city || "");
+    setPCountry(draft.country || "Argentina");
+    setPCity(draft.city || "Buenos Aires");
+    setPHeadquarterCountry(draft.headquarterCountry || draft.country || "Argentina");
+    setPHeadquarterCity(draft.headquarterCity || draft.city || "Buenos Aires");
     setPLocationAddress(draft.locationAddress || "");
     setPCurrency(draft.currency || "USD");
     setPPrice(draft.price || "");
@@ -3014,6 +3016,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPLanguages(draft.languages || "Español");
     setPWebsite(draft.website || "");
     setPSocialLinksDetailed(draft.socialLinksDetailed || []);
+    if (draft.categorySelections && draft.categorySelections.length) {
+      setPCategorySelections(draft.categorySelections);
+    } else if (draft.category) {
+      setPCategorySelections([draft.category]);
+    }
+    if (draft.subcategorySelections && draft.subcategorySelections.length) {
+      setPSubcategorySelections(draft.subcategorySelections);
+    } else if (draft.subcategory) {
+      setPSubcategorySelections([draft.subcategory]);
+    }
+    if (draft.providerActivities && draft.providerActivities.length) {
+      setPProviderActivities(draft.providerActivities);
+    }
+    if (draft.providerTypes && draft.providerTypes.length) {
+      setPProviderTypes(draft.providerTypes);
+    }
+    if (draft.providerModalities && draft.providerModalities.length) {
+      setPProviderModalities(draft.providerModalities);
+    }
     if (draft.images && draft.images.length) {
       setPImageUrls(draft.images.join("\n"));
     }
