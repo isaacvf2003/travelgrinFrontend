@@ -9,6 +9,7 @@ import {
   Link as LinkIcon,
   Mail,
   MessageCircle,
+  Phone,
   Youtube,
 } from "lucide-react";
 
@@ -24,6 +25,7 @@ const ICONS = {
   youtube: Youtube,
   whatsapp: MessageCircle,
   email: Mail,
+  phone: Phone,
   other: LinkIcon,
 };
 
@@ -204,7 +206,7 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
         {entries.length ? (
           <div className="grid gap-2.5 text-sm text-gray-700">
             {entries.map((entry) => {
-              const Icon = ICONS[entry.icon];
+              const Icon = ICONS[entry.icon] || ICONS.other || LinkIcon;
               const safeHref = buildSafeContactHref(entry.icon, entry.href);
               const opensInNewTab = !/^(mailto:|tel:)/i.test(safeHref);
               return (

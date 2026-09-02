@@ -626,6 +626,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
     youtube: "YouTube",
     whatsapp: "WhatsApp",
     email: "Email",
+    phone: "Teléfono",
     web: "Web",
     other: "Enlace",
   };
