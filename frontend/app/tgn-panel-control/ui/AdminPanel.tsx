@@ -6399,7 +6399,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             <p className="font-bold text-slate-700 text-[11px] uppercase tracking-wide">
                               Solicitudes cargadas ({allUserServices.length}):
                             </p>
-                            {allUserServices.map((subService) => {
+                            <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                              {allUserServices.map((subService) => {
                               const subExtra = parseTravelServiceExtra(subService);
                               const subStatus = serviceEffectiveStatus(subService);
                               const subTitle = String(subExtra.publicationTitle ?? "").trim() || "Sin título propuesto";
@@ -6443,6 +6444,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                 </div>
                               );
                             })}
+                            </div>
                           </div>
                         );
                       })()}
