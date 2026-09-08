@@ -1519,6 +1519,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [pTitleI18n, setPTitleI18n] = useState<I18nRecord>({ es: "" });
   const [pDescription, setPDescription] = useState("");
   const [pDescriptionI18n, setPDescriptionI18n] = useState<I18nRecord>({ es: "" });
+  const [translatingField, setTranslatingField] = useState<string | null>(null);
   const [pPublisherName, setPPublisherName] = useState("");
   const [pProviderEmail, setPProviderEmail] = useState("");
   const [pStatus, setPStatus] = useState("active");
@@ -7959,7 +7960,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
+                <button
+                  type="button"
+                  disabled={translatingField === "providerInfo"}
+                  onClick={async () => {
+                    const currentEs = pProviderInfoI18n.es;
+                    if (!currentEs) return;
+                    setTranslatingField("providerInfo");
+                    try {
+                      const res = await fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      });
+                      const data = await res.json();
+                      if (data.translations) {
+                        setPProviderInfoI18n((prev) => ({
+                          ...prev,
+                          es: currentEs,
+                          en: data.translations.en || prev.en || currentEs,
+                          pt: data.translations.pt || prev.pt || currentEs,
+                          it: data.translations.it || prev.it || currentEs,
+                        }));
+                      }
+                    } catch (err) {
+                      console.error("Translation error:", err);
+                    } finally {
+                      setTranslatingField(null);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                >
+                  <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                  {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                </button>
+              </div>
               <RichTextEditor
                 value={pProviderInfoI18n[pLang] ?? ""}
                 onChange={(next) => setPProviderInfoI18n((prev) => ({ ...prev, [pLang]: next }))}
@@ -8174,7 +8211,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Título de la publicación</label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-sm font-medium text-slate-700">Título de la publicación</label>
+                  <button
+                    type="button"
+                    disabled={translatingField === "title"}
+                    onClick={async () => {
+                      const currentEs = pTitleI18n.es || pTitle;
+                      if (!currentEs) return;
+                      setTranslatingField("title");
+                      try {
+                        const res = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                        });
+                        const data = await res.json();
+                        if (data.translations) {
+                          setPTitleI18n((prev) => ({
+                            ...prev,
+                            es: currentEs,
+                            en: data.translations.en || prev.en || currentEs,
+                            pt: data.translations.pt || prev.pt || currentEs,
+                            it: data.translations.it || prev.it || currentEs,
+                          }));
+                        }
+                      } catch (err) {
+                        console.error("Translation error:", err);
+                      } finally {
+                        setTranslatingField(null);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                  >
+                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                    {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                  </button>
+                </div>
                 <input
                   value={pTitleI18n[pLang] ?? ""}
                   onChange={(e) => {
@@ -8189,7 +8262,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Descripción</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-700">Descripción</label>
+                <button
+                  type="button"
+                  disabled={translatingField === "description"}
+                  onClick={async () => {
+                    const currentEs = pDescriptionI18n.es || pDescription;
+                    if (!currentEs) return;
+                    setTranslatingField("description");
+                    try {
+                      const res = await fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      });
+                      const data = await res.json();
+                      if (data.translations) {
+                        setPDescriptionI18n((prev) => ({
+                          ...prev,
+                          es: currentEs,
+                          en: data.translations.en || prev.en || currentEs,
+                          pt: data.translations.pt || prev.pt || currentEs,
+                          it: data.translations.it || prev.it || currentEs,
+                        }));
+                      }
+                    } catch (err) {
+                      console.error("Translation error:", err);
+                    } finally {
+                      setTranslatingField(null);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                >
+                  <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                  {translatingField === "description" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                </button>
+              </div>
               <RichTextEditor
                 value={pDescriptionI18n[pLang] ?? ""}
                 onChange={(next) => {
@@ -8223,15 +8332,71 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div key={`extra-${idx}`} className="grid gap-2 rounded-xl border border-slate-100 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx))
-                          }
-                          className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          Eliminar
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={translatingField === `extra-${idx}`}
+                            onClick={async () => {
+                              const titleEs = desc.titleI18n?.es || desc.title;
+                              const bodyEs = desc.bodyI18n?.es || desc.body;
+                              if (!titleEs && !bodyEs) return;
+                              setTranslatingField(`extra-${idx}`);
+                              try {
+                                const promises = [];
+                                if (titleEs) {
+                                  promises.push(
+                                    fetch("/api/admin/translate-i18n", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                                    }).then((res) => res.json())
+                                  );
+                                } else { promises.push(Promise.resolve(null)); }
+                                if (bodyEs) {
+                                  promises.push(
+                                    fetch("/api/admin/translate-i18n", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ text: bodyEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                                    }).then((res) => res.json())
+                                  );
+                                } else { promises.push(Promise.resolve(null)); }
+                                const [tRes, bRes] = await Promise.all(promises);
+                                setPExtraDescriptions((prev) =>
+                                  prev.map((d, i) => {
+                                    if (i !== idx) return d;
+                                    const nextTitleI18n = { ...d.titleI18n, es: titleEs };
+                                    if (tRes?.translations) {
+                                      ["en", "pt", "it"].forEach((l) => { if (tRes.translations[l]) (nextTitleI18n as any)[l] = tRes.translations[l]; });
+                                    }
+                                    const nextBodyI18n = { ...d.bodyI18n, es: bodyEs };
+                                    if (bRes?.translations) {
+                                      ["en", "pt", "it"].forEach((l) => { if (bRes.translations[l]) (nextBodyI18n as any)[l] = bRes.translations[l]; });
+                                    }
+                                    return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
+                                  })
+                                );
+                              } catch (err) {
+                                console.error("Extra block translate error:", err);
+                              } finally {
+                                setTranslatingField(null);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                          >
+                            <Languages className="h-3 w-3 text-cyan-600" />
+                            {translatingField === `extra-${idx}` ? "Traduciendo..." : "Traducir bloque (EN, PT, IT)"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </div>
                       <input
                         value={desc.titleI18n[pLang] ?? ""}
