@@ -8125,6 +8125,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             description="Definí el contenido principal, cómo se clasifica y qué información verá primero la persona usuaria."
           >
           <div className="grid gap-4">
+            <div className="grid gap-2 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-700">Idioma de edición del formulario</label>
+                <span className="text-xs text-slate-400 font-medium">Idioma seleccionado: <strong className="uppercase text-slate-700">{pLang}</strong></span>
+              </div>
+              {renderLangTabs(pLang, setEditingLang)}
+              <p className="text-xs text-slate-500">
+                Seleccioná <b>EN</b>, <b>PT</b> o <b>IT</b> después de hacer clic en <b>🌐 Traducir</b> para ver y editar las traducciones generadas para cada idioma.
+              </p>
+            </div>
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
               <div className="text-sm font-semibold text-slate-900">Categorías y subcategorías</div>
               <div className="mt-1 text-xs text-slate-500">Seleccioná categoría y subcategoría desde un único selector integrado.</div>
@@ -8957,13 +8967,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 + Agregar link
               </button>
             </div>
-          </div>
-          <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
-            <label className="text-sm font-medium text-slate-700">Idioma de edición</label>
-            {renderLangTabs(pLang, setEditingLang)}
-            <p className="text-xs text-slate-500">
-              Cambia el idioma de todos los campos traducibles de esta publicación sin tocar URLs, nombres propios ni precios.
-            </p>
           </div>
           </AdminEditorSection>
 
