@@ -3005,8 +3005,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPProviderReviewCount(draft.providerReviewCount || "");
     setPProviderCommentsUrl(draft.providerCommentsUrl || "");
     setPProviderLogo(draft.providerLogo || "");
-    setPCountry(draft.country || "");
-    setPCity(draft.city || "");
+    if (draft.status) setPStatus(draft.status);
+    setPCountry(draft.country || "Argentina");
+    setPCity(draft.city || "Buenos Aires");
+    setPHeadquarterCountry(draft.headquarterCountry || draft.country || "Argentina");
+    setPHeadquarterCity(draft.headquarterCity || draft.city || "Buenos Aires");
     setPLocationAddress(draft.locationAddress || "");
     setPCurrency(draft.currency || "USD");
     setPPrice(draft.price || "");
@@ -3018,6 +3021,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setPImageUrls(draft.images.join("\n"));
     }
     setShowPublicationEditor(true);
+    window.setTimeout(() => {
+      publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   const handleApproveAiDraftDirectly = async (draft: ScrapedPublicationDraft): Promise<boolean> => {
