@@ -212,6 +212,12 @@ export default function AiScraperModal({
     setNewImageUrl("");
   };
 
+  const handleInspectEditInForm = (draft: ScrapedPublicationDraft, index: number) => {
+    onSelectDraftToEdit(draft);
+    handleRemoveDraft(index);
+    onClose();
+  };
+
   const closeInspector = () => {
     setEditingDraftIndex(null);
     setDraftForm(null);
@@ -455,22 +461,14 @@ export default function AiScraperModal({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => openInspector(index)}
-                        className="rounded-lg border border-teal-600 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100"
-                      >
-                        🔍 Inspeccionar / Editar
-                      </button>
-
-                      <button
-                        type="button"
                         onClick={() => {
                           onSelectDraftToEdit(draft);
                           handleRemoveDraft(index);
                           onClose();
                         }}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-sm"
                       >
-                        Cargar en Editor
+                        📝 Cargar en Formulario Completo
                       </button>
 
                       {onApproveDirectly && (
