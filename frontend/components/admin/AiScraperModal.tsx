@@ -463,7 +463,6 @@ export default function AiScraperModal({
                         type="button"
                         onClick={() => {
                           onSelectDraftToEdit(draft);
-                          handleRemoveDraft(index);
                           onClose();
                         }}
                         className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-sm"
