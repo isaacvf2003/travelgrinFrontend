@@ -77,11 +77,35 @@ export default function AiScraperModal({
   const [savingAll, setSavingAll] = useState(false);
   const [successNotice, setSuccessNotice] = useState("");
 
-  // Inspection/Editing Modal state for a specific draft item
-  const [editingDraftIndex, setEditingDraftIndex] = useState<number | null>(null);
+  // Accordion Inline Form State for active draft inspection directly in the queue card
+  const [expandedDraftIndex, setExpandedDraftIndex] = useState<number | null>(null);
   const [draftForm, setDraftForm] = useState<ScrapedPublicationDraft | null>(null);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [customLogoInput, setCustomLogoInput] = useState("");
+
+  // Restore queue from sessionStorage on load if available
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("tgn_ai_drafts_queue");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setDraftsQueue(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Sync draftsQueue with sessionStorage on any change
+  useEffect(() => {
+    try {
+      if (draftsQueue.length > 0) {
+        sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(draftsQueue));
+      } else {
+        sessionStorage.removeItem("tgn_ai_drafts_queue");
+      }
+    } catch {}
+  }, [draftsQueue]);
 
   if (!isOpen) return null;
 
@@ -131,7 +155,13 @@ export default function AiScraperModal({
         })
       );
 
-      setDraftsQueue((prev) => [...prev, ...generatedDrafts]);
+      setDraftsQueue((prev) => {
+        const updated = [...prev, ...generatedDrafts];
+        try {
+          sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
 
       if (tab === "single" && generatedDrafts.length === 1) {
         setSuccessNotice("Publicación generada exitosamente.");
@@ -202,40 +232,49 @@ export default function AiScraperModal({
     }
   };
 
-  // Draft Inspector functions
-  const openInspector = (index: number) => {
-    const target = draftsQueue[index];
-    if (!target) return;
-    setEditingDraftIndex(index);
-    setDraftForm(JSON.parse(JSON.stringify(target)));
-    setCustomLogoInput(target.providerLogo || "");
-    setNewImageUrl("");
-  };
-
-  const handleInspectEditInForm = (draft: ScrapedPublicationDraft, index: number) => {
-    onSelectDraftToEdit(draft);
-    handleRemoveDraft(index);
-    onClose();
+  const toggleDraftAccordion = (index: number) => {
+    if (expandedDraftIndex === index) {
+      setExpandedDraftIndex(null);
+      setDraftForm(null);
+    } else {
+      const target = draftsQueue[index];
+      if (!target) return;
+      setExpandedDraftIndex(index);
+      setDraftForm(JSON.parse(JSON.stringify(target)));
+      setCustomLogoInput(target.providerLogo || "");
+      setNewImageUrl("");
+    }
   };
 
   const closeInspector = () => {
-    setEditingDraftIndex(null);
+    setExpandedDraftIndex(null);
     setDraftForm(null);
   };
 
   const saveInspectorChangesToQueue = () => {
-    if (editingDraftIndex === null || !draftForm) return;
-    setDraftsQueue((prev) =>
-      prev.map((d, i) => (i === editingDraftIndex ? { ...draftForm } : d))
-    );
-    closeInspector();
+    if (expandedDraftIndex === null || !draftForm) return;
+    setDraftsQueue((prev) => {
+      const updated = prev.map((d, i) => (i === expandedDraftIndex ? { ...draftForm } : d));
+      try {
+        sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    setSuccessNotice("Cambios guardados en el borrador de la cola.");
+    window.setTimeout(() => setSuccessNotice(""), 3000);
   };
 
   const approveFromInspector = async () => {
-    if (editingDraftIndex === null || !draftForm) return;
-    const currentIdx = editingDraftIndex;
+    if (expandedDraftIndex === null || !draftForm) return;
+    const currentIdx = expandedDraftIndex;
     const updatedDraft = { ...draftForm };
-    saveInspectorChangesToQueue();
+    setDraftsQueue((prev) => {
+      const updated = prev.map((d, i) => (i === currentIdx ? updatedDraft : d));
+      try {
+        sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
     await handleApproveDraft(updatedDraft, currentIdx);
   };
 
@@ -461,13 +500,25 @@ export default function AiScraperModal({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
+                        onClick={() => toggleDraftAccordion(index)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition shadow-sm ${
+                          expandedDraftIndex === index
+                            ? "border-amber-400 bg-amber-50 text-amber-900"
+                            : "border-teal-600 bg-teal-50 text-teal-800 hover:bg-teal-100"
+                        }`}
+                      >
+                        {expandedDraftIndex === index ? "▼ Cerrar Inspección" : "🔍 Inspeccionar / Editar"}
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => {
                           onSelectDraftToEdit(draft);
                           onClose();
                         }}
-                        className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-sm"
+                        className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-sm"
                       >
-                        📝 Cargar en Formulario Completo
+                        📝 Pasar a Formulario Principal
                       </button>
 
                       {onApproveDirectly && (
@@ -510,360 +561,350 @@ export default function AiScraperModal({
                       {draft.images?.length || 0} imagen(es)
                     </div>
                   </div>
+
+                  {/* INLINE ACCORDION FORM FOR THIS SPECIFIC DRAFT */}
+                  {expandedDraftIndex === index && draftForm && (
+                    <div className="mt-4 pt-4 border-t border-slate-200 space-y-6 bg-white p-5 rounded-2xl border shadow-inner">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div>
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#00A9C6]">
+                            Formulario Completo de Publicación
+                          </span>
+                          <h4 className="text-base font-bold text-slate-900">{draftForm.title}</h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={closeInspector}
+                          className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                        >
+                          Cerrar Formulario
+                        </button>
+                      </div>
+
+                      {/* Status Selector */}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Estado de la Publicación al Guardar
+                        </label>
+                        <div className="flex flex-wrap gap-3">
+                          <label
+                            className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                              draftForm.status === "active" || !draftForm.status
+                                ? "border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`draftStatus-${index}`}
+                              value="active"
+                              checked={draftForm.status === "active" || !draftForm.status}
+                              onChange={() => setDraftForm({ ...draftForm, status: "active" })}
+                              className="accent-emerald-600"
+                            />
+                            <span>🟢 Publicación Activa (Pública)</span>
+                          </label>
+
+                          <label
+                            className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                              draftForm.status === "draft"
+                                ? "border-amber-500 bg-amber-50 text-amber-900 ring-2 ring-amber-200"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`draftStatus-${index}`}
+                              value="draft"
+                              checked={draftForm.status === "draft"}
+                              onChange={() => setDraftForm({ ...draftForm, status: "draft" })}
+                              className="accent-amber-600"
+                            />
+                            <span>🟡 Guardar como Borrador (No visible)</span>
+                          </label>
+
+                          <label
+                            className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                              draftForm.status === "paused"
+                                ? "border-slate-400 bg-slate-100 text-slate-900 ring-2 ring-slate-200"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`draftStatus-${index}`}
+                              value="paused"
+                              checked={draftForm.status === "paused"}
+                              onChange={() => setDraftForm({ ...draftForm, status: "paused" })}
+                              className="accent-slate-600"
+                            />
+                            <span>⚪ Pausado</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Logo Inspection & Uploader */}
+                      <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3 shadow-sm">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Logo del Oferente / Marca
+                        </label>
+
+                        <div className="flex flex-wrap items-center gap-4">
+                          {draftForm.providerLogo ? (
+                            <div className="relative h-16 w-16 flex-shrink-0 rounded-xl border border-slate-200 bg-slate-50 p-1 overflow-hidden shadow-inner">
+                              <img src={draftForm.providerLogo} alt="Logo preview" className="h-full w-full object-contain" />
+                            </div>
+                          ) : (
+                            <div className="h-16 w-16 flex-shrink-0 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 font-semibold text-center p-1">
+                              Sin Logo
+                            </div>
+                          )}
+
+                          <div className="flex-1 space-y-2">
+                            <input
+                              type="url"
+                              value={customLogoInput}
+                              onChange={(e) => {
+                                setCustomLogoInput(e.target.value);
+                                setDraftForm({ ...draftForm, providerLogo: e.target.value.trim() });
+                              }}
+                              placeholder="Pegar URL del logo (http://...)"
+                              className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                            />
+
+                            <div className="flex items-center gap-3">
+                              <label className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
+                                <span>📁 Subir Logo desde tu Equipo</span>
+                                <input type="file" accept="image/*" onChange={handleLogoFileUpload} className="hidden" />
+                              </label>
+
+                              {draftForm.providerLogo && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDraftForm({ ...draftForm, providerLogo: "" });
+                                    setCustomLogoInput("");
+                                  }}
+                                  className="text-xs text-rose-600 hover:underline font-semibold"
+                                >
+                                  Quitar Logo
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Place Images Inspection & Uploader */}
+                      <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                              Fotografías del Lugar / Galería ({draftForm.images?.length || 0})
+                            </label>
+                            <p className="text-[11px] text-slate-500">
+                              Inspecciona las fotos asignadas. Elimina o sube fotos reales de tu equipo.
+                            </p>
+                          </div>
+
+                          <label className="inline-flex items-center gap-1.5 rounded-xl bg-[#00A9C6] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0095AE] cursor-pointer shadow-sm">
+                            <span>📸 Subir Fotos del Lugar</span>
+                            <input type="file" accept="image/*" multiple onChange={handleAddImageFile} className="hidden" />
+                          </label>
+                        </div>
+
+                        {draftForm.images && draftForm.images.length > 0 ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {draftForm.images.map((imgUrl, imgIdx) => (
+                              <div
+                                key={`img-inspect-${imgIdx}`}
+                                className="group relative aspect-[4/3] rounded-xl border border-slate-200 bg-slate-100 overflow-hidden shadow-sm"
+                              >
+                                <img src={imgUrl} alt={`Foto ${imgIdx + 1}`} className="h-full w-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImageIndex(imgIdx)}
+                                  className="absolute top-1 right-1 rounded-full bg-rose-600 p-1 text-white opacity-90 hover:opacity-100 shadow-md text-[10px]"
+                                  title="Eliminar foto"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-4 text-center text-xs text-slate-500">
+                            No hay imágenes en la galería. Usa el botón para subir fotos reales.
+                          </div>
+                        )}
+
+                        <div className="flex gap-2 pt-2 border-t border-slate-100">
+                          <input
+                            type="url"
+                            value={newImageUrl}
+                            onChange={(e) => setNewImageUrl(e.target.value)}
+                            placeholder="Pegar URL de foto adicional (https://...)"
+                            className="flex-1 h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddImageUrl}
+                            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                          >
+                            + Agregar
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* General Fields Grid */}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Título de la Publicación</label>
+                          <input
+                            type="text"
+                            value={draftForm.title}
+                            onChange={(e) => setDraftForm({ ...draftForm, title: e.target.value })}
+                            className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Oferente / Empresa</label>
+                          <input
+                            type="text"
+                            value={draftForm.publisherName}
+                            onChange={(e) => setDraftForm({ ...draftForm, publisherName: e.target.value })}
+                            className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Sitio Web Oficial</label>
+                          <input
+                            type="url"
+                            value={draftForm.website}
+                            onChange={(e) => setDraftForm({ ...draftForm, website: e.target.value })}
+                            className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Categoría Principal</label>
+                          <input
+                            type="text"
+                            value={draftForm.category}
+                            onChange={(e) => setDraftForm({ ...draftForm, category: e.target.value })}
+                            className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Subcategoría</label>
+                          <input
+                            type="text"
+                            value={draftForm.subcategory}
+                            onChange={(e) => setDraftForm({ ...draftForm, subcategory: e.target.value })}
+                            className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">País</label>
+                          <input
+                            type="text"
+                            value={draftForm.country}
+                            onChange={(e) => setDraftForm({ ...draftForm, country: e.target.value })}
+                            className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Ciudad</label>
+                          <input
+                            type="text"
+                            value={draftForm.city}
+                            onChange={(e) => setDraftForm({ ...draftForm, city: e.target.value })}
+                            className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Dirección / Link Google Maps</label>
+                          <input
+                            type="url"
+                            value={draftForm.locationAddress}
+                            onChange={(e) => setDraftForm({ ...draftForm, locationAddress: e.target.value })}
+                            className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Precio</label>
+                          <input
+                            type="text"
+                            value={draftForm.price}
+                            onChange={(e) => setDraftForm({ ...draftForm, price: e.target.value })}
+                            className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Moneda</label>
+                          <input
+                            type="text"
+                            value={draftForm.currency}
+                            onChange={(e) => setDraftForm({ ...draftForm, currency: e.target.value })}
+                            className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Descripción de la Oportunidad (HTML)</label>
+                          <textarea
+                            rows={5}
+                            value={draftForm.description}
+                            onChange={(e) => setDraftForm({ ...draftForm, description: e.target.value })}
+                            className="w-full rounded-xl border border-slate-200 p-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Card Bottom Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3">
+                        <button
+                          type="button"
+                          onClick={closeInspector}
+                          className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                        >
+                          Cerrar Formulario
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={saveInspectorChangesToQueue}
+                            className="rounded-xl border border-teal-600 bg-teal-50 px-3.5 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100"
+                          >
+                            💾 Guardar Cambios en la Cola
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={approveFromInspector}
+                            className="rounded-xl bg-[#00A9C6] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#0095AE] shadow-sm"
+                          >
+                            🚀 Aprobar y Guardar Publicación
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
       </div>
-
-      {/* Draft Inspection / Editing Sub-Modal */}
-      {editingDraftIndex !== null && draftForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl border border-slate-200 my-4 space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#00A9C6]">
-                  Inspección y Edición de Formulario Generado
-                </span>
-                <h3 className="text-xl font-bold text-slate-900 mt-0.5">{draftForm.title}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Revisa y ajusta todos los datos, sube logos o imágenes del lugar y selecciona el estado antes de guardar.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeInspector}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Cerrar Inspección
-              </button>
-            </div>
-
-            {/* Status Selector */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Estado de la Publicación al Guardar
-              </label>
-              <div className="flex flex-wrap gap-3">
-                <label
-                  className={`flex items-center gap-2 cursor-pointer rounded-xl border px-4 py-2 text-xs font-semibold transition ${
-                    draftForm.status === "active" || !draftForm.status
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="draftStatus"
-                    value="active"
-                    checked={draftForm.status === "active" || !draftForm.status}
-                    onChange={() => setDraftForm({ ...draftForm, status: "active" })}
-                    className="accent-emerald-600"
-                  />
-                  <span>🟢 Publicación Activa (Pública)</span>
-                </label>
-
-                <label
-                  className={`flex items-center gap-2 cursor-pointer rounded-xl border px-4 py-2 text-xs font-semibold transition ${
-                    draftForm.status === "draft"
-                      ? "border-amber-500 bg-amber-50 text-amber-900 ring-2 ring-amber-200"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="draftStatus"
-                    value="draft"
-                    checked={draftForm.status === "draft"}
-                    onChange={() => setDraftForm({ ...draftForm, status: "draft" })}
-                    className="accent-amber-600"
-                  />
-                  <span>🟡 Guardar como Borrador (No visible)</span>
-                </label>
-
-                <label
-                  className={`flex items-center gap-2 cursor-pointer rounded-xl border px-4 py-2 text-xs font-semibold transition ${
-                    draftForm.status === "paused"
-                      ? "border-slate-400 bg-slate-100 text-slate-900 ring-2 ring-slate-200"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="draftStatus"
-                    value="paused"
-                    checked={draftForm.status === "paused"}
-                    onChange={() => setDraftForm({ ...draftForm, status: "paused" })}
-                    className="accent-slate-600"
-                  />
-                  <span>⚪ Pausado</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Logo Inspection & Uploader */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Logo del Oferente / Marca
-              </label>
-
-              <div className="flex flex-wrap items-center gap-4">
-                {draftForm.providerLogo ? (
-                  <div className="relative h-20 w-20 flex-shrink-0 rounded-2xl border border-slate-200 bg-slate-50 p-2 overflow-hidden shadow-inner">
-                    <img src={draftForm.providerLogo} alt="Logo preview" className="h-full w-full object-contain" />
-                  </div>
-                ) : (
-                  <div className="h-20 w-20 flex-shrink-0 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 font-semibold text-center p-1">
-                    Sin Logo
-                  </div>
-                )}
-
-                <div className="flex-1 space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={customLogoInput}
-                      onChange={(e) => {
-                        setCustomLogoInput(e.target.value);
-                        setDraftForm({ ...draftForm, providerLogo: e.target.value.trim() });
-                      }}
-                      placeholder="Pegar URL del logo (http://...)"
-                      className="flex-1 h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <label className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
-                      <span>📁 Subir Logo desde tu Equipo</span>
-                      <input type="file" accept="image/*" onChange={handleLogoFileUpload} className="hidden" />
-                    </label>
-
-                    {draftForm.providerLogo && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDraftForm({ ...draftForm, providerLogo: "" });
-                          setCustomLogoInput("");
-                        }}
-                        className="text-xs text-rose-600 hover:underline font-semibold"
-                      >
-                        Quitar Logo
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Place Images Inspection & Uploader */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Fotografías del Lugar / Galería ({draftForm.images?.length || 0})
-                  </label>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Inspecciona las fotos asignadas. Elimina las que no correspondan o sube fotos reales de tu equipo.
-                  </p>
-                </div>
-
-                <label className="inline-flex items-center gap-1.5 rounded-xl bg-[#00A9C6] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0095AE] cursor-pointer shadow-sm">
-                  <span>📸 Subir Fotos del Lugar</span>
-                  <input type="file" accept="image/*" multiple onChange={handleAddImageFile} className="hidden" />
-                </label>
-              </div>
-
-              {/* Image Previews Grid */}
-              {draftForm.images && draftForm.images.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {draftForm.images.map((imgUrl, imgIdx) => (
-                    <div
-                      key={`img-inspect-${imgIdx}`}
-                      className="group relative aspect-[4/3] rounded-2xl border border-slate-200 bg-slate-100 overflow-hidden shadow-sm"
-                    >
-                      <img src={imgUrl} alt={`Foto ${imgIdx + 1}`} className="h-full w-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImageIndex(imgIdx)}
-                        className="absolute top-1.5 right-1.5 rounded-full bg-rose-600 p-1 text-white opacity-90 hover:opacity-100 shadow-md"
-                        title="Eliminar foto"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500">
-                  No hay imágenes cargadas en la galería. Usa el botón de arriba para subir fotos reales.
-                </div>
-              )}
-
-              {/* Add Custom Image URL */}
-              <div className="flex gap-2 pt-2 border-t border-slate-100">
-                <input
-                  type="url"
-                  value={newImageUrl}
-                  onChange={(e) => setNewImageUrl(e.target.value)}
-                  placeholder="Pegar URL de foto adicional (https://...)"
-                  className="flex-1 h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddImageUrl}
-                  className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                >
-                  + Agregar Foto URL
-                </button>
-              </div>
-            </div>
-
-            {/* General Fields Form Grid */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Título de la Publicación</label>
-                <input
-                  type="text"
-                  value={draftForm.title}
-                  onChange={(e) => setDraftForm({ ...draftForm, title: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Oferente / Empresa</label>
-                <input
-                  type="text"
-                  value={draftForm.publisherName}
-                  onChange={(e) => setDraftForm({ ...draftForm, publisherName: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Sitio Web Oficial</label>
-                <input
-                  type="url"
-                  value={draftForm.website}
-                  onChange={(e) => setDraftForm({ ...draftForm, website: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Categoría Principal</label>
-                <input
-                  type="text"
-                  value={draftForm.category}
-                  onChange={(e) => setDraftForm({ ...draftForm, category: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Subcategoría</label>
-                <input
-                  type="text"
-                  value={draftForm.subcategory}
-                  onChange={(e) => setDraftForm({ ...draftForm, subcategory: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">País</label>
-                <input
-                  type="text"
-                  value={draftForm.country}
-                  onChange={(e) => setDraftForm({ ...draftForm, country: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Ciudad</label>
-                <input
-                  type="text"
-                  value={draftForm.city}
-                  onChange={(e) => setDraftForm({ ...draftForm, city: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Dirección / Link Google Maps</label>
-                <input
-                  type="url"
-                  value={draftForm.locationAddress}
-                  onChange={(e) => setDraftForm({ ...draftForm, locationAddress: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Precio</label>
-                <input
-                  type="text"
-                  value={draftForm.price}
-                  onChange={(e) => setDraftForm({ ...draftForm, price: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Moneda</label>
-                <input
-                  type="text"
-                  value={draftForm.currency}
-                  onChange={(e) => setDraftForm({ ...draftForm, currency: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Descripción de la Oportunidad (HTML)</label>
-                <textarea
-                  rows={6}
-                  value={draftForm.description}
-                  onChange={(e) => setDraftForm({ ...draftForm, description: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 p-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-              </div>
-            </div>
-
-            {/* Bottom Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
-              <button
-                type="button"
-                onClick={closeInspector}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Cancelar
-              </button>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={saveInspectorChangesToQueue}
-                  className="rounded-xl border border-teal-600 bg-teal-50 px-4 py-2 text-xs font-semibold text-teal-800 hover:bg-teal-100"
-                >
-                  💾 Guardar Cambios en la Cola
-                </button>
-
-                <button
-                  type="button"
-                  onClick={approveFromInspector}
-                  className="rounded-xl bg-[#00A9C6] px-5 py-2 text-xs font-semibold text-white hover:bg-[#0095AE] shadow-sm"
-                >
-                  🚀 Aprobar y Guardar Publicación
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
