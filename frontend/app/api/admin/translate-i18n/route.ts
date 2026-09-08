@@ -29,13 +29,13 @@ export async function POST(request: Request) {
     }
 
     const prompt = `You are a professional translator for travel, medical, and services directory listings.
-Translate the following ${isHtml ? "HTML snippet / text with HTML tags" : "text"} from ${sourceLang} into the target languages: ${targetLangs.join(", ")}.
+Translate the following ${isHtml ? "HTML snippet / text with HTML tags" : "text"} from Spanish ("es") into all 3 target languages: "en" (English), "pt" (Portuguese), and "it" (Italian).
 
 CRITICAL RULES:
 1. Maintain exact HTML markup/tags if any are present (${isHtml ? "yes" : "no"}). Do NOT strip formatting like <b>, <i>, <ul>, etc.
 2. Produce natural, high-quality localization for each target language.
-3. Return ONLY a valid JSON object where keys are the target language codes (${targetLangs.join(", ")}) and values are the exact translated text strings.
-4. Do not include markdown code block formatting like \`\`\`json in the output if possible, or make sure it's valid JSON.
+3. You MUST provide translations for all 3 languages: "en", "pt", and "it".
+4. Return ONLY a valid JSON object with exactly these 3 keys: "en", "pt", "it". Example format: {"en": "...", "pt": "...", "it": "..."}.
 
 Source text to translate:
 """
@@ -92,9 +92,32 @@ ${text}
     }
 
     const cleanJson = responseText.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
-    const parsed = JSON.parse(cleanJson);
+    let parsed: Record<string, string> = {};
+    try {
+      parsed = JSON.parse(cleanJson);
+    } catch {
+      console.error("[Translate API Error] Could not parse AI response JSON:", responseText);
+    }
 
-    return NextResponse.json({ translations: parsed });
+    const translations: Record<string, string> = {};
+    // Normalize keys: maps "en", "english", "inglés", etc. to standard ISO keys
+    Object.entries(parsed).forEach(([k, val]) => {
+      if (typeof val !== "string") return;
+      const lk = k.toLowerCase().trim();
+      if (lk === "en" || lk.includes("english") || lk.includes("ingl")) translations["en"] = val;
+      else if (lk === "pt" || lk.includes("portug") || lk.includes("portuguese")) translations["pt"] = val;
+      else if (lk === "it" || lk.includes("ital")) translations["it"] = val;
+      else translations[lk] = val;
+    });
+
+    // Fallback missing keys to source text if empty
+    targetLangs.forEach((l: string) => {
+      if (!translations[l]) {
+        translations[l] = text;
+      }
+    });
+
+    return NextResponse.json({ translations });
   } catch (error: any) {
     console.error("[Translate API Error]:", error);
     return NextResponse.json({ error: "Failed to translate text" }, { status: 500 });
