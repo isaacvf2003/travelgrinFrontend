@@ -160,7 +160,9 @@ export default function AiScraperModal({
       setDraftsQueue((prev) => {
         const updated = [...prev, ...generatedDrafts];
         try {
-          sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+          }
         } catch {}
         return updated;
       });
