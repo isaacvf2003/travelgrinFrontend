@@ -553,16 +553,16 @@ export default function AiScraperModal({
                   {/* Summary Badges */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600">
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
-                      <span className="font-semibold block text-slate-800">Precio / Moneda</span>
-                      {draft.price} {draft.currency}
+                      <span className="font-semibold block text-slate-800">Categoría</span>
+                      {draft.category || "General"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
-                      <span className="font-semibold block text-slate-800">Valoración</span>
-                      {draft.providerRating} / 5.0 ({draft.providerReviewCount} reseñas)
+                      <span className="font-semibold block text-slate-800">Subcategoría</span>
+                      {draft.subcategory || "General"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
-                      <span className="font-semibold block text-slate-800">Bloques Extra</span>
-                      {draft.extraDescriptions?.length || 0} bloque(s)
+                      <span className="font-semibold block text-slate-800">Tipo de Perfil / Sector</span>
+                      {draft.providerActivities?.[0] || draft.providerTypes?.[0] || "Institución"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Imágenes</span>
