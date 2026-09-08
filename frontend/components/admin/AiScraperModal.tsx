@@ -83,10 +83,11 @@ export default function AiScraperModal({
   const [newImageUrl, setNewImageUrl] = useState("");
   const [customLogoInput, setCustomLogoInput] = useState("");
 
-  // Restore queue from sessionStorage on load if available
+  // Restore queue from sessionStorage on load if available (Client-side only)
   useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
-      const saved = sessionStorage.getItem("tgn_ai_drafts_queue");
+      const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -98,11 +99,12 @@ export default function AiScraperModal({
 
   // Sync draftsQueue with sessionStorage on any change
   useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
       if (draftsQueue.length > 0) {
-        sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(draftsQueue));
+        window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(draftsQueue));
       } else {
-        sessionStorage.removeItem("tgn_ai_drafts_queue");
+        window.sessionStorage.removeItem("tgn_ai_drafts_queue");
       }
     } catch {}
   }, [draftsQueue]);
@@ -256,7 +258,9 @@ export default function AiScraperModal({
     setDraftsQueue((prev) => {
       const updated = prev.map((d, i) => (i === expandedDraftIndex ? { ...draftForm } : d));
       try {
-        sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+        }
       } catch {}
       return updated;
     });
@@ -271,7 +275,9 @@ export default function AiScraperModal({
     setDraftsQueue((prev) => {
       const updated = prev.map((d, i) => (i === currentIdx ? updatedDraft : d));
       try {
-        sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+        }
       } catch {}
       return updated;
     });
