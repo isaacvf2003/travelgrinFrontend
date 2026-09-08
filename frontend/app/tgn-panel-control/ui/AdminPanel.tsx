@@ -3016,8 +3016,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPPrice(draft.price || "");
     setPPricePeriod(draft.pricePeriod || "");
     setPLanguages(draft.languages || "Español");
-    setPWebsite(draft.website || "");
-    setPSocialLinksDetailed(draft.socialLinksDetailed || []);
+    const { website: parsedWebsite, socialLinks: parsedSocialLinks } = parseProviderLinks(draft.website || "");
+    const effectiveWebsite = draft.website || parsedWebsite;
+    setPWebsite(effectiveWebsite);
+
+    const draftSocials = draft.socialLinksDetailed || [];
+    const linkMap = new Map<string, SocialLinkDetail>();
+    [...draftSocials, ...parsedSocialLinks].forEach((entry) => {
+      if (entry && entry.url) {
+        const key = `${entry.kind || "web"}:${entry.url}`;
+        if (!linkMap.has(key)) linkMap.set(key, entry);
+      }
+    });
+    setPSocialLinksDetailed(Array.from(linkMap.values()));
     if (draft.categorySelections && draft.categorySelections.length) {
       setPCategorySelections(draft.categorySelections);
     } else if (draft.category) {
