@@ -1519,6 +1519,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [pTitleI18n, setPTitleI18n] = useState<I18nRecord>({ es: "" });
   const [pDescription, setPDescription] = useState("");
   const [pDescriptionI18n, setPDescriptionI18n] = useState<I18nRecord>({ es: "" });
+  const [translatingField, setTranslatingField] = useState<string | null>(null);
   const [pPublisherName, setPPublisherName] = useState("");
   const [pProviderEmail, setPProviderEmail] = useState("");
   const [pStatus, setPStatus] = useState("active");
@@ -3008,7 +3009,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     const providerInfoInit = draft.providerInfoI18n || { es: "" };
     setPProviderInfoI18n(providerInfoInit);
-    setPPublisherName(draft.publisherName || "");
 
     // Auto-translate missing languages (pt, it) if they are missing or equal to spanish fallback
     const needsTranslation = descEs && (!descI18nInit.pt || !descI18nInit.it || descI18nInit.pt === descEs || descI18nInit.it === descEs);
@@ -3056,13 +3056,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPProviderStartYear(draft.providerStartYear || "");
     setPProviderRating(draft.providerRating || "");
     setPProviderReviewCount(draft.providerReviewCount || "");
-    setPProviderCommentsUrl(draft.providerCommentsUrl || "");
     const BAD_GFX = /megafono|slider|banner|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|tramite|afiliac|cartilla|turnos/i;
     const cleanLogo = draft.providerLogo && !BAD_GFX.test(draft.providerLogo) ? draft.providerLogo : "";
     setPProviderLogo(cleanLogo);
     if (Array.isArray(draft.images)) {
       const cleanImages = draft.images.filter((img) => img && !BAD_GFX.test(img));
-      setImageList(cleanImages);
+      setPImageUrls(cleanImages.join("\n"));
     }
     if (draft.status) setPStatus(draft.status);
     setPCountry(draft.country || "Argentina");
@@ -6473,7 +6472,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             <p className="font-bold text-slate-700 text-[11px] uppercase tracking-wide">
                               Solicitudes cargadas ({allUserServices.length}):
                             </p>
-                            {allUserServices.map((subService) => {
+                            <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                              {allUserServices.map((subService) => {
                               const subExtra = parseTravelServiceExtra(subService);
                               const subStatus = serviceEffectiveStatus(subService);
                               const subTitle = String(subExtra.publicationTitle ?? "").trim() || "Sin título propuesto";
@@ -6517,6 +6517,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                 </div>
                               );
                             })}
+                            </div>
                           </div>
                         );
                       })()}
@@ -8027,7 +8028,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
+                <button
+                  type="button"
+                  disabled={translatingField === "providerInfo"}
+                  onClick={async () => {
+                    const currentEs = pProviderInfoI18n.es;
+                    if (!currentEs) return;
+                    setTranslatingField("providerInfo");
+                    try {
+                      const res = await fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      });
+                      const data = await res.json();
+                      if (data.translations) {
+                        setPProviderInfoI18n((prev) => ({
+                          ...prev,
+                          es: currentEs,
+                          en: data.translations.en || prev.en || currentEs,
+                          pt: data.translations.pt || prev.pt || currentEs,
+                          it: data.translations.it || prev.it || currentEs,
+                        }));
+                      }
+                    } catch (err) {
+                      console.error("Translation error:", err);
+                    } finally {
+                      setTranslatingField(null);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                >
+                  <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                  {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                </button>
+              </div>
               <RichTextEditor
                 value={pProviderInfoI18n[pLang] ?? ""}
                 onChange={(next) => setPProviderInfoI18n((prev) => ({ ...prev, [pLang]: next }))}
@@ -8242,7 +8279,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Título de la publicación</label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-sm font-medium text-slate-700">Título de la publicación</label>
+                  <button
+                    type="button"
+                    disabled={translatingField === "title"}
+                    onClick={async () => {
+                      const currentEs = pTitleI18n.es || pTitle;
+                      if (!currentEs) return;
+                      setTranslatingField("title");
+                      try {
+                        const res = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                        });
+                        const data = await res.json();
+                        if (data.translations) {
+                          setPTitleI18n((prev) => ({
+                            ...prev,
+                            es: currentEs,
+                            en: data.translations.en || prev.en || currentEs,
+                            pt: data.translations.pt || prev.pt || currentEs,
+                            it: data.translations.it || prev.it || currentEs,
+                          }));
+                        }
+                      } catch (err) {
+                        console.error("Translation error:", err);
+                      } finally {
+                        setTranslatingField(null);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                  >
+                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                    {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                  </button>
+                </div>
                 <input
                   value={pTitleI18n[pLang] ?? ""}
                   onChange={(e) => {
@@ -8257,7 +8330,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Descripción</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-700">Descripción</label>
+                <button
+                  type="button"
+                  disabled={translatingField === "description"}
+                  onClick={async () => {
+                    const currentEs = pDescriptionI18n.es || pDescription;
+                    if (!currentEs) return;
+                    setTranslatingField("description");
+                    try {
+                      const res = await fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      });
+                      const data = await res.json();
+                      if (data.translations) {
+                        setPDescriptionI18n((prev) => ({
+                          ...prev,
+                          es: currentEs,
+                          en: data.translations.en || prev.en || currentEs,
+                          pt: data.translations.pt || prev.pt || currentEs,
+                          it: data.translations.it || prev.it || currentEs,
+                        }));
+                      }
+                    } catch (err) {
+                      console.error("Translation error:", err);
+                    } finally {
+                      setTranslatingField(null);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                >
+                  <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                  {translatingField === "description" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                </button>
+              </div>
               <RichTextEditor
                 value={pDescriptionI18n[pLang] ?? ""}
                 onChange={(next) => {
@@ -8291,15 +8400,71 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div key={`extra-${idx}`} className="grid gap-2 rounded-xl border border-slate-100 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx))
-                          }
-                          className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          Eliminar
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={translatingField === `extra-${idx}`}
+                            onClick={async () => {
+                              const titleEs = desc.titleI18n?.es || desc.title;
+                              const bodyEs = desc.bodyI18n?.es || desc.body;
+                              if (!titleEs && !bodyEs) return;
+                              setTranslatingField(`extra-${idx}`);
+                              try {
+                                const promises = [];
+                                if (titleEs) {
+                                  promises.push(
+                                    fetch("/api/admin/translate-i18n", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                                    }).then((res) => res.json())
+                                  );
+                                } else { promises.push(Promise.resolve(null)); }
+                                if (bodyEs) {
+                                  promises.push(
+                                    fetch("/api/admin/translate-i18n", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ text: bodyEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                                    }).then((res) => res.json())
+                                  );
+                                } else { promises.push(Promise.resolve(null)); }
+                                const [tRes, bRes] = await Promise.all(promises);
+                                setPExtraDescriptions((prev) =>
+                                  prev.map((d, i) => {
+                                    if (i !== idx) return d;
+                                    const nextTitleI18n = { ...d.titleI18n, es: titleEs };
+                                    if (tRes?.translations) {
+                                      ["en", "pt", "it"].forEach((l) => { if (tRes.translations[l]) (nextTitleI18n as any)[l] = tRes.translations[l]; });
+                                    }
+                                    const nextBodyI18n = { ...d.bodyI18n, es: bodyEs };
+                                    if (bRes?.translations) {
+                                      ["en", "pt", "it"].forEach((l) => { if (bRes.translations[l]) (nextBodyI18n as any)[l] = bRes.translations[l]; });
+                                    }
+                                    return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
+                                  })
+                                );
+                              } catch (err) {
+                                console.error("Extra block translate error:", err);
+                              } finally {
+                                setTranslatingField(null);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                          >
+                            <Languages className="h-3 w-3 text-cyan-600" />
+                            {translatingField === `extra-${idx}` ? "Traduciendo..." : "Traducir bloque (EN, PT, IT)"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </div>
                       <input
                         value={desc.titleI18n[pLang] ?? ""}
@@ -9386,6 +9551,123 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 : editingId
                   ? "Guardar cambios"
                   : "Crear publicación"}
+            </button>
+            <button
+              type="button"
+              disabled={translatingField === "all"}
+              onClick={async () => {
+                setTranslatingField("all");
+                try {
+                  const promises: Promise<any>[] = [];
+
+                  // Title
+                  const titleEs = pTitleI18n.es || pTitle;
+                  if (titleEs) {
+                    promises.push(
+                      fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                      }).then((res) => res.json().then((d) => ({ key: "title", translations: d.translations })))
+                    );
+                  }
+
+                  // Description
+                  const descEs = pDescriptionI18n.es || pDescription;
+                  if (descEs) {
+                    promises.push(
+                      fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      }).then((res) => res.json().then((d) => ({ key: "description", translations: d.translations })))
+                    );
+                  }
+
+                  // Provider info
+                  const providerEs = pProviderInfoI18n.es;
+                  if (providerEs) {
+                    promises.push(
+                      fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: providerEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      }).then((res) => res.json().then((d) => ({ key: "providerInfo", translations: d.translations })))
+                    );
+                  }
+
+                  const results = await Promise.all(promises);
+                  results.forEach((item) => {
+                    if (!item || !item.translations) return;
+                    if (item.key === "title") {
+                      setPTitleI18n((prev) => ({
+                        ...prev,
+                        en: item.translations.en || prev.en || titleEs,
+                        pt: item.translations.pt || prev.pt || titleEs,
+                        it: item.translations.it || prev.it || titleEs,
+                      }));
+                    } else if (item.key === "description") {
+                      setPDescriptionI18n((prev) => ({
+                        ...prev,
+                        en: item.translations.en || prev.en || descEs,
+                        pt: item.translations.pt || prev.pt || descEs,
+                        it: item.translations.it || prev.it || descEs,
+                      }));
+                    } else if (item.key === "providerInfo") {
+                      setPProviderInfoI18n((prev) => ({
+                        ...prev,
+                        en: item.translations.en || prev.en || providerEs,
+                        pt: item.translations.pt || prev.pt || providerEs,
+                        it: item.translations.it || prev.it || providerEs,
+                      }));
+                    }
+                  });
+
+                  // Translate extra descriptions
+                  if (pExtraDescriptions.length) {
+                    const extraPromises = pExtraDescriptions.map(async (d) => {
+                      const tEs = d.titleI18n?.es || d.title;
+                      const bEs = d.bodyI18n?.es || d.body;
+                      let tTrans = null;
+                      let bTrans = null;
+                      if (tEs) {
+                        const r = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: tEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                        });
+                        tTrans = (await r.json())?.translations;
+                      }
+                      if (bEs) {
+                        const r = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: bEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                        });
+                        bTrans = (await r.json())?.translations;
+                      }
+                      const nextTitleI18n = { ...d.titleI18n, es: tEs };
+                      if (tTrans) ["en", "pt", "it"].forEach((l) => { if (tTrans[l]) (nextTitleI18n as any)[l] = tTrans[l]; });
+                      const nextBodyI18n = { ...d.bodyI18n, es: bEs };
+                      if (bTrans) ["en", "pt", "it"].forEach((l) => { if (bTrans[l]) (nextBodyI18n as any)[l] = bTrans[l]; });
+                      return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
+                    });
+                    const updatedExtras = await Promise.all(extraPromises);
+                    setPExtraDescriptions(updatedExtras);
+                  }
+
+                  setSaveMessage("Traducción completada a todos los idiomas.");
+                  window.setTimeout(() => setSaveMessage(""), 4000);
+                } catch (err) {
+                  console.error("Auto-translate error:", err);
+                } finally {
+                  setTranslatingField(null);
+                }
+              }}
+              className="h-11 inline-flex items-center gap-2 rounded-xl border border-cyan-300 bg-cyan-50 px-5 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+            >
+              <Languages className="h-4 w-4 text-cyan-600" />
+              {translatingField === "all" ? "Traduciendo todo..." : "🌐 Traducir todo a multilenguaje (EN, PT, IT)"}
             </button>
             {editingId ? (
               <button
