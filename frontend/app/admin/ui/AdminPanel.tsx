@@ -3056,8 +3056,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPProviderStartYear(draft.providerStartYear || "");
     setPProviderRating(draft.providerRating || "");
     setPProviderReviewCount(draft.providerReviewCount || "");
-    setPProviderCommentsUrl(draft.providerCommentsUrl || "");
-    setPProviderLogo(draft.providerLogo || "");
+    const BAD_GFX = /megafono|slider|banner|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|tramite|afiliac|cartilla|turnos/i;
+    const cleanLogo = draft.providerLogo && !BAD_GFX.test(draft.providerLogo) ? draft.providerLogo : "";
+    setPProviderLogo(cleanLogo);
+    if (Array.isArray(draft.images)) {
+      const cleanImages = draft.images.filter((img) => img && !BAD_GFX.test(img));
+      setImageList(cleanImages);
+    }
     if (draft.status) setPStatus(draft.status);
     setPCountry(draft.country || "Argentina");
     setPCity(draft.city || "Buenos Aires");
