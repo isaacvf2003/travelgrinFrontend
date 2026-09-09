@@ -58,6 +58,17 @@ export default function DetailSidebar({
               src={providerLogoUrl}
               alt={publisherName ?? t("nombre_oferente")}
               className="h-10 w-10 rounded-full border border-gray-200 object-cover"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (websiteUrl) {
+                  try {
+                    const host = new URL(websiteUrl).hostname;
+                    target.src = `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${host}&size=256`;
+                    return;
+                  } catch {}
+                }
+                target.style.display = "none";
+              }}
             />
           ) : null}
           <div>

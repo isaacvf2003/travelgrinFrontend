@@ -194,7 +194,22 @@ export default function PublicationSidebarCard({
           <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
             {providerLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={providerLogo} alt={publisherName ?? "Logo"} className="h-8 w-8 rounded-full object-cover" />
+              <img
+                src={providerLogo}
+                alt={publisherName ?? "Logo"}
+                className="h-8 w-8 rounded-full object-cover"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (website) {
+                    try {
+                      const host = new URL(website).hostname;
+                      target.src = `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${host}&size=256`;
+                      return;
+                    } catch {}
+                  }
+                  target.style.display = "none";
+                }}
+              />
             ) : null}
             <span className="font-semibold text-gray-900">
               {publisherName ? publisherName : t("oferente_nombre_placeholder")}
