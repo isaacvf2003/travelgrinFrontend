@@ -150,9 +150,13 @@ export default function AiScraperModal({
         throw new Error(data.error || "Error al procesar el scraping web con IA.");
       }
 
+      const BAD_GFX = /megafono|slider|banner|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|tramite|afiliac|cartilla|turnos/i;
+
       const generatedDrafts: ScrapedPublicationDraft[] = (data.publications || []).map(
         (pub: ScrapedPublicationDraft) => ({
           ...pub,
+          providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
+          images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
           status: pub.status || "active",
         })
       );
