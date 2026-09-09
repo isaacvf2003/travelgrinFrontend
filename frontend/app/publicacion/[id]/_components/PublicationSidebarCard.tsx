@@ -203,7 +203,7 @@ export default function PublicationSidebarCard({
                   if (website) {
                     try {
                       const host = new URL(website).hostname;
-                      target.src = `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${host}&size=256`;
+                      target.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
                       return;
                     } catch {}
                   }
