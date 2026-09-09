@@ -3061,7 +3061,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPProviderLogo(cleanLogo);
     if (Array.isArray(draft.images)) {
       const cleanImages = draft.images.filter((img) => img && !BAD_GFX.test(img));
-      setImageList(cleanImages);
+      setPImageUrls(cleanImages.join("\n"));
     }
     if (draft.status) setPStatus(draft.status);
     setPCountry(draft.country || "Argentina");
