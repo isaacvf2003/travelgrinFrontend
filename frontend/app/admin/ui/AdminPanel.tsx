@@ -2999,6 +2999,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPTitle(titleEs);
     setPTitleI18n(titleI18nInit);
 
+    const pubName = draft.publisherName || draft.title || "";
+    setPPublisherName(pubName);
+
     const descEs = draft.description || "";
     const descI18nInit = draft.descriptionI18n || { es: descEs };
     setPDescription(descEs);
