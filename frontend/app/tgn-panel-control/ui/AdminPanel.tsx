@@ -3089,25 +3089,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     });
     setPSocialLinksDetailed(Array.from(linkMap.values()));
-    if (draft.categorySelections && draft.categorySelections.length) {
-      setPCategorySelections(draft.categorySelections);
-    } else if (draft.category) {
-      setPCategorySelections([draft.category]);
-    }
-    if (draft.subcategorySelections && draft.subcategorySelections.length) {
-      setPSubcategorySelections(draft.subcategorySelections);
-    } else if (draft.subcategory) {
-      setPSubcategorySelections([draft.subcategory]);
-    }
-    if (draft.providerActivities && draft.providerActivities.length) {
-      setPProviderActivities(draft.providerActivities);
-    }
-    if (draft.providerTypes && draft.providerTypes.length) {
-      setPProviderTypes(draft.providerTypes);
-    }
-    if (draft.providerModalities && draft.providerModalities.length) {
-      setPProviderModalities(draft.providerModalities);
-    }
+    const catSel = draft.categorySelections?.length ? draft.categorySelections : (draft.category ? [draft.category] : []);
+    setPCategorySelections(catSel);
+    setPCategory(draft.category || catSel[0] || "");
+
+    const subcatSel = draft.subcategorySelections?.length ? draft.subcategorySelections : (draft.subcategory ? [draft.subcategory] : []);
+    setPSubcategorySelections(subcatSel);
+    setPSubcategory(draft.subcategory || subcatSel[0] || "");
+
+    const actSel = draft.providerActivities?.length ? draft.providerActivities : [];
+    setPProviderActivities(actSel);
+    setPProviderActivity(actSel[0] || "");
+
+    const typeSel = draft.providerTypes?.length ? draft.providerTypes : [];
+    setPProviderTypes(typeSel);
+    setPProviderType(typeSel[0] || "");
+
+    const modSel = draft.providerModalities?.length ? draft.providerModalities : [];
+    setPProviderModalities(modSel);
+
     if (draft.images && draft.images.length) {
       setPImageUrls(draft.images.join("\n"));
     }
