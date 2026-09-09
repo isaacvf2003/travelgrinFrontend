@@ -2994,13 +2994,65 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   const applyAiDraftToForm = (draft: ScrapedPublicationDraft) => {
-    setPTitle(draft.title || "");
-    setPTitleI18n(draft.titleI18n || { es: draft.title || "" });
-    setPDescription(draft.description || "");
-    setPDescriptionI18n(draft.descriptionI18n || { es: draft.description || "" });
-    setPExtraDescriptions(draft.extraDescriptions || []);
-    setPPublisherName(draft.publisherName || "");
-    setPProviderInfoI18n(draft.providerInfoI18n || { es: "" });
+    const titleEs = draft.title || "";
+    const titleI18nInit = draft.titleI18n || { es: titleEs };
+    setPTitle(titleEs);
+    setPTitleI18n(titleI18nInit);
+
+    const descEs = draft.description || "";
+    const descI18nInit = draft.descriptionI18n || { es: descEs };
+    setPDescription(descEs);
+    setPDescriptionI18n(descI18nInit);
+
+    const extraDescInit = draft.extraDescriptions || [];
+    setPExtraDescriptions(extraDescInit);
+
+    const providerInfoInit = draft.providerInfoI18n || { es: "" };
+    setPProviderInfoI18n(providerInfoInit);
+
+    // Auto-translate missing languages (pt, it) if they are missing or equal to spanish fallback
+    const needsTranslation = descEs && (!descI18nInit.pt || !descI18nInit.it || descI18nInit.pt === descEs || descI18nInit.it === descEs);
+    if (needsTranslation) {
+      fetch("/api/admin/translate-i18n", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.translations) {
+            setPDescriptionI18n((prev) => ({
+              ...prev,
+              es: descEs,
+              en: data.translations.en || prev.en || descEs,
+              pt: data.translations.pt || prev.pt || descEs,
+              it: data.translations.it || prev.it || descEs,
+            }));
+          }
+        })
+        .catch((err) => console.error("[applyAiDraftToForm Auto-Translate Error]:", err));
+    }
+
+    if (titleEs && (!titleI18nInit.pt || !titleI18nInit.it || titleI18nInit.pt === titleEs)) {
+      fetch("/api/admin/translate-i18n", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.translations) {
+            setPTitleI18n((prev) => ({
+              ...prev,
+              es: titleEs,
+              en: data.translations.en || prev.en || titleEs,
+              pt: data.translations.pt || prev.pt || titleEs,
+              it: data.translations.it || prev.it || titleEs,
+            }));
+          }
+        })
+        .catch((err) => console.error("[applyAiDraftToForm Title Translate Error]:", err));
+    }
     setPProviderStartYear(draft.providerStartYear || "");
     setPProviderRating(draft.providerRating || "");
     setPProviderReviewCount(draft.providerReviewCount || "");
