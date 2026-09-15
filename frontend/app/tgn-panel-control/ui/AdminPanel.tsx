@@ -3115,13 +3115,126 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     });
     setPSocialLinksDetailed(Array.from(linkMap.values()));
-    const catSel = draft.categorySelections?.length ? draft.categorySelections : (draft.category ? [draft.category] : []);
-    setPCategorySelections(catSel);
-    setPCategory(draft.category || catSel[0] || "");
+    // Smart resolution of categories and subcategories against loaded database roots
+    const byId = new Map<string, Category>(categories.map((c) => [c.id, c]));
+    const resolveRoot = (cat: Category): Category => {
+      let current: Category | undefined = cat;
+      let depth = 0;
+      while (current?.parentId && depth < 10) {
+        current = byId.get(current.parentId);
+        depth += 1;
+      }
+      return current ?? cat;
+    };
 
-    const subcatSel = draft.subcategorySelections?.length ? draft.subcategorySelections : (draft.subcategory ? [draft.subcategory] : []);
-    setPSubcategorySelections(subcatSel);
-    setPSubcategory(draft.subcategory || subcatSel[0] || "");
+    const validRootsSet = new Set(publicationCategoryRoots.map((r) => r.description));
+    const allRootsWithNorm = publicationCategoryRoots.map((r) => ({
+      original: r.description,
+      norm: r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
+      id: r.id,
+    }));
+
+    const rawInputCategories = [
+      ...(Array.isArray(draft.categorySelections) ? draft.categorySelections : []),
+      draft.category || "",
+    ].filter(Boolean);
+
+    const rawInputSubcategories = [
+      ...(Array.isArray(draft.subcategorySelections) ? draft.subcategorySelections : []),
+      draft.subcategory || "",
+    ].filter(Boolean);
+
+    const resolvedCategoryRoots = new Set<string>();
+    const resolvedSubcategories = new Set<string>();
+
+    for (const inputCat of rawInputCategories) {
+      const inputNorm = inputCat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!inputNorm) continue;
+
+      // 1. Direct root match
+      const exactRoot = allRootsWithNorm.find((r) => r.original === inputCat || r.norm === inputNorm);
+      if (exactRoot) {
+        resolvedCategoryRoots.add(exactRoot.original);
+        continue;
+      }
+
+      // 2. Subcategory match in DB
+      const matchedCatInDb = categories.find((c) => {
+        const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return c.description === inputCat || cNorm === inputNorm;
+      });
+      if (matchedCatInDb) {
+        const root = resolveRoot(matchedCatInDb);
+        if (validRootsSet.has(root.description)) {
+          resolvedCategoryRoots.add(root.description);
+          if (matchedCatInDb.parentId) {
+            resolvedSubcategories.add(matchedCatInDb.description);
+          }
+          continue;
+        }
+      }
+
+      // 3. Substring match
+      const substringRoot = allRootsWithNorm.find((r) => r.norm.includes(inputNorm) || inputNorm.includes(r.norm));
+      if (substringRoot) {
+        resolvedCategoryRoots.add(substringRoot.original);
+        continue;
+      }
+
+      // 4. Token match
+      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3);
+      const tokenRoot = allRootsWithNorm.find((r) => tokens.some((tok) => r.norm.includes(tok)));
+      if (tokenRoot) {
+        resolvedCategoryRoots.add(tokenRoot.original);
+        continue;
+      }
+    }
+
+    for (const inputSub of rawInputSubcategories) {
+      const subNorm = inputSub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!subNorm) continue;
+
+      const matchedSubInDb = categories.find((c) => {
+        if (!c.parentId) return false;
+        const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return c.description === inputSub || cNorm === subNorm || cNorm.includes(subNorm) || subNorm.includes(cNorm);
+      });
+
+      if (matchedSubInDb) {
+        const root = resolveRoot(matchedSubInDb);
+        if (validRootsSet.has(root.description)) {
+          resolvedCategoryRoots.add(root.description);
+          resolvedSubcategories.add(matchedSubInDb.description);
+        }
+      }
+    }
+
+    // Sector fallback if not yet matched
+    if (resolvedCategoryRoots.size === 0) {
+      const allText = `${draft.title} ${draft.description} ${(draft.providerActivities || []).join(" ")}`.toLowerCase();
+      if (/salud|m[eé]dic|hospital|osep|cl[ií]nica|sanatorio|cobertura|asistencia social/i.test(allText)) {
+        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
+        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
+      } else if (/educaci|universidad|estudio|carrera|facultad|posgrado/i.test(allText)) {
+        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
+        if (eduRoot) resolvedCategoryRoots.add(eduRoot.original);
+      } else if (/hotel|hostel|alojamiento|turismo|hospedaje/i.test(allText)) {
+        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
+        if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
+      } else if (/abogad|legal|jur[ií]dic|visa|migra/i.test(allText)) {
+        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
+        if (legalRoot) resolvedCategoryRoots.add(legalRoot.original);
+      }
+    }
+
+    const finalCatSel = Array.from(resolvedCategoryRoots);
+    const finalSubcatSel = Array.from(resolvedSubcategories);
+
+    setPCategorySelections(finalCatSel.length ? finalCatSel : (draft.categorySelections || []));
+    setPCategory(finalCatSel[0] || draft.category || "");
+
+    setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (draft.subcategorySelections || []));
+    setPSubcategory(finalSubcatSel[0] || draft.subcategory || "");
 
     const actSel = draft.providerActivities?.length ? draft.providerActivities : [];
     setPProviderActivities(actSel);
