@@ -46,6 +46,7 @@ export interface ScrapedPublicationDraft {
   subcategory: string;
   headquarterCountry?: string;
   headquarterCity?: string;
+  headquarterLocations?: Array<{ country: string; city: string; address?: string; mapUrl: string }>;
   categorySelections?: string[];
   subcategorySelections?: string[];
   providerActivities?: string[];
@@ -502,9 +503,15 @@ export default function AiScraperModal({
                           </span>
                         </div>
                         <h4 className="text-base font-semibold text-slate-900 mt-0.5">{draft.title}</h4>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          Oferente: <span className="font-medium text-slate-700">{draft.publisherName}</span> · País:{" "}
-                          <span className="font-medium text-slate-700">{draft.country || "No especificado"}</span>
+                        <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span>Oferente: <strong className="text-slate-700">{draft.publisherName}</strong></span>
+                          <span>·</span>
+                          <span>Ubicación: <strong className="text-slate-700">{draft.city}, {draft.country}</strong></span>
+                          {draft.headquarterLocations && draft.headquarterLocations.length > 1 && (
+                            <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">
+                              📍 {draft.headquarterLocations.length} sedes
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -541,6 +548,30 @@ export default function AiScraperModal({
                       </button>
                     </div>
                   </div>
+
+                  {/* Multi-Sedes summary pills if more than 1 sede */}
+                  {draft.headquarterLocations && draft.headquarterLocations.length > 1 && (
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-2.5 text-xs">
+                      <span className="font-semibold text-indigo-900 block mb-1">
+                        Sedes / Facultades / Centros Detectados ({draft.headquarterLocations.length}):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {draft.headquarterLocations.map((hq, hqIdx) => (
+                          <a
+                            key={`sede-${hqIdx}-${hq.city}`}
+                            href={hq.mapUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[11px] text-indigo-800 hover:bg-indigo-50 transition"
+                            title={hq.address || hq.city}
+                          >
+                            <span>📍 {hq.city}</span>
+                            {hq.address && <span className="text-slate-500 max-w-[200px] truncate">({hq.address})</span>}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Summary Badges */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600">
