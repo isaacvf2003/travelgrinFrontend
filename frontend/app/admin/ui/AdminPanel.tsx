@@ -3067,11 +3067,37 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setPImageUrls(cleanImages.join("\n"));
     }
     if (draft.status) setPStatus(draft.status);
-    setPCountry(draft.country || "Argentina");
-    setPCity(draft.city || "Buenos Aires");
-    setPHeadquarterCountry(draft.headquarterCountry || draft.country || "Argentina");
-    setPHeadquarterCity(draft.headquarterCity || draft.city || "Buenos Aires");
-    setPLocationAddress(draft.locationAddress || "");
+
+    const headquarterRaw = Array.isArray(draft.headquarterLocations) && draft.headquarterLocations.length > 0
+      ? draft.headquarterLocations
+      : [
+          {
+            country: draft.headquarterCountry || draft.country || "Argentina",
+            city: draft.headquarterCity || draft.city || "Buenos Aires",
+            mapUrl: draft.locationAddress || "",
+          },
+        ];
+
+    const primaryHq = headquarterRaw[0] || {
+      country: draft.headquarterCountry || draft.country || "Argentina",
+      city: draft.headquarterCity || draft.city || "Buenos Aires",
+      mapUrl: draft.locationAddress || "",
+    };
+
+    setPCountry(draft.country || primaryHq.country || "Argentina");
+    setPCity(draft.city || primaryHq.city || "Buenos Aires");
+    setPHeadquarterCountry(primaryHq.country || "Argentina");
+    setPHeadquarterCity(primaryHq.city || "Buenos Aires");
+    setPHeadquarterMapUrl(primaryHq.mapUrl || draft.locationAddress || "");
+    setPLocationAddress(primaryHq.mapUrl || draft.locationAddress || "");
+    setPHeadquarterExtras(
+      headquarterRaw.slice(1).map((loc: any) => ({
+        country: loc.country || primaryHq.country || "Argentina",
+        city: loc.city || "",
+        mapUrl: loc.mapUrl || "",
+      }))
+    );
+
     setPCurrency(draft.currency || "USD");
     setPPrice(draft.price || "");
     setPPricePeriod(draft.pricePeriod || "");
@@ -3140,6 +3166,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         website: draft.website || null,
         fields: {
           locationAddress: draft.locationAddress || null,
+          headquarterLocations: draft.headquarterLocations || [],
           providerInfoI18n: draft.providerInfoI18n || null,
           providerRating: draft.providerRating || null,
           providerReviewCount: draft.providerReviewCount || null,
