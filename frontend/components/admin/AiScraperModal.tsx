@@ -70,6 +70,8 @@ export default function AiScraperModal({
 }: AiScraperModalProps) {
   const [tab, setTab] = useState<"single" | "bulk">("single");
   const [aiProvider, setAiProvider] = useState<"auto" | "gemini" | "openai">("auto");
+  const [customApiKey, setCustomApiKey] = useState("");
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [singleUrl, setSingleUrl] = useState("");
   const [bulkUrlsText, setBulkUrlsText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -85,10 +87,13 @@ export default function AiScraperModal({
   const [newImageUrl, setNewImageUrl] = useState("");
   const [customLogoInput, setCustomLogoInput] = useState("");
 
-  // Restore queue from sessionStorage on load if available (Client-side only)
+  // Restore queue from sessionStorage and customApiKey from localStorage on load if available (Client-side only)
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
+      const savedKey = window.localStorage.getItem("tgn_ai_custom_api_key");
+      if (savedKey) setCustomApiKey(savedKey);
+
       const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -98,6 +103,19 @@ export default function AiScraperModal({
       }
     } catch {}
   }, []);
+
+  const handleSaveApiKey = (keyVal: string) => {
+    setCustomApiKey(keyVal);
+    try {
+      if (typeof window !== "undefined") {
+        if (keyVal.trim()) {
+          window.localStorage.setItem("tgn_ai_custom_api_key", keyVal.trim());
+        } else {
+          window.localStorage.removeItem("tgn_ai_custom_api_key");
+        }
+      }
+    } catch {}
+  };
 
   // Sync draftsQueue with sessionStorage on any change
   useEffect(() => {
@@ -143,7 +161,11 @@ export default function AiScraperModal({
       const res = await fetch("/api/admin/ai-scrape-publications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls: urlsToProcess, provider: aiProvider }),
+        body: JSON.stringify({
+          urls: urlsToProcess,
+          provider: aiProvider,
+          apiKey: customApiKey.trim() || undefined,
+        }),
       });
 
       const data = await res.json();
@@ -440,7 +462,7 @@ export default function AiScraperModal({
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <label className="text-xs font-semibold text-slate-700">Motor de IA:</label>
               <select
                 value={aiProvider}
@@ -452,6 +474,14 @@ export default function AiScraperModal({
                 <option value="gemini">Google Gemini (Pruebas)</option>
                 <option value="openai">OpenAI GPT-4o (Producción)</option>
               </select>
+
+              <button
+                type="button"
+                onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+                className="text-xs text-[#00A9C6] hover:underline font-medium ml-1"
+              >
+                {showApiKeyInput ? "Ocultar clave de API" : "Configurar API Key (Opcional)"}
+              </button>
             </div>
 
             <button
@@ -463,6 +493,33 @@ export default function AiScraperModal({
               {isProcessing ? "Extrayendo y generando..." : "Generar con IA"}
             </button>
           </div>
+
+          {showApiKeyInput && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-3 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sky-900">Clave de API propia (Google Gemini o OpenAI):</span>
+                {customApiKey && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveApiKey("")}
+                    className="text-rose-600 hover:underline text-[11px]"
+                  >
+                    Borrar clave guardada
+                  </button>
+                )}
+              </div>
+              <input
+                type="password"
+                value={customApiKey}
+                onChange={(e) => handleSaveApiKey(e.target.value)}
+                placeholder="Pega aquí tu clave AIza... o sk-..."
+                className="w-full rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+              />
+              <p className="text-[11px] text-sky-700">
+                Opcional: Si tu servidor Vercel no tiene <code className="font-mono bg-white px-1 rounded">GEMINI_API_KEY</code> o <code className="font-mono bg-white px-1 rounded">OPENAI_API_KEY</code> configurada, puedes ingresarla aquí directamente. Se guardará de manera privada en tu navegador.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Review Queue (Cola de Revisión) */}
