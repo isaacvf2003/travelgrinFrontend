@@ -69,6 +69,7 @@ export default function AiScraperModal({
   onApproveDirectly,
 }: AiScraperModalProps) {
   const [tab, setTab] = useState<"single" | "bulk">("single");
+  const [aiProvider, setAiProvider] = useState<"auto" | "gemini" | "openai">("auto");
   const [singleUrl, setSingleUrl] = useState("");
   const [bulkUrlsText, setBulkUrlsText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -142,7 +143,7 @@ export default function AiScraperModal({
       const res = await fetch("/api/admin/ai-scrape-publications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls: urlsToProcess }),
+        body: JSON.stringify({ urls: urlsToProcess, provider: aiProvider }),
       });
 
       const data = await res.json();
@@ -151,7 +152,8 @@ export default function AiScraperModal({
         throw new Error(data.error || "Error al procesar el scraping web con IA.");
       }
 
-      const BAD_GFX = /megafono|slider|banner|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|tramite|afiliac|cartilla|turnos/i;
+      // Strictly exclude tracking pixels, tiny spacers, generic UI widgets
+      const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
 
       const generatedDrafts: ScrapedPublicationDraft[] = (data.publications || []).map(
         (pub: ScrapedPublicationDraft) => ({
@@ -186,8 +188,8 @@ export default function AiScraperModal({
 
   const handleRemoveDraft = (index: number) => {
     setDraftsQueue((prev) => prev.filter((_, i) => i !== index));
-    if (editingDraftIndex === index) {
-      setEditingDraftIndex(null);
+    if (expandedDraftIndex === index) {
+      setExpandedDraftIndex(null);
       setDraftForm(null);
     }
   };
@@ -437,12 +439,26 @@ export default function AiScraperModal({
             </div>
           )}
 
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-slate-700">Motor de IA:</label>
+              <select
+                value={aiProvider}
+                onChange={(e) => setAiProvider(e.target.value as any)}
+                disabled={isProcessing}
+                className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 cursor-pointer"
+              >
+                <option value="auto">Automático (Recomendado)</option>
+                <option value="gemini">Google Gemini (Pruebas)</option>
+                <option value="openai">OpenAI GPT-4o (Producción)</option>
+              </select>
+            </div>
+
             <button
               type="button"
               onClick={handleGenerate}
               disabled={isProcessing}
-              className="h-10 rounded-xl bg-[#00A9C6] px-5 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50"
+              className="h-10 rounded-xl bg-[#00A9C6] px-5 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50 transition shadow-sm"
             >
               {isProcessing ? "Extrayendo y generando..." : "Generar con IA"}
             </button>
@@ -488,10 +504,21 @@ export default function AiScraperModal({
                         </div>
                       ) : null}
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-bold text-[#00A9C6] uppercase tracking-wider">
                             {draft.category || "General"} {draft.subcategory ? `· ${draft.subcategory}` : ""}
                           </span>
+                          {(() => {
+                            const scoreBlock = (draft.extraDescriptions || []).find((d) => /score scout/i.test(d.title || d.titleI18n?.es || ""));
+                            if (scoreBlock) {
+                              return (
+                                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#007D92] border border-cyan-200">
+                                  {scoreBlock.title || scoreBlock.titleI18n?.es}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                               draft.status === "draft"
