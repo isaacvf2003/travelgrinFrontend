@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 type CountryContextType = {
-  selectedCountry: string; // label, e.g. "Argentina"
+  selectedCountry: string;
   setSelectedCountry: (country: string) => void;
   isCountryHydrated: boolean;
 

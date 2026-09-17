@@ -46,3 +46,4 @@ ADMIN_JWT_SECRET=tu-clave-secreta-compartida-super-segura
 ## Panel de Control del Administrador
 * Para entrar al panel de administración, la ruta privada es `/admin` o **`/tgn-panel-control`**.
 * Al ingresar con tu usuario y contraseña, el frontend guarda una cookie de sesión segura para mantenerte logueado.
+# travelgrin-frontend

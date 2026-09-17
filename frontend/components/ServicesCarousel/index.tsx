@@ -147,7 +147,7 @@ export default function ServicesCarousel() {
         const groups = Array.isArray(filtersData?.groups) ? (filtersData.groups as FilterGroupLite[]) : [];
         const taxonomyTypeByBlockId = new Map(groups.map((group) => [group.id, group.taxonomyType ?? null]));
         const principal = items
-          .filter((category: HomeCategoryCard) => (category.visibleInCard ?? category.isPrimaryCategory) === true && !category.parentId)
+          .filter((category: HomeCategoryCard) => category.isPrimaryCategory === true && !category.parentId)
           .map((category: HomeCategoryCard) => ({
             ...category,
             taxonomyType: shouldUseBlockTaxonomy(category.taxonomyType)

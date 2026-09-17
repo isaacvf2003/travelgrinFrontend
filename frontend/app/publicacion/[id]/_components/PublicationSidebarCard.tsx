@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { Share2 } from "lucide-react";
@@ -36,6 +36,7 @@ type PublicationSidebarCardProps = {
   displayCurrency?: string | null;
   priceOverrides?: PriceOverride[];
   imageUrl?: string | null;
+  isInactive?: boolean;
 };
 
 export default function PublicationSidebarCard({
@@ -43,6 +44,7 @@ export default function PublicationSidebarCard({
   publicationId,
   title,
   titleI18n,
+  isInactive = false,
   layout = "stack",
   featured,
   partner,
@@ -171,9 +173,14 @@ export default function PublicationSidebarCard({
               </button>
               <button
                 type="button"
-                className="rounded-full p-2 hover:bg-gray-50"
+                className={`rounded-full p-2 hover:bg-gray-50 ${isInactive ? "opacity-50 cursor-not-allowed" : ""}`}
                 aria-label="Compartir"
+                title={isInactive ? "Publicación pausada o cancelada (no compartible)" : "Compartir"}
                 onClick={() => {
+                  if (isInactive) {
+                    window.alert("Esta publicación se encuentra pausada o cancelada y no puede compartirse mientras no esté activa.");
+                    return;
+                  }
                   if (!publicationId) return;
                   trackPublicationMetric(publicationId, "share");
                   setShareMenuOpen(true);
@@ -187,7 +194,22 @@ export default function PublicationSidebarCard({
           <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
             {providerLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={providerLogo} alt={publisherName ?? "Logo"} className="h-8 w-8 rounded-full object-cover" />
+              <img
+                src={providerLogo}
+                alt={publisherName ?? "Logo"}
+                className="h-8 w-8 rounded-full object-cover"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (website) {
+                    try {
+                      const host = new URL(website).hostname;
+                      target.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+                      return;
+                    } catch {}
+                  }
+                  target.style.display = "none";
+                }}
+              />
             ) : null}
             <span className="font-semibold text-gray-900">
               {publisherName ? publisherName : t("oferente_nombre_placeholder")}

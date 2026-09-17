@@ -1,5 +1,5 @@
-const DEFAULT_ADMIN_EMAIL = "travelgrin@travelgrin.com";
-const DEFAULT_ADMIN_PASSWORD = "TravelGrin2026login";
+const DEFAULT_ADMIN_EMAIL = "admin@travelgrin.com";
+const DEFAULT_ADMIN_PASSWORD = "";
 
 function normalizeBoolean(value: string | undefined, fallback: boolean) {
   if (value === undefined) return fallback;
@@ -12,7 +12,7 @@ export function isAdminAuthEnabled() {
 }
 
 export function getDefaultAdminEmail() {
-  return process.env.ADMIN_DEFAULT_EMAIL?.trim() || DEFAULT_ADMIN_EMAIL;
+  return process.env.ADMIN_DEFAULT_EMAIL?.trim() || process.env.ADMIN_BOOTSTRAP_EMAIL?.trim() || DEFAULT_ADMIN_EMAIL;
 }
 
 export function getDefaultAdminPassword() {
@@ -20,13 +20,15 @@ export function getDefaultAdminPassword() {
 }
 
 export function getAllowedAdminEmails() {
-  const raw = process.env.ADMIN_ALLOWED_EMAILS?.trim();
-  if (!raw) return [getDefaultAdminEmail().toLowerCase()];
+  const allowedRaw = process.env.ADMIN_ALLOWED_EMAILS?.trim() || "";
+  const bootstrapRaw = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim() || "";
 
-  return raw
+  const emails = `${allowedRaw},${bootstrapRaw},${getDefaultAdminEmail()}`
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
+
+  return Array.from(new Set(emails));
 }
 
 export function getAdminMailFrom() {

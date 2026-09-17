@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         String   @default("admin")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("admins")
+}
+
+model Emails {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("emails")
+}
+
+model TravelService {
+  id                String   @id @default(cuid())
+  taxonomyType           String   @map("typeForm")
+  category           String
+  typeProfile        String?
+  email              String
+  isOfrezco          Boolean? @default(false)
+  isIntermediario    Boolean? @default(false)
+  country            String?
+  destinationCountry String
+  whatSearching      String?
+  whatStop           String?
+  contanos           String?
+  website            String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("travel_services")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  description String
+  descriptionI18n Json?
+  taxonomyType    String   @map("typeForm")
+  blockId     String?
+  block       FilterGroup? @relation(fields: [blockId], references: [id], onDelete: SetNull)
+  parentId    String?
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryTree")
+  isPublicVisible Boolean @default(true)
+  isPrimaryCategory Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([taxonomyType, parentId])
+  @@index([blockId, parentId])
+  @@map("categories")
+}
+
+model FilterGroup {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  label     String
+  labelI18n Json?
+  imageUrl  String?
+  taxonomyType  String   @default("default") @map("typeForm")
+  isProfileBlock Boolean @default(false)
+  type      String   @default("multi") // multi | range
+  order     Int      @default(0)
+  isPublicVisible Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  options   FilterOption[]
+  categories Category[]
+
+  @@map("filter_groups")
+}
+
+model FilterOption {
+  id          String   @id @default(cuid())
+  groupId     String
+  group       FilterGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  label       String
+  labelI18n   Json?
+  value       String
+  order       Int      @default(0)
+
+  parentId    String?
+  parent      FilterOption?  @relation("FilterOptionTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    FilterOption[] @relation("FilterOptionTree")
+
+  publications PublicationFilterOption[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([groupId, parentId])
+  @@unique([groupId, value, parentId])
+  @@map("filter_options")
+}
+
+model PlanItem {
+  id            String   @id @default(cuid())
+  sessionId     String
+  publicationId String
+  title         String
+  imageUrl      String?
+  price         String?
+  currency      String?
+  pricePeriod   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([sessionId, publicationId])
+  @@index([sessionId])
+  @@map("plan_items")
+}
+
+model Publication {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  status      String   @default("draft")
+  featured    Boolean  @default(false)
+
+  title       String
+  titleI18n   Json?
+  description String
+  descriptionI18n Json?
+  primaryGroupKey String?
+  contentLanguage String?
+  publisherName String?
+
+  category    String?
+  categoryI18n Json?
+  subcategory String?
+  subcategoryI18n Json?
+
+  country     String?
+  headquarterCountry String?
+  city        String?
+  location    Json?
+
+  userType    String?
+  subUserType String?
+  serviceType String?
+  userRol     String?
+  activity    String?
+
+  currency    String?
+  price       String?
+
+  languages   Json?
+  fields      Json?
+  images      Json?
+  website     String?
+  socialLinks Json?
+
+  expiration  DateTime?
+
+  filterOptions PublicationFilterOption[]
+
+  payments    PublicationPayment[]
+
+  @@map("publications")
+}
+
+model PublicationFilterOption {
+  publicationId String
+  filterOptionId String
+
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  filterOption  FilterOption @relation(fields: [filterOptionId], references: [id], onDelete: Cascade)
+
+  @@id([publicationId, filterOptionId])
+  @@index([filterOptionId])
+  @@map("publication_filter_options")
+}
+
+model PublicationPayment {
+  id             String   @id @default(cuid())
+  provider       String
+  status         String   @default("pending")
+  amount         String?
+  currency       String?
+  externalId     String?
+  raw            Json?
+  createdAt      DateTime @default(now())
+
+  publicationId  String
+  publication    Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@index([provider, status])
+  @@map("publication_payments")
+}

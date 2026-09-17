@@ -130,7 +130,7 @@ export default function FeedbackFloatingButton() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           publicationId: "feedback-general",
-          publicationTitle: "Feedback general",
+          publicationTitle: typeof window !== "undefined" ? window.location.href : "Feedback general",
           reason: "Feedback",
           details,
           fullName,

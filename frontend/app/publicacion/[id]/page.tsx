@@ -626,6 +626,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
     youtube: "YouTube",
     whatsapp: "WhatsApp",
     email: "Email",
+    phone: "Teléfono",
     web: "Web",
     other: "Enlace",
   };
@@ -697,12 +698,31 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
     // ok
   }
 
+  const pubStatusRaw = String(item.status ?? "").toLowerCase().trim();
+  const isPublicationInactive = !["active", "approved"].includes(pubStatusRaw);
+
   return (
     <div className="min-h-screen bg-[#F3F5F7]">
       <NavBar />
 
       <PlanProvider>
         <main className="mx-auto max-w-6xl px-3 py-6 sm:px-4">
+          {isPublicationInactive ? (
+            <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs sm:text-sm text-amber-950 shadow-sm">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">⚠️</span>
+                <div>
+                  <p className="font-bold text-amber-950 text-sm sm:text-base">
+                    Publicación no disponible públicamente (Estado: {item.status || "Pausada"})
+                  </p>
+                  <p className="mt-1 leading-relaxed text-amber-900">
+                    Estás viendo esta publicación en modo vista previa. Actualmente se encuentra en estado <b>{item.status || "Pausada"}</b> por administración o vencimiento. <b>No está publicada públicamente en las búsquedas ni disponible para compartir.</b>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {/* Breadcrumb */}
           <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-gray-400">
             <Link className="text-gray-600 hover:text-gray-900" href="/">
@@ -754,6 +774,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
               publicationId={String(item.id)}
               title={item.title}
               titleI18n={item.titleI18n ?? null}
+              isInactive={isPublicationInactive}
               layout="split"
               featured={item.featured}
               partner={Boolean((item as any)?.partner ?? (item as any)?.fields?.partner)}
@@ -852,6 +873,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
               publicationId={String(item.id)}
               title={item.title}
               titleI18n={item.titleI18n ?? null}
+              isInactive={isPublicationInactive}
               featured={item.featured}
               partner={Boolean((item as any)?.partner ?? (item as any)?.fields?.partner)}
               publisherName={item.publisherName}
@@ -880,6 +902,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
             <PublicationMetricsTracker publicationId={String(item.id)} />
 
             <ProviderInfo
+              name={item.publisherName || item.title || ""}
               value={providerInfoI18n}
               rating={providerRating}
               reviewCount={providerReviewCount}

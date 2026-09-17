@@ -44,8 +44,9 @@ export async function POST(req: Request) {
     return NextResponse.json(data);
   } catch (error) {
     console.error("[admin-login-proxy] Login proxy failed", error);
+    const msg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { ok: false, error: "No se pudo iniciar sesion. Intenta nuevamente." },
+      { ok: false, error: `Proxy login error: ${msg}` },
       { status: 400 },
     );
   }

@@ -7,11 +7,22 @@ import GoUpArrow from "../GoUpArrow";
 import ModalOferente from "../ModalOferente";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import toast from "react-hot-toast";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function Footer() {
   const [email, setEmail] = React.useState("");
   const [isOpenOferente, setIsOpenOferente] = React.useState(false);
   const { t } = useTranslation();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const handleInicioClick = () => {
+    if (pathname === "/") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      router.push("/");
+    }
+  };
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -85,7 +96,7 @@ export default function Footer() {
             <ul className="text-[#F9F9F9] space-y-4">
               <li
                 className="cursor-pointer"
-                onClick={() => goToSection("#home")}
+                onClick={handleInicioClick}
               >
                 {t("inicio")}
               </li>
@@ -98,7 +109,7 @@ export default function Footer() {
               </li>
               <li className="cursor-pointer text-white/90"><Link href="/panel-oferente">Portal oferente</Link></li>
               <li className="cursor-pointer"><Link href="/quienes-somos#HowDoesItWork">{t("como_funciona_publicar")}</Link></li>
-              <li className="cursor-pointer"><Link href="/quienes-somos">{t("sobre_travelgrin")}</Link></li>
+              <li className="cursor-pointer"><Link href="/quienes-somos">{t("quienes_somos")}</Link></li>
               <li className="cursor-pointer text-white/90"><Link href="/term-condicion">{t("terminos_condiciones")}</Link></li>
             </ul>
           </div>
@@ -162,7 +173,7 @@ export default function Footer() {
             height={100}
             alt="icono arrow go top"
             src={"/arrow-up.png"}
-            onClick={() => goToSection("#home")}
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           />
         </div>
       </div>
@@ -190,7 +201,7 @@ export default function Footer() {
             <ul className="text-[#F9F9F9] space-y-4">
               <li
                 className="cursor-pointer"
-                onClick={() => goToSection("#home")}
+                onClick={handleInicioClick}
               >
                 {t("inicio")}
               </li>
@@ -203,7 +214,7 @@ export default function Footer() {
               </li>
               <li className="cursor-pointer"><Link href="/panel-oferente">Portal oferente</Link></li>
               <li className="cursor-pointer"><Link href="/quienes-somos#HowDoesItWork">{t("como_funciona_publicar")}</Link></li>
-              <li className="cursor-pointer"><Link href="/quienes-somos">{t("sobre_travelgrin")}</Link></li>
+              <li className="cursor-pointer"><Link href="/quienes-somos">{t("quienes_somos")}</Link></li>
               <li className="cursor-pointer text-white/90">{t("terminos_condiciones")}</li>
             </ul>
           </div>

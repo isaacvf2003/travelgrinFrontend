@@ -5,6 +5,7 @@ import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import RichText from "@/components/RichText";
 
 type ProviderInfoProps = {
+  name?: string | null;
   value?: I18nRecord | null;
   rating?: number | null;
   reviewCount?: number | null;
@@ -139,6 +140,7 @@ function getCountryCode(country: string) {
 }
 
 export default function ProviderInfo({
+  name,
   value,
   rating,
   reviewCount,
@@ -171,14 +173,19 @@ export default function ProviderInfo({
   const activityDisplay = normalizedActivityList.length ? normalizedActivityList.join(", ") : (activity ?? "");
   const providerTypeDisplay = normalizedTypeList.length ? normalizedTypeList.join(", ") : (providerType ?? "");
 
+  const cleanName = String(name ?? "").trim();
+  const headerTitle = cleanName ? `Información de ${cleanName}` : t("oferente_info_titulo");
+
   return (
     <div className="rounded-3xl border border-gray-200 bg-white p-5">
       <div className="flex items-center gap-3">
         {logo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} alt={t("oferente_info_titulo")} className="h-11 w-11 rounded-full object-cover" />
+          <img src={logo} alt={cleanName || t("oferente_info_titulo")} className="h-11 w-11 flex-shrink-0 rounded-full object-cover border border-slate-200 shadow-sm" />
         ) : null}
-        <h3 className="text-xl font-semibold text-gray-900">{t("oferente_info_titulo")}</h3>
+        <div className="min-w-0">
+          <h3 className="text-xl font-semibold text-gray-900 leading-snug break-words">{headerTitle}</h3>
+        </div>
       </div>
       <RichText value={description} className="mt-1.5 text-base leading-7 text-gray-700" />
 

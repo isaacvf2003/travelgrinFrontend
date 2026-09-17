@@ -9,9 +9,11 @@ type PublicationGalleryProps = {
 };
 
 export default function PublicationGallery({ images, title }: PublicationGalleryProps) {
+  const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
+
   const sanitizedImages = useMemo(
-    () => images.map((src) => String(src ?? "").trim()).filter(Boolean),
-    [images]
+    () => images.map((src) => String(src ?? "").trim()).filter((src) => src && !failedUrls[src]),
+    [images, failedUrls]
   );
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -27,6 +29,11 @@ export default function PublicationGallery({ images, title }: PublicationGallery
     if (!currentThumb) return;
     currentThumb.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [activeIndex]);
+
+  const handleImageError = (src: string) => {
+    if (!src) return;
+    setFailedUrls((prev) => ({ ...prev, [src]: true }));
+  };
 
   const total = sanitizedImages.length;
   const mainImage = sanitizedImages[activeIndex] ?? "";
@@ -53,12 +60,11 @@ export default function PublicationGallery({ images, title }: PublicationGallery
     return (
       <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-gray-100">
         <div className="relative aspect-[4/3] w-full md:aspect-[16/10]">
-          <Image
-            src="https://i.ibb.co/VmrmGrx/sin-foto.jpg"
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?q=80&w=1200&auto=format&fit=crop"
             alt={`Placeholder de ${title}`}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 900px"
+            className="h-full w-full object-cover"
           />
         </div>
       </div>
@@ -69,7 +75,13 @@ export default function PublicationGallery({ images, title }: PublicationGallery
     return (
       <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-gray-50">
         <div className="relative aspect-[4/3] w-full md:aspect-[16/10]">
-          <Image src={mainImage} alt={title} fill className="object-cover" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={mainImage}
+            alt={title}
+            onError={() => handleImageError(mainImage)}
+            className="h-full w-full object-cover"
+          />
         </div>
         <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center rounded-full bg-slate-900/20 px-2 py-1 backdrop-blur-sm md:hidden">
           <span className="h-2.5 w-2.5 rounded-full bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.08)]" />
@@ -96,7 +108,13 @@ export default function PublicationGallery({ images, title }: PublicationGallery
               style={{ aspectRatio: "1 / 1" }}
               aria-label={`Ver imagen ${idx + 1}`}
             >
-              <Image src={src} alt={`thumb-${idx + 1}`} fill className="object-cover" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt={`thumb-${idx + 1}`}
+                onError={() => handleImageError(src)}
+                className="h-full w-full object-cover"
+              />
             </button>
           ))}
         </div>
@@ -111,7 +129,13 @@ export default function PublicationGallery({ images, title }: PublicationGallery
           {sanitizedImages.map((src, idx) => (
             <div key={`${src}-${idx}`} className="relative w-full flex-shrink-0 snap-center">
               <div className="relative w-full aspect-[4/3]">
-                <Image src={src} alt={`${title}-${idx + 1}`} fill className="object-cover" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={`${title}-${idx + 1}`}
+                  onError={() => handleImageError(src)}
+                  className="h-full w-full object-cover"
+                />
               </div>
             </div>
           ))}
@@ -124,7 +148,13 @@ export default function PublicationGallery({ images, title }: PublicationGallery
           aria-label="Siguiente imagen"
         >
           <div className="relative w-full aspect-[16/10]">
-            <Image src={mainImage} alt={title} fill className="object-cover" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={mainImage}
+              alt={title}
+              onError={() => handleImageError(mainImage)}
+              className="h-full w-full object-cover"
+            />
           </div>
         </button>
 

@@ -1,14 +1,6 @@
 import prisma from "@/app/lib/prisma";
 import { translations } from "@/app/lib/translations";
 
-/**
- * Base categories (ES) that power the HOME/TOP search dropdown.
- *
- * Notes:
- * - These are ROOT categories (parentId = null).
- * - Admin can create extra categories/subcategories; those will show in /buscar filters,
- *   but the HOME/TOP search keeps showing only these (it is hard-limited in the UI).
- */
 export const BASE_CATEGORIES_ES = [
   "Educación y Centros de Estudios",
   "Voluntariados y Centros de Ayuda",

@@ -2,12 +2,13 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, Trash2, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
 import CountryMultiSelect from "@/components/CountryMultiSelect";
 import RichTextEditor from "@/components/RichTextEditor";
+import AiScraperModal, { type ScrapedPublicationDraft } from "@/components/admin/AiScraperModal";
 import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
@@ -34,8 +35,7 @@ function isUsableImageUrl(value: string) {
       const uploadIndex = parts.indexOf("upload");
       if (uploadIndex >= 0) {
         const afterUpload = parts.slice(uploadIndex + 1);
-        const last = afterUpload.at(-1) ?? "";
-        return afterUpload.length >= 2 && /\.[a-z0-9]+($|\?)/i.test(last);
+        return afterUpload.length >= 2;
       }
     }
     return true;
@@ -114,6 +114,8 @@ type PromoCodeItem = {
   maxUses: number | null;
   usedCount: number;
   scope?: "all" | "partners";
+  durationDays?: number | null;
+  customPrice?: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -752,18 +754,46 @@ function receivingModeLabel(mode: unknown): string {
   return "Recibe viajeros de todos los países";
 }
 
-function normalizeProviderPlanLabel(value: unknown): string {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  if (normalized === "featured_monthly" || normalized === "monthly") return "Plan mensual";
-  if (normalized === "featured_120d" || normalized === "featured") return "Destacado 120 días";
+function normalizeProviderPlanLabel(value: unknown, extra?: any): string {
+  const raw = String(value ?? "").trim();
+  const lower = raw.toLowerCase();
+
+  const duration = Number(
+    extra?.planDurationDays ??
+      extra?.promoMeta?.durationDays ??
+      extra?.durationDays ??
+      0,
+  );
+
+  const matchDays = raw.match(/(\d+)\s*(días|dias|d)/i);
+  if (matchDays && matchDays[1]) {
+    const d = Number(matchDays[1]);
+    if (d > 0) {
+      if (lower.includes("mensual") || lower.includes("monthly")) return "Plan mensual";
+      if (lower.includes("gratis") || lower.includes("free")) return `Gratis ${d} días`;
+      return `Destacado ${d} días`;
+    }
+  }
+
+  if (lower === "featured_monthly" || lower === "monthly" || lower === "plan mensual") return "Plan mensual";
+
+  if (lower.includes("featured") || lower.includes("destacado") || lower.includes("120d")) {
+    if (duration > 0) return `Destacado ${duration} días`;
+    return "Destacado 120 días";
+  }
+
+  if (duration > 0) return `Gratis ${duration} días`;
+  if (raw && !lower.includes("featured_") && !lower.includes("basic_")) return raw;
   return "Gratis 60 días";
 }
 
 function linkedPublicationPlanLabel(publication: Publication): string {
   const fields = (publication.fields && typeof publication.fields === "object" ? publication.fields : {}) as Record<string, unknown>;
   const explicitPlan = fields.publicationPlan ?? fields.requestedPlan ?? fields.planType;
-  if (String(explicitPlan ?? "").trim()) return normalizeProviderPlanLabel(explicitPlan);
-  return publication.featured ? "Destacado 120 días" : "Gratis 60 días";
+  if (String(explicitPlan ?? "").trim()) return normalizeProviderPlanLabel(explicitPlan, fields);
+  const duration = Number(fields.planDurationDays ?? fields.durationDays ?? 0);
+  if (publication.featured) return duration > 0 ? `Destacado ${duration} días` : "Destacado 120 días";
+  return duration > 0 ? `Gratis ${duration} días` : "Gratis 60 días";
 }
 
 function paymentStatusLabel(value: unknown): string {
@@ -896,7 +926,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   if (!res.ok || data?.ok === false) {
     if (res.status === 401 && typeof window !== "undefined") {
       const next = `${window.location.pathname}${window.location.search}`;
-      window.location.href = `/admin/login?next=${encodeURIComponent(next)}`;
+      window.location.href = `/tgn-panel-control/login?next=${encodeURIComponent(next)}`;
     }
     throw new Error(data?.error || data?.message || `Error ${res.status}`);
   }
@@ -1284,6 +1314,7 @@ function AdminEditorSection({
 export default function AdminPanel({ section, publicationsView = "overview" }: AdminPanelProps) {
   const { locale, t } = useTranslation();
   const router = useRouter();
+  const basePath = "/tgn-panel-control";
   const adminRootRef = useRef<HTMLDivElement | null>(null);
   const isNewPublicationPage = publicationsView === "new";
   const [loading, setLoading] = useState(true);
@@ -1314,6 +1345,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
   const [promoCodeDraft, setPromoCodeDraft] = useState("");
   const [promoDiscountDraft, setPromoDiscountDraft] = useState("10");
+  const [promoDurationDaysDraft, setPromoDurationDaysDraft] = useState("");
+  const [promoCustomPriceDraft, setPromoCustomPriceDraft] = useState("");
   const [promoExpiresDraft, setPromoExpiresDraft] = useState("");
   const [promoMaxUsesDraft, setPromoMaxUsesDraft] = useState("");
   const [promoScopeDraft, setPromoScopeDraft] = useState<"all" | "partners">("all");
@@ -1344,11 +1377,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [priceRuleSubscriptionManualUrlDraft, setPriceRuleSubscriptionManualUrlDraft] = useState("");
   const [priceRuleShowUrlConfigDraft, setPriceRuleShowUrlConfigDraft] = useState(false);
   const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
+  const [confirmDeleteModal, setConfirmDeleteModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => Promise<void> | void;
+    isLoading?: boolean;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    isLoading: false,
+  });
   const [expandedPanelBlocks, setExpandedPanelBlocks] = useState<Record<string, boolean>>({});
   const [destinationCountrySearch, setDestinationCountrySearch] = useState("");
   const [originCountrySearch, setOriginCountrySearch] = useState("");
   const [passportCountrySearch, setPassportCountrySearch] = useState("");
   const [showPublicationEditor, setShowPublicationEditor] = useState(isNewPublicationPage);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   useEffect(() => {
     const root = adminRootRef.current;
@@ -1472,6 +1519,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [pTitleI18n, setPTitleI18n] = useState<I18nRecord>({ es: "" });
   const [pDescription, setPDescription] = useState("");
   const [pDescriptionI18n, setPDescriptionI18n] = useState<I18nRecord>({ es: "" });
+  const [translatingField, setTranslatingField] = useState<string | null>(null);
   const [pPublisherName, setPPublisherName] = useState("");
   const [pProviderEmail, setPProviderEmail] = useState("");
   const [pStatus, setPStatus] = useState("active");
@@ -1664,7 +1712,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
 
     const normalizedTime = String(pExpirationTime ?? "").trim();
-    const [hourText = "0", minuteText = "0"] = normalizedTime ? normalizedTime.split(":") : [];
+    const [hourText = "23", minuteText = "59"] = normalizedTime ? normalizedTime.split(":") : [];
     const hour = Number(hourText);
     const minute = Number(minuteText);
     if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
@@ -2303,9 +2351,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   async function deleteCategory(id: string) {
-    if (!window.confirm("¿Seguro que querés eliminar esta categoría?")) return;
-    await api(`/api/admin/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
-    await refresh();
+    const category = categories.find((item) => item.id === id);
+    const name = category?.description ? `"${category.description}"` : "esta categoría";
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: "Eliminar categoría",
+      message: `¿Seguro que querés eliminar la categoría ${name}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        await api(`/api/admin/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
+        await refresh();
+      },
+    });
   }
 
   const openCreateCategoryModal = (parentId = "", blockId = "") => {
@@ -2449,9 +2505,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       window.alert("El bloque Precio es obligatorio y no se puede eliminar.");
       return;
     }
-    if (!window.confirm("¿Seguro que querés eliminar este bloque?")) return;
-    await api(`/api/admin/filters?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    await refresh();
+    const name = block?.label ? `"${block.label}"` : "este bloque";
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: "Eliminar bloque",
+      message: `¿Seguro que querés eliminar el bloque ${name}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        await api(`/api/admin/filters?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+        await refresh();
+      },
+    });
   }
 
   const getFoDraft = (groupId: string) => foDrafts[groupId] ?? defaultFilterOptionDraft;
@@ -2516,8 +2579,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   async function deleteFilterOption(id: string) {
-    await api(`/api/admin/filter-options?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    await refresh();
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: "Eliminar opción de filtro",
+      message: "¿Seguro que querés eliminar esta opción de filtro? Esta acción no se puede deshacer.",
+      onConfirm: async () => {
+        await api(`/api/admin/filter-options?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+        await refresh();
+      },
+    });
   }
 
   function toggleFilterOption(optionId: string, checked: boolean) {
@@ -2909,7 +2979,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setPublicationTab("publicaciones");
       setPublicationSearch("");
       if (isNewPublicationPage) {
-        router.push("/admin?section=publicaciones");
+        router.push(`${basePath}?section=publicaciones`);
       } else {
         setShowPublicationEditor(false);
         window.setTimeout(() => publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
@@ -2923,12 +2993,487 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
   }
 
+  const applyAiDraftToForm = (draft: ScrapedPublicationDraft) => {
+    const titleEs = draft.title || "";
+    const titleI18nInit = draft.titleI18n || { es: titleEs };
+    setPTitle(titleEs);
+    setPTitleI18n(titleI18nInit);
+
+    const pubName = draft.publisherName || draft.title || "";
+    setPPublisherName(pubName);
+
+    const descEs = draft.description || "";
+    const descI18nInit = draft.descriptionI18n || { es: descEs };
+    setPDescription(descEs);
+    setPDescriptionI18n(descI18nInit);
+
+    const extraDescInit: ExtraDescription[] = (draft.extraDescriptions || []).map((d: any) => {
+      const titleEs = d.titleI18n?.es || d.title || "";
+      const bodyEs = d.bodyI18n?.es || d.body || "";
+      return {
+        title: titleEs,
+        body: bodyEs,
+        titleI18n: {
+          es: titleEs,
+          en: d.titleI18n?.en || titleEs,
+          pt: d.titleI18n?.pt || titleEs,
+          it: d.titleI18n?.it || titleEs,
+        },
+        bodyI18n: {
+          es: bodyEs,
+          en: d.bodyI18n?.en || bodyEs,
+          pt: d.bodyI18n?.pt || bodyEs,
+          it: d.bodyI18n?.it || bodyEs,
+        },
+        lang: (d.lang || "es") as Lang,
+        visibleInCard: d.visibleInCard !== false,
+      };
+    });
+    setPExtraDescriptions(extraDescInit);
+
+    const providerInfoInit = draft.providerInfoI18n || { es: "" };
+    setPProviderInfoI18n(providerInfoInit);
+
+    // Auto-translate missing languages (pt, it) if they are missing or equal to spanish fallback
+    const needsTranslation = descEs && (!descI18nInit.pt || !descI18nInit.it || descI18nInit.pt === descEs || descI18nInit.it === descEs);
+    if (needsTranslation) {
+      fetch("/api/admin/translate-i18n", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.translations) {
+            setPDescriptionI18n((prev) => ({
+              ...prev,
+              es: descEs,
+              en: data.translations.en || prev.en || descEs,
+              pt: data.translations.pt || prev.pt || descEs,
+              it: data.translations.it || prev.it || descEs,
+            }));
+          }
+        })
+        .catch((err) => console.error("[applyAiDraftToForm Auto-Translate Error]:", err));
+    }
+
+    if (titleEs && (!titleI18nInit.pt || !titleI18nInit.it || titleI18nInit.pt === titleEs)) {
+      fetch("/api/admin/translate-i18n", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.translations) {
+            setPTitleI18n((prev) => ({
+              ...prev,
+              es: titleEs,
+              en: data.translations.en || prev.en || titleEs,
+              pt: data.translations.pt || prev.pt || titleEs,
+              it: data.translations.it || prev.it || titleEs,
+            }));
+          }
+        })
+        .catch((err) => console.error("[applyAiDraftToForm Title Translate Error]:", err));
+    }
+    setPProviderStartYear(draft.providerStartYear || "");
+    setPProviderRating(draft.providerRating || "");
+    setPProviderReviewCount(draft.providerReviewCount || "");
+    const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
+    const cleanLogo = draft.providerLogo && !BAD_GFX.test(draft.providerLogo) ? draft.providerLogo : "";
+    setPProviderLogo(cleanLogo);
+    if (Array.isArray(draft.images)) {
+      const cleanImages = draft.images.filter((img) => img && !BAD_GFX.test(img));
+      setPImageUrls(cleanImages.join("\n"));
+    }
+    if (draft.status) setPStatus(draft.status);
+
+    const headquarterRaw = Array.isArray(draft.headquarterLocations) && draft.headquarterLocations.length > 0
+      ? draft.headquarterLocations
+      : [
+          {
+            country: draft.headquarterCountry || draft.country || "Argentina",
+            city: draft.headquarterCity || draft.city || "Buenos Aires",
+            mapUrl: draft.locationAddress || "",
+          },
+        ];
+
+    const primaryHq = headquarterRaw[0] || {
+      country: draft.headquarterCountry || draft.country || "Argentina",
+      city: draft.headquarterCity || draft.city || "Buenos Aires",
+      mapUrl: draft.locationAddress || "",
+    };
+
+    setPCountry(draft.country || primaryHq.country || "Argentina");
+    setPCity(draft.city || primaryHq.city || "Buenos Aires");
+    setPHeadquarterCountry(primaryHq.country || "Argentina");
+    setPHeadquarterCity(primaryHq.city || "Buenos Aires");
+    setPHeadquarterMapUrl(primaryHq.mapUrl || draft.locationAddress || "");
+    setPLocationAddress(primaryHq.mapUrl || draft.locationAddress || "");
+    setPHeadquarterExtras(
+      headquarterRaw.slice(1).map((loc: any) => ({
+        country: loc.country || primaryHq.country || "Argentina",
+        city: loc.city || "",
+        mapUrl: loc.mapUrl || "",
+      }))
+    );
+
+    setPCurrency(draft.currency || "USD");
+    setPPrice(draft.price || "");
+    setPPricePeriod(draft.pricePeriod || "");
+    setPLanguages(draft.languages || "Español");
+    const { website: parsedWebsite, socialLinks: parsedSocialLinks } = parseProviderLinks(draft.website || "");
+    const effectiveWebsite = draft.website || parsedWebsite;
+    setPWebsite(effectiveWebsite);
+
+    const draftSocials = draft.socialLinksDetailed || [];
+    const linkMap = new Map<string, SocialLinkDetail>();
+    [...draftSocials, ...parsedSocialLinks].forEach((entry) => {
+      if (entry && entry.url) {
+        const key = `${entry.kind || "web"}:${entry.url}`;
+        if (!linkMap.has(key)) linkMap.set(key, entry);
+      }
+    });
+    setPSocialLinksDetailed(Array.from(linkMap.values()));
+    // Smart resolution of categories and subcategories against loaded database roots
+    const byId = new Map<string, Category>(categories.map((c) => [c.id, c]));
+    const resolveRoot = (cat: Category): Category => {
+      let current: Category | undefined = cat;
+      let depth = 0;
+      while (current?.parentId && depth < 10) {
+        current = byId.get(current.parentId);
+        depth += 1;
+      }
+      return current ?? cat;
+    };
+
+    const validRootsSet = new Set(publicationCategoryRoots.map((r) => r.description));
+    const allRootsWithNorm = publicationCategoryRoots.map((r) => ({
+      original: r.description,
+      norm: r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
+      id: r.id,
+    }));
+
+    const rawInputCategories = [
+      ...(Array.isArray(draft.categorySelections) ? draft.categorySelections : []),
+      draft.category || "",
+    ].filter(Boolean);
+
+    const rawInputSubcategories = [
+      ...(Array.isArray(draft.subcategorySelections) ? draft.subcategorySelections : []),
+      draft.subcategory || "",
+    ].filter(Boolean);
+
+    const resolvedCategoryRoots = new Set<string>();
+    const resolvedSubcategories = new Set<string>();
+
+    for (const inputCat of rawInputCategories) {
+      const inputNorm = inputCat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!inputNorm) continue;
+
+      // 1. Direct root match
+      const exactRoot = allRootsWithNorm.find((r) => r.original === inputCat || r.norm === inputNorm);
+      if (exactRoot) {
+        resolvedCategoryRoots.add(exactRoot.original);
+        continue;
+      }
+
+      // 2. Subcategory match in DB
+      const matchedCatInDb = categories.find((c) => {
+        const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return c.description === inputCat || cNorm === inputNorm;
+      });
+      if (matchedCatInDb) {
+        const root = resolveRoot(matchedCatInDb);
+        if (validRootsSet.has(root.description)) {
+          resolvedCategoryRoots.add(root.description);
+          if (matchedCatInDb.parentId) {
+            resolvedSubcategories.add(matchedCatInDb.description);
+          }
+          continue;
+        }
+      }
+
+      // 3. Substring match
+      const substringRoot = allRootsWithNorm.find((r) => r.norm.includes(inputNorm) || inputNorm.includes(r.norm));
+      if (substringRoot) {
+        resolvedCategoryRoots.add(substringRoot.original);
+        continue;
+      }
+
+      // 4. Token match
+      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3);
+      const tokenRoot = allRootsWithNorm.find((r) => tokens.some((tok) => r.norm.includes(tok)));
+      if (tokenRoot) {
+        resolvedCategoryRoots.add(tokenRoot.original);
+        continue;
+      }
+    }
+
+    for (const inputSub of rawInputSubcategories) {
+      const subNorm = inputSub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!subNorm) continue;
+
+      const matchedSubInDb = categories.find((c) => {
+        if (!c.parentId) return false;
+        const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return c.description === inputSub || cNorm === subNorm || cNorm.includes(subNorm) || subNorm.includes(cNorm);
+      });
+
+      if (matchedSubInDb) {
+        const root = resolveRoot(matchedSubInDb);
+        if (validRootsSet.has(root.description)) {
+          resolvedCategoryRoots.add(root.description);
+          resolvedSubcategories.add(matchedSubInDb.description);
+        }
+      }
+    }
+
+    // Strict Sector Detection to avoid cross-contamination
+    const allContextText = `${draft.title} ${draft.publisherName || ""} ${draft.description} ${(draft.providerActivities || []).join(" ")} ${(draft.categorySelections || []).join(" ")} ${draft.category || ""}`.toLowerCase();
+    const isEdu = /universidad|facultad|carrera|colegio|instituto superior|educaci|posgrado|maestr[ií]a|diplomatura|pregrado|instituto de educaci/i.test(allContextText);
+    const isLegal = /abogad|estudio jur[ií]dico|notar|escriban|abogac|defensor|derecho/i.test(allContextText);
+    const isTourism = /hotel|hostel|hospedaje|alojamiento|posada|cabaña|resort/i.test(allContextText);
+    const isHealth = !isEdu && /hospital|cl[ií]nica|sanatorio|m[eé]dic|odontol|psicol|obra social|salud/i.test(allContextText);
+
+    // If educational entity was erroneously matched with health, remove health roots
+    if (isEdu) {
+      for (const rootName of Array.from(resolvedCategoryRoots)) {
+        if (/salud|m[eé]dic|bienestar|asistencia/i.test(rootName)) {
+          resolvedCategoryRoots.delete(rootName);
+        }
+      }
+    }
+
+    // Sector fallback if not yet matched (strictly prioritizing education first)
+    if (resolvedCategoryRoots.size === 0) {
+      if (isEdu) {
+        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
+        if (eduRoot) resolvedCategoryRoots.add(eduRoot.original);
+      } else if (isLegal) {
+        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
+        if (legalRoot) resolvedCategoryRoots.add(legalRoot.original);
+      } else if (isTourism) {
+        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
+        if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
+      } else if (isHealth) {
+        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
+        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
+      }
+    }
+
+    // If subcategories were not resolved yet, automatically pick matching children from resolved roots
+    if (resolvedSubcategories.size === 0 && resolvedCategoryRoots.size > 0) {
+      for (const rootName of resolvedCategoryRoots) {
+        const rootObj = publicationCategoryRoots.find((r) => r.description === rootName);
+        if (!rootObj) continue;
+        const children = childrenBy.get(rootObj.id) || [];
+        for (const child of children) {
+          const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          if (rawInputSubcategories.some((s) => s.toLowerCase().includes(childNorm) || childNorm.includes(s.toLowerCase()))) {
+            resolvedSubcategories.add(child.description);
+          } else if (isEdu && /universidad/i.test(childNorm) && /universidad/i.test(allContextText)) {
+            resolvedSubcategories.add(child.description);
+          } else if (isHealth && /hospital|cl[ií]nica|sanatorio/i.test(childNorm)) {
+            resolvedSubcategories.add(child.description);
+          } else if (isTourism && /hotel|hostel/i.test(childNorm)) {
+            resolvedSubcategories.add(child.description);
+          }
+        }
+      }
+    }
+
+    const finalCatSel = Array.from(resolvedCategoryRoots);
+    const finalSubcatSel = Array.from(resolvedSubcategories);
+
+    setPCategorySelections(finalCatSel.length ? finalCatSel : (draft.categorySelections || []));
+    setPCategory(finalCatSel[0] || draft.category || "");
+
+    setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (draft.subcategorySelections || []));
+    setPSubcategory(finalSubcatSel[0] || draft.subcategory || "");
+
+    // Resolve Provider Activities against DB actividadRoots
+    const resolvedActivities = new Set<string>();
+    const rawActivities = Array.isArray(draft.providerActivities) && draft.providerActivities.length > 0
+      ? draft.providerActivities
+      : (draft.providerActivity ? [draft.providerActivity] : []);
+
+    for (const rawAct of rawActivities) {
+      const actNorm = rawAct.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const match = actividadRoots.find((r) => {
+        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return rNorm === actNorm || rNorm.includes(actNorm) || actNorm.includes(rNorm);
+      });
+      if (match) {
+        resolvedActivities.add(match.description);
+      } else {
+        resolvedActivities.add(rawAct);
+      }
+    }
+
+    if (isEdu) {
+      // Remove any erroneous health activity
+      for (const act of Array.from(resolvedActivities)) {
+        if (/salud|asistencia social|m[eé]dic/i.test(act)) {
+          resolvedActivities.delete(act);
+        }
+      }
+      if (resolvedActivities.size === 0) {
+        const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
+        if (eduAct) resolvedActivities.add(eduAct.description);
+        else resolvedActivities.add("Educación y formación");
+      }
+    }
+
+    const actSel = Array.from(resolvedActivities);
+    setPProviderActivities(actSel);
+    setPProviderActivity(actSel[0] || "");
+
+    // Resolve Provider Types against DB tipoRoots
+    const resolvedTypes = new Set<string>();
+    const rawTypes = Array.isArray(draft.providerTypes) && draft.providerTypes.length > 0
+      ? draft.providerTypes
+      : (draft.providerType ? [draft.providerType] : []);
+
+    for (const rawType of rawTypes) {
+      const typeNorm = rawType.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const match = tipoRoots.find((r) => {
+        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return rNorm === typeNorm || rNorm.includes(typeNorm) || typeNorm.includes(rNorm);
+      });
+      if (match) {
+        resolvedTypes.add(match.description);
+      } else {
+        resolvedTypes.add(rawType);
+      }
+    }
+
+    if (isEdu) {
+      // Strictly prevent "Agencia" or "Profesional independiente" on universities
+      resolvedTypes.delete("Agencia");
+      resolvedTypes.delete("Profesional independiente");
+      if (resolvedTypes.size === 0) {
+        const eduType = tipoRoots.find((r) => /instituci[oó]n|educativ|privad/i.test(r.description.toLowerCase()));
+        if (eduType) resolvedTypes.add(eduType.description);
+        else resolvedTypes.add("Institución educativa");
+      }
+    }
+
+    const typeSel = Array.from(resolvedTypes);
+    setPProviderTypes(typeSel);
+    setPProviderType(typeSel[0] || "");
+
+    const modSel = draft.providerModalities?.length ? draft.providerModalities : [];
+    setPProviderModalities(modSel);
+
+    if (draft.images && draft.images.length) {
+      setPImageUrls(draft.images.join("\n"));
+    }
+    setShowPublicationEditor(true);
+    window.setTimeout(() => {
+      publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+
+  const handleApproveAiDraftDirectly = async (draft: ScrapedPublicationDraft): Promise<boolean> => {
+    try {
+      const payload = {
+        title: draft.title,
+        titleI18n: draft.titleI18n,
+        description: draft.description,
+        descriptionI18n: draft.descriptionI18n,
+        publisherName: draft.publisherName || null,
+        status: "active",
+        featured: false,
+        category: draft.category || null,
+        subcategory: draft.subcategory || null,
+        primaryGroupKey: "category",
+        country: draft.country || null,
+        city: draft.city || null,
+        currency: draft.currency || "USD",
+        price: draft.price || null,
+        pricePeriod: draft.pricePeriod || null,
+        languages: draft.languages ? draft.languages.split(",").map((s) => s.trim()).filter(Boolean) : null,
+        images: draft.images && draft.images.length ? draft.images : null,
+        website: draft.website || null,
+        fields: {
+          locationAddress: draft.locationAddress || null,
+          headquarterLocations: draft.headquarterLocations || [],
+          providerInfoI18n: draft.providerInfoI18n || null,
+          providerRating: draft.providerRating || null,
+          providerReviewCount: draft.providerReviewCount || null,
+          providerCommentsUrl: draft.providerCommentsUrl || null,
+          providerStartYear: draft.providerStartYear || null,
+          extraDescriptions: draft.extraDescriptions || [],
+          socialLinksDetailed: draft.socialLinksDetailed || [],
+          providerLogo: draft.providerLogo || null,
+          categorySelections: draft.categorySelections || (draft.category ? [draft.category] : []),
+          subcategorySelections: draft.subcategorySelections || (draft.subcategory ? [draft.subcategory] : []),
+          providerActivities: draft.providerActivities || [],
+          providerTypes: draft.providerTypes || [],
+          providerModalities: draft.providerModalities || [],
+        },
+      };
+
+      const res = await fetch("/api/publications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await refresh();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Error approving AI draft directly:", err);
+      return false;
+    }
+  };
+
   async function deletePublication(id: string) {
     const publication = publications.find((item) => item.id === id);
     const label = publication?.primaryGroupKey === "prestacion" ? "prestación" : "publicación";
-    if (!window.confirm(`¿Seguro que querés eliminar esta ${label}? Esta acción no se puede deshacer.`)) return;
-    await api(`/api/admin/publications?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    await refresh();
+    const title = publication?.title ? `"${publication.title}"` : `esta ${label}`;
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: `Eliminar ${label}`,
+      message: `¿Seguro que querés eliminar la ${label} ${title}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        setPublications((prev) => prev.filter((p) => p.id !== id));
+        setConfirmDeleteModal({ isOpen: false });
+        await api(`/api/admin/publications?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
+        await refresh();
+      },
+    });
+  }
+
+  async function deleteTravelService(id: string) {
+    const service = travelServices.find((item) => item.id === id);
+    const serviceExtra = parseTravelServiceExtra(service ?? ({} as any));
+    const rootEmailKey = providerRootEmail(service ?? ({} as any)) || `service:${id}`;
+    const nameByEmail = firstOferenteDisplayNameByEmail.get(rootEmailKey);
+    const fallbackName = providerDisplayName(service ?? ({} as any));
+    const name = nameByEmail || service?.email || fallbackName || "solicitud";
+    const kind = providerRequestKindDisplayLabel(serviceExtra.requestKind) || "solicitud";
+
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: `Eliminar ${kind.toLowerCase()}`,
+      message: `¿Seguro que querés eliminar la ${kind.toLowerCase()} de "${name}"? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        setTravelServices((prev) => prev.filter((item) => item.id !== id));
+        if (detailTravelService?.id === id) {
+          setDetailTravelService(null);
+          setDetailImageExpanded(null);
+        }
+        setConfirmDeleteModal({ isOpen: false });
+        await api(`/api/travel-services?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
+        await refresh();
+      },
+    });
   }
 
   async function updatePublicationStatus(id: string, status: "active" | "rejected" | "needs_info") {
@@ -3369,31 +3914,67 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   };
 
   const resolveCategoryTaxonomyType = (category: Category, seen = new Set<string>()): string | null => {
-    if (seen.has(category.id)) return null;
+    if (seen.has(category.id)) return "categoria";
     seen.add(category.id);
     const ownTaxonomyType = normalizeTaxonomyTypeAlias(category.taxonomyType || "predeterminado");
     if (ownTaxonomyType && !["", "default", "inherit", "predeterminado"].includes(ownTaxonomyType)) return ownTaxonomyType;
     if (category.parentId) {
       const parent = categoryById.get(category.parentId);
-      if (!parent) return null;
-      return resolveCategoryTaxonomyType(parent, seen);
+      if (parent) return resolveCategoryTaxonomyType(parent, seen);
     }
     const effectiveBlockId = resolveCategoryBlockId(category);
-    if (!effectiveBlockId) return null;
-    const blockTaxonomyType = normalizeTaxonomyTypeAlias(filterGroupById.get(effectiveBlockId)?.taxonomyType || "predeterminado");
-    if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
+    if (effectiveBlockId) {
+      const block = filterGroupById.get(effectiveBlockId);
+      const blockTaxonomyType = normalizeTaxonomyTypeAlias(block?.taxonomyType || "predeterminado");
+      if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
+
+      const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) {
+        return "categoria";
+      }
+      if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) {
+        return "actividad";
+      }
+      if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) {
+        return "tipo";
+      }
+      if (blockLabelNorm.includes("modalidad")) {
+        return "modalidad";
+      }
+      if (blockLabelNorm.includes("prestacion")) {
+        return "prestacion";
+      }
+      if (blockLabelNorm.includes("idioma")) {
+        return "idiomas";
+      }
+      const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
+      if (!hasChildren) {
+        return "filtro";
+      }
+    }
     return "categoria";
   };
   const resolveInheritedCategoryTaxonomyType = (category: Category): string | null => {
     if (category.parentId) {
       const parent = categoryById.get(category.parentId);
-      if (!parent) return null;
-      return resolveCategoryTaxonomyType(parent);
+      if (parent) return resolveCategoryTaxonomyType(parent);
     }
     const effectiveBlockId = resolveCategoryBlockId(category);
-    if (!effectiveBlockId) return null;
-    const blockTaxonomyType = normalizeTaxonomyTypeAlias(filterGroupById.get(effectiveBlockId)?.taxonomyType || "predeterminado");
-    return blockTaxonomyType || "categoria";
+    if (effectiveBlockId) {
+      const block = filterGroupById.get(effectiveBlockId);
+      const blockTaxonomyType = normalizeTaxonomyTypeAlias(block?.taxonomyType || "predeterminado");
+      if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
+      const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) return "categoria";
+      if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) return "actividad";
+      if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) return "tipo";
+      if (blockLabelNorm.includes("modalidad")) return "modalidad";
+      if (blockLabelNorm.includes("prestacion")) return "prestacion";
+      if (blockLabelNorm.includes("idioma")) return "idiomas";
+      const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
+      if (!hasChildren) return "filtro";
+    }
+    return "categoria";
   };
   const getCategoryCustomTaxonomyNotice = (category: Category): string | null => {
     const resolved = resolveCategoryTaxonomyType(category);
@@ -3407,8 +3988,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (category.parentId && !categoryById.has(category.parentId)) return false;
     const resolvedTaxonomyType = resolveCategoryTaxonomyType(category);
     if (!resolvedTaxonomyType) return false;
-    const effectiveBlockId = resolveCategoryBlockId(category);
-    if (!effectiveBlockId) return false;
     return true;
   };
 
@@ -3518,42 +4097,103 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   useEffect(() => {
     const activeRoots = pEditorMode === "prestacion" ? linkedPublicationCategoryRoots : publicationCategoryRoots;
+    if (!activeRoots.length) return;
+
     const validCategorySet = new Set(activeRoots.map((root) => root.description));
-    const validCategories = pCategorySelections.filter((value) => validCategorySet.has(value));
-    if (validCategories.length !== pCategorySelections.length) {
-      setPCategorySelections(validCategories);
+    const allRootsWithNorm = activeRoots.map((r) => ({
+      original: r.description,
+      norm: r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
+      id: r.id,
+    }));
+
+    let mappedCategories: string[] = [];
+    for (const val of pCategorySelections) {
+      if (validCategorySet.has(val)) {
+        if (!mappedCategories.includes(val)) mappedCategories.push(val);
+        continue;
+      }
+      const valNorm = val.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!valNorm) continue;
+      const matched = allRootsWithNorm.find((r) => r.norm === valNorm || r.norm.includes(valNorm) || valNorm.includes(r.norm));
+      if (matched && !mappedCategories.includes(matched.original)) {
+        mappedCategories.push(matched.original);
+      }
+    }
+
+    if (mappedCategories.length === 0 && (pTitle || pProviderActivities.length || pProviderActivity || pDescription)) {
+      const sectorContext = `${pTitle} ${pPublisherName} ${pProviderActivities.join(" ")} ${pProviderActivity} ${pDescription}`.toLowerCase();
+      const isEdu = /universidad|facultad|carrera|colegio|instituto superior|educaci|posgrado|maestr[ií]a|diplomatura|pregrado|instituto de educaci/i.test(sectorContext);
+      const isLegal = /abogad|estudio jur[ií]dico|notar|escriban|abogac|defensor|derecho/i.test(sectorContext);
+      const isTourism = /hotel|hostel|hospedaje|alojamiento|posada|cabaña|resort/i.test(sectorContext);
+      const isHealth = !isEdu && /hospital|cl[ií]nica|sanatorio|m[eé]dic|odontol|psicol|obra social|salud/i.test(sectorContext);
+
+      if (isEdu) {
+        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
+        if (eduRoot) mappedCategories.push(eduRoot.original);
+      } else if (isLegal) {
+        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
+        if (legalRoot) mappedCategories.push(legalRoot.original);
+      } else if (isTourism) {
+        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
+        if (hotelRoot) mappedCategories.push(hotelRoot.original);
+      } else if (isHealth) {
+        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
+        if (healthRoot) mappedCategories.push(healthRoot.original);
+      }
+    }
+
+    const categoriesChanged = mappedCategories.length !== pCategorySelections.length || mappedCategories.some((v, i) => v !== pCategorySelections[i]);
+    if (categoriesChanged) {
+      setPCategorySelections(mappedCategories);
       return;
     }
 
-    const activeRootIds = new Set(activeRoots.filter((root) => validCategories.includes(root.description)).map((root) => root.id));
-    const allowedSubcategories = new Set(
-      categories
-        .filter((category) => {
-          if (!category.parentId || !activeRootIds.has(category.parentId)) return false;
-          if (!isCategoryRenderable(category)) return false;
-          const taxonomyType = resolveCategoryTaxonomyType(category);
-          return pEditorMode === "prestacion"
-            ? !["prestacion", "prestaciones"].includes(taxonomyType || "")
-            : taxonomyType === "categoria";
-        })
-        .map((child) => child.description)
-    );
-    const validSubcategories = pSubcategorySelections.filter((value) => allowedSubcategories.has(value));
-    if (validSubcategories.length !== pSubcategorySelections.length) {
-      setPSubcategorySelections(validSubcategories);
+    const activeRootIds = new Set(activeRoots.filter((root) => mappedCategories.includes(root.description)).map((root) => root.id));
+    const allowedSubcategories = categories.filter((category) => {
+      if (!category.parentId || !activeRootIds.has(category.parentId)) return false;
+      if (!isCategoryRenderable(category)) return false;
+      const taxonomyType = resolveCategoryTaxonomyType(category);
+      return pEditorMode === "prestacion"
+        ? !["prestacion", "prestaciones"].includes(taxonomyType || "")
+        : taxonomyType === "categoria";
+    });
+
+    const allowedSubcatSet = new Set(allowedSubcategories.map((c) => c.description));
+    const allowedSubcatWithNorm = allowedSubcategories.map((c) => ({
+      original: c.description,
+      norm: c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
+    }));
+
+    let mappedSubcategories: string[] = [];
+    for (const val of pSubcategorySelections) {
+      if (allowedSubcatSet.has(val)) {
+        if (!mappedSubcategories.includes(val)) mappedSubcategories.push(val);
+        continue;
+      }
+      const valNorm = val.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!valNorm) continue;
+      const matched = allowedSubcatWithNorm.find((c) => c.norm === valNorm || c.norm.includes(valNorm) || valNorm.includes(c.norm));
+      if (matched && !mappedSubcategories.includes(matched.original)) {
+        mappedSubcategories.push(matched.original);
+      }
+    }
+
+    const subcategoriesChanged = mappedSubcategories.length !== pSubcategorySelections.length || mappedSubcategories.some((v, i) => v !== pSubcategorySelections[i]);
+    if (subcategoriesChanged) {
+      setPSubcategorySelections(mappedSubcategories);
       return;
     }
 
     if (pEditorMode === "prestacion") return;
 
-    const firstCategory = validCategories[0] ?? "";
+    const firstCategory = mappedCategories[0] ?? "";
     if (pCategory !== firstCategory) {
       setPCategory(firstCategory);
       const root = publicationCategoryRoots.find((item) => item.description === firstCategory);
       setPCategoryI18n(root ? ((root.descriptionI18n as I18nRecord) ?? { es: root.description }) : null);
     }
 
-    const firstSubcategory = validSubcategories[0] ?? "";
+    const firstSubcategory = mappedSubcategories[0] ?? "";
     if (pSubcategory !== firstSubcategory) {
       setPSubcategory(firstSubcategory);
       const child = publicationSubcategoryOptions.find((item) => item.description === firstSubcategory);
@@ -3570,6 +4210,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     pCategory,
     pSubcategory,
     pEditorMode,
+    pTitle,
+    pPublisherName,
+    pProviderActivities,
+    pProviderActivity,
+    pDescription,
   ]);
 
   const splitLines = (v: string) =>
@@ -4707,17 +5352,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     await refresh();
   };
 
-  const deleteTravelService = async (id: string) => {
-    await api<{ ok: boolean }>(`/api/travel-services?id=${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-    if (detailTravelService?.id === id) {
-      setDetailTravelService(null);
-      setDetailImageExpanded(null);
-    }
-    await refresh();
-  };
-
   const applyOferenteToPublication = (serviceId: string) => {
     const selected = approvedOferentes.find((item) => item.id === serviceId);
     if (!selected) return;
@@ -4816,8 +5450,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPTitleI18n({ es: titleVal });
     const selectedPlanRaw = String(extra.requestedPlan ?? extra.publicationPlan ?? selected.publicationPlan ?? "").trim().toLowerCase();
     const isSelectedPaidPlan = ["featured", "featured_120d", "monthly", "featured_monthly"].includes(selectedPlanRaw);
-    setPFeatured(isSelectedPaidPlan);
-    setPPartner(Boolean(selected.isIntermediario || extra.isIntermediario || extra.isIntermediario === "true" || extra.isIntermediario === true));
+    const isPartnerPromo = extra.promoMeta && typeof extra.promoMeta === "object" && (extra.promoMeta as any).scope === "partners";
+    setPFeatured(isSelectedPaidPlan || isPartnerPromo);
+    setPPartner(Boolean(selected.isIntermediario || extra.isIntermediario || extra.isIntermediario === "true" || extra.isIntermediario === true || isPartnerPromo));
     setPProviderLogo(providerLogo);
     setPFieldsBase((prev) => ({
       ...prev,
@@ -5024,8 +5659,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Teléfono:</b> {detailTravelService.phone || String(detailExtra?.phone ?? "-")}</div>
                   <div><b>Estado:</b> {detailVisibleStatus}</div>
                   <div><b>Tipo de solicitud:</b> {providerRequestKindDisplayLabel(detailExtra?.requestKind)}</div>
-                  <div><b>Plan solicitado:</b> {normalizeProviderPlanLabel(detailExtra?.requestedPlan ?? detailExtra?.planType)}</div>
-                  <div><b>Plan anterior:</b> {detailExtra?.previousPlan ? normalizeProviderPlanLabel(detailExtra?.previousPlan) : "-"}</div>
+                  <div><b>Plan solicitado:</b> {normalizeProviderPlanLabel(detailExtra?.requestedPlan ?? detailExtra?.planType, detailExtra)}</div>
+                  <div><b>Plan anterior:</b> {detailExtra?.previousPlan ? normalizeProviderPlanLabel(detailExtra?.previousPlan, detailExtra) : "-"}</div>
                   <div><b>{t("admin.request.reason")}:</b> {String(detailExtra?.statusReason ?? "-") || "-"}</div>
                   <div><b>Creada:</b> {detailTravelService.createdAt ? new Date(detailTravelService.createdAt).toLocaleString("es-AR") : "-"}</div>
                   <div><b>{t("admin.request.updatedAt")}:</b> {detailExtra?.statusUpdatedAt ? new Date(String(detailExtra.statusUpdatedAt)).toLocaleString("es-AR") : "-"}</div>
@@ -5088,10 +5723,69 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Destino:</b> {detailTravelService.destinationCountry || "-"} / {detailTravelService.city || String(detailExtra?.city ?? "-")}</div>
                   <div><b>Sede principal:</b> {detailTravelService.headquarterCountry || String(detailExtra?.headquarterCountry ?? "-")}</div>
                   <div className="md:col-span-2"><b>Web/red:</b> {detailTravelService.website || "-"}</div>
+                  <div className="md:col-span-2"><b>Enlace WhatsApp:</b> {String(detailExtra?.whatsappLink ?? "").trim() || "-"}</div>
+                  {originalPub && String((originalPub.socialLinks as any)?.whatsapp ?? "").trim() !== String(detailExtra?.whatsappLink ?? "").trim() && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">Actual: {String((originalPub.socialLinks as any)?.whatsapp ?? "-")}</div>
+                  )}
+                  <div className="md:col-span-2"><b>Enlace Profesional / LinkedIn:</b> {String(detailExtra?.professionalLink ?? "").trim() || "-"}</div>
+                  {originalPub && String((originalPub.socialLinks as any)?.linkedin ?? "").trim() !== String(detailExtra?.professionalLink ?? "").trim() && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">Actual: {String((originalPub.socialLinks as any)?.linkedin ?? "-")}</div>
+                  )}
+                  <div className="md:col-span-2"><b>Contacto Viajero / Web:</b> {String(detailExtra?.travelerContactLink ?? "").trim() || "-"}</div>
+                  {originalPub && String((originalPub.socialLinks as any)?.web ?? "").trim() !== String(detailExtra?.travelerContactLink ?? "").trim() && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">Actual: {String((originalPub.socialLinks as any)?.web ?? "-")}</div>
+                  )}
                   <div className="md:col-span-2"><b>Descripción:</b> {detailTravelService.contanos || "-"}</div>
                   {originalPub && originalPub.description !== detailTravelService.contanos && (
                     <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through max-h-20 overflow-y-auto pl-2 border-l border-rose-300">Actual: {originalPub.description || "-"}</div>
                   )}
+                  <div className="md:col-span-2"><b>Incluye:</b> {String(detailExtra?.included ?? "").trim() || "-"}</div>
+                  {originalPub && String((originalPub.fields as any)?.included ?? "").trim() !== String(detailExtra?.included ?? "").trim() && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through max-h-20 overflow-y-auto pl-2 border-l border-rose-300">Actual: {String((originalPub.fields as any)?.included ?? "-")}</div>
+                  )}
+                  <div className="md:col-span-2"><b>No incluye:</b> {String(detailExtra?.notIncluded ?? "").trim() || "-"}</div>
+                  {originalPub && String((originalPub.fields as any)?.notIncluded ?? "").trim() !== String(detailExtra?.notIncluded ?? "").trim() && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through max-h-20 overflow-y-auto pl-2 border-l border-rose-300">Actual: {String((originalPub.fields as any)?.notIncluded ?? "-")}</div>
+                  )}
+                  <div className="md:col-span-2">
+                    <b>Precio del servicio:</b> {detailExtra?.price ? `${detailExtra.currency} ${detailExtra.price} / ${detailExtra.pricePeriod === "person" ? "Persona" : "Mes"}` : "Gratis / No especificado"}
+                    {detailExtra?.priceNegotiable ? " (Negociable)" : ""}
+                  </div>
+                  {originalPub && (
+                    (originalPub.price !== detailExtra?.price) ||
+                    (originalPub.currency !== detailExtra?.currency) ||
+                    (String((originalPub.fields as any)?.pricePeriod ?? "") !== String(detailExtra?.pricePeriod ?? "")) ||
+                    (Boolean((originalPub.fields as any)?.priceNegotiable) !== Boolean(detailExtra?.priceNegotiable))
+                  ) && (
+                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">
+                      Actual: {originalPub.price ? `${originalPub.currency} ${originalPub.price} / ${String((originalPub.fields as any)?.pricePeriod === "person" ? "Persona" : "Mes")}` : "Gratis / No especificado"}
+                      {Boolean((originalPub.fields as any)?.priceNegotiable) ? " (Negociable)" : ""}
+                    </div>
+                  )}
+                  {Array.isArray(detailExtra?.priceByCurrency) && detailExtra.priceByCurrency.length > 0 && (
+                    <div className="md:col-span-2 text-xs text-slate-500">
+                      <b>Precios alternativos:</b> {detailExtra.priceByCurrency.map((p: any) => `${p.currency} ${p.amount}`).join(", ")}
+                    </div>
+                  )}
+                  <div className="md:col-span-2 mt-1">
+                    <b>Logo del oferente:</b>
+                    <div className="mt-2 flex items-center gap-4">
+                      {detailExtra?.providerLogo ? (
+                        <div className="text-center">
+                          <div className="text-[10px] text-slate-500 font-medium mb-1">Propuesto:</div>
+                          <img src={String(detailExtra.providerLogo)} alt="Logo propuesto" className="h-16 w-16 rounded-xl border border-slate-200 object-cover" />
+                        </div>
+                      ) : (
+                        <span className="text-slate-500 text-xs">- (Sin logo propuesto)</span>
+                      )}
+                      {originalPub && originalPub.providerLogo && String(originalPub.providerLogo).trim() !== String(detailExtra?.providerLogo ?? "").trim() && (
+                        <div className="text-center border-l border-rose-200 pl-4">
+                          <div className="text-[10px] text-rose-600 font-medium mb-1">Actual:</div>
+                          <img src={String(originalPub.providerLogo)} alt="Logo actual" className="h-16 w-16 rounded-xl border border-rose-200 object-cover opacity-60 line-through" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="md:col-span-2"><b>¿Qué está buscando?:</b> {String(detailExtra?.whatSearching ?? "") || "-"}</div>
                   <div className="md:col-span-2"><b>¿Qué lo frena o preocupa?:</b> {String(detailExtra?.whatStop ?? "") || "-"}</div>
                   <div className="md:col-span-2">
@@ -5147,10 +5841,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               ) : <div className="mt-2 text-xs text-slate-500">Este oferente todavía no tiene publicaciones vinculadas.</div>}
             </div>
             <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white p-3">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="text-sm font-semibold text-slate-900">Historial de solicitudes del oferente</div>
                 <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">{detailRelatedServices.length} solicitud(es)</span>
               </div>
+              {detailRelatedServices.length > 1 ? (
+                <div className="mb-3 rounded-xl border border-sky-200 bg-sky-50/80 p-2.5 text-xs text-sky-900 flex items-start gap-2">
+                  <span className="text-base leading-none">📌</span>
+                  <div>
+                    <span className="font-bold">Múltiples solicitudes ({detailRelatedServices.length}):</span>{" "}
+                    Este oferente posee varias publicaciones. Haz clic en cualquiera de las tarjetas del historial a continuación para seleccionar e inspeccionar su información detallada.
+                  </div>
+                </div>
+              ) : null}
               <div className="mt-3 space-y-2">
                 {detailRelatedServices.map((service) => {
                   const extra = parseTravelServiceExtra(service);
@@ -5165,6 +5868,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   const canHandleRefund = ["refund_requested", "refund_reviewing"].includes(refundStatus)
                     && paymentConfirmedForRefund(payment?.status ?? extra.paymentStatus ?? "");
                   const isSelectedHistory = service.id === detailTravelService.id;
+                  const pubTitle = String(extra.publicationTitle ?? "").trim() || "Sin título propuesto";
+
                   return (
                     <div
                       key={`history-${service.id}`}
@@ -5180,16 +5885,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       className={`cursor-pointer rounded-xl border p-3 text-xs text-slate-700 outline-none transition hover:border-[#00A9C6]/70 hover:bg-cyan-50/40 focus:ring-2 focus:ring-[#00A9C6]/30 ${isSelectedHistory ? "border-[#00A9C6] bg-cyan-50 shadow-[0_0_0_3px_rgba(0,169,198,0.12)]" : "border-slate-200 bg-slate-50"}`}
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-white px-2 py-1 font-semibold">{normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan)}</span>
+                        <span className="rounded-full bg-white px-2 py-1 font-semibold">{normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan, extra)}</span>
                         <span className="rounded-full bg-white px-2 py-1">{providerRequestKindDisplayLabel(extra.requestKind)}</span>
                         <span className="rounded-full bg-white px-2 py-1">{currentStatus === "falta info" && extra.resubmittedAt ? t("providerPortal.status.resubmittedForReview") : currentStatus}</span>
                         <span className={`rounded-full px-2 py-1 ${paymentStatusClasses(payment?.status ?? extra.paymentStatus ?? "-")}`}>Pago: {paymentStatusLabel(payment?.status ?? extra.paymentStatus ?? "-")}</span>
                         {refundStatus ? <span className="rounded-full bg-white px-2 py-1">{refundStatusLabel(refundStatus)}</span> : null}
                       </div>
+                      <div className="mt-2 rounded-lg border border-slate-200/90 bg-white p-2 text-xs font-semibold text-slate-900">
+                        <span className="text-[#007D94] mr-1">📌 Publicación propuesta:</span>
+                        <span>"{pubTitle}"</span>
+                      </div>
                       <div className="mt-2 grid gap-2 md:grid-cols-2">
                         <div><b>ID solicitud:</b> {service.id}</div>
                         <div><b>Fecha:</b> {service.createdAt ? new Date(service.createdAt).toLocaleString("es-AR") : "-"}</div>
-                        <div><b>Plan anterior:</b> {extra.previousPlan ? normalizeProviderPlanLabel(extra.previousPlan) : "-"}</div>
+                        <div><b>Plan anterior:</b> {extra.previousPlan ? normalizeProviderPlanLabel(extra.previousPlan, extra) : "-"}</div>
                         <div><b>Referencia de pago:</b> {payment?.externalReference || "-"}</div>
                         <div><b>{t("admin.request.reason")}:</b> {String(extra.statusReason ?? "-") || "-"}</div>
                         <div><b>{t("admin.request.updatedAt")}:</b> {extra.statusUpdatedAt ? new Date(String(extra.statusUpdatedAt)).toLocaleString("es-AR") : "-"}</div>
@@ -5214,9 +5923,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         ) : null}
                         {canReviewUpdatedSubmission ? (
                           <>
-                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "aprobado"); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Aprobado</button>
-                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "rechazado"); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Rechazado</button>
-                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "falta info"); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-100">Falta info</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "aprobado"); }} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-800 hover:bg-emerald-100">Aprobar esta solicitud</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "rechazado"); }} className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 font-semibold text-rose-800 hover:bg-rose-100">Rechazar</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateTravelServiceStatus(service.id, "falta info"); }} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 font-semibold text-amber-800 hover:bg-amber-100">Falta info</button>
                           </>
                         ) : null}
                         {canHandleRefund ? (
@@ -5259,7 +5968,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         </div>
         <div className="space-y-3">
           {detailPaymentItems.map((item) => {
-            const linkedService = detailPaymentServices.find((service) => service.id === item.serviceId);
+            const linkedService =
+              detailPaymentServices.find((service) => service.id === item.serviceId) ||
+              travelServices.find((service) => service.id === item.serviceId || String(service.id) === String(item.serviceId)) ||
+              (item.serviceId ? ({
+                id: item.serviceId,
+                email: item.payerEmail || detailPaymentEmail || "-",
+                taxonomyType: "oferente",
+                createdAt: item.createdAt,
+                status: "pendiente_pago",
+                whatSearching: JSON.stringify({
+                  name: item.payerEmail ? item.payerEmail.split("@")[0] : "Solicitante",
+                  email: item.payerEmail || detailPaymentEmail || "-",
+                  requestedPlan: item.planType,
+                  paymentStatus: item.status,
+                  serviceId: item.serviceId,
+                  externalReference: item.externalReference,
+                }),
+              } as unknown as TravelService) : null);
+
             const linkedExtra = linkedService ? parseTravelServiceExtra(linkedService) : {};
             const canReviewUpdatedSubmission = linkedService ? isReviewableTravelService(linkedService, linkedExtra) : false;
             const refundData = parseRefundSnapshot({
@@ -5270,6 +5997,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             const canHandleRefund = Boolean(linkedService)
               && ["refund_requested", "refund_reviewing"].includes(refundStatus)
               && paymentConfirmedForRefund(item.status);
+
+            const getDlocalGoHumanExplanation = (status?: string | null, returnStatus?: string | null) => {
+              const s = String(status ?? "").trim().toLowerCase();
+              const r = String(returnStatus ?? "").trim().toLowerCase();
+              if (s === "paid") return "✅ Pago acreditado exitosamente por dLocal Go.";
+              if (s === "processing") return "🔄 Pago en proceso de verificación por dLocal Go / red bancaria.";
+              if (s === "cancelled" || r.includes("cancel")) return "❌ Checkout cancelado por el usuario antes de completar la transacción en dLocal Go.";
+              if (s === "failed" || r.includes("fail") || r.includes("reject")) return "⛔ Transacción rechazada por dLocal Go o entidad bancaria.";
+              return "⏳ Intento registrado. El usuario inició la transacción pero aún no completó los datos de cobro en dLocal Go.";
+            };
+
             return (
               <div key={`detail-payment-${item.id}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                 <div className="flex flex-wrap items-center gap-2">
@@ -5283,12 +6021,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div><b>Fecha:</b> {item.createdAt ? new Date(item.createdAt).toLocaleString("es-AR") : "-"}</div>
                   <div><b>Referencia:</b> {item.externalReference || "-"}</div>
                   <div><b>Pago dLocal:</b> {item.providerPaymentId || "-"}</div>
-                  <div><b>CupÃ³n:</b> {String(item.promoCode ?? linkedExtra.promoCode ?? "").trim() || "-"}</div>
+                  <div><b>Cupón:</b> {String(item.promoCode ?? linkedExtra.promoCode ?? "").trim() || "-"}</div>
                   <div><b>Pagado:</b> {item.paidAt ? new Date(item.paidAt).toLocaleString("es-AR") : "-"}</div>
                   <div><b>Retorno:</b> {item.returnStatus || "-"}</div>
                   {refundStatus ? <div><b>Reembolso:</b> {refundStatusLabel(refundStatus)}</div> : null}
                   {refundStatus ? <div><b>Refund ref:</b> {String(refundData.refundProviderReference ?? "-") || "-"}</div> : null}
                   <div><b>Tipo de solicitud:</b> {providerRequestKindDisplayLabel(linkedExtra.requestKind)}</div>
+                </div>
+
+                <div className="mt-2.5 rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-700">
+                  <b>Informe dLocal Go:</b> {getDlocalGoHumanExplanation(item.status, item.returnStatus)}
                 </div>
                 {refundStatus ? (
                   <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
@@ -5335,6 +6077,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPromoEditId(null);
     setPromoCodeDraft("");
     setPromoDiscountDraft("10");
+    setPromoDurationDaysDraft("");
+    setPromoCustomPriceDraft("");
     setPromoExpiresDraft("");
     setPromoMaxUsesDraft("");
     setPromoScopeDraft("all");
@@ -5450,39 +6194,46 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPriceRuleMessage("");
   };
 
-  const deletePriceRule = async (id: string) => {
-    setPriceRuleSaving(true);
-    setPriceRuleMessage("");
-    try {
-      const item = featuredPlanPrices.find((entry) => entry.id === id) ?? null;
-      if (item?.planType === "featured_monthly") {
-        const linkedPlan = findSubscriptionPlanForPriceRule(id);
-        if (linkedPlan?.id) {
-          const response = await api<{ ok: true; items: DlocalSubscriptionPlanItem[]; priceItems: FeaturedPlanPriceItem[] }>(
-            `/api/admin/dlocal-subscription-plans?id=${encodeURIComponent(linkedPlan.id)}`,
-            { method: "DELETE" },
-          );
-          setDlocalSubscriptionPlans(Array.isArray(response.items) ? response.items : []);
-          setFeaturedPlanPrices(Array.isArray(response.priceItems) ? response.priceItems : []);
-        } else {
-          const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
-            method: "DELETE",
-          });
-          setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+  const deletePriceRule = (id: string) => {
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: "Eliminar precio",
+      message: "¿Seguro que querés eliminar este precio configurado? Esta acción no se puede deshacer.",
+      onConfirm: async () => {
+        setPriceRuleSaving(true);
+        setPriceRuleMessage("");
+        try {
+          const item = featuredPlanPrices.find((entry) => entry.id === id) ?? null;
+          if (item?.planType === "featured_monthly") {
+            const linkedPlan = findSubscriptionPlanForPriceRule(id);
+            if (linkedPlan?.id) {
+              const response = await api<{ ok: true; items: DlocalSubscriptionPlanItem[]; priceItems: FeaturedPlanPriceItem[] }>(
+                `/api/admin/dlocal-subscription-plans?id=${encodeURIComponent(linkedPlan.id)}`,
+                { method: "DELETE" },
+              );
+              setDlocalSubscriptionPlans(Array.isArray(response.items) ? response.items : []);
+              setFeaturedPlanPrices(Array.isArray(response.priceItems) ? response.priceItems : []);
+            } else {
+              const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
+                method: "DELETE",
+              });
+              setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+            }
+          } else {
+            const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
+              method: "DELETE",
+            });
+            setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
+          }
+          if (priceRuleEditId === id) resetPriceRuleForm();
+          setPriceRuleMessage("Precio eliminado.");
+        } catch (error) {
+          setPriceRuleMessage(error instanceof Error ? error.message : "No se pudo eliminar el precio.");
+        } finally {
+          setPriceRuleSaving(false);
         }
-      } else {
-        const response = await api<{ ok: true; items: FeaturedPlanPriceItem[] }>(`/api/admin/featured-plan-prices?id=${encodeURIComponent(id)}`, {
-          method: "DELETE",
-        });
-        setFeaturedPlanPrices(Array.isArray(response.items) ? response.items : []);
-      }
-      if (priceRuleEditId === id) resetPriceRuleForm();
-      setPriceRuleMessage("Precio eliminado.");
-    } catch (error) {
-      setPriceRuleMessage(error instanceof Error ? error.message : "No se pudo eliminar el precio.");
-    } finally {
-      setPriceRuleSaving(false);
-    }
+      },
+    });
   };
 
   const generateRandomPromoCode = () => {
@@ -5500,7 +6251,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const payload = {
         id: promoEditId ?? undefined,
         code: promoCodeDraft,
-        discountPercent: Number(promoDiscountDraft),
+        discountPercent: Number(promoDiscountDraft || 0),
+        durationDays: promoDurationDaysDraft ? Number(promoDurationDaysDraft) : null,
+        customPrice: promoCustomPriceDraft !== "" ? Number(promoCustomPriceDraft) : null,
         expiresAt: normalizedExpiresAt,
         maxUses: promoMaxUsesDraft || null,
         scope: promoScopeDraft,
@@ -5525,6 +6278,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPromoEditId(item.id);
     setPromoCodeDraft(item.code);
     setPromoDiscountDraft(String(item.discountPercent || 0));
+    setPromoDurationDaysDraft(item.durationDays ? String(item.durationDays) : "");
+    setPromoCustomPriceDraft(item.customPrice !== null && item.customPrice !== undefined ? String(item.customPrice) : "");
     setPromoExpiresDraft(item.expiresAt ? new Date(item.expiresAt).toISOString().slice(0, 16) : "");
     setPromoMaxUsesDraft(item.maxUses === null ? "" : String(item.maxUses));
     setPromoScopeDraft(item.scope === "partners" ? "partners" : "all");
@@ -5532,22 +6287,74 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPromoMessage("");
   };
 
-  const deletePromoCode = async (id: string) => {
-    setPromoSaving(true);
-    setPromoMessage("");
-    try {
-      const response = await api<{ ok: true; items: PromoCodeItem[] }>(`/api/admin/promo-codes?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
-      setPromoCodes(Array.isArray(response.items) ? response.items : []);
-      if (promoEditId === id) resetPromoForm();
-      setPromoMessage("Código promocional eliminado.");
-    } catch (error) {
-      setPromoMessage(error instanceof Error ? error.message : "No se pudo eliminar el codigo.");
-    } finally {
-      setPromoSaving(false);
-    }
+  const deletePromoCode = (id: string) => {
+    const promo = promoCodes.find((item) => item.id === id);
+    const codeName = promo?.code ? `"${promo.code}"` : "este código promocional";
+    setConfirmDeleteModal({
+      isOpen: true,
+      title: "Eliminar código promocional",
+      message: `¿Seguro que querés eliminar el código promocional ${codeName}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        setPromoSaving(true);
+        setPromoMessage("");
+        try {
+          const response = await api<{ ok: true; items: PromoCodeItem[] }>(`/api/admin/promo-codes?id=${encodeURIComponent(id)}`, {
+            method: "DELETE",
+          });
+          setPromoCodes(Array.isArray(response.items) ? response.items : []);
+          if (promoEditId === id) resetPromoForm();
+          setPromoMessage("Código promocional eliminado.");
+        } catch (error) {
+          setPromoMessage(error instanceof Error ? error.message : "No se pudo eliminar el codigo.");
+        } finally {
+          setPromoSaving(false);
+        }
+      },
+    });
   };
+
+  const confirmDeleteModalElement = confirmDeleteModal.isOpen ? (
+    <div className="fixed inset-0 z-[9999999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 text-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+          <Trash2 className="h-7 w-7" />
+        </div>
+        <div className="mt-4 text-center">
+          <h3 className="text-lg font-bold text-slate-900">{confirmDeleteModal.title || "Confirmar eliminación"}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            {confirmDeleteModal.message || "¿Seguro que querés eliminar este ítem? Esta acción no se puede deshacer."}
+          </p>
+        </div>
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            disabled={confirmDeleteModal.isLoading}
+            onClick={() => setConfirmDeleteModal((prev) => ({ ...prev, isOpen: false }))}
+            className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={confirmDeleteModal.isLoading}
+            onClick={async () => {
+              try {
+                setConfirmDeleteModal((prev) => ({ ...prev, isLoading: true }));
+                await confirmDeleteModal.onConfirm();
+              } catch (error) {
+                console.error("Error al eliminar", error);
+              } finally {
+                setConfirmDeleteModal({ isOpen: false, title: "", message: "", onConfirm: () => {}, isLoading: false });
+              }
+            }}
+            className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-rose-700 disabled:opacity-50"
+          >
+            {confirmDeleteModal.isLoading ? "Eliminando..." : "Eliminar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   const usersSectionCard = (
     <section className="space-y-6">
@@ -5593,7 +6400,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
           <div className="mb-3">
           <p className="text-sm font-semibold text-slate-900">Precios de planes por pais</p>
-            <p className="text-xs text-slate-500">Configura los valores del destacado por 120 dias por pais de pasaporte. Si no hay regla del pais, se usa la regla por defecto.</p>
+            <p className="text-xs text-slate-500">Configura los valores del destacado por país de destino. Si no hay regla del país, se usa la regla por defecto.</p>
           </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-8">
             <select value="featured_120d" onChange={() => setPriceRulePlanTypeDraft("featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
@@ -5809,9 +6616,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             Generar aleatorio
           </button>
         </div>
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <input value={promoCodeDraft} onChange={(event) => setPromoCodeDraft(event.target.value.toUpperCase())} placeholder="Código" className="h-10 rounded-xl border border-slate-200 px-3 text-sm md:col-span-1" />
           <input value={promoDiscountDraft} onChange={(event) => setPromoDiscountDraft(event.target.value)} placeholder="% descuento" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <input value={promoDurationDaysDraft} onChange={(event) => setPromoDurationDaysDraft(event.target.value)} placeholder="Días (ej: 365)" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+          <input value={promoCustomPriceDraft} onChange={(event) => setPromoCustomPriceDraft(event.target.value)} placeholder="Precio fijo ($)" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
           <input type="datetime-local" value={promoExpiresDraft} onChange={(event) => setPromoExpiresDraft(event.target.value)} className="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700" title="Fecha de vencimiento" />
           <input value={promoMaxUsesDraft} onChange={(event) => setPromoMaxUsesDraft(event.target.value)} placeholder="Límite usos" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
           <select value={promoScopeDraft} onChange={(event) => setPromoScopeDraft(event.target.value === "partners" ? "partners" : "all")} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700">
@@ -5841,7 +6650,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.code}</span>
-                  <span>{item.discountPercent}%</span>
+                  <span>{item.customPrice !== null && item.customPrice !== undefined ? `Precio fijo: $${item.customPrice}` : `${item.discountPercent}% desc`}</span>
+                  {item.durationDays ? <span className="rounded-full bg-cyan-50 px-2 py-0.5 font-medium text-cyan-800">{item.durationDays} días</span> : null}
                   <span>Usos: {item.usedCount}{item.maxUses !== null ? `/${item.maxUses}` : ""}</span>
                   <span>Disponibles: {remaining}</span>
                   <span>Vence: {item.expiresAt ? new Date(item.expiresAt).toLocaleString("es-AR") : "Sin vencimiento"}</span>
@@ -6009,26 +6819,79 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <p className="mt-2 text-sm font-semibold text-slate-900">{firstOferenteDisplayNameByEmail.get(providerRootEmail(service) || `service:${service.id}`) ?? providerDisplayName(service)}</p>
                       <p className="mt-1 text-xs text-slate-500">{service.email}</p>
                       <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
-                      <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-200">
-                          Solicitud: {providerRequestKindDisplayLabel(serviceExtra.requestKind)}
-                        </span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700 ring-1 ring-slate-200">
-                          Plan solicitado: {normalizeProviderPlanLabel(serviceExtra.requestedPlan ?? serviceExtra.planType)}
-                        </span>
-                        {serviceExtra.previousPlan ? (
-                          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700 ring-1 ring-indigo-200">
-                            Plan anterior: {normalizeProviderPlanLabel(serviceExtra.previousPlan)}
-                          </span>
-                        ) : null}
-                      </div>
-                      {serviceExtra.sourceServiceId ? (
-                        <p className="mt-2 text-xs text-slate-600">
-                          <b>Origen:</b> {normalizeVisibleText(`solicitud/publicación ${String(serviceExtra.sourceServiceId)}`)}
-                        </p>
+                      {totalSubmissionsByEmail > 1 ? (
+                        <div className="mt-2.5 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-semibold">⚠️ Múltiples publicaciones ({totalSubmissionsByEmail}):</span>
+                            <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-[11px] font-bold text-amber-900 hover:bg-amber-100 shadow-sm">
+                              Ver todas en Detalle
+                            </button>
+                          </div>
+                          <p className="mt-1 text-[11px] text-amber-800 leading-relaxed">
+                            Este usuario cargó varias publicaciones. Revisa abajo el título de cada publicación antes de aprobar o rechazar.
+                          </p>
+                        </div>
                       ) : null}
+                      {(() => {
+                        const rootEmail = providerRootEmail(service) || String(service.email ?? "").toLowerCase();
+                        const allUserServices = travelServices.filter((s) => (providerRootEmail(s) || String(s.email ?? "").toLowerCase()) === rootEmail);
+                        if (!allUserServices.length) return null;
+                        return (
+                          <div className="mt-2.5 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs">
+                            <p className="font-bold text-slate-700 text-[11px] uppercase tracking-wide">
+                              Solicitudes cargadas ({allUserServices.length}):
+                            </p>
+                            <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                              {allUserServices.map((subService) => {
+                              const subExtra = parseTravelServiceExtra(subService);
+                              const subStatus = serviceEffectiveStatus(subService);
+                              const subTitle = String(subExtra.publicationTitle ?? "").trim() || "Sin título propuesto";
+                              const subPlan = normalizeProviderPlanLabel(subExtra.requestedPlan ?? subExtra.publicationPlan);
+                              const isCurrentActiveCard = subService.id === service.id;
+                              const isPending = isReviewableTravelService(subService, subExtra);
+                              return (
+                                <div key={`user-sub-${subService.id}`} className={`rounded-xl border p-2.5 transition ${isCurrentActiveCard ? "border-[#00A9C6] bg-white shadow-sm" : "border-slate-200 bg-white"}`}>
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="font-bold text-slate-900 text-xs">📌 "{subTitle}"</span>
+                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{subPlan}</span>
+                                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${subStatus === "aprobado" ? "bg-emerald-100 text-emerald-800" : subStatus === "rechazado" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>
+                                          {subStatus}
+                                        </span>
+                                      </div>
+                                      <div className="mt-1 text-[11px] text-slate-500">
+                                        ID: {subService.id.slice(0, 8)}... | Solicitud: {providerRequestKindDisplayLabel(subExtra.requestKind)} | Fecha: {subService.createdAt ? new Date(subService.createdAt).toLocaleDateString("es-AR") : "-"}
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1">
+                                      <button type="button" onClick={() => setDetailTravelService(subService)} className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
+                                        Inspeccionar
+                                      </button>
+                                      {isPending ? (
+                                        <>
+                                          <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "aprobado")} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100" title={`Aprobar "${subTitle}"`}>
+                                            Aprobar
+                                          </button>
+                                          <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "rechazado")} className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-800 hover:bg-rose-100" title={`Rechazar "${subTitle}"`}>
+                                            Rechazar
+                                          </button>
+                                          <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "falta info")} className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100" title={`Pedir info para "${subTitle}"`}>
+                                            Falta info
+                                          </button>
+                                        </>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <div className="mt-2 text-xs text-slate-600">
-                        <b>Tiene {linkedPublications.length} publicación(es)</b>
+                        <b>Tiene {linkedPublications.length} publicación(es) activa(s)</b>
                         {linkedPublications.length ? (
                           <div className="mt-1 space-y-1">
                             {linkedPublications.slice(0, 3).map((publication) => (
@@ -6085,7 +6948,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   );
 
   const openNewPublicationEditor = () => {
-    router.push("/admin/publicaciones/nueva");
+    router.push(`${basePath}/publicaciones/nueva`);
   };
 
   const publicationTypeLabel = (item: Publication) => (item.primaryGroupKey === "prestacion" ? "Prestación" : "Publicación");
@@ -6443,6 +7306,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       {selectedFeedback.createdAt ? new Date(selectedFeedback.createdAt).toLocaleString("es-AR") : "Sin fecha"}
                     </span>
                   </div>
+
+                  {selectedFeedback.publicationTitle && selectedFeedback.publicationTitle !== "Feedback general" && (
+                    <div className="border-b border-slate-100 pb-4">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Pantalla de origen</p>
+                      <p className="mt-1 break-all text-sm font-medium text-indigo-600">
+                        <a href={selectedFeedback.publicationTitle} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                          {selectedFeedback.publicationTitle}
+                        </a>
+                      </p>
+                    </div>
+                  )}
 
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Mensaje</p>
@@ -7404,7 +8278,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
-              <button type="button" onClick={() => (isNewPublicationPage ? router.push("/admin?section=publicaciones") : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-[#007D92] hover:bg-cyan-100">Generar con IA</button>
+                <button type="button" onClick={() => (isNewPublicationPage ? router.push(`${basePath}?section=publicaciones`) : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
+              </div>
             </div>
           <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
           {pEditorMode === "prestacion" ? (
@@ -7520,7 +8397,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
+                <button
+                  type="button"
+                  disabled={translatingField === "providerInfo"}
+                  onClick={async () => {
+                    const currentEs = pProviderInfoI18n.es;
+                    if (!currentEs) return;
+                    setTranslatingField("providerInfo");
+                    try {
+                      const res = await fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      });
+                      const data = await res.json();
+                      if (data.translations) {
+                        setPProviderInfoI18n((prev) => ({
+                          ...prev,
+                          es: currentEs,
+                          en: data.translations.en || prev.en || currentEs,
+                          pt: data.translations.pt || prev.pt || currentEs,
+                          it: data.translations.it || prev.it || currentEs,
+                        }));
+                      }
+                    } catch (err) {
+                      console.error("Translation error:", err);
+                    } finally {
+                      setTranslatingField(null);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                >
+                  <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                  {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                </button>
+              </div>
               <RichTextEditor
                 value={pProviderInfoI18n[pLang] ?? ""}
                 onChange={(next) => setPProviderInfoI18n((prev) => ({ ...prev, [pLang]: next }))}
@@ -7735,7 +8648,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Título de la publicación</label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-sm font-medium text-slate-700">Título de la publicación</label>
+                  <button
+                    type="button"
+                    disabled={translatingField === "title"}
+                    onClick={async () => {
+                      const currentEs = pTitleI18n.es || pTitle;
+                      if (!currentEs) return;
+                      setTranslatingField("title");
+                      try {
+                        const res = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                        });
+                        const data = await res.json();
+                        if (data.translations) {
+                          setPTitleI18n((prev) => ({
+                            ...prev,
+                            es: currentEs,
+                            en: data.translations.en || prev.en || currentEs,
+                            pt: data.translations.pt || prev.pt || currentEs,
+                            it: data.translations.it || prev.it || currentEs,
+                          }));
+                        }
+                      } catch (err) {
+                        console.error("Translation error:", err);
+                      } finally {
+                        setTranslatingField(null);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                  >
+                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                    {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                  </button>
+                </div>
                 <input
                   value={pTitleI18n[pLang] ?? ""}
                   onChange={(e) => {
@@ -7750,7 +8699,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Descripción</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-700">Descripción</label>
+                <button
+                  type="button"
+                  disabled={translatingField === "description"}
+                  onClick={async () => {
+                    const currentEs = pDescriptionI18n.es || pDescription;
+                    if (!currentEs) return;
+                    setTranslatingField("description");
+                    try {
+                      const res = await fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      });
+                      const data = await res.json();
+                      if (data.translations) {
+                        setPDescriptionI18n((prev) => ({
+                          ...prev,
+                          es: currentEs,
+                          en: data.translations.en || prev.en || currentEs,
+                          pt: data.translations.pt || prev.pt || currentEs,
+                          it: data.translations.it || prev.it || currentEs,
+                        }));
+                      }
+                    } catch (err) {
+                      console.error("Translation error:", err);
+                    } finally {
+                      setTranslatingField(null);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                >
+                  <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                  {translatingField === "description" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                </button>
+              </div>
               <RichTextEditor
                 value={pDescriptionI18n[pLang] ?? ""}
                 onChange={(next) => {
@@ -7784,15 +8769,71 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     <div key={`extra-${idx}`} className="grid gap-2 rounded-xl border border-slate-100 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx))
-                          }
-                          className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          Eliminar
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={translatingField === `extra-${idx}`}
+                            onClick={async () => {
+                              const titleEs = desc.titleI18n?.es || desc.title;
+                              const bodyEs = desc.bodyI18n?.es || desc.body;
+                              if (!titleEs && !bodyEs) return;
+                              setTranslatingField(`extra-${idx}`);
+                              try {
+                                const promises = [];
+                                if (titleEs) {
+                                  promises.push(
+                                    fetch("/api/admin/translate-i18n", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                                    }).then((res) => res.json())
+                                  );
+                                } else { promises.push(Promise.resolve(null)); }
+                                if (bodyEs) {
+                                  promises.push(
+                                    fetch("/api/admin/translate-i18n", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ text: bodyEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                                    }).then((res) => res.json())
+                                  );
+                                } else { promises.push(Promise.resolve(null)); }
+                                const [tRes, bRes] = await Promise.all(promises);
+                                setPExtraDescriptions((prev) =>
+                                  prev.map((d, i) => {
+                                    if (i !== idx) return d;
+                                    const nextTitleI18n = { ...d.titleI18n, es: titleEs };
+                                    if (tRes?.translations) {
+                                      ["en", "pt", "it"].forEach((l) => { if (tRes.translations[l]) (nextTitleI18n as any)[l] = tRes.translations[l]; });
+                                    }
+                                    const nextBodyI18n = { ...d.bodyI18n, es: bodyEs };
+                                    if (bRes?.translations) {
+                                      ["en", "pt", "it"].forEach((l) => { if (bRes.translations[l]) (nextBodyI18n as any)[l] = bRes.translations[l]; });
+                                    }
+                                    return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
+                                  })
+                                );
+                              } catch (err) {
+                                console.error("Extra block translate error:", err);
+                              } finally {
+                                setTranslatingField(null);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                          >
+                            <Languages className="h-3 w-3 text-cyan-600" />
+                            {translatingField === `extra-${idx}` ? "Traduciendo..." : "Traducir bloque (EN, PT, IT)"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </div>
                       <input
                         value={desc.titleI18n[pLang] ?? ""}
@@ -8190,8 +9231,73 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
-              <label className="text-sm font-medium text-slate-700">Fecha y hora de expiración</label>
+            <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-700">Fecha y hora de expiración</label>
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-slate-400 font-medium mr-1">Calcular:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 60);
+                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                      setPExpirationTime("23:59");
+                    }}
+                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
+                  >
+                    +60d
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 120);
+                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                      setPExpirationTime("23:59");
+                    }}
+                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
+                  >
+                    +120d
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 180);
+                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                      setPExpirationTime("23:59");
+                    }}
+                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
+                  >
+                    +180d
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 365);
+                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                      setPExpirationTime("23:59");
+                    }}
+                    className="rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 font-semibold transition-colors border border-emerald-200"
+                  >
+                    +365d (Partner)
+                  </button>
+                  {(pExpirationDate || pExpirationTime) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPExpirationDate("");
+                        setPExpirationTime("");
+                      }}
+                      className="rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 px-2 py-1 font-medium transition-colors"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
                   type="date"
@@ -8207,7 +9313,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   step={60}
                 />
               </div>
-              <p className="text-xs text-slate-500">La hora es opcional.</p>
+              <p className="text-xs text-slate-500">Selecciona la fecha en el calendario. La hora es opcional (por defecto 23:59).</p>
             </div>
             <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
               <label className="text-sm font-medium text-slate-700">Página web</label>
@@ -8815,6 +9921,123 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   ? "Guardar cambios"
                   : "Crear publicación"}
             </button>
+            <button
+              type="button"
+              disabled={translatingField === "all"}
+              onClick={async () => {
+                setTranslatingField("all");
+                try {
+                  const promises: Promise<any>[] = [];
+
+                  // Title
+                  const titleEs = pTitleI18n.es || pTitle;
+                  if (titleEs) {
+                    promises.push(
+                      fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                      }).then((res) => res.json().then((d) => ({ key: "title", translations: d.translations })))
+                    );
+                  }
+
+                  // Description
+                  const descEs = pDescriptionI18n.es || pDescription;
+                  if (descEs) {
+                    promises.push(
+                      fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      }).then((res) => res.json().then((d) => ({ key: "description", translations: d.translations })))
+                    );
+                  }
+
+                  // Provider info
+                  const providerEs = pProviderInfoI18n.es;
+                  if (providerEs) {
+                    promises.push(
+                      fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: providerEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      }).then((res) => res.json().then((d) => ({ key: "providerInfo", translations: d.translations })))
+                    );
+                  }
+
+                  const results = await Promise.all(promises);
+                  results.forEach((item) => {
+                    if (!item || !item.translations) return;
+                    if (item.key === "title") {
+                      setPTitleI18n((prev) => ({
+                        ...prev,
+                        en: item.translations.en || prev.en || titleEs,
+                        pt: item.translations.pt || prev.pt || titleEs,
+                        it: item.translations.it || prev.it || titleEs,
+                      }));
+                    } else if (item.key === "description") {
+                      setPDescriptionI18n((prev) => ({
+                        ...prev,
+                        en: item.translations.en || prev.en || descEs,
+                        pt: item.translations.pt || prev.pt || descEs,
+                        it: item.translations.it || prev.it || descEs,
+                      }));
+                    } else if (item.key === "providerInfo") {
+                      setPProviderInfoI18n((prev) => ({
+                        ...prev,
+                        en: item.translations.en || prev.en || providerEs,
+                        pt: item.translations.pt || prev.pt || providerEs,
+                        it: item.translations.it || prev.it || providerEs,
+                      }));
+                    }
+                  });
+
+                  // Translate extra descriptions
+                  if (pExtraDescriptions.length) {
+                    const extraPromises = pExtraDescriptions.map(async (d) => {
+                      const tEs = d.titleI18n?.es || d.title;
+                      const bEs = d.bodyI18n?.es || d.body;
+                      let tTrans = null;
+                      let bTrans = null;
+                      if (tEs) {
+                        const r = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: tEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                        });
+                        tTrans = (await r.json())?.translations;
+                      }
+                      if (bEs) {
+                        const r = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: bEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                        });
+                        bTrans = (await r.json())?.translations;
+                      }
+                      const nextTitleI18n = { ...d.titleI18n, es: tEs };
+                      if (tTrans) ["en", "pt", "it"].forEach((l) => { if (tTrans[l]) (nextTitleI18n as any)[l] = tTrans[l]; });
+                      const nextBodyI18n = { ...d.bodyI18n, es: bEs };
+                      if (bTrans) ["en", "pt", "it"].forEach((l) => { if (bTrans[l]) (nextBodyI18n as any)[l] = bTrans[l]; });
+                      return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
+                    });
+                    const updatedExtras = await Promise.all(extraPromises);
+                    setPExtraDescriptions(updatedExtras);
+                  }
+
+                  setSaveMessage("Traducción completada a todos los idiomas.");
+                  window.setTimeout(() => setSaveMessage(""), 4000);
+                } catch (err) {
+                  console.error("Auto-translate error:", err);
+                } finally {
+                  setTranslatingField(null);
+                }
+              }}
+              className="h-11 inline-flex items-center gap-2 rounded-xl border border-cyan-300 bg-cyan-50 px-5 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+            >
+              <Languages className="h-4 w-4 text-cyan-600" />
+              {translatingField === "all" ? "Traduciendo todo..." : "🌐 Traducir todo a multilenguaje (EN, PT, IT)"}
+            </button>
             {editingId ? (
               <button
                 onClick={cancelEdit}
@@ -8863,6 +10086,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <option value="prestacion">Prestaciones</option>
                 </select>
                 <input value={publicationSearch} onChange={(event) => setPublicationSearch(event.target.value)} placeholder="Buscar..." className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200 sm:w-64" />
+                <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0095AE]">Generar con IA / Web Scraper</button>
                 <button type="button" onClick={openNewPublicationEditor} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Nueva</button>
               </div>
             </div>
@@ -9076,6 +10300,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         </details>
       </section>
       ) : null}
+      {confirmDeleteModalElement}
+      <AiScraperModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        onSelectDraftToEdit={applyAiDraftToForm}
+        onApproveDirectly={handleApproveAiDraftDirectly}
+      />
     </div>
   );
 }

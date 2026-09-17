@@ -14,11 +14,11 @@ type ViewMode = "login" | "verify-otp" | "request-reset" | "confirm-reset";
 
 function normalizeNextPath(value?: string) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/admin";
+    return "/tgn-panel-control";
   }
 
-  if (value.startsWith("/admin/login")) {
-    return "/admin";
+  if (value.startsWith("/tgn-panel-control/login")) {
+    return "/tgn-panel-control";
   }
 
   return value;
@@ -91,8 +91,9 @@ export default function AdminLoginForm({ nextPath, defaultEmail }: AdminLoginFor
 
       setSuccess("Acceso verificado. Entrando al panel...");
       window.location.assign(destination);
-    } catch (err) {
-      setError("No se pudo iniciar sesion. Intenta nuevamente.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "No se pudo iniciar sesion. Intenta nuevamente.";
+      setError(msg);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);

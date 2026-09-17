@@ -6,38 +6,65 @@ import { useRouter, useSearchParams } from "next/navigation";
 type LaunchLocale = "es" | "en" | "pt" | "it";
 type LaunchStatus = "success" | "cancel" | "pending";
 
-const LAUNCH_TEXT: Record<LaunchLocale, { preparingTitle: string; preparingDescription: string; connectingTitle: string; connectingDescription: string; trust: string; nextSteps: string }> = {
+const LAUNCH_TEXT: Record<LaunchLocale, {
+  preparingTitle: string;
+  preparingDescription: string;
+  connectingTitle: string;
+  connectingDescription: string;
+  freeTitle: string;
+  freeDescription: string;
+  trust: string;
+  freeTrust: string;
+  nextSteps: string;
+  freeNextSteps: string;
+}> = {
   es: {
     preparingTitle: "Preparando pago",
     preparingDescription: "Estamos generando tu checkout seguro.",
     connectingTitle: "Conectando con dLocal Go",
     connectingDescription: "Te estamos enviando al checkout seguro.",
-    trust: "TravelGrin usa servicios seguros de pago para proteger tus datos.",
-    nextSteps: "Cuando cierres el pago, recibirás por email los pasos a seguir.",
+    freeTitle: "Activando publicación destacada",
+    freeDescription: "Estamos procesando tu beneficio de publicación destacada gratuita.",
+    trust: "TravelGrin usa servicios seguros para proteger tus datos.",
+    freeTrust: "TravelGrin valida y procesa tus beneficios promocionales de forma segura.",
+    nextSteps: "Cuando cierres la ventana, recibirás por email los pasos a seguir.",
+    freeNextSteps: "Recibirás por email la confirmación de tu publicación destacada.",
   },
   en: {
     preparingTitle: "Preparing payment",
     preparingDescription: "We are creating your secure checkout.",
     connectingTitle: "Connecting with dLocal Go",
     connectingDescription: "We are taking you to the secure checkout.",
-    trust: "TravelGrin uses secure payment services to protect your data.",
-    nextSteps: "After payment, you will receive the next steps by email.",
+    freeTitle: "Activating featured publication",
+    freeDescription: "We are processing your free featured publication benefit.",
+    trust: "TravelGrin uses secure services to protect your data.",
+    freeTrust: "TravelGrin validates and processes your promotional benefits securely.",
+    nextSteps: "You will receive confirmation and next steps by email.",
+    freeNextSteps: "You will receive confirmation of your featured publication by email.",
   },
   pt: {
     preparingTitle: "Preparando pagamento",
     preparingDescription: "Estamos criando seu checkout seguro.",
     connectingTitle: "Conectando com dLocal Go",
     connectingDescription: "Estamos levando voce ao checkout seguro.",
-    trust: "A TravelGrin usa servicos seguros de pagamento para proteger seus dados.",
-    nextSteps: "Depois do pagamento, voce recebera os proximos passos por e-mail.",
+    freeTitle: "Ativando publicação destacada",
+    freeDescription: "Estamos processando seu benefício de publicação destacada gratuita.",
+    trust: "A TravelGrin usa serviços seguros para proteger seus dados.",
+    freeTrust: "A TravelGrin valida e processa seus benefícios promocionais com segurança.",
+    nextSteps: "Depois disso, você receberá os próximos passos por e-mail.",
+    freeNextSteps: "Você receberá por e-mail a confirmação da sua publicação destacada.",
   },
   it: {
     preparingTitle: "Preparazione del pagamento",
     preparingDescription: "Stiamo creando il tuo checkout sicuro.",
     connectingTitle: "Connessione con dLocal Go",
     connectingDescription: "Ti stiamo portando al checkout sicuro.",
-    trust: "TravelGrin usa servizi di pagamento sicuri per proteggere i tuoi dati.",
-    nextSteps: "Dopo il pagamento riceverai via email i prossimi passi.",
+    freeTitle: "Attivazione pubblicazione in evidenza",
+    freeDescription: "Stiamo elaborando il tuo beneficio di pubblicazione in evidenza gratuita.",
+    trust: "TravelGrin usa servizi sicuri per proteggere i tuoi dati.",
+    freeTrust: "TravelGrin convalida e elabora i tuoi benefici promozionali in modo sicuro.",
+    nextSteps: "Riceverai via email i prossimi passi.",
+    freeNextSteps: "Riceverai via email la conferma della tua pubblicazione in evidenza.",
   },
 };
 
@@ -146,19 +173,21 @@ export default function FeaturedPaymentLaunchPage() {
       });
   }, [locale, paymentContextKey, redirectUrl, router, serviceId, status, storageKey]);
 
+  const isFree = searchParams.get("isFree") === "1" || status === "free_preparing";
+
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-xl items-center justify-center px-4">
       <section className="w-full rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
         <img src="/logo-navbar.png" alt="TravelGrin" className="mx-auto mb-6 h-12 w-auto" />
         <h1 className="text-2xl font-bold text-[#273166]">
-          {status === "preparing" ? copy.preparingTitle : copy.connectingTitle}
+          {isFree ? copy.freeTitle : status === "preparing" ? copy.preparingTitle : copy.connectingTitle}
         </h1>
         <p className="mt-3 text-slate-600">
-          {status === "preparing" ? copy.preparingDescription : copy.connectingDescription}
+          {isFree ? copy.freeDescription : status === "preparing" ? copy.preparingDescription : copy.connectingDescription}
         </p>
         <div className="mt-6 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-950">
-          <p className="font-semibold">{copy.trust}</p>
-          <p className="mt-1">{copy.nextSteps}</p>
+          <p className="font-semibold">{isFree ? copy.freeTrust : copy.trust}</p>
+          <p className="mt-1">{isFree ? copy.freeNextSteps : copy.nextSteps}</p>
         </div>
       </section>
     </main>

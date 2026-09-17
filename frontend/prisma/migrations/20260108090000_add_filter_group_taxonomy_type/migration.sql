@@ -1,0 +1,3 @@
+-- No-op migration.
+-- `taxonomyType` was already added in 20260108000000_add_filter_group_taxonomy_type.
+-- Kept to preserve migration history without re-adding the same column.

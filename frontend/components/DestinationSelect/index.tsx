@@ -186,11 +186,11 @@ export default function DestinationSelect({
     // ✅ placeholder interno: si hay label arriba, adentro NO mostramos nada (para no duplicar)
     const innerPlaceholder = showTopLabel ? "" : label;
 
-  const DropdownPortal = () => {
+  const DropdownContent = () => {
     const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
 
     const updatePosition = useCallback(() => {
-      if (!buttonRef.current) return;
+      if (!buttonRef.current || isInModal) return;
       const rect = buttonRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
       const dropdownHeight = 320;
@@ -206,7 +206,7 @@ export default function DestinationSelect({
     }, []);
 
     useEffect(() => {
-      if (!isDropdownOpen) return;
+      if (!isDropdownOpen || isInModal) return;
       updatePosition();
       const onMove = () => updatePosition();
 
@@ -219,34 +219,46 @@ export default function DestinationSelect({
       };
     }, [isDropdownOpen, updatePosition]);
 
-    if (!isDropdownOpen || !isClient || !buttonRef.current) return null;
+    if (!isDropdownOpen) return null;
+    if (!isInModal && (!isClient || !buttonRef.current)) return null;
 
-    return createPortal(
+    const content = (
       <>
-        <div className="fixed inset-0" style={{ zIndex: 9998 }} onClick={handleBackdropClick} />
+        <div className="fixed inset-0 z-[9999998]" onClick={handleBackdropClick} />
 
         <div
           ref={dropdownRef}
-          className="fixed overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl"
-          style={{
-            zIndex: 9999,
-            top: pos.top,
-            left: pos.left,
-            width: pos.width,
-            maxHeight: 320,
-            boxShadow:
-              "0 20px 40px -12px rgba(8, 217, 189, 0.25), 0 8px 24px -8px rgba(4, 181, 189, 0.2)",
-          }}
+          className={`${
+            isInModal
+              ? "absolute left-0 right-0 top-full z-[9999999] mt-2"
+              : "fixed z-[9999]"
+          } overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl`}
+          style={
+            isInModal
+              ? {
+                  maxHeight: 320,
+                  boxShadow:
+                    "0 20px 40px -12px rgba(8, 217, 189, 0.25), 0 8px 24px -8px rgba(4, 181, 189, 0.2)",
+                }
+              : {
+                  top: pos.top,
+                  left: pos.left,
+                  width: pos.width,
+                  maxHeight: 320,
+                  boxShadow:
+                    "0 20px 40px -12px rgba(8, 217, 189, 0.25), 0 8px 24px -8px rgba(4, 181, 189, 0.2)",
+                }
+          }
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="border-b border-gray-200 bg-gray-50 p-3">
+          <div className="border-b border-gray-100 bg-slate-50/90 p-3">
             <div className="relative">
               <input
                 type="text"
                 placeholder={textBuscarPais || t("buscar_pais")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 pl-9 text-black focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 pl-9 text-sm text-black outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                 autoFocus
               />
               <svg
@@ -265,7 +277,7 @@ export default function DestinationSelect({
             </div>
           </div>
 
-          <div className="max-h-60 overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="max-h-56 overflow-y-auto p-1" style={{ WebkitOverflowScrolling: "touch" }}>
             {filteredCountries
               .filter((c) => c.spanishName !== "Afganistán")
               .map((country) => {
@@ -279,29 +291,36 @@ export default function DestinationSelect({
                     key={country.cca2}
                     type="button"
                     onClick={() => selectCountry(country)}
-                    className={`flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left transition-all duration-150 last:border-b-0 hover:bg-gray-50 ${
-                      isSelected ? "bg-teal-50 text-teal-800" : "text-gray-700 hover:text-teal-700"
+                    className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-sm transition-all duration-150 ${
+                      isSelected
+                        ? "bg-teal-50 text-teal-800 font-semibold"
+                        : "text-gray-700 hover:bg-teal-50/60 hover:text-teal-700"
                     }`}
                   >
-                    {flagSrc ? <Image src={flagSrc} width={20} height={14} alt="flag" /> : null}
+                    {flagSrc ? <Image src={flagSrc} width={20} height={14} alt="flag" className="rounded-sm object-cover" /> : null}
 
                     <span className="font-medium">{country.spanishName}</span>
 
-                    {isSelected ? <span className="ml-auto text-teal-600">✓</span> : null}
+                    {isSelected ? <span className="ml-auto text-teal-600 font-bold">✓</span> : null}
                   </button>
                 );
               })}
 
             {filteredCountries.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500">
+              <div className="px-4 py-6 text-center text-gray-500">
                 <p className="text-sm font-medium">{noHayPaises || t("no_hay_paises")}</p>
               </div>
             ) : null}
           </div>
         </div>
-      </>,
-      document.body
+      </>
     );
+
+    if (isInModal) {
+      return content;
+    }
+
+    return createPortal(content, document.body);
   };
 
   const flagSelected = selectedCountryObj?.flags?.svg || selectedCountryObj?.flags?.png || null;
@@ -359,7 +378,7 @@ export default function DestinationSelect({
         />
       </button>
 
-      <DropdownPortal />
+      <DropdownContent />
     </div>
   );
 }

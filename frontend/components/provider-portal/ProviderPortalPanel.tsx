@@ -1184,7 +1184,9 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
 
   useEffect(() => {
     const country = String(
+      dashboard?.submissions.find((item) => ["aprobado", "approved", "active", "activo", "paid"].includes(String(item.status ?? "").trim().toLowerCase()) && String((item.destinationCountry || item.country) ?? "").trim())?.destinationCountry ??
       dashboard?.submissions.find((item) => ["aprobado", "approved", "active", "activo", "paid"].includes(String(item.status ?? "").trim().toLowerCase()) && String(item.country ?? "").trim())?.country ??
+      dashboard?.submissions.find((item) => String((item.destinationCountry || item.country) ?? "").trim())?.destinationCountry ??
       dashboard?.submissions.find((item) => String(item.country ?? "").trim())?.country ??
       selectedCountry ??
       "",
@@ -1264,6 +1266,13 @@ const planCopy = useMemo(() => sanitizePortalVisibleTree({
     return { label: copy.free, kind: "free" as const };
   };
   const getPortalPaymentView = useCallback((submission: PortalSubmission) => {
+  const isChangeRequest = String(submission.requestKind ?? "").trim().toLowerCase() === "edit_publication";
+  const planType = String(submission.planType ?? "").trim().toLowerCase();
+  const isPaidPlan = ["featured", "featured_120d", "monthly", "featured_monthly"].includes(planType);
+  if (isChangeRequest && isPaidPlan) {
+    return "confirmed" as const;
+  }
+
   const draft = submission.draftData ?? {};
 
   const values = [
@@ -1840,7 +1849,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           (publication.featured ? "featured" : "basic_free"),
         );
         const effectivePlanType =
-          publicationPlanType === "basic_free" && submissionPlanType !== "basic_free"
+          publicationPlanType === "basic_free" && submissionPlanType !== "basic_free" && !["approved", "active"].includes(String(publication.status ?? "").trim().toLowerCase())
             ? submissionPlanType
             : publicationPlanType;
         const effectiveExpiration =
@@ -1851,6 +1860,14 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
           (relatedSubmission?.id ? latestSubmissionsBySourceId.get(relatedSubmission.id) : null)
           ?? latestSubmissionsBySourceId.get(`publication:${publication.id}`)
           ?? null;
+
+        const downgradeSubmission = submissions.find(
+          (sub) =>
+            (sub.sourcePublicationId === publication.id ||
+             String((sub.draftData as Record<string, unknown> | undefined)?.sourcePublicationId ?? "").trim() === publication.id) &&
+            String(sub.requestKind ?? "").trim().toLowerCase() === "downgrade_free" &&
+            ["pendiente", "pendiente_pago"].includes(String(sub.status ?? "").trim().toLowerCase())
+        ) || null;
 
         return {
           publication,
@@ -1871,6 +1888,8 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
               publication.monthlySubscriptionCancelledAt ??
               "",
             ).trim() || null,
+          downgradeScheduled: Boolean(downgradeSubmission),
+          downgradeSubmission,
         };
       });
   }, [dashboard?.publications, dashboard?.submissions]);
@@ -1999,8 +2018,34 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
             </div>
           ) : null}
           {portalStatus === "invalid" ? (
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              {copy.accessInvalid}
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                <span>⚠️</span>
+                <span>{copy.accessInvalid}</span>
+              </p>
+              <p className="mt-1.5 text-xs text-amber-800 leading-relaxed">
+                {locale === "en"
+                  ? "Magic links sent by email are single-use for security. If you already signed in before or your link expired, you can request a new access link with your email below."
+                  : locale === "pt"
+                    ? "Os links de acesso por e-mail são de uso único por segurança. Se você já entrou antes ou seu link expirou, pode pedir um novo link abaixo."
+                    : locale === "it"
+                      ? "I link di accesso inviati per email sono monouso per sicurezza. Se sei già entrato prima o il tuo link è scaduto, puoi chiederne uno nuovo qui sotto."
+                      : "Los enlaces de acceso por correo son de un solo uso por seguridad. Si ya ingresaste antes o tu enlace venció, podés solicitar uno nuevo ingresando tu correo a continuación."}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.querySelector<HTMLInputElement>('input[type="email"]');
+                  if (input) {
+                    input.focus();
+                    input.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#0B8FA3] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition-opacity"
+              >
+                <Mail className="h-4 w-4" />
+                <span>{locale === "en" ? "Request new access link" : locale === "pt" ? "Solicitar novo link de acesso" : locale === "it" ? "Richiedi nuovo link" : "Pedir nuevo enlace a mi correo"}</span>
+              </button>
             </div>
           ) : null}
           {panelError ? (
@@ -2313,7 +2358,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                     const isChangeRequest = String(item.requestKind ?? "").trim().toLowerCase() === "edit_publication";
                     const showEditButton =
                       (normalizedStatus === "needs_info" && !isResubmitted) ||
-                      (isChangeRequest && normalizedStatus === "rejected" && !isResubmitted);
+                      (normalizedStatus === "rejected" && !isResubmitted);
                     const refundActiveOrFinal = ["refund_requested", "refund_reviewing", "refund_processing", "refunded", "refund_failed"].includes(refundStatus);
                     const canRequestRefund =
                       !isChangeRequest &&
@@ -2490,9 +2535,11 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-slate-900">{copy.publicationsTitle}</h3>
                 <div className="mt-4 space-y-3">
-                  {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration, needsInfoSubmission, monthlyCancellationScheduled }) => {
+                  {sortedVisiblePublicationEntries.length ? sortedVisiblePublicationEntries.map(({ publication, relatedSubmission, effectivePlanType, effectiveExpiration, needsInfoSubmission, monthlyCancellationScheduled, downgradeScheduled, downgradeSubmission }) => {
                     const badge = planBadge(effectivePlanType);
                     const canOpenFromHistory = relatedSubmission ?? latestApprovedSubmission;
+                    const pubStatusRaw = String(publication.status ?? "").toLowerCase().trim();
+                    const isInactivePub = !["active", "approved"].includes(pubStatusRaw);
                     return (
                     <div key={publication.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex flex-wrap items-center gap-2">
@@ -2500,6 +2547,23 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                         <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(badge.kind)}`}>{badge.label}</span>
                         <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badgeClasses(publication.status?.toLowerCase() === "approved" ? "approved" : "default")}`}>{copy.status}: {publication.status || "-"}</span>
                       </div>
+                      {isInactivePub ? (
+                        <div className="mt-2.5 w-full rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+                          <p className="font-bold flex items-center gap-1.5 text-amber-950">
+                            <span>⚠️</span>
+                            <span>Publicación no disponible públicamente (Estado: {publication.status || "Pausado"})</span>
+                          </p>
+                          <p className="mt-1 leading-relaxed text-amber-900">
+                            {locale === "en"
+                              ? "This publication is currently paused or inactive. You can view it as preview, but it is not publicly visible to users nor available to share."
+                              : locale === "pt"
+                                ? "Esta publicação está pausada ou inativa no momento. Você pode visualizá-la no modo de pré-visualização, mas não está visível para o público nem disponível para compartir."
+                                : locale === "it"
+                                  ? "Questa pubblicazione è attualmente in pausa o inattiva. Puoi vederla in modalità anteprima, ma non è visibile al pubblico né disponibile per la condivisione."
+                                  : "Esta publicación se encuentra en estado pausado o inactivo por administración o vencimiento. Puedes verla como oferente, pero no está disponible públicamente en las búsquedas ni se puede compartir."}
+                          </p>
+                        </div>
+                      ) : null}
                       <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
                         <div><span className="font-medium text-slate-800">{copy.destination}:</span> {[publication.city, publication.country].filter(Boolean).join(", ") || "-"}</div>
                         <div><span className="font-medium text-slate-800">{copy.createdAt}:</span> {formatDate(publication.createdAt, locale)}</div>
@@ -2516,6 +2580,50 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                                 : locale === "it"
                                   ? `Cancellazione mensile programmata. Questa pubblicazione resta attiva fino al ${formatDate(effectiveExpiration, locale)}.`
                                   : `Cancelación mensual programada. Esta publicación sigue activa hasta ${formatDate(effectiveExpiration, locale)}.`}
+                          </div>
+                        ) : null}
+                        {downgradeScheduled ? (
+                          <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                            {(() => {
+                              const now = new Date();
+                              const exp = new Date(effectiveExpiration);
+                              const diffMs = exp.getTime() - now.getTime();
+                              if (diffMs <= 0) {
+                                return locale === "en"
+                                  ? "Returning to free now..."
+                                  : locale === "pt"
+                                    ? "Voltando para grátis agora..."
+                                    : locale === "it"
+                                      ? "Ritorno a gratuito in corso..."
+                                      : "Volviendo a ser gratuita ahora...";
+                              }
+                              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                              const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+                              if (locale === "en") {
+                                if (diffDays > 0) {
+                                  return `This publication is scheduled to return to free in ${diffDays} day${diffDays > 1 ? "s" : ""} and ${diffHours} hour${diffHours > 1 ? "s" : ""}.`;
+                                }
+                                return `This publication is scheduled to return to free in ${diffHours} hour${diffHours > 1 ? "s" : ""}.`;
+                              }
+                              if (locale === "pt") {
+                                if (diffDays > 0) {
+                                  return `Esta publicação voltará a ser gratuita em ${diffDays} dia${diffDays > 1 ? "s" : ""} e ${diffHours} hora${diffDays > 1 ? "s" : ""}.`;
+                                }
+                                return `Esta publicação voltará a ser gratuita em ${diffHours} hora${diffDays > 1 ? "s" : ""}.`;
+                              }
+                              if (locale === "it") {
+                                if (diffDays > 0) {
+                                  return `Questa pubblicazione tornerà gratuita tra ${diffDays} giorn${diffDays > 1 ? "i" : "o"} e ${diffHours} or${diffDays > 1 ? "e" : "a"}.`;
+                                }
+                                return `Questa pubblicazione tornerà gratuita tra ${diffHours} or${diffDays > 1 ? "e" : "a"}.`;
+                              }
+                              // Spanish fallback
+                              if (diffDays > 0) {
+                                return `Esta publicación volverá a ser gratuita en ${diffDays} día${diffDays > 1 ? "s" : ""} y ${diffHours} hora${diffHours > 1 ? "s" : ""}.`;
+                              }
+                              return `Esta publicación volverá a ser gratuita en ${diffHours} hora${diffHours > 1 ? "s" : ""}.`;
+                            })()}
                           </div>
                         ) : null}
                         {needsInfoSubmission ? (
@@ -2553,7 +2661,7 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                             </button>
                           </>
                         ) : null}
-                        {effectivePlanType === "featured" ? (
+                        {effectivePlanType === "featured" && !downgradeScheduled ? (
                           <>
                             <button
                               type="button"
@@ -2569,6 +2677,29 @@ const visualPaymentKind = useCallback((submission: PortalSubmission) => {
                             >
                               {planCopy.downgradeThisPublication}
                             </button>
+                          </>
+                        ) : null}
+                        {effectivePlanType === "featured" && downgradeScheduled ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openPlanRequest("featured", canOpenFromHistory, buildPublicationEditInitialData(publication, relatedSubmission))}
+                              className="rounded-xl bg-[#0B8FA3] px-3 py-2 text-xs font-semibold text-white hover:opacity-95"
+                            >
+                              {planCopy.renewFeatured}
+                            </button>
+                            {downgradeSubmission ? (
+                              <button
+                                type="button"
+                                onClick={() => void deleteSubmission(downgradeSubmission)}
+                                disabled={deletingSubmissionId === downgradeSubmission.id}
+                                className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {deletingSubmissionId === downgradeSubmission.id
+                                  ? (locale === "en" ? "Cancelling..." : locale === "pt" ? "Cancelando..." : locale === "it" ? "Annullamento..." : "Cancelando...")
+                                  : (locale === "en" ? "Cancel return to free" : locale === "pt" ? "Cancelar retorno ao gratuito" : locale === "it" ? "Annulla ritorno al gratuito" : "Cancelar vuelta a gratis")}
+                              </button>
+                            ) : null}
                           </>
                         ) : null}
                         {false ? (
