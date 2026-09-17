@@ -3007,7 +3007,28 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPDescription(descEs);
     setPDescriptionI18n(descI18nInit);
 
-    const extraDescInit = draft.extraDescriptions || [];
+    const extraDescInit: ExtraDescription[] = (draft.extraDescriptions || []).map((d: any) => {
+      const titleEs = d.titleI18n?.es || d.title || "";
+      const bodyEs = d.bodyI18n?.es || d.body || "";
+      return {
+        title: titleEs,
+        body: bodyEs,
+        titleI18n: {
+          es: titleEs,
+          en: d.titleI18n?.en || titleEs,
+          pt: d.titleI18n?.pt || titleEs,
+          it: d.titleI18n?.it || titleEs,
+        },
+        bodyI18n: {
+          es: bodyEs,
+          en: d.bodyI18n?.en || bodyEs,
+          pt: d.bodyI18n?.pt || bodyEs,
+          it: d.bodyI18n?.it || bodyEs,
+        },
+        lang: (d.lang || "es") as Lang,
+        visibleInCard: d.visibleInCard !== false,
+      };
+    });
     setPExtraDescriptions(extraDescInit);
 
     const providerInfoInit = draft.providerInfoI18n || { es: "" };
@@ -3059,7 +3080,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPProviderStartYear(draft.providerStartYear || "");
     setPProviderRating(draft.providerRating || "");
     setPProviderReviewCount(draft.providerReviewCount || "");
-    const BAD_GFX = /megafono|slider|banner|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|tramite|afiliac|cartilla|turnos/i;
+    const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
     const cleanLogo = draft.providerLogo && !BAD_GFX.test(draft.providerLogo) ? draft.providerLogo : "";
     setPProviderLogo(cleanLogo);
     if (Array.isArray(draft.images)) {
@@ -3287,6 +3308,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           providerStartYear: draft.providerStartYear || null,
           extraDescriptions: draft.extraDescriptions || [],
           socialLinksDetailed: draft.socialLinksDetailed || [],
+          providerLogo: draft.providerLogo || null,
+          categorySelections: draft.categorySelections || (draft.category ? [draft.category] : []),
+          subcategorySelections: draft.subcategorySelections || (draft.subcategory ? [draft.subcategory] : []),
+          providerActivities: draft.providerActivities || [],
+          providerTypes: draft.providerTypes || [],
+          providerModalities: draft.providerModalities || [],
         },
       };
 
@@ -3798,8 +3825,33 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
     const effectiveBlockId = resolveCategoryBlockId(category);
     if (effectiveBlockId) {
-      const blockTaxonomyType = normalizeTaxonomyTypeAlias(filterGroupById.get(effectiveBlockId)?.taxonomyType || "predeterminado");
+      const block = filterGroupById.get(effectiveBlockId);
+      const blockTaxonomyType = normalizeTaxonomyTypeAlias(block?.taxonomyType || "predeterminado");
       if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
+
+      const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) {
+        return "categoria";
+      }
+      if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) {
+        return "actividad";
+      }
+      if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) {
+        return "tipo";
+      }
+      if (blockLabelNorm.includes("modalidad")) {
+        return "modalidad";
+      }
+      if (blockLabelNorm.includes("prestacion")) {
+        return "prestacion";
+      }
+      if (blockLabelNorm.includes("idioma")) {
+        return "idiomas";
+      }
+      const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
+      if (!hasChildren) {
+        return "filtro";
+      }
     }
     return "categoria";
   };
@@ -3810,8 +3862,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
     const effectiveBlockId = resolveCategoryBlockId(category);
     if (effectiveBlockId) {
-      const blockTaxonomyType = normalizeTaxonomyTypeAlias(filterGroupById.get(effectiveBlockId)?.taxonomyType || "predeterminado");
-      return blockTaxonomyType || "categoria";
+      const block = filterGroupById.get(effectiveBlockId);
+      const blockTaxonomyType = normalizeTaxonomyTypeAlias(block?.taxonomyType || "predeterminado");
+      if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
+      const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) return "categoria";
+      if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) return "actividad";
+      if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) return "tipo";
+      if (blockLabelNorm.includes("modalidad")) return "modalidad";
+      if (blockLabelNorm.includes("prestacion")) return "prestacion";
+      if (blockLabelNorm.includes("idioma")) return "idiomas";
+      const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
+      if (!hasChildren) return "filtro";
     }
     return "categoria";
   };
