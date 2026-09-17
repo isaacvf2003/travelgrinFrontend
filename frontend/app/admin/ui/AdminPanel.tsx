@@ -3007,7 +3007,28 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPDescription(descEs);
     setPDescriptionI18n(descI18nInit);
 
-    const extraDescInit = draft.extraDescriptions || [];
+    const extraDescInit: ExtraDescription[] = (draft.extraDescriptions || []).map((d: any) => {
+      const titleEs = d.titleI18n?.es || d.title || "";
+      const bodyEs = d.bodyI18n?.es || d.body || "";
+      return {
+        title: titleEs,
+        body: bodyEs,
+        titleI18n: {
+          es: titleEs,
+          en: d.titleI18n?.en || titleEs,
+          pt: d.titleI18n?.pt || titleEs,
+          it: d.titleI18n?.it || titleEs,
+        },
+        bodyI18n: {
+          es: bodyEs,
+          en: d.bodyI18n?.en || bodyEs,
+          pt: d.bodyI18n?.pt || bodyEs,
+          it: d.bodyI18n?.it || bodyEs,
+        },
+        lang: (d.lang || "es") as Lang,
+        visibleInCard: d.visibleInCard !== false,
+      };
+    });
     setPExtraDescriptions(extraDescInit);
 
     const providerInfoInit = draft.providerInfoI18n || { es: "" };
@@ -3059,7 +3080,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPProviderStartYear(draft.providerStartYear || "");
     setPProviderRating(draft.providerRating || "");
     setPProviderReviewCount(draft.providerReviewCount || "");
-    const BAD_GFX = /megafono|slider|banner|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|tramite|afiliac|cartilla|turnos/i;
+    const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
     const cleanLogo = draft.providerLogo && !BAD_GFX.test(draft.providerLogo) ? draft.providerLogo : "";
     setPProviderLogo(cleanLogo);
     if (Array.isArray(draft.images)) {
@@ -3115,19 +3136,231 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     });
     setPSocialLinksDetailed(Array.from(linkMap.values()));
-    const catSel = draft.categorySelections?.length ? draft.categorySelections : (draft.category ? [draft.category] : []);
-    setPCategorySelections(catSel);
-    setPCategory(draft.category || catSel[0] || "");
+    // Smart resolution of categories and subcategories against loaded database roots
+    const byId = new Map<string, Category>(categories.map((c) => [c.id, c]));
+    const resolveRoot = (cat: Category): Category => {
+      let current: Category | undefined = cat;
+      let depth = 0;
+      while (current?.parentId && depth < 10) {
+        current = byId.get(current.parentId);
+        depth += 1;
+      }
+      return current ?? cat;
+    };
 
-    const subcatSel = draft.subcategorySelections?.length ? draft.subcategorySelections : (draft.subcategory ? [draft.subcategory] : []);
-    setPSubcategorySelections(subcatSel);
-    setPSubcategory(draft.subcategory || subcatSel[0] || "");
+    const validRootsSet = new Set(publicationCategoryRoots.map((r) => r.description));
+    const allRootsWithNorm = publicationCategoryRoots.map((r) => ({
+      original: r.description,
+      norm: r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
+      id: r.id,
+    }));
 
-    const actSel = draft.providerActivities?.length ? draft.providerActivities : [];
+    const rawInputCategories = [
+      ...(Array.isArray(draft.categorySelections) ? draft.categorySelections : []),
+      draft.category || "",
+    ].filter(Boolean);
+
+    const rawInputSubcategories = [
+      ...(Array.isArray(draft.subcategorySelections) ? draft.subcategorySelections : []),
+      draft.subcategory || "",
+    ].filter(Boolean);
+
+    const resolvedCategoryRoots = new Set<string>();
+    const resolvedSubcategories = new Set<string>();
+
+    for (const inputCat of rawInputCategories) {
+      const inputNorm = inputCat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!inputNorm) continue;
+
+      // 1. Direct root match
+      const exactRoot = allRootsWithNorm.find((r) => r.original === inputCat || r.norm === inputNorm);
+      if (exactRoot) {
+        resolvedCategoryRoots.add(exactRoot.original);
+        continue;
+      }
+
+      // 2. Subcategory match in DB
+      const matchedCatInDb = categories.find((c) => {
+        const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return c.description === inputCat || cNorm === inputNorm;
+      });
+      if (matchedCatInDb) {
+        const root = resolveRoot(matchedCatInDb);
+        if (validRootsSet.has(root.description)) {
+          resolvedCategoryRoots.add(root.description);
+          if (matchedCatInDb.parentId) {
+            resolvedSubcategories.add(matchedCatInDb.description);
+          }
+          continue;
+        }
+      }
+
+      // 3. Substring match
+      const substringRoot = allRootsWithNorm.find((r) => r.norm.includes(inputNorm) || inputNorm.includes(r.norm));
+      if (substringRoot) {
+        resolvedCategoryRoots.add(substringRoot.original);
+        continue;
+      }
+
+      // 4. Token match
+      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3);
+      const tokenRoot = allRootsWithNorm.find((r) => tokens.some((tok) => r.norm.includes(tok)));
+      if (tokenRoot) {
+        resolvedCategoryRoots.add(tokenRoot.original);
+        continue;
+      }
+    }
+
+    for (const inputSub of rawInputSubcategories) {
+      const subNorm = inputSub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!subNorm) continue;
+
+      const matchedSubInDb = categories.find((c) => {
+        if (!c.parentId) return false;
+        const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return c.description === inputSub || cNorm === subNorm || cNorm.includes(subNorm) || subNorm.includes(cNorm);
+      });
+
+      if (matchedSubInDb) {
+        const root = resolveRoot(matchedSubInDb);
+        if (validRootsSet.has(root.description)) {
+          resolvedCategoryRoots.add(root.description);
+          resolvedSubcategories.add(matchedSubInDb.description);
+        }
+      }
+    }
+
+    // Strict Sector Detection to avoid cross-contamination
+    const allContextText = `${draft.title} ${draft.publisherName || ""} ${draft.description} ${(draft.providerActivities || []).join(" ")} ${(draft.categorySelections || []).join(" ")} ${draft.category || ""}`.toLowerCase();
+    const isEdu = /universidad|facultad|carrera|colegio|instituto superior|educaci|posgrado|maestr[ií]a|diplomatura|pregrado|instituto de educaci/i.test(allContextText);
+    const isLegal = /abogad|estudio jur[ií]dico|notar|escriban|abogac|defensor|derecho/i.test(allContextText);
+    const isTourism = /hotel|hostel|hospedaje|alojamiento|posada|cabaña|resort/i.test(allContextText);
+    const isHealth = !isEdu && /hospital|cl[ií]nica|sanatorio|m[eé]dic|odontol|psicol|obra social|salud/i.test(allContextText);
+
+    // If educational entity was erroneously matched with health, remove health roots
+    if (isEdu) {
+      for (const rootName of Array.from(resolvedCategoryRoots)) {
+        if (/salud|m[eé]dic|bienestar|asistencia/i.test(rootName)) {
+          resolvedCategoryRoots.delete(rootName);
+        }
+      }
+    }
+
+    // Sector fallback if not yet matched (strictly prioritizing education first)
+    if (resolvedCategoryRoots.size === 0) {
+      if (isEdu) {
+        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
+        if (eduRoot) resolvedCategoryRoots.add(eduRoot.original);
+      } else if (isLegal) {
+        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
+        if (legalRoot) resolvedCategoryRoots.add(legalRoot.original);
+      } else if (isTourism) {
+        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
+        if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
+      } else if (isHealth) {
+        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
+        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
+      }
+    }
+
+    // If subcategories were not resolved yet, automatically pick matching children from resolved roots
+    if (resolvedSubcategories.size === 0 && resolvedCategoryRoots.size > 0) {
+      for (const rootName of resolvedCategoryRoots) {
+        const rootObj = publicationCategoryRoots.find((r) => r.description === rootName);
+        if (!rootObj) continue;
+        const children = childrenBy.get(rootObj.id) || [];
+        for (const child of children) {
+          const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          if (rawInputSubcategories.some((s) => s.toLowerCase().includes(childNorm) || childNorm.includes(s.toLowerCase()))) {
+            resolvedSubcategories.add(child.description);
+          } else if (isEdu && /universidad/i.test(childNorm) && /universidad/i.test(allContextText)) {
+            resolvedSubcategories.add(child.description);
+          } else if (isHealth && /hospital|cl[ií]nica|sanatorio/i.test(childNorm)) {
+            resolvedSubcategories.add(child.description);
+          } else if (isTourism && /hotel|hostel/i.test(childNorm)) {
+            resolvedSubcategories.add(child.description);
+          }
+        }
+      }
+    }
+
+    const finalCatSel = Array.from(resolvedCategoryRoots);
+    const finalSubcatSel = Array.from(resolvedSubcategories);
+
+    setPCategorySelections(finalCatSel.length ? finalCatSel : (draft.categorySelections || []));
+    setPCategory(finalCatSel[0] || draft.category || "");
+
+    setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (draft.subcategorySelections || []));
+    setPSubcategory(finalSubcatSel[0] || draft.subcategory || "");
+
+    // Resolve Provider Activities against DB actividadRoots
+    const resolvedActivities = new Set<string>();
+    const rawActivities = Array.isArray(draft.providerActivities) && draft.providerActivities.length > 0
+      ? draft.providerActivities
+      : (draft.providerActivity ? [draft.providerActivity] : []);
+
+    for (const rawAct of rawActivities) {
+      const actNorm = rawAct.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const match = actividadRoots.find((r) => {
+        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return rNorm === actNorm || rNorm.includes(actNorm) || actNorm.includes(rNorm);
+      });
+      if (match) {
+        resolvedActivities.add(match.description);
+      } else {
+        resolvedActivities.add(rawAct);
+      }
+    }
+
+    if (isEdu) {
+      // Remove any erroneous health activity
+      for (const act of Array.from(resolvedActivities)) {
+        if (/salud|asistencia social|m[eé]dic/i.test(act)) {
+          resolvedActivities.delete(act);
+        }
+      }
+      if (resolvedActivities.size === 0) {
+        const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
+        if (eduAct) resolvedActivities.add(eduAct.description);
+        else resolvedActivities.add("Educación y formación");
+      }
+    }
+
+    const actSel = Array.from(resolvedActivities);
     setPProviderActivities(actSel);
     setPProviderActivity(actSel[0] || "");
 
-    const typeSel = draft.providerTypes?.length ? draft.providerTypes : [];
+    // Resolve Provider Types against DB tipoRoots
+    const resolvedTypes = new Set<string>();
+    const rawTypes = Array.isArray(draft.providerTypes) && draft.providerTypes.length > 0
+      ? draft.providerTypes
+      : (draft.providerType ? [draft.providerType] : []);
+
+    for (const rawType of rawTypes) {
+      const typeNorm = rawType.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const match = tipoRoots.find((r) => {
+        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return rNorm === typeNorm || rNorm.includes(typeNorm) || typeNorm.includes(rNorm);
+      });
+      if (match) {
+        resolvedTypes.add(match.description);
+      } else {
+        resolvedTypes.add(rawType);
+      }
+    }
+
+    if (isEdu) {
+      // Strictly prevent "Agencia" or "Profesional independiente" on universities
+      resolvedTypes.delete("Agencia");
+      resolvedTypes.delete("Profesional independiente");
+      if (resolvedTypes.size === 0) {
+        const eduType = tipoRoots.find((r) => /instituci[oó]n|educativ|privad/i.test(r.description.toLowerCase()));
+        if (eduType) resolvedTypes.add(eduType.description);
+        else resolvedTypes.add("Institución educativa");
+      }
+    }
+
+    const typeSel = Array.from(resolvedTypes);
     setPProviderTypes(typeSel);
     setPProviderType(typeSel[0] || "");
 
@@ -3174,6 +3407,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           providerStartYear: draft.providerStartYear || null,
           extraDescriptions: draft.extraDescriptions || [],
           socialLinksDetailed: draft.socialLinksDetailed || [],
+          providerLogo: draft.providerLogo || null,
+          categorySelections: draft.categorySelections || (draft.category ? [draft.category] : []),
+          subcategorySelections: draft.subcategorySelections || (draft.subcategory ? [draft.subcategory] : []),
+          providerActivities: draft.providerActivities || [],
+          providerTypes: draft.providerTypes || [],
+          providerModalities: draft.providerModalities || [],
         },
       };
 
@@ -3675,31 +3914,67 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   };
 
   const resolveCategoryTaxonomyType = (category: Category, seen = new Set<string>()): string | null => {
-    if (seen.has(category.id)) return null;
+    if (seen.has(category.id)) return "categoria";
     seen.add(category.id);
     const ownTaxonomyType = normalizeTaxonomyTypeAlias(category.taxonomyType || "predeterminado");
     if (ownTaxonomyType && !["", "default", "inherit", "predeterminado"].includes(ownTaxonomyType)) return ownTaxonomyType;
     if (category.parentId) {
       const parent = categoryById.get(category.parentId);
-      if (!parent) return null;
-      return resolveCategoryTaxonomyType(parent, seen);
+      if (parent) return resolveCategoryTaxonomyType(parent, seen);
     }
     const effectiveBlockId = resolveCategoryBlockId(category);
-    if (!effectiveBlockId) return null;
-    const blockTaxonomyType = normalizeTaxonomyTypeAlias(filterGroupById.get(effectiveBlockId)?.taxonomyType || "predeterminado");
-    if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
+    if (effectiveBlockId) {
+      const block = filterGroupById.get(effectiveBlockId);
+      const blockTaxonomyType = normalizeTaxonomyTypeAlias(block?.taxonomyType || "predeterminado");
+      if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
+
+      const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) {
+        return "categoria";
+      }
+      if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) {
+        return "actividad";
+      }
+      if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) {
+        return "tipo";
+      }
+      if (blockLabelNorm.includes("modalidad")) {
+        return "modalidad";
+      }
+      if (blockLabelNorm.includes("prestacion")) {
+        return "prestacion";
+      }
+      if (blockLabelNorm.includes("idioma")) {
+        return "idiomas";
+      }
+      const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
+      if (!hasChildren) {
+        return "filtro";
+      }
+    }
     return "categoria";
   };
   const resolveInheritedCategoryTaxonomyType = (category: Category): string | null => {
     if (category.parentId) {
       const parent = categoryById.get(category.parentId);
-      if (!parent) return null;
-      return resolveCategoryTaxonomyType(parent);
+      if (parent) return resolveCategoryTaxonomyType(parent);
     }
     const effectiveBlockId = resolveCategoryBlockId(category);
-    if (!effectiveBlockId) return null;
-    const blockTaxonomyType = normalizeTaxonomyTypeAlias(filterGroupById.get(effectiveBlockId)?.taxonomyType || "predeterminado");
-    return blockTaxonomyType || "categoria";
+    if (effectiveBlockId) {
+      const block = filterGroupById.get(effectiveBlockId);
+      const blockTaxonomyType = normalizeTaxonomyTypeAlias(block?.taxonomyType || "predeterminado");
+      if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
+      const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) return "categoria";
+      if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) return "actividad";
+      if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) return "tipo";
+      if (blockLabelNorm.includes("modalidad")) return "modalidad";
+      if (blockLabelNorm.includes("prestacion")) return "prestacion";
+      if (blockLabelNorm.includes("idioma")) return "idiomas";
+      const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
+      if (!hasChildren) return "filtro";
+    }
+    return "categoria";
   };
   const getCategoryCustomTaxonomyNotice = (category: Category): string | null => {
     const resolved = resolveCategoryTaxonomyType(category);
@@ -3713,8 +3988,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (category.parentId && !categoryById.has(category.parentId)) return false;
     const resolvedTaxonomyType = resolveCategoryTaxonomyType(category);
     if (!resolvedTaxonomyType) return false;
-    const effectiveBlockId = resolveCategoryBlockId(category);
-    if (!effectiveBlockId) return false;
     return true;
   };
 
@@ -3824,42 +4097,103 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   useEffect(() => {
     const activeRoots = pEditorMode === "prestacion" ? linkedPublicationCategoryRoots : publicationCategoryRoots;
+    if (!activeRoots.length) return;
+
     const validCategorySet = new Set(activeRoots.map((root) => root.description));
-    const validCategories = pCategorySelections.filter((value) => validCategorySet.has(value));
-    if (validCategories.length !== pCategorySelections.length) {
-      setPCategorySelections(validCategories);
+    const allRootsWithNorm = activeRoots.map((r) => ({
+      original: r.description,
+      norm: r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
+      id: r.id,
+    }));
+
+    let mappedCategories: string[] = [];
+    for (const val of pCategorySelections) {
+      if (validCategorySet.has(val)) {
+        if (!mappedCategories.includes(val)) mappedCategories.push(val);
+        continue;
+      }
+      const valNorm = val.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!valNorm) continue;
+      const matched = allRootsWithNorm.find((r) => r.norm === valNorm || r.norm.includes(valNorm) || valNorm.includes(r.norm));
+      if (matched && !mappedCategories.includes(matched.original)) {
+        mappedCategories.push(matched.original);
+      }
+    }
+
+    if (mappedCategories.length === 0 && (pTitle || pProviderActivities.length || pProviderActivity || pDescription)) {
+      const sectorContext = `${pTitle} ${pPublisherName} ${pProviderActivities.join(" ")} ${pProviderActivity} ${pDescription}`.toLowerCase();
+      const isEdu = /universidad|facultad|carrera|colegio|instituto superior|educaci|posgrado|maestr[ií]a|diplomatura|pregrado|instituto de educaci/i.test(sectorContext);
+      const isLegal = /abogad|estudio jur[ií]dico|notar|escriban|abogac|defensor|derecho/i.test(sectorContext);
+      const isTourism = /hotel|hostel|hospedaje|alojamiento|posada|cabaña|resort/i.test(sectorContext);
+      const isHealth = !isEdu && /hospital|cl[ií]nica|sanatorio|m[eé]dic|odontol|psicol|obra social|salud/i.test(sectorContext);
+
+      if (isEdu) {
+        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
+        if (eduRoot) mappedCategories.push(eduRoot.original);
+      } else if (isLegal) {
+        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
+        if (legalRoot) mappedCategories.push(legalRoot.original);
+      } else if (isTourism) {
+        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
+        if (hotelRoot) mappedCategories.push(hotelRoot.original);
+      } else if (isHealth) {
+        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
+        if (healthRoot) mappedCategories.push(healthRoot.original);
+      }
+    }
+
+    const categoriesChanged = mappedCategories.length !== pCategorySelections.length || mappedCategories.some((v, i) => v !== pCategorySelections[i]);
+    if (categoriesChanged) {
+      setPCategorySelections(mappedCategories);
       return;
     }
 
-    const activeRootIds = new Set(activeRoots.filter((root) => validCategories.includes(root.description)).map((root) => root.id));
-    const allowedSubcategories = new Set(
-      categories
-        .filter((category) => {
-          if (!category.parentId || !activeRootIds.has(category.parentId)) return false;
-          if (!isCategoryRenderable(category)) return false;
-          const taxonomyType = resolveCategoryTaxonomyType(category);
-          return pEditorMode === "prestacion"
-            ? !["prestacion", "prestaciones"].includes(taxonomyType || "")
-            : taxonomyType === "categoria";
-        })
-        .map((child) => child.description)
-    );
-    const validSubcategories = pSubcategorySelections.filter((value) => allowedSubcategories.has(value));
-    if (validSubcategories.length !== pSubcategorySelections.length) {
-      setPSubcategorySelections(validSubcategories);
+    const activeRootIds = new Set(activeRoots.filter((root) => mappedCategories.includes(root.description)).map((root) => root.id));
+    const allowedSubcategories = categories.filter((category) => {
+      if (!category.parentId || !activeRootIds.has(category.parentId)) return false;
+      if (!isCategoryRenderable(category)) return false;
+      const taxonomyType = resolveCategoryTaxonomyType(category);
+      return pEditorMode === "prestacion"
+        ? !["prestacion", "prestaciones"].includes(taxonomyType || "")
+        : taxonomyType === "categoria";
+    });
+
+    const allowedSubcatSet = new Set(allowedSubcategories.map((c) => c.description));
+    const allowedSubcatWithNorm = allowedSubcategories.map((c) => ({
+      original: c.description,
+      norm: c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
+    }));
+
+    let mappedSubcategories: string[] = [];
+    for (const val of pSubcategorySelections) {
+      if (allowedSubcatSet.has(val)) {
+        if (!mappedSubcategories.includes(val)) mappedSubcategories.push(val);
+        continue;
+      }
+      const valNorm = val.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!valNorm) continue;
+      const matched = allowedSubcatWithNorm.find((c) => c.norm === valNorm || c.norm.includes(valNorm) || valNorm.includes(c.norm));
+      if (matched && !mappedSubcategories.includes(matched.original)) {
+        mappedSubcategories.push(matched.original);
+      }
+    }
+
+    const subcategoriesChanged = mappedSubcategories.length !== pSubcategorySelections.length || mappedSubcategories.some((v, i) => v !== pSubcategorySelections[i]);
+    if (subcategoriesChanged) {
+      setPSubcategorySelections(mappedSubcategories);
       return;
     }
 
     if (pEditorMode === "prestacion") return;
 
-    const firstCategory = validCategories[0] ?? "";
+    const firstCategory = mappedCategories[0] ?? "";
     if (pCategory !== firstCategory) {
       setPCategory(firstCategory);
       const root = publicationCategoryRoots.find((item) => item.description === firstCategory);
       setPCategoryI18n(root ? ((root.descriptionI18n as I18nRecord) ?? { es: root.description }) : null);
     }
 
-    const firstSubcategory = validSubcategories[0] ?? "";
+    const firstSubcategory = mappedSubcategories[0] ?? "";
     if (pSubcategory !== firstSubcategory) {
       setPSubcategory(firstSubcategory);
       const child = publicationSubcategoryOptions.find((item) => item.description === firstSubcategory);
@@ -3876,6 +4210,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     pCategory,
     pSubcategory,
     pEditorMode,
+    pTitle,
+    pPublisherName,
+    pProviderActivities,
+    pProviderActivity,
+    pDescription,
   ]);
 
   const splitLines = (v: string) =>
