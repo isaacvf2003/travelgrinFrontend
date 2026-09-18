@@ -11,7 +11,6 @@ export interface ExtraDescriptionBlock {
   bodyI18n: I18nRecord;
   visibleInCard: boolean;
 }
-
 export interface SocialLinkDetail {
   kind: string;
   label: string;
