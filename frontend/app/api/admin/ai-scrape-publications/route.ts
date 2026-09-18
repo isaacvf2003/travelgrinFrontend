@@ -1291,24 +1291,22 @@ function classifySectorAndTaxonomy(
   const isGovText = /\b(organismo p[uú]blico|hospital p[uú]blico|hospital nacional|hospital de pediatr[ií]a s\.a\.m\.i\.c|universidad nacional|ente aut[aá]rquico|ministerio|secretar[ií]a|gobierno de|municipalidad|poder judicial)\b/i.test(lower);
   const isPublicEntity = isGovDomain || isGovText;
 
-  // 3. Explicit sector triggers based on primary domain / institution identity
-  const isExplicitHospital =
-    /\b(hospital|sanatorio|cl[ií]nica|centro m[eé]dico|centro asistencial|guardia m[eé]dica|pediatr[ií]a|maternidad|policl[ií]nic[oa]|salud pedi[aá]trica|atenci[oó]n m[eé]dica|urgencias m[eé]dicas)\b/i.test(title) ||
-    /\b(hospital|sanatorio|garrahan|clinica|centro-medico)\b/i.test(url) ||
-    /\b(hospital de pediatr[ií]a|hospital p[uú]blico|guardia m[eé]dica|atenci[oó]n pedi[aá]trica|especialidades m[eé]dicas)\b/i.test(lower);
+  // 3. Explicit sector triggers based on primary title and domain identity (never contaminated by random body text)
+  const isHospitalTitle = /\b(hospital|sanatorio|cl[ií]nica|centro m[eé]dico|policl[ií]nic[oa]|maternidad|instituto m[eé]dico|centro asistencial|guardia m[eé]dica|pediatr[ií]a)\b/i.test(title);
+  const isHospitalUrl = /\b(hospital|sanatorio|clinica|garrahan|centromedico)\b/i.test(url);
+  const isExplicitHospital = isHospitalTitle || isHospitalUrl;
 
-  const isEduDomain = (/\.edu(?:\.[a-z]{2})?|\.ac(?:\.[a-z]{2})?/i.test(url)) && !isExplicitHospital;
-  const isExplicitEdu =
-    (/\b(universidad|facultad|campus universitario|colegio|instituto superior|conservatorio)\b/i.test(title) ||
-    isEduDomain) && !isExplicitHospital;
+  const isEduDomain = (/\.edu(?:\.[a-z]{2})?|\.ac(?:\.[a-z]{2})?/i.test(url) || /^uba\.ar|unc\.edu\.ar|utn\.edu\.ar|siglo21\.edu\.ar/i.test(url)) && !isHospitalTitle;
+  const isEduTitle = /\b(universidad|facultad|instituto universitario|colegio|instituto superior|escuela superior|conservatorio|academia)\b/i.test(title);
+  const isExplicitEdu = (isEduTitle || isEduDomain) && !isHospitalTitle;
 
-  const isExplicitLegal =
-    /\b(abogad[oa]s?|estudio jur[ií]dico|law firm|escriban[ií]a|notar[ií]a|asesor[ií]a legal|visas? migratori[ao]s?|tr[aá]mites migratorios|ciudadan[ií]a)\b/i.test(title) ||
-    /\b(abogad|estudiojuridico|notaria)\b/i.test(url);
+  const isLegalTitle = /\b(abogad[oa]s?|estudio jur[ií]dico|law firm|escriban[ií]a|notar[ií]a|asesor[ií]a legal|gestor[ií]a migratoria|visas? migratori[ao]s?)\b/i.test(title);
+  const isLegalUrl = /\b(abogad|estudiojuridico|notaria|asesorialegal)\b/i.test(url);
+  const isExplicitLegal = (isLegalTitle || isLegalUrl) && !isExplicitHospital && !isExplicitEdu;
 
-  const isExplicitTourism =
-    /\b(hotel\b|hostel\b|resort\b|cabañas?\b|apart hotel\b|posada\b|hospedaje\b|hostal\b)\b/i.test(title) ||
-    /\b(hotel|hostel|resort|cabana)\b/i.test(url);
+  const isTourismTitle = /\b(hotel\b|hostel\b|resort\b|cabañas?\b|apart hotel\b|posada\b|hospedaje\b|hostal\b|hoster[ií]a\b)\b/i.test(title);
+  const isTourismUrl = /\b(hotel|hostel|resort|cabana|posada|hospedaje)\b/i.test(url);
+  const isExplicitTourism = (isTourismTitle || isTourismUrl) && !isExplicitHospital && !isExplicitEdu && !isExplicitLegal;
 
   // Health priority check
   if (isExplicitHospital) {

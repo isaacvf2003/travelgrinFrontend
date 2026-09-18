@@ -3251,52 +3251,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    // Strict Sector Detection to avoid cross-contamination
-    const allContextText = `${draft.title} ${draft.publisherName || ""} ${draft.description} ${(draft.providerActivities || []).join(" ")} ${(draft.categorySelections || []).join(" ")} ${draft.category || ""} ${draft.url || ""}`.toLowerCase();
-    const isHospitalOrClinic = /hospital|sanatorio|cl[ií]nica|centro m[eé]dico|centro asistencial|pediatr[ií]a|guardia m[eé]dica|salud y asistencia|urgencias m[eé]dicas|atenci[oó]n m[eé]dica|m[eé]dic|odontol|salud/i.test(allContextText);
-    const isHealthDraft = (draft.category && /salud|m[eé]dic|bienestar|asistencia/i.test(draft.category)) ||
-                          (draft.providerActivities || []).some((a) => /salud|asistencia/i.test(a));
-    const isHealth = isHospitalOrClinic || isHealthDraft;
-
-    const isEdu = !isHealth && /universidad|facultad|carrera universitaria|colegio|instituto superior|posgrado|maestr[ií]a|diplomatura|pregrado|instituto de educaci/i.test(allContextText);
-    const isLegal = !isHealth && !isEdu && /abogad|estudio jur[ií]dico|notar|escriban|abogac|defensor|derecho|migratori/i.test(allContextText);
-    const isTourism = !isHealth && !isEdu && !isLegal && /hotel|hostel|hospedaje|alojamiento|posada|cabaña|resort/i.test(allContextText);
-
-    // If health entity was matched with educational roots, remove educational roots
-    if (isHealth) {
-      for (const rootName of Array.from(resolvedCategoryRoots)) {
-        if (/educaci|estudio|formaci|curso/i.test(rootName)) {
-          resolvedCategoryRoots.delete(rootName);
-        }
-      }
-      for (const subName of Array.from(resolvedSubcategories)) {
-        if (/curso|formaci|carrera|taller/i.test(subName)) {
-          resolvedSubcategories.delete(subName);
-        }
-      }
-    } else if (isEdu) {
-      // If educational entity was erroneously matched with health, remove health roots
-      for (const rootName of Array.from(resolvedCategoryRoots)) {
-        if (/salud|m[eé]dic|bienestar|asistencia/i.test(rootName)) {
-          resolvedCategoryRoots.delete(rootName);
-        }
-      }
-    }
-
-    // Sector fallback if not yet matched
+    // 1. Resolve Category Roots and Subcategories
     if (resolvedCategoryRoots.size === 0) {
-      if (isHealth) {
-        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
-        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
-      } else if (isEdu) {
+      const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
+      if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
         const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
         if (eduRoot) resolvedCategoryRoots.add(eduRoot.original);
-      } else if (isLegal) {
-        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
-        if (legalRoot) resolvedCategoryRoots.add(legalRoot.original);
-      } else if (isTourism) {
+      } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|policl[ií]nico|maternidad/i.test(titleContext)) {
+        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
+        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
+      } else if (/hotel|hostel|alojamiento|posada|cabaña|resort|hospedaje/i.test(titleContext)) {
         const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
         if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
+      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra/i.test(titleContext)) {
+        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
+        if (legalRoot) resolvedCategoryRoots.add(legalRoot.original);
       }
     }
 
@@ -3310,11 +3279,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           if (rawInputSubcategories.some((s) => s.toLowerCase().includes(childNorm) || childNorm.includes(s.toLowerCase()))) {
             resolvedSubcategories.add(child.description);
-          } else if (isHealth && /especialidad|m[eé]dic|hospital|general/i.test(childNorm)) {
+          } else if (/educaci|estudio/i.test(rootName) && /universidad/i.test(childNorm)) {
             resolvedSubcategories.add(child.description);
-          } else if (isEdu && /universidad/i.test(childNorm) && /universidad/i.test(allContextText)) {
+          } else if (/salud|m[eé]dic/i.test(rootName) && /especialidad|m[eé]dic/i.test(childNorm)) {
             resolvedSubcategories.add(child.description);
-          } else if (isTourism && /hotel|hostel/i.test(childNorm)) {
+          } else if (/alojamiento/i.test(rootName) && /hotel|hostel/i.test(childNorm)) {
             resolvedSubcategories.add(child.description);
           }
         }
@@ -3330,7 +3299,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (draft.subcategorySelections || []));
     setPSubcategory(finalSubcatSel[0] || draft.subcategory || "");
 
-    // Resolve Provider Activities against DB actividadRoots
+    // 2. Resolve Provider Activities directly against DB actividadRoots
     const resolvedActivities = new Set<string>();
     const rawActivities = Array.isArray(draft.providerActivities) && draft.providerActivities.length > 0
       ? draft.providerActivities
@@ -3344,33 +3313,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       });
       if (match) {
         resolvedActivities.add(match.description);
-      } else {
-        resolvedActivities.add(rawAct);
+      } else if (rawAct.trim()) {
+        resolvedActivities.add(rawAct.trim());
       }
     }
 
-    if (isHealth) {
-      for (const act of Array.from(resolvedActivities)) {
-        if (/educaci|formaci/i.test(act)) {
-          resolvedActivities.delete(act);
-        }
-      }
-      if (resolvedActivities.size === 0) {
-        const healthAct = actividadRoots.find((r) => /salud|asistencia/i.test(r.description.toLowerCase()));
-        if (healthAct) resolvedActivities.add(healthAct.description);
-        else resolvedActivities.add("Salud y asistencia social");
-      }
-    } else if (isEdu) {
-      // Remove any erroneous health activity
-      for (const act of Array.from(resolvedActivities)) {
-        if (/salud|asistencia social|m[eé]dic/i.test(act)) {
-          resolvedActivities.delete(act);
-        }
-      }
-      if (resolvedActivities.size === 0) {
+    // Only fallback if draft provided NO activities at all
+    if (resolvedActivities.size === 0) {
+      const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
+      if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
         const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
-        if (eduAct) resolvedActivities.add(eduAct.description);
-        else resolvedActivities.add("Educación y formación");
+        resolvedActivities.add(eduAct ? eduAct.description : "Educación y formación");
+      } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|pediatr[ií]a|m[eé]dic/i.test(titleContext)) {
+        const healthAct = actividadRoots.find((r) => /salud|asistencia/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(healthAct ? healthAct.description : "Salud y asistencia social");
+      } else if (/hotel|hostel|alojamiento|turismo|posada|resort/i.test(titleContext)) {
+        const tourAct = actividadRoots.find((r) => /hosteler|turismo|alojamiento/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(tourAct ? tourAct.description : "Hostelería, alojamiento y turismo");
+      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra/i.test(titleContext)) {
+        const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
+      } else {
+        const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
       }
     }
 
@@ -3378,7 +3343,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPProviderActivities(actSel);
     setPProviderActivity(actSel[0] || "");
 
-    // Resolve Provider Types against DB tipoRoots
+    // 3. Resolve Provider Types against DB tipoRoots
     const resolvedTypes = new Set<string>();
     const rawTypes = Array.isArray(draft.providerTypes) && draft.providerTypes.length > 0
       ? draft.providerTypes
@@ -3392,14 +3357,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       });
       if (match) {
         resolvedTypes.add(match.description);
-      } else {
-        resolvedTypes.add(rawType);
+      } else if (rawType.trim()) {
+        resolvedTypes.add(rawType.trim());
       }
     }
 
     const isPublicGov =
       /\b(\.gov|\.gob|\.mil)\b/i.test(draft.url || "") ||
-      /\b(organismo p[uú]blico|hospital p[uú]blico|hospital nacional|samic|ministerio|secretar[ií]a|municipalidad|gobierno|universidad nacional|nacional de)\b/i.test(allContextText);
+      /\b(organismo p[uú]blico|hospital p[uú]blico|hospital nacional|samic|ministerio|secretar[ií]a|municipalidad|gobierno|universidad nacional|nacional de)\b/i.test(`${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase());
 
     if (isPublicGov) {
       resolvedTypes.delete("Institución privada");
@@ -3408,15 +3373,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const pubType = tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description.toLowerCase()));
       if (pubType) resolvedTypes.add(pubType.description);
       else resolvedTypes.add("Organismo público");
-    } else if (isEdu) {
-      // Strictly prevent "Agencia" or "Profesional independiente" on universities
-      resolvedTypes.delete("Agencia");
-      resolvedTypes.delete("Profesional independiente");
-      if (resolvedTypes.size === 0) {
-        const eduType = tipoRoots.find((r) => /instituci[oó]n|educativ|privad/i.test(r.description.toLowerCase()));
-        if (eduType) resolvedTypes.add(eduType.description);
-        else resolvedTypes.add("Institución privada");
-      }
+    }
+
+    if (resolvedTypes.size === 0) {
+      resolvedTypes.add(isPublicGov ? "Organismo público" : "Institución privada");
     }
 
     const typeSel = Array.from(resolvedTypes);
