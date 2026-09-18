@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   consumeProviderPortalMagicLink,
   getFrontendBaseUrl,
+  getProviderPortalSession,
   verifyProviderPortalResumeToken,
 } from "@/app/api/_lib/providerPortal";
 import {
@@ -30,6 +31,13 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = String(url.searchParams.get("token") ?? "").trim();
   const resumeToken = String(url.searchParams.get("resume") ?? "").trim();
+
+  // If the user already has an active session cookie on their browser, redirect to panel without error
+  const activeSession = await getProviderPortalSession();
+  if (activeSession?.email) {
+    return NextResponse.redirect(buildRedirectUrl("ok"));
+  }
+
   if (!token) {
     return NextResponse.redirect(buildRedirectUrl("invalid"));
   }

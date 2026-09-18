@@ -4,6 +4,38 @@ import { prisma } from "@/app/lib/prisma";
 
 const MFA_SECRET_KEY = process.env.PROVIDER_PORTAL_JWT_SECRET?.trim() || process.env.ADMIN_JWT_SECRET || "travelgrin-provider-portal-2026";
 
+const ENCRYPTION_KEY = crypto.createHash("sha256").update(
+  process.env.DATABASE_ENCRYPTION_KEY || MFA_SECRET_KEY
+).digest();
+
+function encryptText(text: string): string {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  const authTag = cipher.getAuthTag().toString("hex");
+  return `${iv.toString("hex")}:${authTag}:${encrypted}`;
+}
+
+function decryptText(encryptedText: string): string {
+  try {
+    const parts = encryptedText.split(":");
+    if (parts.length !== 3) {
+      return encryptedText;
+    }
+    const [ivHex, authTagHex, encryptedHex] = parts;
+    const iv = Buffer.from(ivHex, "hex");
+    const authTag = Buffer.from(authTagHex, "hex");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", ENCRYPTION_KEY, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedHex, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch (err) {
+    return encryptedText;
+  }
+}
+
 function base32Decode(base32: string): Buffer {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   const cleaned = base32.replace(/=+$/, "").toUpperCase();
@@ -87,7 +119,9 @@ export async function getProviderMfaSecret(email: string): Promise<string | null
       `SELECT mfa_secret FROM provider_mfa_settings WHERE email = $1 LIMIT 1`,
       normalized,
     );
-    return rows[0]?.mfa_secret || null;
+    const rawSecret = rows[0]?.mfa_secret || null;
+    if (!rawSecret) return null;
+    return decryptText(rawSecret);
   } catch (err) {
     console.error("[getProviderMfaSecret] Database query failed:", err);
     return null;
@@ -97,6 +131,7 @@ export async function getProviderMfaSecret(email: string): Promise<string | null
 export async function saveProviderMfaSecret(email: string, secret: string): Promise<void> {
   await ensureProviderMfaTable();
   const normalized = email.trim().toLowerCase();
+  const encryptedSecret = encryptText(secret);
   await prisma.$executeRawUnsafe(
     `
       INSERT INTO provider_mfa_settings (email, mfa_secret, created_at, updated_at)
@@ -106,7 +141,7 @@ export async function saveProviderMfaSecret(email: string, secret: string): Prom
           updated_at = NOW()
     `,
     normalized,
-    secret,
+    encryptedSecret,
   );
 }
 
