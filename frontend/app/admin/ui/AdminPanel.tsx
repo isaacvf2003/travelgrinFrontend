@@ -3126,19 +3126,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       mapUrl: draft.locationAddress || "",
     };
 
-    setPCountry(draft.country || primaryHq.country || "Argentina");
-    setPCity(draft.city || primaryHq.city || "Buenos Aires");
-    setPHeadquarterCountry(primaryHq.country || "Argentina");
-    setPHeadquarterCity(primaryHq.city || "Buenos Aires");
+    const effectiveCountry = draft.headquarterCountry || draft.country || primaryHq.country || "Argentina";
+    const effectiveCity = draft.headquarterCity || draft.city || primaryHq.city || "Buenos Aires";
+
+    setPCountry(effectiveCountry);
+    setPCity(effectiveCity);
+    setPHeadquarterCountry(primaryHq.country || effectiveCountry);
+    setPHeadquarterCity(primaryHq.city || effectiveCity);
     setPHeadquarterMapUrl(primaryHq.mapUrl || draft.locationAddress || "");
     setPLocationAddress(primaryHq.mapUrl || draft.locationAddress || "");
     setPHeadquarterExtras(
       headquarterRaw.slice(1).map((loc: any) => ({
-        country: loc.country || primaryHq.country || "Argentina",
+        country: loc.country || primaryHq.country || effectiveCountry,
         city: loc.city || "",
         mapUrl: loc.mapUrl || "",
       }))
     );
+
+    if (Array.isArray(draft.destinationCountries) && draft.destinationCountries.length > 0) {
+      setPPrestacionDestinationCountries(draft.destinationCountries);
+    }
 
     setPCurrency(draft.currency || "USD");
     setPPrice(draft.price || "");
@@ -3260,6 +3267,27 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|policl[ií]nico|maternidad/i.test(titleContext)) {
         const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
         if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
+      } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
+        const autoRoot = allRootsWithNorm.find((r) => /auto|veh[ií]cul|transporte|comercio/i.test(r.norm));
+        if (autoRoot) resolvedCategoryRoots.add(autoRoot.original);
+      } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
+        const miningRoot = allRootsWithNorm.find((r) => /industria|miner|energ|construcci/i.test(r.norm));
+        if (miningRoot) resolvedCategoryRoots.add(miningRoot.original);
+      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
+        const entRoot = allRootsWithNorm.find((r) => /entretenimiento|cultura|arte|espect[aá]culo/i.test(r.norm));
+        if (entRoot) resolvedCategoryRoots.add(entRoot.original);
+      } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
+        const sportsRoot = allRootsWithNorm.find((r) => /deporte|fitness|gimnasio/i.test(r.norm));
+        if (sportsRoot) resolvedCategoryRoots.add(sportsRoot.original);
+      } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
+        const gastroRoot = allRootsWithNorm.find((r) => /gastronom|restaurante/i.test(r.norm));
+        if (gastroRoot) resolvedCategoryRoots.add(gastroRoot.original);
+      } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
+        const techRoot = allRootsWithNorm.find((r) => /tecnolog|software|digital/i.test(r.norm));
+        if (techRoot) resolvedCategoryRoots.add(techRoot.original);
+      } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
+        const realRoot = allRootsWithNorm.find((r) => /inmobiliari|propiedad|bienes/i.test(r.norm));
+        if (realRoot) resolvedCategoryRoots.add(realRoot.original);
       } else if (/hotel|hostel|alojamiento|posada|cabaña|resort|hospedaje/i.test(titleContext)) {
         const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
         if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
@@ -3327,6 +3355,27 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|pediatr[ií]a|m[eé]dic/i.test(titleContext)) {
         const healthAct = actividadRoots.find((r) => /salud|asistencia/i.test(r.description.toLowerCase()));
         resolvedActivities.add(healthAct ? healthAct.description : "Salud y asistencia social");
+      } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
+        const autoAct = actividadRoots.find((r) => /automotriz|reparaci|mantenimiento|transporte|comercio/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(autoAct ? autoAct.description : "Comercio y automotriz");
+      } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
+        const miningAct = actividadRoots.find((r) => /miner|industria|construcci|energ/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(miningAct ? miningAct.description : "Industria, minería y construcción");
+      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
+        const entAct = actividadRoots.find((r) => /arte|cultura|entretenimiento|recreaci/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(entAct ? entAct.description : "Arte, cultura y entretenimiento");
+      } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
+        const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(sportsAct ? sportsAct.description : "Deportes, fitness y bienestar");
+      } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
+        const gastroAct = actividadRoots.find((r) => /gastronom|restauraci|hosteler/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(gastroAct ? gastroAct.description : "Gastronomía y restauración");
+      } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
+        const techAct = actividadRoots.find((r) => /tecnolog|software|informaci/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(techAct ? techAct.description : "Tecnología, software e información");
+      } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
+        const realAct = actividadRoots.find((r) => /inmobiliari|bienes ra[ií]ces/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(realAct ? realAct.description : "Servicios inmobiliarios y bienes raíces");
       } else if (/hotel|hostel|alojamiento|turismo|posada|resort/i.test(titleContext)) {
         const tourAct = actividadRoots.find((r) => /hosteler|turismo|alojamiento/i.test(r.description.toLowerCase()));
         resolvedActivities.add(tourAct ? tourAct.description : "Hostelería, alojamiento y turismo");
