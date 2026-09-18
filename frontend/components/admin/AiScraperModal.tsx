@@ -556,8 +556,29 @@ export default function AiScraperModal({
                   <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-200/60 pb-3">
                     <div className="flex items-start gap-3">
                       {draft.providerLogo ? (
-                        <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-1">
-                          <img src={draft.providerLogo} alt="Logo" className="h-full w-full object-contain" />
+                        <div
+                          className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl border border-slate-300 bg-slate-100 p-1 flex items-center justify-center shadow-xs"
+                          style={{
+                            backgroundImage:
+                              "linear-gradient(45deg, #cbd5e1 25%, transparent 25%), linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cbd5e1 75%), linear-gradient(-45deg, transparent 75%, #cbd5e1 75%)",
+                            backgroundSize: "8px 8px",
+                            backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
+                          }}
+                        >
+                          <img
+                            src={draft.providerLogo}
+                            alt="Logo"
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-contain drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.7)]"
+                            onError={(e) => {
+                              try {
+                                const host = new URL(draft.website || draft.url || draft.providerLogo).hostname;
+                                if (host && !e.currentTarget.src.includes("google.com/s2/favicons")) {
+                                  e.currentTarget.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+                                }
+                              } catch {}
+                            }}
+                          />
                         </div>
                       ) : null}
                       <div>

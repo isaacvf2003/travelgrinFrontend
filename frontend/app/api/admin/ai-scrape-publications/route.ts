@@ -74,7 +74,12 @@ function decodeHtmlEntities(str: string): string {
 }
 
 function cleanTitleString(title: string): string {
-  const decoded = decodeHtmlEntities(title);
+  let decoded = decodeHtmlEntities(title);
+  // Remove generic page suffixes and prefixes
+  decoded = decoded
+    .replace(/\s*[-–—|]\s*(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*$/i, "")
+    .replace(/^(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*[-–—|]\s*/i, "")
+    .trim();
   const parts = decoded.split(/\s*[-–—|]\s*/);
   if (parts.length >= 2 && parts[0].trim().toLowerCase() === parts[1].trim().toLowerCase()) {
     return parts[0].trim();
@@ -103,14 +108,80 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
   type: string;
   additionalCities?: string[];
 }> = {
+  "garrahan.gov.ar": {
+    name: "Hospital Garrahan",
+    startYear: "1987",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Organismo público",
+    additionalCities: [],
+  },
+  "hospitalitaliano.org.ar": {
+    name: "Hospital Italiano de Buenos Aires",
+    startYear: "1853",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    additionalCities: ["San Justo"],
+  },
+  "hospitalbritanico.org.ar": {
+    name: "Hospital Británico",
+    startYear: "1844",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    additionalCities: [],
+  },
+  "hbritanico.com.ar": {
+    name: "Hospital Británico",
+    startYear: "1844",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    additionalCities: [],
+  },
+  "fleni.org.ar": {
+    name: "FLENI",
+    startYear: "1959",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    additionalCities: ["Belgrano", "Escobar"],
+  },
+  "hospitalaleman.org.ar": {
+    name: "Hospital Alemán",
+    startYear: "1867",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    additionalCities: [],
+  },
   "21.edu.ar": {
     name: "Universidad Siglo 21",
     startYear: "1995",
     primaryCity: "Córdoba",
     primaryCountry: "Argentina",
     activity: "Educación y formación",
-    category: "Educación y Centros de Estudios",
-    subcategory: "Estudios universitarios",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
     type: "Institución privada",
     additionalCities: ["Río Cuarto", "Buenos Aires", "Villa María", "Rosario", "Mendoza", "San Miguel de Tucumán", "Salta"],
   },
@@ -120,8 +191,8 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     primaryCity: "Buenos Aires",
     primaryCountry: "Argentina",
     activity: "Educación y formación",
-    category: "Educación y Centros de Estudios",
-    subcategory: "Estudios universitarios",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
     type: "Organismo público",
     additionalCities: [],
   },
@@ -131,8 +202,8 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     primaryCity: "Córdoba",
     primaryCountry: "Argentina",
     activity: "Educación y formación",
-    category: "Educación y Centros de Estudios",
-    subcategory: "Estudios universitarios",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
     type: "Organismo público",
     additionalCities: [],
   },
@@ -142,8 +213,8 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     primaryCity: "Buenos Aires",
     primaryCountry: "Argentina",
     activity: "Educación y formación",
-    category: "Educación y Centros de Estudios",
-    subcategory: "Estudios universitarios",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
     type: "Organismo público",
     additionalCities: ["Córdoba", "Rosario", "Mendoza", "La Plata", "Santa Fe"],
   },
@@ -153,8 +224,8 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     primaryCity: "Pilar",
     primaryCountry: "Argentina",
     activity: "Educación y formación",
-    category: "Educación y Centros de Estudios",
-    subcategory: "Estudios universitarios",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
     type: "Institución privada",
     additionalCities: ["Buenos Aires", "Rosario"],
   },
@@ -164,8 +235,8 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     primaryCity: "Victoria",
     primaryCountry: "Argentina",
     activity: "Educación y formación",
-    category: "Educación y Centros de Estudios",
-    subcategory: "Estudios universitarios",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
     type: "Institución privada",
     additionalCities: ["Buenos Aires"],
   },
@@ -175,8 +246,8 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     primaryCity: "Buenos Aires",
     primaryCountry: "Argentina",
     activity: "Educación y formación",
-    category: "Educación y Centros de Estudios",
-    subcategory: "Estudios universitarios",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
     type: "Institución privada",
   },
   "uca.edu.ar": {
@@ -185,8 +256,8 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     primaryCity: "Buenos Aires",
     primaryCountry: "Argentina",
     activity: "Educación y formación",
-    category: "Educación y Centros de Estudios",
-    subcategory: "Estudios universitarios",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
     type: "Institución privada",
     additionalCities: ["Mendoza", "Rosario", "Paraná"],
   },
@@ -206,13 +277,11 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
   const combined = `${title} ${textContent.slice(0, 15000)}`.toLowerCase();
   const currentYear = new Date().getFullYear();
 
-  // 2. Specific founding / creation patterns
+  // 2. Specific founding / creation patterns (strictly avoid website copyright dates)
   const explicitPatterns = [
-    /(?:fundad[oa]|cread[oa]|inici[oó]|establecid[oa]|fundaci[oó]n|origen|nacimiento|inicios?|trayectoria)\s*(?:en|de|el|hacia|en el año)?\s*([12]\d{3})/i,
-    /(?:en el año|desde el año|año de fundaci[oó]n:?)\s*([12]\d{3})/i,
+    /(?:fundad[oa]|inaugurad[oa]|cread[oa]|establecid[oa]|fundaci[oó]n|origen|nacimiento|inicios?|abrió sus puertas|inici[oó] sus actividades)\s*(?:en|de|el|hacia|en el año)?\s*([12]\d{3})/i,
+    /(?:en el año|desde el año|año de fundaci[oó]n:?|año de inauguraci[oó]n:?)\s*([12]\d{3})/i,
     /(?:desde|since|est\.|establ\.)\s*([12]\d{3})/i,
-    /(?:18\d{2}|19\d{2}|20[0-2]\d)\s*(?:[-–—a]|hasta)\s*(?:202\d|presente|actualidad)/i,
-    /©\s*([12]\d{3})\s*[-–—]\s*(?:202\d|presente)/i,
   ];
 
   for (const regex of explicitPatterns) {
@@ -229,7 +298,7 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
   }
 
   // 3. Years of experience pattern: "más de 25 años de trayectoria", "30 años de experiencia"
-  const experienceMatch = combined.match(/(?:hace|con más de|más de|cerca de|\+)\s*(\d{1,3})\s*años\s*(?:de\s+)?(?:trayectoria|historia|experiencia|educando|atención|presencia)/i);
+  const experienceMatch = combined.match(/(?:hace|con más de|más de|cerca de|\+)\s*(\d{1,3})\s*años\s*(?:de\s+)?(?:trayectoria|historia|experiencia|educando|atención|presencia|cuidando)/i);
   if (experienceMatch && experienceMatch[1]) {
     const years = Number(experienceMatch[1]);
     if (years >= 1 && years <= 150) {
@@ -605,7 +674,9 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
 
   const cleanHtml = html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+    .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, "")
+    .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, "");
 
   const getMetaTag = (nameOrProperty: string) => {
     const match =
@@ -617,13 +688,26 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
   const titleMatch = cleanHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
   const rawPageTitle = getMetaTag("og:title") || (titleMatch ? titleMatch[1].trim() : "");
   const pageTitle = cleanTitleString(rawPageTitle);
-  const pageDescription = decodeHtmlEntities(getMetaTag("og:description") || getMetaTag("description") || "");
 
-  const bodyMatch = cleanHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  const bodyHtml = bodyMatch ? bodyMatch[1] : cleanHtml;
+  // Content extraction: strip navbars, header bars, footers, aside, modals, dialogs, cookie notices
+  let contentHtml = cleanHtml
+    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, " ")
+    .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, " ")
+    .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, " ")
+    .replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, " ")
+    .replace(/<dialog\b[^<]*(?:(?!<\/dialog>)<[^<]*)*<\/dialog>/gi, " ")
+    .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, " ")
+    .replace(/<(?:div|section|ul|ol)\b[^>]*?(?:class|id)=["'][^"']*(?:intranet|webmail|portal[-_]empleado|banner-cookie|modal|dropdown|nav-item|menu-item|breadcrumbs?)[^"']*["'][^>]*>[\s\S]*?<\/(?:div|section|ul|ol)>/gi, " ");
 
-  const textContent = decodeHtmlEntities(
-    bodyHtml
+  const mainMatch = contentHtml.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i) ||
+                    contentHtml.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i) ||
+                    contentHtml.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
+  const targetHtml = mainMatch ? mainMatch[1] : contentHtml;
+
+  const JUNK_LINE_REGEX = /^(?:portal del empleado|webmail|intranet|gde|iniciar sesi[oó]n|acceder|login|olvid[eé] mi contrase[ñn]a|pol[ií]tica de privacidad|t[eé]rminos y condiciones|aviso legal|mapa del sitio|sitemap|todos los derechos reservados|copyright\s*©?.*)\s*$/i;
+
+  let textContent = decodeHtmlEntities(
+    targetHtml
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<\/p>/gi, "\n\n")
       .replace(/<\/h[1-6]>/gi, "\n\n")
@@ -631,9 +715,25 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
       .replace(/<\/li>/gi, "\n")
       .replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/gi, " ")
-      .replace(/\s+/g, " ")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n\s*\n+/g, "\n\n")
       .trim()
   );
+
+  textContent = textContent
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !JUNK_LINE_REGEX.test(l))
+    .join("\n");
+
+  let pageDescription = decodeHtmlEntities(getMetaTag("og:description") || getMetaTag("description") || "");
+  if (!pageDescription || pageDescription.length < 20 || JUNK_LINE_REGEX.test(pageDescription)) {
+    const paragraphs = textContent.split("\n\n").map((p) => p.trim());
+    const candidate = paragraphs.find((p) => p.length >= 45 && !p.includes("•") && !JUNK_LINE_REGEX.test(p));
+    if (candidate) {
+      pageDescription = candidate.slice(0, 350).trim();
+    }
+  }
 
   const detectedFoundingYear = extractFoundingYear(cleanHtml, textContent, sourceUrl, pageTitle);
 
@@ -1101,7 +1201,12 @@ function buildGroundedDescriptions(
   city: string,
   country: string
 ): I18nRecord {
-  const cleanSummary = escapeHtml(decodeHtmlEntities(extractedData.description || extractedData.textContent.slice(0, 300) || title));
+  let rawDesc = extractedData.description;
+  if (!rawDesc || rawDesc.length < 20) {
+    const paragraphs = (extractedData.textContent || "").split("\n\n").map((p: string) => p.trim());
+    rawDesc = paragraphs.find((p: string) => p.length >= 45 && !p.includes("•") && !/portal del empleado|webmail|intranet|gde|login|iniciar sesi/i.test(p)) || paragraphs[0] || title;
+  }
+  const cleanSummary = escapeHtml(decodeHtmlEntities(rawDesc.slice(0, 320)));
   const locationText = [city, country].filter(Boolean).join(", ");
   const siteUrl = escapeHtml(extractedData.url);
 
@@ -1158,17 +1263,17 @@ function classifySectorAndTaxonomy(
   const validTypes: string[] = taxonomies?.types || [];
   const validMods: string[] = taxonomies?.modalities || [];
 
-  // 1. Check known institutions first
+  // 1. Check known institutions dictionary first
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
     for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
       if (hostname.includes(domainKey) || url.toLowerCase().includes(domainKey)) {
-        const cat = validCats.find((c) => /educaci|estudio/i.test(c)) || info.category;
-        const sub = validSubcats.find((s) => /universitari|carrera|curso/i.test(s)) || info.subcategory;
-        const act = validActs.find((a) => /educaci/i.test(a)) || info.activity;
-        const typ = validTypes.find((t) => /educativa|privada/i.test(t)) || info.type;
+        const cat = validCats.find((c) => new RegExp(info.category.slice(0, 10), "i").test(c)) || info.category;
+        const sub = validSubcats.find((s) => new RegExp(info.subcategory.slice(0, 10), "i").test(s)) || info.subcategory;
+        const act = validActs.find((a) => new RegExp(info.activity.slice(0, 8), "i").test(a)) || info.activity;
+        const typ = validTypes.find((t) => new RegExp(info.type.slice(0, 8), "i").test(t)) || info.type;
         return {
-          sector: "education",
+          sector: /salud|hospital|m[eé]dic/i.test(info.activity) ? "health" : "education",
           category: cat,
           subcategory: sub,
           categorySelections: [cat],
@@ -1181,48 +1286,38 @@ function classifySectorAndTaxonomy(
     }
   } catch {}
 
-  // 2. Compute domain & keyword scores
-  const isEduDomain = /\.edu(?:\.[a-z]{2})?|\.ac(?:\.[a-z]{2})?/i.test(url);
-  const eduKeywords = (lower.match(/universidad|facultad|carrera|licenciatura|posgrado|maestr[ií]a|diplomatura|campus universitario|oferta acad[eé]mica|inscripciones|ingreso acad[eé]mico|estudiantes|alumnos|colegio|instituto de formaci[oó]n|tecnicatura/gi) || []).length;
-  const eduScore = (isEduDomain ? 25 : 0) + eduKeywords * 2;
+  // 2. Public vs Private entity detection
+  const isGovDomain = /\.gov(?:\.[a-z]{2})?|\.gob(?:\.[a-z]{2})?|\.mil(?:\.[a-z]{2})?/i.test(url);
+  const isGovText = /\b(organismo p[uú]blico|hospital p[uú]blico|hospital nacional|hospital de pediatr[ií]a s\.a\.m\.i\.c|universidad nacional|ente aut[aá]rquico|ministerio|secretar[ií]a|gobierno de|municipalidad|poder judicial)\b/i.test(lower);
+  const isPublicEntity = isGovDomain || isGovText;
 
-  // Filter out health terms that are just faculties of an educational institution
-  const cleanHealthText = lower.replace(/ciencias de la salud|facultad de medicina|facultad de ciencias m[eé]dicas|carrera de m[eé]dico|carrera de enfermer[ií]a|carrera de kinesiolog[ií]a|departamento de salud/gi, "");
-  const healthKeywords = (cleanHealthText.match(/hospital|sanatorio|cl[ií]nica m[eé]dica|centro asistencial|guardia m[eé]dica|guardia 24hs|internaci[oó]n|quir[oó]fano|obra social|prepaga|cartilla m[eé]dica|turnos m[eé]dicos|m[eé]dicos especialistas|odontolog[ií]a|pediatr[ií]a/gi) || []).length;
-  const healthScore = healthKeywords * 3;
+  // 3. Explicit sector triggers based on primary domain / institution identity
+  const isExplicitHospital =
+    /\b(hospital|sanatorio|cl[ií]nica|centro m[eé]dico|centro asistencial|guardia m[eé]dica|pediatr[ií]a|maternidad|policl[ií]nic[oa]|salud pedi[aá]trica|atenci[oó]n m[eé]dica|urgencias m[eé]dicas)\b/i.test(title) ||
+    /\b(hospital|sanatorio|garrahan|clinica|centro-medico)\b/i.test(url) ||
+    /\b(hospital de pediatr[ií]a|hospital p[uú]blico|guardia m[eé]dica|atenci[oó]n pedi[aá]trica|especialidades m[eé]dicas)\b/i.test(lower);
 
-  const legalKeywords = (lower.match(/abogad|estudio jur[ií]dico|asesor[ií]a legal|derecho civil|derecho penal|derecho laboral|notar[ií]a|escriban[ií]a|visas? migratori|tr[aá]mites migratorios|ciudadan[ií]a/gi) || []).length;
-  const legalScore = legalKeywords * 3;
+  const isEduDomain = (/\.edu(?:\.[a-z]{2})?|\.ac(?:\.[a-z]{2})?/i.test(url)) && !isExplicitHospital;
+  const isExplicitEdu =
+    (/\b(universidad|facultad|campus universitario|colegio|instituto superior|conservatorio)\b/i.test(title) ||
+    isEduDomain) && !isExplicitHospital;
 
-  const tourismKeywords = (lower.match(/hotel\b|hostel\b|alojamiento|cabañas?|resort|apart hotel|habitaciones|check-in|check-out|desayuno buffet|estad[ií]a tur[ií]stica/gi) || []).length;
-  const tourismScore = tourismKeywords * 3;
+  const isExplicitLegal =
+    /\b(abogad[oa]s?|estudio jur[ií]dico|law firm|escriban[ií]a|notar[ií]a|asesor[ií]a legal|visas? migratori[ao]s?|tr[aá]mites migratorios|ciudadan[ií]a)\b/i.test(title) ||
+    /\b(abogad|estudiojuridico|notaria)\b/i.test(url);
 
-  const volunteerKeywords = (lower.match(/voluntariado|ayuda social|sin fines de lucro|\bong\b|comedor comunitario|asociaci[oó]n civil/gi) || []).length;
-  const volunteerScore = volunteerKeywords * 3;
+  const isExplicitTourism =
+    /\b(hotel\b|hostel\b|resort\b|cabañas?\b|apart hotel\b|posada\b|hospedaje\b|hostal\b)\b/i.test(title) ||
+    /\b(hotel|hostel|resort|cabana)\b/i.test(url);
 
-  // 3. Strict sector resolution
-  if (eduScore >= 4 || isEduDomain) {
-    const cat = validCats.find((c) => /educaci|estudio/i.test(c)) || "Educación y Centros de Estudios";
-    const sub = validSubcats.find((s) => /universitari|carrera|curso/i.test(s)) || "Estudios universitarios";
-    const act = validActs.find((a) => /educaci/i.test(a)) || "Educación y formación";
-    const typ = validTypes.find((t) => /educativa/i.test(t)) || validTypes.find((t) => /privada/i.test(t)) || "Institución privada";
-    return {
-      sector: "education",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
-    };
-  }
-
-  if (healthScore >= 6) {
-    const cat = validCats.find((c) => /salud|m[eé]dic|bienestar/i.test(c)) || "Salud y Centros Médicos";
-    const sub = validSubcats.find((s) => /atenci[oó]n|m[eé]dic|especialista/i.test(s)) || "Atención médica y especialistas";
-    const act = validActs.find((a) => /salud/i.test(a)) || "Salud y asistencia social";
-    const typ = validTypes.find((t) => /privada|instituci[oó]n|empresa/i.test(t)) || "Institución privada";
+  // Health priority check
+  if (isExplicitHospital) {
+    const cat = validCats.find((c) => /centros m[eé]dicos|salud|bienestar/i.test(c)) || "Centros médicos, salud y bienestar";
+    const sub = validSubcats.find((s) => /especialidades m[eé]dicas|m[eé]dicas|especialistas/i.test(s)) || "Especialidades médicas";
+    const act = validActs.find((a) => /salud|asistencia/i.test(a)) || "Salud y asistencia social";
+    const typ = isPublicEntity
+      ? (validTypes.find((t) => /p[uú]blico/i.test(t)) || "Organismo público")
+      : (validTypes.find((t) => /privada/i.test(t)) || "Institución privada");
     return {
       sector: "health",
       category: cat,
@@ -1235,8 +1330,29 @@ function classifySectorAndTaxonomy(
     };
   }
 
-  if (legalScore >= 4) {
-    const cat = validCats.find((c) => /gesti|visa|migra|legal/i.test(c)) || "Gestiones migratorias y Visas";
+  // Education priority check
+  if (isExplicitEdu) {
+    const cat = validCats.find((c) => /educaci|centros de estudio/i.test(c)) || "Educación y centros de estudios";
+    const sub = validSubcats.find((s) => /universidad|posgrado|carrera/i.test(s)) || "Universidad y posgrado";
+    const act = validActs.find((a) => /educaci|formaci/i.test(a)) || "Educación y formación";
+    const typ = (isPublicEntity || /nacional|p[uú]blic/i.test(title))
+      ? (validTypes.find((t) => /p[uú]blico/i.test(t)) || "Organismo público")
+      : (validTypes.find((t) => /privada/i.test(t)) || "Institución privada");
+    return {
+      sector: "education",
+      category: cat,
+      subcategory: sub,
+      categorySelections: [cat],
+      subcategorySelections: [sub],
+      providerActivities: [act],
+      providerTypes: [typ],
+      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
+    };
+  }
+
+  // Legal priority check
+  if (isExplicitLegal) {
+    const cat = validCats.find((c) => /residencia|ciudadan|visa|migra|legal/i.test(c)) || "Residencia y ciudadanía";
     const sub = validSubcats.find((s) => /legal|asesor|migratori/i.test(s)) || "Asesoría legal migratoria";
     const act = validActs.find((a) => /profesional|t[eé]cnico/i.test(a)) || "Servicios profesionales y técnicos";
     const typ = validTypes.find((t) => /profesional|privada/i.test(t)) || "Profesional independiente";
@@ -1252,11 +1368,12 @@ function classifySectorAndTaxonomy(
     };
   }
 
-  if (tourismScore >= 4) {
+  // Tourism priority check
+  if (isExplicitTourism) {
     const cat = validCats.find((c) => /alojamiento|hotel|turismo/i.test(c)) || "Alojamiento";
     const sub = validSubcats.find((s) => /hotel|hostel|hospedaje/i.test(s)) || "Hoteles y hostels";
     const act = validActs.find((a) => /hosteler|turismo/i.test(a)) || "Hostelería, alojamiento y turismo";
-    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Empresa";
+    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Institución privada";
     return {
       sector: "tourism",
       category: cat,
@@ -1269,11 +1386,102 @@ function classifySectorAndTaxonomy(
     };
   }
 
-  if (volunteerScore >= 4) {
-    const cat = validCats.find((c) => /voluntari/i.test(c)) || "Voluntariados y Centros de Ayuda";
+  // 4. Weighted scoring fallback for general web pages
+  const eduKeywords = (lower.match(/universidad|facultad|carrera|licenciatura|posgrado|maestr[ií]a|diplomatura|campus universitario|oferta acad[eé]mica|inscripciones|ingreso acad[eé]mico|estudiantes|alumnos|colegio|instituto de formaci[oó]n|tecnicatura/gi) || []).length;
+  const eduScore = eduKeywords * 2;
+
+  const cleanHealthText = lower.replace(/ciencias de la salud|facultad de medicina|facultad de ciencias m[eé]dicas|carrera de m[eé]dico|carrera de enfermer[ií]a|carrera de kinesiolog[ií]a|departamento de salud/gi, "");
+  const healthKeywords = (cleanHealthText.match(/hospital|sanatorio|cl[ií]nica m[eé]dica|centro asistencial|guardia m[eé]dica|guardia 24hs|internaci[oó]n|quir[oó]fano|obra social|prepaga|cartilla m[eé]dica|turnos m[eé]dicos|m[eé]dicos especialistas|odontolog[ií]a|pediatr[ií]a/gi) || []).length;
+  const healthScore = healthKeywords * 3;
+
+  const legalKeywords = (lower.match(/abogad|estudio jur[ií]dico|asesor[ií]a legal|derecho civil|derecho penal|derecho laboral|notar[ií]a|escriban[ií]a|visas? migratori|tr[aá]mites migratorios|ciudadan[ií]a/gi) || []).length;
+  const legalScore = legalKeywords * 3;
+
+  const tourismKeywords = (lower.match(/hotel\b|hostel\b|alojamiento|cabañas?|resort|apart hotel|habitaciones|check-in|check-out|desayuno buffet|estad[ií]a tur[ií]stica/gi) || []).length;
+  const tourismScore = tourismKeywords * 3;
+
+  const volunteerKeywords = (lower.match(/voluntariado|ayuda social|sin fines de lucro|\bong\b|comedor comunitario|asociaci[oó]n civil/gi) || []).length;
+  const volunteerScore = volunteerKeywords * 3;
+
+  const maxScore = Math.max(healthScore, eduScore, legalScore, tourismScore, volunteerScore);
+
+  if (maxScore > 0 && maxScore === healthScore) {
+    const cat = validCats.find((c) => /centros m[eé]dicos|salud|bienestar/i.test(c)) || "Centros médicos, salud y bienestar";
+    const sub = validSubcats.find((s) => /especialidades m[eé]dicas|m[eé]dicas|especialistas/i.test(s)) || "Especialidades médicas";
+    const act = validActs.find((a) => /salud|asistencia/i.test(a)) || "Salud y asistencia social";
+    const typ = isPublicEntity
+      ? (validTypes.find((t) => /p[uú]blico/i.test(t)) || "Organismo público")
+      : (validTypes.find((t) => /privada/i.test(t)) || "Institución privada");
+    return {
+      sector: "health",
+      category: cat,
+      subcategory: sub,
+      categorySelections: [cat],
+      subcategorySelections: [sub],
+      providerActivities: [act],
+      providerTypes: [typ],
+      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
+    };
+  }
+
+  if (maxScore > 0 && maxScore === eduScore) {
+    const cat = validCats.find((c) => /educaci|centros de estudio/i.test(c)) || "Educación y centros de estudios";
+    const sub = validSubcats.find((s) => /universidad|posgrado|carrera/i.test(s)) || "Universidad y posgrado";
+    const act = validActs.find((a) => /educaci|formaci/i.test(a)) || "Educación y formación";
+    const typ = (isPublicEntity || /nacional|p[uú]blic/i.test(title))
+      ? (validTypes.find((t) => /p[uú]blico/i.test(t)) || "Organismo público")
+      : (validTypes.find((t) => /privada/i.test(t)) || "Institución privada");
+    return {
+      sector: "education",
+      category: cat,
+      subcategory: sub,
+      categorySelections: [cat],
+      subcategorySelections: [sub],
+      providerActivities: [act],
+      providerTypes: [typ],
+      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
+    };
+  }
+
+  if (maxScore > 0 && maxScore === legalScore) {
+    const cat = validCats.find((c) => /residencia|ciudadan|visa|migra|legal/i.test(c)) || "Residencia y ciudadanía";
+    const sub = validSubcats.find((s) => /legal|asesor|migratori/i.test(s)) || "Asesoría legal migratoria";
+    const act = validActs.find((a) => /profesional|t[eé]cnico/i.test(a)) || "Servicios profesionales y técnicos";
+    const typ = validTypes.find((t) => /profesional|privada/i.test(t)) || "Profesional independiente";
+    return {
+      sector: "legal",
+      category: cat,
+      subcategory: sub,
+      categorySelections: [cat],
+      subcategorySelections: [sub],
+      providerActivities: [act],
+      providerTypes: [typ],
+      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
+    };
+  }
+
+  if (maxScore > 0 && maxScore === tourismScore) {
+    const cat = validCats.find((c) => /alojamiento|hotel|turismo/i.test(c)) || "Alojamiento";
+    const sub = validSubcats.find((s) => /hotel|hostel|hospedaje/i.test(s)) || "Hoteles y hostels";
+    const act = validActs.find((a) => /hosteler|turismo/i.test(a)) || "Hostelería, alojamiento y turismo";
+    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Institución privada";
+    return {
+      sector: "tourism",
+      category: cat,
+      subcategory: sub,
+      categorySelections: [cat],
+      subcategorySelections: [sub],
+      providerActivities: [act],
+      providerTypes: [typ],
+      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial"],
+    };
+  }
+
+  if (maxScore > 0 && maxScore === volunteerScore) {
+    const cat = validCats.find((c) => /voluntari|ayuda/i.test(c)) || "Voluntariados y Centros de Ayuda";
     const sub = validSubcats.find((s) => /ayuda|comunitaria/i.test(s)) || "Voluntariado social";
     const act = validActs.find((a) => /asistencia|social/i.test(a)) || "Salud y asistencia social";
-    const typ = validTypes.find((t) => /ong|fundaci[oó]n|asociaci[oó]n/i.test(t)) || "ONG / Fundación";
+    const typ = validTypes.find((t) => /sin [aá]nimo|ong|fundaci[oó]n/i.test(t)) || "Organismo sin ánimo de lucro";
     return {
       sector: "volunteer",
       category: cat,
@@ -1287,10 +1495,10 @@ function classifySectorAndTaxonomy(
   }
 
   // General default fallback
-  const cat = validCats[0] || "General";
+  const cat = validCats.find((c) => /negocios|servicios/i.test(c)) || validCats[0] || "General";
   const sub = validSubcats[0] || "General";
-  const act = validActs[0] || "Servicios profesionales y técnicos";
-  const typ = validTypes[0] || "Institución privada";
+  const act = validActs.find((a) => /profesionales|t[eé]cnicos/i.test(a)) || validActs[0] || "Servicios profesionales y técnicos";
+  const typ = isPublicEntity ? (validTypes.find((t) => /p[uú]blico/i.test(t)) || "Organismo público") : "Institución privada";
   return {
     sector: "general",
     category: cat,
@@ -1511,23 +1719,46 @@ ${taxonomies.modalities.map((m: string) => `"${m}"`).join(", ")}
 
 REGLAS CRÍTICAS Y OBLIGATORIAS:
 
-0. VERACIDAD Y CERO MEZCLA DE RUBROS:
-- Basa tu análisis EXCLUSIVAMENTE en lo que esta web ofrece en la realidad.
-- PROHIBIDO mezclar rubros:
-  * Si es SALUD / HOSPITAL / OBRA SOCIAL / CLÍNICA: Describe 100% servicios de salud, guardias de urgencia, centros asistenciales, internación, especialidades médicas y turnos. Actividad: ["Salud y asistencia social"]. Categorías médicas del catálogo. NUNCA menciones carreras universitarias, estudiantes ni leyes.
-  * Si es UNIVERSIDAD / EDUCACIÓN: Describe 100% formación académica, carreras de grado, posgrados, maestrías, cursos, campus y requisitos de admisión. Actividad: ["Educación y formación"]. NUNCA menciones internaciones clínicas ni servicios de abogados.
-  * Si es ESTUDIO JURÍDICO / ABOGADOS / VISAS: Describe asesoría legal, trámites migratorios, representación y trámites notariales. Actividad: ["Servicios profesionales y técnicos"].
-  * Si es HOTEL / HOSTEL / TURISMO: Describe habitaciones, comodidades, desayuno, estadías y reservas turísticas. Actividad: ["Hostelería, alojamiento y turismo"].
-  * Si es OTRO RUBRO: Describe con total fidelidad sus servicios o productos reales.
+0. TÍTULOS LIMPIOS Y AÑO HISTÓRICO REAL:
+- 'title' y 'publisherName' deben ser el nombre oficial y limpio de la entidad (ej: "Hospital Garrahan", "Universidad de Buenos Aires", "Universidad Siglo 21").
+- ELIMINA por completo sufijos o prefijos genéricos de navegación como "- Home", "| Home", "- Inicio", "| Inicio", "- Portada", "| Portada", "- Bienvenidos", "| Sitio Oficial", "- Web Oficial", etc.
+- 'providerStartYear': Utiliza tu conocimiento mundial profundo y el texto del sitio para determinar el año real de inauguración o fundación de la entidad (ej: Hospital Garrahan = 1987, UBA = 1821, Universidad Siglo 21 = 1995, Hospital Italiano = 1853). NUNCA uses años de copyright del pie de página (como © 2010, © 2024), pues solo corresponden al creador del sitio web y no a la institución.
 
-1. DESCRIPCIÓN PRINCIPAL (ESTRUCTURA DE 4 PÁRRAFOS HTML CON ICONOS):
+1. VERACIDAD Y CERO MEZCLA DE RUBROS:
+- Basa tu análisis EXCLUSIVAMENTE en la naturaleza central de lo que esta entidad ofrece en la realidad:
+  * Si es HOSPITAL / SANATORIO / CLÍNICA / CENTRO MÉDICO / PEDIATRÍA:
+    - Describe servicios médicos, guardias, consultas, internación y especialidades médicas.
+    - Actividad: ["Salud y asistencia social"] (OBLIGATORIO).
+    - Categoría: ["Centros médicos, salud y bienestar"] (OBLIGATORIO).
+    - Subcategoría: ["Especialidades médicas"] (o Diagnóstico y laboratorio según corresponda).
+    - Tipo: Si es estatal, nacional, provincial o .gov/.gob: ["Organismo público"]. Si es privado: ["Institución privada"].
+    - PROHIBIDO clasificarlo como educación o formación, ni como "Curso o formación", aunque tenga programas de residencia o docencia médica.
+  * Si es UNIVERSIDAD / FACULTAD / CENTRO EDUCATIVO:
+    - Describe carreras de grado, posgrados, maestrías, cursos, investigación y admisiones.
+    - Actividad: ["Educación y formación"] (OBLIGATORIO).
+    - Categoría: ["Educación y centros de estudios"] (OBLIGATORIO).
+    - Subcategoría: ["Universidad y posgrado"] (o Idiomas / Becas / Certificados).
+    - Tipo: Si es pública/nacional: ["Organismo público"]. Si es privada: ["Institución privada"].
+  * Si es ESTUDIO JURÍDICO / ABOGADOS / VISAS / MIGRACIÓN:
+    - Describe asesoría legal, trámites migratorios, representación y gestoría.
+    - Actividad: ["Servicios profesionales y técnicos"].
+    - Categoría: ["Residencia y ciudadanía"] o ["Asesoría legal migratoria"].
+    - Tipo: ["Profesional independiente"] (si es unipersonal) o ["Institución privada"].
+  * Si es HOTEL / HOSTEL / TURISMO / ALOJAMIENTO:
+    - Describe habitaciones, servicios, desayuno, estadías y reservas turísticas.
+    - Actividad: ["Hostelería, alojamiento y turismo"].
+    - Categoría: ["Alojamiento"].
+    - Subcategoría: ["Hoteles y hostels"].
+    - Tipo: ["Institución privada"].
+
+2. DESCRIPCIÓN PRINCIPAL (ESTRUCTURA DE 4 PÁRRAFOS HTML CON ICONOS):
 Genera 'description' (en español) y 'descriptionI18n' (con traducciones fieles en es, en, pt, it) respetando EXACTAMENTE estos 4 párrafos:
 <p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> [Precio/Aranceles reales informados en la web o "A consultar"].</p>
 <p>💡 <strong>Propuesta de valor:</strong> [Explicación exhaustiva y REAL de los servicios o productos que brinda según el texto de la web]. <strong>¿Para quién?:</strong> [Público objetivo real]. <strong>Documentación requerida:</strong> [Requisitos reales según la web o acordes a su rubro]. <strong>Permanencia:</strong> [Modalidad temporal, ej: según servicio contratado, ciclo lectivo anual, estadía por noche, etc.].</p>
 <p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> [Idiomas de atención detectados]. <em>Experiencia con clientes o extranjeros:</em> [Alcance y soporte real]. <em>Diferencial vs. alternativas:</em> [Ventajas competitivas reales, acreditación, trayectoria].</p>
 <p>⚠️ <strong>Exclusiones:</strong> [Políticas, aclaraciones, aranceles o condiciones informadas en la web].</p>
 
-2. AUDITORÍA DEL SCORE SCOUT (0 a 100 PUNTOS):
+3. AUDITORÍA DEL SCORE SCOUT (0 a 100 PUNTOS):
 Audita la entidad en 6 dimensiones reales:
 - Presencia y reputación institucional: p1 (0 a 25 puntos)
 - Canales de contacto verificables (teléfono, email, whatsapp, maps): p2 (0 a 15 puntos)
@@ -1540,10 +1771,10 @@ Madurez: "Líder" (si es una entidad histórica o de gran escala), "Consolidado"
 Vínculo: "Oficial" (si es organismo estatal o universidad oficial) o "Directo".
 Genera dentro de 'extraDescriptions' el bloque del Score Scout con 'visibleInCard': true y textos en es, en, pt, it.
 
-3. DESCRIPCIONES OPCIONALES ADICIONALES:
+4. DESCRIPCIONES OPCIONALES ADICIONALES:
 Además del bloque Score Scout, si la web contiene secciones específicas e importantes (como "Requisitos de Admisión", "Servicios Principales", "Cartilla de Prestadores", "Políticas de Estadía"), agrega 1 o 2 bloques en 'extraDescriptions' con 'title', 'titleI18n', 'body', 'bodyI18n' (es, en, pt, it) y 'visibleInCard': false.
 
-4. TAXONOMÍAS ASIGNADAS (DEL CATÁLOGO OFICIAL DE LA BD):
+5. TAXONOMÍAS ASIGNADAS (DEL CATÁLOGO OFICIAL DE LA BD):
 - 'category': Categoría padre más relevante de la BD.
 - 'subcategory': Subcategoría específica más relevante de la BD.
 - 'categorySelections': Array con las categorías seleccionadas.
@@ -1552,7 +1783,7 @@ Además del bloque Score Scout, si la web contiene secciones específicas e impo
 - 'providerTypes': Array de tipos de perfil seleccionados de la lista de BD.
 - 'providerModalities': Array de modalidades seleccionadas de la lista de BD.
 
-5. SEDES MÚLTIPLES Y UBICACIÓN:
+6. SEDES MÚLTIPLES Y UBICACIÓN:
 - 'country', 'city', 'headquarterCountry', 'headquarterCity', 'locationAddress'.
 - 'headquarterLocations': [{ "country": "...", "city": "...", "address": "...", "mapUrl": "https://www.google.com/maps/search/?api=1&query=..." }].
 
@@ -1567,6 +1798,7 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
   const host = new URL(extractedData.url).hostname.replace("www.", "");
   const rawTitle = parsed.title || extractedData.title || `Publicación de ${host}`;
   const title = cleanTitleString(rawTitle);
+  const publisherName = cleanTitleString(parsed.publisherName || title);
 
   const validCats = taxonomies?.categories || [];
   const validSubcats = taxonomies?.subcategories || [];
@@ -1577,17 +1809,17 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
   const rawCatSelections = Array.isArray(parsed.categorySelections) && parsed.categorySelections.length
     ? parsed.categorySelections
     : parsed.category ? [parsed.category] : [];
+
   const rawSubcatSelections = Array.isArray(parsed.subcategorySelections) && parsed.subcategorySelections.length
     ? parsed.subcategorySelections
     : parsed.subcategory ? [parsed.subcategory] : [];
 
-  const titleClean = cleanTitleString(parsed.publisherName || title || host);
   const allText = `${extractedData.url} ${title} ${parsed.description || ""} ${extractedData.textContent}`.toLowerCase();
+  const titleClean = title;
   const locInfo = detectAllLocationsAndHeadquarters(allText, extractedData.url, titleClean);
 
   const city = parsed.city && parsed.city !== "Buenos Aires" ? parsed.city : locInfo.primaryCity;
   const country = parsed.country || locInfo.primaryCountry;
-  const publisherName = titleClean;
 
   const startYear = String(
     parsed.providerStartYear ||
@@ -1794,6 +2026,12 @@ function enforceStrictTaxonomyGuardrails(
 ): ScrapedPublication {
   const allText = `${publication.url} ${publication.title} ${publication.description} ${extractedData.textContent}`.toLowerCase();
   const titleClean = cleanTitleString(publication.title);
+  publication.title = titleClean;
+  publication.publisherName = cleanTitleString(publication.publisherName || titleClean);
+  if (publication.titleI18n?.es) {
+    publication.titleI18n.es = cleanTitleString(publication.titleI18n.es);
+  }
+
   const locInfo = detectAllLocationsAndHeadquarters(allText, publication.url, titleClean);
   const classified = classifySectorAndTaxonomy(publication.url, titleClean, allText, taxonomies);
 
@@ -1802,6 +2040,8 @@ function enforceStrictTaxonomyGuardrails(
     const hostname = new URL(publication.url).hostname.replace(/^www\./, "").toLowerCase();
     for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
       if (hostname.includes(domainKey) || publication.url.toLowerCase().includes(domainKey)) {
+        publication.title = cleanTitleString(publication.title || info.name);
+        publication.publisherName = cleanTitleString(info.name);
         publication.providerStartYear = info.startYear;
         publication.city = info.primaryCity;
         publication.headquarterCity = info.primaryCity;
@@ -1829,24 +2069,20 @@ function enforceStrictTaxonomyGuardrails(
   } catch {}
 
   // 2. Strict sector guardrails for ANY web publication
-  if (classified.sector === "education") {
-    publication.providerActivities = [classified.providerActivities[0] || "Educación y formación"];
-    publication.category = classified.category;
-    publication.subcategory = classified.subcategory;
-    publication.categorySelections = classified.categorySelections;
-    publication.subcategorySelections = classified.subcategorySelections;
-    if (!publication.providerTypes?.length || publication.providerTypes.some((t) => /agencia|comercio/i.test(t))) {
-      publication.providerTypes = classified.providerTypes;
-    }
-  } else if (classified.sector === "health") {
+  if (classified.sector === "health") {
     publication.providerActivities = [classified.providerActivities[0] || "Salud y asistencia social"];
     publication.category = classified.category;
     publication.subcategory = classified.subcategory;
     publication.categorySelections = classified.categorySelections;
     publication.subcategorySelections = classified.subcategorySelections;
-    if (!publication.providerTypes?.length || publication.providerTypes.some((t) => /agencia/i.test(t))) {
-      publication.providerTypes = classified.providerTypes;
-    }
+    publication.providerTypes = classified.providerTypes;
+  } else if (classified.sector === "education") {
+    publication.providerActivities = [classified.providerActivities[0] || "Educación y formación"];
+    publication.category = classified.category;
+    publication.subcategory = classified.subcategory;
+    publication.categorySelections = classified.categorySelections;
+    publication.subcategorySelections = classified.subcategorySelections;
+    publication.providerTypes = classified.providerTypes;
   } else if (classified.sector === "legal") {
     publication.providerActivities = [classified.providerActivities[0] || "Servicios profesionales y técnicos"];
     publication.category = classified.category;
@@ -1861,13 +2097,13 @@ function enforceStrictTaxonomyGuardrails(
     publication.subcategorySelections = classified.subcategorySelections;
   }
 
-  // 3. Guarantee valid founding year (never arbitrary 2015)
-  if (extractedData.detectedFoundingYear && (!publication.providerStartYear || publication.providerStartYear === "2015")) {
+  // 3. Guarantee valid founding year (never arbitrary 2015 or accidental footer copyright years like 2010/2024)
+  if (extractedData.detectedFoundingYear && (!publication.providerStartYear || publication.providerStartYear === "2015" || publication.providerStartYear === "2010")) {
     publication.providerStartYear = extractedData.detectedFoundingYear;
   }
-  if (publication.providerStartYear === "2015" && !allText.includes("2015")) {
+  if ((!publication.providerStartYear || publication.providerStartYear === "2015" || publication.providerStartYear === "2010") && !allText.includes(publication.providerStartYear)) {
     const calcYear = extractFoundingYear("", allText, publication.url, titleClean);
-    publication.providerStartYear = calcYear || "";
+    if (calcYear) publication.providerStartYear = calcYear;
   }
 
   // 4. Ensure headquarter locations has additional branches if multiple were detected
@@ -2028,8 +2264,10 @@ export async function POST(req: Request) {
         return publication;
       } catch (err: any) {
         console.error(`Error processing URL ${url}:`, err);
-        const fallbackExtracted = { url, title: "", textContent: "", htmlContent: "", images: [], metaTags: {} };
-        return createFallbackPublication(fallbackExtracted, taxonomies);
+        let host = "";
+        try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
+        const fallbackExtracted = { url, title: host, textContent: host, htmlContent: "", images: [], metaTags: {} };
+        return enforceStrictTaxonomyGuardrails(createFallbackPublication(fallbackExtracted, taxonomies), fallbackExtracted, taxonomies);
       }
     });
 

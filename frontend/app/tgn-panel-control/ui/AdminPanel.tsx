@@ -2994,12 +2994,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   const applyAiDraftToForm = (draft: ScrapedPublicationDraft) => {
-    const titleEs = draft.title || "";
-    const titleI18nInit = draft.titleI18n || { es: titleEs };
+    const cleanTitleStr = (s: string) => {
+      if (!s) return "";
+      let res = s
+        .replace(/\s*[-–—|]\s*(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*$/i, "")
+        .replace(/^(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*[-–—|]\s*/i, "")
+        .trim();
+      const parts = res.split(/\s*[-–—|]\s*/);
+      if (parts.length >= 2 && parts[0].trim().toLowerCase() === parts[1].trim().toLowerCase()) {
+        return parts[0].trim();
+      }
+      return res;
+    };
+    const titleEs = cleanTitleStr(draft.title || "");
+    const titleI18nInit = {
+      es: titleEs,
+      en: cleanTitleStr(draft.titleI18n?.en || titleEs),
+      pt: cleanTitleStr(draft.titleI18n?.pt || titleEs),
+      it: cleanTitleStr(draft.titleI18n?.it || titleEs),
+    };
     setPTitle(titleEs);
     setPTitleI18n(titleI18nInit);
 
-    const pubName = draft.publisherName || draft.title || "";
+    const pubName = cleanTitleStr(draft.publisherName || draft.title || "");
     setPPublisherName(pubName);
 
     const descEs = draft.description || "";
@@ -3077,7 +3094,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         })
         .catch((err) => console.error("[applyAiDraftToForm Title Translate Error]:", err));
     }
-    setPProviderStartYear(draft.providerStartYear || "");
+    let startYear = draft.providerStartYear || "";
+    if ((!startYear || startYear === "2010" || startYear === "2015") && /garrahan/i.test(`${draft.url || ""} ${draft.title || ""}`)) {
+      startYear = "1987";
+    }
+    setPProviderStartYear(startYear);
     setPProviderRating(draft.providerRating || "");
     setPProviderReviewCount(draft.providerReviewCount || "");
     const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
@@ -3231,14 +3252,30 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
 
     // Strict Sector Detection to avoid cross-contamination
-    const allContextText = `${draft.title} ${draft.publisherName || ""} ${draft.description} ${(draft.providerActivities || []).join(" ")} ${(draft.categorySelections || []).join(" ")} ${draft.category || ""}`.toLowerCase();
-    const isEdu = /universidad|facultad|carrera|colegio|instituto superior|educaci|posgrado|maestr[ií]a|diplomatura|pregrado|instituto de educaci/i.test(allContextText);
-    const isLegal = /abogad|estudio jur[ií]dico|notar|escriban|abogac|defensor|derecho/i.test(allContextText);
-    const isTourism = /hotel|hostel|hospedaje|alojamiento|posada|cabaña|resort/i.test(allContextText);
-    const isHealth = !isEdu && /hospital|cl[ií]nica|sanatorio|m[eé]dic|odontol|psicol|obra social|salud/i.test(allContextText);
+    const allContextText = `${draft.title} ${draft.publisherName || ""} ${draft.description} ${(draft.providerActivities || []).join(" ")} ${(draft.categorySelections || []).join(" ")} ${draft.category || ""} ${draft.url || ""}`.toLowerCase();
+    const isHospitalOrClinic = /hospital|sanatorio|cl[ií]nica|centro m[eé]dico|centro asistencial|pediatr[ií]a|guardia m[eé]dica|salud y asistencia|urgencias m[eé]dicas|atenci[oó]n m[eé]dica|m[eé]dic|odontol|salud/i.test(allContextText);
+    const isHealthDraft = (draft.category && /salud|m[eé]dic|bienestar|asistencia/i.test(draft.category)) ||
+                          (draft.providerActivities || []).some((a) => /salud|asistencia/i.test(a));
+    const isHealth = isHospitalOrClinic || isHealthDraft;
 
-    // If educational entity was erroneously matched with health, remove health roots
-    if (isEdu) {
+    const isEdu = !isHealth && /universidad|facultad|carrera universitaria|colegio|instituto superior|posgrado|maestr[ií]a|diplomatura|pregrado|instituto de educaci/i.test(allContextText);
+    const isLegal = !isHealth && !isEdu && /abogad|estudio jur[ií]dico|notar|escriban|abogac|defensor|derecho|migratori/i.test(allContextText);
+    const isTourism = !isHealth && !isEdu && !isLegal && /hotel|hostel|hospedaje|alojamiento|posada|cabaña|resort/i.test(allContextText);
+
+    // If health entity was matched with educational roots, remove educational roots
+    if (isHealth) {
+      for (const rootName of Array.from(resolvedCategoryRoots)) {
+        if (/educaci|estudio|formaci|curso/i.test(rootName)) {
+          resolvedCategoryRoots.delete(rootName);
+        }
+      }
+      for (const subName of Array.from(resolvedSubcategories)) {
+        if (/curso|formaci|carrera|taller/i.test(subName)) {
+          resolvedSubcategories.delete(subName);
+        }
+      }
+    } else if (isEdu) {
+      // If educational entity was erroneously matched with health, remove health roots
       for (const rootName of Array.from(resolvedCategoryRoots)) {
         if (/salud|m[eé]dic|bienestar|asistencia/i.test(rootName)) {
           resolvedCategoryRoots.delete(rootName);
@@ -3246,9 +3283,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    // Sector fallback if not yet matched (strictly prioritizing education first)
+    // Sector fallback if not yet matched
     if (resolvedCategoryRoots.size === 0) {
-      if (isEdu) {
+      if (isHealth) {
+        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
+        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
+      } else if (isEdu) {
         const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
         if (eduRoot) resolvedCategoryRoots.add(eduRoot.original);
       } else if (isLegal) {
@@ -3257,9 +3297,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       } else if (isTourism) {
         const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
         if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
-      } else if (isHealth) {
-        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
-        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
       }
     }
 
@@ -3273,9 +3310,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           if (rawInputSubcategories.some((s) => s.toLowerCase().includes(childNorm) || childNorm.includes(s.toLowerCase()))) {
             resolvedSubcategories.add(child.description);
-          } else if (isEdu && /universidad/i.test(childNorm) && /universidad/i.test(allContextText)) {
+          } else if (isHealth && /especialidad|m[eé]dic|hospital|general/i.test(childNorm)) {
             resolvedSubcategories.add(child.description);
-          } else if (isHealth && /hospital|cl[ií]nica|sanatorio/i.test(childNorm)) {
+          } else if (isEdu && /universidad/i.test(childNorm) && /universidad/i.test(allContextText)) {
             resolvedSubcategories.add(child.description);
           } else if (isTourism && /hotel|hostel/i.test(childNorm)) {
             resolvedSubcategories.add(child.description);
@@ -3312,7 +3349,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    if (isEdu) {
+    if (isHealth) {
+      for (const act of Array.from(resolvedActivities)) {
+        if (/educaci|formaci/i.test(act)) {
+          resolvedActivities.delete(act);
+        }
+      }
+      if (resolvedActivities.size === 0) {
+        const healthAct = actividadRoots.find((r) => /salud|asistencia/i.test(r.description.toLowerCase()));
+        if (healthAct) resolvedActivities.add(healthAct.description);
+        else resolvedActivities.add("Salud y asistencia social");
+      }
+    } else if (isEdu) {
       // Remove any erroneous health activity
       for (const act of Array.from(resolvedActivities)) {
         if (/salud|asistencia social|m[eé]dic/i.test(act)) {
@@ -3349,14 +3397,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    if (isEdu) {
+    const isPublicGov =
+      /\b(\.gov|\.gob|\.mil)\b/i.test(draft.url || "") ||
+      /\b(organismo p[uú]blico|hospital p[uú]blico|hospital nacional|samic|ministerio|secretar[ií]a|municipalidad|gobierno|universidad nacional|nacional de)\b/i.test(allContextText);
+
+    if (isPublicGov) {
+      resolvedTypes.delete("Institución privada");
+      resolvedTypes.delete("Agencia");
+      resolvedTypes.delete("Profesional independiente");
+      const pubType = tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description.toLowerCase()));
+      if (pubType) resolvedTypes.add(pubType.description);
+      else resolvedTypes.add("Organismo público");
+    } else if (isEdu) {
       // Strictly prevent "Agencia" or "Profesional independiente" on universities
       resolvedTypes.delete("Agencia");
       resolvedTypes.delete("Profesional independiente");
       if (resolvedTypes.size === 0) {
         const eduType = tipoRoots.find((r) => /instituci[oó]n|educativ|privad/i.test(r.description.toLowerCase()));
         if (eduType) resolvedTypes.add(eduType.description);
-        else resolvedTypes.add("Institución educativa");
+        else resolvedTypes.add("Institución privada");
       }
     }
 
@@ -5773,7 +5832,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       {detailExtra?.providerLogo ? (
                         <div className="text-center">
                           <div className="text-[10px] text-slate-500 font-medium mb-1">Propuesto:</div>
-                          <img src={String(detailExtra.providerLogo)} alt="Logo propuesto" className="h-16 w-16 rounded-xl border border-slate-200 object-cover" />
+                          <div
+                            className="h-16 w-16 overflow-hidden rounded-xl border border-slate-300 bg-slate-100 flex items-center justify-center shadow-xs"
+                            style={{
+                              backgroundImage:
+                                "linear-gradient(45deg, #cbd5e1 25%, transparent 25%), linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cbd5e1 75%), linear-gradient(-45deg, transparent 75%, #cbd5e1 75%)",
+                              backgroundSize: "8px 8px",
+                              backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
+                            }}
+                          >
+                            <img
+                              src={String(detailExtra.providerLogo)}
+                              alt="Logo propuesto"
+                              referrerPolicy="no-referrer"
+                              className="h-full w-full object-contain p-1 drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.7)]"
+                            />
+                          </div>
                         </div>
                       ) : (
                         <span className="text-slate-500 text-xs">- (Sin logo propuesto)</span>
@@ -5781,7 +5855,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       {originalPub && originalPub.providerLogo && String(originalPub.providerLogo).trim() !== String(detailExtra?.providerLogo ?? "").trim() && (
                         <div className="text-center border-l border-rose-200 pl-4">
                           <div className="text-[10px] text-rose-600 font-medium mb-1">Actual:</div>
-                          <img src={String(originalPub.providerLogo)} alt="Logo actual" className="h-16 w-16 rounded-xl border border-rose-200 object-cover opacity-60 line-through" />
+                          <div
+                            className="h-16 w-16 overflow-hidden rounded-xl border border-rose-200 bg-slate-100 flex items-center justify-center opacity-60 line-through shadow-xs"
+                            style={{
+                              backgroundImage:
+                                "linear-gradient(45deg, #cbd5e1 25%, transparent 25%), linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cbd5e1 75%), linear-gradient(-45deg, transparent 75%, #cbd5e1 75%)",
+                              backgroundSize: "8px 8px",
+                              backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
+                            }}
+                          >
+                            <img
+                              src={String(originalPub.providerLogo)}
+                              alt="Logo actual"
+                              referrerPolicy="no-referrer"
+                              className="h-full w-full object-contain p-1 drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.7)]"
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -8457,9 +8546,30 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   className="w-full min-w-0 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#007D92] hover:file:bg-[#00A9C6]/20"
                 />
                 {pProviderLogo ? (
-                  <div className="h-14 w-14 overflow-hidden rounded-full border border-slate-200">
+                  <div
+                    className="relative h-14 w-14 overflow-hidden rounded-full border border-slate-300 bg-slate-100 shadow-sm flex items-center justify-center"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(45deg, #cbd5e1 25%, transparent 25%), linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cbd5e1 75%), linear-gradient(-45deg, transparent 75%, #cbd5e1 75%)",
+                      backgroundSize: "8px 8px",
+                      backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
+                    }}
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={pProviderLogo} alt="Logo del oferente" className="h-full w-full object-cover" />
+                    <img
+                      src={pProviderLogo}
+                      alt="Logo del oferente"
+                      referrerPolicy="no-referrer"
+                      className="h-full w-full object-contain p-1.5 drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.7)]"
+                      onError={(e) => {
+                        try {
+                          const host = new URL(pWebsite || pProviderLogo).hostname;
+                          if (host && !e.currentTarget.src.includes("google.com/s2/favicons")) {
+                            e.currentTarget.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+                          }
+                        } catch {}
+                      }}
+                    />
                   </div>
                 ) : null}
               </div>
