@@ -3122,6 +3122,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         })
         .catch((err) => console.error("[applyAiDraftToForm Auto-Translate Title Error]:", err));
     }
+
+    if (extraDescInit.length) {
+      extraDescInit.forEach((ext, extIdx) => {
+        const bEs = ext.bodyI18n?.es || ext.body;
+        const needsExtTrans = bEs && (!ext.bodyI18n?.en || !ext.bodyI18n?.pt || !ext.bodyI18n?.it || ext.bodyI18n?.en === bEs);
+        if (needsExtTrans) {
+          fetch("/api/admin/translate-i18n", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: bEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data && data.translations) {
+                setPExtraDescriptions((prev) =>
+                  prev.map((item, idx) => (idx === extIdx ? { ...item, bodyI18n: { ...item.bodyI18n, ...data.translations } } : item))
+                );
+              }
+            })
+            .catch(() => null);
+        }
+      });
+    }
     let startYear = draft.providerStartYear || "";
     if ((!startYear || startYear === "2010" || startYear === "2015") && /garrahan/i.test(`${draft.url || ""} ${draft.title || ""}`)) {
       startYear = "1987";
@@ -8434,63 +8457,98 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   type="button"
                   disabled={translatingField === "all"}
                   onClick={async () => {
-                    const titleEs = pTitleI18n.es || pTitle;
-                    const descEs = pDescriptionI18n.es || pDescription;
-                    const provEs = pProviderInfoI18n.es || "";
-                    if (!titleEs && !descEs && !provEs) return;
+                    const sourceLang = pLang || "es";
+                    const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
+                    const titleSource = (pTitleI18n[pLang] || pTitleI18n.es || pTitle || "").trim();
+                    const descSource = (pDescriptionI18n[pLang] || pDescriptionI18n.es || pDescription || "").trim();
+                    const provSource = (pProviderInfoI18n[pLang] || pProviderInfoI18n.es || "").trim();
+                    if (!titleSource && !descSource && !provSource && !pExtraDescriptions.length) return;
                     setTranslatingField("all");
                     try {
-                      if (titleEs) {
+                      if (titleSource) {
                         const resT = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
+                          body: JSON.stringify({ text: titleSource, targetLangs, sourceLang, isHtml: false }),
                         });
                         const dataT = await resT.json();
                         if (dataT?.translations) {
                           setPTitleI18n((prev) => ({
                             ...prev,
-                            es: titleEs,
-                            en: dataT.translations.en || prev.en || titleEs,
-                            pt: dataT.translations.pt || prev.pt || titleEs,
-                            it: dataT.translations.it || prev.it || titleEs,
+                            [sourceLang]: titleSource,
+                            ...dataT.translations,
                           }));
+                          if (sourceLang === "es" || !pTitle) setPTitle(titleSource);
                         }
                       }
-                      if (descEs) {
+                      if (descSource) {
                         const resD = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                          body: JSON.stringify({ text: descSource, targetLangs, sourceLang, isHtml: true }),
                         });
                         const dataD = await resD.json();
                         if (dataD?.translations) {
                           setPDescriptionI18n((prev) => ({
                             ...prev,
-                            es: descEs,
-                            en: dataD.translations.en || prev.en || descEs,
-                            pt: dataD.translations.pt || prev.pt || descEs,
-                            it: dataD.translations.it || prev.it || descEs,
+                            [sourceLang]: descSource,
+                            ...dataD.translations,
                           }));
+                          if (sourceLang === "es" || !pDescription) setPDescription(descSource);
                         }
                       }
-                      if (provEs) {
+                      if (provSource) {
                         const resP = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: provEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                          body: JSON.stringify({ text: provSource, targetLangs, sourceLang, isHtml: true }),
                         });
                         const dataP = await resP.json();
                         if (dataP?.translations) {
                           setPProviderInfoI18n((prev) => ({
                             ...prev,
-                            es: provEs,
-                            en: dataP.translations.en || prev.en || provEs,
-                            pt: dataP.translations.pt || prev.pt || provEs,
-                            it: dataP.translations.it || prev.it || provEs,
+                            [sourceLang]: provSource,
+                            ...dataP.translations,
                           }));
                         }
                       }
+                      if (pExtraDescriptions.length) {
+                        const extraPromises = pExtraDescriptions.map(async (d) => {
+                          const tSource = (d.titleI18n?.[sourceLang] || d.titleI18n?.es || d.title || "").trim();
+                          const bSource = (d.bodyI18n?.[sourceLang] || d.bodyI18n?.es || d.body || "").trim();
+                          let tTrans = null;
+                          let bTrans = null;
+                          if (tSource) {
+                            const r = await fetch("/api/admin/translate-i18n", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ text: tSource, targetLangs, sourceLang, isHtml: false }),
+                            });
+                            tTrans = (await r.json())?.translations;
+                          }
+                          if (bSource) {
+                            const r = await fetch("/api/admin/translate-i18n", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ text: bSource, targetLangs, sourceLang, isHtml: true }),
+                            });
+                            bTrans = (await r.json())?.translations;
+                          }
+                          const nextTitleI18n = { ...d.titleI18n, [sourceLang]: tSource, ...(tTrans || {}) };
+                          const nextBodyI18n = { ...d.bodyI18n, [sourceLang]: bSource, ...(bTrans || {}) };
+                          return {
+                            ...d,
+                            title: sourceLang === "es" ? tSource : d.title || tSource,
+                            body: sourceLang === "es" ? bSource : d.body || bSource,
+                            titleI18n: nextTitleI18n,
+                            bodyI18n: nextBodyI18n,
+                          };
+                        });
+                        const updatedExtras = await Promise.all(extraPromises);
+                        setPExtraDescriptions(updatedExtras);
+                      }
+                      setSaveMessage("Traducción completada a todos los idiomas.");
+                      window.setTimeout(() => setSaveMessage(""), 4000);
                     } catch (err) {
                       console.error("Translation all error:", err);
                     } finally {
@@ -8626,23 +8684,23 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   type="button"
                   disabled={translatingField === "providerInfo"}
                   onClick={async () => {
-                    const currentEs = pProviderInfoI18n.es;
-                    if (!currentEs) return;
+                    const currentSource = (pProviderInfoI18n[pLang] || pProviderInfoI18n.es || "").trim();
+                    if (!currentSource) return;
+                    const sourceLang = pLang || "es";
+                    const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
                     setTranslatingField("providerInfo");
                     try {
                       const res = await fetch("/api/admin/translate-i18n", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                        body: JSON.stringify({ text: currentSource, targetLangs, sourceLang, isHtml: true }),
                       });
                       const data = await res.json();
-                      if (data.translations) {
+                      if (data?.translations) {
                         setPProviderInfoI18n((prev) => ({
                           ...prev,
-                          es: currentEs,
-                          en: data.translations.en || prev.en || currentEs,
-                          pt: data.translations.pt || prev.pt || currentEs,
-                          it: data.translations.it || prev.it || currentEs,
+                          [sourceLang]: currentSource,
+                          ...data.translations,
                         }));
                       }
                     } catch (err) {
@@ -8900,24 +8958,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     type="button"
                     disabled={translatingField === "title"}
                     onClick={async () => {
-                      const currentEs = pTitleI18n.es || pTitle;
-                      if (!currentEs) return;
+                      const sourceLang = pLang || "es";
+                      const sourceText = (pTitleI18n[sourceLang] || pTitleI18n.es || pTitle || "").trim();
+                      if (!sourceText) return;
+                      const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
                       setTranslatingField("title");
                       try {
+                        const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
                         const res = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
+                          body: JSON.stringify({ text: sourceText, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
                         });
                         const data = await res.json();
                         if (data?.translations) {
                           setPTitleI18n((prev) => ({
                             ...prev,
-                            es: currentEs,
-                            en: data.translations.en || prev.en || currentEs,
-                            pt: data.translations.pt || prev.pt || currentEs,
-                            it: data.translations.it || prev.it || currentEs,
+                            [sourceLang]: sourceText,
+                            ...data.translations,
                           }));
+                          if (sourceLang === "es" || !pTitle) setPTitle(sourceText);
                         }
                       } catch (err) {
                         console.error("Translation error:", err);
@@ -8969,24 +9029,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     type="button"
                     disabled={translatingField === "description"}
                     onClick={async () => {
-                      const currentEs = pDescriptionI18n.es || pDescription;
-                      if (!currentEs) return;
+                      const sourceLang = pLang || "es";
+                      const sourceText = (pDescriptionI18n[sourceLang] || pDescriptionI18n.es || pDescription || "").trim();
+                      if (!sourceText) return;
+                      const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
                       setTranslatingField("description");
                       try {
+                        const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
                         const res = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                          body: JSON.stringify({ text: sourceText, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
                         });
                         const data = await res.json();
                         if (data?.translations) {
                           setPDescriptionI18n((prev) => ({
                             ...prev,
-                            es: currentEs,
-                            en: data.translations.en || prev.en || currentEs,
-                            pt: data.translations.pt || prev.pt || currentEs,
-                            it: data.translations.it || prev.it || currentEs,
+                            [sourceLang]: sourceText,
+                            ...data.translations,
                           }));
+                          if (sourceLang === "es" || !pDescription) setPDescription(sourceText);
                         }
                       } catch (err) {
                         console.error("Translation error:", err);
@@ -9039,27 +9101,30 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             type="button"
                             disabled={translatingField === `extra-${idx}`}
                             onClick={async () => {
-                              const titleEs = desc.titleI18n?.es || desc.title;
-                              const bodyEs = desc.bodyI18n?.es || desc.body;
-                              if (!titleEs && !bodyEs) return;
+                              const sourceLang = pLang || "es";
+                              const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
+                              const sourceTitle = (desc.titleI18n?.[sourceLang] || desc.titleI18n?.es || desc.title || "").trim();
+                              const sourceBody = (desc.bodyI18n?.[sourceLang] || desc.bodyI18n?.es || desc.body || "").trim();
+                              if (!sourceTitle && !sourceBody) return;
                               setTranslatingField(`extra-${idx}`);
                               try {
+                                const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
                                 const promises = [];
-                                if (titleEs) {
+                                if (sourceTitle) {
                                   promises.push(
                                     fetch("/api/admin/translate-i18n", {
                                       method: "POST",
                                       headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                                      body: JSON.stringify({ text: sourceTitle, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
                                     }).then((res) => res.json())
                                   );
                                 } else { promises.push(Promise.resolve(null)); }
-                                if (bodyEs) {
+                                if (sourceBody) {
                                   promises.push(
                                     fetch("/api/admin/translate-i18n", {
                                       method: "POST",
                                       headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ text: bodyEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                                      body: JSON.stringify({ text: sourceBody, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
                                     }).then((res) => res.json())
                                   );
                                 } else { promises.push(Promise.resolve(null)); }
@@ -9067,15 +9132,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                 setPExtraDescriptions((prev) =>
                                   prev.map((d, i) => {
                                     if (i !== idx) return d;
-                                    const nextTitleI18n = { ...d.titleI18n, es: titleEs };
-                                    if (tRes?.translations) {
-                                      ["en", "pt", "it"].forEach((l) => { if (tRes.translations[l]) (nextTitleI18n as any)[l] = tRes.translations[l]; });
-                                    }
-                                    const nextBodyI18n = { ...d.bodyI18n, es: bodyEs };
-                                    if (bRes?.translations) {
-                                      ["en", "pt", "it"].forEach((l) => { if (bRes.translations[l]) (nextBodyI18n as any)[l] = bRes.translations[l]; });
-                                    }
-                                    return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
+                                    const nextTitleI18n = { ...(d.titleI18n || {}), [sourceLang]: sourceTitle, ...(tRes?.translations || {}) };
+                                    const nextBodyI18n = { ...(d.bodyI18n || {}), [sourceLang]: sourceBody, ...(bRes?.translations || {}) };
+                                    return {
+                                      ...d,
+                                      title: sourceLang === "es" ? sourceTitle : (d.title || nextTitleI18n.es || sourceTitle),
+                                      body: sourceLang === "es" ? sourceBody : (d.body || nextBodyI18n.es || sourceBody),
+                                      titleI18n: nextTitleI18n,
+                                      bodyI18n: nextBodyI18n,
+                                    };
                                   })
                                 );
                               } catch (err) {
@@ -10192,40 +10257,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               onClick={async () => {
                 setTranslatingField("all");
                 try {
+                  const sourceLang = pLang || "es";
+                  const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
+                  const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
                   const promises: Promise<any>[] = [];
 
                   // Title
-                  const titleEs = pTitleI18n.es || pTitle;
-                  if (titleEs) {
+                  const titleSource = (pTitleI18n[sourceLang] || pTitleI18n.es || pTitle || "").trim();
+                  if (titleSource) {
                     promises.push(
                       fetch("/api/admin/translate-i18n", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                        body: JSON.stringify({ text: titleSource, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
                       }).then((res) => res.json().then((d) => ({ key: "title", translations: d.translations })))
                     );
                   }
 
                   // Description
-                  const descEs = pDescriptionI18n.es || pDescription;
-                  if (descEs) {
+                  const descSource = (pDescriptionI18n[sourceLang] || pDescriptionI18n.es || pDescription || "").trim();
+                  if (descSource) {
                     promises.push(
                       fetch("/api/admin/translate-i18n", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                        body: JSON.stringify({ text: descSource, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
                       }).then((res) => res.json().then((d) => ({ key: "description", translations: d.translations })))
                     );
                   }
 
                   // Provider info
-                  const providerEs = pProviderInfoI18n.es;
-                  if (providerEs) {
+                  const providerSource = (pProviderInfoI18n[sourceLang] || pProviderInfoI18n.es || "").trim();
+                  if (providerSource) {
                     promises.push(
                       fetch("/api/admin/translate-i18n", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: providerEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                        body: JSON.stringify({ text: providerSource, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
                       }).then((res) => res.json().then((d) => ({ key: "providerInfo", translations: d.translations })))
                     );
                   }
@@ -10236,23 +10304,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     if (item.key === "title") {
                       setPTitleI18n((prev) => ({
                         ...prev,
-                        en: item.translations.en || prev.en || titleEs,
-                        pt: item.translations.pt || prev.pt || titleEs,
-                        it: item.translations.it || prev.it || titleEs,
+                        [sourceLang]: titleSource,
+                        ...item.translations,
                       }));
+                      if (sourceLang === "es" || !pTitle) setPTitle(titleSource);
                     } else if (item.key === "description") {
                       setPDescriptionI18n((prev) => ({
                         ...prev,
-                        en: item.translations.en || prev.en || descEs,
-                        pt: item.translations.pt || prev.pt || descEs,
-                        it: item.translations.it || prev.it || descEs,
+                        [sourceLang]: descSource,
+                        ...item.translations,
                       }));
+                      if (sourceLang === "es" || !pDescription) setPDescription(descSource);
                     } else if (item.key === "providerInfo") {
                       setPProviderInfoI18n((prev) => ({
                         ...prev,
-                        en: item.translations.en || prev.en || providerEs,
-                        pt: item.translations.pt || prev.pt || providerEs,
-                        it: item.translations.it || prev.it || providerEs,
+                        [sourceLang]: providerSource,
+                        ...item.translations,
                       }));
                     }
                   });
@@ -10260,31 +10327,35 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   // Translate extra descriptions
                   if (pExtraDescriptions.length) {
                     const extraPromises = pExtraDescriptions.map(async (d) => {
-                      const tEs = d.titleI18n?.es || d.title;
-                      const bEs = d.bodyI18n?.es || d.body;
+                      const tSource = (d.titleI18n?.[sourceLang] || d.titleI18n?.es || d.title || "").trim();
+                      const bSource = (d.bodyI18n?.[sourceLang] || d.bodyI18n?.es || d.body || "").trim();
                       let tTrans = null;
                       let bTrans = null;
-                      if (tEs) {
+                      if (tSource) {
                         const r = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: tEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                          body: JSON.stringify({ text: tSource, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
                         });
                         tTrans = (await r.json())?.translations;
                       }
-                      if (bEs) {
+                      if (bSource) {
                         const r = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: bEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                          body: JSON.stringify({ text: bSource, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
                         });
                         bTrans = (await r.json())?.translations;
                       }
-                      const nextTitleI18n = { ...d.titleI18n, es: tEs };
-                      if (tTrans) ["en", "pt", "it"].forEach((l) => { if (tTrans[l]) (nextTitleI18n as any)[l] = tTrans[l]; });
-                      const nextBodyI18n = { ...d.bodyI18n, es: bEs };
-                      if (bTrans) ["en", "pt", "it"].forEach((l) => { if (bTrans[l]) (nextBodyI18n as any)[l] = bTrans[l]; });
-                      return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
+                      const nextTitleI18n = { ...(d.titleI18n || {}), [sourceLang]: tSource, ...(tTrans || {}) };
+                      const nextBodyI18n = { ...(d.bodyI18n || {}), [sourceLang]: bSource, ...(bTrans || {}) };
+                      return {
+                        ...d,
+                        title: sourceLang === "es" ? tSource : (d.title || nextTitleI18n.es || tSource),
+                        body: sourceLang === "es" ? bSource : (d.body || nextBodyI18n.es || bSource),
+                        titleI18n: nextTitleI18n,
+                        bodyI18n: nextBodyI18n,
+                      };
                     });
                     const updatedExtras = await Promise.all(extraPromises);
                     setPExtraDescriptions(updatedExtras);
