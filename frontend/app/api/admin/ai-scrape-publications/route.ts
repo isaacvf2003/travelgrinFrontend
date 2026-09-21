@@ -142,7 +142,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     rating: "2.7",
     reviewCount: "702",
     commentsUrl: "https://www.google.com/maps/place/Hospital+Italiano+de+Mendoza/@-32.8965929,-68.8238401,17z",
-    additionalCities: ["San José", "Guaymallén"],
+    additionalCities: [],
     socialLinks: [
       { kind: "web", label: "Página Oficial", url: "https://hitalianomza.com.ar" },
       { kind: "phone", label: "Central Telefónica y Turnos", url: "tel:08103333330" },
@@ -164,7 +164,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     rating: "2.7",
     reviewCount: "702",
     commentsUrl: "https://www.google.com/maps/place/Hospital+Italiano+de+Mendoza/@-32.8965929,-68.8238401,17z",
-    additionalCities: ["San José", "Guaymallén"],
+    additionalCities: [],
     socialLinks: [
       { kind: "web", label: "Página Oficial", url: "https://hitalianomza.com" },
       { kind: "phone", label: "Central Telefónica y Turnos", url: "tel:08103333330" },
@@ -221,7 +221,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     rating: "3.4",
     reviewCount: "1600",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Espa%C3%B1ol+de+Mendoza+Godoy+Cruz",
-    additionalCities: ["Mendoza"],
+    additionalCities: [],
   },
   "hospitalitalianocba.org.ar": {
     name: "Hospital Italiano de Córdoba",
@@ -942,10 +942,16 @@ function detectAllLocationsAndHeadquarters(allText: string, url: string, title: 
   });
 
   const primary = cityMatches[0];
+  const primaryKey = (primary?.city || "").toLowerCase();
+  const subdistricts = METRO_SUBDISTRICTS_MAP[primaryKey] || [];
+
   const additional = cityMatches
     .slice(1)
     .map((c) => c.city)
-    .filter((c) => c !== primary.city);
+    .filter((c) => {
+      const cKey = c.toLowerCase();
+      return cKey !== primaryKey && !subdistricts.includes(cKey);
+    });
 
   return {
     primaryCity: primary.city,
@@ -963,6 +969,13 @@ function detectCityAndProvince(allText: string, url: string, title = ""): { city
   };
 }
 
+const METRO_SUBDISTRICTS_MAP: Record<string, string[]> = {
+  "mendoza": ["san josé", "san jose", "guaymallén", "guaymallen", "godoy cruz", "las heras", "luján de cuyo", "lujan de cuyo", "maipú", "maipu"],
+  "buenos aires": ["palermo", "belgrano", "recoleta", "caballito", "puerto madero", "san telmo", "almagro", "villa crespo", "núñez", "nunez", "caba", "ciudad autónoma de buenos aires", "ciudad autonoma de buenos aires"],
+  "córdoba": ["nueva córdoba", "nueva cordoba", "cerro de las rosas", "alta córdoba", "alta cordoba", "general paz", "alberdi"],
+  "rosario": ["pichincha", "arroyito", "echesortu", "fisherton"],
+};
+
 function resolveHeadquarterLocations(
   rawLocations: any[] | undefined,
   title: string,
@@ -975,30 +988,41 @@ function resolveHeadquarterLocations(
 ): Array<{ country: string; city: string; address?: string; mapUrl: string }> {
   const finalCity = city || "Buenos Aires";
   const finalCountry = country || "Argentina";
+  const primaryKey = finalCity.toLowerCase();
+  const subdistricts = METRO_SUBDISTRICTS_MAP[primaryKey] || [];
 
   // If rawLocations is provided from AI with multiple valid entries
   if (Array.isArray(rawLocations) && rawLocations.length > 0) {
-    const validLocs = rawLocations
-      .map((loc) => {
-        if (!loc || typeof loc !== "object") return null;
-        const locCountry = String(loc.country || finalCountry).trim();
-        const locCity = String(loc.city || finalCity).trim();
-        const locAddress = String(loc.address || "").trim();
-        let mapUrl = String(loc.mapUrl || "").trim();
-        if (!mapUrl) {
-          const query = [publisherName || title, locAddress, locCity, locCountry].filter(Boolean).join(", ");
-          mapUrl = buildGoogleMapsUrl(query);
-        } else {
-          mapUrl = buildGoogleMapsUrl(mapUrl);
-        }
-        return {
-          country: locCountry,
-          city: locCity,
-          address: locAddress || undefined,
-          mapUrl,
-        };
-      })
-      .filter((loc): loc is { country: string; city: string; address: string | undefined; mapUrl: string } => Boolean(loc && loc.city));
+    const seenCities = new Set<string>();
+    const validLocs: Array<{ country: string; city: string; address?: string; mapUrl: string }> = [];
+
+    for (const loc of rawLocations) {
+      if (!loc || typeof loc !== "object") continue;
+      const locCountry = String(loc.country || finalCountry).trim();
+      const locCity = String(loc.city || finalCity).trim();
+      const locAddress = String(loc.address || "").trim();
+
+      const locCityKey = locCity.toLowerCase();
+      if (seenCities.has(locCityKey)) continue;
+      if (seenCities.size > 0 && subdistricts.includes(locCityKey)) continue;
+      if (locCityKey === primaryKey && seenCities.has(primaryKey)) continue;
+
+      seenCities.add(locCityKey);
+
+      let mapUrl = String(loc.mapUrl || "").trim();
+      if (!mapUrl) {
+        const query = [publisherName || title, locAddress, locCity, locCountry].filter(Boolean).join(", ");
+        mapUrl = buildGoogleMapsUrl(query);
+      } else {
+        mapUrl = buildGoogleMapsUrl(mapUrl);
+      }
+      validLocs.push({
+        country: locCountry,
+        city: locCity,
+        address: locAddress || undefined,
+        mapUrl,
+      });
+    }
 
     if (validLocs.length > 0) {
       return validLocs;
@@ -1019,7 +1043,9 @@ function resolveHeadquarterLocations(
   // Append any detected additional cities/sedes
   if (Array.isArray(additionalCities) && additionalCities.length > 0) {
     additionalCities.forEach((addCity) => {
-      if (!addCity || addCity.toLowerCase() === finalCity.toLowerCase()) return;
+      if (!addCity) return;
+      const addCityKey = addCity.toLowerCase();
+      if (addCityKey === primaryKey || subdistricts.includes(addCityKey)) return;
       const mapUrl = buildGoogleMapsUrl(`${publisherName || title}, ${addCity}, ${finalCountry}`);
       result.push({
         country: finalCountry,
@@ -1310,13 +1336,14 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
 
   textContent = textContent
     .split("\n")
-    .map((l) => l.trim())
+    .map((l) => cleanJunkTextPhrases(l.trim()))
     .filter((l) => l && !JUNK_LINE_REGEX.test(l))
     .join("\n");
 
   let pageDescription = decodeHtmlEntities(getMetaTag("og:description") || getMetaTag("description") || "");
+  pageDescription = cleanJunkTextPhrases(pageDescription);
   if (!pageDescription || pageDescription.length < 20 || JUNK_LINE_REGEX.test(pageDescription)) {
-    const paragraphs = textContent.split("\n\n").map((p) => p.trim());
+    const paragraphs = textContent.split("\n\n").map((p) => cleanJunkTextPhrases(p.trim()));
     const candidate = paragraphs.find((p) => p.length >= 45 && !p.includes("•") && !JUNK_LINE_REGEX.test(p));
     if (candidate) {
       pageDescription = candidate.slice(0, 350).trim();
@@ -1862,9 +1889,20 @@ function buildScoreScoutBlock(
   };
 }
 
+function cleanJunkTextPhrases(text: string): string {
+  if (!text || typeof text !== "string") return "";
+  return text
+    .replace(/\b(?:leer\s+(?:nota|m[aá]s|noticia)|ver\s+(?:m[aá]s|detalle|publicaci[oó]n|nota)|conoc[eé]\s+m[aá]s|saber\s+m[aá]s|m[aá]s\s+informaci[oó]n|read\s+more|seguir\s+leyendo|ir\s+a\s+la\s+nota|haga?\s+clic\s+aqu[ií]|clic\s+aqu[ií]|click\s+here)\b\s*[»>›→\.]*/gi, "")
+    .replace(/[»>›→]{1,}/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.,;:])/g, "$1")
+    .trim();
+}
+
 function normalizeToSpanishDescriptionHeaders(text: string): string {
   if (!text) return "";
-  return text
+  let cleaned = cleanJunkTextPhrases(text);
+  return cleaned
     .replace(/<strong>\s*(?:Validity|Validade|Validità):\s*<\/strong>/gi, "<strong>Vigencia:</strong>")
     .replace(/<strong>\s*(?:Price|Preço|Prezzo):\s*<\/strong>/gi, "<strong>Precio:</strong>")
     .replace(/<strong>\s*(?:Value proposition|Proposta de valor):\s*<\/strong>/gi, "<strong>Propuesta de valor:</strong>")
@@ -2029,12 +2067,13 @@ function buildGroundedDescriptions(
   city: string,
   country: string
 ): I18nRecord {
-  let rawDesc = extractedData.description;
+  let rawDesc = cleanJunkTextPhrases(extractedData.description || "");
   if (!rawDesc || rawDesc.length < 20) {
-    const paragraphs = (extractedData.textContent || "").split("\n\n").map((p: string) => p.trim());
+    const paragraphs = (extractedData.textContent || "").split("\n\n").map((p: string) => cleanJunkTextPhrases(p.trim()));
     rawDesc = paragraphs.find((p: string) => p.length >= 45 && !p.includes("•") && !/portal del empleado|webmail|intranet|gde|login|iniciar sesi/i.test(p)) || paragraphs[0] || title;
   }
-  const cleanSummary = escapeHtml(decodeHtmlEntities(rawDesc.slice(0, 320)));
+  rawDesc = cleanJunkTextPhrases(rawDesc);
+  const cleanSummary = escapeHtml(decodeHtmlEntities(rawDesc.slice(0, 320))).trim();
   const locationText = [city, country].filter(Boolean).join(", ");
   const siteUrl = escapeHtml(extractedData.url);
 
@@ -2653,10 +2692,11 @@ Genera 'description' (en español) y 'descriptionI18n' (con traducciones COMPLET
 <p>⚠️ <strong>Exclusiones:</strong> [Políticas, aclaraciones, aranceles o condiciones informadas en la web].</p>
 
 OBLIGATORIO Y ESTRICTO:
+- LIMPIEZA ABSOLUTA DE TEXTO: ELIMINA terminantemente botones, enlaces o frases residuales de noticias o navegación como 'Leer nota »', 'Leer nota', 'Leer más »', 'Ver más »', 'Click aquí', 'Seguir leyendo', 'Ir a la nota', 'Conocé más', etc. NUNCA las dejes en la descripción ni en ningún párrafo.
 - 'descriptionI18n.es': La descripción completa anterior en Español.
 - 'descriptionI18n.en': Traduce la descripción exacta anterior al Inglés (con 'Validity:', 'Value proposition:', 'Who is it for?:', 'Required documents:', 'Length of stay:', 'Differentiator:', 'Exclusions:').
 - 'descriptionI18n.pt': Traduce la descripción exacta anterior al Portugués (con 'Validade:', 'Proposta de valor:', 'Para quem?:', 'Documentação necessária:', 'Permanência:', 'Diferencial:', 'Exclusões:').
-- 'descriptionI18n.it': Traduce la descripción exacta anterior al Italiano (con 'Validità:', 'Proposta di valore:', 'Per chi?:', 'Documentazione richiesta:', 'Permanenza:', 'Differenziale:', 'Esclusioni:').
+- 'descriptionI18n.it': Traduce la descripción exacta anterior al Italiano (con 'Validità:', 'Proposta di valor:', 'Per chi?:', 'Documentazione richiesta:', 'Permanenza:', 'Differenziale:', 'Esclusioni:').
 NUNCA dejes las traducciones vacías, ni iguales al español, ni uses textos genéricos diferentes a lo descrito en 'es'.
 
 3. AUDITORÍA DEL SCORE SCOUT (0 a 100 PUNTOS):
@@ -2680,7 +2720,7 @@ Si la web contiene secciones específicas e importantes (ej: "Requisitos", "Serv
 - 'city': Ciudad principal (ej: "Buenos Aires", "Córdoba", "Rosario", "Mendoza", "Santiago", "São Paulo", etc.).
 - 'headquarterCountry', 'headquarterCity', 'locationAddress'.
 - 'destinationCountries': Array con TODOS los países donde la empresa ofrece servicios u opera (ej: ["Argentina"], o ["Argentina", "Chile", "Brasil"]).
-- 'headquarterLocations': Array con TODAS las sedes/sucursales/campus físicos que la entidad tiene informados en su web:
+- 'headquarterLocations': Si la entidad posee una única sede principal (como un hospital único, sede única o casa central), 'headquarterLocations' debe contener ÚNICAMENTE esa sede principal. NUNCA agregues barrios, distritos o departamentos de la misma conurbación (ej: 'San José' y 'Guaymallén' dentro de Mendoza) como sedes adicionales separadas. Si tiene múltiples sedes físicas en distintas ciudades:
   [{ "country": "Argentina", "city": "Buenos Aires", "address": "Av. Corrientes 1234", "mapUrl": "https://www.google.com/maps/search/?api=1&query=..." }, { "country": "Argentina", "city": "Córdoba", "address": "...", "mapUrl": "..." }].
 
 6. VALORACIÓN, COMENTARIOS Y GOOGLE MAPS OBLIGATORIO Y ESTRICTO:
