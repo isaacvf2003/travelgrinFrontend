@@ -23,7 +23,10 @@ export async function POST(req: Request) {
       });
     }
 
+    const customApiKey = String(body.apiKey || "").trim();
+
     const geminiKey =
+      (customApiKey && (customApiKey.startsWith("AIza") || !customApiKey.startsWith("sk-")) ? customApiKey : "") ||
       process.env.GEMINI_API_KEY ||
       process.env.GEMINI_KEY ||
       process.env.GOOGLE_API_KEY ||
@@ -32,6 +35,7 @@ export async function POST(req: Request) {
       "";
 
     const openaiKey =
+      (customApiKey && customApiKey.startsWith("sk-") ? customApiKey : "") ||
       process.env.OPENAI_API_KEY ||
       process.env.OPENAI_KEY ||
       process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
@@ -44,8 +48,9 @@ ${
   isHtml
     ? `REGLA CRÍTICA PARA HTML:
 El texto contiene etiquetas HTML (<p>, <strong>, <em>, <span>, <a>, <br>, <ul>, <li>, etc.) y emojis.
-Debes PRESERVAR EXACTAMENTE todas las etiquetas HTML, estructura, atributos, enlaces y emojis.
-Solo traduce el contenido textual dentro de las etiquetas. No modifiques ni elimines ninguna etiqueta HTML.`
+1. Debes PRESERVAR EXACTAMENTE todas las etiquetas HTML, estructura, atributos, enlaces y emojis.
+2. Traduce COMPLETAMENTE tanto las etiquetas o títulos en negrita (ej: 'Propuesta de valor' -> 'Value proposition' / 'Proposta de valor' / 'Proposta di valore', '¿Para quién?' -> 'Who is it for?' / 'Para quem?' / 'Per chi?', 'Documentación requerida' -> 'Required documents' / 'Documentação necessária' / 'Documentazione richiesta', 'Vigencia' -> 'Validity' / 'Validade' / 'Validità', 'Precio' -> 'Price' / 'Preço' / 'Prezzo', 'Diferencial' -> 'Differentiator' / 'Diferencial' / 'Differenziale', 'Exclusiones' -> 'Exclusions' / 'Exclusões' / 'Esclusioni') como TODO el contenido textual descriptivo interno.
+3. No dejes párrafos o frases en español dentro de las traducciones a inglés, portugués o italiano. Todo el texto debe estar 100% traducido de forma natural al idioma correspondiente.`
     : `Traduce el texto manteniendo el tono profesional, natural y preciso en cada idioma.`
 }
 

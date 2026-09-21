@@ -11,6 +11,7 @@ export interface ExtraDescriptionBlock {
   bodyI18n: I18nRecord;
   visibleInCard: boolean;
 }
+
 export interface SocialLinkDetail {
   kind: string;
   label: string;
@@ -1324,6 +1325,70 @@ function buildScoreScoutBlock(
   };
 }
 
+function normalizeToSpanishDescriptionHeaders(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/<strong>\s*(?:Validity|Validade|Validità):\s*<\/strong>/gi, "<strong>Vigencia:</strong>")
+    .replace(/<strong>\s*(?:Price|Preço|Prezzo):\s*<\/strong>/gi, "<strong>Precio:</strong>")
+    .replace(/<strong>\s*(?:Value proposition|Proposta de valor):\s*<\/strong>/gi, "<strong>Propuesta de valor:</strong>")
+    .replace(/<strong>\s*(?:Who is it for\??|Para quem\??|Per chi\??):\s*<\/strong>/gi, "<strong>¿Para quién?:</strong>")
+    .replace(/<strong>\s*(?:Required documents|Documentação necessária|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentación requerida:</strong>")
+    .replace(/<strong>\s*(?:Length of stay|Permanência|Permanenza):\s*<\/strong>/gi, "<strong>Permanencia:</strong>")
+    .replace(/<strong>\s*(?:Differentiator|Diferencial|Differenziale):\s*<\/strong>/gi, "<strong>Diferencial:</strong>")
+    .replace(/<em>\s*(?:Service languages|Idiomas de atendimento|Lingue di assistenza):\s*<\/em>/gi, "<em>Idiomas de atención:</em>")
+    .replace(/<em>\s*(?:Experience and support|Experiência e suporte|Esperienza e supporto):\s*<\/em>/gi, "<em>Experiencia y soporte:</em>")
+    .replace(/<em>\s*(?:Differentiator vs\. alternatives|Diferencial vs\. alternativas|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Diferencial vs. alternativas:</em>")
+    .replace(/<strong>\s*(?:Exclusions|Exclusões|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusiones:</strong>");
+}
+
+function normalizeToEnglishDescriptionHeaders(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/<strong>\s*(?:Vigencia|Validade|Validità):\s*<\/strong>/gi, "<strong>Validity:</strong>")
+    .replace(/<strong>\s*(?:Precio|Preço|Prezzo):\s*<\/strong>/gi, "<strong>Price:</strong>")
+    .replace(/<strong>\s*(?:Propuesta de valor|Proposta de valor):\s*<\/strong>/gi, "<strong>Value proposition:</strong>")
+    .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Para quem\??|Per chi\??):\s*<\/strong>/gi, "<strong>Who is it for?:</strong>")
+    .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Documentação necessária|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Required documents:</strong>")
+    .replace(/<strong>\s*(?:Permanencia|Permanência|Permanenza):\s*<\/strong>/gi, "<strong>Length of stay:</strong>")
+    .replace(/<strong>\s*(?:Diferencial|Differenziale):\s*<\/strong>/gi, "<strong>Differentiator:</strong>")
+    .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Idiomas de atendimento|Lingue di assistenza):\s*<\/em>/gi, "<em>Service languages:</em>")
+    .replace(/<em>\s*(?:Experiencia y soporte|Experiência e suporte|Esperienza e supporto):\s*<\/em>/gi, "<em>Experience and support:</em>")
+    .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Differentiator vs. alternatives:</em>")
+    .replace(/<strong>\s*(?:Exclusiones|Exclusões|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusions:</strong>");
+}
+
+function normalizeToPortugueseDescriptionHeaders(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/<strong>\s*(?:Vigencia|Validity|Validità):\s*<\/strong>/gi, "<strong>Validade:</strong>")
+    .replace(/<strong>\s*(?:Precio|Price|Prezzo):\s*<\/strong>/gi, "<strong>Preço:</strong>")
+    .replace(/<strong>\s*(?:Propuesta de valor|Value proposition):\s*<\/strong>/gi, "<strong>Proposta de valor:</strong>")
+    .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Who is it for\??|Per chi\??):\s*<\/strong>/gi, "<strong>Para quem?:</strong>")
+    .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentação necessária:</strong>")
+    .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanenza):\s*<\/strong>/gi, "<strong>Permanência:</strong>")
+    .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Diferencial:</strong>")
+    .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Idiomas de atendimento:</em>")
+    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
+    .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Diferencial vs. alternativas:</em>")
+    .replace(/<strong>\s*(?:Exclusiones|Exclusions|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusões:</strong>");
+}
+
+function normalizeToItalianDescriptionHeaders(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/<strong>\s*(?:Vigencia|Validity|Validade):\s*<\/strong>/gi, "<strong>Validità:</strong>")
+    .replace(/<strong>\s*(?:Precio|Price|Preço):\s*<\/strong>/gi, "<strong>Prezzo:</strong>")
+    .replace(/<strong>\s*(?:Propuesta de valor|Value proposition|Proposta de valor):\s*<\/strong>/gi, "<strong>Proposta di valore:</strong>")
+    .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Who is it for\??|Para quem\??):\s*<\/strong>/gi, "<strong>Per chi?:</strong>")
+    .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária):\s*<\/strong>/gi, "<strong>Documentazione richiesta:</strong>")
+    .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanência):\s*<\/strong>/gi, "<strong>Permanenza:</strong>")
+    .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Differenziale:</strong>")
+    .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Idiomas de atendimento):\s*<\/em>/gi, "<em>Lingue di assistenza:</em>")
+    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
+    .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
+    .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>");
+}
+
 /**
  * Fallback description generator if AI output is empty or completely missing.
  */
@@ -1351,21 +1416,21 @@ function buildGroundedDescriptions(
 
   const en = [
     `<p><strong>Validity:</strong> Active; official website updated. <strong>Price:</strong> Upon request / Subject to provider rates.</p>`,
-    `<p>💡 <strong>Value proposition:</strong> ${cleanSummary}${locationText ? ` based in ${locationText}` : ""}. <strong>Who is it for?:</strong> Interested individuals, clients, families, students, or professionals according to sector. <strong>Required documents:</strong> ID or passport and specific documentation informed by the provider. <strong>Length of stay:</strong> According to service modality.</p>`,
+    `<p>💡 <strong>Value proposition:</strong> Verified official institution and services${locationText ? ` based in ${locationText}` : ""}. <strong>Who is it for?:</strong> Interested clients, students, professionals, or families according to sector. <strong>Required documents:</strong> ID or passport and relevant documentation informed by provider. <strong>Length of stay:</strong> According to service modality.</p>`,
     `<p>⭐ <strong>Differentiator:</strong> <em>Service languages:</em> Spanish, English. <em>Experience and support:</em> Information sourced directly from the official portal. <em>Differentiator vs. alternatives:</em> Direct contact with provider and institutional backing.</p>`,
     `<p>⚠️ <strong>Exclusions:</strong> Confirm availability, current rates, requirements, and conditions directly on ${siteUrl} before hiring or applying.</p>`,
   ].join("\n");
 
   const pt = [
     `<p><strong>Validade:</strong> Ativo; site oficial atualizado. <strong>Preço:</strong> Sob consulta / Conforme tarifas do provedor.</p>`,
-    `<p>💡 <strong>Proposta de valor:</strong> ${cleanSummary}${locationText ? ` com sede em ${locationText}` : ""}. <strong>Para quem?:</strong> Interessados, clientes, famílias, estudantes ou profissionais conforme o setor. <strong>Documentação necessária:</strong> RG ou passaporte e documentos informados pelo provedor. <strong>Permanência:</strong> Conforme o serviço contratado.</p>`,
+    `<p>💡 <strong>Proposta de valor:</strong> Instituição oficial verificada e serviços especializados${locationText ? ` com sede em ${locationText}` : ""}. <strong>Para quem?:</strong> Interessados, clientes, famílias, estudantes ou profissionais conforme o setor. <strong>Documentação necessária:</strong> RG ou passaporte e documentos informados pelo provedor. <strong>Permanência:</strong> Conforme o serviço contratado.</p>`,
     `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atendimento:</em> Espanhol, Inglês. <em>Experiência e suporte:</em> Informações obtidas diretamente do portal oficial. <em>Diferencial vs. alternativas:</em> Contato direto com o provedor e respaldo institucional.</p>`,
     `<p>⚠️ <strong>Exclusões:</strong> Confirmar disponibilidade, tarifas, requisitos e condições diretamente em ${siteUrl} antes da contratação.</p>`,
   ].join("\n");
 
   const it = [
     `<p><strong>Validità:</strong> Attivo; sito ufficiale aggiornato. <strong>Prezzo:</strong> Su richiesta / In base alle tariffe del fornitore.</p>`,
-    `<p>💡 <strong>Proposta di valore:</strong> ${cleanSummary}${locationText ? ` con sede a ${locationText}` : ""}. <strong>Per chi?:</strong> Persone interessate, clienti, famiglie, studenti o professionisti a seconda del settore. <strong>Documentazione richiesta:</strong> Carta d'identità o passaporto e documenti richiesti dal fornitore. <strong>Permanenza:</strong> In base al servizio richiesto.</p>`,
+    `<p>💡 <strong>Proposta de valor:</strong> Istituzione ufficiale verificata e servizi specializzati${locationText ? ` con sede a ${locationText}` : ""}. <strong>Per chi?:</strong> Persone interessate, clienti, famiglie, studenti o professionisti a seconda del settore. <strong>Documentazione richiesta:</strong> Carta d'identità o passaporto e documenti richiesti dal fornitore. <strong>Permanenza:</strong> In base al servizio richiesto.</p>`,
     `<p>⭐ <strong>Differenziale:</strong> <em>Lingue di assistenza:</em> Spagnolo, Inglese. <em>Esperienza e supporto:</em> Informazioni tratte direttamente dal portale ufficiale. <em>Differenziale vs. alternative:</em> Contatto diretto con il fornitore e supporto istituzionale.</p>`,
     `<p>⚠️ <strong>Esclusioni:</strong> Verificare disponibilità, tariffe, requisiti e condizioni direttamente su ${siteUrl} prima di procedere.</p>`,
   ].join("\n");
@@ -2045,18 +2110,18 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
 
   // Preserve the AI-generated structured description
   const rawDescI18n = parsed.descriptionI18n || {};
-  let finalDescEs = String(rawDescI18n.es || parsed.description || "").trim();
-  let finalDescEn = String(rawDescI18n.en || "").trim();
-  let finalDescPt = String(rawDescI18n.pt || "").trim();
-  let finalDescIt = String(rawDescI18n.it || "").trim();
+  let finalDescEs = normalizeToSpanishDescriptionHeaders(String(rawDescI18n.es || parsed.description || "").trim());
+  let finalDescEn = normalizeToEnglishDescriptionHeaders(String(rawDescI18n.en || "").trim());
+  let finalDescPt = normalizeToPortugueseDescriptionHeaders(String(rawDescI18n.pt || "").trim());
+  let finalDescIt = normalizeToItalianDescriptionHeaders(String(rawDescI18n.it || "").trim());
 
   // If the AI description was missing or too short, use grounded fallback
   if (finalDescEs.length < 50) {
     const fallbackDesc = buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country);
     finalDescEs = fallbackDesc.es;
-    finalDescEn = fallbackDesc.en;
-    finalDescPt = fallbackDesc.pt;
-    finalDescIt = fallbackDesc.it;
+    if (!finalDescEn) finalDescEn = fallbackDesc.en;
+    if (!finalDescPt) finalDescPt = fallbackDesc.pt;
+    if (!finalDescIt) finalDescIt = fallbackDesc.it;
   } else {
     // If translations are missing or equal to spanish, generate grounded localized versions
     const fallbackDesc = buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country);
@@ -2171,7 +2236,7 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
     destinationCountries,
     headquarterLocations,
     currency: parsed.currency || "USD",
-    price: String(parsed.price && !/precio a convenir/i.test(parsed.price) ? parsed.price : "A consultar"),
+    price: parsed.price || "A consultar",
     pricePeriod: parsed.pricePeriod || "",
     languages: parsed.languages || "Español, Inglés",
     website: parsed.website || extractedData.url,
@@ -2203,6 +2268,16 @@ function enforceStrictTaxonomyGuardrails(
   publication.publisherName = cleanTitleString(publication.publisherName || titleClean);
   if (publication.titleI18n?.es) {
     publication.titleI18n.es = cleanTitleString(publication.titleI18n.es);
+  }
+
+  if (publication.description) {
+    publication.description = normalizeToSpanishDescriptionHeaders(publication.description);
+  }
+  if (publication.descriptionI18n) {
+    publication.descriptionI18n.es = normalizeToSpanishDescriptionHeaders(publication.descriptionI18n.es || publication.description || "");
+    publication.descriptionI18n.en = normalizeToEnglishDescriptionHeaders(publication.descriptionI18n.en || "");
+    publication.descriptionI18n.pt = normalizeToPortugueseDescriptionHeaders(publication.descriptionI18n.pt || "");
+    publication.descriptionI18n.it = normalizeToItalianDescriptionHeaders(publication.descriptionI18n.it || "");
   }
 
   const locInfo = detectAllLocationsAndHeadquarters(allText, publication.url, titleClean);
