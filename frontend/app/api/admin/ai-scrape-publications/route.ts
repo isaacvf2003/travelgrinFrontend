@@ -1964,6 +1964,102 @@ function normalizeToItalianDescriptionHeaders(text: string): string {
     .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>");
 }
 
+async function translateWithGoogleDirect(text: string, sl: string, tl: string): Promise<string | null> {
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3000);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (Array.isArray(data) && Array.isArray(data[0])) {
+      const translated = data[0].map((item: any) => item[0]).filter(Boolean).join("");
+      return translated || null;
+    }
+  } catch {}
+  return null;
+}
+
+async function translateTextDirect(q: string, sl: string, tl: string): Promise<string> {
+  const trimmed = q.trim();
+  if (!trimmed || sl === tl) return q;
+
+  // 1. Try Google Translate public API (fast, high quality)
+  const gRes = await translateWithGoogleDirect(trimmed, sl, tl);
+  if (gRes && gRes.trim() && gRes.trim() !== trimmed) {
+    return gRes.trim();
+  }
+
+  // 2. Try MyMemory
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=${sl}|${tl}`;
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3000);
+    if (res.ok) {
+      const data = await res.json();
+      const trans = data.responseData?.translatedText;
+      if (trans && typeof trans === "string" && !trans.includes("MYMEMORY WARNING")) {
+        return trans.trim();
+      }
+    }
+  } catch {}
+
+  return q;
+}
+
+async function translateFullHtmlDescriptionAsync(htmlEs: string, targetLang: "en" | "pt" | "it"): Promise<string> {
+  if (!htmlEs) return "";
+  const pRegex = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
+  const rawParagraphs: string[] = [];
+  let match;
+  while ((match = pRegex.exec(htmlEs)) !== null) {
+    rawParagraphs.push(match[1]);
+  }
+
+  if (rawParagraphs.length === 0) {
+    const parts = htmlEs.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
+    const translatedParts = await Promise.all(
+      parts.map(async (part) => {
+        if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
+        const trimmed = part.trim();
+        if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
+        const leadingSpace = part.match(/^\s*/)?.[0] || "";
+        const trailingSpace = part.match(/\s*$/)?.[0] || "";
+        const trans = await translateTextDirect(trimmed, "es", targetLang);
+        return `${leadingSpace}${trans}${trailingSpace}`;
+      })
+    );
+    const joined = translatedParts.join("");
+    return targetLang === "en"
+      ? normalizeToEnglishDescriptionHeaders(joined)
+      : targetLang === "pt"
+      ? normalizeToPortugueseDescriptionHeaders(joined)
+      : normalizeToItalianDescriptionHeaders(joined);
+  }
+
+  const translatedPs = await Promise.all(
+    rawParagraphs.map(async (pText) => {
+      const parts = pText.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
+      const translatedParts = await Promise.all(
+        parts.map(async (part) => {
+          if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
+          const trimmed = part.trim();
+          if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
+          const leadingSpace = part.match(/^\s*/)?.[0] || "";
+          const trailingSpace = part.match(/\s*$/)?.[0] || "";
+          const trans = await translateTextDirect(trimmed, "es", targetLang);
+          return `${leadingSpace}${trans}${trailingSpace}`;
+        })
+      );
+      return `<p>${translatedParts.join("")}</p>`;
+    })
+  );
+
+  const fullHtml = translatedPs.join("\n");
+  return targetLang === "en"
+    ? normalizeToEnglishDescriptionHeaders(fullHtml)
+    : targetLang === "pt"
+    ? normalizeToPortugueseDescriptionHeaders(fullHtml)
+    : normalizeToItalianDescriptionHeaders(fullHtml);
+}
+
 function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" | "it"): string {
   if (!descEs) return "";
   let text = descEs;
@@ -1975,10 +2071,10 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Precio|Preço|Prezzo):\s*<\/strong>/gi, "<strong>Price:</strong>")
       .replace(/<strong>\s*(?:Propuesta de valor|Proposta de valor):\s*<\/strong>/gi, "<strong>Value proposition:</strong>")
       .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Para quem\??|Per chi\??):\s*<\/strong>/gi, "<strong>Who is it for?:</strong>")
-      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Documentação necessária|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Required documents:</strong>")
+      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Required documents:</strong>")
       .replace(/<strong>\s*(?:Permanencia|Permanência|Permanenza):\s*<\/strong>/gi, "<strong>Length of stay:</strong>")
       .replace(/<strong>\s*(?:Diferencial|Differenziale):\s*<\/strong>/gi, "<strong>Differentiator:</strong>")
-      .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Idiomas de atendimento|Lingue di assistenza):\s*<\/em>/gi, "<em>Service languages:</em>")
+      .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Service languages:</em>")
       .replace(/<em>\s*(?:Experiencia y soporte|Experiência e suporte|Esperienza e supporto):\s*<\/em>/gi, "<em>Experience and support:</em>")
       .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Differentiator vs. alternatives:</em>")
       .replace(/<strong>\s*(?:Exclusiones|Exclusões|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusions:</strong>")
@@ -2008,7 +2104,7 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanenza):\s*<\/strong>/gi, "<strong>Permanência:</strong>")
       .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Diferencial:</strong>")
       .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Idiomas de atendimento:</em>")
-      .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
+      .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
       .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Diferencial vs. alternativas:</em>")
       .replace(/<strong>\s*(?:Exclusiones|Exclusions|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusões:</strong>")
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Ativo; site oficial atualizado.")
@@ -2038,7 +2134,7 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Differenziale:</strong>")
       .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Idiomas de atendimento):\s*<\/em>/gi, "<em>Lingue di assistenza:</em>")
       .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
-      .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
+      .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
       .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>")
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Attivo; sito ufficiale aggiornato.")
       .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Su richiesta / In base alle tariffe del fornitore.")
@@ -2061,12 +2157,12 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
 /**
  * Fallback description generator if AI output is empty or completely missing.
  */
-function buildGroundedDescriptions(
+async function buildGroundedDescriptions(
   extractedData: any,
   title: string,
   city: string,
   country: string
-): I18nRecord {
+): Promise<I18nRecord> {
   let rawDesc = cleanJunkTextPhrases(extractedData.description || "");
   if (!rawDesc || rawDesc.length < 20) {
     const paragraphs = (extractedData.textContent || "").split("\n\n").map((p: string) => cleanJunkTextPhrases(p.trim()));
@@ -2077,6 +2173,12 @@ function buildGroundedDescriptions(
   const locationText = [city, country].filter(Boolean).join(", ");
   const siteUrl = escapeHtml(extractedData.url);
 
+  const [cleanSummaryEn, cleanSummaryPt, cleanSummaryIt] = await Promise.all([
+    translateTextDirect(cleanSummary, "es", "en"),
+    translateTextDirect(cleanSummary, "es", "pt"),
+    translateTextDirect(cleanSummary, "es", "it"),
+  ]);
+
   const es = [
     `<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> A consultar / Según aranceles o tarifas del oferente.</p>`,
     `<p>💡 <strong>Propuesta de valor:</strong> ${cleanSummary}${locationText ? ` con sede en ${locationText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`,
@@ -2084,9 +2186,26 @@ function buildGroundedDescriptions(
     `<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${siteUrl} antes de contratar o postular.</p>`,
   ].join("\n");
 
-  const en = translateStructuredDescription(es, "en");
-  const pt = translateStructuredDescription(es, "pt");
-  const it = translateStructuredDescription(es, "it");
+  const en = [
+    `<p><strong>Validity:</strong> Active; official website updated. <strong>Price:</strong> Upon request / Subject to provider rates.</p>`,
+    `<p>💡 <strong>Value proposition:</strong> ${cleanSummaryEn || cleanSummary}${locationText ? ` headquartered in ${locationText}` : ""}. <strong>Who is it for?:</strong> Interested individuals, clients, families, students, or professionals according to sector. <strong>Required documents:</strong> ID or passport and documentation informed by the provider. <strong>Length of stay:</strong> According to the contracted modality or service.</p>`,
+    `<p>⭐ <strong>Differentiator:</strong> <em>Service languages:</em> Spanish, English. <em>Experience and support:</em> Information sourced directly from the official portal. <em>Differentiator vs. alternatives:</em> Direct contact with the provider and institutional backing.</p>`,
+    `<p>⚠️ <strong>Exclusions:</strong> Confirm availability, current rates, requirements, and specific conditions directly at ${siteUrl} before hiring or applying.</p>`,
+  ].join("\n");
+
+  const pt = [
+    `<p><strong>Validade:</strong> Ativo; site oficial atualizado. <strong>Preço:</strong> Sob consulta / Conforme tarifas do provedor.</p>`,
+    `<p>💡 <strong>Proposta de valor:</strong> ${cleanSummaryPt || cleanSummary}${locationText ? ` com sede em ${locationText}` : ""}. <strong>Para quem?:</strong> Interessados, clientes, famílias, estudantes ou profissionais conforme o setor. <strong>Documentação necessária:</strong> RG ou passaporte e documentação informada pelo provedor. <strong>Permanência:</strong> Conforme a modalidade ou serviço contratado.</p>`,
+    `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atendimento:</em> Espanhol, Inglês. <em>Experiência e suporte:</em> Informações obtidas diretamente do portal oficial. <em>Diferencial vs. alternativas:</em> Contato direto com o provedor e respaldo institucional.</p>`,
+    `<p>⚠️ <strong>Exclusões:</strong> Confirmar disponibilidade, tarifas vigentes, requisitos e condições diretamente em ${siteUrl} antes de contratar ou se candidatar.</p>`,
+  ].join("\n");
+
+  const it = [
+    `<p><strong>Validità:</strong> Attivo; sito ufficiale aggiornato. <strong>Prezzo:</strong> Su richiesta / In base alle tariffe del fornitore.</p>`,
+    `<p>💡 <strong>Proposta de valor:</strong> ${cleanSummaryIt || cleanSummary}${locationText ? ` con sede a ${locationText}` : ""}. <strong>Per chi?:</strong> Persone interessate, clienti, famiglie, studenti o professionisti a seconda del settore. <strong>Documentazione richiesta:</strong> Carta d'identità o passaporto e documenti richiesti dal fornitore. <strong>Permanenza:</strong> In base alla modalità o al servizio richiesto.</p>`,
+    `<p>⭐ <strong>Differenziale:</strong> <em>Lingue di assistenza:</em> Spagnolo, Inglese. <em>Esperienza e supporto:</em> Informazioni tratte directamente dal portale ufficiale. <em>Differenziale vs. alternative:</em> Contatto diretto con il fornitore e supporto istituzionale.</p>`,
+    `<p>⚠️ <strong>Esclusioni:</strong> Verificare disponibilità, tariffe vigenti, requisiti e condizioni direttamente su ${siteUrl} prima di procedere o candidarsi.</p>`,
+  ].join("\n");
 
   return { es, en, pt, it };
 }
@@ -2406,7 +2525,7 @@ function classifySectorAndTaxonomy(
   };
 }
 
-function createFallbackPublication(extractedData: any, taxonomies?: any): ScrapedPublication {
+async function createFallbackPublication(extractedData: any, taxonomies?: any): Promise<ScrapedPublication> {
   const host = new URL(extractedData.url).hostname.replace("www.", "");
   const allText = `${extractedData.url} ${extractedData.title} ${extractedData.description} ${extractedData.textContent}`.toLowerCase();
   const titleClean = cleanTitleString(extractedData.title) || host;
@@ -2449,7 +2568,7 @@ function createFallbackPublication(extractedData: any, taxonomies?: any): Scrape
     buildGoogleMapsUrl(`${titleClean}, ${primaryHq.city}, ${primaryHq.country}`);
 
   const scoreBlock = buildScoreScoutBlock(titleClean, startYear, finalRating, allText);
-  const descriptions = buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country);
+  const descriptions = await buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country);
 
   return {
     url: extractedData.url,
@@ -2795,7 +2914,7 @@ function mergeSocialLinks(linksA: SocialLinkDetail[] = [], linksB: SocialLinkDet
   return merged;
 }
 
-function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: any): ScrapedPublication {
+async function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: any): Promise<ScrapedPublication> {
   const host = new URL(extractedData.url).hostname.replace("www.", "");
   const rawTitle = parsed.title || extractedData.title || `Publicación de ${host}`;
   const title = cleanTitleString(rawTitle);
@@ -2885,7 +3004,7 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
 
   // If the AI description was missing or too short, use grounded fallback
   if (finalDescEs.length < 50) {
-    const fallbackDesc = buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country);
+    const fallbackDesc = await buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country);
     finalDescEs = fallbackDesc.es;
   }
 
@@ -2900,21 +3019,22 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
   let finalDescIt = String(rawDescI18n.it || "").trim();
 
   const hasSpanishMarkers = (str: string) => /<strong>\s*(?:Vigencia|Propuesta de valor|¿?Para qui[eé]n|Documentaci[oó]n requerida|Permanencia|Diferencial|Exclusiones):/i.test(str);
+  const hasSpanishSentences = (str: string) => /(?:Presentamos nuestro|Junto a los médicos|sala de guardia|con sede en|Personas interesadas|Seg[uú]n la modalidad|Informaci[oó]n tomada|Contacto directo|Confirmar disponibilidad)/i.test(str);
 
-  if (!finalDescEn || finalDescEn === finalDescEs || hasSpanishMarkers(finalDescEn)) {
-    finalDescEn = translateStructuredDescription(finalDescEs, "en");
+  if (!finalDescEn || finalDescEn === finalDescEs || hasSpanishMarkers(finalDescEn) || hasSpanishSentences(finalDescEn)) {
+    finalDescEn = await translateFullHtmlDescriptionAsync(finalDescEs, "en");
   } else {
     finalDescEn = normalizeToEnglishDescriptionHeaders(finalDescEn);
   }
 
-  if (!finalDescPt || finalDescPt === finalDescEs || hasSpanishMarkers(finalDescPt)) {
-    finalDescPt = translateStructuredDescription(finalDescEs, "pt");
+  if (!finalDescPt || finalDescPt === finalDescEs || hasSpanishMarkers(finalDescPt) || hasSpanishSentences(finalDescPt)) {
+    finalDescPt = await translateFullHtmlDescriptionAsync(finalDescEs, "pt");
   } else {
     finalDescPt = normalizeToPortugueseDescriptionHeaders(finalDescPt);
   }
 
-  if (!finalDescIt || finalDescIt === finalDescEs || hasSpanishMarkers(finalDescIt)) {
-    finalDescIt = translateStructuredDescription(finalDescEs, "it");
+  if (!finalDescIt || finalDescIt === finalDescEs || hasSpanishMarkers(finalDescIt) || hasSpanishSentences(finalDescIt)) {
+    finalDescIt = await translateFullHtmlDescriptionAsync(finalDescEs, "it");
   } else {
     finalDescIt = normalizeToItalianDescriptionHeaders(finalDescIt);
   }
@@ -3108,6 +3228,7 @@ function enforceStrictTaxonomyGuardrails(
         it: translateStructuredDescription(descEs, "it"),
       };
     } else {
+      publication.descriptionI18n.es = descEs;
       if (!publication.descriptionI18n.en || publication.descriptionI18n.en === descEs || hasSpanishMarkers(publication.descriptionI18n.en)) {
         publication.descriptionI18n.en = translateStructuredDescription(descEs, "en");
       }
@@ -3189,18 +3310,21 @@ function enforceStrictTaxonomyGuardrails(
   }
 
   // 4. Guarantee accurate review count (strictly "0" if no reviews found, never fake "120")
-  if (!publication.providerReviewCount || (publication.providerReviewCount === "120" && !allText.includes("120"))) {
-    const detectedReview = extractedData.detectedReviewCount || extractReviewCountFromText(allText);
-    publication.providerReviewCount = detectedReview || "0";
+  if (!publication.providerReviewCount || publication.providerReviewCount === "" || publication.providerReviewCount === "120") {
+    if (extractedData.detectedReviewCount && extractedData.detectedReviewCount !== "0") {
+      publication.providerReviewCount = extractedData.detectedReviewCount;
+    } else {
+      publication.providerReviewCount = "0";
+    }
   }
 
-  // 5. Guarantee Google Maps comments URL with exact address if available
-  if (!publication.providerCommentsUrl || publication.providerCommentsUrl === publication.url) {
+  // 5. Build clean, precise Google Maps comments URL if empty or not matching exact entity
+  if (!publication.providerCommentsUrl || !/^https?:\/\//i.test(publication.providerCommentsUrl) || publication.providerCommentsUrl === publication.url) {
     const parts = [
       publication.publisherName || publication.title,
-      extractedData.detectedAddress,
-      publication.city || "Buenos Aires",
-      publication.country || "Argentina"
+      extractedData.detectedAddress || (publication.headquarterLocations?.[0]?.address),
+      publication.headquarterCity || publication.city,
+      publication.headquarterCountry || publication.country
     ].filter(Boolean);
     publication.providerCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
   }
@@ -3245,13 +3369,13 @@ async function processUrlWithAI(
   const executeGemini = async () => {
     if (!canUseGemini) throw new Error("No hay GEMINI_API_KEY configurada.");
     const parsed = await callGeminiApi(prompt, geminiKey);
-    return formatPublicationResult(parsed, extracted, taxonomies);
+    return await formatPublicationResult(parsed, extracted, taxonomies);
   };
 
   const executeOpenAI = async () => {
     if (!canUseOpenAI) throw new Error("No hay OPENAI_API_KEY configurada.");
     const parsed = await callOpenAIApi(prompt, openaiKey);
-    return formatPublicationResult(parsed, extracted, taxonomies);
+    return await formatPublicationResult(parsed, extracted, taxonomies);
   };
 
   let publication: ScrapedPublication;
@@ -3268,7 +3392,7 @@ async function processUrlWithAI(
         engineUsed = "gemini";
       } catch (geminiErr: any) {
         console.error(`Gemini fallback also failed for ${url}:`, geminiErr.message);
-        publication = enforceStrictTaxonomyGuardrails(createFallbackPublication(extracted, taxonomies), extracted, taxonomies);
+        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies), extracted, taxonomies);
         engineUsed = "fallback";
       }
     }
@@ -3284,7 +3408,7 @@ async function processUrlWithAI(
         engineUsed = "openai";
       } catch (openAiErr: any) {
         console.error(`OpenAI fallback also failed for ${url}:`, openAiErr.message);
-        publication = enforceStrictTaxonomyGuardrails(createFallbackPublication(extracted, taxonomies), extracted, taxonomies);
+        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies), extracted, taxonomies);
         engineUsed = "fallback";
       }
     }
@@ -3299,14 +3423,20 @@ async function processUrlWithAI(
 async function processBatchWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
-  fn: (item: T) => Promise<R>
+  task: (item: T) => Promise<R>
 ): Promise<R[]> {
   const results: R[] = [];
-  for (let i = 0; i < items.length; i += concurrency) {
-    const chunk = items.slice(i, i + concurrency);
-    const chunkResults = await Promise.all(chunk.map((item) => fn(item)));
-    results.push(...chunkResults);
+  let index = 0;
+
+  async function worker() {
+    while (index < items.length) {
+      const currentIndex = index++;
+      results[currentIndex] = await task(items[currentIndex]);
+    }
   }
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => worker());
+  await Promise.all(workers);
   return results;
 }
 
@@ -3314,24 +3444,26 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const urls: string[] = Array.isArray(body.urls)
-      ? body.urls.filter(Boolean)
+      ? body.urls
       : body.url
       ? [body.url]
       : [];
 
     if (!urls.length) {
-      return NextResponse.json({ error: "Debe proporcionar al menos una URL válida." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Debe proporcionar al menos una URL para analizar." },
+        { status: 400 }
+      );
     }
 
-    const taxonomies = await getAvailableSystemTaxonomies();
+    const taxonomies = await getAvailableTaxonomies();
 
-    const envProvider = (process.env.AI_PROVIDER || "").toLowerCase();
-    const requestedProvider = String(body.provider || "").toLowerCase();
+    const customKey = String(body.apiKey || "").trim();
+    const requestedProvider = String(body.provider || "auto").toLowerCase();
 
-    const customApiKey = String(body.apiKey || "").trim();
-
+    // Check environment variables first, then custom client-supplied API key
     const geminiKey =
-      (customApiKey && (customApiKey.startsWith("AIza") || !customApiKey.startsWith("sk-")) ? customApiKey : "") ||
+      (customKey && (customKey.startsWith("AIza") || !customKey.startsWith("sk-")) ? customKey : "") ||
       process.env.GEMINI_API_KEY ||
       process.env.GEMINI_KEY ||
       process.env.GOOGLE_API_KEY ||
@@ -3340,14 +3472,15 @@ export async function POST(req: Request) {
       "";
 
     const openaiKey =
-      (customApiKey && customApiKey.startsWith("sk-") ? customApiKey : "") ||
+      (customKey && customKey.startsWith("sk-") ? customKey : "") ||
       process.env.OPENAI_API_KEY ||
       process.env.OPENAI_KEY ||
       process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
       "";
 
+    const envProvider = (process.env.AI_SCRAPER_PROVIDER || "auto").toLowerCase();
     const effectiveProvider =
-      requestedProvider === "openai" || requestedProvider === "gemini"
+      requestedProvider !== "auto"
         ? requestedProvider
         : envProvider === "openai"
         ? "openai"
@@ -3373,7 +3506,7 @@ export async function POST(req: Request) {
         let host = "";
         try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
         const fallbackExtracted = { url, title: host, textContent: host, htmlContent: "", images: [], metaTags: {} };
-        return enforceStrictTaxonomyGuardrails(createFallbackPublication(fallbackExtracted, taxonomies), fallbackExtracted, taxonomies);
+        return enforceStrictTaxonomyGuardrails(await createFallbackPublication(fallbackExtracted, taxonomies), fallbackExtracted, taxonomies);
       }
     });
 

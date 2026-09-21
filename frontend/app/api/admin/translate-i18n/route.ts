@@ -142,22 +142,44 @@ function normalizeDescriptionHeaders(text: string, lang: string): string {
   return res;
 }
 
+async function translateWithGoogle(text: string, sl: string, tl: string): Promise<string | null> {
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3000);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (Array.isArray(data) && Array.isArray(data[0])) {
+      const translated = data[0].map((item: any) => item[0]).filter(Boolean).join("");
+      return translated || null;
+    }
+  } catch {}
+  return null;
+}
+
 async function translateQuery(q: string, sl: string, tl: string, isHtml: boolean = false): Promise<string> {
   const trimmed = q.trim();
   if (!trimmed || sl === tl) return cleanTranslationMarkup(q, isHtml);
+
+  // 1. Try Google Translate public API
+  const gRes = await translateWithGoogle(trimmed, sl, tl);
+  if (gRes && gRes.trim() && gRes.trim() !== trimmed) {
+    return cleanTranslationMarkup(gRes, isHtml);
+  }
+
+  // 2. Try MyMemory
   try {
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=${sl}|${tl}`;
-    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3500);
-    if (!res.ok) return cleanTranslationMarkup(q, isHtml);
-    const data = await res.json();
-    const trans = data.responseData?.translatedText;
-    if (trans && typeof trans === "string" && !trans.includes("MYMEMORY WARNING")) {
-      return cleanTranslationMarkup(trans, isHtml);
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3000);
+    if (res.ok) {
+      const data = await res.json();
+      const trans = data.responseData?.translatedText;
+      if (trans && typeof trans === "string" && !trans.includes("MYMEMORY WARNING")) {
+        return cleanTranslationMarkup(trans, isHtml);
+      }
     }
-    return cleanTranslationMarkup(q, isHtml);
-  } catch {
-    return cleanTranslationMarkup(q, isHtml);
-  }
+  } catch {}
+
+  return cleanTranslationMarkup(q, isHtml);
 }
 
 async function translateParagraphOrText(text: string, sl: string, tl: string, isHtml: boolean): Promise<string> {
@@ -182,43 +204,49 @@ async function translateParagraphOrText(text: string, sl: string, tl: string, is
 
   // HTML content handling
   const pRegex = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
-  const paragraphs: string[] = [];
+  const rawParagraphs: string[] = [];
   let match;
   while ((match = pRegex.exec(text)) !== null) {
-    paragraphs.push(match[1]);
+    rawParagraphs.push(match[1]);
   }
 
-  if (paragraphs.length === 0) {
-    if (text.length <= 400) {
-      const trans = await translateQuery(text, sl, tl, true);
-      return cleanTranslationMarkup(normalizeDescriptionHeaders(trans, tl), true);
-    }
-    const cleanText = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    const trans = await translateQuery(cleanText, sl, tl, false);
-    return cleanTranslationMarkup(normalizeDescriptionHeaders(trans, tl), false);
+  if (rawParagraphs.length === 0) {
+    const parts = text.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
+    const translatedParts = await Promise.all(
+      parts.map(async (part) => {
+        if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
+        const trimmed = part.trim();
+        if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
+        const leadingSpace = part.match(/^\s*/)?.[0] || "";
+        const trailingSpace = part.match(/\s*$/)?.[0] || "";
+        const trans = await translateQuery(trimmed, sl, tl, false);
+        return `${leadingSpace}${trans}${trailingSpace}`;
+      })
+    );
+    const joined = translatedParts.join("");
+    return cleanTranslationMarkup(normalizeDescriptionHeaders(joined, tl), true);
   }
 
-  const translatedParagraphs = await Promise.all(
-    paragraphs.map(async (pContent) => {
-      const trimmed = pContent.trim();
-      if (!trimmed) return "";
-      
-      // If paragraph contains html formatting tags and is moderately sized, translate directly to preserve tags
-      if (trimmed.length <= 450) {
-        const trans = await translateQuery(trimmed, sl, tl, true);
-        return `<p>${cleanTranslationMarkup(trans, true)}</p>`;
-      }
-
-      // If very long, split sentences
-      const sentences = trimmed.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [trimmed];
-      const transSentences = await Promise.all(sentences.map((s) => translateQuery(s, sl, tl, true)));
-      return `<p>${cleanTranslationMarkup(transSentences.join(" "), true)}</p>`;
+  const translatedPs = await Promise.all(
+    rawParagraphs.map(async (pText) => {
+      const parts = pText.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
+      const translatedParts = await Promise.all(
+        parts.map(async (part) => {
+          if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
+          const trimmed = part.trim();
+          if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
+          const leadingSpace = part.match(/^\s*/)?.[0] || "";
+          const trailingSpace = part.match(/\s*$/)?.[0] || "";
+          const trans = await translateQuery(trimmed, sl, tl, false);
+          return `${leadingSpace}${trans}${trailingSpace}`;
+        })
+      );
+      return `<p>${translatedParts.join("")}</p>`;
     })
   );
 
-  let fullHtml = translatedParagraphs.filter(Boolean).join("\n");
-  fullHtml = cleanTranslationMarkup(normalizeDescriptionHeaders(fullHtml, tl), true);
-  return fullHtml;
+  const fullHtml = translatedPs.join("\n");
+  return cleanTranslationMarkup(normalizeDescriptionHeaders(fullHtml, tl), true);
 }
 
 export async function POST(req: Request) {
