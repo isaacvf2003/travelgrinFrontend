@@ -75,7 +75,24 @@ function decodeHtmlEntities(str: string): string {
 }
 
 function cleanTitleString(title: string): string {
+  if (!title) return "";
   let decoded = decodeHtmlEntities(title);
+  // Remove XLIFF/MyMemory/translation memory tags like <g id="...">, </g>, <x id="..."/>, etc.
+  decoded = decoded
+    .replace(/<g\b[^>]*>/gi, "")
+    .replace(/<\/g>/gi, "")
+    .replace(/<x\b[^>]*\/?>/gi, "")
+    .replace(/<bx\b[^>]*\/?>/gi, "")
+    .replace(/<ex\b[^>]*\/?>/gi, "")
+    .replace(/<bpt\b[^>]*>.*?<\/bpt>/gi, "")
+    .replace(/<ept\b[^>]*>.*?<\/ept>/gi, "")
+    .replace(/<ph\b[^>]*>.*?<\/ph>/gi, "")
+    .replace(/<mrk\b[^>]*>/gi, "")
+    .replace(/<\/mrk>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
   // Remove generic page suffixes and prefixes
   decoded = decoded
     .replace(/\s*[-–—|]\s*(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*$/i, "")
@@ -113,6 +130,27 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
   additionalCities?: string[];
   socialLinks?: SocialLinkDetail[];
 }> = {
+  "osepmendoza.com.ar": {
+    name: "OSEP Mendoza",
+    startYear: "1953",
+    primaryCity: "Mendoza",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Organismo público",
+    rating: "4.3",
+    reviewCount: "1200",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=OSEP+Mendoza",
+    additionalCities: ["San Rafael", "Godoy Cruz", "Guaymallén", "General Alvear", "Luján de Cuyo", "Maipú", "Rivadavia", "Tunuyán", "Tupungato", "Malargüe", "San Martín"],
+    socialLinks: [
+      { kind: "web", label: "Página Oficial", url: "https://osepmendoza.com.ar/web/" },
+      { kind: "phone", label: "Central Telefónica", url: "tel:08108106737" },
+      { kind: "whatsapp", label: "WhatsApp OSEP", url: "https://wa.me/5492612058800" },
+      { kind: "instagram", label: "Instagram", url: "https://www.instagram.com/osepmendoza" },
+      { kind: "facebook", label: "Facebook", url: "https://www.facebook.com/OsepMendozaOficial" },
+    ],
+  },
   "garrahan.gov.ar": {
     name: "Hospital Garrahan",
     startYear: "1987",
@@ -500,174 +538,194 @@ function detectAllLocationsAndHeadquarters(allText: string, url: string, title: 
   additionalCities: string[];
   detectedCountries: string[];
 } {
-  const lower = `${url} ${title} ${allText}`.toLowerCase();
-
-  // Check known institutions map first
+  let hostname = "";
   try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-    for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
-      if (hostname.includes(domainKey) || url.toLowerCase().includes(domainKey)) {
-        return {
-          primaryCity: info.primaryCity,
-          primaryCountry: info.primaryCountry,
-          additionalCities: info.additionalCities || [],
-          detectedCountries: [info.primaryCountry],
-        };
-      }
+    hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    hostname = url.toLowerCase();
+  }
+
+  // 1. Check known institutions map first
+  for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
+    if (hostname.includes(domainKey) || url.toLowerCase().includes(domainKey)) {
+      return {
+        primaryCity: info.primaryCity,
+        primaryCountry: info.primaryCountry,
+        additionalCities: info.additionalCities || [],
+        detectedCountries: [info.primaryCountry],
+      };
     }
-  } catch {}
+  }
+
+  const titleLower = title.toLowerCase();
+  const lower = `${url} ${title} ${allText}`.toLowerCase();
 
   const cityMatches: Array<{ city: string; country: string; count: number; hasHqMention: boolean }> = [];
   const detectedCountries = new Set<string>();
 
-  const checkCity = (cityName: string, country: string, regex: RegExp) => {
+  const checkCity = (cityName: string, country: string, regex: RegExp, domainKeywords: string[] = []) => {
+    let count = 0;
     const matches = lower.match(regex);
     if (matches && matches.length > 0) {
+      count += matches.length;
+    }
+
+    let isDomainOrTitleHit = false;
+    for (const kw of domainKeywords) {
+      if (hostname.includes(kw) || url.toLowerCase().includes(kw)) {
+        count += 100;
+        isDomainOrTitleHit = true;
+      }
+      if (titleLower.includes(kw)) {
+        count += 40;
+        isDomainOrTitleHit = true;
+      }
+    }
+
+    if (count > 0) {
       detectedCountries.add(country);
       const hasHq =
+        isDomainOrTitleHit ||
         new RegExp(`(?:sede central|campus principal|casa central|rectorado|sede principal|campus central|casa matriz|sucursal principal)[^.\\n]{0,60}${regex.source}`, "i").test(lower) ||
         new RegExp(`${regex.source}[^.\\n]{0,60}(?:sede central|campus principal|casa central|rectorado|sede principal|casa matriz)`, "i").test(lower);
-      cityMatches.push({ city: cityName, country, count: matches.length, hasHqMention: hasHq });
+      cityMatches.push({ city: cityName, country, count, hasHqMention: hasHq });
     }
   };
 
-  // Argentina: CABA and Greater Buenos Aires / Province
-  checkCity("Buenos Aires", "Argentina", /buenos aires|caba\b|capital federal|palermo|recoleta|belgrano|puerto madero|san telmo|villa crespo|nuñez|caballito|almagro/gi);
-  checkCity("La Plata", "Argentina", /la plata\b/gi);
-  checkCity("Mar del Plata", "Argentina", /mar del plata\b/gi);
-  checkCity("Bahía Blanca", "Argentina", /bah[ií]a blanca\b/gi);
-  checkCity("Tandil", "Argentina", /\btandil\b/gi);
-  checkCity("Pilar", "Argentina", /\bpilar\b/gi);
-  checkCity("Escobar", "Argentina", /\bescobar\b/gi);
-  checkCity("San Isidro", "Argentina", /san isidro\b/gi);
-  checkCity("Vicente López", "Argentina", /vicente l[oó]pez|olivos/gi);
-  checkCity("Tigre", "Argentina", /\btigre\b|nordelta/gi);
-  checkCity("San Martín", "Argentina", /san mart[ií]n\b/gi);
-  checkCity("Morón", "Argentina", /\bmor[oó]n\b/gi);
-  checkCity("San Justo", "Argentina", /san justo\b|la matanza/gi);
-  checkCity("Quilmes", "Argentina", /\bquilmes\b/gi);
-  checkCity("Lanús", "Argentina", /\blan[uú]s\b/gi);
-  checkCity("Lomas de Zamora", "Argentina", /lomas de zamora/gi);
-  checkCity("San Nicolás", "Argentina", /san nicol[aá]s\b/gi);
-  checkCity("Pergamino", "Argentina", /\bpergamino\b/gi);
-  checkCity("Junín", "Argentina", /\bjun[ií]n\b/gi);
-  checkCity("Zárate", "Argentina", /\bz[aá]rate\b/gi);
-  checkCity("Campana", "Argentina", /\bcampana\b/gi);
+  // Cuyo: Mendoza, San Juan, San Luis
+  checkCity("Mendoza", "Argentina", /\bmendoza\b|gran mendoza|godoy cruz|guaymall[eé]n|las heras|luj[aá]n de cuyo|maip[uú]/gi, ["mendoza", "osepmendoza", "uncuyo", "mendoza.gov", "mendoza.gob"]);
+  checkCity("San Rafael", "Argentina", /san rafael\b/gi, ["sanrafael"]);
+  checkCity("General Alvear", "Argentina", /general alvear\b|alvear mendoza/gi, ["generalalvear"]);
+  checkCity("Malargüe", "Argentina", /malarg[uü]e\b/gi, ["malargue"]);
+  checkCity("Tunuyán", "Argentina", /tunuy[aá]n\b/gi, ["tunuyan"]);
+  checkCity("Tupungato", "Argentina", /tupungato\b/gi, ["tupungato"]);
+  checkCity("Rivadavia", "Argentina", /rivadavia mendoza|\brivadavia\b/gi, []);
+  checkCity("San Juan", "Argentina", /\bsan juan\b/gi, ["sanjuan", "unsj.edu"]);
+  checkCity("San Luis", "Argentina", /\bsan luis\b/gi, ["sanluis", "unsl.edu"]);
+  checkCity("Villa Mercedes", "Argentina", /villa mercedes/gi, ["villamercedes"]);
 
   // Córdoba
-  checkCity("Córdoba", "Argentina", /\bc[oó]rdoba\b|\bcba\b|nueva c[oó]rdoba|cerro de las rosas/gi);
-  checkCity("Río Cuarto", "Argentina", /r[ií]o cuarto/gi);
-  checkCity("Villa María", "Argentina", /villa mar[ií]a/gi);
-  checkCity("Villa Carlos Paz", "Argentina", /villa carlos paz|carlos paz/gi);
-  checkCity("San Francisco", "Argentina", /san francisco\b/gi);
-  checkCity("Jesús María", "Argentina", /jes[uú]s mar[ií]a/gi);
-  checkCity("Alta Gracia", "Argentina", /alta gracia/gi);
-  checkCity("Río Tercero", "Argentina", /r[ií]o tercero/gi);
+  checkCity("Córdoba", "Argentina", /\bc[oó]rdoba\b|\bcba\b|nueva c[oó]rdoba|cerro de las rosas/gi, ["cordoba", "unc.edu", "cba.gov"]);
+  checkCity("Río Cuarto", "Argentina", /r[ií]o cuarto/gi, ["riocuarto", "unrc.edu"]);
+  checkCity("Villa María", "Argentina", /villa mar[ií]a/gi, ["villamaria", "unvm.edu"]);
+  checkCity("Villa Carlos Paz", "Argentina", /villa carlos paz|carlos paz/gi, ["carlospaz"]);
+  checkCity("San Francisco", "Argentina", /san francisco cordoba|san francisco cba/gi, []);
+  checkCity("Alta Gracia", "Argentina", /alta gracia/gi, ["altagracia"]);
+  checkCity("Jesús María", "Argentina", /jes[uú]s mar[ií]a/gi, ["jesusmaria"]);
 
-  // Santa Fe
-  checkCity("Rosario", "Argentina", /\brosario\b/gi);
-  checkCity("Santa Fe", "Argentina", /\bsanta fe\b/gi);
-  checkCity("Rafaela", "Argentina", /\brafaela\b/gi);
-  checkCity("Venado Tuerto", "Argentina", /venado tuerto/gi);
-  checkCity("Reconquista", "Argentina", /\breconquista\b/gi);
+  // Santa Fe & Litoral
+  checkCity("Rosario", "Argentina", /\brosario\b/gi, ["rosario", "unr.edu"]);
+  checkCity("Santa Fe", "Argentina", /\bsanta fe\b/gi, ["santafe", "unl.edu"]);
+  checkCity("Rafaela", "Argentina", /\brafaela\b/gi, ["rafaela", "unraf.edu"]);
+  checkCity("Venado Tuerto", "Argentina", /venado tuerto/gi, ["venadotuerto"]);
+  checkCity("Reconquista", "Argentina", /\breconquista\b/gi, ["reconquista"]);
 
-  // Cuyo: Mendoza, San Juan, San Luis
-  checkCity("Mendoza", "Argentina", /\bmendoza\b|godoy cruz|guaymall[eé]n|las heras|luj[aá]n de cuyo|maip[uú]/gi);
-  checkCity("San Rafael", "Argentina", /san rafael\b/gi);
-  checkCity("San Juan", "Argentina", /san juan\b/gi);
-  checkCity("San Luis", "Argentina", /san luis\b/gi);
-  checkCity("Villa Mercedes", "Argentina", /villa mercedes/gi);
+  // Noroeste (NOA)
+  checkCity("San Miguel de Tucumán", "Argentina", /tucum[aá]n\b|yerba buena|taf[ií] viejo/gi, ["tucuman", "unt.edu"]);
+  checkCity("Salta", "Argentina", /\bsalta\b|cafayate/gi, ["salta", "unsa.edu"]);
+  checkCity("San Salvador de Jujuy", "Argentina", /jujuy\b|tilcara|humahuaca/gi, ["jujuy", "unju.edu"]);
+  checkCity("Santiago del Estero", "Argentina", /santiago del estero|la banda/gi, ["santiagodelestero", "unse.edu"]);
+  checkCity("San Fernando del Valle de Catamarca", "Argentina", /catamarca\b/gi, ["catamarca", "unca.edu"]);
+  checkCity("La Rioja", "Argentina", /la rioja\b|chilecito/gi, ["larioja", "unlar.edu"]);
 
-  // Patagonia: Neuquén, Río Negro, Chubut, Santa Cruz, Tierra del Fuego, La Pampa
-  checkCity("Neuquén", "Argentina", /neuqu[eé]n\b/gi);
-  checkCity("San Martín de los Andes", "Argentina", /san mart[ií]n de los andes/gi);
-  checkCity("Villa La Angostura", "Argentina", /villa la angostura/gi);
-  checkCity("San Carlos de Bariloche", "Argentina", /bariloche\b/gi);
-  checkCity("Viedma", "Argentina", /\bviedma\b/gi);
-  checkCity("Cipolletti", "Argentina", /\bcipolletti\b/gi);
-  checkCity("General Roca", "Argentina", /general roca\b/gi);
-  checkCity("Comodoro Rivadavia", "Argentina", /comodoro rivadavia|comodoro\b/gi);
-  checkCity("Trelew", "Argentina", /\btrelew\b/gi);
-  checkCity("Puerto Madryn", "Argentina", /puerto madryn|madryn/gi);
-  checkCity("Esquel", "Argentina", /\besquel\b/gi);
-  checkCity("Río Gallegos", "Argentina", /r[ií]o gallegos/gi);
-  checkCity("El Calafate", "Argentina", /calafate/gi);
-  checkCity("Ushuaia", "Argentina", /\bushuaia\b/gi);
-  checkCity("Río Grande", "Argentina", /r[ií]o grande\b/gi);
-  checkCity("Santa Rosa", "Argentina", /santa rosa\b/gi);
+  // Noreste (NEA) & Entre Ríos
+  checkCity("Posadas", "Argentina", /\bposadas\b/gi, ["posadas", "unam.edu"]);
+  checkCity("Puerto Iguazú", "Argentina", /iguaz[uú]\b/gi, ["iguazu"]);
+  checkCity("Corrientes", "Argentina", /corrientes\b/gi, ["corrientes", "unne.edu"]);
+  checkCity("Resistencia", "Argentina", /\bresistencia\b/gi, ["resistencia"]);
+  checkCity("Formosa", "Argentina", /\bformosa\b/gi, ["formosa", "unf.edu"]);
+  checkCity("Paraná", "Argentina", /\bparan[aá]\b/gi, ["parana", "uner.edu"]);
+  checkCity("Concordia", "Argentina", /\bconcordia\b/gi, ["concordia"]);
+  checkCity("Gualeguaychú", "Argentina", /gualeguaych[uú]/gi, ["gualeguaychu"]);
 
-  // Noroeste (NOA): Tucumán, Salta, Jujuy, Santiago del Estero, Catamarca, La Rioja
-  checkCity("San Miguel de Tucumán", "Argentina", /tucum[aá]n\b|yerba buena/gi);
-  checkCity("Salta", "Argentina", /\bsalta\b|cafayate/gi);
-  checkCity("San Salvador de Jujuy", "Argentina", /jujuy\b|tilcara|humahuaca/gi);
-  checkCity("Santiago del Estero", "Argentina", /santiago del estero|la banda/gi);
-  checkCity("San Fernando del Valle de Catamarca", "Argentina", /catamarca\b/gi);
-  checkCity("La Rioja", "Argentina", /la rioja\b|chilecito/gi);
+  // Patagonia
+  checkCity("Neuquén", "Argentina", /neuqu[eé]n\b/gi, ["neuquen", "uncoma.edu"]);
+  checkCity("San Martín de los Andes", "Argentina", /san mart[ií]n de los andes/gi, ["sma.gov", "sanmartindelosandes"]);
+  checkCity("Villa La Angostura", "Argentina", /villa la angostura/gi, ["villalaangostura"]);
+  checkCity("San Carlos de Bariloche", "Argentina", /bariloche\b|san carlos de bariloche/gi, ["bariloche", "unrn.edu"]);
+  checkCity("Viedma", "Argentina", /\bviedma\b/gi, ["viedma"]);
+  checkCity("Cipolletti", "Argentina", /\bcipolletti\b/gi, ["cipolletti"]);
+  checkCity("General Roca", "Argentina", /general roca\b/gi, ["generalroca"]);
+  checkCity("Comodoro Rivadavia", "Argentina", /comodoro rivadavia|comodoro\b/gi, ["comodoro", "unp.edu"]);
+  checkCity("Puerto Madryn", "Argentina", /puerto madryn|madryn/gi, ["madryn", "puertomadryn"]);
+  checkCity("Trelew", "Argentina", /\btrelew\b/gi, ["trelew"]);
+  checkCity("Esquel", "Argentina", /\besquel\b/gi, ["esquel"]);
+  checkCity("Río Gallegos", "Argentina", /r[ií]o gallegos/gi, ["riogallegos", "unpa.edu"]);
+  checkCity("El Calafate", "Argentina", /calafate/gi, ["calafate"]);
+  checkCity("Ushuaia", "Argentina", /\bushuaia\b/gi, ["ushuaia", "untdf.edu"]);
+  checkCity("Río Grande", "Argentina", /r[ií]o grande\b/gi, ["riogrande"]);
+  checkCity("Santa Rosa", "Argentina", /santa rosa\b/gi, ["santarosa", "unlpam.edu"]);
 
-  // Noreste (NEA) & Litoral: Misiones, Corrientes, Chaco, Formosa, Entre Ríos
-  checkCity("Posadas", "Argentina", /\bposadas\b/gi);
-  checkCity("Puerto Iguazú", "Argentina", /iguaz[uú]\b/gi);
-  checkCity("Corrientes", "Argentina", /corrientes\b/gi);
-  checkCity("Resistencia", "Argentina", /\bresistencia\b/gi);
-  checkCity("Formosa", "Argentina", /\bformosa\b/gi);
-  checkCity("Paraná", "Argentina", /\bparan[aá]\b/gi);
-  checkCity("Concordia", "Argentina", /\bconcordia\b/gi);
-  checkCity("Gualeguaychú", "Argentina", /gualeguaych[uú]/gi);
+  // Buenos Aires Provincia e Interior
+  checkCity("La Plata", "Argentina", /la plata\b/gi, ["laplata", "unlp.edu"]);
+  checkCity("Mar del Plata", "Argentina", /mar del plata\b/gi, ["mardelplata", "mdp.edu"]);
+  checkCity("Bahía Blanca", "Argentina", /bah[ií]a blanca\b/gi, ["bahiablanca", "uns.edu"]);
+  checkCity("Tandil", "Argentina", /\btandil\b/gi, ["tandil", "unicen.edu"]);
+  checkCity("Pilar", "Argentina", /\bpilar bs as|\bpilar\b/gi, ["pilar"]);
+  checkCity("Escobar", "Argentina", /\bescobar\b/gi, ["escobar"]);
+  checkCity("Tigre", "Argentina", /\btigre\b|nordelta/gi, ["tigre"]);
+  checkCity("San Isidro", "Argentina", /san isidro bs as|san isidro/gi, ["sanisidro"]);
+  checkCity("San Nicolás", "Argentina", /san nicol[aá]s de los arroyos/gi, ["sannicolas"]);
+  checkCity("Pergamino", "Argentina", /\bpergamino\b/gi, ["pergamino"]);
+  checkCity("Junín", "Argentina", /jun[ií]n bs as/gi, ["junin"]);
+  checkCity("Zárate", "Argentina", /\bz[aá]rate\b/gi, ["zarate"]);
+  checkCity("Campana", "Argentina", /\bcampana\b/gi, ["campana"]);
+
+  // Buenos Aires CABA (strict regex, no generic names)
+  checkCity("Buenos Aires", "Argentina", /\bbuenos aires\b|\bcaba\b|\bcapital federal\b|\bciudad aut[oó]noma de buenos aires\b/gi, ["buenosaires", "caba.gob", "uba.ar"]);
 
   // Chile
-  checkCity("Santiago", "Chile", /santiago de chile|\bsantiago\b/gi);
-  checkCity("Valparaíso", "Chile", /valpara[ií]so\b/gi);
-  checkCity("Viña del Mar", "Chile", /viña del mar/gi);
-  checkCity("Concepción", "Chile", /concepci[oó]n\b/gi);
-  checkCity("Antofagasta", "Chile", /antofagasta\b/gi);
-  checkCity("La Serena", "Chile", /la serena\b|coquimbo/gi);
-  checkCity("Temuco", "Chile", /\btemuco\b/gi);
-  checkCity("Puerto Montt", "Chile", /puerto montt/gi);
-  checkCity("Iquique", "Chile", /\biquique\b/gi);
-  checkCity("Punta Arenas", "Chile", /punta arenas/gi);
+  checkCity("Santiago", "Chile", /santiago de chile|\bsantiago\b/gi, ["santiago", "uchile.cl", "uc.cl"]);
+  checkCity("Valparaíso", "Chile", /valpara[ií]so\b/gi, ["valparaiso", "uv.cl", "pucv.cl"]);
+  checkCity("Viña del Mar", "Chile", /viña del mar/gi, ["vinadelmar", "unab.cl"]);
+  checkCity("Concepción", "Chile", /concepci[oó]n\b/gi, ["concepcion", "udec.cl"]);
+  checkCity("Antofagasta", "Chile", /antofagasta\b/gi, ["antofagasta", "uantof.cl"]);
+  checkCity("La Serena", "Chile", /la serena\b|coquimbo/gi, ["laserena", "userena.cl"]);
+  checkCity("Temuco", "Chile", /\btemuco\b/gi, ["temuco", "ufro.cl"]);
+  checkCity("Puerto Montt", "Chile", /puerto montt/gi, ["puertomontt", "ulagos.cl"]);
+  checkCity("Iquique", "Chile", /\biquique\b/gi, ["iquique", "unap.cl"]);
+  checkCity("Punta Arenas", "Chile", /punta arenas/gi, ["puntaarenas", "umag.cl"]);
 
   // Brasil
-  checkCity("São Paulo", "Brasil", /s[aã]o paulo\b/gi);
-  checkCity("Rio de Janeiro", "Brasil", /rio de janeiro\b/gi);
-  checkCity("Brasília", "Brasil", /bras[ií]lia\b/gi);
-  checkCity("Salvador", "Brasil", /salvador da bahia|\bsalvador\b/gi);
-  checkCity("Belo Horizonte", "Brasil", /belo horizonte\b/gi);
-  checkCity("Curitiba", "Brasil", /\bcuritiba\b/gi);
-  checkCity("Porto Alegre", "Brasil", /porto alegre\b/gi);
-  checkCity("Recife", "Brasil", /\brecife\b/gi);
-  checkCity("Florianópolis", "Brasil", /florian[oó]polis\b/gi);
-  checkCity("Campinas", "Brasil", /\bcampinas\b/gi);
+  checkCity("São Paulo", "Brasil", /s[aã]o paulo\b/gi, ["saopaulo", "usp.br", "unicamp.br"]);
+  checkCity("Rio de Janeiro", "Brasil", /rio de janeiro\b/gi, ["riodejaneiro", "ufrj.br"]);
+  checkCity("Brasília", "Brasil", /bras[ií]lia\b/gi, ["brasilia", "unb.br"]);
+  checkCity("Curitiba", "Brasil", /\bcuritiba\b/gi, ["curitiba", "ufpr.br"]);
+  checkCity("Porto Alegre", "Brasil", /porto alegre\b/gi, ["portoalegre", "ufrgs.br"]);
+  checkCity("Florianópolis", "Brasil", /florian[oó]polis\b/gi, ["florianopolis", "ufsc.br"]);
+  checkCity("Belo Horizonte", "Brasil", /belo horizonte\b/gi, ["belohorizonte", "ufmg.br"]);
+  checkCity("Salvador", "Brasil", /salvador da bahia|\bsalvador\b/gi, ["salvador"]);
+  checkCity("Recife", "Brasil", /\brecife\b/gi, ["recife", "ufpe.br"]);
 
   // Uruguay
-  checkCity("Montevideo", "Uruguay", /\bmontevideo\b/gi);
-  checkCity("Punta del Este", "Uruguay", /punta del este/gi);
-  checkCity("Colonia del Sacramento", "Uruguay", /colonia del sacramento|\bcolonia\b/gi);
-  checkCity("Maldonado", "Uruguay", /\bmaldonado\b/gi);
+  checkCity("Montevideo", "Uruguay", /\bmontevideo\b/gi, ["montevideo", "udelar.edu.uy"]);
+  checkCity("Punta del Este", "Uruguay", /punta del este/gi, ["puntadeleste"]);
+  checkCity("Colonia del Sacramento", "Uruguay", /colonia del sacramento|\bcolonia\b/gi, ["colonia"]);
+  checkCity("Maldonado", "Uruguay", /\bmaldonado\b/gi, ["maldonado"]);
 
   // Colombia
-  checkCity("Bogotá", "Colombia", /bogot[aá]\b/gi);
-  checkCity("Medellín", "Colombia", /medell[ií]n\b/gi);
-  checkCity("Cali", "Colombia", /\bcali\b/gi);
-  checkCity("Cartagena", "Colombia", /cartagena\b/gi);
+  checkCity("Bogotá", "Colombia", /bogot[aá]\b/gi, ["bogota", "unal.edu.co", "uniandes.edu.co"]);
+  checkCity("Medellín", "Colombia", /medell[ií]n\b/gi, ["medellin", "udea.edu.co", "eafit.edu.co"]);
+  checkCity("Cali", "Colombia", /\bcali\b/gi, ["cali", "univalle.edu.co"]);
+  checkCity("Cartagena", "Colombia", /cartagena\b/gi, ["cartagena"]);
 
   // México
-  checkCity("Ciudad de México", "México", /ciudad de m[eé]xico|\bcdmx\b/gi);
-  checkCity("Guadalajara", "México", /guadalajara\b/gi);
-  checkCity("Monterrey", "México", /monterrey\b/gi);
-  checkCity("Cancún", "México", /canc[uú]n\b/gi);
+  checkCity("Ciudad de México", "México", /ciudad de m[eé]xico|\bcdmx\b/gi, ["cdmx", "unam.mx", "ipn.mx"]);
+  checkCity("Guadalajara", "México", /guadalajara\b/gi, ["guadalajara", "udg.mx"]);
+  checkCity("Monterrey", "México", /monterrey\b/gi, ["monterrey", "tec.mx", "uanl.mx"]);
+  checkCity("Cancún", "México", /canc[uú]n\b/gi, ["cancun"]);
 
   // Perú
-  checkCity("Lima", "Perú", /\blima\b/gi);
-  checkCity("Cusco", "Perú", /cusco\b|cuzco\b/gi);
-  checkCity("Arequipa", "Perú", /arequipa\b/gi);
+  checkCity("Lima", "Perú", /\blima\b/gi, ["lima", "pucp.edu.pe", "unmsm.edu.pe"]);
+  checkCity("Cusco", "Perú", /cusco\b|cuzco\b/gi, ["cusco", "unsaac.edu.pe"]);
+  checkCity("Arequipa", "Perú", /arequipa\b/gi, ["arequipa", "unsa.edu.pe"]);
 
-  // España & USA / Global Hubs
-  checkCity("Madrid", "España", /\bmadrid\b/gi);
-  checkCity("Barcelona", "España", /\bbarcelona\b/gi);
-  checkCity("Valencia", "España", /\bvalencia\b/gi);
-  checkCity("Miami", "Estados Unidos", /\bmiami\b/gi);
-  checkCity("New York", "Estados Unidos", /new york|nueva york|\bnyc\b/gi);
-  checkCity("Los Angeles", "Estados Unidos", /los [aá]ngeles\b/gi);
+  // España & USA
+  checkCity("Madrid", "España", /\bmadrid\b/gi, ["madrid", "ucm.es", "uam.es"]);
+  checkCity("Barcelona", "España", /\bbarcelona\b/gi, ["barcelona", "ub.edu", "uab.cat"]);
+  checkCity("Valencia", "España", /\bvalencia\b/gi, ["valencia", "uv.es"]);
+  checkCity("Miami", "Estados Unidos", /\bmiami\b/gi, ["miami"]);
+  checkCity("New York", "Estados Unidos", /new york|nueva york|\bnyc\b/gi, ["nyc", "newyork"]);
 
   // Country mentions in text
   if (/\bargentina\b|\.ar\b/i.test(lower)) detectedCountries.add("Argentina");
@@ -2534,6 +2592,12 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
   if (finalDescEs.length < 50) {
     const fallbackDesc = buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country);
     finalDescEs = fallbackDesc.es;
+  }
+
+  // Ensure city in description text matches primaryHq
+  if (primaryHq.city && primaryHq.city !== "Buenos Aires" && /sede en Buenos Aires/i.test(finalDescEs)) {
+    const locText = `${primaryHq.city}, ${primaryHq.country || "Argentina"}`;
+    finalDescEs = finalDescEs.replace(/sede en Buenos Aires(?:,\s*Argentina)?/gi, `sede en ${locText}`);
   }
 
   let finalDescEn = String(rawDescI18n.en || "").trim();
