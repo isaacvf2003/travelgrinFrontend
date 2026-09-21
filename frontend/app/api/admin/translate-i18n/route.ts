@@ -143,14 +143,28 @@ function normalizeDescriptionHeaders(text: string, lang: string): string {
 }
 
 async function translateWithGoogle(text: string, sl: string, tl: string): Promise<string | null> {
+  // 1. Try Google Chrome Dict client (fastest, high rate limit)
+  try {
+    const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${sl}&tl=${tl}&q=${encodeURIComponent(text)}`;
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3500);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data[0]) {
+        return String(data[0]).trim() || null;
+      }
+    }
+  } catch {}
+
+  // 2. Try Google Translate public API (gtx)
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
     const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3000);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (Array.isArray(data) && Array.isArray(data[0])) {
-      const translated = data[0].map((item: any) => item[0]).filter(Boolean).join("");
-      return translated || null;
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && Array.isArray(data[0])) {
+        const translated = data[0].map((item: any) => item[0]).filter(Boolean).join("");
+        return translated || null;
+      }
     }
   } catch {}
   return null;
