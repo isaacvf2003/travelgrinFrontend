@@ -3035,12 +3035,34 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const pubName = cleanTitleStr(draft.publisherName || draft.title || "");
     setPPublisherName(pubName);
 
-    const descEs = (draft.description || draft.descriptionI18n?.es || "").trim();
+    const unescapeHtml = (s: string) => {
+      if (!s) return "";
+      return s
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
+        .replace(/&amp;/g, "&");
+    };
+
+    let descEs = unescapeHtml((draft.description || draft.descriptionI18n?.es || "").trim());
+    if (!descEs || !descEs.includes("<p>")) {
+      const cityText = [draft.city, draft.country].filter(Boolean).join(", ");
+      const site = draft.website || draft.url || "";
+      const entityName = draft.publisherName || draft.title || "la entidad";
+      descEs = [
+        `<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> ${draft.price && draft.price !== "A consultar" ? draft.price : "A consultar / Según aranceles o tarifas del oferente."}</p>`,
+        `<p>💡 <strong>Propuesta de valor:</strong> Servicios y prestaciones oficiales brindadas por ${entityName}${cityText ? ` con sede en ${cityText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`,
+        `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ${draft.languages || "Español, Inglés"}. <em>Experiencia y soporte:</em> Información tomada directamente del portal oficial. <em>Diferencial vs. alternativas:</em> Contacto directo con el oferente y respaldo institucional.</p>`,
+        `<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${site} antes de contratar o postular.</p>`,
+      ].join("\n");
+    }
+
     const descI18nInit: I18nRecord = {
       es: descEs,
-      en: (draft.descriptionI18n?.en || "").trim(),
-      pt: (draft.descriptionI18n?.pt || "").trim(),
-      it: (draft.descriptionI18n?.it || "").trim(),
+      en: unescapeHtml((draft.descriptionI18n?.en || "").trim()),
+      pt: unescapeHtml((draft.descriptionI18n?.pt || "").trim()),
+      it: unescapeHtml((draft.descriptionI18n?.it || "").trim()),
     };
     setPDescription(descEs);
     setPDescriptionI18n(descI18nInit);
