@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "../../../../../lib/prisma";
+import prisma from "@/app/lib/prisma";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
 
