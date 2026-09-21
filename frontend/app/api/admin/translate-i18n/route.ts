@@ -22,6 +22,31 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&uacute;/g, "ú");
 }
 
+function cleanTranslationMarkup(str: string, isHtml: boolean = false): string {
+  if (!str) return "";
+  let res = decodeHtmlEntities(str);
+
+  // Strip translation memory & XLIFF tags (e.g. <g id="Documents_NoItalic">, </g>, <x id="..."/>)
+  res = res
+    .replace(/<g\b[^>]*>/gi, "")
+    .replace(/<\/g>/gi, "")
+    .replace(/<x\b[^>]*\/?>/gi, "")
+    .replace(/<bx\b[^>]*\/?>/gi, "")
+    .replace(/<ex\b[^>]*\/?>/gi, "")
+    .replace(/<bpt\b[^>]*>.*?<\/bpt>/gi, "")
+    .replace(/<ept\b[^>]*>.*?<\/ept>/gi, "")
+    .replace(/<ph\b[^>]*>.*?<\/ph>/gi, "")
+    .replace(/<mrk\b[^>]*>/gi, "")
+    .replace(/<\/mrk>/gi, "");
+
+  if (!isHtml) {
+    // If field is plain text (like Title or short Block Title), strip all XML/HTML tags
+    res = res.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  return res.trim();
+}
+
 async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms: number = 4000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
@@ -65,7 +90,7 @@ function normalizeDescriptionHeaders(text: string, lang: string): string {
       .replace(/<strong>\s*(?:Precio|Price|Prezzo):\s*<\/strong>/gi, "<strong>Preço:</strong>")
       .replace(/<strong>\s*(?:Propuesta de valor|Value proposition):\s*<\/strong>/gi, "<strong>Proposta de valor:</strong>")
       .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Who is it for\??|Per chi\??):\s*<\/strong>/gi, "<strong>Para quem?:</strong>")
-      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentação necessária:</strong>")
+      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentazione障|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentação necessária:</strong>")
       .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanenza):\s*<\/strong>/gi, "<strong>Permanência:</strong>")
       .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Diferencial:</strong>")
       .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Idiomas de atendimento:</em>")
@@ -93,7 +118,7 @@ function normalizeDescriptionHeaders(text: string, lang: string): string {
       .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternative):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
       .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>")
       .replace(/Vigencia:/gi, "Validità:")
-      .replace(/Propuesta de valor:/gi, "Proposta di valore:")
+      .replace(/Propuesta de valor:/gi, "Proposta de valor:")
       .replace(/¿?Para qui[eé]n\??:/gi, "Per chi?:")
       .replace(/Documentaci[oó]n requerida:/gi, "Documentazione richiesta:")
       .replace(/Permanencia:/gi, "Permanenza:")
@@ -117,28 +142,26 @@ function normalizeDescriptionHeaders(text: string, lang: string): string {
   return res;
 }
 
-async function translateQuery(q: string, sl: string, tl: string): Promise<string> {
+async function translateQuery(q: string, sl: string, tl: string, isHtml: boolean = false): Promise<string> {
   const trimmed = q.trim();
-  if (!trimmed || sl === tl) return q;
+  if (!trimmed || sl === tl) return cleanTranslationMarkup(q, isHtml);
   try {
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=${sl}|${tl}`;
     const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3500);
-    if (!res.ok) return q;
+    if (!res.ok) return cleanTranslationMarkup(q, isHtml);
     const data = await res.json();
     const trans = data.responseData?.translatedText;
     if (trans && typeof trans === "string" && !trans.includes("MYMEMORY WARNING")) {
-      return decodeHtmlEntities(trans);
+      return cleanTranslationMarkup(trans, isHtml);
     }
-    return q;
+    return cleanTranslationMarkup(q, isHtml);
   } catch {
-    return q;
+    return cleanTranslationMarkup(q, isHtml);
   }
 }
 
-async function translateParagraphOrText(text: string, sl: string, tl: string): Promise<string> {
-  if (!text || sl === tl) return text;
-
-  const isHtml = /<[a-z][\s\S]*>/i.test(text);
+async function translateParagraphOrText(text: string, sl: string, tl: string, isHtml: boolean): Promise<string> {
+  if (!text || sl === tl) return cleanTranslationMarkup(text, isHtml);
 
   if (!isHtml) {
     const lines = text.split("\n");
@@ -146,14 +169,15 @@ async function translateParagraphOrText(text: string, sl: string, tl: string): P
       lines.map(async (line) => {
         if (!line.trim()) return "";
         if (line.length <= 400) {
-          return translateQuery(line, sl, tl);
+          return translateQuery(line, sl, tl, false);
         }
         const sentences = line.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [line];
-        const transSentences = await Promise.all(sentences.map((s) => translateQuery(s, sl, tl)));
+        const transSentences = await Promise.all(sentences.map((s) => translateQuery(s, sl, tl, false)));
         return transSentences.join(" ");
       })
     );
-    return normalizeDescriptionHeaders(transLines.join("\n"), tl);
+    const joined = transLines.join("\n");
+    return cleanTranslationMarkup(normalizeDescriptionHeaders(joined, tl), false);
   }
 
   // HTML content handling
@@ -166,12 +190,12 @@ async function translateParagraphOrText(text: string, sl: string, tl: string): P
 
   if (paragraphs.length === 0) {
     if (text.length <= 400) {
-      const trans = await translateQuery(text, sl, tl);
-      return normalizeDescriptionHeaders(trans, tl);
+      const trans = await translateQuery(text, sl, tl, true);
+      return cleanTranslationMarkup(normalizeDescriptionHeaders(trans, tl), true);
     }
     const cleanText = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    const trans = await translateQuery(cleanText, sl, tl);
-    return normalizeDescriptionHeaders(trans, tl);
+    const trans = await translateQuery(cleanText, sl, tl, false);
+    return cleanTranslationMarkup(normalizeDescriptionHeaders(trans, tl), false);
   }
 
   const translatedParagraphs = await Promise.all(
@@ -181,19 +205,19 @@ async function translateParagraphOrText(text: string, sl: string, tl: string): P
       
       // If paragraph contains html formatting tags and is moderately sized, translate directly to preserve tags
       if (trimmed.length <= 450) {
-        const trans = await translateQuery(trimmed, sl, tl);
-        return `<p>${trans}</p>`;
+        const trans = await translateQuery(trimmed, sl, tl, true);
+        return `<p>${cleanTranslationMarkup(trans, true)}</p>`;
       }
 
       // If very long, split sentences
       const sentences = trimmed.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [trimmed];
-      const transSentences = await Promise.all(sentences.map((s) => translateQuery(s, sl, tl)));
-      return `<p>${transSentences.join(" ")}</p>`;
+      const transSentences = await Promise.all(sentences.map((s) => translateQuery(s, sl, tl, true)));
+      return `<p>${cleanTranslationMarkup(transSentences.join(" "), true)}</p>`;
     })
   );
 
   let fullHtml = translatedParagraphs.filter(Boolean).join("\n");
-  fullHtml = normalizeDescriptionHeaders(fullHtml, tl);
+  fullHtml = cleanTranslationMarkup(normalizeDescriptionHeaders(fullHtml, tl), true);
   return fullHtml;
 }
 
@@ -238,10 +262,10 @@ ${
   isHtml
     ? `REGLA CRÍTICA PARA HTML:
 El texto contiene etiquetas HTML (<p>, <strong>, <em>, <span>, <a>, <br>, <ul>, <li>, etc.) y emojis.
-1. Debes PRESERVAR EXACTAMENTE todas las etiquetas HTML, estructura, atributos, enlaces y emojis.
+1. Debes PRESERVAR EXACTAMENTE todas las etiquetas HTML válidas, estructura, atributos, enlaces y emojis. No inventes ni uses etiquetas como <g id="..."> ni <x/>.
 2. Traduce COMPLETAMENTE tanto las etiquetas o títulos en negrita (ej: 'Propuesta de valor' -> 'Value proposition' / 'Proposta de valor' / 'Proposta di valore', '¿Para quién?' -> 'Who is it for?' / 'Para quem?' / 'Per chi?', 'Documentación requerida' -> 'Required documents' / 'Documentação necessária' / 'Documentazione richiesta', 'Vigencia' -> 'Validity' / 'Validade' / 'Validità', 'Precio' -> 'Price' / 'Preço' / 'Prezzo', 'Diferencial' -> 'Differentiator' / 'Diferencial' / 'Differenziale', 'Exclusiones' -> 'Exclusions' / 'Exclusões' / 'Esclusioni') como TODO el contenido textual descriptivo interno.
 3. No dejes párrafos o frases en el idioma de origen dentro de las traducciones a otros idiomas. Todo el texto debe estar 100% traducido de forma natural al idioma correspondiente.`
-    : `Traduce el texto manteniendo el tono profesional, natural y preciso en cada idioma.`
+    : `Traduce el texto manteniendo el tono profesional, natural y preciso en cada idioma. No incluyas ninguna etiqueta HTML ni XML.`
 }
 
 TEXTO A TRADUCIR:
@@ -282,7 +306,8 @@ Ejemplo de formato:
             const parsed = JSON.parse(cleaned);
             const out: Record<string, string> = {};
             for (const l of targetLangs) {
-              out[l] = normalizeDescriptionHeaders(parsed[l] || text, l);
+              const val = parsed[l] || text;
+              out[l] = cleanTranslationMarkup(normalizeDescriptionHeaders(val, l), isHtml);
             }
             return NextResponse.json({ success: true, translations: out });
           }
@@ -325,7 +350,8 @@ Ejemplo de formato:
           const parsed = JSON.parse(cleaned);
           const out: Record<string, string> = {};
           for (const l of targetLangs) {
-            out[l] = normalizeDescriptionHeaders(parsed[l] || text, l);
+            const val = parsed[l] || text;
+            out[l] = cleanTranslationMarkup(normalizeDescriptionHeaders(val, l), isHtml);
           }
           return NextResponse.json({ success: true, translations: out });
         }
@@ -339,10 +365,10 @@ Ejemplo de formato:
     await Promise.all(
       targetLangs.map(async (tl) => {
         try {
-          const trans = await translateParagraphOrText(text, sourceLang, tl);
-          translationsOut[tl] = trans || text;
+          const trans = await translateParagraphOrText(text, sourceLang, tl, isHtml);
+          translationsOut[tl] = cleanTranslationMarkup(trans || text, isHtml);
         } catch {
-          translationsOut[tl] = normalizeDescriptionHeaders(text, tl);
+          translationsOut[tl] = cleanTranslationMarkup(normalizeDescriptionHeaders(text, tl), isHtml);
         }
       })
     );
