@@ -111,6 +111,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
   reviewCount?: string;
   commentsUrl?: string;
   additionalCities?: string[];
+  socialLinks?: SocialLinkDetail[];
 }> = {
   "garrahan.gov.ar": {
     name: "Hospital Garrahan",
@@ -125,6 +126,15 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     reviewCount: "1450",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Garrahan+Buenos+Aires",
     additionalCities: [],
+    socialLinks: [
+      { kind: "web", label: "Página Oficial", url: "https://www.garrahan.gov.ar/" },
+      { kind: "phone", label: "Conmutador Central", url: "tel:+541141226000" },
+      { kind: "phone", label: "Central de Turnos", url: "tel:+541141226200" },
+      { kind: "whatsapp", label: "WhatsApp", url: "https://wa.me/5491141226000" },
+      { kind: "instagram", label: "Instagram", url: "https://www.instagram.com/hospgarrahan" },
+      { kind: "facebook", label: "Facebook", url: "https://www.facebook.com/hospgarrahan" },
+      { kind: "youtube", label: "YouTube", url: "https://www.youtube.com/channel/UCfqI4Uk4INwBu7wKFJxIKKQ" },
+    ],
   },
   "hospitalitaliano.org.ar": {
     name: "Hospital Italiano de Buenos Aires",
@@ -139,6 +149,14 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     reviewCount: "5200",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Italiano+de+Buenos+Aires",
     additionalCities: ["San Justo"],
+    socialLinks: [
+      { kind: "web", label: "Página Oficial", url: "https://www.hospitalitaliano.org.ar" },
+      { kind: "phone", label: "Central Telefónica", url: "tel:+541149590200" },
+      { kind: "phone", label: "Central de Turnos", url: "tel:+541149590300" },
+      { kind: "whatsapp", label: "WhatsApp", url: "https://wa.me/5491149590200" },
+      { kind: "instagram", label: "Instagram", url: "https://www.instagram.com/hospitalitalianoba" },
+      { kind: "facebook", label: "Facebook", url: "https://www.facebook.com/hospitalitalianoba" },
+    ],
   },
   "hospitalbritanico.org.ar": {
     name: "Hospital Británico",
@@ -1046,6 +1064,48 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
     .filter((e) => !e.includes(".png") && !e.includes(".jpg") && !e.includes(".svg") && !e.includes("wixpress"))
     .slice(0, 3);
 
+  // 1. Phone extraction
+  const telRegex = /<a\b[^>]*href=["']tel:([^"']+)["'][^>]*>(.*?)<\/a>/gi;
+  let telMatch;
+  const phonesFound = new Set<string>();
+  while ((telMatch = telRegex.exec(cleanHtml)) !== null) {
+    const rawTel = telMatch[1].replace(/[^\d+]/g, "").trim();
+    if (rawTel.length >= 6 && rawTel.length <= 18) {
+      phonesFound.add(rawTel.startsWith("+") ? rawTel : `+${rawTel}`);
+    }
+  }
+
+  const phoneTextRegex = /(?:tel[eé]fonos?|conmutador|central(?:\s+telef[oó]nica|\s+de turnos)?|contacto|ll[aá]manos|guardia|atenci[oó]n telef[oó]nica):?\s*(\+?\d[\d\s().-]{6,18}\d)/gi;
+  let ptMatch;
+  while ((ptMatch = phoneTextRegex.exec(textContent)) !== null) {
+    const raw = ptMatch[1].trim();
+    const digitsOnly = raw.replace(/\D/g, "");
+    if (digitsOnly.length >= 7 && digitsOnly.length <= 15 && !/^(?:201|202|199|198)\d{4}/.test(digitsOnly)) {
+      phonesFound.add(raw.replace(/\s+/g, " "));
+    }
+  }
+
+  const freePhoneRegex = /\b(0800|0810)[-\s]?\d{3}[-\s]?\d{4}\b/gi;
+  let fpMatch;
+  while ((fpMatch = freePhoneRegex.exec(textContent)) !== null) {
+    phonesFound.add(fpMatch[0]);
+  }
+
+  // 2. WhatsApp extraction
+  const waRegex = /https?:\/\/(?:wa\.me|api\.whatsapp\.com\/send|web\.whatsapp\.com\/send)\b[^\s"'<>]+/gi;
+  const waMatches = cleanHtml.match(waRegex) || [];
+  const whatsappsFound = new Set<string>(waMatches);
+
+  const waTextRegex = /(?:whatsapp|wsp|celular|m[oó]vil|wap)\s*(?:de atenci[oó]n|consultas?|turnos?)?:?\s*(\+?\d[\d\s().-]{7,18}\d)/gi;
+  let waTextMatch;
+  while ((waTextMatch = waTextRegex.exec(textContent)) !== null) {
+    const raw = waTextMatch[1].trim();
+    const digitsOnly = raw.replace(/\D/g, "");
+    if (digitsOnly.length >= 8 && digitsOnly.length <= 15) {
+      whatsappsFound.add(`https://wa.me/${digitsOnly}`);
+    }
+  }
+
   const socialPatterns = [
     { kind: "whatsapp", regex: /https?:\/\/(?:wa\.me|api\.whatsapp\.com\/send)[^\s"'<>]+/gi, label: "WhatsApp" },
     { kind: "instagram", regex: /https?:\/\/(?:www\.)?instagram\.com\/[a-zA-Z0-9_.]+/gi, label: "Instagram" },
@@ -1059,11 +1119,34 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
     { kind: "web", label: "Página Oficial", url: sourceUrl },
   ];
 
+  // Add Phones
+  Array.from(phonesFound).slice(0, 3).forEach((phone) => {
+    const cleanDigits = phone.replace(/[^\d+]/g, "");
+    const telUrl = phone.startsWith("tel:") ? phone : `tel:${cleanDigits}`;
+    socialLinksExtracted.push({
+      kind: "phone",
+      label: phone.startsWith("0800") ? "Línea gratuita (0800)" : phone.startsWith("0810") ? "Atención telefónica (0810)" : "Teléfono de contacto",
+      url: telUrl,
+    });
+  });
+
+  // Add WhatsApp
+  Array.from(whatsappsFound).slice(0, 2).forEach((waUrl) => {
+    socialLinksExtracted.push({
+      kind: "whatsapp",
+      label: "WhatsApp",
+      url: waUrl,
+    });
+  });
+
+  // Add Emails
   emailsFound.forEach((email) => {
     socialLinksExtracted.push({ kind: "email", label: "Email de contacto", url: `mailto:${email}` });
   });
 
+  // Add Social Networks
   socialPatterns.forEach(({ kind, regex, label }) => {
+    if (kind === "whatsapp") return;
     const matches = cleanHtml.match(regex);
     if (matches && matches[0]) {
       socialLinksExtracted.push({ kind, label, url: matches[0] });
@@ -1559,6 +1642,100 @@ function normalizeToItalianDescriptionHeaders(text: string): string {
     .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>");
 }
 
+function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" | "it"): string {
+  if (!descEs) return "";
+  let text = descEs;
+
+  if (targetLang === "en") {
+    text = normalizeToEnglishDescriptionHeaders(text);
+    text = text
+      .replace(/<strong>\s*(?:Vigencia|Validade|Validità):\s*<\/strong>/gi, "<strong>Validity:</strong>")
+      .replace(/<strong>\s*(?:Precio|Preço|Prezzo):\s*<\/strong>/gi, "<strong>Price:</strong>")
+      .replace(/<strong>\s*(?:Propuesta de valor|Proposta de valor):\s*<\/strong>/gi, "<strong>Value proposition:</strong>")
+      .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Para quem\??|Per chi\??):\s*<\/strong>/gi, "<strong>Who is it for?:</strong>")
+      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Documentação necessária|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Required documents:</strong>")
+      .replace(/<strong>\s*(?:Permanencia|Permanência|Permanenza):\s*<\/strong>/gi, "<strong>Length of stay:</strong>")
+      .replace(/<strong>\s*(?:Diferencial|Differenziale):\s*<\/strong>/gi, "<strong>Differentiator:</strong>")
+      .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Idiomas de atendimento|Lingue di assistenza):\s*<\/em>/gi, "<em>Service languages:</em>")
+      .replace(/<em>\s*(?:Experiencia y soporte|Experiência e suporte|Esperienza e supporto):\s*<\/em>/gi, "<em>Experience and support:</em>")
+      .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Differentiator vs. alternatives:</em>")
+      .replace(/<strong>\s*(?:Exclusiones|Exclusões|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusions:</strong>")
+      .replace(/Activo;\s*sitio oficial actualizado\./gi, "Active; official website updated.")
+      .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Upon request / Subject to provider rates.")
+      .replace(/A consultar/gi, "Upon request")
+      .replace(/con sede en\b/gi, "headquartered in")
+      .replace(/Personas interesadas,\s*clientes,\s*familias,\s*estudiantes o profesionales seg[uú]n el rubro\./gi, "Interested individuals, clients, families, students, or professionals according to sector.")
+      .replace(/DNI o pasaporte y documentaci[oó]n informada por el oferente\./gi, "ID or passport and documentation informed by the provider.")
+      .replace(/Seg[uú]n la modalidad o servicio contratado\./gi, "According to the contracted modality or service.")
+      .replace(/Espa[ñn]ol,\s*Ingl[eé]s\./gi, "Spanish, English.")
+      .replace(/Informaci[oó]n tomada directamente del portal oficial\./gi, "Information sourced directly from the official portal.")
+      .replace(/Contacto directo con el oferente y respaldo institucional\./gi, "Direct contact with the provider and institutional backing.")
+      .replace(/Confirmar disponibilidad,\s*tarifas vigentes,\s*requisitos y condiciones particulares directamente en\b/gi, "Confirm availability, current rates, requirements, and specific conditions directly at")
+      .replace(/antes de contratar o postular\./gi, "before hiring or applying.");
+    return text;
+  }
+
+  if (targetLang === "pt") {
+    text = normalizeToPortugueseDescriptionHeaders(text);
+    text = text
+      .replace(/<strong>\s*(?:Vigencia|Validity|Validità):\s*<\/strong>/gi, "<strong>Validade:</strong>")
+      .replace(/<strong>\s*(?:Precio|Price|Prezzo):\s*<\/strong>/gi, "<strong>Preço:</strong>")
+      .replace(/<strong>\s*(?:Propuesta de valor|Value proposition):\s*<\/strong>/gi, "<strong>Proposta de valor:</strong>")
+      .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Who is it for\??|Per chi\??):\s*<\/strong>/gi, "<strong>Para quem?:</strong>")
+      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentação necessária:</strong>")
+      .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanenza):\s*<\/strong>/gi, "<strong>Permanência:</strong>")
+      .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Diferencial:</strong>")
+      .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Idiomas de atendimento:</em>")
+      .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
+      .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Diferencial vs. alternativas:</em>")
+      .replace(/<strong>\s*(?:Exclusiones|Exclusions|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusões:</strong>")
+      .replace(/Activo;\s*sitio oficial actualizado\./gi, "Ativo; site oficial atualizado.")
+      .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Sob consulta / Conforme tarifas do provedor.")
+      .replace(/A consultar/gi, "Sob consulta")
+      .replace(/con sede en\b/gi, "com sede em")
+      .replace(/Personas interesadas,\s*clientes,\s*familias,\s*estudiantes o profesionales seg[uú]n el rubro\./gi, "Interessados, clientes, famílias, estudantes ou profissionais conforme o setor.")
+      .replace(/DNI o pasaporte y documentaci[oó]n informada por el oferente\./gi, "RG ou passaporte e documentação informada pelo provedor.")
+      .replace(/Seg[uú]n la modalidad o servicio contratado\./gi, "Conforme a modalidade ou serviço contratado.")
+      .replace(/Espa[ñn]ol,\s*Ingl[eé]s\./gi, "Espanhol, Inglês.")
+      .replace(/Informaci[oó]n tomada directamente del portal oficial\./gi, "Informações obtidas diretamente do portal oficial.")
+      .replace(/Contacto directo com o provedor e respaldo institucional\./gi, "Contato direto com o provedor e respaldo institucional.")
+      .replace(/Confirmar disponibilidad,\s*tarifas vigentes,\s*requisitos y condiciones particulares directamente en\b/gi, "Confirmar disponibilidade, tarifas vigentes, requisitos e condições diretamente em")
+      .replace(/antes de contratar o postular\./gi, "antes de contratar ou se candidatar.");
+    return text;
+  }
+
+  if (targetLang === "it") {
+    text = normalizeToItalianDescriptionHeaders(text);
+    text = text
+      .replace(/<strong>\s*(?:Vigencia|Validity|Validade):\s*<\/strong>/gi, "<strong>Validità:</strong>")
+      .replace(/<strong>\s*(?:Precio|Price|Preço):\s*<\/strong>/gi, "<strong>Prezzo:</strong>")
+      .replace(/<strong>\s*(?:Propuesta de valor|Value proposition|Proposta de valor):\s*<\/strong>/gi, "<strong>Proposta di valore:</strong>")
+      .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Who is it for\??|Para quem\??):\s*<\/strong>/gi, "<strong>Per chi?:</strong>")
+      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária):\s*<\/strong>/gi, "<strong>Documentazione richiesta:</strong>")
+      .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanência):\s*<\/strong>/gi, "<strong>Permanenza:</strong>")
+      .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Differenziale:</strong>")
+      .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Idiomas de atendimento):\s*<\/em>/gi, "<em>Lingue di assistenza:</em>")
+      .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
+      .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
+      .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>")
+      .replace(/Activo;\s*sitio oficial actualizado\./gi, "Attivo; sito ufficiale aggiornato.")
+      .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Su richiesta / In base alle tariffe del fornitore.")
+      .replace(/A consultar/gi, "Su richiesta")
+      .replace(/con sede en\b/gi, "con sede a")
+      .replace(/Personas interesadas,\s*clientes,\s*familias,\s*estudiantes o profesionales seg[uú]n el rubro\./gi, "Persone interessate, clienti, famiglie, studenti o professionisti a seconda del settore.")
+      .replace(/DNI o pasaporte y documentaci[oó]n informada por el oferente\./gi, "Carta d'identità o passaporto e documenti richiesti dal fornitore.")
+      .replace(/Seg[uú]n la modalidad o servicio contratado\./gi, "In base alla modalità o al servizio richiesto.")
+      .replace(/Espa[ñn]ol,\s*Ingl[eé]s\./gi, "Spagnolo, Inglese.")
+      .replace(/Informaci[oó]n tomada directamente del portal oficial\./gi, "Informazioni tratte direttamente dal portale ufficiale.")
+      .replace(/Contacto directo con el oferente y respaldo institucional\./gi, "Contatto diretto con il fornitore e supporto istituzionale.")
+      .replace(/Confirmar disponibilidad,\s*tarifas vigentes,\s*requisitos y condiciones particulares directamente en\b/gi, "Verificare disponibilità, tariffe vigenti, requisiti e condizioni direttamente su")
+      .replace(/antes de contratar o postular\./gi, "prima di procedere o candidarsi.");
+    return text;
+  }
+
+  return descEs;
+}
+
 /**
  * Fallback description generator if AI output is empty or completely missing.
  */
@@ -1584,26 +1761,9 @@ function buildGroundedDescriptions(
     `<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${siteUrl} antes de contratar o postular.</p>`,
   ].join("\n");
 
-  const en = [
-    `<p><strong>Validity:</strong> Active; official website updated. <strong>Price:</strong> Upon request / Subject to provider rates.</p>`,
-    `<p>💡 <strong>Value proposition:</strong> Verified official institution and services${locationText ? ` based in ${locationText}` : ""}. <strong>Who is it for?:</strong> Interested clients, students, professionals, or families according to sector. <strong>Required documents:</strong> ID or passport and relevant documentation informed by provider. <strong>Length of stay:</strong> According to service modality.</p>`,
-    `<p>⭐ <strong>Differentiator:</strong> <em>Service languages:</em> Spanish, English. <em>Experience and support:</em> Information sourced directly from the official portal. <em>Differentiator vs. alternatives:</em> Direct contact with provider and institutional backing.</p>`,
-    `<p>⚠️ <strong>Exclusions:</strong> Confirm availability, current rates, requirements, and conditions directly on ${siteUrl} before hiring or applying.</p>`,
-  ].join("\n");
-
-  const pt = [
-    `<p><strong>Validade:</strong> Ativo; site oficial atualizado. <strong>Preço:</strong> Sob consulta / Conforme tarifas do provedor.</p>`,
-    `<p>💡 <strong>Proposta de valor:</strong> Instituição oficial verificada e serviços especializados${locationText ? ` com sede em ${locationText}` : ""}. <strong>Para quem?:</strong> Interessados, clientes, famílias, estudantes ou profissionais conforme o setor. <strong>Documentação necessária:</strong> RG ou passaporte e documentos informados pelo provedor. <strong>Permanência:</strong> Conforme o serviço contratado.</p>`,
-    `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atendimento:</em> Espanhol, Inglês. <em>Experiência e suporte:</em> Informações obtidas diretamente do portal oficial. <em>Diferencial vs. alternativas:</em> Contato direto com o provedor e respaldo institucional.</p>`,
-    `<p>⚠️ <strong>Exclusões:</strong> Confirmar disponibilidade, tarifas, requisitos e condições diretamente em ${siteUrl} antes da contratação.</p>`,
-  ].join("\n");
-
-  const it = [
-    `<p><strong>Validità:</strong> Attivo; sito ufficiale aggiornato. <strong>Prezzo:</strong> Su richiesta / In base alle tariffe del fornitore.</p>`,
-    `<p>💡 <strong>Proposta de valor:</strong> Istituzione ufficiale verificata e servizi specializzati${locationText ? ` con sede a ${locationText}` : ""}. <strong>Per chi?:</strong> Persone interessate, clienti, famiglie, studenti o professionisti a seconda del settore. <strong>Documentazione richiesta:</strong> Carta d'identità o passaporto e documenti richiesti dal fornitore. <strong>Permanenza:</strong> In base al servizio richiesto.</p>`,
-    `<p>⭐ <strong>Differenziale:</strong> <em>Lingue di assistenza:</em> Spagnolo, Inglese. <em>Esperienza e supporto:</em> Informazioni tratte direttamente dal portale ufficiale. <em>Differenziale vs. alternative:</em> Contatto diretto con il fornitore e supporto istituzionale.</p>`,
-    `<p>⚠️ <strong>Esclusioni:</strong> Verificare disponibilità, tariffe, requisiti e condizioni direttamente su ${siteUrl} prima di procedere.</p>`,
-  ].join("\n");
+  const en = translateStructuredDescription(es, "en");
+  const pt = translateStructuredDescription(es, "pt");
+  const it = translateStructuredDescription(es, "it");
 
   return { es, en, pt, it };
 }
@@ -2174,13 +2334,18 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
   * Si es HOTEL / ALOJAMIENTO: Actividad: ["Hostelería, alojamiento y turismo"]. Categoría: ["Alojamiento"].
 
 2. DESCRIPCIÓN PRINCIPAL (ESTRUCTURA DE 4 PÁRRAFOS HTML CON ICONOS) Y MULTILENGUAJE OBLIGATORIO:
-Genera 'description' (en español) y 'descriptionI18n' (con traducciones COMPLETAS, AUTÉNTICAS Y NATURALES en los 4 idiomas: es, en, pt, it) respetando EXACTAMENTE estos 4 párrafos:
+Genera 'description' (en español) y 'descriptionI18n' (con traducciones COMPLETAS, AUTÉNTICAS Y NATURALES de esa misma descripción exacta en los 4 idiomas: es, en, pt, it) respetando EXACTAMENTE estos 4 párrafos:
 <p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> [Precio/Aranceles reales informados en la web o "A consultar"].</p>
 <p>💡 <strong>Propuesta de valor:</strong> [Explicación exhaustiva y REAL de los servicios o productos que brinda según el texto de la web]. <strong>¿Para quién?:</strong> [Público objetivo real]. <strong>Documentación requerida:</strong> [Requisitos reales según la web o acordes a su rubro]. <strong>Permanencia:</strong> [Modalidad temporal, ej: según servicio contratado, ciclo lectivo anual, estadía por noche, etc.].</p>
 <p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> [Idiomas de atención detectados]. <em>Experiencia con clientes o extranjeros:</em> [Alcance y soporte real]. <em>Diferencial vs. alternativas:</em> [Ventajas competitivas reales, acreditación, trayectoria].</p>
 <p>⚠️ <strong>Exclusiones:</strong> [Políticas, aclaraciones, aranceles o condiciones informadas en la web].</p>
 
-OBLIGATORIO: 'titleI18n', 'descriptionI18n', 'providerInfoI18n' y todos los bloques de 'extraDescriptions' DEBEN incluir traducciones reales a 'es', 'en', 'pt', e 'it'.
+OBLIGATORIO Y ESTRICTO:
+- 'descriptionI18n.es': La descripción completa anterior en Español.
+- 'descriptionI18n.en': Traduce la descripción exacta anterior al Inglés (con 'Validity:', 'Value proposition:', 'Who is it for?:', 'Required documents:', 'Length of stay:', 'Differentiator:', 'Exclusions:').
+- 'descriptionI18n.pt': Traduce la descripción exacta anterior al Portugués (con 'Validade:', 'Proposta de valor:', 'Para quem?:', 'Documentação necessária:', 'Permanência:', 'Diferencial:', 'Exclusões:').
+- 'descriptionI18n.it': Traduce la descripción exacta anterior al Italiano (con 'Validità:', 'Proposta di valore:', 'Per chi?:', 'Documentazione richiesta:', 'Permanenza:', 'Differenziale:', 'Esclusioni:').
+NUNCA dejes las traducciones vacías, ni iguales al español, ni uses textos genéricos diferentes a lo descrito en 'es'.
 
 3. AUDITORÍA DEL SCORE SCOUT (0 a 100 PUNTOS):
 Audita la entidad en 6 dimensiones reales:
@@ -2211,11 +2376,70 @@ Si la web contiene secciones específicas e importantes (ej: "Requisitos", "Serv
 - 'providerReviewCount': Número entero de reseñas / comentarios reales (ej: "1450", "280", "15"). REGLA ESTRICTA: Si la web o entidad NO tiene comentarios o reseñas informadas, DEBE SER ESTRICTAMENTE "0" (CERO). NUNCA pongas un número genérico ficticio como "120" si no existen comentarios reales.
 - 'providerCommentsUrl': Enlace directo a las reseñas o ficha de Google Maps de la entidad (ej: "https://www.google.com/maps/search/?api=1&query=Nombre+Entidad+Ciudad").
 
+7. TELÉFONOS, CELULARES, WHATSAPP Y REDES SOCIALES:
+- 'socialLinksDetailed': Extrae TODOS los canales de contacto verificables encontrados en la web:
+  * Teléfonos fijos o centrales: { kind: "phone", label: "Teléfono de contacto", url: "tel:+54..." }
+  * Celulares o WhatsApp: { kind: "whatsapp", label: "WhatsApp", url: "https://wa.me/..." }
+  * Correos electrónicos: { kind: "email", label: "Email de contacto", url: "mailto:..." }
+  * Redes sociales: { kind: "instagram" | "facebook" | "linkedin" | "youtube" | "tiktok", label: "...", url: "..." }
+  * Web oficial: { kind: "web", label: "Página Oficial", url: "..." }
+
 Devuelve UN OBJETO JSON con las siguientes claves exactas:
 url, title, titleI18n, description, descriptionI18n, extraDescriptions, publisherName, providerInfoI18n, providerStartYear, providerRating, providerReviewCount, providerCommentsUrl, country, city, headquarterCountry, headquarterCity, locationAddress, destinationCountries, headquarterLocations, currency, price, pricePeriod, languages, website, socialLinksDetailed, category, subcategory, categorySelections, subcategorySelections, providerActivities, providerTypes, providerModalities, scoreScout: { totalScore, p1, p2, p3, p4, p5, p6, maturity, relationship, evidenceSummary }.
 
 Responde ÚNICAMENTE con JSON estricto sin formato markdown ni texto adicional.
 `;
+}
+
+function mergeSocialLinks(linksA: SocialLinkDetail[] = [], linksB: SocialLinkDetail[] = []): SocialLinkDetail[] {
+  const merged: SocialLinkDetail[] = [];
+  const seenUrls = new Set<string>();
+
+  const add = (l: any) => {
+    if (!l || !l.url) return;
+    let u = String(l.url).trim();
+    if (!u) return;
+    const norm = u.toLowerCase().replace(/\/+$/, "");
+    if (seenUrls.has(norm)) return;
+    seenUrls.add(norm);
+
+    let kind = String(l.kind || "").toLowerCase().trim();
+    let label = String(l.label || "").trim();
+
+    if (!kind) {
+      if (u.startsWith("tel:") || /^\+?\d[\d\s-]{6,}$/.test(u)) kind = "phone";
+      else if (u.startsWith("mailto:")) kind = "email";
+      else if (u.includes("wa.me") || u.includes("whatsapp")) kind = "whatsapp";
+      else if (u.includes("instagram.com")) kind = "instagram";
+      else if (u.includes("facebook.com")) kind = "facebook";
+      else if (u.includes("youtube.com") || u.includes("youtu.be")) kind = "youtube";
+      else if (u.includes("tiktok.com")) kind = "tiktok";
+      else if (u.includes("linkedin.com")) kind = "linkedin";
+      else kind = "web";
+    }
+
+    if (kind === "phone" && !u.startsWith("tel:")) {
+      u = `tel:${u.replace(/[^\d+]/g, "")}`;
+    }
+
+    if (!label) {
+      if (kind === "phone") label = "Teléfono de contacto";
+      else if (kind === "whatsapp") label = "WhatsApp";
+      else if (kind === "email") label = "Email de contacto";
+      else if (kind === "instagram") label = "Instagram";
+      else if (kind === "facebook") label = "Facebook";
+      else if (kind === "youtube") label = "YouTube";
+      else if (kind === "tiktok") label = "TikTok";
+      else if (kind === "linkedin") label = "LinkedIn";
+      else label = "Sitio Web";
+    }
+
+    merged.push({ kind, label, url: u });
+  };
+
+  linksA.forEach(add);
+  linksB.forEach(add);
+  return merged;
 }
 
 function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: any): ScrapedPublication {
@@ -2305,23 +2529,35 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
   // Preserve the AI-generated structured description
   const rawDescI18n = parsed.descriptionI18n || {};
   let finalDescEs = normalizeToSpanishDescriptionHeaders(String(rawDescI18n.es || parsed.description || "").trim());
-  let finalDescEn = normalizeToEnglishDescriptionHeaders(String(rawDescI18n.en || "").trim());
-  let finalDescPt = normalizeToPortugueseDescriptionHeaders(String(rawDescI18n.pt || "").trim());
-  let finalDescIt = normalizeToItalianDescriptionHeaders(String(rawDescI18n.it || "").trim());
 
   // If the AI description was missing or too short, use grounded fallback
   if (finalDescEs.length < 50) {
     const fallbackDesc = buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country);
     finalDescEs = fallbackDesc.es;
-    if (!finalDescEn) finalDescEn = fallbackDesc.en;
-    if (!finalDescPt) finalDescPt = fallbackDesc.pt;
-    if (!finalDescIt) finalDescIt = fallbackDesc.it;
+  }
+
+  let finalDescEn = String(rawDescI18n.en || "").trim();
+  let finalDescPt = String(rawDescI18n.pt || "").trim();
+  let finalDescIt = String(rawDescI18n.it || "").trim();
+
+  const hasSpanishMarkers = (str: string) => /<strong>\s*(?:Vigencia|Propuesta de valor|¿?Para qui[eé]n|Documentaci[oó]n requerida|Permanencia|Diferencial|Exclusiones):/i.test(str);
+
+  if (!finalDescEn || finalDescEn === finalDescEs || hasSpanishMarkers(finalDescEn)) {
+    finalDescEn = translateStructuredDescription(finalDescEs, "en");
   } else {
-    // If translations are missing or equal to spanish, generate grounded localized versions
-    const fallbackDesc = buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country);
-    if (!finalDescEn || finalDescEn === finalDescEs) finalDescEn = fallbackDesc.en;
-    if (!finalDescPt || finalDescPt === finalDescEs) finalDescPt = fallbackDesc.pt;
-    if (!finalDescIt || finalDescIt === finalDescEs) finalDescIt = fallbackDesc.it;
+    finalDescEn = normalizeToEnglishDescriptionHeaders(finalDescEn);
+  }
+
+  if (!finalDescPt || finalDescPt === finalDescEs || hasSpanishMarkers(finalDescPt)) {
+    finalDescPt = translateStructuredDescription(finalDescEs, "pt");
+  } else {
+    finalDescPt = normalizeToPortugueseDescriptionHeaders(finalDescPt);
+  }
+
+  if (!finalDescIt || finalDescIt === finalDescEs || hasSpanishMarkers(finalDescIt)) {
+    finalDescIt = translateStructuredDescription(finalDescEs, "it");
+  } else {
+    finalDescIt = normalizeToItalianDescriptionHeaders(finalDescIt);
   }
 
   // Score Scout Block resolution
@@ -2428,6 +2664,10 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
     ? locInfo.detectedCountries
     : [primaryHq.country || country];
 
+  const rawParsedSocials = Array.isArray(parsed.socialLinksDetailed) ? parsed.socialLinksDetailed : [];
+  const rawExtractedSocials = Array.isArray(extractedData.socialLinksExtracted) ? extractedData.socialLinksExtracted : [{ kind: "web", label: "Sitio Oficial", url: extractedData.url }];
+  const combinedSocials = mergeSocialLinks(rawParsedSocials, rawExtractedSocials);
+
   const draftResult: ScrapedPublication = {
     url: extractedData.url,
     title,
@@ -2459,10 +2699,7 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
     pricePeriod: parsed.pricePeriod || "",
     languages: parsed.languages || "Español, Inglés",
     website: parsed.website || extractedData.url,
-    socialLinksDetailed:
-      Array.isArray(parsed.socialLinksDetailed) && parsed.socialLinksDetailed.length
-        ? parsed.socialLinksDetailed
-        : extractedData.socialLinksExtracted || [{ kind: "web", label: "Sitio Oficial", url: extractedData.url }],
+    socialLinksDetailed: combinedSocials.length ? combinedSocials : [{ kind: "web", label: "Sitio Oficial", url: extractedData.url }],
     images: extractedData.images && extractedData.images.length ? extractedData.images : (parsed.images || []),
     category: matchedCatSelections[0] || (parsed.category || "General"),
     subcategory: matchedSubcatSelections[0] || (parsed.subcategory || "General"),
@@ -2499,6 +2736,35 @@ function enforceStrictTaxonomyGuardrails(
     publication.descriptionI18n.it = normalizeToItalianDescriptionHeaders(publication.descriptionI18n.it || "");
   }
 
+  // Ensure all 4 languages are translated from the Spanish description
+  const descEs = publication.description || publication.descriptionI18n?.es || "";
+  if (descEs) {
+    const hasSpanishMarkers = (str: string) => /<strong>\s*(?:Vigencia|Propuesta de valor|¿?Para qui[eé]n|Documentaci[oó]n requerida|Permanencia|Diferencial|Exclusiones):/i.test(str);
+    if (!publication.descriptionI18n) {
+      publication.descriptionI18n = {
+        es: descEs,
+        en: translateStructuredDescription(descEs, "en"),
+        pt: translateStructuredDescription(descEs, "pt"),
+        it: translateStructuredDescription(descEs, "it"),
+      };
+    } else {
+      if (!publication.descriptionI18n.en || publication.descriptionI18n.en === descEs || hasSpanishMarkers(publication.descriptionI18n.en)) {
+        publication.descriptionI18n.en = translateStructuredDescription(descEs, "en");
+      }
+      if (!publication.descriptionI18n.pt || publication.descriptionI18n.pt === descEs || hasSpanishMarkers(publication.descriptionI18n.pt)) {
+        publication.descriptionI18n.pt = translateStructuredDescription(descEs, "pt");
+      }
+      if (!publication.descriptionI18n.it || publication.descriptionI18n.it === descEs || hasSpanishMarkers(publication.descriptionI18n.it)) {
+        publication.descriptionI18n.it = translateStructuredDescription(descEs, "it");
+      }
+    }
+  }
+
+  // Merge any extracted phone, whatsapp, email, web links
+  if (extractedData?.socialLinksExtracted && Array.isArray(extractedData.socialLinksExtracted)) {
+    publication.socialLinksDetailed = mergeSocialLinks(publication.socialLinksDetailed, extractedData.socialLinksExtracted);
+  }
+
   const locInfo = detectAllLocationsAndHeadquarters(allText, publication.url, titleClean);
   const classified = classifySectorAndTaxonomy(publication.url, titleClean, allText, taxonomies);
 
@@ -2513,6 +2779,9 @@ function enforceStrictTaxonomyGuardrails(
         if (info.rating) publication.providerRating = info.rating;
         if (info.reviewCount) publication.providerReviewCount = info.reviewCount;
         if (info.commentsUrl) publication.providerCommentsUrl = info.commentsUrl;
+        if (info.socialLinks && info.socialLinks.length) {
+          publication.socialLinksDetailed = mergeSocialLinks(publication.socialLinksDetailed, info.socialLinks);
+        }
         publication.city = info.primaryCity;
         publication.headquarterCity = info.primaryCity;
         publication.headquarterCountry = info.primaryCountry;

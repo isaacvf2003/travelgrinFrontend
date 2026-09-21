@@ -881,13 +881,15 @@ function parseProviderLinks(raw: string): { website: string; socialLinks: Social
   const normalizeUrl = (value: string) => {
     const token = value.trim().replace(/^\/+|\/+$/g, "");
     if (!token) return "";
-    if (/^https?:\/\//i.test(token) || /^mailto:/i.test(token)) return token;
+    if (/^https?:\/\//i.test(token) || /^mailto:/i.test(token) || /^tel:/i.test(token)) return token;
     if (token.includes("@") && !token.includes(" ")) return `mailto:${token}`;
+    if (/^\+?\d[\d\s().-]{6,}\d$/.test(token)) return `tel:${token.replace(/[^\d+]/g, "")}`;
     return `https://${token}`;
   };
 
   const detectKind = (url: string) => {
     const normalized = url.toLowerCase();
+    if (normalized.startsWith("tel:") || /^\+?\d[\d\s().-]{6,}\d$/.test(normalized)) return "phone";
     if (normalized.includes("instagram.")) return "instagram";
     if (normalized.includes("facebook.")) return "facebook";
     if (normalized.includes("tiktok.")) return "tiktok";
@@ -910,7 +912,16 @@ function parseProviderLinks(raw: string): { website: string; socialLinks: Social
       const kind = detectKind(url);
       return {
         kind,
-        label: kind === "web" ? "Web" : kind.charAt(0).toUpperCase() + kind.slice(1),
+        label:
+          kind === "web"
+            ? "Web"
+            : kind === "phone"
+            ? "Teléfono"
+            : kind === "whatsapp"
+            ? "WhatsApp"
+            : kind === "email"
+            ? "Email"
+            : kind.charAt(0).toUpperCase() + kind.slice(1),
         url,
       };
     })
@@ -1690,14 +1701,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   };
 
   const linkKindOptions = [
-    { value: "linkedin", label: "LinkedIn" },
-    { value: "facebook", label: "Facebook" },
-    { value: "instagram", label: "Instagram" },
-    { value: "tiktok", label: "TikTok" },
-    { value: "youtube", label: "YouTube" },
+    { value: "phone", label: "Teléfono" },
     { value: "whatsapp", label: "WhatsApp" },
-    { value: "email", label: "Email" },
     { value: "web", label: "Web" },
+    { value: "email", label: "Email" },
+    { value: "instagram", label: "Instagram" },
+    { value: "facebook", label: "Facebook" },
+    { value: "youtube", label: "YouTube" },
+    { value: "tiktok", label: "TikTok" },
+    { value: "linkedin", label: "LinkedIn" },
     { value: "other", label: "Otro" },
   ];
 
@@ -2661,7 +2673,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             if (rawUrl.startsWith("mailto:")) return rawUrl;
             return rawUrl.includes("@") ? `mailto:${rawUrl}` : rawUrl;
           }
-          if (/^https?:\/\//i.test(rawUrl) || /^mailto:/i.test(rawUrl)) return rawUrl;
+          if (kind === "phone") {
+            if (rawUrl.startsWith("tel:")) return rawUrl;
+            return `tel:${rawUrl.replace(/[^\d+]/g, "")}`;
+          }
+          if (/^https?:\/\//i.test(rawUrl) || /^mailto:/i.test(rawUrl) || /^tel:/i.test(rawUrl)) return rawUrl;
           return `https://${rawUrl}`;
         })(),
       }))
@@ -3051,7 +3067,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const providerInfoInit = draft.providerInfoI18n || { es: "" };
     setPProviderInfoI18n(providerInfoInit);
 
-    // Auto-translate missing languages (en, pt, it) if they are missing or equal to spanish fallback
+    // Auto-translate missing languages (en, pt, it) if they are missing, equal to spanish fallback, or contain spanish headers
+    const hasSpanishMarkers = (str: string) => /<strong>\s*(?:Vigencia|Propuesta de valor|¿?Para qui[eé]n|Documentaci[oó]n requerida|Permanencia|Diferencial|Exclusiones):/i.test(str);
     const needsTranslation =
       descEs &&
       (!descI18nInit.en ||
@@ -3059,7 +3076,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         !descI18nInit.it ||
         descI18nInit.en === descEs ||
         descI18nInit.pt === descEs ||
-        descI18nInit.it === descEs);
+        descI18nInit.it === descEs ||
+        hasSpanishMarkers(descI18nInit.en) ||
+        hasSpanishMarkers(descI18nInit.pt) ||
+        hasSpanishMarkers(descI18nInit.it));
 
     if (needsTranslation) {
       fetch("/api/admin/translate-i18n", {
@@ -3168,8 +3188,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const linkMap = new Map<string, SocialLinkDetail>();
     [...draftSocials, ...parsedSocialLinks].forEach((entry) => {
       if (entry && entry.url) {
-        const key = `${entry.kind || "web"}:${entry.url}`;
-        if (!linkMap.has(key)) linkMap.set(key, entry);
+        let kind = String(entry.kind || "web").toLowerCase().trim();
+        let u = String(entry.url).trim();
+        if (kind === "phone" && !u.startsWith("tel:")) {
+          u = `tel:${u.replace(/[^\d+]/g, "")}`;
+        }
+        const key = `${kind}:${u}`;
+        if (!linkMap.has(key)) {
+          linkMap.set(key, {
+            kind,
+            label: String(entry.label || "").trim() || (kind === "phone" ? "Teléfono de contacto" : kind === "whatsapp" ? "WhatsApp" : kind === "email" ? "Email de contacto" : "Página Oficial"),
+            url: u,
+          });
+        }
       }
     });
     setPSocialLinksDetailed(Array.from(linkMap.values()));
