@@ -3456,7 +3456,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const taxonomies = await getAvailableTaxonomies();
+    const taxonomies = await getAvailableSystemTaxonomies();
 
     const customKey = String(body.apiKey || "").trim();
     const requestedProvider = String(body.provider || "auto").toLowerCase();
