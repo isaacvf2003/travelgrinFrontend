@@ -1905,10 +1905,26 @@ function buildScoreScoutBlock(
 
 function cleanJunkTextPhrases(text: string): string {
   if (!text || typeof text !== "string") return "";
+
+  // If the text contains HTML tags, only clean text content outside tags, preserving <...> completely!
+  if (/<[a-z][\s\S]*>/i.test(text)) {
+    return text
+      .split(/(<[^>]+>)/g)
+      .map((part) => {
+        if (part.startsWith("<") && part.endsWith(">")) return part;
+        return part
+          .replace(/\b(?:leer\s+(?:nota|m[aá]s|noticia)|ver\s+(?:m[aá]s|detalle|publicaci[oó]n|nota)|conoc[eé]\s+m[aá]s|saber\s+m[aá]s|m[aá]s\s+informaci[oó]n|read\s+more|seguir\s+leyendo|ir\s+a\s+la\s+nota|haga?\s+clic\s+aqu[ií]|clic\s+aqu[ií]|click\s+here)\b\s*[»›→\.]*/gi, "")
+          .replace(/[»›→]+/g, "");
+      })
+      .join("")
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
+  }
+
   return text
-    .replace(/\b(?:leer\s+(?:nota|m[aá]s|noticia)|ver\s+(?:m[aá]s|detalle|publicaci[oó]n|nota)|conoc[eé]\s+m[aá]s|saber\s+m[aá]s|m[aá]s\s+informaci[oó]n|read\s+more|seguir\s+leyendo|ir\s+a\s+la\s+nota|haga?\s+clic\s+aqu[ií]|clic\s+aqu[ií]|click\s+here)\b\s*[»>›→\.]*/gi, "")
-    .replace(/[»>›→]{1,}/g, "")
-    .replace(/\s{2,}/g, " ")
+    .replace(/\b(?:leer\s+(?:nota|m[aá]s|noticia)|ver\s+(?:m[aá]s|detalle|publicaci[oó]n|nota)|conoc[eé]\s+m[aá]s|saber\s+m[aá]s|m[aá]s\s+informaci[oó]n|read\s+more|seguir\s+leyendo|ir\s+a\s+la\s+nota|haga?\s+clic\s+aqu[ií]|clic\s+aqu[ií]|click\s+here)\b\s*[»›→\.]*/gi, "")
+    .replace(/[»›→]+/g, "")
+    .replace(/[ \t]{2,}/g, " ")
     .replace(/\s+([.,;:])/g, "$1")
     .trim();
 }
@@ -1917,14 +1933,7 @@ function normalizeMarkdownToHtmlParagraphs(text: string): string {
   if (!text || typeof text !== "string") return "";
   let clean = cleanJunkTextPhrases(text);
 
-  // Convert markdown bold and italics to HTML
-  clean = clean
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/__([^_]+)__/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-    .replace(/_([^_]+)_/g, "<em>$1</em>");
-
-  // If already contains <p> tags, clean up and return
+  // If already contains <p> tags, clean up and ensure valid HTML structure
   if (/<p\b[^>]*>/i.test(clean)) {
     return clean
       .replace(/<p\b[^>]*>/gi, "<p>")
@@ -1934,6 +1943,13 @@ function normalizeMarkdownToHtmlParagraphs(text: string): string {
       .map((p) => (p.startsWith("<p>") ? `${p}</p>` : `<p>${p}</p>`))
       .join("\n");
   }
+
+  // Convert markdown bold and italics to HTML
+  clean = clean
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/__([^_]+)__/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/_([^_]+)_/g, "<em>$1</em>");
 
   // Split by double newlines or single newlines that start with icons or bullet-like headers
   const paragraphs = clean
@@ -3084,13 +3100,20 @@ async function formatPublicationResult(parsed: any, extractedData: any, taxonomi
 
   let finalDescEs = normalizeToSpanishDescriptionHeaders(rawDescEs);
 
-  // If the AI description was missing or too short or lacks structure, generate high quality grounded 4-paragraph description
-  if (finalDescEs.length < 50 || !finalDescEs.includes("<p>")) {
+  // Check if description strictly complies with the 4-paragraph HTML structure
+  const hasFullStructure =
+    finalDescEs.length >= 80 &&
+    finalDescEs.includes("<p>") &&
+    /Propuesta de valor/i.test(finalDescEs) &&
+    /Diferencial/i.test(finalDescEs);
+
+  // If the AI description was missing, too short, or lacks the 4-paragraph structure, generate grounded 4-paragraph descriptions
+  if (!hasFullStructure) {
     const fallbackDesc = await buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country);
     finalDescEs = fallbackDesc.es;
-    if (!rawDescEn) rawDescEn = fallbackDesc.en;
-    if (!rawDescPt) rawDescPt = fallbackDesc.pt;
-    if (!rawDescIt) rawDescIt = fallbackDesc.it;
+    rawDescEn = fallbackDesc.en;
+    rawDescPt = fallbackDesc.pt;
+    rawDescIt = fallbackDesc.it;
   }
 
   // Ensure city in description text matches primaryHq
@@ -3291,38 +3314,47 @@ function enforceStrictTaxonomyGuardrails(
     publication.titleI18n.es = cleanTitleString(publication.titleI18n.es);
   }
 
-  if (publication.description) {
-    publication.description = normalizeToSpanishDescriptionHeaders(publication.description);
-  }
-  if (publication.descriptionI18n) {
-    publication.descriptionI18n.es = normalizeToSpanishDescriptionHeaders(publication.descriptionI18n.es || publication.description || "");
-    publication.descriptionI18n.en = normalizeToEnglishDescriptionHeaders(publication.descriptionI18n.en || "");
-    publication.descriptionI18n.pt = normalizeToPortugueseDescriptionHeaders(publication.descriptionI18n.pt || "");
-    publication.descriptionI18n.it = normalizeToItalianDescriptionHeaders(publication.descriptionI18n.it || "");
+  let descEs = publication.description || publication.descriptionI18n?.es || "";
+  if (!descEs || descEs.length < 50 || !descEs.includes("<p>") || !descEs.includes("Propuesta de valor")) {
+    const locText = [publication.city, publication.country].filter(Boolean).join(", ");
+    const siteUrl = escapeHtml(publication.website || publication.url);
+    const summaryClean = escapeHtml(decodeHtmlEntities((extractedData.description || extractedData.textContent || publication.title).slice(0, 380))).trim();
+    descEs = [
+      `<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> ${publication.price && publication.price !== "A consultar" ? escapeHtml(publication.price) : "A consultar / Según aranceles o tarifas del oferente."}</p>`,
+      `<p>💡 <strong>Propuesta de valor:</strong> ${summaryClean}${locText ? ` con sede en ${locText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`,
+      `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ${publication.languages || "Español, Inglés"}. <em>Experiencia y soporte:</em> Información tomada directamente del portal oficial. <em>Diferencial vs. alternativas:</em> Contacto directo con el oferente y respaldo institucional.</p>`,
+      `<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${siteUrl} antes de contratar o postular.</p>`,
+    ].join("\n");
+  } else {
+    descEs = normalizeToSpanishDescriptionHeaders(descEs);
   }
 
-  // Ensure all 4 languages are translated from the Spanish description
-  const descEs = publication.description || publication.descriptionI18n?.es || "";
-  if (descEs) {
-    const hasSpanishMarkers = (str: string) => /<strong>\s*(?:Vigencia|Propuesta de valor|¿?Para qui[eé]n|Documentaci[oó]n requerida|Permanencia|Diferencial|Exclusiones):/i.test(str);
-    if (!publication.descriptionI18n) {
-      publication.descriptionI18n = {
-        es: descEs,
-        en: translateStructuredDescription(descEs, "en"),
-        pt: translateStructuredDescription(descEs, "pt"),
-        it: translateStructuredDescription(descEs, "it"),
-      };
+  publication.description = descEs;
+  const hasSpanishMarkers = (str: string) => /<strong>\s*(?:Vigencia|Propuesta de valor|¿?Para qui[eé]n|Documentaci[oó]n requerida|Permanencia|Diferencial|Exclusiones):/i.test(str);
+
+  if (!publication.descriptionI18n) {
+    publication.descriptionI18n = {
+      es: descEs,
+      en: translateStructuredDescription(descEs, "en"),
+      pt: translateStructuredDescription(descEs, "pt"),
+      it: translateStructuredDescription(descEs, "it"),
+    };
+  } else {
+    publication.descriptionI18n.es = descEs;
+    if (!publication.descriptionI18n.en || publication.descriptionI18n.en === descEs || hasSpanishMarkers(publication.descriptionI18n.en) || !publication.descriptionI18n.en.includes("<p>")) {
+      publication.descriptionI18n.en = translateStructuredDescription(descEs, "en");
     } else {
-      publication.descriptionI18n.es = descEs;
-      if (!publication.descriptionI18n.en || publication.descriptionI18n.en === descEs || hasSpanishMarkers(publication.descriptionI18n.en)) {
-        publication.descriptionI18n.en = translateStructuredDescription(descEs, "en");
-      }
-      if (!publication.descriptionI18n.pt || publication.descriptionI18n.pt === descEs || hasSpanishMarkers(publication.descriptionI18n.pt)) {
-        publication.descriptionI18n.pt = translateStructuredDescription(descEs, "pt");
-      }
-      if (!publication.descriptionI18n.it || publication.descriptionI18n.it === descEs || hasSpanishMarkers(publication.descriptionI18n.it)) {
-        publication.descriptionI18n.it = translateStructuredDescription(descEs, "it");
-      }
+      publication.descriptionI18n.en = normalizeToEnglishDescriptionHeaders(publication.descriptionI18n.en);
+    }
+    if (!publication.descriptionI18n.pt || publication.descriptionI18n.pt === descEs || hasSpanishMarkers(publication.descriptionI18n.pt) || !publication.descriptionI18n.pt.includes("<p>")) {
+      publication.descriptionI18n.pt = translateStructuredDescription(descEs, "pt");
+    } else {
+      publication.descriptionI18n.pt = normalizeToPortugueseDescriptionHeaders(publication.descriptionI18n.pt);
+    }
+    if (!publication.descriptionI18n.it || publication.descriptionI18n.it === descEs || hasSpanishMarkers(publication.descriptionI18n.it) || !publication.descriptionI18n.it.includes("<p>")) {
+      publication.descriptionI18n.it = translateStructuredDescription(descEs, "it");
+    } else {
+      publication.descriptionI18n.it = normalizeToItalianDescriptionHeaders(publication.descriptionI18n.it);
     }
   }
 
@@ -3454,13 +3486,15 @@ async function processUrlWithAI(
   const executeGemini = async () => {
     if (!canUseGemini) throw new Error("No hay GEMINI_API_KEY configurada.");
     const parsed = await callGeminiApi(prompt, geminiKey);
-    return await formatPublicationResult(parsed, extracted, taxonomies);
+    const pub = await formatPublicationResult(parsed, extracted, taxonomies);
+    return enforceStrictTaxonomyGuardrails(pub, extracted, taxonomies);
   };
 
   const executeOpenAI = async () => {
     if (!canUseOpenAI) throw new Error("No hay OPENAI_API_KEY configurada.");
     const parsed = await callOpenAIApi(prompt, openaiKey);
-    return await formatPublicationResult(parsed, extracted, taxonomies);
+    const pub = await formatPublicationResult(parsed, extracted, taxonomies);
+    return enforceStrictTaxonomyGuardrails(pub, extracted, taxonomies);
   };
 
   let publication: ScrapedPublication;
