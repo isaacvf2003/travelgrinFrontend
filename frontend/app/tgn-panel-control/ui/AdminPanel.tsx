@@ -3035,8 +3035,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const pubName = cleanTitleStr(draft.publisherName || draft.title || "");
     setPPublisherName(pubName);
 
-    const descEs = draft.description || "";
-    const descI18nInit = draft.descriptionI18n || { es: descEs };
+    const descEs = (draft.description || draft.descriptionI18n?.es || "").trim();
+    const descI18nInit: I18nRecord = {
+      es: descEs,
+      en: (draft.descriptionI18n?.en || "").trim(),
+      pt: (draft.descriptionI18n?.pt || "").trim(),
+      it: (draft.descriptionI18n?.it || "").trim(),
+    };
     setPDescription(descEs);
     setPDescriptionI18n(descI18nInit);
 
@@ -3067,8 +3072,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const providerInfoInit = draft.providerInfoI18n || { es: "" };
     setPProviderInfoI18n(providerInfoInit);
 
-    // Auto-translate missing languages (en, pt, it) if they are missing, equal to spanish fallback, or contain spanish headers
+    // Auto-translate missing languages (en, pt, it) if they are missing, equal to spanish fallback, or contain spanish headers/sentences
     const hasSpanishMarkers = (str: string) => /<strong>\s*(?:Vigencia|Propuesta de valor|¿?Para qui[eé]n|Documentaci[oó]n requerida|Permanencia|Diferencial|Exclusiones):/i.test(str);
+    const hasSpanishSentences = (str: string) => /(?:Presentamos nuestro|Junto a los médicos|sala de guardia|con sede en|Personas interesadas|Seg[uú]n la modalidad|Informaci[oó]n tomada|Contacto directo|Confirmar disponibilidad)/i.test(str);
     const needsTranslation =
       descEs &&
       (!descI18nInit.en ||
@@ -3079,13 +3085,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         descI18nInit.it === descEs ||
         hasSpanishMarkers(descI18nInit.en) ||
         hasSpanishMarkers(descI18nInit.pt) ||
-        hasSpanishMarkers(descI18nInit.it));
+        hasSpanishMarkers(descI18nInit.it) ||
+        hasSpanishSentences(descI18nInit.en) ||
+        hasSpanishSentences(descI18nInit.pt) ||
+        hasSpanishSentences(descI18nInit.it));
 
     if (needsTranslation) {
+      const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
       fetch("/api/admin/translate-i18n", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+        body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true, apiKey: customKey }),
       })
         .then((res) => res.json())
         .then((data) => {
@@ -9010,7 +9020,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <label className="text-sm font-medium text-slate-700">
                     Descripción <span className="font-bold text-[#007D92]">({pLang.toUpperCase()})</span>
                   </label>
-                  {pDescriptionI18n[pLang] ? (
+                  {(pDescriptionI18n[pLang] || (pLang === "es" && pDescription)) ? (
                     <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                       ✓ Idioma {pLang.toUpperCase()} activo
                     </span>
@@ -9030,7 +9040,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     disabled={translatingField === "description"}
                     onClick={async () => {
                       const sourceLang = pLang || "es";
-                      const sourceText = (pDescriptionI18n[sourceLang] || pDescriptionI18n.es || pDescription || "").trim();
+                      const sourceText = (pDescriptionI18n[sourceLang] || (sourceLang === "es" ? pDescription : "") || pDescriptionI18n.es || "").trim();
                       if (!sourceText) return;
                       const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
                       setTranslatingField("description");
@@ -9047,6 +9057,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             ...prev,
                             [sourceLang]: sourceText,
                             ...data.translations,
+                            ...(sourceLang === "es" ? { es: sourceText } : {}),
                           }));
                           if (sourceLang === "es" || !pDescription) setPDescription(sourceText);
                         }
@@ -9064,9 +9075,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </div>
               </div>
               <RichTextEditor
-                value={pDescriptionI18n[pLang] ?? ""}
+                value={pDescriptionI18n[pLang] || (pLang === "es" ? pDescription : "") || ""}
                 onChange={(next) => {
-                  setPDescriptionI18n((prev) => ({ ...prev, [pLang]: next }));
+                  setPDescriptionI18n((prev) => ({
+                    ...prev,
+                    [pLang]: next,
+                    ...(pLang === "es" ? { es: next } : {}),
+                  }));
                   if (pLang === "es") setPDescription(next);
                 }}
                 placeholder={`Texto de la publicación (${pLang.toUpperCase()})...`}
