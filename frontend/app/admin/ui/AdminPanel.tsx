@@ -3107,8 +3107,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       startYear = "1987";
     }
     setPProviderStartYear(startYear);
-    setPProviderRating(draft.providerRating || "");
-    setPProviderReviewCount(draft.providerReviewCount || "");
+    setPProviderRating(draft.providerRating || "0");
+    setPProviderReviewCount(draft.providerReviewCount ?? "0");
+    setPProviderCommentsUrl(draft.providerCommentsUrl || "");
     const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
     const cleanLogo = draft.providerLogo && !BAD_GFX.test(draft.providerLogo) ? draft.providerLogo : "";
     setPProviderLogo(cleanLogo);

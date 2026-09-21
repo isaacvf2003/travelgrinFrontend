@@ -612,6 +612,11 @@ export default function AiScraperModal({
                           <span>Oferente: <strong className="text-slate-700">{draft.publisherName}</strong></span>
                           <span>·</span>
                           <span>Ubicación: <strong className="text-slate-700">{draft.city}, {draft.country}</strong></span>
+                          {draft.providerRating ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
+                              ⭐ {draft.providerRating} ({draft.providerReviewCount || "0"} reseñas)
+                            </span>
+                          ) : null}
                           {draft.headquarterLocations && draft.headquarterLocations.length > 1 && (
                             <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">
                               📍 {draft.headquarterLocations.length} sedes
