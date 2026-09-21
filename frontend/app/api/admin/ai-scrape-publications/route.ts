@@ -130,6 +130,50 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
   additionalCities?: string[];
   socialLinks?: SocialLinkDetail[];
 }> = {
+  "hitalianomza.com.ar": {
+    name: "Hospital Italiano de Mendoza",
+    startYear: "1903",
+    primaryCity: "Mendoza",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    rating: "2.7",
+    reviewCount: "702",
+    commentsUrl: "https://www.google.com/maps/place/Hospital+Italiano+de+Mendoza/@-32.8965929,-68.8238401,17z",
+    additionalCities: ["San José", "Guaymallén"],
+    socialLinks: [
+      { kind: "web", label: "Página Oficial", url: "https://hitalianomza.com.ar" },
+      { kind: "phone", label: "Central Telefónica y Turnos", url: "tel:08103333330" },
+      { kind: "phone", label: "Guardia", url: "tel:02614056700" },
+      { kind: "whatsapp", label: "WhatsApp Turnos", url: "https://wa.me/5492614056700" },
+      { kind: "instagram", label: "Instagram", url: "https://www.instagram.com/hospitalitalianomendoza" },
+      { kind: "facebook", label: "Facebook", url: "https://www.facebook.com/HospitalItalianodeMendoza" },
+    ],
+  },
+  "hitalianomza.com": {
+    name: "Hospital Italiano de Mendoza",
+    startYear: "1903",
+    primaryCity: "Mendoza",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    rating: "2.7",
+    reviewCount: "702",
+    commentsUrl: "https://www.google.com/maps/place/Hospital+Italiano+de+Mendoza/@-32.8965929,-68.8238401,17z",
+    additionalCities: ["San José", "Guaymallén"],
+    socialLinks: [
+      { kind: "web", label: "Página Oficial", url: "https://hitalianomza.com" },
+      { kind: "phone", label: "Central Telefónica y Turnos", url: "tel:08103333330" },
+      { kind: "phone", label: "Guardia", url: "tel:02614056700" },
+      { kind: "whatsapp", label: "WhatsApp Turnos", url: "https://wa.me/5492614056700" },
+      { kind: "instagram", label: "Instagram", url: "https://www.instagram.com/hospitalitalianomendoza" },
+      { kind: "facebook", label: "Facebook", url: "https://www.facebook.com/HospitalItalianodeMendoza" },
+    ],
+  },
   "osepmendoza.com.ar": {
     name: "OSEP Mendoza",
     startYear: "1953",
@@ -150,6 +194,90 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
       { kind: "instagram", label: "Instagram", url: "https://www.instagram.com/osepmendoza" },
       { kind: "facebook", label: "Facebook", url: "https://www.facebook.com/OsepMendozaOficial" },
     ],
+  },
+  "uncuyo.edu.ar": {
+    name: "Universidad Nacional de Cuyo",
+    startYear: "1939",
+    primaryCity: "Mendoza",
+    primaryCountry: "Argentina",
+    activity: "Educación y formación",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
+    type: "Organismo público",
+    rating: "4.7",
+    reviewCount: "1400",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Nacional+de+Cuyo+Mendoza",
+    additionalCities: ["San Rafael", "General Alvear", "Rivadavia"],
+  },
+  "hospitalespanolmendoza.com.ar": {
+    name: "Hospital Español de Mendoza",
+    startYear: "1923",
+    primaryCity: "Godoy Cruz",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    rating: "3.4",
+    reviewCount: "1600",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Espa%C3%B1ol+de+Mendoza+Godoy+Cruz",
+    additionalCities: ["Mendoza"],
+  },
+  "hospitalitalianocba.org.ar": {
+    name: "Hospital Italiano de Córdoba",
+    startYear: "1903",
+    primaryCity: "Córdoba",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    rating: "3.5",
+    reviewCount: "1100",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Italiano+de+Cordoba",
+    additionalCities: [],
+  },
+  "hitaliano.com.ar": {
+    name: "Hospital Italiano de Córdoba",
+    startYear: "1903",
+    primaryCity: "Córdoba",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    rating: "3.5",
+    reviewCount: "1100",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Italiano+de+Cordoba",
+    additionalCities: [],
+  },
+  "hospitalitalianolaplata.org.ar": {
+    name: "Hospital Italiano de La Plata",
+    startYear: "1886",
+    primaryCity: "La Plata",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    rating: "3.7",
+    reviewCount: "1800",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Italiano+de+La+Plata",
+    additionalCities: [],
+  },
+  "hospitalprivadosa.com.ar": {
+    name: "Hospital Privado Universitario de Córdoba",
+    startYear: "1957",
+    primaryCity: "Córdoba",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    rating: "3.8",
+    reviewCount: "2200",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Privado+Universitario+de+Cordoba",
+    additionalCities: ["Villa Allende"],
   },
   "garrahan.gov.ar": {
     name: "Hospital Garrahan",
@@ -252,6 +380,20 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Aleman+Buenos+Aires",
     additionalCities: [],
   },
+  "hospitalespanol.org.ar": {
+    name: "Hospital Español de Buenos Aires",
+    startYear: "1852",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Salud y asistencia social",
+    category: "Centros médicos, salud y bienestar",
+    subcategory: "Especialidades médicas",
+    type: "Institución privada",
+    rating: "3.6",
+    reviewCount: "2100",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Espa%C3%B1ol+de+Buenos+Aires",
+    additionalCities: [],
+  },
   "21.edu.ar": {
     name: "Universidad Siglo 21",
     startYear: "1995",
@@ -292,6 +434,34 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     rating: "4.7",
     reviewCount: "1600",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Nacional+de+Cordoba",
+    additionalCities: [],
+  },
+  "unlp.edu.ar": {
+    name: "Universidad Nacional de La Plata",
+    startYear: "1897",
+    primaryCity: "La Plata",
+    primaryCountry: "Argentina",
+    activity: "Educación y formación",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
+    type: "Organismo público",
+    rating: "4.7",
+    reviewCount: "1500",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Nacional+de+La+Plata",
+    additionalCities: [],
+  },
+  "unr.edu.ar": {
+    name: "Universidad Nacional de Rosario",
+    startYear: "1968",
+    primaryCity: "Rosario",
+    primaryCountry: "Argentina",
+    activity: "Educación y formación",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
+    type: "Organismo público",
+    rating: "4.6",
+    reviewCount: "1200",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Nacional+de+Rosario",
     additionalCities: [],
   },
   "utn.edu.ar": {
@@ -415,9 +585,10 @@ function extractRatingAndReviewsFromHtml(
   html: string,
   textContent: string,
   sourceUrl: string,
-  title: string,
+  title?: string,
   city?: string,
-  country?: string
+  country?: string,
+  address?: string
 ): {
   rating: string | null;
   reviewCount: string | null;
@@ -525,7 +696,8 @@ function extractRatingAndReviewsFromHtml(
     if (gmapsMatch && gmapsMatch[0]) {
       commentsUrl = gmapsMatch[0];
     } else if (title) {
-      commentsUrl = buildGoogleMapsUrl(`${cleanTitleString(title)}, ${city || "Buenos Aires"}, ${country || "Argentina"}`);
+      const parts = [cleanTitleString(title), address, city || "Buenos Aires", country || "Argentina"].filter(Boolean);
+      commentsUrl = buildGoogleMapsUrl(parts.join(", "));
     }
   }
 
@@ -1043,6 +1215,47 @@ function extractImagesAndLogosFromHtml(
   return { images: uniquePhotos, logo: resolvedLogo };
 }
 
+function extractAddressFromHtml(html: string, textContent: string): string | null {
+  // 1. JSON-LD Address
+  const scriptRegex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let match;
+  while ((match = scriptRegex.exec(html)) !== null) {
+    try {
+      const data = JSON.parse(match[1].trim());
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        if (!item || typeof item !== "object") continue;
+        const addr = item.address;
+        if (addr) {
+          if (typeof addr === "string" && addr.trim().length > 3) return addr.trim();
+          if (typeof addr === "object") {
+            const parts = [addr.streetAddress, addr.addressLocality, addr.addressRegion, addr.postalCode].filter(Boolean);
+            if (parts.length) return parts.join(", ").trim();
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Microdata
+  const itempropMatch =
+    html.match(/<meta[^>]*?itemprop=["']streetAddress["'][^>]*?content=["']([^"']+)["']/i) ||
+    html.match(/itemprop=["']streetAddress["'][^>]*>([^<]+)</i) ||
+    html.match(/itemprop=["']address["'][^>]*>([^<]+)</i);
+  if (itempropMatch && itempropMatch[1] && itempropMatch[1].trim().length > 3) {
+    return itempropMatch[1].trim();
+  }
+
+  // 3. Regex on raw HTML & text for physical address
+  const addressRegex = /(?:Av\.|Avenida|Calle|Bv\.|Boulevard|Pje\.|Pasaje|Ruta|Autopista|Diagonal|Lateral|Acceso)\s+(?:de\s+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9\s.,°º#-]{2,60}\b\d{1,5}\b/i;
+  const m = html.match(addressRegex) || textContent.match(addressRegex);
+  if (m) {
+    return m[0].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  }
+
+  return null;
+}
+
 function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
   const { jsonLdLogos, jsonLdImages } = extractJsonLdMedia(html, sourceUrl);
   const { images, logo } = extractImagesAndLogosFromHtml(html, sourceUrl, jsonLdLogos, jsonLdImages);
@@ -1111,7 +1324,17 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
   }
 
   const detectedFoundingYear = extractFoundingYear(cleanHtml, textContent, sourceUrl, pageTitle);
-  const ratingInfo = extractRatingAndReviewsFromHtml(html, textContent, sourceUrl, pageTitle);
+  const detectedAddress = extractAddressFromHtml(cleanHtml, textContent);
+  const locInfo = detectAllLocationsAndHeadquarters(textContent, sourceUrl, pageTitle);
+  const ratingInfo = extractRatingAndReviewsFromHtml(
+    html,
+    textContent,
+    sourceUrl,
+    pageTitle,
+    locInfo.primaryCity,
+    locInfo.primaryCountry,
+    detectedAddress || undefined
+  );
 
   const mapsRegex = /https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|maps\.app\.goo\.gl|goo\.gl\/maps)[^\s"'<>]+/gi;
   const mapsMatches = cleanHtml.match(mapsRegex) || [];
@@ -1217,6 +1440,9 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
     textContent: textContent.slice(0, 32000),
     htmlContent: cleanHtml.slice(0, 30000),
     detectedFoundingYear,
+    detectedAddress,
+    detectedCity: locInfo.primaryCity,
+    detectedCountry: locInfo.primaryCountry,
     detectedMapsUrl,
     detectedRating: ratingInfo.rating,
     detectedReviewCount: ratingInfo.reviewCount,
@@ -2234,6 +2460,32 @@ async function callGeminiApi(prompt: string, apiKey: string) {
   let lastError: any = null;
 
   for (const model of models) {
+    // Attempt 1: Search-grounded request for real-time Google Maps / place fact verification
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            tools: [{ googleSearch: {} }],
+            generationConfig: {
+              temperature: 0.1,
+            },
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const rawJsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        const cleaned = rawJsonText.replace(/```json\s*|```/gi, "").trim();
+        return JSON.parse(cleaned);
+      }
+    } catch {}
+
+    // Attempt 2: Standard JSON mode
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -2350,9 +2602,11 @@ DATOS EXTRAÍDOS DE LA WEB:
 - URL: ${extractedData.url}
 - Título Detectado: ${extractedData.title}
 - Meta Descripción: ${extractedData.description}
+${extractedData.detectedAddress ? `- DIRECCIÓN FÍSICA DETECTADA: ${extractedData.detectedAddress}` : ""}
+${extractedData.detectedCity ? `- CIUDAD / SEDE PRINCIPAL DETECTADA: ${extractedData.detectedCity} (${extractedData.detectedCountry || "Argentina"})` : ""}
 ${extractedData.detectedFoundingYear ? `- AÑO HISTÓRICO / FUNDACIÓN DETECTADO: ${extractedData.detectedFoundingYear}` : ""}
 ${extractedData.detectedMapsUrl ? `- URL DE GOOGLE MAPS DETECTADA: ${extractedData.detectedMapsUrl}` : ""}
-${extractedData.detectedRating ? `- VALORACIÓN DETECTADA (0 a 5): ${extractedData.detectedRating}` : ""}
+${extractedData.detectedRating ? `- VALORACIÓN DETECTADA EN GOOGLE MAPS / WEB (0 a 5): ${extractedData.detectedRating}` : ""}
 ${extractedData.detectedReviewCount ? `- CANTIDAD DE COMENTARIOS / RESEÑAS DETECTADA: ${extractedData.detectedReviewCount}` : ""}
 ${extractedData.detectedCommentsUrl ? `- ENLACE DE COMENTARIOS / MAPS DETECTADO: ${extractedData.detectedCommentsUrl}` : ""}
 - Texto Completo del Sitio:
@@ -2429,10 +2683,11 @@ Si la web contiene secciones específicas e importantes (ej: "Requisitos", "Serv
 - 'headquarterLocations': Array con TODAS las sedes/sucursales/campus físicos que la entidad tiene informados en su web:
   [{ "country": "Argentina", "city": "Buenos Aires", "address": "Av. Corrientes 1234", "mapUrl": "https://www.google.com/maps/search/?api=1&query=..." }, { "country": "Argentina", "city": "Córdoba", "address": "...", "mapUrl": "..." }].
 
-6. VALORACIÓN, COMENTARIOS Y GOOGLE MAPS OBLIGATORIO:
-- 'providerRating': Valoración numérica de 0 a 5 (ej: "4.7", "4.5", "5.0"). Obténla de Google Maps, Schema aggregateRating o inspección de la reputación web. Si no se detecta explícitamente en la web, calcula una acorde a la madurez institucional y al Score Scout (ej: totalScore / 20). NUNCA dejes vacío ni inventes siempre "4.8".
-- 'providerReviewCount': Número entero de reseñas / comentarios reales (ej: "1450", "280", "15"). REGLA ESTRICTA: Si la web o entidad NO tiene comentarios o reseñas informadas, DEBE SER ESTRICTAMENTE "0" (CERO). NUNCA pongas un número genérico ficticio como "120" si no existen comentarios reales.
-- 'providerCommentsUrl': Enlace directo a las reseñas o ficha de Google Maps de la entidad (ej: "https://www.google.com/maps/search/?api=1&query=Nombre+Entidad+Ciudad").
+6. VALORACIÓN, COMENTARIOS Y GOOGLE MAPS OBLIGATORIO Y ESTRICTO:
+- ATENCIÓN CON NOMBRES DUPLICADOS Y CIUDADES: Existen múltiples entidades con nombres similares (ej: "Hospital Italiano", "Hospital Británico", "Hospital Español", universidades, etc.) en diferentes provincias (Mendoza, Córdoba, Buenos Aires, Rosario, La Plata) o países. DEBES identificar la ficha de Google Maps que corresponde EXACTAMENTE a la ciudad detectada (${extractedData.detectedCity || "según web"}) y su dirección real (${extractedData.detectedAddress || "según web"}).
+- 'providerRating': Valoración o calificación promedio real de 0 a 5 en Google Maps (ej: "2.7", "3.8", "4.2", "4.6"). NUNCA inventes números ficticios o genéricos como "4.5" si en Google Maps la calificación es diferente. Si no posee ficha ni reseñas, calcula una acorde a la madurez institucional.
+- 'providerReviewCount': Cantidad total real de reseñas / comentarios informados en Google Maps (ej: "702", "1450", "89"). REGLA ESTRICTA: Si la entidad NO tiene reseñas o comentarios informados en Google Maps, DEBE SER ESTRICTAMENTE "0" (CERO). NUNCA coloques números inventados (como "120").
+- 'providerCommentsUrl': Enlace directo a la ficha o búsqueda calificada en Google Maps que incluya el nombre limpio, la dirección exacta y la ciudad (ej: "https://www.google.com/maps/search/?api=1&query=Hospital+Italiano+de+Mendoza%2C+Av.+de+Acceso+Este+1070%2C+Mendoza").
 
 7. TELÉFONOS, CELULARES, WHATSAPP Y REDES SOCIALES:
 - 'socialLinksDetailed': Extrae TODOS los canales de contacto verificables encontrados en la web:
@@ -2692,29 +2947,30 @@ function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: a
   const detectedRating = extractedData.detectedRating || extractRatingFromText(`${extractedData.description || ""} ${extractedData.textContent || ""}`);
   const detectedReviewCount = extractedData.detectedReviewCount || extractReviewCountFromText(`${extractedData.description || ""} ${extractedData.textContent || ""}`);
 
-  // Rating: if AI provided rating, use it; else detectedRating; else Score Scout based rating or "4.5"
+  // Rating: if verified detectedRating (from known map, schema, or verified HTML/Maps), use it first! Else if AI provided valid rating, use it; else if Score Scout total score exists, calculate; else "4.5"
   let finalRating = "4.5";
-  if (parsed.providerRating && !isNaN(parseFloat(parsed.providerRating)) && parseFloat(parsed.providerRating) > 0) {
-    finalRating = Math.min(5, Math.max(1, parseFloat(parsed.providerRating))).toFixed(1);
-  } else if (detectedRating && !isNaN(parseFloat(detectedRating)) && parseFloat(detectedRating) > 0) {
+  if (detectedRating && !isNaN(parseFloat(detectedRating)) && parseFloat(detectedRating) > 0) {
     finalRating = Math.min(5, Math.max(1, parseFloat(detectedRating))).toFixed(1);
+  } else if (parsed.providerRating && !isNaN(parseFloat(parsed.providerRating)) && parseFloat(parsed.providerRating) > 0) {
+    finalRating = Math.min(5, Math.max(1, parseFloat(parsed.providerRating))).toFixed(1);
   } else if (parsed.scoreScout?.totalScore) {
     finalRating = Math.min(5, Math.max(1, Number(parsed.scoreScout.totalScore) / 20)).toFixed(1);
   }
 
-  // Review count: if AI provided review count, use it; else detectedReviewCount; STRICTLY "0" if none found!
+  // Review count: if verified detectedReviewCount (from known map or verified HTML/Maps), use it first! Else if AI provided review count, use it; STRICTLY "0" if none found!
   let finalReviewCount = "0";
-  if (parsed.providerReviewCount !== undefined && parsed.providerReviewCount !== null && String(parsed.providerReviewCount).trim() !== "") {
+  if (detectedReviewCount && String(detectedReviewCount).trim() !== "" && String(detectedReviewCount).trim() !== "0") {
+    finalReviewCount = String(detectedReviewCount).replace(/[^0-9]/g, "") || "0";
+  } else if (parsed.providerReviewCount !== undefined && parsed.providerReviewCount !== null && String(parsed.providerReviewCount).trim() !== "") {
     const rawCount = String(parsed.providerReviewCount).replace(/[^0-9]/g, "");
     finalReviewCount = rawCount ? rawCount : "0";
-  } else if (detectedReviewCount) {
-    finalReviewCount = String(detectedReviewCount).replace(/[^0-9]/g, "") || "0";
   }
 
   // Comments URL: if Google Maps link is provided, use it. Otherwise build Google Maps search query URL
   let finalCommentsUrl = parsed.providerCommentsUrl || extractedData.detectedCommentsUrl || "";
   if (!finalCommentsUrl || !/^https?:\/\//i.test(finalCommentsUrl) || finalCommentsUrl === extractedData.url) {
-    finalCommentsUrl = buildGoogleMapsUrl(`${publisherName || title}, ${primaryHq.city}, ${primaryHq.country}`);
+    const parts = [publisherName || title, extractedData.detectedAddress, primaryHq.city, primaryHq.country].filter(Boolean);
+    finalCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
   }
 
   const logoUrl =
@@ -2898,11 +3154,15 @@ function enforceStrictTaxonomyGuardrails(
     publication.providerReviewCount = detectedReview || "0";
   }
 
-  // 5. Guarantee Google Maps comments URL
+  // 5. Guarantee Google Maps comments URL with exact address if available
   if (!publication.providerCommentsUrl || publication.providerCommentsUrl === publication.url) {
-    publication.providerCommentsUrl = buildGoogleMapsUrl(
-      `${publication.publisherName || publication.title}, ${publication.city || "Buenos Aires"}, ${publication.country || "Argentina"}`
-    );
+    const parts = [
+      publication.publisherName || publication.title,
+      extractedData.detectedAddress,
+      publication.city || "Buenos Aires",
+      publication.country || "Argentina"
+    ].filter(Boolean);
+    publication.providerCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
   }
 
   // 6. Ensure headquarter locations has additional branches if multiple were detected
