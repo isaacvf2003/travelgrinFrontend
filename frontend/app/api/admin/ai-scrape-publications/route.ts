@@ -1955,12 +1955,12 @@ function normalizeToItalianDescriptionHeaders(text: string): string {
     .replace(/<strong>\s*(?:Precio|Price|Preço):\s*<\/strong>/gi, "<strong>Prezzo:</strong>")
     .replace(/<strong>\s*(?:Propuesta de valor|Value proposition|Proposta de valor):\s*<\/strong>/gi, "<strong>Proposta di valore:</strong>")
     .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Who is it for\??|Para quem\??):\s*<\/strong>/gi, "<strong>Per chi?:</strong>")
-    .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária):\s*<\/strong>/gi, "<strong>Documentazione richiesta:</strong>")
+    .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentazione richiesta:</strong>")
     .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanência):\s*<\/strong>/gi, "<strong>Permanenza:</strong>")
     .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Differenziale:</strong>")
     .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Idiomas de atendimento):\s*<\/em>/gi, "<em>Lingue di assistenza:</em>")
     .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
-    .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
+    .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
     .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>");
 }
 
@@ -1969,6 +1969,8 @@ async function translateWithGoogleDirect(text: string, sl: string, tl: string): 
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
     const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3000);
     if (!res.ok) return null;
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("json")) return null;
     const data = await res.json();
     if (Array.isArray(data) && Array.isArray(data[0])) {
       const translated = data[0].map((item: any) => item[0]).filter(Boolean).join("");
@@ -1985,23 +1987,24 @@ async function translateTextDirect(q: string, sl: string, tl: string): Promise<s
   // 1. Try Google Translate public API (fast, high quality)
   const gRes = await translateWithGoogleDirect(trimmed, sl, tl);
   if (gRes && gRes.trim() && gRes.trim() !== trimmed) {
-    return gRes.trim();
+    return cleanTitleString(gRes.trim());
   }
 
   // 2. Try MyMemory
   try {
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=${sl}|${tl}`;
-    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3000);
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0" } }, 3000);
     if (res.ok) {
       const data = await res.json();
       const trans = data.responseData?.translatedText;
       if (trans && typeof trans === "string" && !trans.includes("MYMEMORY WARNING")) {
-        return trans.trim();
+        return cleanTitleString(trans.trim());
       }
     }
   } catch {}
 
-  return q;
+  // 3. Fallback to dictionary translation
+  return translateStructuredDescription(trimmed, tl as any);
 }
 
 async function translateFullHtmlDescriptionAsync(htmlEs: string, targetLang: "en" | "pt" | "it"): Promise<string> {
@@ -2027,11 +2030,12 @@ async function translateFullHtmlDescriptionAsync(htmlEs: string, targetLang: "en
       })
     );
     const joined = translatedParts.join("");
+    const normalized = translateStructuredDescription(joined, targetLang);
     return targetLang === "en"
-      ? normalizeToEnglishDescriptionHeaders(joined)
+      ? normalizeToEnglishDescriptionHeaders(normalized)
       : targetLang === "pt"
-      ? normalizeToPortugueseDescriptionHeaders(joined)
-      : normalizeToItalianDescriptionHeaders(joined);
+      ? normalizeToPortugueseDescriptionHeaders(normalized)
+      : normalizeToItalianDescriptionHeaders(normalized);
   }
 
   const translatedPs = await Promise.all(
@@ -2053,11 +2057,12 @@ async function translateFullHtmlDescriptionAsync(htmlEs: string, targetLang: "en
   );
 
   const fullHtml = translatedPs.join("\n");
+  const normalized = translateStructuredDescription(fullHtml, targetLang);
   return targetLang === "en"
-    ? normalizeToEnglishDescriptionHeaders(fullHtml)
+    ? normalizeToEnglishDescriptionHeaders(normalized)
     : targetLang === "pt"
-    ? normalizeToPortugueseDescriptionHeaders(fullHtml)
-    : normalizeToItalianDescriptionHeaders(fullHtml);
+    ? normalizeToPortugueseDescriptionHeaders(normalized)
+    : normalizeToItalianDescriptionHeaders(normalized);
 }
 
 function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" | "it"): string {
@@ -2069,15 +2074,15 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
     text = text
       .replace(/<strong>\s*(?:Vigencia|Validade|Validità):\s*<\/strong>/gi, "<strong>Validity:</strong>")
       .replace(/<strong>\s*(?:Precio|Preço|Prezzo):\s*<\/strong>/gi, "<strong>Price:</strong>")
-      .replace(/<strong>\s*(?:Propuesta de valor|Proposta de valor):\s*<\/strong>/gi, "<strong>Value proposition:</strong>")
+      .replace(/<strong>\s*(?:Propuesta de valor|Value proposition|Proposta de valor|Proposta di valore):\s*<\/strong>/gi, "<strong>Value proposition:</strong>")
       .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Para quem\??|Per chi\??):\s*<\/strong>/gi, "<strong>Who is it for?:</strong>")
       .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Required documents:</strong>")
       .replace(/<strong>\s*(?:Permanencia|Permanência|Permanenza):\s*<\/strong>/gi, "<strong>Length of stay:</strong>")
       .replace(/<strong>\s*(?:Diferencial|Differenziale):\s*<\/strong>/gi, "<strong>Differentiator:</strong>")
       .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Service languages:</em>")
       .replace(/<em>\s*(?:Experiencia y soporte|Experiência e suporte|Esperienza e supporto):\s*<\/em>/gi, "<em>Experience and support:</em>")
-      .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Differentiator vs. alternatives:</em>")
-      .replace(/<strong>\s*(?:Exclusiones|Exclusões|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusions:</strong>")
+      .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Diferencial vs. alternatives:</em>")
+      .replace(/<strong>\s*(?:Exclusiones|Exclusions|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusions:</strong>")
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Active; official website updated.")
       .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Upon request / Subject to provider rates.")
       .replace(/A consultar/gi, "Upon request")
@@ -2104,7 +2109,7 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanenza):\s*<\/strong>/gi, "<strong>Permanência:</strong>")
       .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Diferencial:</strong>")
       .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Idiomas de atendimento:</em>")
-      .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
+      .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e suporte):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
       .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Diferencial vs. alternativas:</em>")
       .replace(/<strong>\s*(?:Exclusiones|Exclusions|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusões:</strong>")
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Ativo; site oficial atualizado.")
@@ -2116,7 +2121,8 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/Seg[uú]n la modalidad o servicio contratado\./gi, "Conforme a modalidade ou serviço contratado.")
       .replace(/Espa[ñn]ol,\s*Ingl[eé]s\./gi, "Espanhol, Inglês.")
       .replace(/Informaci[oó]n tomada directamente del portal oficial\./gi, "Informações obtidas diretamente do portal oficial.")
-      .replace(/Contacto directo com o provedor e respaldo institucional\./gi, "Contato direto com o provedor e respaldo institucional.")
+      .replace(/Informações retiradas directamente do portal oficial\./gi, "Informações obtidas diretamente do portal oficial.")
+      .replace(/Contacto directo con el oferente y respaldo institucional\./gi, "Contato direto com o provedor e respaldo institucional.")
       .replace(/Confirmar disponibilidad,\s*tarifas vigentes,\s*requisitos y condiciones particulares directamente en\b/gi, "Confirmar disponibilidade, tarifas vigentes, requisitos e condições diretamente em")
       .replace(/antes de contratar o postular\./gi, "antes de contratar ou se candidatar.");
     return text;
@@ -2129,12 +2135,12 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Precio|Price|Preço):\s*<\/strong>/gi, "<strong>Prezzo:</strong>")
       .replace(/<strong>\s*(?:Propuesta de valor|Value proposition|Proposta de valor):\s*<\/strong>/gi, "<strong>Proposta di valore:</strong>")
       .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Who is it for\??|Para quem\??):\s*<\/strong>/gi, "<strong>Per chi?:</strong>")
-      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária):\s*<\/strong>/gi, "<strong>Documentazione richiesta:</strong>")
+      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentazione richiesta:</strong>")
       .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanência):\s*<\/strong>/gi, "<strong>Permanenza:</strong>")
       .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Differenziale:</strong>")
       .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Idiomas de atendimento):\s*<\/em>/gi, "<em>Lingue di assistenza:</em>")
       .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
-      .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
+      .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
       .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>")
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Attivo; sito ufficiale aggiornato.")
       .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Su richiesta / In base alle tariffe del fornitore.")
@@ -2202,8 +2208,8 @@ async function buildGroundedDescriptions(
 
   const it = [
     `<p><strong>Validità:</strong> Attivo; sito ufficiale aggiornato. <strong>Prezzo:</strong> Su richiesta / In base alle tariffe del fornitore.</p>`,
-    `<p>💡 <strong>Proposta de valor:</strong> ${cleanSummaryIt || cleanSummary}${locationText ? ` con sede a ${locationText}` : ""}. <strong>Per chi?:</strong> Persone interessate, clienti, famiglie, studenti o professionisti a seconda del settore. <strong>Documentazione richiesta:</strong> Carta d'identità o passaporto e documenti richiesti dal fornitore. <strong>Permanenza:</strong> In base alla modalità o al servizio richiesto.</p>`,
-    `<p>⭐ <strong>Differenziale:</strong> <em>Lingue di assistenza:</em> Spagnolo, Inglese. <em>Esperienza e supporto:</em> Informazioni tratte directamente dal portale ufficiale. <em>Differenziale vs. alternative:</em> Contatto diretto con il fornitore e supporto istituzionale.</p>`,
+    `<p>💡 <strong>Proposta di valore:</strong> ${cleanSummaryIt || cleanSummary}${locationText ? ` con sede a ${locationText}` : ""}. <strong>Per chi?:</strong> Persone interessate, clienti, famiglie, studenti o professionisti a seconda del settore. <strong>Documentazione richiesta:</strong> Carta d'identità o passaporto e documenti richiesti dal fornitore. <strong>Permanenza:</strong> In base alla modalità o al servizio richiesto.</p>`,
+    `<p>⭐ <strong>Differenziale:</strong> <em>Lingue di assistenza:</em> Spagnolo, Inglese. <em>Esperienza e supporto:</em> Informazioni tratte direttamente dal portale ufficiale. <em>Differenziale vs. alternative:</em> Contatto diretto con il fornitore e supporto istituzionale.</p>`,
     `<p>⚠️ <strong>Esclusioni:</strong> Verificare disponibilità, tariffe vigenti, requisiti e condizioni direttamente su ${siteUrl} prima di procedere o candidarsi.</p>`,
   ].join("\n");
 
