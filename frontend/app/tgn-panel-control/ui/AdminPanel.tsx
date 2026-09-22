@@ -2,13 +2,14 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, Trash2, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Bot, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, Trash2, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
 import CountryMultiSelect from "@/components/CountryMultiSelect";
 import RichTextEditor from "@/components/RichTextEditor";
 import AiScraperModal, { type ScrapedPublicationDraft } from "@/components/admin/AiScraperModal";
+import AiFieldRefineModal, { type RefineFieldType } from "@/components/AiFieldRefineModal";
 import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
@@ -1531,6 +1532,108 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [pDescription, setPDescription] = useState("");
   const [pDescriptionI18n, setPDescriptionI18n] = useState<I18nRecord>({ es: "" });
   const [translatingField, setTranslatingField] = useState<string | null>(null);
+  const [aiRefineState, setAiRefineState] = useState<{
+    isOpen: boolean;
+    fieldType: RefineFieldType;
+    currentValue?: string;
+    currentTitleValue?: string;
+    blockIndex?: number;
+  }>({
+    isOpen: false,
+    fieldType: "description",
+  });
+
+  const handleApplyAiRefinement = (data: {
+    resultText: string;
+    resultTitle?: string;
+    translations?: {
+      es?: string;
+      en?: string;
+      pt?: string;
+      it?: string;
+      titleI18n?: Record<string, string>;
+      bodyI18n?: Record<string, string>;
+    };
+    blockIndex?: number;
+  }) => {
+    const { resultText, resultTitle, translations, blockIndex } = data;
+    const sourceLang = pLang || "es";
+
+    if (aiRefineState.fieldType === "title") {
+      if (translations && (translations.en || translations.pt || translations.it)) {
+        setPTitleI18n((prev) => ({
+          ...prev,
+          ...translations,
+          [sourceLang]: resultText,
+          ...(sourceLang === "es" ? { es: resultText } : {}),
+        }));
+      } else {
+        setPTitleI18n((prev) => ({ ...prev, [sourceLang]: resultText }));
+      }
+      if (sourceLang === "es" || !pTitle) setPTitle(resultText);
+    } else if (aiRefineState.fieldType === "description") {
+      if (translations && (translations.en || translations.pt || translations.it)) {
+        setPDescriptionI18n((prev) => ({
+          ...prev,
+          ...translations,
+          [sourceLang]: resultText,
+          ...(sourceLang === "es" ? { es: resultText } : {}),
+        }));
+      } else {
+        setPDescriptionI18n((prev) => ({
+          ...prev,
+          [sourceLang]: resultText,
+          ...(sourceLang === "es" ? { es: resultText } : {}),
+        }));
+      }
+      if (sourceLang === "es" || !pDescription) setPDescription(resultText);
+    } else if (aiRefineState.fieldType === "provider_info") {
+      if (translations && (translations.en || translations.pt || translations.it)) {
+        setPProviderInfoI18n((prev) => ({
+          ...prev,
+          ...translations,
+          [sourceLang]: resultText,
+          ...(sourceLang === "es" ? { es: resultText } : {}),
+        }));
+      } else {
+        setPProviderInfoI18n((prev) => ({ ...prev, [sourceLang]: resultText }));
+      }
+    } else if (aiRefineState.fieldType === "extra_block" && typeof blockIndex === "number") {
+      setPExtraDescriptions((prev) =>
+        prev.map((d, i) => {
+          if (i !== blockIndex) return d;
+          const nextTitleI18n = translations?.titleI18n
+            ? { ...(d.titleI18n || {}), ...translations.titleI18n, [sourceLang]: resultTitle || d.titleI18n?.[sourceLang] || "" }
+            : { ...(d.titleI18n || {}), [sourceLang]: resultTitle || d.titleI18n?.[sourceLang] || "" };
+          const nextBodyI18n = translations?.bodyI18n
+            ? { ...(d.bodyI18n || {}), ...translations.bodyI18n, [sourceLang]: resultText }
+            : { ...(d.bodyI18n || {}), [sourceLang]: resultText };
+          return {
+            ...d,
+            title: sourceLang === "es" && resultTitle ? resultTitle : (d.title || nextTitleI18n.es || resultTitle || ""),
+            body: sourceLang === "es" ? resultText : (d.body || nextBodyI18n.es || resultText),
+            titleI18n: nextTitleI18n,
+            bodyI18n: nextBodyI18n,
+          };
+        })
+      );
+    } else if (aiRefineState.fieldType === "new_extra_block") {
+      const newTitle = resultTitle || "Información adicional";
+      const tMap = translations?.titleI18n || { es: newTitle, en: newTitle, pt: newTitle, it: newTitle };
+      const bMap = translations?.bodyI18n || { es: resultText, en: resultText, pt: resultText, it: resultText };
+      setPExtraDescriptions((prev) => [
+        ...prev,
+        {
+          title: newTitle,
+          body: resultText,
+          titleI18n: tMap,
+          bodyI18n: bMap,
+          lang: "es",
+          visibleInCard: false,
+        },
+      ]);
+    }
+  };
   const [pPublisherName, setPPublisherName] = useState("");
   const [pProviderEmail, setPProviderEmail] = useState("");
   const [pStatus, setPStatus] = useState("active");
@@ -8710,42 +8813,58 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
             </div>
             <div className="grid gap-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
-                <button
-                  type="button"
-                  disabled={translatingField === "providerInfo"}
-                  onClick={async () => {
-                    const currentSource = (pProviderInfoI18n[pLang] || pProviderInfoI18n.es || "").trim();
-                    if (!currentSource) return;
-                    const sourceLang = pLang || "es";
-                    const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
-                    setTranslatingField("providerInfo");
-                    try {
-                      const res = await fetch("/api/admin/translate-i18n", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: currentSource, targetLangs, sourceLang, isHtml: true }),
-                      });
-                      const data = await res.json();
-                      if (data?.translations) {
-                        setPProviderInfoI18n((prev) => ({
-                          ...prev,
-                          [sourceLang]: currentSource,
-                          ...data.translations,
-                        }));
-                      }
-                    } catch (err) {
-                      console.error("Translation error:", err);
-                    } finally {
-                      setTranslatingField(null);
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAiRefineState({
+                        isOpen: true,
+                        fieldType: "provider_info",
+                        currentValue: pProviderInfoI18n[pLang] || pProviderInfoI18n.es || "",
+                      })
                     }
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-                >
-                  <Languages className="h-3.5 w-3.5 text-cyan-600" />
-                  {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
-                </button>
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300"
+                  >
+                    <Bot className="h-3.5 w-3.5 text-purple-600" />
+                    Mejorar con IA
+                  </button>
+                  <button
+                    type="button"
+                    disabled={translatingField === "providerInfo"}
+                    onClick={async () => {
+                      const currentSource = (pProviderInfoI18n[pLang] || pProviderInfoI18n.es || "").trim();
+                      if (!currentSource) return;
+                      const sourceLang = pLang || "es";
+                      const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
+                      setTranslatingField("providerInfo");
+                      try {
+                        const res = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: currentSource, targetLangs, sourceLang, isHtml: true }),
+                        });
+                        const data = await res.json();
+                        if (data?.translations) {
+                          setPProviderInfoI18n((prev) => ({
+                            ...prev,
+                            [sourceLang]: currentSource,
+                            ...data.translations,
+                          }));
+                        }
+                      } catch (err) {
+                        console.error("Translation error:", err);
+                      } finally {
+                        setTranslatingField(null);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                  >
+                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                    {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                  </button>
+                </div>
               </div>
               <RichTextEditor
                 value={pProviderInfoI18n[pLang] ?? ""}
@@ -8982,46 +9101,62 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
               </div>
               <div className="grid gap-2">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <label className="text-sm font-medium text-slate-700">
                     Título de la publicación <span className="font-bold text-[#007D92]">({pLang.toUpperCase()})</span>
                   </label>
-                  <button
-                    type="button"
-                    disabled={translatingField === "title"}
-                    onClick={async () => {
-                      const sourceLang = pLang || "es";
-                      const sourceText = (pTitleI18n[sourceLang] || pTitleI18n.es || pTitle || "").trim();
-                      if (!sourceText) return;
-                      const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
-                      setTranslatingField("title");
-                      try {
-                        const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
-                        const res = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: sourceText, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
-                        });
-                        const data = await res.json();
-                        if (data?.translations) {
-                          setPTitleI18n((prev) => ({
-                            ...prev,
-                            [sourceLang]: sourceText,
-                            ...data.translations,
-                          }));
-                          if (sourceLang === "es" || !pTitle) setPTitle(sourceText);
-                        }
-                      } catch (err) {
-                        console.error("Translation error:", err);
-                      } finally {
-                        setTranslatingField(null);
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAiRefineState({
+                          isOpen: true,
+                          fieldType: "title",
+                          currentValue: pTitleI18n[pLang] || (pLang === "es" ? pTitle : "") || pTitleI18n.es || "",
+                        })
                       }
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-                  >
-                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
-                    {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
-                  </button>
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300"
+                    >
+                      <Bot className="h-3.5 w-3.5 text-purple-600" />
+                      Mejorar título con IA
+                    </button>
+                    <button
+                      type="button"
+                      disabled={translatingField === "title"}
+                      onClick={async () => {
+                        const sourceLang = pLang || "es";
+                        const sourceText = (pTitleI18n[sourceLang] || pTitleI18n.es || pTitle || "").trim();
+                        if (!sourceText) return;
+                        const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
+                        setTranslatingField("title");
+                        try {
+                          const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
+                          const res = await fetch("/api/admin/translate-i18n", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ text: sourceText, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
+                          });
+                          const data = await res.json();
+                          if (data?.translations) {
+                            setPTitleI18n((prev) => ({
+                              ...prev,
+                              [sourceLang]: sourceText,
+                              ...data.translations,
+                            }));
+                            if (sourceLang === "es" || !pTitle) setPTitle(sourceText);
+                          }
+                        } catch (err) {
+                          console.error("Translation error:", err);
+                        } finally {
+                          setTranslatingField(null);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                    >
+                      <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                      {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                    </button>
+                  </div>
                 </div>
                 <input
                   value={pTitleI18n[pLang] ?? ""}
@@ -9053,6 +9188,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAiRefineState({
+                        isOpen: true,
+                        fieldType: "description",
+                        currentValue: pDescriptionI18n[pLang] || (pLang === "es" ? pDescription : "") || pDescriptionI18n.es || "",
+                      })
+                    }
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300"
+                  >
+                    <Bot className="h-3.5 w-3.5 text-purple-600" />
+                    Reformular con IA
+                  </button>
                   {renderLangTabs(pLang, (l) => {
                     setPLang(l);
                     setEditingLang(l);
@@ -9111,20 +9260,36 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
 
             <div className="grid gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-sm font-semibold text-slate-900">Descripción opcional</div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPExtraDescriptions((prev) => [
-                      ...prev,
-                      { title: "", body: "", titleI18n: { es: "" }, bodyI18n: { es: "" }, lang: "es", visibleInCard: false },
-                    ])
-                  }
-                  className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  + Agregar bloque
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAiRefineState({
+                        isOpen: true,
+                        fieldType: "new_extra_block",
+                        currentValue: "",
+                      })
+                    }
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300"
+                  >
+                    <Bot className="h-3.5 w-3.5 text-purple-600" />
+                    + Crear bloque con IA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPExtraDescriptions((prev) => [
+                        ...prev,
+                        { title: "", body: "", titleI18n: { es: "" }, bodyI18n: { es: "" }, lang: "es", visibleInCard: false },
+                      ])
+                    }
+                    className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    + Agregar bloque
+                  </button>
+                </div>
               </div>
 
               {pExtraDescriptions.length ? (
@@ -9134,6 +9299,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
                         <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAiRefineState({
+                                isOpen: true,
+                                fieldType: "extra_block",
+                                currentTitleValue: desc.titleI18n?.[pLang] || desc.titleI18n?.es || desc.title || "",
+                                currentValue: desc.bodyI18n?.[pLang] || desc.bodyI18n?.es || desc.body || "",
+                                blockIndex: idx,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300"
+                          >
+                            <Bot className="h-3 w-3 text-purple-600" />
+                            Mejorar con IA
+                          </button>
                           <button
                             type="button"
                             disabled={translatingField === `extra-${idx}`}
@@ -10679,6 +10860,23 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         onClose={() => setAiModalOpen(false)}
         onSelectDraftToEdit={applyAiDraftToForm}
         onApproveDirectly={handleApproveAiDraftDirectly}
+      />
+      <AiFieldRefineModal
+        isOpen={aiRefineState.isOpen}
+        onClose={() => setAiRefineState((prev) => ({ ...prev, isOpen: false }))}
+        fieldType={aiRefineState.fieldType}
+        currentValue={aiRefineState.currentValue}
+        currentTitleValue={aiRefineState.currentTitleValue}
+        blockIndex={aiRefineState.blockIndex}
+        metadata={{
+          title: pTitleI18n[pLang] || pTitle || "",
+          publisherName: pPublisherName || "",
+          category: pCategory || "",
+          city: pCity || "",
+          country: pCountry || "",
+          url: pWebsite || "",
+        }}
+        onApply={handleApplyAiRefinement}
       />
     </div>
   );
