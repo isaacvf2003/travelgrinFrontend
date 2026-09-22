@@ -52,12 +52,13 @@ const FIELD_LABELS: Record<RefineFieldType, { title: string; subtitle: string; p
   },
   description: {
     title: "Asistente IA para Descripción",
-    subtitle: "Explicále en lenguaje natural qué agregar, quitar o reformular en la descripción oficial (4 párrafos estándar).",
-    placeholder: "Ej: Agregale que la atención es 24hs, sacale los precios y ponele que es gratis, hacelo más formal o enfocado en becas...",
+    subtitle: "Pedile a la IA redactar desde cero o reformular con total libertad creativa, iconos, secciones y persuasión.",
+    placeholder: "Ej: Creá una descripción atractiva para un torneo de fútbol / buffet / estudio legal, usá iconos llamativos, quitá precios, enfocá en beneficios...",
     suggestions: [
+      "Crear descripción atractiva y persuasiva con iconos",
       "Más trabajado y persuasivo",
       "Hacerlo más formal e institucional",
-      "Hacerlo más corto y conciso",
+      "Hacerlo más corto y conciso con puntos clave",
       "Enfocar en modalidades virtuales y becas",
       "Destacar atención de emergencias 24/7",
       "Quitar precios y poner que es gratuito",
