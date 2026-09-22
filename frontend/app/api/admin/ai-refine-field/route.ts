@@ -4,6 +4,11 @@ export const maxDuration = 60;
 
 type FieldType = "title" | "description" | "provider_info" | "extra_block" | "new_extra_block";
 
+interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface RefineFieldRequest {
   fieldType: FieldType;
   currentText?: string;
@@ -17,6 +22,8 @@ interface RefineFieldRequest {
   sourceLang?: string;
   autoTranslate?: boolean;
   apiKey?: string;
+  conversationHistory?: ConversationMessage[];
+  variationIndex?: number;
 }
 
 function decodeHtmlEntities(str: string): string {
@@ -162,7 +169,7 @@ function normalizeToItalianDescriptionHeaders(text: string): string {
     .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanência):\s*<\/strong>/gi, "<strong>Permanenza:</strong>")
     .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Differenziale:</strong>")
     .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Idiomas de atendimento):\s*<\/em>/gi, "<em>Lingue di assistenza:</em>")
-    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
+    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
     .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternative):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
     .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>");
 }
@@ -242,48 +249,56 @@ function buildSystemRefinePrompt(
   fieldType: FieldType,
   currentText: string,
   prompt: string,
-  meta: { title?: string; publisherName?: string; category?: string; city?: string; country?: string; url?: string }
+  meta: { title?: string; publisherName?: string; category?: string; city?: string; country?: string; url?: string },
+  conversationHistory: ConversationMessage[] = []
 ): string {
   const contextStr = [
     meta.title ? `Título actual: ${meta.title}` : "",
-    meta.publisherName ? `Entidad/Marca: ${meta.publisherName}` : "",
+    meta.publisherName ? `Entidad/Marca extraída: ${meta.publisherName}` : "",
     meta.category ? `Categoría/Rubro: ${meta.category}` : "",
     meta.city ? `Ubicación: ${meta.city}${meta.country ? `, ${meta.country}` : ""}` : "",
     meta.url ? `Web: ${meta.url}` : "",
   ].filter(Boolean).join(" | ");
 
+  const historyStr = conversationHistory.length > 0
+    ? conversationHistory.map(m => `${m.role === "user" ? "Administrador" : "Asistente"}: "${m.content}"`).join("\n")
+    : "Sin historial previo";
+
   return `
-Eres el Asistente de IA y Lead Copywriter Creativo de Travelgrin (actúas con total libertad e inteligencia creativa, como ChatGPT Plus o Gemini Advanced).
+Eres el Asistente de IA y Lead Copywriter Creativo Senior de Travelgrin (actúas con total libertad e inteligencia creativa, como ChatGPT Plus o Gemini Advanced).
 
 🎯 TU MISIÓN:
-Pensar profundamente la MEJOR opción posible para el administrador. Tienes TOTAL LIBERTAD creativa y estilística para redactar con impacto, elegancia y persuasión profesional. No te limites a plantillas rígidas: busca la propuesta más atractiva, potente y conveniente para el usuario final.
+Pensar profundamente la MEJOR opción posible para el administrador. Tienes TOTAL LIBERTAD creativa, conceptual y estilística para redactar con impacto, elegancia y persuasión profesional. No te limites a plantillas fijas.
 
-⚡ REGLAS CRÍTICAS DE INTERPRETACIÓN:
-1. LIBERTAD CREATIVA Y MÁXIMA CALIDAD:
-   - Si el administrador te pide algo abierto como "quiero que sea algo más llamativo y profesional", "hacelo más vendedor", "que invite al usuario", "pensá la mejor opción":
-     ¡Piensa libremente como un copywriter de primer nivel mundial! Encuentra el mejor ángulo de comunicación, con gancho, distinción y valor real.
-2. CUMPLIMIENTO RIGUROSO DE RESTRICCIONES (POSITIVAS Y NEGATIVAS):
-   - Si el administrador indica que "no hace falta que diga [nombre]", "sin el nombre", "no menciones la empresa", "sacale X":
-     ¡NO INCLUYAS ESE NOMBRE O DATO BAJO NINGÚN CONCEPTO! Crea una opción conceptual, potente y enfocada en el beneficio o propuesta de valor sin mencionar la marca.
-   - Si pide incluir llamados a la acción ("Vení a...", "Contratá...", "Inscribite hoy..."): redactalos con energía, fluidez y profesionalismo.
-   - Si pide cambiar datos concretos, horarios, precios, modalidades o requisitos: aplícalos con exactitud quirúrgica.
+⚡ REGLAS CRÍTICAS DE CONTEXTO E HISTORIAL:
+1. CONTINUIDAD DE RESTRICCIONES (POSITIVAS Y NEGATIVAS):
+   - Si en la conversación previa o en la instrucción actual el administrador pidió omitir la marca ("no hace falta que diga [nombre]", "sin el nombre", "sacale X"):
+     ¡MANTÉN ESA RESTRICCIÓN ACTIVADA! No vuelvas a incluir el nombre de la empresa/institución aunque el usuario diga "hacelo diferente", "hacelo más corto" o "ajustalo".
+   - Crea siempre una formulación conceptual brillante, orientada al beneficio, la propuesta de valor o la llamada a la acción.
+
+2. ADAPTABILIDAD UNIVERSAL DE RUBROS:
+   - Este contenido puede provenir de cualquier rubro (Deportes, Judicial/Legal, Salud, Educación, Turismo, Inmobiliaria, Gastronomía, Comercio, etc.).
+   - Utiliza el vocabulario, jerarquía y tono propio de la industria correspondiente.
 
 📋 CONTEXTO DISPONIBLE:
 ${contextStr || "Sin contexto adicional"}
 
+💬 HISTORIAL DE LA CONVERSACIÓN:
+${historyStr}
+
 TIPO DE CAMPO: "${fieldType}"
-TEXTO ACTUAL:
+TEXTO BASE:
 """
 ${currentText || "(campo actualmente vacío o nuevo)"}
 """
 
-INSTRUCCIÓN DEL ADMINISTRADOR:
+INSTRUCCIÓN ACTUAL DEL ADMINISTRADOR:
 """
 ${prompt}
 """
 
 FORMATO DE SALIDA (ÚNICAMENTE JSON VÁLIDO):
-- Si fieldType === "title": {"title": "Mejor opción de título pensada con total libertad y maestría"}
+- Si fieldType === "title": {"title": "Mejor opción de título pensada con total libertad, sin clichés y respetando restricciones"}
 - Si fieldType === "description": {"description": "HTML con los 4 párrafos estándar: <p><strong>Vigencia:</strong> ... <strong>Precio:</strong> ...</p><p>💡 <strong>Propuesta de valor:</strong> ... <strong>¿Para quién?:</strong> ... <strong>Documentación requerida:</strong> ... <strong>Permanencia:</strong> ...</p><p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ... <em>Experiencia y soporte:</em> ... <em>Diferencial vs. alternativas:</em> ...</p><p>⚠️ <strong>Exclusiones:</strong> ...</p>"}
 - Si fieldType === "provider_info": {"providerInfo": "Texto de síntesis institucional de alto nivel"}
 - Si fieldType === "extra_block" O "new_extra_block": {"title": "Título del bloque", "body": "Cuerpo con formato y datos solicitados"}
@@ -297,44 +312,110 @@ function generateSemanticAiFallback(
   fieldType: FieldType,
   currentText: string,
   prompt: string,
-  meta: { title?: string; publisherName?: string; category?: string; city?: string; country?: string; url?: string }
+  meta: { title?: string; publisherName?: string; category?: string; city?: string; country?: string; url?: string },
+  conversationHistory: ConversationMessage[] = [],
+  variationIndex: number = 0
 ): any {
+  const allPrompts = [
+    ...conversationHistory.map((m) => m.content),
+    prompt,
+  ].join(" ").toLowerCase();
+
   const pLower = prompt.toLowerCase().trim();
   const cleanName = cleanBaseEntityName(currentText || meta.title || "", meta.publisherName);
   const cityStr = meta.city || "";
   const catLower = (meta.category || "").toLowerCase();
+  const fullCorpus = `${cleanName} ${catLower} ${allPrompts} ${meta.url || ""}`.toLowerCase();
 
-  const isEducation = /universidad|facultad|instituto|colegio|carrera|educa|acad[eé]m|posgrado|grado|m[aá]ster/i.test(`${cleanName} ${catLower} ${pLower}`);
-  const isHealth = /salud|m[eé]dic|cl[ií]nic|hospital|guardia|odont|odontol|psic|obra social|prepaga|sanatorio/i.test(`${cleanName} ${catLower} ${pLower}`);
-  const isTourism = /turism|viaje|hotel|alojam|excursi|vuelo|hostel|tour|hospedaje/i.test(`${cleanName} ${catLower} ${pLower}`);
+  // Multi-domain detection
+  const isEducation = /universidad|facultad|instituto|colegio|carrera|educa|acad[eé]m|posgrado|grado|m[aá]ster|abogac[ií]a|licenciatura|terciario/i.test(fullCorpus);
+  const isJudicial = /judicial|abogad|estudio jur[ií]dic|legal|leyes|derecho|notar|escriban|perit|defens|litig/i.test(fullCorpus);
+  const isSports = /deport|club|gym|gimnasio|futbol|fútbol|rugby|tenis|p[aá]del|nataci|entrenam|fitness|b[aá]squet|atlet/i.test(fullCorpus);
+  const isHealth = /salud|m[eé]dic|cl[ií]nic|hospital|guardia|odont|odontol|psic|obra social|prepaga|sanatorio|farmac/i.test(fullCorpus);
+  const isTourism = /turism|viaje|hotel|alojam|excursi|vuelo|hostel|tour|hospedaje|posada|cabaña|resort/i.test(fullCorpus);
+  const isFood = /gastronom|restauran|bar|caf[eé]|comida|parrilla|bistr[oó]|cena|almuerzo|degustac/i.test(fullCorpus);
+  const isRealEstate = /inmobiliar|propiedad|bienes ra[ií]ces|alquiler|tasaci|lote|terreno|departamento|casa en venta/i.test(fullCorpus);
 
-  const omitName = /no hace falta.*(nombre|siglo|marca|decir|poner|mencionar)|sin.*(nombre|marca|mencionar)|no pongas|no digas|no menciones|omiti|sacale.*nombre|sacar.*nombre|sin la marca/i.test(pLower);
+  // Persistent omitName check across all turns
+  const omitName = /no hace falta.*(nombre|siglo|marca|decir|poner|mencionar)|sin.*(nombre|marca|mencionar)|no pongas.*(nombre|marca)|no digas|no menciones|omiti|sacale.*(nombre|marca)|sacar.*(nombre|marca)|sin la marca/i.test(allPrompts);
 
   if (fieldType === "title") {
-    // 1. If the admin explicitly asks NOT to mention the brand name
+    // Variations pools for distinct domains
     if (omitName) {
+      if (isJudicial) {
+        const v = [
+          "Asesoramiento Legal de Excelencia: Soluciones Jurídicas Integrales",
+          "Defensa y Representación Jurídica: Turnos y Consultas Especializadas",
+          "¡Protegé tus Derechos! Asesoramiento Jurídico y Notarial de Vanguardia",
+          "Soluciones Legales Estratégicas: Trayectoria y Compromiso Profesional",
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+
+      if (isSports) {
+        const v = [
+          "¡Entrená al Máximo Nivel! Actividades Deportivas y Pases Mensuales",
+          "Centro Deportivo de Alto Rendimiento: Instalaciones y Membresías",
+          "¡Sumate al Deporte! Clases, Torneos y Espacios de Entrenamiento",
+          "Viví tu Pasión Deportiva: Actividades para Todas las Edades",
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+
       if (isEducation) {
-        if (/llamativ|profesional|impact|trabajad|mejor|nivel|futuro/i.test(pLower)) {
-          return { title: "Liderá tu Futuro: Formación Universitaria y Carreras de Vanguardia" };
-        }
-        if (/carrera|grado|posgrado|beca|inscrip/i.test(pLower)) {
-          return { title: "Carreras de Grado, Posgrados Oficiales y Becas Universitarias" };
-        }
-        if (/veni|vení|inscribite|estudia|estudiá|eleg[ií]/i.test(pLower)) {
-          return { title: "¡Vení a la Mejor Universidad! Carreras Oficiales y Modalidad Flexible" };
-        }
-        return { title: "Educación Superior de Excelencia: Carreras Universitarias e Inscripciones Abiertas" };
+        const v = [
+          "Liderá tu Futuro: Formación Universitaria y Carreras de Vanguardia",
+          "Carreras de Grado, Posgrados Oficiales y Becas Universitarias",
+          "¡Vení a la Mejor Universidad! Carreras Oficiales y Modalidad Flexible",
+          "Educación Superior de Excelencia: Inscripciones Abiertas y Salida Laboral",
+          "Tu Futuro Profesional Comienza Hoy: Títulos Oficiales y Prácticas",
+        ];
+        return { title: v[variationIndex % v.length] };
       }
+
       if (isHealth) {
-        if (/contrata|obra social|salud|cobertura/i.test(pLower)) {
-          return { title: `¡Contratá la Mejor Cobertura Médica en ${cityStr || 'tu ciudad'}!` };
-        }
-        return { title: "Atención Médica de Excelencia: Guardia 24hs y Especialidades" };
+        const v = [
+          `¡Contratá la Mejor Cobertura Médica en ${cityStr || 'tu ciudad'}!`,
+          "Atención Médica de Excelencia: Guardia 24hs y Especialidades",
+          "Planes de Salud Integrales: Cobertura Médica y Turnos Online",
+          "Cuidá tu Bienestar: Atención Multidisciplinaria y Tecnología Médica",
+        ];
+        return { title: v[variationIndex % v.length] };
       }
+
       if (isTourism) {
-        return { title: "¡Viví Experiencias Únicas! Alojamientos y Excursiones Exclusivas" };
+        const v = [
+          "¡Viví Experiencias Únicas! Alojamientos y Excursiones Exclusivas",
+          "Destinos Inolvidables: Hospedajes y Paquetes Turísticos Oficiales",
+          "¡Planificá tu Próxima Escapada! Tarifas Preferenciales y Asesoramiento",
+        ];
+        return { title: v[variationIndex % v.length] };
       }
-      return { title: "Excelencia, Confianza y Soluciones Profesionales de Primer Nivel" };
+
+      if (isFood) {
+        const v = [
+          "Experiencia Gastronómica Única: Sabores de Autor y Reservas Online",
+          "Menú de Autor y Platos Exclusivos: Viví una Experiencia Inolvidable",
+          "¡Descubrí el Mejor Sabor! Gastronomía de Vanguardia y Eventos",
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+
+      if (isRealEstate) {
+        const v = [
+          "Encontrá la Propiedad de tus Sueños: Venta, Alquiler y Tasaciones",
+          `Oportunidades Inmobiliarias e Inversiones Estratégicas en ${cityStr || 'la región'}`,
+          "Gestión Inmobiliaria Integral: Asesoramiento y Propiedades Exclusivas",
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+
+      const vGeneral = [
+        "Excelencia, Confianza y Soluciones Profesionales de Primer Nivel",
+        "Servicios de Vanguardia y Atención Personalizada Garantizada",
+        "Calidad, Trayectoria y Respaldo Institucional Verificado",
+      ];
+      return { title: vGeneral[variationIndex % vGeneral.length] };
     }
 
     // 2. Short / Direct / Name only
@@ -343,9 +424,20 @@ function generateSemanticAiFallback(
     }
 
     // 3. Direct Invitation / Call to action (veni a la mejor..., contrata..., inscribite...)
-    if (/veni|vení|inscribite|estudia|estudiá|entr[aá]|eleg[ií]/i.test(pLower)) {
+    if (/veni|vení|inscribite|estudia|estudiá|entr[aá]|eleg[ií]|sumat/i.test(pLower)) {
       if (isEducation) {
-        return { title: `¡Vení a la mejor universidad! Estudiá en ${cleanName}` };
+        const v = [
+          `¡Vení a la mejor universidad! Estudiá en ${cleanName}`,
+          `¡Inscribite hoy en ${cleanName}! Carreras Oficiales y Modalidades Flexibles`,
+          `¡Elegí tu futuro en ${cleanName}! Carreras de Grado y Posgrados`,
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+      if (isJudicial) {
+        return { title: `¡Protegé tus Derechos con ${cleanName}! Asesoramiento Jurídico en ${cityStr || 'tu ciudad'}` };
+      }
+      if (isSports) {
+        return { title: `¡Sumate a ${cleanName}! Tu Club Deportivo en ${cityStr || 'tu ciudad'}` };
       }
       if (isHealth) {
         return { title: `¡Elegí la mejor opción en salud! ${cleanName} en ${cityStr || 'tu ciudad'}` };
@@ -360,7 +452,18 @@ function generateSemanticAiFallback(
     // 4. High Impact / Attention-grabbing / Trabajado / Potente / Llamativo
     if (/impact|atenci[oó]n|trabajad|llamativ|potente|fuerte|nivel|profesional|excelen|destac|mejor/i.test(pLower)) {
       if (isEducation) {
-        return { title: `¡Vení a la mejor universidad! Estudiá en ${cleanName} | Carreras de Grado y Posgrados` };
+        const v = [
+          `¡Vení a la mejor universidad! Estudiá en ${cleanName} | Carreras de Grado y Posgrados`,
+          `${cleanName} | Carreras de Grado, Posgrados Oficiales y Formación de Vanguardia`,
+          `Liderá tu Futuro Profesional en ${cleanName} | Inscripciones Abiertas`,
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+      if (isJudicial) {
+        return { title: `${cleanName} | Estudio Jurídico y Asesoramiento Legal Integral` };
+      }
+      if (isSports) {
+        return { title: `${cleanName} | Club Deportivo, Entrenamientos y Pases Oficiales` };
       }
       if (isHealth) {
         return { title: `¡Contratá la mejor atención médica! ${cleanName} | Guardia 24hs y Turnos Online` };
@@ -401,8 +504,13 @@ function generateSemanticAiFallback(
       return { title: `${cleanName} - Sede ${detectedCity}` };
     }
 
-    // 9. General smart synthesis
-    return { title: `${cleanName}: Servicios Oficiales y Atención Personalizada` };
+    // 9. General smart synthesis with rotating variations
+    const vDefault = [
+      `${cleanName}: Servicios Oficiales y Atención Personalizada`,
+      `${cleanName} | Calidad, Trayectoria y Soluciones Profesionales`,
+      `${cleanName} - Excelencia Institucional y Canales Oficiales`,
+    ];
+    return { title: vDefault[variationIndex % vDefault.length] };
   }
 
   if (fieldType === "description") {
@@ -412,6 +520,10 @@ function generateSemanticAiFallback(
     
     let valueProp = isEducation
       ? `Formación académica de alto nivel con programas adaptados a la demanda profesional actual en ${cityStr || "Argentina"}.`
+      : isJudicial
+      ? `Asesoramiento y representación jurídica especializada con enfoque estratégico y confidencialidad en ${cityStr || "Argentina"}.`
+      : isSports
+      ? `Instalaciones deportivas de primer nivel, actividades supervisadas por profesionales y planes adaptados en ${cityStr || "Argentina"}.`
       : isHealth
       ? `Atención médica especializada con tecnología avanzada y cobertura integral en ${cityStr || "Argentina"}.`
       : `Propuesta integral de servicios y soluciones respaldadas institucionalmente en ${cityStr || "Argentina"}.`;
@@ -435,6 +547,16 @@ function generateSemanticAiFallback(
     if (isEducation) {
       return {
         providerInfo: `${cleanName} es una institución educativa destacada por su trayectoria académica, innovación pedagógica y compromiso con el desarrollo profesional en ${cityStr || "la región"}.`,
+      };
+    }
+    if (isJudicial) {
+      return {
+        providerInfo: `${cleanName} es un estudio profesional reconocido por su rigurosidad técnica, trayectoria legal y sólida defensa de los intereses de sus clientes en ${cityStr || "la región"}.`,
+      };
+    }
+    if (isSports) {
+      return {
+        providerInfo: `${cleanName} es una institución deportiva comprometida con el desarrollo atlético, vida saludable y formación integral en ${cityStr || "la región"}.`,
       };
     }
     if (isHealth) {
@@ -469,13 +591,6 @@ function generateSemanticAiFallback(
       body: "<p><strong>Opciones disponibles:</strong> Transferencia bancaria, tarjetas de débito/crédito y planes de pago en cuotas según convenios vigentes.</p><p><strong>Beneficios:</strong> Bonificaciones por pago anticipado y convenios institucionales aplicables.</p>",
     };
   }
-  if (/horario|atenci|guardia|turno/i.test(pLower)) {
-    return {
-      title: "Horarios y Canales de Atención",
-      body: `<p><strong>Atención al público:</strong> Lunes a viernes de 08:00 a 20:00 hs en sede ${cityStr || "oficial"}.</p><p><strong>Guardias y soporte online:</strong> Asistencia digital permanente a través de canales institucionales autorizados.</p>`,
-    };
-  }
-
   return {
     title: "Información y Condiciones",
     body: `<p><strong>Detalle del servicio:</strong> ${prompt}.</p><p><strong>Recomendación:</strong> Consultar directamente en los canales de contacto oficial para coordinar turnos o recibir asesoramiento específico.</p>`,
@@ -485,7 +600,21 @@ function generateSemanticAiFallback(
 export async function POST(req: Request) {
   try {
     const body: RefineFieldRequest = await req.json();
-    const { fieldType, currentText = "", prompt, currentTitle = "", publisherName = "", category = "", city = "", country = "", url = "", autoTranslate = true, apiKey } = body;
+    const {
+      fieldType,
+      currentText = "",
+      prompt,
+      currentTitle = "",
+      publisherName = "",
+      category = "",
+      city = "",
+      country = "",
+      url = "",
+      autoTranslate = true,
+      apiKey,
+      conversationHistory = [],
+      variationIndex = 0,
+    } = body;
 
     if (!prompt || !prompt.trim()) {
       return NextResponse.json({ error: "Debe ingresar una instrucción o prompt para la IA." }, { status: 400 });
@@ -511,14 +640,20 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
       "";
 
-    const systemPrompt = buildSystemRefinePrompt(fieldType, currentText, prompt, {
-      title: currentTitle,
-      publisherName,
-      category,
-      city,
-      country,
-      url,
-    });
+    const systemPrompt = buildSystemRefinePrompt(
+      fieldType,
+      currentText,
+      prompt,
+      {
+        title: currentTitle,
+        publisherName,
+        category,
+        city,
+        country,
+        url,
+      },
+      conversationHistory
+    );
 
     let aiResult: any = null;
 
@@ -639,14 +774,21 @@ export async function POST(req: Request) {
 
     // 3. Fallback to advanced Semantic NLP engine
     if (!aiResult) {
-      aiResult = generateSemanticAiFallback(fieldType, currentText, prompt, {
-        title: currentTitle,
-        publisherName,
-        category,
-        city,
-        country,
-        url,
-      });
+      aiResult = generateSemanticAiFallback(
+        fieldType,
+        currentText,
+        prompt,
+        {
+          title: currentTitle,
+          publisherName,
+          category,
+          city,
+          country,
+          url,
+        },
+        conversationHistory,
+        variationIndex
+      );
     }
 
     // Handle translations if autoTranslate is requested
