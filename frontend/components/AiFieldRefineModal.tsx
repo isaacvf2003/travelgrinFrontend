@@ -38,8 +38,8 @@ export interface AiFieldRefineModalProps {
 const FIELD_LABELS: Record<RefineFieldType, { title: string; subtitle: string; placeholder: string; suggestions: string[] }> = {
   title: {
     title: "Asistente IA para Título",
-    subtitle: "Explicále a la IA qué querés para el título: hacerlo más corto, invitar al usuario ('Vení a...', 'Contratá...'), impactar o personalizar.",
-    placeholder: "Ej: Veni a la mejor universidad, contrata la mejor obra social, hacelo mas trabajado que impacte, mas corto...",
+    subtitle: "Podés darle una web o nombre del local para investigar, o pedirle que sea más corto, invitacional o llamativo.",
+    placeholder: "Ej: https://misitio.com o Parrilla Don Julio, hacelo llamativo, o 'Vení a la mejor opción...', más corto...",
     suggestions: [
       "¡Vení a la mejor universidad / opción destacada!",
       "¡Contratá la mejor obra social / servicio!",
@@ -52,8 +52,8 @@ const FIELD_LABELS: Record<RefineFieldType, { title: string; subtitle: string; p
   },
   description: {
     title: "Asistente IA para Descripción",
-    subtitle: "Pedile a la IA redactar desde cero o reformular con total libertad creativa, iconos, secciones y persuasión.",
-    placeholder: "Ej: Creá una descripción atractiva para un torneo de fútbol / buffet / estudio legal, usá iconos llamativos, quitá precios, enfocá en beneficios...",
+    subtitle: "Podés pasarle una web o nombre de local para que investigue, o pedirle redactar con iconos, beneficios y persuasión.",
+    placeholder: "Ej: https://misitio.com haceme una propuesta atractiva, o 'Gimnasio SportClub en Belgrano', sacale precios, agregale iconos...",
     suggestions: [
       "Crear descripción atractiva y persuasiva con iconos",
       "Más trabajado y persuasivo",
