@@ -53,7 +53,6 @@ function cleanBaseEntityName(text: string, publisherName?: string): string {
   let base = cleanTitleString(publisherName || text || "");
   if (!base && text) base = cleanTitleString(text);
   
-  // Remove duplicate repeated segments like "Universidad Siglo 21 | Siglo 21" or "UBA - UBA"
   const pipeParts = base.split(/\s*[-–—|]\s*/).filter(Boolean);
   if (pipeParts.length > 1) {
     const p1 = pipeParts[0].trim();
@@ -67,7 +66,7 @@ function cleanBaseEntityName(text: string, publisherName?: string): string {
   return base.trim();
 }
 
-async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms: number = 7000): Promise<Response> {
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms: number = 15000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
   try {
@@ -83,7 +82,7 @@ async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms: number 
 async function translateWithGoogleDirect(text: string, sl: string, tl: string): Promise<string | null> {
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
-    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3500);
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 4000);
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") || "";
     if (!contentType.includes("json")) return null;
@@ -107,7 +106,7 @@ async function translateTextDirect(q: string, sl: string, tl: string): Promise<s
 
   try {
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=${sl}|${tl}`;
-    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0" } }, 3500);
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0" } }, 4000);
     if (res.ok) {
       const data = await res.json();
       const trans = data.responseData?.translatedText;
@@ -144,10 +143,10 @@ function normalizeToPortugueseDescriptionHeaders(text: string): string {
     .replace(/<strong>\s*(?:Propuesta de valor|Value proposition):\s*<\/strong>/gi, "<strong>Proposta de valor:</strong>")
     .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Who is it for\??|Per chi\??):\s*<\/strong>/gi, "<strong>Para quem?:</strong>")
     .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentação necessária:</strong>")
-    .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanência):\s*<\/strong>/gi, "<strong>Permanência:</strong>")
+    .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanenza):\s*<\/strong>/gi, "<strong>Permanência:</strong>")
     .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Diferencial:</strong>")
     .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Idiomas de atendimento:</em>")
-    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Experiência e soporte:</em>")
+    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
     .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Diferencial vs. alternativas:</em>")
     .replace(/<strong>\s*(?:Exclusiones|Exclusions|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusões:</strong>");
 }
@@ -163,7 +162,7 @@ function normalizeToItalianDescriptionHeaders(text: string): string {
     .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanência):\s*<\/strong>/gi, "<strong>Permanenza:</strong>")
     .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Differenziale:</strong>")
     .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Idiomas de atendimento):\s*<\/em>/gi, "<em>Lingue di assistenza:</em>")
-    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
+    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
     .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternative):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
     .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>");
 }
@@ -246,26 +245,30 @@ function buildSystemRefinePrompt(
   meta: { title?: string; publisherName?: string; category?: string; city?: string; country?: string; url?: string }
 ): string {
   const contextStr = [
-    meta.title ? `Título: ${meta.title}` : "",
-    meta.publisherName ? `Entidad/Oferente: ${meta.publisherName}` : "",
-    meta.category ? `Categoría: ${meta.category}` : "",
+    meta.title ? `Título actual: ${meta.title}` : "",
+    meta.publisherName ? `Entidad/Marca: ${meta.publisherName}` : "",
+    meta.category ? `Categoría/Rubro: ${meta.category}` : "",
     meta.city ? `Ubicación: ${meta.city}${meta.country ? `, ${meta.country}` : ""}` : "",
     meta.url ? `Web: ${meta.url}` : "",
   ].filter(Boolean).join(" | ");
 
   return `
-Eres el Asistente Virtual Personal y Copilot de IA de Travelgrin (actúas como ChatGPT / Gemini para el Administrador).
+Eres el Asistente de IA y Lead Copywriter Creativo de Travelgrin (actúas con total libertad e inteligencia creativa, como ChatGPT Plus o Gemini Advanced).
 
-TU ROL Y RELACIÓN CON EL ADMINISTRADOR:
-El Administrador te explica en lenguaje natural, como a su asistente virtual, qué quiere modificar, agregar, quitar, redactar o crear para esta publicación.
-Puede darte órdenes conversacionales ("sacale esto y ponele que atienden los sábados", "subile el Score Scout a 95 porque verificamos el CUIT y WhatsApp", "creame un bloque con preguntas frecuentes sobre aranceles y formas de pago", "hacé que el título sea un llamado a la acción súper atractivo como '¡Vení a la mejor universidad!'", "hacelo más formal", "hacelo más corto broh").
+🎯 TU MISIÓN:
+Pensar profundamente la MEJOR opción posible para el administrador. Tienes TOTAL LIBERTAD creativa y estilística para redactar con impacto, elegancia y persuasión profesional. No te limites a plantillas rígidas: busca la propuesta más atractiva, potente y conveniente para el usuario final.
 
-DEBES ACATAR Y APLICAR CON EXACTITUD TODAS LAS ESPECIFICACIONES QUE TE PIDA:
-1. Si te pide añadir información concreta (datos de contacto, horarios, beneficios, requisitos, sedes, promociones): incorpóralos con excelente redacción.
-2. Si te pide quitar o cambiar algún dato (precios, exclusiones, términos): modifícalo de inmediato sin dejar rastros de lo eliminado.
-3. Si te pide cambiar el tono (más formal, más canchero, más vendedor, más conciso, invitacional): adáptalo con precisión profesional.
+⚡ REGLAS CRÍTICAS DE INTERPRETACIÓN:
+1. LIBERTAD CREATIVA Y MÁXIMA CALIDAD:
+   - Si el administrador te pide algo abierto como "quiero que sea algo más llamativo y profesional", "hacelo más vendedor", "que invite al usuario", "pensá la mejor opción":
+     ¡Piensa libremente como un copywriter de primer nivel mundial! Encuentra el mejor ángulo de comunicación, con gancho, distinción y valor real.
+2. CUMPLIMIENTO RIGUROSO DE RESTRICCIONES (POSITIVAS Y NEGATIVAS):
+   - Si el administrador indica que "no hace falta que diga [nombre]", "sin el nombre", "no menciones la empresa", "sacale X":
+     ¡NO INCLUYAS ESE NOMBRE O DATO BAJO NINGÚN CONCEPTO! Crea una opción conceptual, potente y enfocada en el beneficio o propuesta de valor sin mencionar la marca.
+   - Si pide incluir llamados a la acción ("Vení a...", "Contratá...", "Inscribite hoy..."): redactalos con energía, fluidez y profesionalismo.
+   - Si pide cambiar datos concretos, horarios, precios, modalidades o requisitos: aplícalos con exactitud quirúrgica.
 
-CONTEXTO INSTITUCIONAL:
+📋 CONTEXTO DISPONIBLE:
 ${contextStr || "Sin contexto adicional"}
 
 TIPO DE CAMPO: "${fieldType}"
@@ -279,42 +282,13 @@ INSTRUCCIÓN DEL ADMINISTRADOR:
 ${prompt}
 """
 
-REGLAS DE FORMATO SEGÚN EL CAMPO:
+FORMATO DE SALIDA (ÚNICAMENTE JSON VÁLIDO):
+- Si fieldType === "title": {"title": "Mejor opción de título pensada con total libertad y maestría"}
+- Si fieldType === "description": {"description": "HTML con los 4 párrafos estándar: <p><strong>Vigencia:</strong> ... <strong>Precio:</strong> ...</p><p>💡 <strong>Propuesta de valor:</strong> ... <strong>¿Para quién?:</strong> ... <strong>Documentación requerida:</strong> ... <strong>Permanencia:</strong> ...</p><p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ... <em>Experiencia y soporte:</em> ... <em>Diferencial vs. alternativas:</em> ...</p><p>⚠️ <strong>Exclusiones:</strong> ...</p>"}
+- Si fieldType === "provider_info": {"providerInfo": "Texto de síntesis institucional de alto nivel"}
+- Si fieldType === "extra_block" O "new_extra_block": {"title": "Título del bloque", "body": "Cuerpo con formato y datos solicitados"}
 
-1. SI fieldType === "title":
-   - Devuelve un JSON: {"title": "Nuevo título optimizado"}
-   - TÍTULOS PERSUASIVOS, DE LLAMADO A LA ACCIÓN E IMPACTO:
-     Si el admin pide invitar o llamar la atención ("veni a...", "contrata...", "mas trabajado"):
-     * "¡Vení a la mejor universidad! Estudiá en Universidad Siglo 21"
-     * "¡Contratá la mejor obra social! Planes de Salud en Mendoza"
-     * "Inscribite hoy en Universidad Siglo 21 | Carreras Oficiales"
-     * "Elegí la mejor opción médica: Guardia 24hs y Turnos Online"
-   - Si pide algo corto: deja únicamente el nombre limpio oficial (ej: "Universidad Siglo 21").
-   - Título limpio, SIN sufijos residuales como "- Home", "| Inicio", etc.
-
-2. SI fieldType === "description":
-   - Devuelve un JSON: {"description": "Nuevo HTML de descripción"}
-   - La descripción DEBE respetar RIGUROSAMENTE los 4 párrafos HTML estándar con sus iconos y negritas:
-     <p><strong>Vigencia:</strong> [Texto]. <strong>Precio:</strong> [Texto].</p>
-     <p>💡 <strong>Propuesta de valor:</strong> [Texto modificado según la orden del admin]. <strong>¿Para quién?:</strong> [Texto]. <strong>Documentación requerida:</strong> [Texto]. <strong>Permanencia:</strong> [Texto].</p>
-     <p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> [Texto]. <em>Experiencia y soporte:</em> [Texto]. <em>Diferencial vs. alternativas:</em> [Texto].</p>
-     <p>⚠️ <strong>Exclusiones:</strong> [Texto].</p>
-   - Modifica los párrafos necesarios según lo que el admin te explicó conservando los tags HTML.
-
-3. SI fieldType === "provider_info":
-   - Devuelve un JSON: {"providerInfo": "Texto de síntesis institucional del oferente"}
-   - Una o dos frases claras sobre la trayectoria, alcance y rol del oferente en su ciudad.
-
-4. SI fieldType === "extra_block" O fieldType === "new_extra_block":
-   - Devuelve un JSON: {"title": "Título del bloque", "body": "Cuerpo del bloque con formato HTML o párrafos <p>..."}
-   - Si es el Score Scout:
-     Ajusta el puntaje y desglose según lo que pida el admin:
-     🛡️ Score Scout XX/100
-     Presencia/reputación XX/25 · Contacto verificable XX/15 · Trayectoria/evidencia operativa XX/20 · Claridad propuesta XX/15 · Transparencia/seguridad XX/15 · Datos Institucionales XX/10
-     Madurez: [Líder / Consolidado / Verificado] · Vínculo: Oficial · Evidencia: [detalles]
-   - Si es un bloque temático (Requisitos, Becas, Horarios, Financiación, FAQ): crea un título representativo y un cuerpo informativo claro con negritas o párrafos.
-
-RESPONDE ÚNICAMENTE CON UN OBJETO JSON VÁLIDO SIN TEXTO NI MARKDOWN ADICIONAL.
+RESPONDE SOLAMENTE EL OBJETO JSON VÁLIDO.
 `;
 }
 
@@ -330,17 +304,45 @@ function generateSemanticAiFallback(
   const cityStr = meta.city || "";
   const catLower = (meta.category || "").toLowerCase();
 
-  const isEducation = /universidad|facultad|instituto|colegio|carrera|educa|acad[eé]m/i.test(`${cleanName} ${catLower} ${pLower}`);
-  const isHealth = /salud|m[eé]dic|cl[ií]nic|hospital|guardia|odont|odontol|psic|obra social|prepaga/i.test(`${cleanName} ${catLower} ${pLower}`);
-  const isTourism = /turism|viaje|hotel|alojam|excursi|vuelo|hostel|tour/i.test(`${cleanName} ${catLower} ${pLower}`);
+  const isEducation = /universidad|facultad|instituto|colegio|carrera|educa|acad[eé]m|posgrado|grado|m[aá]ster/i.test(`${cleanName} ${catLower} ${pLower}`);
+  const isHealth = /salud|m[eé]dic|cl[ií]nic|hospital|guardia|odont|odontol|psic|obra social|prepaga|sanatorio/i.test(`${cleanName} ${catLower} ${pLower}`);
+  const isTourism = /turism|viaje|hotel|alojam|excursi|vuelo|hostel|tour|hospedaje/i.test(`${cleanName} ${catLower} ${pLower}`);
+
+  const omitName = /no hace falta.*(nombre|siglo|marca|decir|poner|mencionar)|sin.*(nombre|marca|mencionar)|no pongas|no digas|no menciones|omiti|sacale.*nombre|sacar.*nombre|sin la marca/i.test(pLower);
 
   if (fieldType === "title") {
-    // 1. Short / Direct / Name only
+    // 1. If the admin explicitly asks NOT to mention the brand name
+    if (omitName) {
+      if (isEducation) {
+        if (/llamativ|profesional|impact|trabajad|mejor|nivel|futuro/i.test(pLower)) {
+          return { title: "Liderá tu Futuro: Formación Universitaria y Carreras de Vanguardia" };
+        }
+        if (/carrera|grado|posgrado|beca|inscrip/i.test(pLower)) {
+          return { title: "Carreras de Grado, Posgrados Oficiales y Becas Universitarias" };
+        }
+        if (/veni|vení|inscribite|estudia|estudiá|eleg[ií]/i.test(pLower)) {
+          return { title: "¡Vení a la Mejor Universidad! Carreras Oficiales y Modalidad Flexible" };
+        }
+        return { title: "Educación Superior de Excelencia: Carreras Universitarias e Inscripciones Abiertas" };
+      }
+      if (isHealth) {
+        if (/contrata|obra social|salud|cobertura/i.test(pLower)) {
+          return { title: `¡Contratá la Mejor Cobertura Médica en ${cityStr || 'tu ciudad'}!` };
+        }
+        return { title: "Atención Médica de Excelencia: Guardia 24hs y Especialidades" };
+      }
+      if (isTourism) {
+        return { title: "¡Viví Experiencias Únicas! Alojamientos y Excursiones Exclusivas" };
+      }
+      return { title: "Excelencia, Confianza y Soluciones Profesionales de Primer Nivel" };
+    }
+
+    // 2. Short / Direct / Name only
     if (/corto|breve|directo|solo nombre|s[ií]ntesis/i.test(pLower)) {
       return { title: cleanName };
     }
 
-    // 2. Direct Invitation / Call to action (veni a la mejor..., contrata..., inscribite...)
+    // 3. Direct Invitation / Call to action (veni a la mejor..., contrata..., inscribite...)
     if (/veni|vení|inscribite|estudia|estudiá|entr[aá]|eleg[ií]/i.test(pLower)) {
       if (isEducation) {
         return { title: `¡Vení a la mejor universidad! Estudiá en ${cleanName}` };
@@ -355,7 +357,7 @@ function generateSemanticAiFallback(
       return { title: `¡Contratá la mejor obra social! ${cleanName} en ${cityStr || 'tu ciudad'}` };
     }
 
-    // 3. High Impact / Attention-grabbing / Trabajado / Potente / Llamativo
+    // 4. High Impact / Attention-grabbing / Trabajado / Potente / Llamativo
     if (/impact|atenci[oó]n|trabajad|llamativ|potente|fuerte|nivel|profesional|excelen|destac|mejor/i.test(pLower)) {
       if (isEducation) {
         return { title: `¡Vení a la mejor universidad! Estudiá en ${cleanName} | Carreras de Grado y Posgrados` };
@@ -369,7 +371,7 @@ function generateSemanticAiFallback(
       return { title: `¡Elegí la mejor propuesta! ${cleanName}: Excelencia y Servicios de Primer Nivel` };
     }
 
-    // 4. Commercial / Attractive / Slogan
+    // 5. Commercial / Attractive / Slogan
     if (/atractiv|comercial|vent|promo|publicit/i.test(pLower)) {
       if (isEducation) {
         return { title: `Estudiá en ${cleanName} | Tu Futuro Profesional Comienza Hoy` };
@@ -377,17 +379,17 @@ function generateSemanticAiFallback(
       return { title: `${cleanName} | Calidad Garantizada y Beneficios Exclusivos` };
     }
 
-    // 5. Careers / Programs / Degrees
+    // 6. Careers / Programs / Degrees
     if (/carrera|grado|posgrado|master|curso|beca|inscrip/i.test(pLower)) {
       return { title: `${cleanName} | Carreras de Grado, Posgrados e Inscripciones Abiertas` };
     }
 
-    // 6. Health / Emergency / Shifts
+    // 7. Health / Emergency / Shifts
     if (/guardia|turno|consulta|especialidad/i.test(pLower)) {
       return { title: `${cleanName} | Guardia Médica 24hs y Turnos Online` };
     }
 
-    // 7. City / Location
+    // 8. City / Location
     if (/ciudad|sede|centro|ubicaci|mendoza|cordoba|caba|buenos aires|rosario/i.test(pLower)) {
       const detectedCity = pLower.includes("mendoza")
         ? "Mendoza"
@@ -399,7 +401,7 @@ function generateSemanticAiFallback(
       return { title: `${cleanName} - Sede ${detectedCity}` };
     }
 
-    // 8. General smart synthesis
+    // 9. General smart synthesis
     return { title: `${cleanName}: Servicios Oficiales y Atención Personalizada` };
   }
 
@@ -446,13 +448,12 @@ function generateSemanticAiFallback(
   }
 
   // Extra block or new extra block
-  // If Score Scout modification
   if (/score|scout|puntaje|auditor|madurez/i.test(`${pLower} ${currentText}`)) {
     const scoreMatch = pLower.match(/\b(9\d|8\d|7\d|100)\b/);
-    const scoreNum = scoreMatch ? scoreMatch[1] : "92";
+    const scoreNum = scoreMatch ? scoreMatch[1] : "95";
     return {
       title: `🛡️ Score Scout ${scoreNum}/100`,
-      body: `Presencia/reputación 23/25 · Contacto verificable 15/15 · Trayectoria/evidencia operativa 20/20 · Claridad propuesta 14/15 · Transparencia/seguridad 14/15 · Datos Institucionales 10/10\nMadurez: Líder · Vínculo: Oficial · Evidencia: Presencia institucional, canales de contacto verificados y soporte activo.`,
+      body: `Presencia/reputación 24/25 · Contacto verificable 15/15 · Trayectoria/evidencia operativa 20/20 · Claridad propuesta 15/15 · Transparencia/seguridad 15/15 · Datos Institucionales 10/10\nMadurez: Líder · Vínculo: Oficial · Evidencia: Presencia institucional verificada, canales directos y atención al cliente activa.`,
     };
   }
 
@@ -497,7 +498,10 @@ export async function POST(req: Request) {
       process.env.GEMINI_KEY ||
       process.env.GOOGLE_API_KEY ||
       process.env.GOOGLE_GEMINI_API_KEY ||
+      process.env.GOOGLE_AI_KEY ||
+      process.env.GEMINI_APIKEY ||
       process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+      process.env.NEXT_PUBLIC_GOOGLE_API_KEY ||
       "";
 
     const openaiKey =
@@ -518,9 +522,17 @@ export async function POST(req: Request) {
 
     let aiResult: any = null;
 
-    // 1. Try Gemini
+    // 1. Try Gemini with high creative freedom
     if (geminiKey) {
-      const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-latest"];
+      const models = [
+        "gemini-1.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-pro",
+        "gemini-1.5-flash-8b",
+        "gemini-2.0-flash-exp",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-pro-latest"
+      ];
       for (const model of models) {
         // Attempt 1: with responseMimeType
         try {
@@ -532,12 +544,12 @@ export async function POST(req: Request) {
               body: JSON.stringify({
                 contents: [{ parts: [{ text: systemPrompt }] }],
                 generationConfig: {
-                  temperature: 0.4,
+                  temperature: 0.7,
                   responseMimeType: "application/json",
                 },
               }),
             },
-            7000
+            15000
           );
           if (resp.ok) {
             const data = await resp.json();
@@ -561,11 +573,11 @@ export async function POST(req: Request) {
                 body: JSON.stringify({
                   contents: [{ parts: [{ text: systemPrompt }] }],
                   generationConfig: {
-                    temperature: 0.4,
+                    temperature: 0.7,
                   },
                 }),
               },
-              7000
+              15000
             );
             if (resp.ok) {
               const data = await resp.json();
@@ -603,14 +615,14 @@ export async function POST(req: Request) {
               body: JSON.stringify({
                 model,
                 messages: [
-                  { role: "system", content: "Eres el Asistente Virtual y Lead AI Editor de Travelgrin. Responde únicamente en JSON." },
+                  { role: "system", content: "Eres el Asistente Virtual y Lead Copywriter Creativo de Travelgrin. Responde únicamente en JSON." },
                   { role: "user", content: systemPrompt },
                 ],
                 response_format: { type: "json_object" },
-                temperature: 0.4,
+                temperature: 0.7,
               }),
             },
-            7000
+            15000
           );
           if (resp.ok) {
             const data = await resp.json();
