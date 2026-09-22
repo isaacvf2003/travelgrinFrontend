@@ -144,10 +144,10 @@ function normalizeToPortugueseDescriptionHeaders(text: string): string {
     .replace(/<strong>\s*(?:Propuesta de valor|Value proposition):\s*<\/strong>/gi, "<strong>Proposta de valor:</strong>")
     .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Who is it for\??|Per chi\??):\s*<\/strong>/gi, "<strong>Para quem?:</strong>")
     .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentação necessária:</strong>")
-    .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanenza):\s*<\/strong>/gi, "<strong>Permanência:</strong>")
+    .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanência):\s*<\/strong>/gi, "<strong>Permanência:</strong>")
     .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Diferencial:</strong>")
     .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Idiomas de atendimento:</em>")
-    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
+    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Experiência e soporte:</em>")
     .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Diferencial vs. alternativas:</em>")
     .replace(/<strong>\s*(?:Exclusiones|Exclusions|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusões:</strong>");
 }
@@ -163,7 +163,7 @@ function normalizeToItalianDescriptionHeaders(text: string): string {
     .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanência):\s*<\/strong>/gi, "<strong>Permanenza:</strong>")
     .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Differenziale:</strong>")
     .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Idiomas de atendimento):\s*<\/em>/gi, "<em>Lingue di assistenza:</em>")
-    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
+    .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
     .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternative):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
     .replace(/<strong>\s*(?:Exclusiones|Exclusions|Exclusões):\s*<\/strong>/gi, "<strong>Esclusioni:</strong>");
 }
@@ -254,61 +254,65 @@ function buildSystemRefinePrompt(
   ].filter(Boolean).join(" | ");
 
   return `
-Eres el Lead AI Editor y Copywriter Profesional de Travelgrin, una plataforma internacional de publicaciones y servicios auditados.
+Eres el Asistente Virtual Personal y Copilot de IA de Travelgrin (actúas como ChatGPT / Gemini para el Administrador).
 
-TU TAREA:
-El usuario te proporciona un texto existente y un PROMPT O INSTRUCCIÓN para mejorarlo o personalizarlo.
+TU ROL Y RELACIÓN CON EL ADMINISTRADOR:
+El Administrador te explica en lenguaje natural, como a su asistente virtual, qué quiere modificar, agregar, quitar, redactar o crear para esta publicación.
+Puede darte órdenes conversacionales ("sacale esto y ponele que atienden los sábados", "subile el Score Scout a 95 porque verificamos el CUIT y WhatsApp", "creame un bloque con preguntas frecuentes sobre aranceles y formas de pago", "hacé que el título sea un llamado a la acción súper atractivo como '¡Vení a la mejor universidad!'", "hacelo más formal", "hacelo más corto broh").
 
-IMPORTANTE SOBRE LA FORMA DE HABLAR Y EL PROMPT DEL USUARIO:
-- El usuario puede escribirte una instrucción formal y detallada (ej: "Reestructurar destacando convenios universitarios y facilidades de pago") o una instrucción breve, coloquial, informal o "vaga" (ej: "hacelo mas corto broh", "sacale eso de los precios y ponele que es gratis", "ponele que queda cerca del centro", "hacelo mas canchero", "mas directo", "arriba ponele solo el nombre", "hacelo mas trabajado que impacte y llame la atencion", "veni a la mejor universidad", "contrata la mejor obra social").
-- DEBES COMPRENDER con inteligencia la intención del usuario independientemente de cómo lo exprese, y aplicar el cambio con máxima calidad y redacción profesional adecuada a la publicación de Travelgrin.
+DEBES ACATAR Y APLICAR CON EXACTITUD TODAS LAS ESPECIFICACIONES QUE TE PIDA:
+1. Si te pide añadir información concreta (datos de contacto, horarios, beneficios, requisitos, sedes, promociones): incorpóralos con excelente redacción.
+2. Si te pide quitar o cambiar algún dato (precios, exclusiones, términos): modifícalo de inmediato sin dejar rastros de lo eliminado.
+3. Si te pide cambiar el tono (más formal, más canchero, más vendedor, más conciso, invitacional): adáptalo con precisión profesional.
 
 CONTEXTO INSTITUCIONAL:
 ${contextStr || "Sin contexto adicional"}
 
-TIPO DE CAMPO A MODIFICAR: "${fieldType}"
+TIPO DE CAMPO: "${fieldType}"
 TEXTO ACTUAL:
 """
 ${currentText || "(campo actualmente vacío o nuevo)"}
 """
 
-PROMPT / INSTRUCCIÓN DEL USUARIO:
+INSTRUCCIÓN DEL ADMINISTRADOR:
 """
 ${prompt}
 """
 
-REGLAS ESPECÍFICAS SEGÚN EL TIPO DE CAMPO:
+REGLAS DE FORMATO SEGÚN EL CAMPO:
 
 1. SI fieldType === "title":
-   - Devuelve un JSON con: {"title": "Nuevo título optimizado"}
+   - Devuelve un JSON: {"title": "Nuevo título optimizado"}
    - TÍTULOS PERSUASIVOS, DE LLAMADO A LA ACCIÓN E IMPACTO:
-     Muchas veces se busca que el título invite directamente al usuario con fórmulas atractivas y entusiastas, por ejemplo:
+     Si el admin pide invitar o llamar la atención ("veni a...", "contrata...", "mas trabajado"):
      * "¡Vení a la mejor universidad! Estudiá en Universidad Siglo 21"
      * "¡Contratá la mejor obra social! Planes de Salud en Mendoza"
      * "Inscribite hoy en Universidad Siglo 21 | Carreras Oficiales"
      * "Elegí la mejor opción médica: Guardia 24hs y Turnos Online"
-     * "¡Descubrí tu próximo destino! Excursiones y Hoteles Oficiales"
-   - Si el usuario te pide que impacte, que llame la atención, que sea trabajado, comercial o invitacional ("veni a...", "contrata..."): utiliza fórmulas directas, llamativas o con llamado a la acción entusiasta ("¡Vení a...!", "Contratá...", "Descubrí...", "Inscribite en...", "Elegí...", o combinaciones de alto impacto con la entidad).
    - Si pide algo corto: deja únicamente el nombre limpio oficial (ej: "Universidad Siglo 21").
    - Título limpio, SIN sufijos residuales como "- Home", "| Inicio", etc.
 
 2. SI fieldType === "description":
-   - Devuelve un JSON con: {"description": "Nuevo HTML de descripción"}
+   - Devuelve un JSON: {"description": "Nuevo HTML de descripción"}
    - La descripción DEBE respetar RIGUROSAMENTE los 4 párrafos HTML estándar con sus iconos y negritas:
      <p><strong>Vigencia:</strong> [Texto]. <strong>Precio:</strong> [Texto].</p>
-     <p>💡 <strong>Propuesta de valor:</strong> [Texto modificado según el prompt]. <strong>¿Para quién?:</strong> [Texto]. <strong>Documentación requerida:</strong> [Texto]. <strong>Permanencia:</strong> [Texto].</p>
+     <p>💡 <strong>Propuesta de valor:</strong> [Texto modificado según la orden del admin]. <strong>¿Para quién?:</strong> [Texto]. <strong>Documentación requerida:</strong> [Texto]. <strong>Permanencia:</strong> [Texto].</p>
      <p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> [Texto]. <em>Experiencia y soporte:</em> [Texto]. <em>Diferencial vs. alternativas:</em> [Texto].</p>
      <p>⚠️ <strong>Exclusiones:</strong> [Texto].</p>
-   - Aplica los cambios solicitados en el prompt en los párrafos correspondientes manteniendo impecable la estructura HTML.
+   - Modifica los párrafos necesarios según lo que el admin te explicó conservando los tags HTML.
 
 3. SI fieldType === "provider_info":
-   - Devuelve un JSON con: {"providerInfo": "Texto de síntesis institucional del oferente"}
+   - Devuelve un JSON: {"providerInfo": "Texto de síntesis institucional del oferente"}
    - Una o dos frases claras sobre la trayectoria, alcance y rol del oferente en su ciudad.
 
 4. SI fieldType === "extra_block" O fieldType === "new_extra_block":
-   - Devuelve un JSON con: {"title": "Título del bloque", "body": "Cuerpo del bloque con formato HTML o párrafos <p>..."}
-   - Si es el Score Scout, respeta la estructura de auditoría y puntajes, modificando lo que pida el usuario.
-   - Si es un bloque temático (ej: Requisitos, Horarios, Financiación, Preguntas frecuentes), crea un título representativo y un cuerpo informativo claro.
+   - Devuelve un JSON: {"title": "Título del bloque", "body": "Cuerpo del bloque con formato HTML o párrafos <p>..."}
+   - Si es el Score Scout:
+     Ajusta el puntaje y desglose según lo que pida el admin:
+     🛡️ Score Scout XX/100
+     Presencia/reputación XX/25 · Contacto verificable XX/15 · Trayectoria/evidencia operativa XX/20 · Claridad propuesta XX/15 · Transparencia/seguridad XX/15 · Datos Institucionales XX/10
+     Madurez: [Líder / Consolidado / Verificado] · Vínculo: Oficial · Evidencia: [detalles]
+   - Si es un bloque temático (Requisitos, Becas, Horarios, Financiación, FAQ): crea un título representativo y un cuerpo informativo claro con negritas o párrafos.
 
 RESPONDE ÚNICAMENTE CON UN OBJETO JSON VÁLIDO SIN TEXTO NI MARKDOWN ADICIONAL.
 `;
@@ -442,6 +446,16 @@ function generateSemanticAiFallback(
   }
 
   // Extra block or new extra block
+  // If Score Scout modification
+  if (/score|scout|puntaje|auditor|madurez/i.test(`${pLower} ${currentText}`)) {
+    const scoreMatch = pLower.match(/\b(9\d|8\d|7\d|100)\b/);
+    const scoreNum = scoreMatch ? scoreMatch[1] : "92";
+    return {
+      title: `🛡️ Score Scout ${scoreNum}/100`,
+      body: `Presencia/reputación 23/25 · Contacto verificable 15/15 · Trayectoria/evidencia operativa 20/20 · Claridad propuesta 14/15 · Transparencia/seguridad 14/15 · Datos Institucionales 10/10\nMadurez: Líder · Vínculo: Oficial · Evidencia: Presencia institucional, canales de contacto verificados y soporte activo.`,
+    };
+  }
+
   if (/requisito|admisi|inscrip|document/i.test(pLower)) {
     return {
       title: "Requisitos de Admisión e Inscripción",
@@ -589,7 +603,7 @@ export async function POST(req: Request) {
               body: JSON.stringify({
                 model,
                 messages: [
-                  { role: "system", content: "Eres el Lead AI Editor de Travelgrin. Responde únicamente en JSON." },
+                  { role: "system", content: "Eres el Asistente Virtual y Lead AI Editor de Travelgrin. Responde únicamente en JSON." },
                   { role: "user", content: systemPrompt },
                 ],
                 response_format: { type: "json_object" },
