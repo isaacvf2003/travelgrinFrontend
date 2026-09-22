@@ -176,58 +176,24 @@ function normalizeToItalianDescriptionHeaders(text: string): string {
 
 async function translateFullHtml(htmlEs: string, targetLang: "en" | "pt" | "it"): Promise<string> {
   if (!htmlEs) return "";
-  const pRegex = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
-  const rawParagraphs: string[] = [];
-  let match;
-  while ((match = pRegex.exec(htmlEs)) !== null) {
-    rawParagraphs.push(match[1]);
-  }
-
-  if (rawParagraphs.length === 0) {
-    const parts = htmlEs.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
-    const translatedParts = await Promise.all(
-      parts.map(async (part) => {
-        if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
-        const trimmed = part.trim();
-        if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
-        const leadingSpace = part.match(/^\s*/)?.[0] || "";
-        const trailingSpace = part.match(/\s*$/)?.[0] || "";
-        const trans = await translateTextDirect(trimmed, "es", targetLang);
-        return `${leadingSpace}${trans}${trailingSpace}`;
-      })
-    );
-    const joined = translatedParts.join("");
-    return targetLang === "en"
-      ? normalizeToEnglishDescriptionHeaders(joined)
-      : targetLang === "pt"
-      ? normalizeToPortugueseDescriptionHeaders(joined)
-      : normalizeToItalianDescriptionHeaders(joined);
-  }
-
-  const translatedPs = await Promise.all(
-    rawParagraphs.map(async (pText) => {
-      const parts = pText.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
-      const translatedParts = await Promise.all(
-        parts.map(async (part) => {
-          if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
-          const trimmed = part.trim();
-          if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
-          const leadingSpace = part.match(/^\s*/)?.[0] || "";
-          const trailingSpace = part.match(/\s*$/)?.[0] || "";
-          const trans = await translateTextDirect(trimmed, "es", targetLang);
-          return `${leadingSpace}${trans}${trailingSpace}`;
-        })
-      );
-      return `<p>${translatedParts.join("")}</p>`;
+  const parts = htmlEs.split(/(<\/?[a-z0-9]+(?:\s+[^>]*)?>)/gi);
+  const translatedParts = await Promise.all(
+    parts.map(async (part) => {
+      if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
+      const trimmed = part.trim();
+      if (!trimmed || /^[💡⭐⚠️•>🚀🎯🏆💎📅📍📞⚖️🩺🛡️✨🌟⏱️👥🍣🎓🏠\s]+$/u.test(trimmed)) return part;
+      const leadingSpace = part.match(/^\s*/)?.[0] || "";
+      const trailingSpace = part.match(/\s*$/)?.[0] || "";
+      const trans = await translateTextDirect(trimmed, "es", targetLang);
+      return `${leadingSpace}${trans}${trailingSpace}`;
     })
   );
-
-  const fullHtml = translatedPs.join("\n");
+  const joined = translatedParts.join("");
   return targetLang === "en"
-    ? normalizeToEnglishDescriptionHeaders(fullHtml)
+    ? normalizeToEnglishDescriptionHeaders(joined)
     : targetLang === "pt"
-    ? normalizeToPortugueseDescriptionHeaders(fullHtml)
-    : normalizeToItalianDescriptionHeaders(fullHtml);
+    ? normalizeToPortugueseDescriptionHeaders(joined)
+    : normalizeToItalianDescriptionHeaders(joined);
 }
 
 function extractJsonFromText(raw: string): any {
@@ -274,11 +240,30 @@ Pensar profundamente la MEJOR opción posible para el administrador. Tienes TOTA
 1. CONTINUIDAD DE RESTRICCIONES (POSITIVAS Y NEGATIVAS):
    - Si en la conversación previa o en la instrucción actual el administrador pidió omitir la marca ("no hace falta que diga [nombre]", "sin el nombre", "sacale X"):
      ¡MANTÉN ESA RESTRICCIÓN ACTIVADA! No vuelvas a incluir el nombre de la empresa/institución aunque el usuario diga "hacelo diferente", "hacelo más corto" o "ajustalo".
+   - Si el administrador pidió QUITAR PRECIOS ("quita lo de precio", "sin precio", "sacar precio", "no poner precio", etc.):
+     ¡NO INCLUYAS <strong>Precio:</strong> NI REFERENCIAS ARANCELARIAS! Omite por completo esa etiqueta. Si además pide indicar que es gratis, pon "Actividad gratuita / Acceso libre".
+   - Si el administrador pidió QUITAR VIGENCIA o QUITAR EXCLUSIONES:
+     Omite esas secciones correspondientes.
    - Crea siempre una formulación conceptual brillante, orientada al beneficio, la propuesta de valor o la llamada a la acción.
 
 2. ADAPTABILIDAD UNIVERSAL DE RUBROS:
    - Este contenido puede provenir de cualquier rubro (Deportes, Judicial/Legal, Salud, Educación, Turismo, Inmobiliaria, Gastronomía, Comercio, etc.).
    - Utiliza el vocabulario, jerarquía y tono propio de la industria correspondiente.
+
+3. REGLAS PARA DESCRIPCIÓN (fieldType === "description"):
+   - MÁXIMA LIBERTAD CREATIVA Y AUTONOMÍA:
+     * El administrador puede estar mejorando un texto scrapeado O creando una publicación 100% nueva desde cero (eventos, torneos deportivos, buffet gastronómico, servicios jurídicos, salud, cursos, alquileres, promociones, etc.) o a partir de un formulario de cliente.
+     * Tienes LIBERTAD TOTAL para crear la estructura HTML que mejor comunique, impacte y venda la propuesta.
+     * Puedes usar párrafos <p>, negritas <strong>, cursivas <em>, listas <ul><li> y emojis/iconos modernos llamativos (💡, 🚀, 🎯, 🏆, 💎, 📅, 📍, 📞, ⚖️, 🩺, 🛡️, ✨, 🌟, ⏱️, 👥, 🍣, 🎓, 🏠, etc.) que resalten cada punto clave con elegancia y copywriting persuasivo.
+     * Si no se pide una estructura especial o se busca el formato estándar, puedes seguir o adaptar los 4 párrafos de referencia:
+       <p><strong>Vigencia:</strong> ... <strong>Precio:</strong> ...</p>
+       <p>💡 <strong>Propuesta de valor:</strong> ... <strong>¿Para quién?:</strong> ... <strong>Documentación requerida:</strong> ... <strong>Permanencia:</strong> ...</p>
+       <p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ... <em>Experiencia y soporte:</em> ... <em>Diferencial vs. alternativas:</em> ...</p>
+       <p>⚠️ <strong>Exclusiones:</strong> ...</p>
+     * RESPETO ABSOLUTO A RESTRICCIONES:
+       - Si el usuario pide quitar precios o dice que es gratis: Omite <strong>Precio:</strong> por completo o indica que es gratuito.
+       - Si el usuario pide omitir la marca/nombre de la entidad: No menciones la marca/nombre en el texto.
+       - Si el usuario pide añadir secciones nuevas (ej: Premios, Horarios, Cronograma, Menú, Beneficios, Requisitos): Créalas con formato HTML enriquecido y atractivos emojis.
 
 📋 CONTEXTO DISPONIBLE:
 ${contextStr || "Sin contexto adicional"}
@@ -299,7 +284,7 @@ ${prompt}
 
 FORMATO DE SALIDA (ÚNICAMENTE JSON VÁLIDO):
 - Si fieldType === "title": {"title": "Mejor opción de título pensada con total libertad, sin clichés y respetando restricciones"}
-- Si fieldType === "description": {"description": "HTML con los 4 párrafos estándar: <p><strong>Vigencia:</strong> ... <strong>Precio:</strong> ...</p><p>💡 <strong>Propuesta de valor:</strong> ... <strong>¿Para quién?:</strong> ... <strong>Documentación requerida:</strong> ... <strong>Permanencia:</strong> ...</p><p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ... <em>Experiencia y soporte:</em> ... <em>Diferencial vs. alternativas:</em> ...</p><p>⚠️ <strong>Exclusiones:</strong> ...</p>"}
+- Si fieldType === "description": {"description": "HTML con los párrafos formateados respetando estrictamente las restricciones del usuario (por ejemplo sin precio si lo pidió)"}
 - Si fieldType === "provider_info": {"providerInfo": "Texto de síntesis institucional de alto nivel"}
 - Si fieldType === "extra_block" O "new_extra_block": {"title": "Título del bloque", "body": "Cuerpo con formato y datos solicitados"}
 
@@ -514,58 +499,256 @@ function generateSemanticAiFallback(
   }
 
   if (fieldType === "description") {
-    const isFree = /gratis|sin costo|gratuito|libre/i.test(pLower);
-    const isShort = /corto|breve|directo|resum/i.test(pLower);
-    const priceText = isFree ? "Actividad sin costo / Acceso libre." : "A consultar según programa o modalidad.";
-    
-    let valueProp = isEducation
-      ? `Formación académica de alto nivel con programas adaptados a la demanda profesional actual en ${cityStr || "Argentina"}.`
+    const isFree = /gratis|sin costo|gratuito|libre/i.test(allPrompts);
+    const isShort = /corto|breve|directo|resum/i.test(allPrompts);
+    const omitPrice = /quit.*precio|sin.*precio|sac.*precio|no.*precio|ocult.*precio|omit.*precio|elimina.*precio|no hace falta.*precio|sacale.*precio/i.test(allPrompts);
+    const omitVigencia = /quit.*vigencia|sin.*vigencia|sac.*vigencia|no.*vigencia/i.test(allPrompts);
+    const omitExclusiones = /quit.*exclusi|sin.*exclusi|sac.*exclusi|no.*exclusi|sin.*advertencia/i.test(allPrompts);
+    const omitDiferencial = /quit.*diferencial|sin.*diferencial|sac.*diferencial/i.test(allPrompts);
+    const hasScholarships = /beca|descuent|promoci|financi|bonific|cuota/i.test(allPrompts);
+    const isVirtual = /virtual|online|distancia|remot/i.test(allPrompts);
+    const hasEmergency = /emergencia|guardia|24\/7|24hs|urgencia/i.test(allPrompts);
+    const locStr = cityStr ? ` en ${cityStr}` : "";
+
+    // 1. Custom creation from scratch: Tournaments & Sporting Events
+    if (/torneo|campeonato|copa|competici|partido|f[uú]tbol|p[aá]del|fixture|premios/i.test(allPrompts)) {
+      const pTourney = [
+        `<p>🏆 <strong>Torneo & Competencia:</strong> ¡Sumate al torneo más emocionante${locStr}! Categorías abiertas y competitivas con arbitraje federado y organización profesional.</p>`,
+        `<p>📅 <strong>Cronograma & Modalidad:</strong> Fase de grupos, eliminación directa y gran final con cobertura fotográfica y premiación en vivo.</p>`,
+        `<p>💎 <strong>Premios & Reconocimientos:</strong> Premios en efectivo para el podio, trofeos de campeón y subcampeón, hidratación y distinciones individuales.</p>`,
+        !omitPrice ? `<p><strong>Inscripción:</strong> ${isFree ? "Actividad gratuita / Libre acceso." : "A consultar según categoría y conformación del equipo."}</p>` : "",
+        !omitExclusiones ? `<p>⚠️ <strong>Exclusiones:</strong> Cupos limitados por orden de registro. Presentación de apto físico y lista de buena fe obligatoria.</p>` : "",
+      ].filter(Boolean).join("\n");
+      return { description: pTourney };
+    }
+
+    // 2. Custom creation from scratch: Gastronomy, Buffet, Sushi, Tasting
+    if (/buffet|sushi|tenedor libre|degustaci|cata de vino|cena show|gourmet/i.test(allPrompts)) {
+      const pGastro = [
+        `<p>🍣 <strong>Experiencia Gastronómica:</strong> Disfrutá de una propuesta culinaria de autor${locStr}, combinando materias primas frescas y sabores únicos.</p>`,
+        `<p>✨ <strong>Menú & Variedades:</strong> Entradas gourmet, piezas selectas de sushi, opciones artesanales y destacada carta de vinos y coctelería.</p>`,
+        `<p>⭐ <strong>Ambiente & Diferencial:</strong> Espacio climatizado, atención esmerada y atmósfera ideal para celebraciones, parejas y encuentros de amigos.</p>`,
+        !omitPrice ? `<p><strong>Precio:</strong> ${isFree ? "Acceso libre." : "A consultar según menú o servicio elegido."}</p>` : "",
+        `<p>📍 <strong>Reservas:</strong> Se sugiere reserva previa a través de canales oficiales para garantizar la mejor ubicación.</p>`,
+      ].filter(Boolean).join("\n");
+      return { description: pGastro };
+    }
+
+    // 3. Custom creation from scratch: Course, Workshop, Masterclass
+    if (/curso|masterclass|taller|workshop|capacitaci|aprender/i.test(allPrompts)) {
+      const pCourse = [
+        `<p>🎓 <strong>Capacitación Profesional:</strong> Formación intensiva diseñada para adquirir herramientas prácticas de alta demanda${locStr}.</p>`,
+        `<p>💡 <strong>Contenidos & Metodología:</strong> Clases dinámicas, proyectos reales, material descargable y tutoría personalizada durante todo el cursado.</p>`,
+        `<p>⭐ <strong>Certificación:</strong> Diploma de finalización con aval institucional para enriquecer tu perfil y trayectoria profesional.</p>`,
+        !omitPrice ? `<p><strong>Aranceles:</strong> ${isFree ? "Curso 100% gratuito." : hasScholarships ? "Planes de pago en cuotas y becas al mérito." : "A consultar según modalidad elegida."}</p>` : "",
+        !omitExclusiones ? `<p>⚠️ <strong>Exclusiones:</strong> Cupos reducidos por grupo para garantizar un seguimiento personalizado.</p>` : "",
+      ].filter(Boolean).join("\n");
+      return { description: pCourse };
+    }
+
+    // 4. Custom creation from scratch: Specific Legal Services (Divorce, Probate, Labor)
+    if (/divorcio|sucesi|penal|laboral|indemnizaci|litigio/i.test(allPrompts)) {
+      const pLegalSpec = [
+        `<p>⚖️ <strong>Asesoramiento Jurídico Especializado:</strong> Soluciones legales estratégicas con sólida trayectoria, atención personalizada y estricta confidencialidad${locStr}.</p>`,
+        `<p>💡 <strong>Áreas de Actuación:</strong> Gestión de acuerdos, trámites sucesorios, resolución de conflictos y representación procesal directa.</p>`,
+        `<p>⭐ <strong>Compromiso & Respaldo:</strong> Diagnóstico claro desde la primera consulta, transparencia en honorarios y defensa rigurosa de tus derechos.</p>`,
+        !omitPrice ? `<p><strong>Honorarios:</strong> ${isFree ? "Primera consulta informativa sin cargo." : "Regidos por ley arancelaria y convenios particulares."}</p>` : "",
+        `<p>📞 <strong>Consultas & Turnos:</strong> Coordinación de entrevistas presenciales o virtuales a través de nuestros canales oficiales.</p>`,
+      ].filter(Boolean).join("\n");
+      return { description: pLegalSpec };
+    }
+
+    // 5. Standard multi-domain generator with dynamic paragraphs and full creative variation
+    let p1Content = "";
+    if (!omitVigencia) {
+      p1Content += "<strong>Vigencia:</strong> Servicio activo; información verificada en canales oficiales. ";
+    }
+    if (!omitPrice) {
+      if (isFree) {
+        p1Content += "<strong>Precio:</strong> Actividad 100% gratuita / Acceso libre sin costo.";
+      } else if (hasScholarships) {
+        p1Content += "<strong>Precio:</strong> Planes con becas arancelarias y facilidades de pago.";
+      } else {
+        p1Content += "<strong>Precio:</strong> A consultar según programa o modalidad elegida.";
+      }
+    }
+    p1Content = p1Content.trim();
+    const p1 = p1Content ? `<p>${p1Content}</p>` : "";
+
+    // Dynamic Paragraph 2: Sector-tailored value proposition with variation rotation
+    let valueProp = "";
+
+    if (isEducation) {
+      const vEdu = [
+        `Formación académica de alto nivel con programas adaptados a la demanda profesional y laboral${locStr}.`,
+        `Una propuesta educativa de vanguardia enfocada en el desarrollo de competencias, liderazgo e innovación académica${locStr}.`,
+        `Educación superior de excelencia con claustro docente destacado, vinculación con el sector productivo y amplia inserción profesional${locStr}.`,
+      ];
+      valueProp = vEdu[variationIndex % vEdu.length];
+    } else if (isJudicial) {
+      const vJud = [
+        `Asesoramiento y representación jurídica especializada con enfoque estratégico, confidencialidad y sólida experiencia procesal${locStr}.`,
+        `Defensa integral de derechos con soluciones legales ágiles y personalizadas para personas, profesionales y empresas${locStr}.`,
+        `Servicios jurídicos y notariales de excelencia, basados en la rigurosidad técnica, ética y compromiso con los intereses de cada cliente${locStr}.`,
+      ];
+      valueProp = vJud[variationIndex % vJud.length];
+    } else if (isSports) {
+      const vSpo = [
+        `Instalaciones deportivas de primer nivel, actividades supervisadas por profesionales certificados y programas adaptados${locStr}.`,
+        `Un centro deportivo integral para potenciar el rendimiento físico, la salud y el bienestar en un ambiente activo y moderno${locStr}.`,
+        `Práctica deportiva, entrenamiento funcional y actividades recreativas con infraestructura de última generación${locStr}.`,
+      ];
+      valueProp = vSpo[variationIndex % vSpo.length];
+    } else if (isHealth) {
+      const vHea = [
+        `Atención médica especializada con tecnología avanzada, consultorios modernos y un equipo médico de excelencia${locStr}.`,
+        `Cobertura y asistencia en salud integral, orientada a la prevención, diagnóstico oportuno y cuidado humano personalizado${locStr}.`,
+        `Centro de salud de referencia con atención multidisciplinaria, turnos ágiles y los más altos estándares de calidad médica${locStr}.`,
+      ];
+      valueProp = vHea[variationIndex % vHea.length];
+    } else if (isTourism) {
+      const vTou = [
+        `Hospedaje de excelencia y experiencias turísticas memorables${locStr}, con servicios de primer nivel y confort asegurado.`,
+        `Destinos y servicios turísticos pensados para tu descanso y disfrute, con asesoramiento personalizado y tarifas preferenciales${locStr}.`,
+        `Infraestructura turística de calidad, atención cálida y propuestas exclusivas para estadías inolvidables${locStr}.`,
+      ];
+      valueProp = vTou[variationIndex % vTou.length];
+    } else if (isFood) {
+      const vFoo = [
+        `Experiencia gastronómica destacada por la frescura de sus ingredientes, cocina de autor y atención esmerada${locStr}.`,
+        `Propuesta culinaria de excelencia con menú variado, ambiente acogedor y servicios para eventos y celebraciones${locStr}.`,
+        `Sabores auténticos, calidad gourmet y un servicio dedicado a brindar una experiencia memorable en cada visita${locStr}.`,
+      ];
+      valueProp = vFoo[variationIndex % vFoo.length];
+    } else if (isRealEstate) {
+      const vRea = [
+        `Gestión y asesoramiento inmobiliario integral${locStr}, especializado en operaciones seguras, tasaciones y oportunidades de inversión.`,
+        `Intermediación profesional en compra, venta y alquiler de propiedades con transparencia y respaldo de confianza${locStr}.`,
+        `Desarrollos y propiedades seleccionadas con alta rentabilidad y asesoramiento legal-notarial en cada etapa${locStr}.`,
+      ];
+      valueProp = vRea[variationIndex % vRea.length];
+    } else {
+      const vGen = [
+        `Servicios profesionales de excelencia con respaldo institucional verificado y atención personalizada${locStr}.`,
+        `Soluciones integrales de alta calidad respaldadas por una sólida trayectoria y estándares de atención rigurosos${locStr}.`,
+        `Calidad, confianza y vocación de servicio orientadas a superar las expectativas de cada usuario${locStr}.`,
+      ];
+      valueProp = vGen[variationIndex % vGen.length];
+    }
+
+    if (isVirtual) {
+      valueProp += " Modalidad 100% online con campus interactivo de última generación y cursado flexible.";
+    }
+    if (hasScholarships) {
+      valueProp += " Opciones de becas de estudio, bonificaciones arancelarias y facilidades de pago.";
+    }
+    if (hasEmergency) {
+      valueProp += " Servicio de guardia médica activa y atención de emergencias disponible las 24 horas.";
+    }
+
+    const paraQuien = isEducation
+      ? "Estudiantes, graduados y profesionales que buscan formación oficial de calidad."
       : isJudicial
-      ? `Asesoramiento y representación jurídica especializada con enfoque estratégico y confidencialidad en ${cityStr || "Argentina"}.`
+      ? "Particulares, empresas y profesionales que requieren asesoramiento legal confiable."
       : isSports
-      ? `Instalaciones deportivas de primer nivel, actividades supervisadas por profesionales y planes adaptados en ${cityStr || "Argentina"}.`
+      ? "Deportistas, familias y personas interesadas en una vida activa y saludable."
       : isHealth
-      ? `Atención médica especializada con tecnología avanzada y cobertura integral en ${cityStr || "Argentina"}.`
-      : `Propuesta integral de servicios y soluciones respaldadas institucionalmente en ${cityStr || "Argentina"}.`;
+      ? "Pacientes y familias que buscan atención médica especializada y de confianza."
+      : isTourism
+      ? "Viajeros, turistas y familias que buscan descanso y confort garantizado."
+      : isFood
+      ? "Comensales y amantes de la buena gastronomía que valoran calidad y ambiente."
+      : isRealEstate
+      ? "Inversores, compradores y familias en búsqueda de propiedades y operaciones seguras."
+      : "Usuarios y clientes que buscan servicios profesionales garantizados.";
 
-    if (/virtual|online|distancia/i.test(pLower)) {
-      valueProp += " Modalidad 100% online y campus interactivo disponible 24/7.";
+    const docReq = isJudicial
+      ? "DNI o Pasaporte y documentación correspondiente al caso a gestionar."
+      : isHealth
+      ? "DNI o Pasaporte y credencial de cobertura médica (si corresponde)."
+      : isSports
+      ? "DNI vigente y certificado de aptitud física."
+      : isRealEstate
+      ? "DNI y documentación registral pertinente para la operación."
+      : "Identificación oficial (DNI / Pasaporte) y requisitos particulares de la gestión.";
+
+    const perm = isShort ? "Según plan contratado." : "De acuerdo con la modalidad o período solicitado.";
+
+    const p2 = `<p>💡 <strong>Propuesta de valor:</strong> ${valueProp} <strong>¿Para quién?:</strong> ${paraQuien} <strong>Documentación requerida:</strong> ${docReq} <strong>Permanencia:</strong> ${perm}</p>`;
+
+    // Dynamic Paragraph 3: Diferencial
+    let p3 = "";
+    if (!omitDiferencial) {
+      const diffVs = isEducation
+        ? "Programas oficiales actualizados y articulación directa con el campo laboral."
+        : isJudicial
+        ? "Estrategia jurídica personalizada y seguimiento procesal directo."
+        : isSports
+        ? "Instalaciones de alto nivel y cuerpo técnico calificado."
+        : isHealth
+        ? "Guardia médica continua y especialistas de trayectoria."
+        : "Canales oficiales directos y auditoría de calidad Travelgrin.";
+
+      p3 = `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> Español, Inglés. <em>Experiencia y soporte:</em> Acompañamiento especializado en cada etapa. <em>Diferencial vs. alternativas:</em> ${diffVs}</p>`;
     }
 
-    if (isShort) {
-      return {
-        description: `<p><strong>Vigencia:</strong> Información oficial actualizada. <strong>Precio:</strong> ${priceText}</p>\n<p>💡 <strong>Propuesta de valor:</strong> ${valueProp} <strong>¿Para quién?:</strong> Personas y profesionales interesados. <strong>Documentación requerida:</strong> DNI o pasaporte vigente. <strong>Permanencia:</strong> Según plan contratado.</p>\n<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> Español, Inglés. <em>Experiencia y soporte:</em> Asesoramiento continuo verificado. <em>Diferencial vs. alternativas:</em> Respaldo institucional directo.</p>\n<p>⚠️ <strong>Exclusiones:</strong> Consultar cupos y condiciones específicas en los canales oficiales.</p>`,
-      };
+    // Dynamic Paragraph 4: Exclusiones
+    let p4 = "";
+    if (!omitExclusiones) {
+      const exclText = isEducation
+        ? "Consultar fechas de inscripción, equivalencias y cupos por cohorte en los canales oficiales."
+        : isJudicial
+        ? "La viabilidad procesal queda sujeta a la revisión previa de los antecedentes y documentación del caso."
+        : isHealth
+        ? "Ciertas prestaciones de alta complejidad pueden requerir autorización previa de la obra social o prepaga."
+        : isSports
+        ? "Apto físico médico obligatorio antes de iniciar actividades y cupos sujetos a capacidad de instalaciones."
+        : isTourism
+        ? "Tarifas y disponibilidad sujetas a temporada y políticas de cancelación vigentes."
+        : "Verificar disponibilidad horaria y requerimientos previos de ingreso antes de concurrir.";
+
+      p4 = `<p>⚠️ <strong>Exclusiones:</strong> ${exclText}</p>`;
     }
 
-    return {
-      description: `<p><strong>Vigencia:</strong> Servicio activo; información verificada en fuentes oficiales. <strong>Precio:</strong> ${priceText}</p>\n<p>💡 <strong>Propuesta de valor:</strong> ${valueProp} <strong>¿Para quién?:</strong> Diseñado para usuarios y postulantes que buscan calidad y confianza garantizada. <strong>Documentación requerida:</strong> Identificación oficial (DNI / Pasaporte) y requisitos particulares de la gestión. <strong>Permanencia:</strong> De acuerdo con la modalidad o periodo solicitado.</p>\n<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> Español, Inglés. <em>Experiencia y soporte:</em> Acompañamiento especializado en cada etapa. <em>Diferencial vs. alternativas:</em> Canales oficiales directos y auditoría de calidad Travelgrin.</p>\n<p>⚠️ <strong>Exclusiones:</strong> Verificar disponibilidad horaria y requerimientos previos de ingreso antes de concurrir.</p>`,
-    };
+    const paragraphs = [p1, p2, p3, p4].filter(Boolean).join("\n");
+    return { description: paragraphs };
   }
 
   if (fieldType === "provider_info") {
+    const entityNoun = omitName
+      ? isEducation
+        ? "Esta institución educativa"
+        : isJudicial
+        ? "Este estudio profesional"
+        : isSports
+        ? "Esta entidad deportiva"
+        : isHealth
+        ? "Este centro de salud"
+        : "Esta organización"
+      : cleanName || "La entidad";
+
     if (isEducation) {
       return {
-        providerInfo: `${cleanName} es una institución educativa destacada por su trayectoria académica, innovación pedagógica y compromiso con el desarrollo profesional en ${cityStr || "la región"}.`,
+        providerInfo: `${entityNoun} se destaca por su trayectoria académica, innovación pedagógica y compromiso con el desarrollo profesional${cityStr ? ` en ${cityStr}` : ""}.`,
       };
     }
     if (isJudicial) {
       return {
-        providerInfo: `${cleanName} es un estudio profesional reconocido por su rigurosidad técnica, trayectoria legal y sólida defensa de los intereses de sus clientes en ${cityStr || "la región"}.`,
+        providerInfo: `${entityNoun} es un estudio profesional reconocido por su rigurosidad técnica, trayectoria legal y sólida defensa de los intereses de sus clientes${cityStr ? ` en ${cityStr}` : ""}.`,
       };
     }
     if (isSports) {
       return {
-        providerInfo: `${cleanName} es una institución deportiva comprometida con el desarrollo atlético, vida saludable y formación integral en ${cityStr || "la región"}.`,
+        providerInfo: `${entityNoun} es una institución deportiva comprometida con el desarrollo atlético, vida saludable y formación integral${cityStr ? ` en ${cityStr}` : ""}.`,
       };
     }
     if (isHealth) {
       return {
-        providerInfo: `${cleanName} es un centro de salud de referencia, enfocado en brindar atención médica multidisciplinaria, guardias permanentes y calidad humana en ${cityStr || "la región"}.`,
+        providerInfo: `${entityNoun} es un centro de salud de referencia, enfocado en brindar atención médica multidisciplinaria, guardias permanentes y calidad humana${cityStr ? ` en ${cityStr}` : ""}.`,
       };
     }
     return {
-      providerInfo: `${cleanName} es una organización con amplia experiencia y sólida trayectoria, reconocida por la calidad y seriedad de sus servicios en ${cityStr || "la región"}.`,
+      providerInfo: `${entityNoun} es una organización con amplia experiencia y sólida trayectoria, reconocida por la calidad y seriedad de sus servicios${cityStr ? ` en ${cityStr}` : ""}.`,
     };
   }
 
