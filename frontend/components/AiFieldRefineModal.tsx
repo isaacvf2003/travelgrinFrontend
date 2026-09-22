@@ -117,6 +117,8 @@ export default function AiFieldRefineModal({
   const [customKey, setCustomKey] = useState("");
   const [showKeyConfig, setShowKeyConfig] = useState(false);
   const [followUpPrompt, setFollowUpPrompt] = useState("");
+  const [conversationHistory, setConversationHistory] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const [variationCount, setVariationCount] = useState(0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -124,6 +126,15 @@ export default function AiFieldRefineModal({
       setCustomKey(saved);
     }
   }, [isOpen]);
+
+  // Reset conversation on field or modal open change
+  useEffect(() => {
+    if (isOpen) {
+      setConversationHistory([]);
+      setVariationCount(0);
+      setFollowUpPrompt("");
+    }
+  }, [isOpen, fieldType]);
 
   const handleSaveKey = (val: string) => {
     setCustomKey(val);
@@ -140,8 +151,13 @@ export default function AiFieldRefineModal({
 
   const config = FIELD_LABELS[fieldType] || FIELD_LABELS.description;
 
-  const handleGenerate = async (customInstruction?: string, isRefinement = false) => {
-    const textPrompt = (customInstruction ?? (isRefinement ? followUpPrompt : prompt)).trim();
+  const handleGenerate = async (customInstruction?: string, isRefinement = false, isRegenerate = false) => {
+    const nextVariationIndex = isRegenerate ? variationCount + 1 : variationCount;
+    const textPrompt = (
+      customInstruction ??
+      (isRefinement ? followUpPrompt : isRegenerate ? (prompt || "Generá otra propuesta alternativa diferente") : prompt)
+    ).trim();
+
     if (!textPrompt) {
       setErrorMsg("Escribí o seleccioná una instrucción para que la IA sepa qué hacer.");
       return;
@@ -164,6 +180,11 @@ export default function AiFieldRefineModal({
       }
     }
 
+    const updatedHistory = [...conversationHistory];
+    if (textPrompt) {
+      updatedHistory.push({ role: "user", content: textPrompt });
+    }
+
     try {
       const activeKey = customKey.trim() || (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") || "" : "");
       const res = await fetch("/api/admin/ai-refine-field", {
@@ -181,6 +202,8 @@ export default function AiFieldRefineModal({
           url: metadata.url,
           autoTranslate,
           apiKey: activeKey || undefined,
+          conversationHistory: updatedHistory,
+          variationIndex: nextVariationIndex,
         }),
       });
 
@@ -190,6 +213,20 @@ export default function AiFieldRefineModal({
       }
 
       setPreviewResult(data);
+      setVariationCount(nextVariationIndex);
+
+      const assistantOutputText =
+        data.result?.title ||
+        data.result?.description ||
+        data.result?.providerInfo ||
+        data.result?.body ||
+        "";
+
+      if (assistantOutputText) {
+        updatedHistory.push({ role: "assistant", content: assistantOutputText });
+      }
+      setConversationHistory(updatedHistory);
+
       if (isRefinement) {
         setFollowUpPrompt("");
       }
@@ -400,7 +437,7 @@ export default function AiFieldRefineModal({
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleGenerate()}
+                  onClick={() => handleGenerate(undefined, false, true)}
                   className="text-[11px] font-semibold text-cyan-700 hover:underline flex items-center gap-1"
                 >
                   <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} /> Regenerar
