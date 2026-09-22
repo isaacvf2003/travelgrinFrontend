@@ -211,12 +211,94 @@ function extractJsonFromText(raw: string): any {
   return null;
 }
 
+interface InvestigatedWebInfo {
+  url: string;
+  pageTitle?: string;
+  description?: string;
+  headings?: string[];
+  snippet?: string;
+}
+
+async function quickInvestigateUrl(rawUrl: string): Promise<InvestigatedWebInfo | null> {
+  if (!rawUrl || typeof rawUrl !== "string") return null;
+  let targetUrl = rawUrl.trim();
+  if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
+    targetUrl = "https://" + targetUrl;
+  }
+  try {
+    const res = await fetchWithTimeout(
+      targetUrl,
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+        },
+      },
+      6000
+    );
+    if (!res.ok) return null;
+    let html = await res.text();
+    html = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ")
+      .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, " ")
+      .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, " ");
+
+    const ogTitleMatch =
+      html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+    const titleTagMatch = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+    const pageTitle = ogTitleMatch ? ogTitleMatch[1] : titleTagMatch ? titleTagMatch[1] : "";
+
+    const ogDescMatch =
+      html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
+    const description = ogDescMatch ? ogDescMatch[1] : "";
+
+    const headings: string[] = [];
+    const hRegex = /<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/gi;
+    let hMatch;
+    while ((hMatch = hRegex.exec(html)) !== null && headings.length < 8) {
+      const cleanH = decodeHtmlEntities(hMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+      if (cleanH.length > 3 && cleanH.length < 120 && !headings.includes(cleanH)) {
+        headings.push(cleanH);
+      }
+    }
+
+    const paragraphs: string[] = [];
+    const pRegex = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
+    let pMatch;
+    while ((pMatch = pRegex.exec(html)) !== null && paragraphs.length < 10) {
+      const cleanP = decodeHtmlEntities(pMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+      if (cleanP.length > 25 && cleanP.length < 350) {
+        paragraphs.push(cleanP);
+      }
+    }
+
+    const snippet = paragraphs.join(" ");
+
+    return {
+      url: targetUrl,
+      pageTitle: cleanTitleString(pageTitle),
+      description: cleanTitleString(description),
+      headings,
+      snippet: snippet.slice(0, 1200),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function buildSystemRefinePrompt(
   fieldType: FieldType,
   currentText: string,
   prompt: string,
   meta: { title?: string; publisherName?: string; category?: string; city?: string; country?: string; url?: string },
-  conversationHistory: ConversationMessage[] = []
+  conversationHistory: ConversationMessage[] = [],
+  investigatedWeb?: InvestigatedWebInfo | null
 ): string {
   const contextStr = [
     meta.title ? `Título actual: ${meta.title}` : "",
@@ -230,12 +312,24 @@ function buildSystemRefinePrompt(
     ? conversationHistory.map(m => `${m.role === "user" ? "Administrador" : "Asistente"}: "${m.content}"`).join("\n")
     : "Sin historial previo";
 
+  const investigatedSection = investigatedWeb
+    ? `
+🌐 INFORMACIÓN INVESTIGADA EN TIEMPO REAL DEL SITIO WEB:
+- URL Oficial: ${investigatedWeb.url}
+- Título oficial de la página: ${investigatedWeb.pageTitle || "N/A"}
+- Descripción oficial de la página: ${investigatedWeb.description || "N/A"}
+- Secciones y servicios destacados: ${investigatedWeb.headings?.join(" | ") || "N/A"}
+- Síntesis de contenidos reales extraídos: ${investigatedWeb.snippet || "N/A"}
+`
+    : "";
+
   return `
 Eres el Asistente de IA y Lead Copywriter Creativo Senior de Travelgrin (actúas con total libertad e inteligencia creativa, como ChatGPT Plus o Gemini Advanced).
 
 🎯 TU MISIÓN:
 Pensar profundamente la MEJOR opción posible para el administrador. Tienes TOTAL LIBERTAD creativa, conceptual y estilística para redactar con impacto, elegancia y persuasión profesional. No te limites a plantillas fijas.
-
+${investigatedWeb ? "Utiliza la información real investigada del sitio web para enriquecer la propuesta con sus servicios, especialidades y diferenciales auténticos." : "Si el usuario proporciona o menciona el nombre de un local o negocio real (ej: una parrilla, gimnasio, universidad o clínica), utiliza tu conocimiento profundo y enciclopédico para resaltar sus verdaderos puntos fuertes, ubicación y especialidades reales."}
+${investigatedSection}
 ⚡ REGLAS CRÍTICAS DE CONTEXTO E HISTORIAL:
 1. CONTINUIDAD DE RESTRICCIONES (POSITIVAS Y NEGATIVAS):
    - Si en la conversación previa o en la instrucción actual el administrador pidió omitir la marca ("no hace falta que diga [nombre]", "sin el nombre", "sacale X"):
@@ -265,8 +359,20 @@ Pensar profundamente la MEJOR opción posible para el administrador. Tienes TOTA
        - Si el usuario pide omitir la marca/nombre de la entidad: No menciones la marca/nombre en el texto.
        - Si el usuario pide añadir secciones nuevas (ej: Premios, Horarios, Cronograma, Menú, Beneficios, Requisitos): Créalas con formato HTML enriquecido y atractivos emojis.
 
-📋 CONTEXTO DISPONIBLE:
-${contextStr || "Sin contexto adicional"}
+📋 CONTEXTO Y COHERENCIA DE LA PUBLICACIÓN:
+- Categoría / Rubro: ${meta.category || "No especificada"}
+- Título actual: ${meta.title || "No especificado"}
+- Entidad / Marca: ${meta.publisherName || "No especificada"}
+- Ubicación: ${meta.city || ""}${meta.country ? `, ${meta.country}` : ""}
+- Web: ${meta.url || ""}
+
+🎯 REGLA DE ORO DE IDENTIDAD Y COHERENCIA TEMÁTICA:
+1. MANTÉN LA COHERENCIA CON EL RUBRO DE LA ENTIDAD:
+   - Si la publicación es de Educación (Universidad, Colegio, Carreras, etc.), cualquier indicación como "Hacerlo más formal e institucional", "Hacerlo más corto", "Más trabajado y persuasivo", etc., debe generar contenido SOBRE LA UNIVERSIDAD / EDUCACIÓN (carreras de grado, posgrados, formación académica, excelencia docente, campus, etc.). ¡NUNCA cambies el rubro a abogados o centros médicos!
+   - Si la publicación es de Salud (Clínica, Médicos, etc.), mantén el foco en salud y atención médica.
+   - Si la publicación es de Deportes (Club, Torneo, Gym), mantén el foco deportivo.
+   - Si la publicación es de Gastronomía (Restaurante, Buffet, Bar), mantén el foco gastronómico.
+   - Si el administrador está creando una publicación DESDE CERO y su instrucción explícitamente dice qué negocio o actividad es (ej: "es un torneo de fútbol...", "es un buffet de sushi...", "es un estudio contable..."), adáptate con total fidelidad a lo que el administrador pide en su prompt.
 
 💬 HISTORIAL DE LA CONVERSACIÓN:
 ${historyStr}
@@ -299,30 +405,61 @@ function generateSemanticAiFallback(
   prompt: string,
   meta: { title?: string; publisherName?: string; category?: string; city?: string; country?: string; url?: string },
   conversationHistory: ConversationMessage[] = [],
-  variationIndex: number = 0
+  variationIndex: number = 0,
+  investigatedWeb?: InvestigatedWebInfo | null
 ): any {
-  const allPrompts = [
-    ...conversationHistory.map((m) => m.content),
+  // ONLY look at USER prompts, never assistant responses
+  const userPrompts = [
+    ...conversationHistory.filter((m) => m.role === "user").map((m) => m.content),
     prompt,
   ].join(" ").toLowerCase();
 
   const pLower = prompt.toLowerCase().trim();
-  const cleanName = cleanBaseEntityName(currentText || meta.title || "", meta.publisherName);
+  const cleanName = cleanBaseEntityName(currentText || meta.title || investigatedWeb?.pageTitle || "", meta.publisherName || investigatedWeb?.pageTitle);
   const cityStr = meta.city || "";
   const catLower = (meta.category || "").toLowerCase();
-  const fullCorpus = `${cleanName} ${catLower} ${allPrompts} ${meta.url || ""}`.toLowerCase();
+  const titleLower = (meta.title || investigatedWeb?.pageTitle || "").toLowerCase();
+  const pubLower = (meta.publisherName || investigatedWeb?.pageTitle || "").toLowerCase();
+  const entityCorpus = `${pubLower} ${titleLower} ${catLower} ${meta.url || ""} ${investigatedWeb?.description || ""} ${investigatedWeb?.headings?.join(" ") || ""}`.toLowerCase();
 
-  // Multi-domain detection
-  const isEducation = /universidad|facultad|instituto|colegio|carrera|educa|acad[eé]m|posgrado|grado|m[aá]ster|abogac[ií]a|licenciatura|terciario/i.test(fullCorpus);
-  const isJudicial = /judicial|abogad|estudio jur[ií]dic|legal|leyes|derecho|notar|escriban|perit|defens|litig/i.test(fullCorpus);
-  const isSports = /deport|club|gym|gimnasio|futbol|fútbol|rugby|tenis|p[aá]del|nataci|entrenam|fitness|b[aá]squet|atlet/i.test(fullCorpus);
-  const isHealth = /salud|m[eé]dic|cl[ií]nic|hospital|guardia|odont|odontol|psic|obra social|prepaga|sanatorio|farmac/i.test(fullCorpus);
-  const isTourism = /turism|viaje|hotel|alojam|excursi|vuelo|hostel|tour|hospedaje|posada|cabaña|resort/i.test(fullCorpus);
-  const isFood = /gastronom|restauran|bar|caf[eé]|comida|parrilla|bistr[oó]|cena|almuerzo|degustac/i.test(fullCorpus);
-  const isRealEstate = /inmobiliar|propiedad|bienes ra[ií]ces|alquiler|tasaci|lote|terreno|departamento|casa en venta/i.test(fullCorpus);
+  // 1. Explicit domain indicators from context (Category, Title, Publisher, URL)
+  const isEduEntity = /\b(universidad|facultad|instituto|colegio|educaci[oó]n|acad[eé]m|posgrado|grado|m[aá]ster|licenciatura|terciario|carrera|estudio universitario)\b/i.test(entityCorpus);
+  const isHealthEntity = /\b(salud|m[eé]dic|cl[ií]nic|hospital|guardia|odont|psic|obra social|prepaga|sanatorio|farmac|terapia)\b/i.test(entityCorpus);
+  const isSportsEntity = /\b(deport|club|gym|gimnasio|futbol|fútbol|rugby|tenis|p[aá]del|nataci|entrenam|fitness|b[aá]squet|atlet)\b/i.test(entityCorpus);
+  const isFoodEntity = /\b(gastronom|restauran|bar\b|caf[eé]|comida|parrilla|bistr[oó]|cena|almuerzo|degustac|sushi|buffet)\b/i.test(entityCorpus);
+  const isRealEstateEntity = /\b(inmobiliar|propiedad|bienes ra[ií]ces|alquiler|tasaci|lote|terreno|departamento|casa en venta)\b/i.test(entityCorpus);
+  const isTourismEntity = /\b(turism|viaje|hotel|alojam|excursi|vuelo|hostel|tour|hospedaje|posada|cabaña|resort)\b/i.test(entityCorpus);
+  const isJudicialEntity = /\b(judicial|abogad|estudio jur[ií]dic|leyes|derecho|notar|escriban|litigio|defensa penal)\b/i.test(entityCorpus) && !isEduEntity;
 
-  // Persistent omitName check across all turns
-  const omitName = /no hace falta.*(nombre|siglo|marca|decir|poner|mencionar)|sin.*(nombre|marca|mencionar)|no pongas.*(nombre|marca)|no digas|no menciones|omiti|sacale.*(nombre|marca)|sacar.*(nombre|marca)|sin la marca/i.test(allPrompts);
+  // 2. Explicit prompt overrides (User is typing from scratch about a specific topic)
+  const promptHasTorneo = /\b(torneo|campeonato|copa|fixture|f[uú]tbol|p[aá]del)\b/i.test(userPrompts);
+  const promptHasGastro = /\b(buffet|sushi|tenedor libre|restaurante|degustaci[oó]n|cena show)\b/i.test(userPrompts);
+  const promptHasCourse = /\b(curso\b|masterclass|taller\b|workshop|capacitaci[oó]n)\b/i.test(userPrompts);
+  const promptHasLegal = /\b(abogad[oa]s?|estudio jur[ií]dico|divorcio|sucesi[oó]n|notar[ií]a|escriban[ií]a|defensa penal)\b/i.test(userPrompts);
+  const promptHasHealth = /\b(guardia m[eé]dica|consultorio m[eé]dico|odontol|cl[ií]nica|hospital)\b/i.test(userPrompts);
+  const promptHasEdu = /\b(universidad|facultad|carreras? de grado|posgrado|instituto superior|colegio)\b/i.test(userPrompts);
+
+  // Resolved Sector:
+  let sector: "education" | "health" | "sports" | "food" | "realestate" | "tourism" | "judicial" | "general" = "general";
+
+  if (promptHasEdu || isEduEntity) sector = "education";
+  else if (promptHasHealth || isHealthEntity) sector = "health";
+  else if (promptHasTorneo || isSportsEntity) sector = "sports";
+  else if (promptHasGastro || isFoodEntity) sector = "food";
+  else if (promptHasLegal || isJudicialEntity) sector = "judicial";
+  else if (isRealEstateEntity) sector = "realestate";
+  else if (isTourismEntity) sector = "tourism";
+
+  const isEducation = sector === "education";
+  const isHealth = sector === "health";
+  const isSports = sector === "sports";
+  const isFood = sector === "food";
+  const isJudicial = sector === "judicial";
+  const isRealEstate = sector === "realestate";
+  const isTourism = sector === "tourism";
+
+  // Persistent omitName check across user turns
+  const omitName = /no hace falta.*(nombre|siglo|marca|decir|poner|mencionar)|sin.*(nombre|marca|mencionar)|no pongas.*(nombre|marca)|no digas|no menciones|omiti|sacale.*(nombre|marca)|sacar.*(nombre|marca)|sin la marca/i.test(userPrompts);
 
   if (fieldType === "title") {
     // Variations pools for distinct domains
@@ -499,19 +636,55 @@ function generateSemanticAiFallback(
   }
 
   if (fieldType === "description") {
-    const isFree = /gratis|sin costo|gratuito|libre/i.test(allPrompts);
-    const isShort = /corto|breve|directo|resum/i.test(allPrompts);
-    const omitPrice = /quit.*precio|sin.*precio|sac.*precio|no.*precio|ocult.*precio|omit.*precio|elimina.*precio|no hace falta.*precio|sacale.*precio/i.test(allPrompts);
-    const omitVigencia = /quit.*vigencia|sin.*vigencia|sac.*vigencia|no.*vigencia/i.test(allPrompts);
-    const omitExclusiones = /quit.*exclusi|sin.*exclusi|sac.*exclusi|no.*exclusi|sin.*advertencia/i.test(allPrompts);
-    const omitDiferencial = /quit.*diferencial|sin.*diferencial|sac.*diferencial/i.test(allPrompts);
-    const hasScholarships = /beca|descuent|promoci|financi|bonific|cuota/i.test(allPrompts);
-    const isVirtual = /virtual|online|distancia|remot/i.test(allPrompts);
-    const hasEmergency = /emergencia|guardia|24\/7|24hs|urgencia/i.test(allPrompts);
+    const isFree = /gratis|sin costo|gratuito|libre/i.test(userPrompts);
+    const isShort = /corto|breve|directo|resum/i.test(userPrompts);
+    const isFormal = /formal|institucional|seri[oa]|protocolar/i.test(userPrompts);
+    const omitPrice = /quit.*precio|sin.*precio|sac.*precio|no.*precio|ocult.*precio|omit.*precio|elimina.*precio|no hace falta.*precio|sacale.*precio/i.test(userPrompts);
+    const omitVigencia = /quit.*vigencia|sin.*vigencia|sac.*vigencia|no.*vigencia/i.test(userPrompts);
+    const omitExclusiones = /quit.*exclusi|sin.*exclusi|sac.*exclusi|no.*exclusi|sin.*advertencia/i.test(userPrompts);
+    const omitDiferencial = /quit.*diferencial|sin.*diferencial|sac.*diferencial/i.test(userPrompts);
+    const hasScholarships = /beca|descuent|promoci|financi|bonific|cuota/i.test(userPrompts);
+    const isVirtual = /virtual|online|distancia|remot/i.test(userPrompts);
+    const hasEmergency = /emergencia|guardia|24\/7|24hs|urgencia/i.test(userPrompts);
     const locStr = cityStr ? ` en ${cityStr}` : "";
 
+    // Specific Formal Institutional Overrides by Domain
+    if (isFormal && isEducation) {
+      const pFormalEdu = [
+        `<p>🏛️ <strong>Formación Académica e Institucional:</strong> Institución universitaria comprometida con la excelencia pedagógica, la investigación y el desarrollo profesional continuo${locStr}.</p>`,
+        `<p>🎓 <strong>Oferta Académica & Títulos Oficiales:</strong> Carreras de grado, posgrados y diplomaturas con planes de estudio acreditados por organismos oficiales.</p>`,
+        `<p>⭐ <strong>Respaldo Institucional:</strong> Claustro docente de destacada trayectoria, vinculación institucional y campus tecnológico adaptado a las demandas actuales.</p>`,
+        !omitPrice ? `<p><strong>Aranceles & Becas:</strong> Información arancelaria institucional y programas de becas académicas al mérito.</p>` : "",
+        !omitExclusiones ? `<p>⚠️ <strong>Exclusiones:</strong> Consultar cupos por cohorte y requisitos de ingreso en canales oficiales.</p>` : "",
+        `<p>📍 <strong>Información & Admisión:</strong> Canales oficiales habilitados para consultas de planes de estudio y proceso de admisión.</p>`,
+      ].filter(Boolean).join("\n");
+      return { description: pFormalEdu };
+    }
+
+    if (isFormal && isHealth) {
+      const pFormalHealth = [
+        `<p>🏥 <strong>Atención Médica Institucional:</strong> Centro de salud de referencia dedicado a la prevención, diagnóstico y tratamiento médico con los más altos estándares clínicos${locStr}.</p>`,
+        `<p>🩺 <strong>Cuerpo Médico & Especialidades:</strong> Equipo multidisciplinario de profesionales especialistas y tecnología diagnóstica de última generación.</p>`,
+        `<p>⭐ <strong>Calidad & Seguridad:</strong> Protocolos asistenciales certificados, guardia médica activa y atención humana personalizada.</p>`,
+        !omitPrice ? `<p><strong>Cobertura:</strong> Convenios con obras sociales, prepagas y aranceles particulares.</p>` : "",
+        `<p>📍 <strong>Turnos & Consultas:</strong> Canales oficiales para asignación de turnos programados e información asistencial.</p>`,
+      ].filter(Boolean).join("\n");
+      return { description: pFormalHealth };
+    }
+
+    if (isFormal && isJudicial) {
+      const pFormalJud = [
+        `<p>⚖️ <strong>Servicios Jurídicos Institucionales:</strong> Estudio profesional especializado en asesoramiento legal integral, consultoría corporativa y representación procesal${locStr}.</p>`,
+        `<p>📜 <strong>Rigor Técnico & Estrategia:</strong> Gestión de procesos judiciales y extrajudiciales bajo estrictos principios de ética, confidencialidad y solvencia jurídica.</p>`,
+        `<p>⭐ <strong>Trayectoria & Respaldo:</strong> Sólida experiencia en la defensa de derechos e intereses de particulares, empresas y organizaciones.</p>`,
+        !omitPrice ? `<p><strong>Honorarios:</strong> Determinados con transparencia conforme a la ley arancelaria y convenios particulares.</p>` : "",
+        `<p>📞 <strong>Entrevistas & Consultas:</strong> Canales oficiales para coordinar entrevistas y evaluación preliminar de casos.</p>`,
+      ].filter(Boolean).join("\n");
+      return { description: pFormalJud };
+    }
+
     // 1. Custom creation from scratch: Tournaments & Sporting Events
-    if (/torneo|campeonato|copa|competici|partido|f[uú]tbol|p[aá]del|fixture|premios/i.test(allPrompts)) {
+    if (promptHasTorneo) {
       const pTourney = [
         `<p>🏆 <strong>Torneo & Competencia:</strong> ¡Sumate al torneo más emocionante${locStr}! Categorías abiertas y competitivas con arbitraje federado y organización profesional.</p>`,
         `<p>📅 <strong>Cronograma & Modalidad:</strong> Fase de grupos, eliminación directa y gran final con cobertura fotográfica y premiación en vivo.</p>`,
@@ -523,7 +696,7 @@ function generateSemanticAiFallback(
     }
 
     // 2. Custom creation from scratch: Gastronomy, Buffet, Sushi, Tasting
-    if (/buffet|sushi|tenedor libre|degustaci|cata de vino|cena show|gourmet/i.test(allPrompts)) {
+    if (promptHasGastro) {
       const pGastro = [
         `<p>🍣 <strong>Experiencia Gastronómica:</strong> Disfrutá de una propuesta culinaria de autor${locStr}, combinando materias primas frescas y sabores únicos.</p>`,
         `<p>✨ <strong>Menú & Variedades:</strong> Entradas gourmet, piezas selectas de sushi, opciones artesanales y destacada carta de vinos y coctelería.</p>`,
@@ -535,7 +708,7 @@ function generateSemanticAiFallback(
     }
 
     // 3. Custom creation from scratch: Course, Workshop, Masterclass
-    if (/curso|masterclass|taller|workshop|capacitaci|aprender/i.test(allPrompts)) {
+    if (promptHasCourse) {
       const pCourse = [
         `<p>🎓 <strong>Capacitación Profesional:</strong> Formación intensiva diseñada para adquirir herramientas prácticas de alta demanda${locStr}.</p>`,
         `<p>💡 <strong>Contenidos & Metodología:</strong> Clases dinámicas, proyectos reales, material descargable y tutoría personalizada durante todo el cursado.</p>`,
@@ -546,8 +719,8 @@ function generateSemanticAiFallback(
       return { description: pCourse };
     }
 
-    // 4. Custom creation from scratch: Specific Legal Services (Divorce, Probate, Labor)
-    if (/divorcio|sucesi|penal|laboral|indemnizaci|litigio/i.test(allPrompts)) {
+    // 4. Custom creation from scratch: Specific Legal Services
+    if (promptHasLegal) {
       const pLegalSpec = [
         `<p>⚖️ <strong>Asesoramiento Jurídico Especializado:</strong> Soluciones legales estratégicas con sólida trayectoria, atención personalizada y estricta confidencialidad${locStr}.</p>`,
         `<p>💡 <strong>Áreas de Actuación:</strong> Gestión de acuerdos, trámites sucesorios, resolución de conflictos y representación procesal directa.</p>`,
@@ -823,19 +996,29 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
       "";
 
+    // 0. Live Web Investigation if URL is present in prompt or metadata
+    const promptUrlMatch = prompt.match(/(https?:\/\/[^\s]+|www\.[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/i);
+    const targetInvestigateUrl = promptUrlMatch ? promptUrlMatch[0] : (url && url.startsWith("http") ? url : "");
+
+    let investigatedWeb: InvestigatedWebInfo | null = null;
+    if (targetInvestigateUrl) {
+      investigatedWeb = await quickInvestigateUrl(targetInvestigateUrl);
+    }
+
     const systemPrompt = buildSystemRefinePrompt(
       fieldType,
       currentText,
       prompt,
       {
-        title: currentTitle,
-        publisherName,
+        title: currentTitle || investigatedWeb?.pageTitle,
+        publisherName: publisherName || investigatedWeb?.pageTitle,
         category,
         city,
         country,
-        url,
+        url: targetInvestigateUrl || url,
       },
-      conversationHistory
+      conversationHistory,
+      investigatedWeb
     );
 
     let aiResult: any = null;
@@ -962,15 +1145,16 @@ export async function POST(req: Request) {
         currentText,
         prompt,
         {
-          title: currentTitle,
-          publisherName,
+          title: currentTitle || investigatedWeb?.pageTitle,
+          publisherName: publisherName || investigatedWeb?.pageTitle,
           category,
           city,
           country,
-          url,
+          url: targetInvestigateUrl || url,
         },
         conversationHistory,
-        variationIndex
+        variationIndex,
+        investigatedWeb
       );
     }
 
