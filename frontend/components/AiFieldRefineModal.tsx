@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Bot, Sparkles, X, Check, ArrowRight, RefreshCw, Languages, HelpCircle } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Bot, Sparkles, X, Check, ArrowRight, RefreshCw, Languages, Key, Settings2 } from "lucide-react";
 
 export type RefineFieldType = "title" | "description" | "provider_info" | "extra_block" | "new_extra_block";
 
@@ -38,26 +38,28 @@ export interface AiFieldRefineModalProps {
 const FIELD_LABELS: Record<RefineFieldType, { title: string; subtitle: string; placeholder: string; suggestions: string[] }> = {
   title: {
     title: "Mejorar Título con IA",
-    subtitle: "Podés pedirle a la IA que acorte, haga más atractivo o personalice el título oficial.",
-    placeholder: "Ej: Hacelo más corto broh, sacale la palabra X, ponele solo el nombre y la ciudad...",
+    subtitle: "Podés pedirle a la IA que acorte, invite al usuario ('Vení a...', 'Contratá...'), impacte o personalice el título.",
+    placeholder: "Ej: Veni a la mejor universidad, contrata la mejor obra social, hacelo mas trabajado que impacte, mas corto...",
     suggestions: [
+      "¡Vení a la mejor universidad / opción destacada!",
+      "¡Contratá la mejor obra social / servicio!",
+      "Hacerlo más trabajado que impacte y llame la atención",
       "Hacerlo más corto y directo",
       "Más atractivo y comercial",
-      "Solo nombre oficial y ciudad",
       "Enfocar en carreras y postgrados",
-      "Enfocar en atención médica y guardia",
+      "Solo nombre oficial y ciudad",
     ],
   },
   description: {
     title: "Mejorar Descripción con IA",
     subtitle: "Podés modificar la propuesta de valor, requisitos o diferenciales manteniendo el formato oficial.",
-    placeholder: "Ej: Enfocalo en turnos online y postgrados, ponele que la guardia es 24hs, hacelo más formal...",
+    placeholder: "Ej: Enfocalo en turnos online y postgrados, ponele que la guardia es 24hs, hacelo más formal o más canchero...",
     suggestions: [
-      "Más persuasivo y comercial",
-      "Más formal e institucional",
+      "Más trabajado y persuasivo",
+      "Hacerlo más formal e institucional",
+      "Hacerlo más corto y conciso",
       "Enfocar en modalidades virtuales y becas",
       "Destacar atención de emergencias 24/7",
-      "Reducir texto y hacerlo más conciso",
     ],
   },
   provider_info: {
@@ -110,6 +112,26 @@ export default function AiFieldRefineModal({
   const [errorMsg, setErrorMsg] = useState("");
   const [autoTranslate, setAutoTranslate] = useState(true);
   const [previewResult, setPreviewResult] = useState<any | null>(null);
+  const [customKey, setCustomKey] = useState("");
+  const [showKeyConfig, setShowKeyConfig] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = window.localStorage.getItem("tgn_ai_custom_api_key") || "";
+      setCustomKey(saved);
+    }
+  }, [isOpen]);
+
+  const handleSaveKey = (val: string) => {
+    setCustomKey(val);
+    if (typeof window !== "undefined") {
+      if (val.trim()) {
+        window.localStorage.setItem("tgn_ai_custom_api_key", val.trim());
+      } else {
+        window.localStorage.removeItem("tgn_ai_custom_api_key");
+      }
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -127,7 +149,7 @@ export default function AiFieldRefineModal({
     setPreviewResult(null);
 
     try {
-      const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
+      const activeKey = customKey.trim() || (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") || "" : "");
       const res = await fetch("/api/admin/ai-refine-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -142,7 +164,7 @@ export default function AiFieldRefineModal({
           country: metadata.country,
           url: metadata.url,
           autoTranslate,
-          apiKey: customKey,
+          apiKey: activeKey || undefined,
         }),
       });
 
@@ -204,18 +226,65 @@ export default function AiFieldRefineModal({
                 <span className="rounded-md bg-cyan-400/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-300">
                   IA Copilot
                 </span>
+                {customKey ? (
+                  <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
+                    ⚡ Key Activa
+                  </span>
+                ) : null}
               </h3>
               <p className="text-xs text-slate-300">{config.subtitle}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:bg-white/10 hover:text-white transition"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowKeyConfig((prev) => !prev)}
+              title="Configurar clave propia de Gemini o OpenAI"
+              className={`p-1.5 rounded-lg text-xs transition ${
+                showKeyConfig ? "bg-cyan-500 text-white" : "text-slate-300 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <Key className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:bg-white/10 hover:text-white transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
+
+        {/* Optional Key Config Dropdown */}
+        {showKeyConfig && (
+          <div className="bg-slate-900 border-b border-slate-800 p-4 text-xs text-white space-y-2 animate-in slide-in-from-top duration-200">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                <Key className="h-3.5 w-3.5" /> Clave de API propia (Google Gemini o OpenAI):
+              </span>
+              {customKey && (
+                <button
+                  type="button"
+                  onClick={() => handleSaveKey("")}
+                  className="text-rose-400 hover:underline text-[11px]"
+                >
+                  Borrar clave
+                </button>
+              )}
+            </div>
+            <input
+              type="password"
+              value={customKey}
+              onChange={(e) => handleSaveKey(e.target.value)}
+              placeholder="Pega tu clave AIza... (Gemini) o sk-... (OpenAI)"
+              className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400"
+            />
+            <p className="text-[11px] text-slate-400 leading-normal">
+              Se guarda localmente en tu navegador. Si no ingresás ninguna clave, el sistema utiliza el motor inteligente integrado.
+            </p>
+          </div>
+        )}
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
