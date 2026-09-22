@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Bot, Sparkles, X, Check, ArrowRight, RefreshCw, Languages, Key, Settings2 } from "lucide-react";
+import { Bot, Sparkles, X, Check, RefreshCw, Languages, Key, SendHorizontal, MessageSquarePlus, ChevronRight } from "lucide-react";
 
 export type RefineFieldType = "title" | "description" | "provider_info" | "extra_block" | "new_extra_block";
 
@@ -37,8 +37,8 @@ export interface AiFieldRefineModalProps {
 
 const FIELD_LABELS: Record<RefineFieldType, { title: string; subtitle: string; placeholder: string; suggestions: string[] }> = {
   title: {
-    title: "Mejorar Título con IA",
-    subtitle: "Podés pedirle a la IA que acorte, invite al usuario ('Vení a...', 'Contratá...'), impacte o personalice el título.",
+    title: "Asistente IA para Título",
+    subtitle: "Explicále a la IA qué querés para el título: hacerlo más corto, invitar al usuario ('Vení a...', 'Contratá...'), impactar o personalizar.",
     placeholder: "Ej: Veni a la mejor universidad, contrata la mejor obra social, hacelo mas trabajado que impacte, mas corto...",
     suggestions: [
       "¡Vení a la mejor universidad / opción destacada!",
@@ -51,21 +51,22 @@ const FIELD_LABELS: Record<RefineFieldType, { title: string; subtitle: string; p
     ],
   },
   description: {
-    title: "Mejorar Descripción con IA",
-    subtitle: "Podés modificar la propuesta de valor, requisitos o diferenciales manteniendo el formato oficial.",
-    placeholder: "Ej: Enfocalo en turnos online y postgrados, ponele que la guardia es 24hs, hacelo más formal o más canchero...",
+    title: "Asistente IA para Descripción",
+    subtitle: "Explicále en lenguaje natural qué agregar, quitar o reformular en la descripción oficial (4 párrafos estándar).",
+    placeholder: "Ej: Agregale que la atención es 24hs, sacale los precios y ponele que es gratis, hacelo más formal o enfocado en becas...",
     suggestions: [
       "Más trabajado y persuasivo",
       "Hacerlo más formal e institucional",
       "Hacerlo más corto y conciso",
       "Enfocar en modalidades virtuales y becas",
       "Destacar atención de emergencias 24/7",
+      "Quitar precios y poner que es gratuito",
     ],
   },
   provider_info: {
-    title: "Mejorar Descripción del Oferente con IA",
-    subtitle: "Personalizá la síntesis institucional y trayectoria del oferente.",
-    placeholder: "Ej: Ponele que tiene 50 años de experiencia en Mendoza, hacelo más profesional...",
+    title: "Asistente IA para Descripción del Oferente",
+    subtitle: "Explicále a la IA cómo querés resumir la trayectoria, liderazgo y rol institucional del oferente.",
+    placeholder: "Ej: Ponele que tiene 50 años de experiencia en Mendoza, hacelo más profesional y confiable...",
     suggestions: [
       "Destacar años de trayectoria y liderazgo",
       "Enfocar en cobertura regional",
@@ -74,23 +75,24 @@ const FIELD_LABELS: Record<RefineFieldType, { title: string; subtitle: string; p
     ],
   },
   extra_block: {
-    title: "Mejorar Bloque Adicional con IA",
-    subtitle: "Reescribí o ajustá el contenido de este bloque o Score Scout según lo que necesites.",
-    placeholder: "Ej: Agregale los requisitos para extranjeros, ajustá los datos de contacto, hacelo más claro...",
+    title: "Asistente IA para Bloque / Score Scout",
+    subtitle: "Pedile a la IA que modifique el contenido de este bloque o ajuste el puntaje y auditoría del Score Scout.",
+    placeholder: "Ej: Ajustá el Score Scout a 95 porque verificamos el CUIT y WhatsApp, o agregale requisitos y horarios...",
     suggestions: [
+      "Ajustar Score Scout a 95/100 y validar contacto",
       "Añadir requisitos y documentación",
-      "Destacar convenios y acreditaciones",
-      "Hacerlo en formato de puntos clave",
-      "Ajustar evidencia de contacto y ubicación",
+      "Destacar convenios y acreditaciones oficiales",
+      "Añadir horarios y canales de atención",
     ],
   },
   new_extra_block: {
-    title: "Crear Nuevo Bloque con IA",
-    subtitle: "Indicá qué sección querés crear y la IA generará el título y contenido correspondiente.",
-    placeholder: "Ej: Creame un bloque de Requisitos de Admisión, o uno de Medios de Pago y Financiación...",
+    title: "Asistente IA para Crear Nuevo Bloque",
+    subtitle: "Explicále qué sección o bloque querés crear y la IA generará el título y contenido enriquecido.",
+    placeholder: "Ej: Creame un bloque de Preguntas Frecuentes (FAQ), o uno de Medios de Pago y Financiación en cuotas...",
     suggestions: [
       "Bloque de Requisitos de Inscripción",
       "Bloque de Formas de Pago y Financiación",
+      "Bloque de Preguntas Frecuentes (FAQ)",
       "Bloque de Especialidades y Servicios",
       "Bloque de Horarios de Atención y Guardia",
     ],
@@ -114,6 +116,7 @@ export default function AiFieldRefineModal({
   const [previewResult, setPreviewResult] = useState<any | null>(null);
   const [customKey, setCustomKey] = useState("");
   const [showKeyConfig, setShowKeyConfig] = useState(false);
+  const [followUpPrompt, setFollowUpPrompt] = useState("");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -137,16 +140,29 @@ export default function AiFieldRefineModal({
 
   const config = FIELD_LABELS[fieldType] || FIELD_LABELS.description;
 
-  const handleGenerate = async (customPrompt?: string) => {
-    const textPrompt = (customPrompt ?? prompt).trim();
+  const handleGenerate = async (customInstruction?: string, isRefinement = false) => {
+    const textPrompt = (customInstruction ?? (isRefinement ? followUpPrompt : prompt)).trim();
     if (!textPrompt) {
-      setErrorMsg("Escribí o seleccioná una instrucción para que la IA sepa qué modificar.");
+      setErrorMsg("Escribí o seleccioná una instrucción para que la IA sepa qué hacer.");
       return;
     }
 
     setLoading(true);
     setErrorMsg("");
-    setPreviewResult(null);
+
+    // If refining existing preview, send the previewed content as base
+    let baseText = currentValue;
+    let baseTitle = currentTitleValue;
+
+    if (isRefinement && previewResult) {
+      if (fieldType === "title") baseText = previewResult.result?.title || currentValue;
+      else if (fieldType === "description") baseText = previewResult.result?.description || currentValue;
+      else if (fieldType === "provider_info") baseText = previewResult.result?.providerInfo || currentValue;
+      else if (fieldType === "extra_block" || fieldType === "new_extra_block") {
+        baseText = previewResult.result?.body || currentValue;
+        baseTitle = previewResult.result?.title || currentTitleValue;
+      }
+    }
 
     try {
       const activeKey = customKey.trim() || (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") || "" : "");
@@ -155,8 +171,8 @@ export default function AiFieldRefineModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fieldType,
-          currentText: currentValue,
-          currentTitle: currentTitleValue || metadata.title,
+          currentText: baseText,
+          currentTitle: baseTitle || metadata.title,
           prompt: textPrompt,
           publisherName: metadata.publisherName,
           category: metadata.category,
@@ -170,10 +186,13 @@ export default function AiFieldRefineModal({
 
       const data = await res.json();
       if (!res.ok || data.error) {
-        throw new Error(data.error || "No se pudo generar la mejora.");
+        throw new Error(data.error || "No se pudo procesar la solicitud con IA.");
       }
 
       setPreviewResult(data);
+      if (isRefinement) {
+        setFollowUpPrompt("");
+      }
     } catch (err: any) {
       setErrorMsg(err?.message || "Error al procesar con IA. Intentá nuevamente.");
     } finally {
@@ -224,7 +243,7 @@ export default function AiFieldRefineModal({
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 {config.title}
                 <span className="rounded-md bg-cyan-400/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-300">
-                  IA Copilot
+                  Asistente Virtual
                 </span>
                 {customKey ? (
                   <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
@@ -281,7 +300,7 @@ export default function AiFieldRefineModal({
               className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400"
             />
             <p className="text-[11px] text-slate-400 leading-normal">
-              Se guarda localmente en tu navegador. Si no ingresás ninguna clave, el sistema utiliza el motor inteligente integrado.
+              Se guarda localmente en tu navegador. Si no ingresás ninguna clave, el sistema utiliza el motor de IA configurado en el servidor.
             </p>
           </div>
         )}
@@ -304,9 +323,9 @@ export default function AiFieldRefineModal({
           {/* Prompt input */}
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
-              <span>¿Cómo querés que lo modifique o cree la IA?</span>
+              <span>¿Qué le querés pedir a tu asistente?</span>
               <span className="text-[11px] font-normal text-slate-400">
-                Podés hablarle formal o coloquial
+                Explicálo libremente como en ChatGPT o Gemini
               </span>
             </label>
             <div className="relative">
@@ -330,7 +349,7 @@ export default function AiFieldRefineModal({
           <div className="space-y-1.5">
             <div className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
               <Sparkles className="h-3 w-3 text-cyan-600" />
-              Sugerencias rápidas (hacé clic para usar):
+              Sugerencias rápidas (hacé clic para pedirle a la IA):
             </div>
             <div className="flex flex-wrap gap-1.5">
               {config.suggestions.map((sug) => (
@@ -371,20 +390,20 @@ export default function AiFieldRefineModal({
             </div>
           ) : null}
 
-          {/* Live Preview Box */}
+          {/* Live Preview & Interactive Conversation Box */}
           {previewResult ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-2 animate-in fade-in duration-300">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-3 animate-in fade-in duration-300">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
                   <Check className="h-3.5 w-3.5 text-emerald-600" />
-                  Propuesta generada por la IA:
+                  Propuesta generada por tu Asistente IA:
                 </div>
                 <button
                   type="button"
                   onClick={() => handleGenerate()}
                   className="text-[11px] font-semibold text-cyan-700 hover:underline flex items-center gap-1"
                 >
-                  <RefreshCw className="h-3 w-3" /> Regenerar
+                  <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} /> Regenerar
                 </button>
               </div>
 
@@ -395,7 +414,7 @@ export default function AiFieldRefineModal({
               ) : null}
 
               <div
-                className="max-h-48 overflow-y-auto rounded-xl border border-emerald-200/60 bg-white p-3 text-xs leading-relaxed text-slate-800 select-text"
+                className="max-h-48 overflow-y-auto rounded-xl border border-emerald-200/60 bg-white p-3.5 text-xs leading-relaxed text-slate-800 select-text font-normal shadow-inner"
                 dangerouslySetInnerHTML={{
                   __html:
                     previewResult.result?.description ||
@@ -405,6 +424,38 @@ export default function AiFieldRefineModal({
                     JSON.stringify(previewResult.result),
                 }}
               />
+
+              {/* Follow-up adjustment chat input */}
+              <div className="border-t border-emerald-200/60 pt-2.5 space-y-1.5">
+                <label className="text-[11px] font-semibold text-emerald-900 flex items-center gap-1">
+                  <MessageSquarePlus className="h-3 w-3 text-emerald-700" />
+                  ¿Querés hacerle otro ajuste a esta propuesta? (opcional)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={followUpPrompt}
+                    onChange={(e) => setFollowUpPrompt(e.target.value)}
+                    placeholder="Ej: Ahora hacelo un poco más corto, o agregale que hay 20% de descuento..."
+                    className="flex-1 rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleGenerate(undefined, true);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={loading || !followUpPrompt.trim()}
+                    onClick={() => handleGenerate(undefined, true)}
+                    className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition"
+                  >
+                    <SendHorizontal className="h-3.5 w-3.5" />
+                    Ajustar
+                  </button>
+                </div>
+              </div>
 
               {autoTranslate && previewResult.translations?.en ? (
                 <div className="text-[11px] text-emerald-700 font-medium">
@@ -434,7 +485,7 @@ export default function AiFieldRefineModal({
                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-slate-900 to-[#00A9C6] px-5 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-900/20 hover:opacity-95 disabled:opacity-50 transition"
               >
                 <Bot className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                {loading ? "Generando con IA..." : "Generar con IA"}
+                {loading ? "El Asistente está escribiendo..." : "Generar con Asistente IA"}
               </button>
             ) : (
               <button
