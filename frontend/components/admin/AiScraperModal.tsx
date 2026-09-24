@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Bot, Sparkles, X } from "lucide-react";
 
 export type I18nRecord = Record<string, string>;
 
@@ -80,6 +81,7 @@ export default function AiScraperModal({
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
   const [savingAll, setSavingAll] = useState(false);
   const [successNotice, setSuccessNotice] = useState("");
+  const [customScraperBlocks, setCustomScraperBlocks] = useState<Array<{ title: string; prompt?: string }>>([]);
 
   // Accordion Inline Form State for active draft inspection directly in the queue card
   const [expandedDraftIndex, setExpandedDraftIndex] = useState<number | null>(null);
@@ -87,12 +89,20 @@ export default function AiScraperModal({
   const [newImageUrl, setNewImageUrl] = useState("");
   const [customLogoInput, setCustomLogoInput] = useState("");
 
-  // Restore queue from sessionStorage and customApiKey from localStorage on load if available (Client-side only)
+  // Restore queue from sessionStorage and customApiKey/customScraperBlocks from localStorage on load if available (Client-side only)
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !isOpen) return;
     try {
       const savedKey = window.localStorage.getItem("tgn_ai_custom_api_key");
       if (savedKey) setCustomApiKey(savedKey);
+
+      const savedBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
+      if (savedBlocks) {
+        const parsed = JSON.parse(savedBlocks);
+        if (Array.isArray(parsed)) {
+          setCustomScraperBlocks(parsed);
+        }
+      }
 
       const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
       if (saved) {
@@ -102,7 +112,7 @@ export default function AiScraperModal({
         }
       }
     } catch {}
-  }, []);
+  }, [isOpen]);
 
   const handleSaveApiKey = (keyVal: string) => {
     setCustomApiKey(keyVal);
@@ -115,6 +125,18 @@ export default function AiScraperModal({
         }
       }
     } catch {}
+  };
+
+  const handleRemoveCustomScraperBlock = (titleToRemove: string) => {
+    setCustomScraperBlocks((prev) => {
+      const updated = prev.filter((b) => b.title.toLowerCase() !== titleToRemove.toLowerCase());
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(updated));
+        }
+      } catch {}
+      return updated;
+    });
   };
 
   // Sync draftsQueue with sessionStorage on any change
@@ -165,6 +187,7 @@ export default function AiScraperModal({
           urls: urlsToProcess,
           provider: aiProvider,
           apiKey: customApiKey.trim() || undefined,
+          customBlocks: customScraperBlocks,
         }),
       });
 
@@ -458,6 +481,39 @@ export default function AiScraperModal({
           {successNotice && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-700">
               {successNotice}
+            </div>
+          )}
+
+          {/* Active AI Custom Blocks for Scraping */}
+          {customScraperBlocks.length > 0 && (
+            <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-3.5 text-xs space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-1">
+                <span className="font-bold text-purple-900 flex items-center gap-1.5">
+                  <Bot className="h-4 w-4 text-purple-600" />
+                  Bloques adicionales activos para extracción IA ({customScraperBlocks.length}):
+                </span>
+                <span className="text-[11px] text-purple-700">
+                  Se extraerán y completarán automáticamente en las publicaciones
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-0.5">
+                {customScraperBlocks.map((b, bIdx) => (
+                  <span
+                    key={bIdx}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-white px-3 py-1 text-xs font-semibold text-purple-900 shadow-xs"
+                  >
+                    <span>{b.title}</span>
+                    <button
+                      type="button"
+                      title="Quitar este bloque de futuros scrapings"
+                      onClick={() => handleRemoveCustomScraperBlock(b.title)}
+                      className="rounded-full p-0.5 text-purple-400 hover:bg-purple-100 hover:text-purple-700 transition"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 

@@ -254,8 +254,22 @@ export default function AiFieldRefineModal({
     } else if (fieldType === "provider_info") {
       resultText = previewResult.result?.providerInfo || currentValue;
     } else if (fieldType === "extra_block" || fieldType === "new_extra_block") {
-      resultText = previewResult.result?.body || currentValue;
-      resultTitle = previewResult.result?.title || currentTitleValue;
+      resultText = previewResult.result?.body || previewResult.result?.description || currentValue;
+      resultTitle = previewResult.result?.title || currentTitleValue || "Información adicional";
+    }
+
+    // Persist new block schema in localStorage so future AI Scraping will automatically extract and populate it
+    if (fieldType === "new_extra_block" && typeof window !== "undefined") {
+      try {
+        const savedRaw = window.localStorage.getItem("tgn_custom_scraper_blocks");
+        const list: Array<{ title: string; prompt?: string }> = savedRaw ? JSON.parse(savedRaw) : [];
+        const finalTitle = resultTitle || previewResult.result?.title || "Información adicional";
+        const exists = list.some((b) => b.title?.toLowerCase() === finalTitle.toLowerCase());
+        if (!exists && finalTitle) {
+          list.push({ title: finalTitle, prompt: prompt.trim() || finalTitle });
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(list));
+        }
+      } catch {}
     }
 
     onApply({
@@ -448,23 +462,56 @@ export default function AiFieldRefineModal({
                 </button>
               </div>
 
-              {previewResult.result?.title && (fieldType === "extra_block" || fieldType === "new_extra_block") ? (
-                <div className="text-sm font-bold text-slate-900">
-                  {previewResult.result.title}
+              {(fieldType === "extra_block" || fieldType === "new_extra_block") ? (
+                <div className="space-y-2">
+                  <div className="rounded-xl border border-emerald-300/80 bg-white p-3 shadow-sm space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                        Título del bloque:
+                      </div>
+                      <span className="text-[10px] text-slate-400">Podés editarlo directamente o pedirle a la IA que lo ajuste</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={previewResult.result?.title || ""}
+                      onChange={(e) =>
+                        setPreviewResult((prev: any) => ({
+                          ...prev,
+                          result: { ...(prev?.result || {}), title: e.target.value },
+                        }))
+                      }
+                      placeholder="Ej: Requisitos de Admisión / Medios de Pago / Preguntas Frecuentes..."
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                      Contenido / Descripción del bloque:
+                    </div>
+                    <div
+                      className="max-h-48 overflow-y-auto rounded-xl border border-emerald-200/60 bg-white p-3.5 text-xs leading-relaxed text-slate-800 select-text font-normal shadow-inner"
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          previewResult.result?.body ||
+                          previewResult.result?.description ||
+                          JSON.stringify(previewResult.result),
+                      }}
+                    />
+                  </div>
                 </div>
-              ) : null}
-
-              <div
-                className="max-h-48 overflow-y-auto rounded-xl border border-emerald-200/60 bg-white p-3.5 text-xs leading-relaxed text-slate-800 select-text font-normal shadow-inner"
-                dangerouslySetInnerHTML={{
-                  __html:
-                    previewResult.result?.description ||
-                    previewResult.result?.title ||
-                    previewResult.result?.providerInfo ||
-                    previewResult.result?.body ||
-                    JSON.stringify(previewResult.result),
-                }}
-              />
+              ) : (
+                <div
+                  className="max-h-48 overflow-y-auto rounded-xl border border-emerald-200/60 bg-white p-3.5 text-xs leading-relaxed text-slate-800 select-text font-normal shadow-inner"
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      previewResult.result?.description ||
+                      previewResult.result?.title ||
+                      previewResult.result?.providerInfo ||
+                      previewResult.result?.body ||
+                      JSON.stringify(previewResult.result),
+                  }}
+                />
+              )}
 
               {/* Follow-up adjustment chat input */}
               <div className="border-t border-emerald-200/60 pt-2.5 space-y-1.5">
@@ -478,7 +525,11 @@ export default function AiFieldRefineModal({
                     value={followUpPrompt}
                     onChange={(e) => setFollowUpPrompt(e.target.value)}
                     disabled={loading}
-                    placeholder="Ej: Ahora hacelo un poco más corto, o agregale que hay 20% de descuento..."
+                    placeholder={
+                      fieldType === "new_extra_block" || fieldType === "extra_block"
+                        ? "Ej: Cambia el título a Requisitos, o agrega más opciones de pago y horarios..."
+                        : "Ej: Ahora hacelo más largo y persuasivo, o agregale que hay 20% de descuento..."
+                    }
                     className="flex-1 rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !loading && followUpPrompt.trim()) {
