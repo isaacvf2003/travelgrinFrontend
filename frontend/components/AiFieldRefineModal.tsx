@@ -156,7 +156,7 @@ export default function AiFieldRefineModal({
   const config = FIELD_LABELS[fieldType] || FIELD_LABELS.description;
 
   const handleGenerate = async (customInstruction?: string, isRefinement = false, isRegenerate = false) => {
-    const nextVariationIndex = (isRegenerate || isRefinement) ? variationCount + 1 : variationCount;
+    const nextVariationIndex = variationCount + 1;
     const textPrompt = (
       customInstruction ??
       (isRefinement ? followUpPrompt : isRegenerate ? (prompt || "Generá otra propuesta alternativa diferente") : prompt)
