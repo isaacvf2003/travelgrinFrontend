@@ -640,118 +640,132 @@ function generateSemanticAiFallback(
     );
 
   if (fieldType === "title") {
-    // Variations pools for distinct domains when name must be omitted
-    if (hasNegativeConstraint) {
-      if (isJudicial) {
-        const v = [
-          "Asesoramiento Legal de Excelencia: Soluciones Jurídicas Integrales",
-          "Defensa y Representación Jurídica: Turnos y Consultas Especializadas",
-          "¡Protegé tus Derechos! Asesoramiento Jurídico y Notarial de Vanguardia",
-          "Soluciones Legales Estratégicas: Trayectoria y Compromiso Profesional",
-        ];
-        return { title: v[variationIndex % v.length] };
+    // 1. Short / Direct / Name only / Concise
+    if (/corto|breve|directo|solo nombre|s[ií]ntesis|concis/i.test(pLower)) {
+      if (hasNegativeConstraint) {
+        if (isEducation) {
+          const v = [
+            "Carreras de Grado y Posgrados Oficiales",
+            "Educación Superior de Excelencia y Salida Laboral",
+            "Formación Universitaria Oficial y Modalidad Flexible",
+            "Títulos Oficiales y Carreras Universitarias",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isHealth) {
+          const v = [
+            "Atención Médica y Especialidades 24hs",
+            "Cobertura de Salud Integral y Turnos Online",
+            "Centro Médico de Excelencia y Guardia Activa",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isSports) {
+          const v = [
+            "Actividades Deportivas y Pases Oficiales",
+            "Centro de Entrenamiento y Deporte Integral",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isJudicial) {
+          const v = [
+            "Asesoramiento Jurídico y Consultoría Legal",
+            "Servicios Jurídicos y Notariales Integrales",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isFood) {
+          const v = [
+            "Gastronomía de Autor y Reservas",
+            "Menú Gourmet y Platos Exclusivos",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isTourism) {
+          const v = [
+            "Alojamientos y Excursiones Exclusivas",
+            "Turismo y Hospedaje Oficial",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isRealEstate) {
+          const v = [
+            "Venta, Alquiler y Tasación de Propiedades",
+            "Gestión Inmobiliaria Integral",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        return { title: "Servicios Profesionales de Excelencia" };
       }
-
-      if (isSports) {
-        const v = [
-          "¡Entrená al Máximo Nivel! Actividades Deportivas y Pases Mensuales",
-          "Centro Deportivo de Alto Rendimiento: Instalaciones y Membresías",
-          "¡Sumate al Deporte! Clases, Torneos y Espacios de Entrenamiento",
-          "Viví tu Pasión Deportiva: Actividades para Todas las Edades",
-        ];
-        return { title: v[variationIndex % v.length] };
-      }
-
-      if (isEducation) {
-        const v = [
-          "¡Vení a la Mejor Universidad! Carreras Oficiales y Modalidades Flexibles",
-          "Liderá tu Futuro: Formación Universitaria y Carreras de Vanguardia",
-          "Carreras de Grado, Posgrados Oficiales y Becas Universitarias",
-          "Educación Superior de Excelencia: Inscripciones Abiertas y Salida Laboral",
-          "Tu Futuro Profesional Comienza Hoy: Títulos Oficiales y Prácticas",
-          "¡Inscribite Hoy! Carreras Universitarias Oficiales y Modalidad Flexible",
-        ];
-        return { title: v[variationIndex % v.length] };
-      }
-
-      if (isHealth) {
-        const v = [
-          `¡Contratá la Mejor Cobertura Médica en ${cityStr || 'tu ciudad'}!`,
-          "Atención Médica de Excelencia: Guardia 24hs y Especialidades",
-          "Planes de Salud Integrales: Cobertura Médica y Turnos Online",
-          "Cuidá tu Bienestar: Atención Multidisciplinaria y Tecnología Médica",
-        ];
-        return { title: v[variationIndex % v.length] };
-      }
-
-      if (isTourism) {
-        const v = [
-          "¡Viví Experiencias Únicas! Alojamientos y Excursiones Exclusivas",
-          "Destinos Inolvidables: Hospedajes y Paquetes Turísticos Oficiales",
-          "¡Planificá tu Próxima Escapada! Tarifas Preferenciales y Asesoramiento",
-        ];
-        return { title: v[variationIndex % v.length] };
-      }
-
-      if (isFood) {
-        const v = [
-          "Experiencia Gastronómica Única: Sabores de Autor y Reservas Online",
-          "Menú de Autor y Platos Exclusivos: Viví una Experiencia Inolvidable",
-          "¡Descubrí el Mejor Sabor! Gastronomía de Vanguardia y Eventos",
-        ];
-        return { title: v[variationIndex % v.length] };
-      }
-
-      if (isRealEstate) {
-        const v = [
-          "Encontrá la Propiedad de tus Sueños: Venta, Alquiler y Tasaciones",
-          `Oportunidades Inmobiliarias e Inversiones Estratégicas en ${cityStr || 'la región'}`,
-          "Gestión Inmobiliaria Integral: Asesoramiento y Propiedades Exclusivas",
-        ];
-        return { title: v[variationIndex % v.length] };
-      }
-
-      const vGeneral = [
-        "Excelencia, Confianza y Soluciones Profesionales de Primer Nivel",
-        "Servicios de Vanguardia y Atención Personalizada Garantizada",
-        "Calidad, Trayectoria y Respaldo Institucional Verificado",
-      ];
-      return { title: vGeneral[variationIndex % vGeneral.length] };
-    }
-
-    // 2. Short / Direct / Name only
-    if (/corto|breve|directo|solo nombre|s[ií]ntesis/i.test(pLower)) {
       return { title: cleanName };
     }
 
-    // 3. Direct Invitation / Call to action (veni a la mejor..., contrata..., inscribite...)
-    if (/veni|vení|inscribite|estudia|estudiá|entr[aá]|eleg[ií]|sumat/i.test(pLower)) {
-      if (isEducation) {
-        const v = [
-          `¡Vení a la mejor universidad! Estudiá en ${cleanName}`,
-          `¡Inscribite hoy en ${cleanName}! Carreras Oficiales y Modalidades Flexibles`,
-          `¡Elegí tu futuro en ${cleanName}! Carreras de Grado y Posgrados`,
+    // 2. High Impact / Attention-grabbing / Trabajado / Potente / Llamativo / Mejor / SEO
+    if (/impact|atenci[oó]n|trabajad|llamativ|potente|fuerte|nivel|profesional|excelen|destac|mejor|buen seo|posicionam/i.test(pLower)) {
+      if (hasNegativeConstraint) {
+        if (isEducation) {
+          const v = [
+            "Educación Superior de Vanguardia: Formación Universitaria con Alta Salida Laboral",
+            "¡Vení a la Mejor Universidad! Carreras de Grado, Posgrados y Títulos Oficiales",
+            "¡Liderá tu Futuro Profesional! Carreras Universitarias y Modalidad Flexible",
+            "Excelencia Académica y Títulos Oficiales: Inscripciones Abiertas y Salida Laboral",
+            "Carreras Universitarias de Vanguardia: Formación de Alto Nivel y Becas",
+            "Tu Futuro Profesional Comienza Hoy: Carreras Oficiales de Primer Nivel",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isJudicial) {
+          const v = [
+            "Soluciones Jurídicas de Excelencia: Asesoramiento y Representación Legal de Alto Nivel",
+            "¡Protegé tus Derechos! Estrategia Legal, Trayectoria y Compromiso Profesional",
+            "Estudio Jurídico de Vanguardia: Asesoramiento Notarial y Procesal Integral",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isSports) {
+          const v = [
+            "¡Entrená al Máximo Nivel! Instalaciones Deportivas, Clases y Pases Oficiales",
+            "Centro Deportivo de Alto Rendimiento: Actividades para Todas las Edades y Niveles",
+            "¡Viví tu Pasión Deportiva! Instalaciones Modernas y Entrenamiento Profesional",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isHealth) {
+          const v = [
+            `¡Atención Médica de Excelencia en ${cityStr || 'tu ciudad'}! Guardia 24hs y Especialidades`,
+            "Cobertura de Salud Integral: Profesionales de Trayectoria y Turnos Online Inmediatos",
+            "Cuidá tu Salud con los Mejores Especialistas: Tecnología Médica y Atención Humana",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isTourism) {
+          const v = [
+            "¡Descubrí Experiencias Inolvidables! Alojamientos Exclusivos y Excursiones Oficiales",
+            "Destinos Únicos y Estadías de Primer Nivel: Tarifas Preferenciales y Asesoramiento",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isFood) {
+          const v = [
+            "¡Viví una Experiencia Gastronómica Inolvidable! Cocina de Autor y Sabores Exclusivos",
+            "Propuesta Gastronómica de Excelencia: Menú Gourmet, Eventos y Reservas Online",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isRealEstate) {
+          const v = [
+            `Oportunidades Inmobiliarias Exclusivas en ${cityStr || 'la región'}: Venta, Alquiler y Tasaciones`,
+            "Inversiones y Propiedades de Primer Nivel: Asesoramiento Inmobiliario y Notarial Seguro",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        const vGen = [
+          "Servicios Profesionales de Excelencia: Calidad, Trayectoria y Soluciones a Medida",
+          "Liderazgo, Confianza y Soluciones de Primer Nivel con Respaldo Verificado",
         ];
-        return { title: v[variationIndex % v.length] };
+        return { title: vGen[variationIndex % vGen.length] };
       }
-      if (isJudicial) {
-        return { title: `¡Protegé tus Derechos con ${cleanName}! Asesoramiento Jurídico en ${cityStr || 'tu ciudad'}` };
-      }
-      if (isSports) {
-        return { title: `¡Sumate a ${cleanName}! Tu Club Deportivo en ${cityStr || 'tu ciudad'}` };
-      }
-      if (isHealth) {
-        return { title: `¡Elegí la mejor opción en salud! ${cleanName} en ${cityStr || 'tu ciudad'}` };
-      }
-      return { title: `¡Vení a conocer ${cleanName}! Experiencia y Calidad Garantizada` };
-    }
 
-    if (/contrat[aá]|asociat|afiliat|sumat|obra social|prepaga|seguro/i.test(pLower)) {
-      return { title: `¡Contratá la mejor obra social! ${cleanName} en ${cityStr || 'tu ciudad'}` };
-    }
-
-    // 4. High Impact / Attention-grabbing / Trabajado / Potente / Llamativo
-    if (/impact|atenci[oó]n|trabajad|llamativ|potente|fuerte|nivel|profesional|excelen|destac|mejor/i.test(pLower)) {
       if (isEducation) {
         const v = [
           `¡Vení a la mejor universidad! Estudiá en ${cleanName} | Carreras de Grado y Posgrados`,
@@ -775,37 +789,135 @@ function generateSemanticAiFallback(
       return { title: `¡Elegí la mejor propuesta! ${cleanName}: Excelencia y Servicios de Primer Nivel` };
     }
 
-    // 5. Commercial / Attractive / Slogan
-    if (/atractiv|comercial|vent|promo|publicit/i.test(pLower)) {
+    // 3. Direct Invitation / Call to action (veni a la mejor..., contrata..., inscribite...)
+    if (/veni|vení|inscribite|estudia|estudiá|entr[aá]|eleg[ií]|sumat|contrat[aá]|asociat|afiliat/i.test(pLower)) {
+      if (hasNegativeConstraint) {
+        if (isEducation) {
+          const v = [
+            "¡Inscribite Hoy! Carreras Universitarias Oficiales y Modalidades Flexibles",
+            "¡Vení a la Mejor Universidad! Formación de Vanguardia y Títulos Oficiales",
+            "¡Elegí tu Futuro Profesional! Carreras de Grado y Posgrados Oficiales",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        if (isHealth) {
+          return { title: `¡Elegí la Mejor Opción en Salud en ${cityStr || 'tu ciudad'}! Planes y Turnos Online` };
+        }
+        if (isSports) {
+          return { title: `¡Sumate a las Mejores Actividades Deportivas en ${cityStr || 'tu ciudad'}!` };
+        }
+        if (isJudicial) {
+          return { title: `¡Protegé tus Derechos con Asesoramiento Legal Especializado en ${cityStr || 'tu ciudad'}!` };
+        }
+        return { title: `¡Elegí Soluciones Profesionales de Vanguardia!` };
+      }
+
+      if (isEducation) {
+        const v = [
+          `¡Vení a la mejor universidad! Estudiá en ${cleanName}`,
+          `¡Inscribite hoy en ${cleanName}! Carreras Oficiales y Modalidades Flexibles`,
+          `¡Elegí tu futuro en ${cleanName}! Carreras de Grado y Posgrados`,
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+      if (isJudicial) {
+        return { title: `¡Protegé tus Derechos con ${cleanName}! Asesoramiento Jurídico en ${cityStr || 'tu ciudad'}` };
+      }
+      if (isSports) {
+        return { title: `¡Sumate a ${cleanName}! Tu Club Deportivo en ${cityStr || 'tu ciudad'}` };
+      }
+      if (isHealth) {
+        return { title: `¡Elegí la mejor opción en salud! ${cleanName} en ${cityStr || 'tu ciudad'}` };
+      }
+      return { title: `¡Vení a conocer ${cleanName}! Experiencia y Calidad Garantizada` };
+    }
+
+    // 4. Commercial / Attractive / Slogan / Futuro
+    if (/atractiv|comercial|vent|promo|publicit|futuro/i.test(pLower)) {
+      if (hasNegativeConstraint) {
+        if (isEducation) {
+          const v = [
+            "Tu Futuro Profesional Comienza Hoy: Carreras de Grado y Posgrados Oficiales",
+            "Formación de Vanguardia y Alta Salida Laboral: Inscripciones Abiertas",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+        return { title: "Calidad Garantizada, Trayectoria y Beneficios Exclusivos" };
+      }
       if (isEducation) {
         return { title: `Estudiá en ${cleanName} | Tu Futuro Profesional Comienza Hoy` };
       }
       return { title: `${cleanName} | Calidad Garantizada y Beneficios Exclusivos` };
     }
 
-    // 6. Careers / Programs / Degrees
-    if (/carrera|grado|posgrado|master|curso|beca|inscrip/i.test(pLower)) {
+    // 5. Careers / Programs / Degrees / Scholarships / Online
+    if (/carrera|grado|posgrado|master|curso|beca|inscrip|online|virtual|distancia/i.test(pLower)) {
+      if (hasNegativeConstraint) {
+        if (isEducation) {
+          const v = [
+            "Carreras de Grado, Posgrados Oficiales y Becas Universitarias",
+            "Carreras Universitarias 100% Online: Cursado Flexible y Títulos Oficiales",
+            "Carreras Oficiales de Vanguardia: Inscripciones Abiertas y Planes de Beca",
+          ];
+          return { title: v[variationIndex % v.length] };
+        }
+      }
       return { title: `${cleanName} | Carreras de Grado, Posgrados e Inscripciones Abiertas` };
     }
 
-    // 7. Health / Emergency / Shifts
+    // 6. Emergency / Health / Guardias
     if (/guardia|turno|consulta|especialidad/i.test(pLower)) {
+      if (hasNegativeConstraint) {
+        return { title: "Guardia Médica Activa 24hs y Asignación de Turnos Online" };
+      }
       return { title: `${cleanName} | Guardia Médica 24hs y Turnos Online` };
     }
 
-    // 8. City / Location
-    if (/ciudad|sede|centro|ubicaci|mendoza|cordoba|caba|buenos aires|rosario/i.test(pLower)) {
-      const detectedCity = pLower.includes("mendoza")
-        ? "Mendoza"
-        : pLower.includes("cordoba") || pLower.includes("córdoba")
-        ? "Córdoba"
-        : pLower.includes("rosario")
-        ? "Rosario"
-        : cityStr || "Sede Central";
-      return { title: `${cleanName} - Sede ${detectedCity}` };
+    // 7. General pool fallback
+    if (hasNegativeConstraint) {
+      if (isEducation) {
+        const v = [
+          "¡Vení a la Mejor Universidad! Carreras Oficiales y Modalidades Flexibles",
+          "Liderá tu Futuro: Formación Universitaria y Carreras de Vanguardia",
+          "Carreras de Grado, Posgrados Oficiales y Becas Universitarias",
+          "Educación Superior de Excelencia: Inscripciones Abiertas y Salida Laboral",
+          "Tu Futuro Profesional Comienza Hoy: Títulos Oficiales y Prácticas",
+          "¡Inscribite Hoy! Carreras Universitarias Oficiales y Modalidad Flexible",
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+      if (isJudicial) {
+        const v = [
+          "Asesoramiento Legal de Excelencia: Soluciones Jurídicas Integrales",
+          "Defensa y Representación Jurídica: Turnos y Consultas Especializadas",
+          "¡Protegé tus Derechos! Asesoramiento Jurídico y Notarial de Vanguardia",
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+      if (isSports) {
+        const v = [
+          "¡Entrená al Máximo Nivel! Actividades Deportivas y Pases Mensuales",
+          "Centro Deportivo de Alto Rendimiento: Instalaciones y Membresías",
+          "¡Sumate al Deporte! Clases, Torneos y Espacios de Entrenamiento",
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+      if (isHealth) {
+        const v = [
+          `¡Contratá la Mejor Cobertura Médica en ${cityStr || 'tu ciudad'}!`,
+          "Atención Médica de Excelencia: Guardia 24hs y Especialidades",
+          "Planes de Salud Integrales: Cobertura Médica y Turnos Online",
+        ];
+        return { title: v[variationIndex % v.length] };
+      }
+      const vGeneral = [
+        "Excelencia, Confianza y Soluciones Profesionales de Primer Nivel",
+        "Servicios de Vanguardia y Atención Personalizada Garantizada",
+        "Calidad, Trayectoria y Respaldo Institucional Verificado",
+      ];
+      return { title: vGeneral[variationIndex % vGeneral.length] };
     }
 
-    // 9. General smart synthesis with rotating variations
     const vDefault = [
       `${cleanName}: Servicios Oficiales y Atención Personalizada`,
       `${cleanName} | Calidad, Trayectoria y Soluciones Profesionales`,
