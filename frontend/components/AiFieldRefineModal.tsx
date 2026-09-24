@@ -128,14 +128,17 @@ export default function AiFieldRefineModal({
     }
   }, [isOpen]);
 
-  // Reset conversation on field or modal open change
+  // Reset all state when modal opens or when target field changes so each field is 100% isolated
   useEffect(() => {
     if (isOpen) {
+      setPrompt("");
+      setPreviewResult(null);
+      setErrorMsg("");
       setConversationHistory([]);
       setVariationCount(0);
       setFollowUpPrompt("");
     }
-  }, [isOpen, fieldType]);
+  }, [isOpen, fieldType, blockIndex]);
 
   const handleSaveKey = (val: string) => {
     setCustomKey(val);
