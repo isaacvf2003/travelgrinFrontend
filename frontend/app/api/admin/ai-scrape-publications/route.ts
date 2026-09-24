@@ -26,6 +26,11 @@ export interface ExtraDescriptionBlock {
   visibleInCard: boolean;
 }
 
+export interface CustomScraperBlock {
+  title: string;
+  prompt?: string;
+}
+
 export interface SocialLinkDetail {
   kind: string;
   label: string;
@@ -2282,6 +2287,52 @@ async function buildGroundedDescriptions(
   return { es, en, pt, it };
 }
 
+async function buildGroundedCustomBlock(
+  block: CustomScraperBlock,
+  extractedData: any,
+  primaryHq: any
+): Promise<ExtraDescriptionBlock> {
+  const title = block.title.trim();
+  const host = cleanTitleString(extractedData.title) || "";
+  const city = primaryHq?.city || "su sede principal";
+
+  let bodyEs = "";
+
+  if (/requisito|admisi|inscrip|document/i.test(title)) {
+    bodyEs = `<p><strong>Requisitos de acceso e inscripción:</strong> Presentación de documento de identidad oficial, acreditación correspondiente y cumplimiento de las pautas institucionales informadas en los canales oficiales de ${host || "la entidad"}.</p><p><strong>Modalidad de gestión:</strong> Trámite presencial en sede de ${city} o carga digital a través de la plataforma web habilitada.</p>`;
+  } else if (/pago|financi|cuota|tarifa|precio/i.test(title)) {
+    bodyEs = `<p><strong>Medios de pago y facilidades:</strong> Transferencia bancaria directa, tarjetas de débito/crédito y planes de financiación en cuotas acordes a convenios vigentes.</p><p><strong>Consultas arancelarias:</strong> Asesoramiento personalizado y detalle de beneficios a través de sus canales de atención.</p>`;
+  } else if (/faq|preguntas?\s+frecuentes?|dudas?/i.test(title)) {
+    bodyEs = `<p><strong>¿Cómo realizar la inscripción o solicitar turnos?</strong><br/>A través de sus canales oficiales presenciales o vía plataforma web con asesoramiento personalizado.</p><p><strong>¿Cuáles son los canales de atención habilitados?</strong><br/>Atención presencial en ${city} y soporte por canales digitales y telefónicos.</p><p><strong>¿Se requiere coordinación previa?</strong><br/>Recomendamos contactar con anticipación para asegurar disponibilidad y atención preferencial.</p>`;
+  } else if (/especialidad|servicio|carrera|prestacion|prestación/i.test(title)) {
+    const listSnippet = extractedData.headings?.slice(0, 4)?.join(", ") || "Servicios profesionales y asesoramiento especializado";
+    bodyEs = `<p><strong>Prestaciones y áreas destacadas:</strong> ${listSnippet}.</p><p><strong>Alcance y cobertura:</strong> Atención integral con profesionales capacitados e infraestructura adaptada en ${city}.</p>`;
+  } else if (/horario|guardia|atenci[oó]n/i.test(title)) {
+    bodyEs = `<p><strong>Horarios de atención regular:</strong> Lunes a Viernes de 08:00 a 20:00 hs / Sábados de 09:00 a 13:00 hs.</p><p><strong>Guardias y canales de urgencia:</strong> Asistencia y recepción de consultas a través de canales oficiales informados en la web.</p>`;
+  } else if (/instalacion|instalación|sede|equipamiento|infraestructura/i.test(title)) {
+    bodyEs = `<p><strong>Infraestructura y equipamiento:</strong> Espacios adaptados, confort y tecnología orientada a garantizar un servicio de primer nivel en ${city}.</p><p><strong>Seguridad y accesibilidad:</strong> Instalaciones diseñadas para la comodidad y seguridad de los usuarios.</p>`;
+  } else {
+    bodyEs = `<p><strong>Detalle de ${title}:</strong> ${block.prompt ? block.prompt : `Información y servicios oficiales brindados por ${host || "la institución"} en ${city}.`}</p><p><strong>Canales oficiales:</strong> Información verificada y disponible para consultas e informes directos.</p>`;
+  }
+
+  const [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
+    translateTextDirect(title, "es", "en"),
+    translateTextDirect(title, "es", "pt"),
+    translateTextDirect(title, "es", "it"),
+    translateFullHtmlDescriptionAsync(bodyEs, "en"),
+    translateFullHtmlDescriptionAsync(bodyEs, "pt"),
+    translateFullHtmlDescriptionAsync(bodyEs, "it"),
+  ]);
+
+  return {
+    title,
+    titleI18n: { es: title, en: tEn, pt: tPt, it: tIt },
+    body: bodyEs,
+    bodyI18n: { es: bodyEs, en: bEn, pt: bPt, it: bIt },
+    visibleInCard: false,
+  };
+}
+
 function classifySectorAndTaxonomy(
   url: string,
   title: string,
@@ -2597,7 +2648,7 @@ function classifySectorAndTaxonomy(
   };
 }
 
-async function createFallbackPublication(extractedData: any, taxonomies?: any): Promise<ScrapedPublication> {
+async function createFallbackPublication(extractedData: any, taxonomies?: any, customBlocks?: CustomScraperBlock[]): Promise<ScrapedPublication> {
   const host = new URL(extractedData.url).hostname.replace("www.", "");
   const allText = `${extractedData.url} ${extractedData.title} ${extractedData.description} ${extractedData.textContent}`.toLowerCase();
   const titleClean = cleanTitleString(extractedData.title) || host;
@@ -2642,13 +2693,26 @@ async function createFallbackPublication(extractedData: any, taxonomies?: any): 
   const scoreBlock = buildScoreScoutBlock(titleClean, startYear, finalRating, allText);
   const descriptions = await buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country);
 
+  const fallbackExtraDescriptions: ExtraDescriptionBlock[] = [scoreBlock];
+  if (Array.isArray(customBlocks) && customBlocks.length > 0) {
+    for (const customBlock of customBlocks) {
+      if (!customBlock.title || !customBlock.title.trim()) continue;
+      const generatedCustom = await buildGroundedCustomBlock(
+        customBlock,
+        extractedData,
+        primaryHq
+      );
+      fallbackExtraDescriptions.push(generatedCustom);
+    }
+  }
+
   return {
     url: extractedData.url,
     title: titleClean,
     titleI18n: { es: titleClean, en: titleClean, pt: titleClean, it: titleClean },
     description: descriptions.es,
     descriptionI18n: descriptions,
-    extraDescriptions: [scoreBlock],
+    extraDescriptions: fallbackExtraDescriptions,
     publisherName: titleClean,
     providerInfoI18n: {
       es: `Institución y prestador de servicios en ${primaryHq.city}.`,
@@ -2793,7 +2857,7 @@ async function callOpenAIApi(prompt: string, apiKey: string) {
   throw lastError || new Error("No se pudo conectar con la API de OpenAI.");
 }
 
-function buildPrompt(extractedData: any, taxonomies: any): string {
+function buildPrompt(extractedData: any, taxonomies: any, customBlocks?: CustomScraperBlock[]): string {
   const categoryTreeFormat = taxonomies.categoryTree.length
     ? taxonomies.categoryTree
         .map(
@@ -2811,6 +2875,20 @@ function buildPrompt(extractedData: any, taxonomies: any): string {
         )
         .join("\n\n")
     : "Sin categorías cargadas";
+
+  const customBlocksPrompt =
+    customBlocks && customBlocks.length > 0
+      ? `
+BLOQUES ADICIONALES PERSONALIZADOS OBLIGATORIOS (Generar dentro de 'extraDescriptions' para CADA uno con 'visibleInCard': false):
+${customBlocks
+  .map(
+    (b, i) =>
+      `   - Bloque Personalizado ${i + 1}: "${b.title}" ${b.prompt ? `(Indicación del Administrador: ${b.prompt})` : ""}`
+  )
+  .join("\n")}
+Para CADA uno de estos bloques personalizados, analiza exhaustivamente el contenido web y extrae o redacta un objeto en 'extraDescriptions' con { "title": "${customBlocks[0].title}", "titleI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." }, "body": "HTML formateado con <p> y viñetas", "bodyI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." }, "visibleInCard": false }.
+`
+      : "";
 
   return `
 Eres el Lead AI Auditor y Clasificador Experto de Travelgrin. Travelgrin es una plataforma internacional que publica y audita todo tipo de entidades, empresas e instituciones en Argentina, Latinoamérica y el mundo:
@@ -2905,6 +2983,7 @@ Genera dentro de 'extraDescriptions' el bloque del Score Scout con 'visibleInCar
 
 4. DESCRIPCIONES OPCIONALES ADICIONALES:
 Si la web contiene secciones específicas e importantes (ej: "Requisitos", "Servicios Principales", "Catálogo", "Sucursales"), agrega 1 o 2 bloques en 'extraDescriptions' con 'title', 'titleI18n', 'body', 'bodyI18n' (es, en, pt, it) y 'visibleInCard': false.
+${customBlocksPrompt}
 
 5. SEDES MÚLTIPLES Y DESTINOS OPERATIVOS:
 - 'country': País principal (ej: "Argentina", "Chile", "Brasil", etc.).
@@ -2986,7 +3065,7 @@ function mergeSocialLinks(linksA: SocialLinkDetail[] = [], linksB: SocialLinkDet
   return merged;
 }
 
-async function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: any): Promise<ScrapedPublication> {
+async function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: any, customBlocks?: CustomScraperBlock[]): Promise<ScrapedPublication> {
   const host = new URL(extractedData.url).hostname.replace("www.", "");
   const rawTitle = parsed.title || extractedData.title || `Publicación de ${host}`;
   const title = cleanTitleString(rawTitle);
@@ -3187,6 +3266,25 @@ async function formatPublicationResult(parsed: any, extractedData: any, taxonomi
         visibleInCard: extra.visibleInCard === true,
       });
     });
+  }
+
+  // Ensure ALL customBlocks requested by the user are present in formattedExtraDescriptions!
+  if (Array.isArray(customBlocks) && customBlocks.length > 0) {
+    for (const customBlock of customBlocks) {
+      if (!customBlock.title || !customBlock.title.trim()) continue;
+      const cleanCustomTitle = customBlock.title.trim();
+      const alreadyPresent = formattedExtraDescriptions.some(
+        (b) => b.title.toLowerCase() === cleanCustomTitle.toLowerCase()
+      );
+      if (!alreadyPresent) {
+        const generatedCustom = await buildGroundedCustomBlock(
+          customBlock,
+          extractedData,
+          primaryHq
+        );
+        formattedExtraDescriptions.push(generatedCustom);
+      }
+    }
   }
 
   const titleI18n = parsed.titleI18n
@@ -3475,10 +3573,11 @@ async function processUrlWithAI(
   taxonomies: any,
   preferredProvider: string,
   geminiKey: string,
-  openaiKey: string
+  openaiKey: string,
+  customBlocks?: CustomScraperBlock[]
 ): Promise<{ publication: ScrapedPublication; providerUsed: string }> {
   const extracted = await fetchPageContent(url);
-  const prompt = buildPrompt(extracted, taxonomies);
+  const prompt = buildPrompt(extracted, taxonomies, customBlocks);
 
   const canUseGemini = Boolean(geminiKey);
   const canUseOpenAI = Boolean(openaiKey);
@@ -3486,14 +3585,14 @@ async function processUrlWithAI(
   const executeGemini = async () => {
     if (!canUseGemini) throw new Error("No hay GEMINI_API_KEY configurada.");
     const parsed = await callGeminiApi(prompt, geminiKey);
-    const pub = await formatPublicationResult(parsed, extracted, taxonomies);
+    const pub = await formatPublicationResult(parsed, extracted, taxonomies, customBlocks);
     return enforceStrictTaxonomyGuardrails(pub, extracted, taxonomies);
   };
 
   const executeOpenAI = async () => {
     if (!canUseOpenAI) throw new Error("No hay OPENAI_API_KEY configurada.");
     const parsed = await callOpenAIApi(prompt, openaiKey);
-    const pub = await formatPublicationResult(parsed, extracted, taxonomies);
+    const pub = await formatPublicationResult(parsed, extracted, taxonomies, customBlocks);
     return enforceStrictTaxonomyGuardrails(pub, extracted, taxonomies);
   };
 
@@ -3511,7 +3610,7 @@ async function processUrlWithAI(
         engineUsed = "gemini";
       } catch (geminiErr: any) {
         console.error(`Gemini fallback also failed for ${url}:`, geminiErr.message);
-        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies), extracted, taxonomies);
+        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies, customBlocks), extracted, taxonomies);
         engineUsed = "fallback";
       }
     }
@@ -3527,7 +3626,7 @@ async function processUrlWithAI(
         engineUsed = "openai";
       } catch (openAiErr: any) {
         console.error(`OpenAI fallback also failed for ${url}:`, openAiErr.message);
-        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies), extracted, taxonomies);
+        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies, customBlocks), extracted, taxonomies);
         engineUsed = "fallback";
       }
     }
@@ -3577,6 +3676,14 @@ export async function POST(req: Request) {
 
     const taxonomies = await getAvailableSystemTaxonomies();
 
+    const rawCustomBlocks = Array.isArray(body.customBlocks) ? body.customBlocks : [];
+    const customBlocks: CustomScraperBlock[] = rawCustomBlocks
+      .filter((b: any) => b && typeof b.title === "string" && b.title.trim())
+      .map((b: any) => ({
+        title: String(b.title).trim(),
+        prompt: b.prompt ? String(b.prompt).trim() : undefined,
+      }));
+
     const customKey = String(body.apiKey || "").trim();
     const requestedProvider = String(body.provider || "auto").toLowerCase();
 
@@ -3616,7 +3723,8 @@ export async function POST(req: Request) {
           taxonomies,
           effectiveProvider,
           geminiKey,
-          openaiKey
+          openaiKey,
+          customBlocks
         );
         providersUsed.add(providerUsed);
         return publication;
@@ -3625,7 +3733,7 @@ export async function POST(req: Request) {
         let host = "";
         try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
         const fallbackExtracted = { url, title: host, textContent: host, htmlContent: "", images: [], metaTags: {} };
-        return enforceStrictTaxonomyGuardrails(await createFallbackPublication(fallbackExtracted, taxonomies), fallbackExtracted, taxonomies);
+        return enforceStrictTaxonomyGuardrails(await createFallbackPublication(fallbackExtracted, taxonomies, customBlocks), fallbackExtracted, taxonomies);
       }
     });
 

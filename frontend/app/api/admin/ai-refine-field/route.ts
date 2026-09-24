@@ -364,10 +364,15 @@ function checkOmitIcons(prompt: string, userPrompts: string): boolean {
 function checkIsShort(prompt: string, userPrompts: string): boolean {
   const pLower = prompt.toLowerCase();
   const allLower = userPrompts.toLowerCase();
+
+  // 1. If latest prompt asks to make it longer, wider, more detailed, or more persuasive/llamativa, CANCEL short mode immediately
+  const promptWantsLong = /\b(?:larg[oa]s?|m[aá]s\s+larg[oa]s?|hazl[oa]\s+m[aá]s\s+larg[oa]s?|extens[oa]s?|ampli[oa]s?|complet[oa]s?|desarroll(?:ar|a)?|m[aá]s\s+texto|m[aá]s\s+contenido|m[aá]s\s+detalle|con\s+m[aá]s\s+detalle|llamativ[oa]s?|persuasiv[oa]s?)\b/i.test(pLower);
+  if (promptWantsLong) return false;
+
   const explicitShort = /\b(?:cort[oa]s?|breve|breves|direct[oa]s?|resum(?:en|id[oa])?|s[ií]ntesis|concis[oa]s?|pocas?\s+palabras|en\s+un\s+p[aá]rrafo|en\s+dos\s+p[aá]rrafos|resumilo|resumila)\b/i.test(pLower);
   if (explicitShort) return true;
+
   const historyShort = /\b(?:cort[oa]s?|breve|breves|direct[oa]s?|resum(?:en|id[oa])?|s[ií]ntesis|concis[oa]s?|pocas?\s+palabras)\b/i.test(allLower);
-  const promptWantsLong = /\b(?:largo|detallado|extenso|amplio|completo|mas\s+detalle|más\s+detalle)\b/i.test(pLower);
   return historyShort && !promptWantsLong;
 }
 
@@ -1288,21 +1293,58 @@ function generateSemanticAiFallback(
     };
   }
 
+  if (/faq|preguntas?\s+frecuentes?|dudas?/i.test(pLower)) {
+    return {
+      title: "Preguntas Frecuentes (FAQ)",
+      body: "<p><strong>¿Cómo realizar la inscripción o reserva?</strong><br/>A través de nuestros canales oficiales presenciales o vía plataforma web con asesoramiento personalizado.</p><p><strong>¿Cuáles son los medios de pago habilitados?</strong><br/>Tarjetas de débito/crédito, transferencias bancarias y planes en cuotas según convenios vigentes.</p><p><strong>¿Se requiere coordinación previa?</strong><br/>Recomendamos contactar con anticipación para asegurar disponibilidad y atención preferencial.</p>",
+    };
+  }
+
   if (/requisito|admisi|inscrip|document/i.test(pLower)) {
     return {
       title: "Requisitos de Admisión e Inscripción",
       body: "<p><strong>Documentación requerida:</strong> Documento de identidad vigente (DNI o Pasaporte), comprobante de domicilio y antecedentes pertinentes según la actividad.</p><p><strong>Modalidad de presentación:</strong> Gestión presencial en sede oficial o carga digital a través de la plataforma web habilitada.</p>",
     };
   }
+
   if (/pago|financi|cuota|tarifa|precio/i.test(pLower)) {
     return {
       title: "Medios de Pago y Financiación",
       body: "<p><strong>Opciones disponibles:</strong> Transferencia bancaria, tarjetas de débito/crédito y planes de pago en cuotas según convenios vigentes.</p><p><strong>Beneficios:</strong> Bonificaciones por pago anticipado y convenios institucionales aplicables.</p>",
     };
   }
+
+  if (/especialidad|servicio|prestacion|prestación|cobertura/i.test(pLower)) {
+    return {
+      title: "Especialidades y Servicios Destacados",
+      body: "<p><strong>Áreas de atención:</strong> Consultoría especializada, atención programada y soporte integral continuo.</p><p><strong>Metodología de trabajo:</strong> Enfoque multidisciplinario con tecnología de vanguardia y profesionales de amplia trayectoria.</p>",
+    };
+  }
+
+  if (/horario|guardia|atenci[oó]n|dias?|días?/i.test(pLower)) {
+    return {
+      title: "Horarios y Canales de Atención",
+      body: "<p><strong>Atención presencial:</strong> Lunes a Viernes de 08:00 a 20:00 hs / Sábados de 09:00 a 13:00 hs.</p><p><strong>Canales digitales y guardias:</strong> Asistencia y recepción de consultas a través de canales oficiales 24/7.</p>",
+    };
+  }
+
+  if (/instalacion|instalación|sede|equipamiento|infraestructura/i.test(pLower)) {
+    return {
+      title: "Instalaciones y Equipamiento",
+      body: "<p><strong>Infraestructura moderna:</strong> Espacios climatizados, áreas adaptadas y equipamiento de última generación.</p><p><strong>Seguridad y confort:</strong> Instalaciones diseñadas bajo rigurosos estándares de seguridad y comodidad.</p>",
+    };
+  }
+
+  // Generic custom block with smart title extraction
+  let customTitle = "Información Adicional";
+  const titleMatch = prompt.match(/(?:bloque\s+(?:de\s+)?|secci[oó]n\s+(?:de\s+)?|t[ií]tulo\s+)([^,.;:]+)/i);
+  if (titleMatch && titleMatch[1].trim().length > 3) {
+    customTitle = titleMatch[1].trim().charAt(0).toUpperCase() + titleMatch[1].trim().slice(1);
+  }
+
   return {
-    title: "Información y Condiciones",
-    body: `<p><strong>Detalle del servicio:</strong> ${prompt}.</p><p><strong>Recomendación:</strong> Consultar directamente en los canales de contacto oficial para coordinar turnos o recibir asesoramiento específico.</p>`,
+    title: customTitle,
+    body: `<p><strong>Detalle de ${customTitle}:</strong> ${prompt.replace(/^(?:creame|crear|armar|generar|hacer|pone)\s+(?:un\s+bloque\s+de\s+|un\s+bloque\s+|bloque\s+de\s+|bloque\s+)?/i, "")}.</p><p><strong>Canales oficiales:</strong> Información verificada y disponible para consultas e informes directos.</p>`,
   };
 }
 
