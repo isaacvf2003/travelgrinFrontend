@@ -153,7 +153,7 @@ export default function AiFieldRefineModal({
   const config = FIELD_LABELS[fieldType] || FIELD_LABELS.description;
 
   const handleGenerate = async (customInstruction?: string, isRefinement = false, isRegenerate = false) => {
-    const nextVariationIndex = isRegenerate ? variationCount + 1 : variationCount;
+    const nextVariationIndex = (isRegenerate || isRefinement) ? variationCount + 1 : variationCount;
     const textPrompt = (
       customInstruction ??
       (isRefinement ? followUpPrompt : isRegenerate ? (prompt || "Generá otra propuesta alternativa diferente") : prompt)
@@ -474,10 +474,11 @@ export default function AiFieldRefineModal({
                     type="text"
                     value={followUpPrompt}
                     onChange={(e) => setFollowUpPrompt(e.target.value)}
+                    disabled={loading}
                     placeholder="Ej: Ahora hacelo un poco más corto, o agregale que hay 20% de descuento..."
-                    className="flex-1 rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="flex-1 rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
+                      if (e.key === "Enter" && !loading && followUpPrompt.trim()) {
                         e.preventDefault();
                         handleGenerate(undefined, true);
                       }
@@ -487,10 +488,14 @@ export default function AiFieldRefineModal({
                     type="button"
                     disabled={loading || !followUpPrompt.trim()}
                     onClick={() => handleGenerate(undefined, true)}
-                    className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
                   >
-                    <SendHorizontal className="h-3.5 w-3.5" />
-                    Ajustar
+                    {loading ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <SendHorizontal className="h-3.5 w-3.5" />
+                    )}
+                    {loading ? "Ajustando..." : "Ajustar"}
                   </button>
                 </div>
               </div>
