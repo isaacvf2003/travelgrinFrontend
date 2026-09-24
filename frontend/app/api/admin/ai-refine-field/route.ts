@@ -300,14 +300,6 @@ function buildSystemRefinePrompt(
   conversationHistory: ConversationMessage[] = [],
   investigatedWeb?: InvestigatedWebInfo | null
 ): string {
-  const contextStr = [
-    meta.title ? `Título actual: ${meta.title}` : "",
-    meta.publisherName ? `Entidad/Marca extraída: ${meta.publisherName}` : "",
-    meta.category ? `Categoría/Rubro: ${meta.category}` : "",
-    meta.city ? `Ubicación: ${meta.city}${meta.country ? `, ${meta.country}` : ""}` : "",
-    meta.url ? `Web: ${meta.url}` : "",
-  ].filter(Boolean).join(" | ");
-
   const historyStr = conversationHistory.length > 0
     ? conversationHistory.map(m => `${m.role === "user" ? "Administrador" : "Asistente"}: "${m.content}"`).join("\n")
     : "Sin historial previo";
@@ -324,78 +316,261 @@ function buildSystemRefinePrompt(
     : "";
 
   return `
-Eres el Asistente de IA y Lead Copywriter Creativo Senior de Travelgrin (actúas con total libertad e inteligencia creativa, como ChatGPT Plus o Gemini Advanced).
+Eres el Asistente de IA y Lead Copywriter Creativo Senior de Travelgrin (actúas con total libertad, inteligencia y flexibilidad, como ChatGPT Plus o Gemini Advanced).
 
 🎯 TU MISIÓN:
-Pensar profundamente la MEJOR opción posible para el administrador. Tienes TOTAL LIBERTAD creativa, conceptual y estilística para redactar con impacto, elegancia y persuasión profesional. No te limites a plantillas fijas.
-${investigatedWeb ? "Utiliza la información real investigada del sitio web para enriquecer la propuesta con sus servicios, especialidades y diferenciales auténticos." : "Si el usuario proporciona o menciona el nombre de un local o negocio real (ej: una parrilla, gimnasio, universidad o clínica), utiliza tu conocimiento profundo y enciclopédico para resaltar sus verdaderos puntos fuertes, ubicación y especialidades reales."}
+Comprender a la perfección lo que el usuario pide en su instrucción y generar la MEJOR propuesta posible (con impacto, elegancia, persuasión y excelente SEO).
+${investigatedWeb ? "Utiliza la información real investigada del sitio web para enriquecer la propuesta con sus servicios, especialidades y diferenciales auténticos." : "Si el usuario proporciona o menciona el nombre de un negocio o entidad real (ej: parrilla, gimnasio, universidad, clínica, estudio contable), utiliza tu conocimiento profundo y enciclopédico para resaltar sus verdaderos puntos fuertes y especialidades."}
 ${investigatedSection}
-⚡ REGLAS CRÍTICAS DE CONTEXTO E HISTORIAL:
-1. CONTINUIDAD DE RESTRICCIONES (POSITIVAS Y NEGATIVAS):
-   - Si en la conversación previa o en la instrucción actual el administrador pidió omitir la marca ("no hace falta que diga [nombre]", "sin el nombre", "sacale X"):
-     ¡MANTÉN ESA RESTRICCIÓN ACTIVADA! No vuelvas a incluir el nombre de la empresa/institución aunque el usuario diga "hacelo diferente", "hacelo más corto" o "ajustalo".
-   - Si el administrador pidió QUITAR PRECIOS ("quita lo de precio", "sin precio", "sacar precio", "no poner precio", etc.):
+
+⚠️ REGLAS MANDATORIAS DE PRIORIDAD MÁXIMA (NEGACIONES Y RESTRICCIONES):
+1. RESPETO ABSOLUTO A INSTRUCCIONES NEGATIVAS:
+   - Si el administrador te pide NO colocar, NO mencionar, omitir, sacar o excluir alguna palabra, nombre, marca o entidad (ejemplo: "no coloques ni menciones siglo 21", "sin el nombre", "sacale X", "sin precios"):
+     ¡TIENES PROHIBIDO ABSOLUTAMENTE INCLUIR ESA PALABRA O NOMBRE EN TU RESPUESTA!
+   - Si pide no mencionar la marca/nombre, genera un título o texto enfocado en el beneficio, la llamada a la acción, las ventajas y el SEO sin nombrar jamás dicha marca o entidad.
+   - Si el administrador pidió QUITAR PRECIOS ("quita lo de precio", "sin precio", "sacar precio", "no poner precio", "es gratis"):
      ¡NO INCLUYAS <strong>Precio:</strong> NI REFERENCIAS ARANCELARIAS! Omite por completo esa etiqueta. Si además pide indicar que es gratis, pon "Actividad gratuita / Acceso libre".
-   - Si el administrador pidió QUITAR VIGENCIA o QUITAR EXCLUSIONES:
-     Omite esas secciones correspondientes.
-   - Crea siempre una formulación conceptual brillante, orientada al beneficio, la propuesta de valor o la llamada a la acción.
 
 2. ADAPTABILIDAD UNIVERSAL DE RUBROS:
-   - Este contenido puede provenir de cualquier rubro (Deportes, Judicial/Legal, Salud, Educación, Turismo, Inmobiliaria, Gastronomía, Comercio, etc.).
+   - Este contenido puede pertenecer a cualquier rubro (Deportes, Judicial/Legal, Salud, Educación, Turismo, Inmobiliaria, Gastronomía, Comercio, etc.).
    - Utiliza el vocabulario, jerarquía y tono propio de la industria correspondiente.
 
-3. REGLAS PARA DESCRIPCIÓN (fieldType === "description"):
-   - MÁXIMA LIBERTAD CREATIVA Y AUTONOMÍA:
-     * El administrador puede estar mejorando un texto scrapeado O creando una publicación 100% nueva desde cero (eventos, torneos deportivos, buffet gastronómico, servicios jurídicos, salud, cursos, alquileres, promociones, etc.) o a partir de un formulario de cliente.
-     * Tienes LIBERTAD TOTAL para crear la estructura HTML que mejor comunique, impacte y venda la propuesta.
-     * Puedes usar párrafos <p>, negritas <strong>, cursivas <em>, listas <ul><li> y emojis/iconos modernos llamativos (💡, 🚀, 🎯, 🏆, 💎, 📅, 📍, 📞, ⚖️, 🩺, 🛡️, ✨, 🌟, ⏱️, 👥, 🍣, 🎓, 🏠, etc.) que resalten cada punto clave con elegancia y copywriting persuasivo.
-     * Si no se pide una estructura especial o se busca el formato estándar, puedes seguir o adaptar los 4 párrafos de referencia:
-       <p><strong>Vigencia:</strong> ... <strong>Precio:</strong> ...</p>
-       <p>💡 <strong>Propuesta de valor:</strong> ... <strong>¿Para quién?:</strong> ... <strong>Documentación requerida:</strong> ... <strong>Permanencia:</strong> ...</p>
-       <p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ... <em>Experiencia y soporte:</em> ... <em>Diferencial vs. alternativas:</em> ...</p>
-       <p>⚠️ <strong>Exclusiones:</strong> ...</p>
-     * RESPETO ABSOLUTO A RESTRICCIONES:
-       - Si el usuario pide quitar precios o dice que es gratis: Omite <strong>Precio:</strong> por completo o indica que es gratuito.
-       - Si el usuario pide omitir la marca/nombre de la entidad: No menciones la marca/nombre en el texto.
-       - Si el usuario pide añadir secciones nuevas (ej: Premios, Horarios, Cronograma, Menú, Beneficios, Requisitos): Créalas con formato HTML enriquecido y atractivos emojis.
+3. REGLAS PARA TÍTULOS (fieldType === "title"):
+   - Sé persuasivo, llamativo, comercial y con alto impacto SEO.
+   - Si el usuario pide un título llamativo sin el nombre: redacta títulos potentes orientados a la acción y beneficios (ej: "¡Vení a la Mejor Universidad! Carreras Oficiales y Modalidades Flexibles", "Liderá tu Futuro: Formación Universitaria y Carreras de Vanguardia").
 
-📋 CONTEXTO Y COHERENCIA DE LA PUBLICACIÓN:
+4. REGLAS PARA DESCRIPCIÓN (fieldType === "description"):
+   - Tienes LIBERTAD TOTAL para crear la estructura HTML que mejor comunique y venda la propuesta.
+   - Puedes usar párrafos <p>, negritas <strong>, cursivas <em>, listas <ul><li> y emojis/iconos modernos llamativos (💡, 🚀, 🎯, 🏆, 💎, 📅, 📍, 📞, ⚖️, 🩺, 🛡️, ✨, 🌟, ⏱️, 👥, 🍣, 🎓, 🏠, etc.).
+   - Si no se especifica otra estructura, adapta los 4 párrafos de referencia:
+     <p><strong>Vigencia:</strong> ... <strong>Precio:</strong> ...</p>
+     <p>💡 <strong>Propuesta de valor:</strong> ... <strong>¿Para quién?:</strong> ... <strong>Documentación requerida:</strong> ... <strong>Permanencia:</strong> ...</p>
+     <p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ... <em>Experiencia y soporte:</em> ... <em>Diferencial vs. alternativas:</em> ...</p>
+     <p>⚠️ <strong>Exclusiones:</strong> ...</p>
+
+📋 CONTEXTO DE LA PUBLICACIÓN:
 - Categoría / Rubro: ${meta.category || "No especificada"}
 - Título actual: ${meta.title || "No especificado"}
 - Entidad / Marca: ${meta.publisherName || "No especificada"}
 - Ubicación: ${meta.city || ""}${meta.country ? `, ${meta.country}` : ""}
 - Web: ${meta.url || ""}
 
-🎯 REGLA DE ORO DE IDENTIDAD Y COHERENCIA TEMÁTICA:
-1. MANTÉN LA COHERENCIA CON EL RUBRO DE LA ENTIDAD:
-   - Si la publicación es de Educación (Universidad, Colegio, Carreras, etc.), cualquier indicación como "Hacerlo más formal e institucional", "Hacerlo más corto", "Más trabajado y persuasivo", etc., debe generar contenido SOBRE LA UNIVERSIDAD / EDUCACIÓN (carreras de grado, posgrados, formación académica, excelencia docente, campus, etc.). ¡NUNCA cambies el rubro a abogados o centros médicos!
-   - Si la publicación es de Salud (Clínica, Médicos, etc.), mantén el foco en salud y atención médica.
-   - Si la publicación es de Deportes (Club, Torneo, Gym), mantén el foco deportivo.
-   - Si la publicación es de Gastronomía (Restaurante, Buffet, Bar), mantén el foco gastronómico.
-   - Si el administrador está creando una publicación DESDE CERO y su instrucción explícitamente dice qué negocio o actividad es (ej: "es un torneo de fútbol...", "es un buffet de sushi...", "es un estudio contable..."), adáptate con total fidelidad a lo que el administrador pide en su prompt.
-
 💬 HISTORIAL DE LA CONVERSACIÓN:
 ${historyStr}
 
 TIPO DE CAMPO: "${fieldType}"
-TEXTO BASE:
+TEXTO BASE ACTUAL:
 """
 ${currentText || "(campo actualmente vacío o nuevo)"}
 """
 
-INSTRUCCIÓN ACTUAL DEL ADMINISTRADOR:
+INSTRUCCIÓN DEL ADMINISTRADOR:
 """
 ${prompt}
 """
 
-FORMATO DE SALIDA (ÚNICAMENTE JSON VÁLIDO):
-- Si fieldType === "title": {"title": "Mejor opción de título pensada con total libertad, sin clichés y respetando restricciones"}
-- Si fieldType === "description": {"description": "HTML con los párrafos formateados respetando estrictamente las restricciones del usuario (por ejemplo sin precio si lo pidió)"}
+FORMATO DE SALIDA (SOLAMENTE OBJETO JSON VÁLIDO):
+- Si fieldType === "title": {"title": "Propuesta de título optimizada respetando estrictamente todas las restricciones del usuario"}
+- Si fieldType === "description": {"description": "HTML con los párrafos formateados respetando todas las restricciones"}
 - Si fieldType === "provider_info": {"providerInfo": "Texto de síntesis institucional de alto nivel"}
-- Si fieldType === "extra_block" O "new_extra_block": {"title": "Título del bloque", "body": "Cuerpo con formato y datos solicitados"}
+- Si fieldType === "extra_block" O "new_extra_block": {"title": "Título del bloque", "body": "Cuerpo con formato"}
 
-RESPONDE SOLAMENTE EL OBJETO JSON VÁLIDO.
+RESPONDE ÚNICAMENTE EL OBJETO JSON VÁLIDO.
 `;
+}
+
+function extractForbiddenTerms(userPrompts: string, cleanName?: string, publisherName?: string): string[] {
+  const forbidden = new Set<string>();
+  const lower = userPrompts.toLowerCase();
+
+  // If general 'sin nombre' / 'no pongas la marca' / 'omiti nombre' is detected
+  if (
+    /(?:sin|no\s+(?:pongas?|coloques?|menciones?|uses?|incluyas?|digas?)|omit[a-z]*|sacale|sacar|quitar?)\s+(?:el\s+|la\s+)?(?:nombre|marca|entidad|instituci[oó]n|empresa|local)/i.test(
+      lower
+    )
+  ) {
+    if (cleanName) forbidden.add(cleanName.toLowerCase());
+    if (publisherName) forbidden.add(publisherName.toLowerCase());
+    if (cleanName) cleanName.split(/\s+/).forEach((w) => { if (w.length > 3) forbidden.add(w.toLowerCase()); });
+  }
+
+  // Extract explicit phrases after negative verbs (e.g. 'no coloques ni menciones siglo 21')
+  const negMatches = lower.matchAll(
+    /(?:no\s+(?:hace falta|coloques?|menciones?|pongas?|uses?|incluyas?|digas?|nombres?|aparezca|tenga|poner|mencionar|colocar)|sin\s+|omit[a-z]*|sacale|sacar|quitar?|elimina[a-z]*|evita[a-z]*)(?:\s+ni\s+(?:coloques?|menciones?|pongas?|uses?|incluyas?|digas?|nombres?|poner|mencionar|colocar))?\s+([^.,;!?:()]+)/gi
+  );
+  for (const m of negMatches) {
+    let target = m[1].trim();
+    target = target.replace(/\b(?:debe|tiene que|quiero|hacelo|hacerlo|que sea|para que|con buen|y con|pero|ademas|además)\b[\s\S]*/i, "").trim();
+    target = target.replace(/^(?:el|la|los|las|un|una|unos|unas|al|a)\s+/i, "").trim();
+    if (target.length >= 2 && !/^(?:nombre|marca|nada|eso|esto|titulo|título|descripcion|descripción)$/i.test(target)) {
+      forbidden.add(target);
+      target.split(/\s+/).forEach((w) => { if (w.length > 2) forbidden.add(w); });
+    }
+  }
+
+  if (cleanName && lower.includes(cleanName.toLowerCase())) {
+    if (/(?:no\s+(?:coloques?|menciones?|pongas?|uses?|incluyas?|digas?)|sin|omit|sacale|sacar|quita)/i.test(lower)) {
+      forbidden.add(cleanName.toLowerCase());
+      cleanName.split(/\s+/).forEach((w) => { if (w.length > 2) forbidden.add(w.toLowerCase()); });
+    }
+  }
+
+  return Array.from(forbidden);
+}
+
+function sanitizeForbiddenTerms(text: string, forbiddenTerms: string[]): string {
+  if (!text || !forbiddenTerms || forbiddenTerms.length === 0) return text;
+  let result = text;
+  for (const term of forbiddenTerms) {
+    if (!term || term.trim().length < 2) continue;
+    const escaped = term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`(?:Universidad\\s+|Instituto\\s+|Estudio\\s+|Club\\s+|Cl[ií]nica\\s+)?${escaped}`, "gi");
+    result = result.replace(regex, "");
+  }
+  return result
+    .replace(/\s+(?:en|estudiá en|estudia en|con|de|del|para|por|a|al|hacia|desde)\s*(?=[-–—|:;,]|$)/gi, "")
+    .replace(/\s*[-–—|:]\s*[-–—|:]+/g, " | ")
+    .replace(/\s*[-–—|:,]\s*$/g, "")
+    .replace(/^\s*[-–—|:,]\s*/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+async function callGeminiApi(
+  geminiKey: string,
+  systemPrompt: string,
+  userMessage: string,
+  fieldType: FieldType
+): Promise<any | null> {
+  const models = [
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "gemini-2.0-flash-exp",
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-flash-8b",
+  ];
+
+  for (const model of models) {
+    // Attempt 1: systemInstruction + user content with responseMimeType
+    try {
+      const resp = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: systemPrompt }],
+            },
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: userMessage }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              responseMimeType: "application/json",
+            },
+          }),
+        },
+        15000
+      );
+
+      if (resp.ok) {
+        const data = await resp.json();
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const parsed = extractJsonFromText(rawText);
+        if (parsed && typeof parsed === "object") {
+          return parsed;
+        }
+      } else {
+        const errText = await resp.text().catch(() => "");
+        console.error(`Gemini API Error (${model}) [${resp.status}]:`, errText);
+      }
+    } catch (e: any) {
+      console.error(`Gemini fetch error (${model}):`, e?.message);
+    }
+
+    // Attempt 2: contents with combined prompt
+    try {
+      const resp = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: `${systemPrompt}\n\n${userMessage}` }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.7,
+            },
+          }),
+        },
+        15000
+      );
+
+      if (resp.ok) {
+        const data = await resp.json();
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const parsed = extractJsonFromText(rawText);
+        if (parsed && typeof parsed === "object") {
+          return parsed;
+        } else if (rawText && fieldType === "title") {
+          const cleaned = cleanTitleString(rawText.replace(/[\{\}"]/g, "").replace(/title\s*:\s*/i, ""));
+          if (cleaned) return { title: cleaned };
+        }
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
+async function callOpenAiApi(
+  openaiKey: string,
+  systemPrompt: string,
+  userMessage: string
+): Promise<any | null> {
+  const models = ["gpt-4o-mini", "gpt-4o"];
+  for (const model of models) {
+    try {
+      const resp = await fetchWithTimeout(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openaiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userMessage },
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.7,
+          }),
+        },
+        15000
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        const rawContent = data.choices?.[0]?.message?.content || "";
+        const parsed = extractJsonFromText(rawContent);
+        if (parsed && typeof parsed === "object") {
+          return parsed;
+        }
+      }
+    } catch {}
+  }
+  return null;
 }
 
 // Intelligent Semantic NLP Generator for instant local generation & fallback
@@ -458,12 +633,15 @@ function generateSemanticAiFallback(
   const isRealEstate = sector === "realestate";
   const isTourism = sector === "tourism";
 
-  // Persistent omitName check across user turns
-  const omitName = /no hace falta.*(nombre|siglo|marca|decir|poner|mencionar)|sin.*(nombre|marca|mencionar)|no pongas.*(nombre|marca)|no digas|no menciones|omiti|sacale.*(nombre|marca)|sacar.*(nombre|marca)|sin la marca/i.test(userPrompts);
+  // Comprehensive Negative Constraint Check across all user turns and Spanish variations
+  const hasNegativeConstraint =
+    /(?:no\s+(?:hace falta|coloques?|menciones?|pongas?|uses?|incluyas?|digas?|nombres?|aparezca|tenga|poner|mencionar|colocar)|sin\s+|omit[a-z]*|sacale|sacar|quitar?|elimina[a-z]*|evita[a-z]*)/i.test(
+      userPrompts
+    );
 
   if (fieldType === "title") {
-    // Variations pools for distinct domains
-    if (omitName) {
+    // Variations pools for distinct domains when name must be omitted
+    if (hasNegativeConstraint) {
       if (isJudicial) {
         const v = [
           "Asesoramiento Legal de Excelencia: Soluciones Jurídicas Integrales",
@@ -486,11 +664,12 @@ function generateSemanticAiFallback(
 
       if (isEducation) {
         const v = [
+          "¡Vení a la Mejor Universidad! Carreras Oficiales y Modalidades Flexibles",
           "Liderá tu Futuro: Formación Universitaria y Carreras de Vanguardia",
           "Carreras de Grado, Posgrados Oficiales y Becas Universitarias",
-          "¡Vení a la Mejor Universidad! Carreras Oficiales y Modalidad Flexible",
           "Educación Superior de Excelencia: Inscripciones Abiertas y Salida Laboral",
           "Tu Futuro Profesional Comienza Hoy: Títulos Oficiales y Prácticas",
+          "¡Inscribite Hoy! Carreras Universitarias Oficiales y Modalidad Flexible",
         ];
         return { title: v[variationIndex % v.length] };
       }
@@ -888,7 +1067,7 @@ function generateSemanticAiFallback(
   }
 
   if (fieldType === "provider_info") {
-    const entityNoun = omitName
+    const entityNoun = hasNegativeConstraint
       ? isEducation
         ? "Esta institución educativa"
         : isJudicial
@@ -1005,6 +1184,18 @@ export async function POST(req: Request) {
       investigatedWeb = await quickInvestigateUrl(targetInvestigateUrl);
     }
 
+    const cleanName = cleanBaseEntityName(
+      currentText || currentTitle || investigatedWeb?.pageTitle || "",
+      publisherName || investigatedWeb?.pageTitle
+    );
+
+    const userAllPrompts = [
+      ...conversationHistory.filter((m) => m.role === "user").map((m) => m.content),
+      prompt,
+    ].join(" ");
+
+    const forbiddenTerms = extractForbiddenTerms(userAllPrompts, cleanName, publisherName);
+
     const systemPrompt = buildSystemRefinePrompt(
       fieldType,
       currentText,
@@ -1023,122 +1214,17 @@ export async function POST(req: Request) {
 
     let aiResult: any = null;
 
-    // 1. Try Gemini with high creative freedom
+    // 1. Try Gemini Live API with high creative capability
     if (geminiKey) {
-      const models = [
-        "gemini-1.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-pro",
-        "gemini-1.5-flash-8b",
-        "gemini-2.0-flash-exp",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro-latest"
-      ];
-      for (const model of models) {
-        // Attempt 1: with responseMimeType
-        try {
-          const resp = await fetchWithTimeout(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: systemPrompt }] }],
-                generationConfig: {
-                  temperature: 0.7,
-                  responseMimeType: "application/json",
-                },
-              }),
-            },
-            15000
-          );
-          if (resp.ok) {
-            const data = await resp.json();
-            const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            const parsed = extractJsonFromText(rawText);
-            if (parsed && typeof parsed === "object") {
-              aiResult = parsed;
-              break;
-            }
-          }
-        } catch {}
-
-        // Attempt 2: standard raw text mode
-        if (!aiResult) {
-          try {
-            const resp = await fetchWithTimeout(
-              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text: systemPrompt }] }],
-                  generationConfig: {
-                    temperature: 0.7,
-                  },
-                }),
-              },
-              15000
-            );
-            if (resp.ok) {
-              const data = await resp.json();
-              const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-              const parsed = extractJsonFromText(rawText);
-              if (parsed && typeof parsed === "object") {
-                aiResult = parsed;
-                break;
-              } else if (rawText && fieldType === "title") {
-                const cleaned = cleanTitleString(rawText.replace(/[\{\}"]/g, "").replace(/title\s*:\s*/i, ""));
-                if (cleaned) {
-                  aiResult = { title: cleaned };
-                  break;
-                }
-              }
-            }
-          } catch {}
-        }
-      }
+      aiResult = await callGeminiApi(geminiKey, systemPrompt, prompt, fieldType);
     }
 
-    // 2. Try OpenAI
+    // 2. Try OpenAI API if Gemini was not configured or did not return
     if (!aiResult && openaiKey) {
-      const oModels = ["gpt-4o-mini", "gpt-4o"];
-      for (const model of oModels) {
-        try {
-          const resp = await fetchWithTimeout(
-            "https://api.openai.com/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${openaiKey}`,
-              },
-              body: JSON.stringify({
-                model,
-                messages: [
-                  { role: "system", content: "Eres el Asistente Virtual y Lead Copywriter Creativo de Travelgrin. Responde únicamente en JSON." },
-                  { role: "user", content: systemPrompt },
-                ],
-                response_format: { type: "json_object" },
-                temperature: 0.7,
-              }),
-            },
-            15000
-          );
-          if (resp.ok) {
-            const data = await resp.json();
-            const rawContent = data.choices?.[0]?.message?.content || "";
-            const parsed = extractJsonFromText(rawContent);
-            if (parsed && typeof parsed === "object") {
-              aiResult = parsed;
-              break;
-            }
-          }
-        } catch {}
-      }
+      aiResult = await callOpenAiApi(openaiKey, systemPrompt, prompt);
     }
 
-    // 3. Fallback to advanced Semantic NLP engine
+    // 3. Fallback to advanced Semantic NLP Generator
     if (!aiResult) {
       aiResult = generateSemanticAiFallback(
         fieldType,
@@ -1158,10 +1244,45 @@ export async function POST(req: Request) {
       );
     }
 
+    // 4. Guarantee 100% adherence to negative constraints with Post-Sanitization
+    if (aiResult && forbiddenTerms.length > 0) {
+      if (fieldType === "title" && aiResult.title) {
+        aiResult.title = sanitizeForbiddenTerms(aiResult.title, forbiddenTerms);
+        if (!aiResult.title || aiResult.title.length < 10) {
+          const fb = generateSemanticAiFallback(
+            fieldType,
+            currentText,
+            prompt,
+            {
+              title: currentTitle || investigatedWeb?.pageTitle,
+              publisherName: publisherName || investigatedWeb?.pageTitle,
+              category,
+              city,
+              country,
+              url: targetInvestigateUrl || url,
+            },
+            conversationHistory,
+            variationIndex,
+            investigatedWeb
+          );
+          aiResult.title = fb.title || aiResult.title;
+        }
+      }
+      if (fieldType === "description" && aiResult.description) {
+        aiResult.description = sanitizeForbiddenTerms(aiResult.description, forbiddenTerms);
+      }
+      if (fieldType === "provider_info" && aiResult.providerInfo) {
+        aiResult.providerInfo = sanitizeForbiddenTerms(aiResult.providerInfo, forbiddenTerms);
+      }
+      if ((fieldType === "extra_block" || fieldType === "new_extra_block") && aiResult.body) {
+        aiResult.body = sanitizeForbiddenTerms(aiResult.body, forbiddenTerms);
+      }
+    }
+
     // Handle translations if autoTranslate is requested
     let translations: Record<string, any> = {};
     if (autoTranslate) {
-      if (fieldType === "title" && aiResult.title) {
+      if (fieldType === "title" && aiResult?.title) {
         const tEs = aiResult.title;
         const [en, pt, it] = await Promise.all([
           translateTextDirect(tEs, "es", "en"),
@@ -1169,7 +1290,7 @@ export async function POST(req: Request) {
           translateTextDirect(tEs, "es", "it"),
         ]);
         translations = { es: tEs, en, pt, it };
-      } else if (fieldType === "description" && aiResult.description) {
+      } else if (fieldType === "description" && aiResult?.description) {
         const dEs = aiResult.description;
         const [en, pt, it] = await Promise.all([
           translateFullHtml(dEs, "en"),
@@ -1177,7 +1298,7 @@ export async function POST(req: Request) {
           translateFullHtml(dEs, "it"),
         ]);
         translations = { es: dEs, en, pt, it };
-      } else if (fieldType === "provider_info" && aiResult.providerInfo) {
+      } else if (fieldType === "provider_info" && aiResult?.providerInfo) {
         const pEs = aiResult.providerInfo;
         const [en, pt, it] = await Promise.all([
           translateTextDirect(pEs, "es", "en"),
@@ -1185,7 +1306,7 @@ export async function POST(req: Request) {
           translateTextDirect(pEs, "es", "it"),
         ]);
         translations = { es: pEs, en, pt, it };
-      } else if ((fieldType === "extra_block" || fieldType === "new_extra_block") && aiResult.title && aiResult.body) {
+      } else if ((fieldType === "extra_block" || fieldType === "new_extra_block") && aiResult?.title && aiResult?.body) {
         const tEs = aiResult.title;
         const bEs = aiResult.body;
         const [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
