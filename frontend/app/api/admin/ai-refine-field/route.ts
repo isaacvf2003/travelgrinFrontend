@@ -335,6 +335,42 @@ async function quickInvestigateUrl(rawUrl: string): Promise<InvestigatedWebInfo 
   }
 }
 
+const emojisRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1FA00}-\u{1FAFF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F0FF}\u{1F100}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{FE0F}]/gu;
+
+function stripEmojisAndIcons(html: string): string {
+  if (!html) return "";
+  return html
+    .replace(emojisRegex, "")
+    .replace(/<p>\s*[:•\-*–—]\s*/gi, "<p>")
+    .replace(/<p>\s*<strong>\s*[:•\-*–—]\s*/gi, "<p><strong>")
+    .replace(/<strong>\s*[:•\-*–—]\s*/gi, "<strong>")
+    .replace(/<br\s*\/?>\s*[:•\-*–—]\s*/gi, "<br/>• ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/<p>\s+/gi, "<p>")
+    .replace(/\s+<\/p>/gi, "</p>")
+    .trim();
+}
+
+function checkOmitIcons(prompt: string, userPrompts: string): boolean {
+  const pLower = prompt.toLowerCase();
+  const allLower = userPrompts.toLowerCase();
+  const explicitOmit = /(?:sin|no\s+(?:pongas?|coloques?|uses?|incluyas?|tenga)|sacale|sacar|quitar?|elimina|evita)\s+(?:los\s+|las\s+)?(?:iconos?|emojis?|viñetas?)/i.test(pLower);
+  if (explicitOmit) return true;
+  const historyOmit = /(?:sin|no\s+(?:pongas?|coloques?|uses?|incluyas?|tenga)|sacale|sacar|quitar?|elimina|evita)\s+(?:los\s+|las\s+)?(?:iconos?|emojis?|viñetas?)/i.test(allLower);
+  const promptWantsIcons = /(?:con|agregale?|ponele?|inclui|incluye)\s+(?:iconos?|emojis?)/i.test(pLower);
+  return historyOmit && !promptWantsIcons;
+}
+
+function checkIsShort(prompt: string, userPrompts: string): boolean {
+  const pLower = prompt.toLowerCase();
+  const allLower = userPrompts.toLowerCase();
+  const explicitShort = /\b(?:cort[oa]s?|breve|breves|direct[oa]s?|resum(?:en|id[oa])?|s[ií]ntesis|concis[oa]s?|pocas?\s+palabras|en\s+un\s+p[aá]rrafo|en\s+dos\s+p[aá]rrafos|resumilo|resumila)\b/i.test(pLower);
+  if (explicitShort) return true;
+  const historyShort = /\b(?:cort[oa]s?|breve|breves|direct[oa]s?|resum(?:en|id[oa])?|s[ií]ntesis|concis[oa]s?|pocas?\s+palabras)\b/i.test(allLower);
+  const promptWantsLong = /\b(?:largo|detallado|extenso|amplio|completo|mas\s+detalle|más\s+detalle)\b/i.test(pLower);
+  return historyShort && !promptWantsLong;
+}
+
 function buildSystemRefinePrompt(
   fieldType: FieldType,
   currentText: string,
@@ -363,35 +399,33 @@ function buildSystemRefinePrompt(
 Eres el Asistente de IA y Lead Copywriter Creativo Senior de Travelgrin (actúas con total libertad, inteligencia y flexibilidad, exactamente como ChatGPT Plus o Gemini Advanced).
 
 🎯 TU MISIÓN:
-Comprender a la perfección lo que el usuario pide en su instrucción y generar la MEJOR propuesta posible (con impacto, elegancia, persuasión y excelente SEO).
+Comprender a la perfección lo que el usuario pide en su instrucción y generar la MEJOR propuesta posible (con impacto, elegancia, persuasión, variedad estructural y excelente SEO).
 - Si hay información investigada de la web o un texto previo de scraping en "TEXTO BASE ACTUAL", UTILÍZALA como fuente de la verdad para describir con precisión qué es el lugar/negocio, qué ofrece, qué servicios o carreras tiene y cuáles son sus diferenciales.
-- Si el administrador te da indicaciones desde cero (ej: "Gimnasio SportClub en Belgrano..." o "Haceme una propuesta atractiva para esta clínica"), redacta una descripción completa y persuasiva basada en sus requerimientos.
+- Si el administrador te da indicaciones desde cero, redacta una propuesta basada exactamente en sus requerimientos.
 
-⚠️ REGLAS MANDATORIAS DE PRIORIDAD MÁXIMA (NEGACIONES Y RESTRICCIONES):
-1. RESPETO ABSOLUTO A INSTRUCCIONES NEGATIVAS:
-   - Si el administrador te pide NO colocar, NO mencionar, omitir, sacar o excluir alguna palabra, nombre, marca o entidad (ejemplo: "no coloques ni menciones siglo 21", "sin el nombre", "sacale X"):
-     ¡TIENES PROHIBIDO ABSOLUTAMENTE INCLUIR ESA PALABRA O NOMBRE EN TU RESPUESTA!
-   - Si pide no mencionar la marca/nombre, genera un título o texto enfocado en el beneficio, la llamada a la acción, las ventajas y el SEO sin nombrar jamás dicha marca o entidad.
+⚠️ REGLAS MANDATORIAS DE PRIORIDAD MÁXIMA:
+1. CONTROL DE ICONOS Y EMOJIS:
+   - Si el administrador pide "sin icono", "sin iconos", "sin emojis", "sacale los iconos", "no uses iconos", o similar:
+     ¡PROHIBIDO TOTALMENTE INCLUIR CUALQUIER EMOJI O ICONO (como 🚀, 🎓, ✨, ⭐, 💡, 💎, 🏆, etc.)! Usa títulos en negrita limpios y viñetas estándar (• o -).
+   - Si el administrador pide "con iconos", "con emojis", o una propuesta comercial llamativa:
+     Usa emojis modernos y bien elegidos.
 
-2. MANEJO DE PRECIOS Y VIGENCIAS (EN DESCRIPCIÓN):
-   - Si el administrador pide QUITAR o NO INCLUIR precios/vigencias ("quitar precios", "sin precio", "sacale precios", "no pongas precio ni vigencia", "poner que es gratis"):
-     ¡OMITE POR COMPLETO <strong>Precio:</strong> Y/O <strong>Vigencia:</strong>! Si además pide indicar que es gratis, coloca "<strong>Precio:</strong> Actividad 100% gratuita / Acceso libre".
-   - Si el administrador pide COLOCAR o INCLUIR precios/vigencias ("coloca precios", "agrega vigencia", "con aranceles", "con precios"):
-     ¡INCLÚYELOS de manera clara y destacada! Formato: <strong>Vigencia:</strong> ... <strong>Precio:</strong> ...
-   - Si el administrador NO especifica sobre precios y pide una propuesta atractiva, persuasiva, con iconos o buen SEO:
-     Enfócate en un copywriting magnético, estructurado en párrafos con negritas, listas con viñetas • y emojis llamativos.
+2. CONTROL DE LONGITUD (CORTO / CONCISO):
+   - Si el administrador pide "corta", "corto", "breve", "conciso", "resumido", "en pocas palabras":
+     ¡GENERA UN TEXTO ULTRA-BREVE Y DIRECTO! Máximo 1 a 2 párrafos cortos o 1 párrafo de gancho + 2 viñetas concisas (menos de 80 palabras). No agregues relleno.
 
-3. REGLAS PARA DESCRIPCIÓN (fieldType === "description"):
-   - Tienes LIBERTAD CREATIVA TOTAL (actúa exactamente como ChatGPT Plus o Gemini Advanced redactando copy de ventas y SEO de máximo nivel).
-   - NUNCA uses plantillas rígidas ni etiquetas repetitivas o robóticas como "¿Para quién?:", "Documentación requerida:", "Permanencia:".
-   - Estructura la propuesta con fluidez, variedad y profesionalismo:
-     * Titulares con gancho y emojis modernos (🚀, 🎓, ✨, 💡, 🏆, 💎, 🌟, 📍, 📞, 🩺, ⚖️, etc.).
-     * Párrafos fluidos que describan QUÉ ES y QUÉ HACE, resaltando la propuesta de valor y las oportunidades.
-     * Listas de beneficios o ventajas destacadas con viñetas limpias (•).
-     * Diferenciales clave, respaldo institucional y llamado a la acción.
+3. REGLA DE NO REPETIR SIEMPRE EL MISMO MOLDE (VARIEDAD Y FRESCURA):
+   - NO uses plantillas rígidas ni repitas siempre la misma frase introductoria ("Liderá tu futuro con una formación universitaria de excelencia...").
+   - Varía la estructura: usa enfoques narrativos, basados en soluciones, estilo pitch ejecutivo, preguntas frecuentes o síntesis ágiles.
+   - NUNCA uses etiquetas burocráticas como "¿Para quién?:", "Documentación requerida:", "Permanencia:".
 
-4. REGLAS PARA TÍTULOS (fieldType === "title"):
-   - Sé persuasivo, llamativo, comercial y con alto impacto SEO respetando cualquier restricción negativa.
+4. CONTROL DE PRECIOS Y VIGENCIAS:
+   - Si pide quitar precios/vigencias: ¡OMÍTELOS por completo! Si pide poner que es gratis: <strong>Precio:</strong> Actividad 100% gratuita / Acceso libre.
+   - Si pide colocar precios/vigencias: Colócalos al inicio con formato claro.
+
+5. AJUSTES Y SEGUIMIENTO:
+   - Si el historial indica un ajuste o refinamiento a la propuesta previa (ej: "ahora sacale los iconos", "agregale 20% de descuento", "hacelo más formal"):
+     ¡Prioriza 100% la indicación más reciente del usuario y aplícala sobre el contenido!
 
 📋 CONTEXTO DE LA PUBLICACIÓN:
 - Categoría / Rubro: ${meta.category || "No especificada"}
@@ -405,7 +439,7 @@ ${investigatedSection}
 ${historyStr}
 
 TIPO DE CAMPO: "${fieldType}"
-TEXTO BASE ACTUAL (SI VIENE DE SCRAPING O EDICIÓN PREVIA):
+TEXTO BASE ACTUAL:
 """
 ${currentText || "(campo actualmente vacío o nuevo)"}
 """
@@ -416,9 +450,9 @@ ${prompt}
 """
 
 FORMATO DE SALIDA (SOLAMENTE OBJETO JSON VÁLIDO):
-- Si fieldType === "title": {"title": "Propuesta de título optimizada respetando estrictamente todas las restricciones del usuario"}
-- Si fieldType === "description": {"description": "HTML con los párrafos formateados respetando todas las restricciones y pedidos del usuario"}
-- Si fieldType === "provider_info": {"providerInfo": "Texto de síntesis institucional de alto nivel"}
+- Si fieldType === "title": {"title": "Título optimizado respetando todas las restricciones"}
+- Si fieldType === "description": {"description": "HTML con párrafos <p> y viñetas respetando todas las restricciones"}
+- Si fieldType === "provider_info": {"providerInfo": "Texto de síntesis institucional"}
 - Si fieldType === "extra_block" O "new_extra_block": {"title": "Título del bloque", "body": "Cuerpo con formato"}
 
 RESPONDE ÚNICAMENTE EL OBJETO JSON VÁLIDO.
@@ -448,7 +482,7 @@ function extractForbiddenTerms(userPrompts: string, cleanName?: string, publishe
     let target = m[1].trim();
     target = target.replace(/\b(?:debe|tiene que|quiero|hacelo|hacerlo|que sea|para que|con buen|y con|pero|ademas|además)\b[\s\S]*/i, "").trim();
     target = target.replace(/^(?:el|la|los|las|un|una|unos|unas|al|a)\s+/i, "").trim();
-    if (target.length >= 2 && !/^(?:nombre|marca|nada|eso|esto|titulo|título|descripcion|descripción)$/i.test(target)) {
+    if (target.length >= 2 && !/^(?:nombre|marca|nada|eso|esto|titulo|título|descripcion|descripción|iconos?|emojis?)$/i.test(target)) {
       forbidden.add(target);
       target.split(/\s+/).forEach((w) => { if (w.length > 2) forbidden.add(w); });
     }
@@ -457,7 +491,7 @@ function extractForbiddenTerms(userPrompts: string, cleanName?: string, publishe
   if (cleanName && lower.includes(cleanName.toLowerCase())) {
     if (/(?:no\s+(?:coloques?|menciones?|pongas?|uses?|incluyas?|digas?)|sin|omit|sacale|sacar|quita)/i.test(lower)) {
       forbidden.add(cleanName.toLowerCase());
-      cleanName.split(/\s+/).forEach((w) => { if (w.length > 2) forbidden.add(w.toLowerCase()); });
+      cleanName.split(/\s+/).forEach((w) => { if (w.length > 2) forbidden.add(w); });
     }
   }
 
@@ -498,7 +532,6 @@ async function callGeminiApi(
   ];
 
   for (const model of models) {
-    // Attempt 1: systemInstruction + user content with responseMimeType
     try {
       const resp = await fetchWithTimeout(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
@@ -531,15 +564,9 @@ async function callGeminiApi(
         if (parsed && typeof parsed === "object") {
           return parsed;
         }
-      } else {
-        const errText = await resp.text().catch(() => "");
-        console.error(`Gemini API Error (${model}) [${resp.status}]:`, errText);
       }
-    } catch (e: any) {
-      console.error(`Gemini fetch error (${model}):`, e?.message);
-    }
+    } catch {}
 
-    // Attempt 2: contents with combined prompt
     try {
       const resp = await fetchWithTimeout(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
@@ -619,7 +646,7 @@ async function callOpenAiApi(
   return null;
 }
 
-// Intelligent Semantic NLP Generator for instant local generation & fallback
+// Intelligent Semantic NLP Generator with 8 Dynamic Rotating Layouts
 function generateSemanticAiFallback(
   fieldType: FieldType,
   currentText: string,
@@ -629,7 +656,6 @@ function generateSemanticAiFallback(
   variationIndex: number = 0,
   investigatedWeb?: InvestigatedWebInfo | null
 ): any {
-  // ONLY look at USER prompts, never assistant responses
   const userPrompts = [
     ...conversationHistory.filter((m) => m.role === "user").map((m) => m.content),
     prompt,
@@ -643,7 +669,6 @@ function generateSemanticAiFallback(
   const pubLower = (meta.publisherName || investigatedWeb?.pageTitle || "").toLowerCase();
   const entityCorpus = `${pubLower} ${titleLower} ${catLower} ${meta.url || ""} ${currentText || ""} ${investigatedWeb?.description || ""} ${investigatedWeb?.headings?.join(" ") || ""}`.toLowerCase();
 
-  // 1. Explicit domain indicators from context (Category, Title, Publisher, URL)
   const isEduEntity = /\b(universidad|facultad|instituto|colegio|educaci[oó]n|acad[eé]m|posgrado|grado|m[aá]ster|licenciatura|terciario|carrera|estudio universitario)\b/i.test(entityCorpus);
   const isHealthEntity = /\b(salud|m[eé]dic|cl[ií]nic|hospital|guardia|odont|psic|obra social|prepaga|sanatorio|farmac|terapia)\b/i.test(entityCorpus);
   const isSportsEntity = /\b(deport|club|gym|gimnasio|futbol|fútbol|rugby|tenis|p[aá]del|nataci|entrenam|fitness|b[aá]squet|atlet)\b/i.test(entityCorpus);
@@ -652,7 +677,6 @@ function generateSemanticAiFallback(
   const isTourismEntity = /\b(turism|viaje|hotel|alojam|excursi|vuelo|hostel|tour|hospedaje|posada|cabaña|resort)\b/i.test(entityCorpus);
   const isJudicialEntity = /\b(judicial|abogad|estudio jur[ií]dic|leyes|derecho|notar|escriban|litigio|defensa penal)\b/i.test(entityCorpus) && !isEduEntity;
 
-  // 2. Explicit prompt overrides (User is typing from scratch about a specific topic)
   const promptHasTorneo = /\b(torneo|campeonato|copa|fixture|f[uú]tbol|p[aá]del)\b/i.test(userPrompts);
   const promptHasGastro = /\b(buffet|sushi|tenedor libre|restaurante|degustaci[oó]n|cena show)\b/i.test(userPrompts);
   const promptHasCourse = /\b(curso\b|masterclass|taller\b|workshop|capacitaci[oó]n)\b/i.test(userPrompts);
@@ -660,9 +684,7 @@ function generateSemanticAiFallback(
   const promptHasHealth = /\b(guardia m[eé]dica|consultorio m[eé]dico|odontol|cl[ií]nica|hospital)\b/i.test(userPrompts);
   const promptHasEdu = /\b(universidad|facultad|carreras? de grado|posgrado|instituto superior|colegio)\b/i.test(userPrompts);
 
-  // Resolved Sector:
   let sector: "education" | "health" | "sports" | "food" | "realestate" | "tourism" | "judicial" | "general" = "general";
-
   if (promptHasEdu || isEduEntity) sector = "education";
   else if (promptHasHealth || isHealthEntity) sector = "health";
   else if (promptHasTorneo || isSportsEntity) sector = "sports";
@@ -679,15 +701,16 @@ function generateSemanticAiFallback(
   const isRealEstate = sector === "realestate";
   const isTourism = sector === "tourism";
 
-  // Comprehensive Negative Constraint Check across all user turns and Spanish variations
   const hasNegativeConstraint =
     /(?:no\s+(?:hace falta|coloques?|menciones?|pongas?|uses?|incluyas?|digas?|nombres?|aparezca|tenga|poner|mencionar|colocar)|sin\s+|omit[a-z]*|sacale|sacar|quitar?|elimina[a-z]*|evita[a-z]*)/i.test(
       userPrompts
     );
 
+  const omitIcons = checkOmitIcons(prompt, userPrompts);
+  const isShort = checkIsShort(prompt, userPrompts);
+
   if (fieldType === "title") {
-    // 1. Short / Direct / Name only / Concise
-    if (/corto|breve|directo|solo nombre|s[ií]ntesis|concis/i.test(pLower)) {
+    if (isShort || /corto|breve|directo|solo nombre|s[ií]ntesis|concis/i.test(pLower)) {
       if (hasNegativeConstraint) {
         if (isEducation) {
           const v = [
@@ -746,7 +769,6 @@ function generateSemanticAiFallback(
       return { title: cleanName };
     }
 
-    // 2. High Impact / Attention-grabbing / Trabajado / Potente / Llamativo / Mejor / SEO
     if (/impact|atenci[oó]n|trabajad|llamativ|potente|fuerte|nivel|profesional|excelen|destac|mejor|buen seo|posicionam/i.test(pLower)) {
       if (hasNegativeConstraint) {
         if (isEducation) {
@@ -835,7 +857,6 @@ function generateSemanticAiFallback(
       return { title: `¡Elegí la mejor propuesta! ${cleanName}: Excelencia y Servicios de Primer Nivel` };
     }
 
-    // 3. Direct Invitation / Call to action (veni a la mejor..., contrata..., inscribite...)
     if (/veni|vení|inscribite|estudia|estudiá|entr[aá]|eleg[ií]|sumat|contrat[aá]|asociat|afiliat/i.test(pLower)) {
       if (hasNegativeConstraint) {
         if (isEducation) {
@@ -878,48 +899,6 @@ function generateSemanticAiFallback(
       return { title: `¡Vení a conocer ${cleanName}! Experiencia y Calidad Garantizada` };
     }
 
-    // 4. Commercial / Attractive / Slogan / Futuro
-    if (/atractiv|comercial|vent|promo|publicit|futuro/i.test(pLower)) {
-      if (hasNegativeConstraint) {
-        if (isEducation) {
-          const v = [
-            "Tu Futuro Profesional Comienza Hoy: Carreras de Grado y Posgrados Oficiales",
-            "Formación de Vanguardia y Alta Salida Laboral: Inscripciones Abiertas",
-          ];
-          return { title: v[variationIndex % v.length] };
-        }
-        return { title: "Calidad Garantizada, Trayectoria y Beneficios Exclusivos" };
-      }
-      if (isEducation) {
-        return { title: `Estudiá en ${cleanName} | Tu Futuro Profesional Comienza Hoy` };
-      }
-      return { title: `${cleanName} | Calidad Garantizada y Beneficios Exclusivos` };
-    }
-
-    // 5. Careers / Programs / Degrees / Scholarships / Online
-    if (/carrera|grado|posgrado|master|curso|beca|inscrip|online|virtual|distancia/i.test(pLower)) {
-      if (hasNegativeConstraint) {
-        if (isEducation) {
-          const v = [
-            "Carreras de Grado, Posgrados Oficiales y Becas Universitarias",
-            "Carreras Universitarias 100% Online: Cursado Flexible y Títulos Oficiales",
-            "Carreras Oficiales de Vanguardia: Inscripciones Abiertas y Planes de Beca",
-          ];
-          return { title: v[variationIndex % v.length] };
-        }
-      }
-      return { title: `${cleanName} | Carreras de Grado, Posgrados e Inscripciones Abiertas` };
-    }
-
-    // 6. Emergency / Health / Guardias
-    if (/guardia|turno|consulta|especialidad/i.test(pLower)) {
-      if (hasNegativeConstraint) {
-        return { title: "Guardia Médica Activa 24hs y Asignación de Turnos Online" };
-      }
-      return { title: `${cleanName} | Guardia Médica 24hs y Turnos Online` };
-    }
-
-    // 7. General pool fallback
     if (hasNegativeConstraint) {
       if (isEducation) {
         const v = [
@@ -928,31 +907,6 @@ function generateSemanticAiFallback(
           "Carreras de Grado, Posgrados Oficiales y Becas Universitarias",
           "Educación Superior de Excelencia: Inscripciones Abiertas y Salida Laboral",
           "Tu Futuro Profesional Comienza Hoy: Títulos Oficiales y Prácticas",
-          "¡Inscribite Hoy! Carreras Universitarias Oficiales y Modalidad Flexible",
-        ];
-        return { title: v[variationIndex % v.length] };
-      }
-      if (isJudicial) {
-        const v = [
-          "Asesoramiento Legal de Excelencia: Soluciones Jurídicas Integrales",
-          "Defensa y Representación Jurídica: Turnos y Consultas Especializadas",
-          "¡Protegé tus Derechos! Asesoramiento Jurídico y Notarial de Vanguardia",
-        ];
-        return { title: v[variationIndex % v.length] };
-      }
-      if (isSports) {
-        const v = [
-          "¡Entrená al Máximo Nivel! Actividades Deportivas y Pases Mensuales",
-          "Centro Deportivo de Alto Rendimiento: Instalaciones y Membresías",
-          "¡Sumate al Deporte! Clases, Torneos y Espacios de Entrenamiento",
-        ];
-        return { title: v[variationIndex % v.length] };
-      }
-      if (isHealth) {
-        const v = [
-          `¡Contratá la Mejor Cobertura Médica en ${cityStr || 'tu ciudad'}!`,
-          "Atención Médica de Excelencia: Guardia 24hs y Especialidades",
-          "Planes de Salud Integrales: Cobertura Médica y Turnos Online",
         ];
         return { title: v[variationIndex % v.length] };
       }
@@ -975,233 +929,315 @@ function generateSemanticAiFallback(
   if (fieldType === "description") {
     const facts = extractScrapedFacts(currentText);
     const isFree = /gratis|sin costo|gratuito|libre/i.test(userPrompts);
-    const isShort = /corto|breve|directo|resum|s[ií]ntesis|concis|bullet/i.test(userPrompts);
     const isFormal = /formal|institucional|seri[oa]|protocolar/i.test(userPrompts);
-    const isPersuasive = /persuasiv|trabajad|atractiv|mejor.*descr|vende|copy|impact|llamativ|ganch|seduc|destac|icono|icon/i.test(userPrompts);
 
-    const explicitlyWantsPrice = /(?:coloc|agreg|pon|inclu|mostr|dej|con)\w*\s+(?:el\s+)?(?:precio|arancel|tarifa|costo|cuota)/i.test(userPrompts);
-    const explicitlyWantsVigencia = /(?:coloc|agreg|pon|inclu|mostr|dej|con)\w*\s+(?:la\s+)?(?:vigencia|validez)/i.test(userPrompts);
+    const explicitlyWantsPrice = /(?:coloc|agreg|pon|inclu|mostr|dej|con)\w*\s+(?:el\s+)?(?:precio|arancel|tarifa|costo|cuota)/i.test(prompt) || /(?:coloc|agreg|pon|inclu|mostr|dej|con)\w*\s+(?:el\s+)?(?:precio|arancel|tarifa|costo|cuota)/i.test(userPrompts);
+    const explicitlyWantsVigencia = /(?:coloc|agreg|pon|inclu|mostr|dej|con)\w*\s+(?:la\s+)?(?:vigencia|validez)/i.test(prompt) || /(?:coloc|agreg|pon|inclu|mostr|dej|con)\w*\s+(?:la\s+)?(?:vigencia|validez)/i.test(userPrompts);
 
-    const omitPrice = !isFree && /quit.*precio|sin.*precio|sac.*precio|no.*precio|ocult.*precio|omit.*precio|elimina.*precio|no hace falta.*precio|sacale.*precio/i.test(userPrompts);
-    const omitVigencia = /quit.*vigencia|sin.*vigencia|sac.*vigencia|no.*vigencia|omit.*vigencia|sacale.*vigencia/i.test(userPrompts);
-    const omitExclusiones = /quit.*exclusi|sin.*exclusi|sac.*exclusi|no.*exclusi|sin.*advertencia/i.test(userPrompts);
-    const omitDiferencial = /quit.*diferencial|sin.*diferencial|sac.*diferencial/i.test(userPrompts);
+    const omitPrice = !isFree && /(?:quit|sin|sac|no|ocult|omit|elimina|evita)\w*\s+(?:el\s+|los\s+)?(?:precios?|aranceles?|tarifas?|costos?)/i.test(prompt) ||
+      (!isFree && /(?:quit|sin|sac|no|ocult|omit|elimina|evita)\w*\s+(?:el\s+|los\s+)?(?:precios?|aranceles?|tarifas?|costos?)/i.test(userPrompts) && !explicitlyWantsPrice);
+
+    const omitVigencia = /(?:quit|sin|sac|no|ocult|omit|elimina)\w*\s+(?:la\s+)?(?:vigencia|validez)/i.test(prompt) ||
+      (/(?:quit|sin|sac|no|ocult|omit|elimina)\w*\s+(?:la\s+)?(?:vigencia|validez)/i.test(userPrompts) && !explicitlyWantsVigencia);
+
+    const omitExclusiones = /(?:quit|sin|sac|no|ocult|omit)\w*\s+(?:exclusi|advertencia)/i.test(userPrompts);
+    const omitDiferencial = /(?:quit|sin|sac|no|ocult|omit)\w*\s+(?:diferencial)/i.test(userPrompts);
 
     const hasScholarships = /beca|descuent|promoci|financi|bonific|cuota|arancel/i.test(userPrompts);
     const isVirtual = /virtual|online|distancia|remot|modalidad/i.test(userPrompts);
     const hasEmergency = /emergencia|guardia|24\/7|24hs|urgencia/i.test(userPrompts);
     const locStr = cityStr ? ` en ${cityStr}` : "";
 
-    // 1. Custom creation from scratch: Tournaments & Sporting Events
+    // Specific custom creations from scratch
     if (promptHasTorneo) {
       const pTourney = [
-        `<p>🏆 <strong>Torneo & Competencia:</strong> ¡Sumate al torneo más emocionante${locStr}! Categorías abiertas y competitivas con arbitraje federado y organización profesional.</p>`,
-        `<p>📅 <strong>Cronograma & Modalidad:</strong> Fase de grupos, eliminación directa y gran final con cobertura fotográfica y premiación en vivo.</p>`,
-        `<p>💎 <strong>Premios & Reconocimientos:</strong> Premios en efectivo para el podio, trofeos de campeón y subcampeón, hidratación y distinciones individuales.</p>`,
+        `<p>${omitIcons ? "" : "🏆 "}<strong>Torneo & Competencia:</strong> ¡Sumate al torneo más emocionante${locStr}! Categorías abiertas y competitivas con arbitraje federado y organización profesional.</p>`,
+        `<p>${omitIcons ? "" : "📅 "}<strong>Cronograma & Modalidad:</strong> Fase de grupos, eliminación directa y gran final con cobertura fotográfica y premiación en vivo.</p>`,
+        `<p>${omitIcons ? "" : "💎 "}<strong>Premios & Reconocimientos:</strong> Premios en efectivo para el podio, trofeos de campeón y subcampeón, hidratación y distinciones individuales.</p>`,
         !omitPrice ? `<p><strong>Inscripción:</strong> ${isFree ? "Actividad gratuita / Libre acceso." : "A consultar según categoría y conformación del equipo."}</p>` : "",
-        !omitExclusiones ? `<p>⚠️ <strong>Exclusiones:</strong> Cupos limitados por orden de registro. Presentación de apto físico y lista de buena fe obligatoria.</p>` : "",
+        !omitExclusiones ? `<p>${omitIcons ? "" : "⚠️ "}<strong>Exclusiones:</strong> Cupos limitados por orden de registro. Presentación de apto físico y lista de buena fe obligatoria.</p>` : "",
       ].filter(Boolean).join("\n");
-      return { description: pTourney };
+      return { description: omitIcons ? stripEmojisAndIcons(pTourney) : pTourney };
     }
 
-    // 2. Custom creation from scratch: Gastronomy, Buffet, Sushi, Tasting
     if (promptHasGastro) {
       const pGastro = [
-        `<p>🍣 <strong>Experiencia Gastronómica:</strong> Disfrutá de una propuesta culinaria de autor${locStr}, combinando materias primas frescas y sabores únicos.</p>`,
-        `<p>✨ <strong>Menú & Variedades:</strong> Entradas gourmet, piezas selectas de sushi, opciones artesanales y destacada carta de vinos y coctelería.</p>`,
-        `<p>⭐ <strong>Ambiente & Diferencial:</strong> Espacio climatizado, atención esmerada y atmósfera ideal para celebraciones, parejas y encuentros de amigos.</p>`,
+        `<p>${omitIcons ? "" : "🍣 "}<strong>Experiencia Gastronómica:</strong> Disfrutá de una propuesta culinaria de autor${locStr}, combinando materias primas frescas y sabores únicos.</p>`,
+        `<p>${omitIcons ? "" : "✨ "}<strong>Menú & Variedades:</strong> Entradas gourmet, piezas selectas de sushi, opciones artesanales y destacada carta de vinos y coctelería.</p>`,
+        `<p>${omitIcons ? "" : "⭐ "}<strong>Ambiente & Diferencial:</strong> Espacio climatizado, atención esmerada y atmósfera ideal para celebraciones, parejas y encuentros de amigos.</p>`,
         !omitPrice ? `<p><strong>Precio:</strong> ${isFree ? "Acceso libre." : "A consultar según menú o servicio elegido."}</p>` : "",
-        `<p>📍 <strong>Reservas:</strong> Se sugiere reserva previa a través de canales oficiales para garantizar la mejor ubicación.</p>`,
+        `<p>${omitIcons ? "" : "📍 "}<strong>Reservas:</strong> Se sugiere reserva previa a través de canales oficiales para garantizar la mejor ubicación.</p>`,
       ].filter(Boolean).join("\n");
-      return { description: pGastro };
+      return { description: omitIcons ? stripEmojisAndIcons(pGastro) : pGastro };
     }
 
-    // 3. Custom creation from scratch: Course, Workshop, Masterclass
     if (promptHasCourse) {
       const pCourse = [
-        `<p>🎓 <strong>Capacitación Profesional:</strong> Formación intensiva diseñada para adquirir herramientas prácticas de alta demanda${locStr}.</p>`,
-        `<p>💡 <strong>Contenidos & Metodología:</strong> Clases dinámicas, proyectos reales, material descargable y tutoría personalizada durante todo el cursado.</p>`,
-        `<p>⭐ <strong>Certificación:</strong> Diploma de finalización con aval institucional para enriquecer tu perfil y trayectoria profesional.</p>`,
+        `<p>${omitIcons ? "" : "🎓 "}<strong>Capacitación Profesional:</strong> Formación intensiva diseñada para adquirir herramientas prácticas de alta demanda${locStr}.</p>`,
+        `<p>${omitIcons ? "" : "💡 "}<strong>Contenidos & Metodología:</strong> Clases dinámicas, proyectos reales, material descargable y tutoría personalizada durante todo el cursado.</p>`,
+        `<p>${omitIcons ? "" : "⭐ "}<strong>Certificación:</strong> Diploma de finalización con aval institucional para enriquecer tu perfil y trayectoria profesional.</p>`,
         !omitPrice ? `<p><strong>Aranceles:</strong> ${isFree ? "Curso 100% gratuito." : hasScholarships ? "Planes de pago en cuotas y becas al mérito." : "A consultar según modalidad elegida."}</p>` : "",
-        !omitExclusiones ? `<p>⚠️ <strong>Exclusiones:</strong> Cupos reducidos por grupo para garantizar un seguimiento personalizado.</p>` : "",
+        !omitExclusiones ? `<p>${omitIcons ? "" : "⚠️ "}<strong>Exclusiones:</strong> Cupos reducidos por grupo para garantizar un seguimiento personalizado.</p>` : "",
       ].filter(Boolean).join("\n");
-      return { description: pCourse };
+      return { description: omitIcons ? stripEmojisAndIcons(pCourse) : pCourse };
     }
 
-    // 4. Custom creation from scratch: Specific Legal Services
     if (promptHasLegal) {
       const pLegalSpec = [
-        `<p>⚖️ <strong>Asesoramiento Jurídico Especializado:</strong> Soluciones legales estratégicas con sólida trayectoria, atención personalizada y estricta confidencialidad${locStr}.</p>`,
-        `<p>💡 <strong>Áreas de Actuación:</strong> Gestión de acuerdos, trámites sucesorios, resolución de conflictos y representación procesal directa.</p>`,
-        `<p>⭐ <strong>Compromiso & Respaldo:</strong> Diagnóstico claro desde la primera consulta, transparencia en honorarios y defensa rigurosa de tus derechos.</p>`,
+        `<p>${omitIcons ? "" : "⚖️ "}<strong>Asesoramiento Jurídico Especializado:</strong> Soluciones legales estratégicas con sólida trayectoria, atención personalizada y estricta confidencialidad${locStr}.</p>`,
+        `<p>${omitIcons ? "" : "💡 "}<strong>Áreas de Actuación:</strong> Gestión de acuerdos, trámites sucesorios, resolución de conflictos y representación procesal directa.</p>`,
+        `<p>${omitIcons ? "" : "⭐ "}<strong>Compromiso & Respaldo:</strong> Diagnóstico claro desde la primera consulta, transparencia en honorarios y defensa rigurosa de tus derechos.</p>`,
         !omitPrice ? `<p><strong>Honorarios:</strong> ${isFree ? "Primera consulta informativa sin cargo." : "Regidos por ley arancelaria y convenios particulares."}</p>` : "",
-        `<p>📞 <strong>Consultas & Turnos:</strong> Coordinación de entrevistas presenciales o virtuales a través de nuestros canales oficiales.</p>`,
+        `<p>${omitIcons ? "" : "📞 "}<strong>Consultas & Turnos:</strong> Coordinación de entrevistas presenciales o virtuales a través de nuestros canales oficiales.</p>`,
       ].filter(Boolean).join("\n");
-      return { description: pLegalSpec };
+      return { description: omitIcons ? stripEmojisAndIcons(pLegalSpec) : pLegalSpec };
     }
 
-    // Core base info extracted from facts or web
-    const rawValueProp = facts.valueProp || investigatedWeb?.description || (
-      isEducation ? `Formación universitaria y profesional de excelencia con títulos oficiales y cursado flexible${locStr}.` :
-      isHealth ? `Atención médica integral con guardia 24hs y equipo de especialistas de destacada trayectoria${locStr}.` :
-      isSports ? `Instalaciones deportivas modernas y programas de entrenamiento profesional para todas las edades${locStr}.` :
-      isFood ? `Propuesta gastronómica de autor con sabores auténticos y atención esmerada${locStr}.` :
-      isJudicial ? `Asesoramiento jurídico y notarial estratégico con respaldo profesional y trato confidencial${locStr}.` :
-      isRealEstate ? `Gestión inmobiliaria integral con operaciones seguras, tasaciones y oportunidades de inversión${locStr}.` :
-      isTourism ? `Experiencias turísticas y hospedaje de primer nivel con atención personalizada${locStr}.` :
-      `Servicios profesionales de vanguardia con trayectoria verificada y atención personalizada${locStr}.`
-    );
-
-    // Dynamic price / vigencia line if requested or existing
+    // Dynamic price / vigencia lines
     let priceLine = "";
-    if (explicitlyWantsPrice || (facts.price && !omitPrice && !isPersuasive)) {
+    if (explicitlyWantsPrice || (facts.price && !omitPrice && !omitIcons && !isShort)) {
       priceLine = isFree ? "<strong>Precio:</strong> Actividad 100% gratuita / Acceso libre." : `<strong>Precio:</strong> ${facts.price || "A consultar según aranceles o tarifas vigentes."}`;
     } else if (isFree) {
-      priceLine = "<strong>Precio:</strong> Actividad 100% gratuita / Acceso libre sin costo.";
+      priceLine = "<strong>Precio:</strong> Actividad 100% gratuita / Acceso libre.";
     }
 
     let vigenciaLine = "";
-    if (explicitlyWantsVigencia || (facts.vigencia && !omitVigencia && !isPersuasive)) {
+    if (explicitlyWantsVigencia || (facts.vigencia && !omitVigencia && !isShort)) {
       vigenciaLine = `<strong>Vigencia:</strong> ${facts.vigencia || "Activo; información verificada en canales oficiales."}`;
     }
 
-    // 5. Formal Institutional Style requested
-    if (isFormal) {
-      return {
-        description: [
-          vigenciaLine || priceLine ? `<p>${[vigenciaLine, priceLine].filter(Boolean).join(" ")}</p>` : "",
-          `<p>🏛️ <strong>Presentación Institucional:</strong> ${rawValueProp}</p>`,
-          `<p>📜 <strong>Servicios & Respaldo Oficial:</strong> Programas y prestaciones con estricto cumplimiento normativo, acreditación oficial y estándares de excelencia profesional.</p>`,
-          !omitDiferencial ? `<p>⭐ <strong>Diferencial Institucional:</strong> ${facts.diff || `Cuerpo profesional de destacada trayectoria, asesoramiento personalizado y canales de comunicación directos.`}</p>` : "",
-          !omitExclusiones ? `<p>⚠️ <strong>Información Importante:</strong> ${facts.excl || "Consultar requisitos y disponibilidad en los canales institucionales habilitados."}</p>` : "",
-          `<p>📍 <strong>Ubicación & Contacto:</strong> Sede oficial${locStr}. Canales habilitados para consultas e inscripciones.</p>`
-        ].filter(Boolean).join("\n")
-      };
+    // Extract real proposition from scraping / web
+    let rawValueProp = facts.valueProp || investigatedWeb?.description || "";
+    if (!rawValueProp && currentText) {
+      const cleanSentences = currentText.replace(/<[^>]+>/g, " ").replace(/&[a-z0-9#]+;/gi, " ").replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/);
+      rawValueProp = cleanSentences.filter(s => s.length > 25 && !/(?:Vigencia|Precio|Para quién|Diferencial):/i.test(s))[0] || "";
     }
+    if (!rawValueProp) {
+      rawValueProp = isEducation
+        ? `Formación universitaria oficial y carreras de vanguardia orientadas al éxito profesional${locStr}.`
+        : isHealth
+        ? `Atención médica integral con guardia 24hs y equipo de especialistas de destacada trayectoria${locStr}.`
+        : isSports
+        ? `Instalaciones deportivas modernas y programas de entrenamiento profesional para todas las edades${locStr}.`
+        : isFood
+        ? `Propuesta gastronómica de autor con sabores auténticos y atención esmerada${locStr}.`
+        : isJudicial
+        ? `Asesoramiento jurídico y notarial estratégico con respaldo profesional y trato confidencial${locStr}.`
+        : `Servicios profesionales de vanguardia con trayectoria verificada y atención personalizada${locStr}.`;
+    }
+    rawValueProp = rawValueProp.replace(/\.\s*$/, "").trim();
 
-    // 6. Short / Concise Bullet style requested
+    // 1. SHORT / CONCISE FORMAT
     if (isShort) {
-      return {
-        description: [
-          priceLine ? `<p>${priceLine}</p>` : "",
-          `<p>🎯 <strong>Propuesta Destacada:</strong> ${rawValueProp}</p>`,
-          `<p>💡 <strong>Puntos Clave:</strong><br/>` +
-          `• ${isEducation ? "Carreras de grado y posgrados oficiales con salida laboral." : "Servicios profesionales y atención especializada."}<br/>` +
-          `• ${isVirtual ? "Modalidad 100% online con cursado flexible." : "Atención personalizada y canales de contacto directo."}<br/>` +
-          `• ${hasScholarships ? "Planes de becas y convenios de financiación." : "Respaldo y auditoría de calidad Travelgrin."}</p>`,
-          `<p>👥 <strong>Dirigido a:</strong> ${facts.who || "Personas y profesionales que buscan servicios oficiales garantizados."}</p>`
-        ].filter(Boolean).join("\n")
-      };
-    }
+      const shortHooks = isEducation ? [
+        `Formación universitaria oficial de vanguardia${locStr}. Carreras de grado, posgrados y modalidades adaptadas a tus metas profesionales.`,
+        `Educación superior de excelencia: Programas académicos líderes con títulos de validez nacional y alta inserción laboral.`,
+        `Impulsá tu carrera con carreras universitarias y posgrados oficiales: Flexibilidad horaria, campus digital y cuerpo docente de primer nivel.`,
+      ] : isHealth ? [
+        `Atención médica integral con guardia médica activa y consultorios de especialidades de primer nivel${locStr}.`,
+        `Cobertura de salud de excelencia: Profesionales de destacada trayectoria y asignación inmediata de turnos online.`,
+      ] : isSports ? [
+        `Centro de entrenamiento y actividades deportivas integrales con instalaciones modernas${locStr}.`,
+        `Entrená al máximo nivel: Espacios equipados, clases guiadas y planes de membresía flexibles.`,
+      ] : [
+        `${rawValueProp}. Calidad certificada, trayectoria profesional y atención personalizada.`,
+        `Servicios profesionales de vanguardia con atención personalizada y soluciones de excelencia${locStr}.`,
+      ];
 
-    // 7. Dynamic Rotating Archetypes for Creative / Persuasive / SEO copy (Rotates by variationIndex)
-    const archetypeIndex = variationIndex % 3;
+      const chosenHook = shortHooks[variationIndex % shortHooks.length];
 
-    if (archetypeIndex === 0) {
-      // Archetype A: Magnetic Pitch + Highlights List + Differential Hook
-      if (isEducation) {
-        return {
-          description: [
-            priceLine ? `<p>${priceLine}</p>` : "",
-            `<p>🚀 <strong>Liderá tu futuro con una formación universitaria de excelencia:</strong> ${rawValueProp.replace(/\.\s*$/, "")}. Una propuesta de vanguardia pensada para potenciar tus competencias y acelerar tu inserción profesional en el mercado laboral.</p>`,
-            `<p>🎓 <strong>¿Por qué elegir esta propuesta académica?</strong><br/>` +
-            `• <strong>Inscripciones abiertas ciclo 2026:</strong> Amplia oferta en carreras de grado, posgrados y diplomaturas oficiales.<br/>` +
-            `• <strong>Flexibilidad y tecnología:</strong> ${isVirtual ? "Cursado 100% online en campus interactivo 24/7." : "Modalidades presenciales y a distancia adaptadas a tu ritmo de vida."}<br/>` +
-            `• <strong>Títulos oficiales de validez nacional:</strong> Articulación directa con empresas e instituciones líderes.<br/>` +
-            (hasScholarships ? `• <strong>Becas y Financiación:</strong> Programas de ayuda económica y facilidades de pago en cuotas.<br/>` : `• <strong>Acompañamiento continuo:</strong> Tutorías académicas personalizadas y orientación vocacional.<br/>`) +
-            `</p>`,
-            !omitDiferencial ? `<p>⭐ <strong>Diferenciales clave:</strong> ${facts.diff || "Claustro docente de primer nivel, vinculación laboral activa y atención personalizada en Español e Inglés."}</p>` : "",
-            `<p>📍 <strong>Sede y Alcance:</strong> ${cityStr ? `${cityStr}, Argentina` : "Alcance nacional e internacional"} | Canales oficiales habilitados para admisión e informes.</p>`
-          ].filter(Boolean).join("\n")
-        };
-      }
+      const bullet1 = isEducation ? "Carreras de grado y posgrados con títulos oficiales de validez nacional."
+        : isHealth ? "Especialidades médicas multidisciplinarias y guardia continua."
+        : isSports ? "Equipamiento de última generación y seguimiento profesional."
+        : "Soluciones a medida y asesoramiento especializado.";
 
-      if (isHealth) {
-        return {
-          description: [
-            priceLine ? `<p>${priceLine}</p>` : "",
-            `<p>🩺 <strong>Cuidá tu salud con profesionales de excelencia:</strong> ${rawValueProp}</p>`,
-            `<p>🏥 <strong>Servicios Médicos Destacados:</strong><br/>` +
-            `• <strong>Especialidades multidisciplinarias:</strong> Consultorios modernos y equipamiento de última generación.<br/>` +
-            `• <strong>Guardia médica activa:</strong> ${hasEmergency ? "Atención continua y servicio de urgencias 24/7." : "Atención programada y turnos online inmediatos."}<br/>` +
-            `• <strong>Cobertura integral:</strong> Convenios con obras sociales, prepagas y aranceles preferenciales.</p>`,
-            !omitDiferencial ? `<p>⭐ <strong>Diferencial de atención:</strong> Compromiso humano, diagnóstico ágil y seguimiento médico personalizado.</p>` : "",
-            `<p>📍 <strong>Ubicación:</strong> Sede en ${cityStr || "zona céntrica"} | Asignación de turnos y consultas por canales oficiales.</p>`
-          ].filter(Boolean).join("\n")
-        };
-      }
+      const bullet2 = isEducation ? (isVirtual ? "Modalidad 100% online con cursado flexible 24/7." : "Modalidades presenciales y a distancia con campus interactivo.")
+        : isHealth ? "Turnos online y convenios con principales coberturas."
+        : isSports ? "Horarios flexibles y actividades para todas las edades."
+        : "Canales oficiales directos para consultas y presupuestos.";
 
-      if (isSports) {
-        return {
-          description: [
-            priceLine ? `<p>${priceLine}</p>` : "",
-            `<p>🏆 <strong>¡Viví tu pasión y entrená al máximo nivel!</strong> ${rawValueProp}</p>`,
-            `<p>⚡ <strong>Instalaciones & Actividades:</strong><br/>` +
-            `• <strong>Espacios de entrenamiento modernos:</strong> Equipamiento completo, áreas funcionales y climatizadas.<br/>` +
-            `• <strong>Profesores certificados:</strong> Rutinas personalizadas, clases grupales y seguimiento físico continuo.<br/>` +
-            `• <strong>Membresías flexibles:</strong> Pases libres, actividades para todas las edades y torneos recreativos.</p>`,
-            !omitDiferencial ? `<p>⭐ <strong>Diferencial:</strong> Ambiente motivador, comunidad activa y vestuarios con todas las comodidades.</p>` : ""
-          ].filter(Boolean).join("\n")
-        };
-      }
+      const bulletsBlock = `<p><strong>Puntos clave:</strong><br/>• ${bullet1}<br/>• ${bullet2}</p>`;
 
-      // General / Business Sector
-      return {
-        description: [
-          priceLine ? `<p>${priceLine}</p>` : "",
-          `<p>🚀 <strong>Servicios profesionales de excelencia y vanguardia:</strong> ${rawValueProp}</p>`,
-          `<p>💡 <strong>¿Qué te ofrecemos?</strong><br/>` +
-          `• <strong>Atención personalizada:</strong> Soluciones a medida con estándares rigurosos de calidad.<br/>` +
-          `• <strong>Trayectoria y respaldo:</strong> Experiencia comprobada y auditoría institucional verificada.<br/>` +
-          `• <strong>Canales directos:</strong> Asesoramiento rápido, cotizaciones transparentes y seguimiento continuo.</p>`,
-          !omitDiferencial ? `<p>⭐ <strong>Diferencial:</strong> Compromiso ético, agilidad de respuesta y atención en múltiples idiomas.</p>` : ""
-        ].filter(Boolean).join("\n")
-      };
-    }
-
-    if (archetypeIndex === 1) {
-      // Archetype B: Inspiring Storytelling & Feature Highlights
-      if (isEducation) {
-        return {
-          description: [
-            priceLine ? `<p>${priceLine}</p>` : "",
-            `<p>✨ <strong>Descubrí una experiencia universitaria transformadora:</strong> ${rawValueProp.replace(/\.\s*$/, "")}. Elegí una institución que impulsa tu talento, conecta tu vocación con el mundo real y te prepara para liderar en un entorno global cambiante.</p>`,
-            `<p>💡 <strong>Oferta Académica & Beneficios Exclusivos:</strong><br/>` +
-            `• 🏆 <strong>Carreras con alta salida laboral:</strong> Diseñadas junto a referentes de la industria.<br/>` +
-            `• 🌐 <strong>Modalidad flexible y moderna:</strong> Cursá presencial o a distancia desde cualquier punto del país.<br/>` +
-            `• 💎 <strong>Inscripciones 2026 habilitadas:</strong> Asesoramiento vocacional personalizado y planes de becas.</p>`,
-            `<p>👥 <strong>Ideal para:</strong> Estudiantes y profesionales decididos a construir una carrera sólida con títulos de validez oficial.</p>`,
-            `<p>📞 <strong>Informes e Inscripción:</strong> Consultá planes de estudio y requisitos en los canales oficiales.</p>`
-          ].filter(Boolean).join("\n")
-        };
-      }
-
-      return {
-        description: [
-          priceLine ? `<p>${priceLine}</p>` : "",
-          `<p>✨ <strong>Una experiencia pensada para superar tus expectativas:</strong> ${rawValueProp}</p>`,
-          `<p>💎 <strong>Aspectos Destacados:</strong><br/>` +
-          `• 🏆 Calidad garantizada con respaldo institucional verificado.<br/>` +
-          `• 🚀 Atención ágil y procesos simplificados para mayor comodidad.<br/>` +
-          `• 🌟 Soluciones a medida respaldadas por profesionales de amplia trayectoria.</p>`,
-          `<p>👥 <strong>Para quién es:</strong> Quienes buscan seguridad, eficiencia y atención de primer nivel.</p>`
-        ].filter(Boolean).join("\n")
-      };
-    }
-
-    // Archetype C (archetypeIndex === 2): Direct Action, High Engagement & Conversion Hook
-    return {
-      description: [
+      let shortOutput = [
         priceLine ? `<p>${priceLine}</p>` : "",
-        `<p>🎯 <strong>¡Da el siguiente paso hacia tus metas!</strong> ${rawValueProp}</p>`,
-        `<p>🌟 <strong>Puntos Fuertes & Ventajas Competitivas:</strong><br/>` +
-        `• 📚 <strong>Oferta completa y actualizada:</strong> Programas y servicios adaptados a las exigencias actuales.<br/>` +
-        `• 💻 <strong>Innovación tecnológica:</strong> Plataformas interactivas y canales digitales de atención rápida.<br/>` +
-        `• 🤝 <strong>Acompañamiento especializado:</strong> Soporte en cada etapa para garantizar los mejores resultados.</p>`,
-        !omitDiferencial ? `<p>⭐ <strong>Garantía de Calidad:</strong> Presencia verificada, transparencia institucional y atención de excelencia.</p>` : "",
-        `<p>📍 <strong>Contacto & Consultas:</strong> Canales oficiales disponibles para coordinar turnos e inscripciones.</p>`
-      ].filter(Boolean).join("\n")
+        `<p><strong>Propuesta destacada:</strong> ${chosenHook}</p>`,
+        bulletsBlock,
+      ].filter(Boolean).join("\n");
+
+      if (omitIcons) {
+        shortOutput = stripEmojisAndIcons(shortOutput);
+      }
+      return { description: shortOutput };
+    }
+
+    // 2. FORMAL INSTITUTIONAL FORMAT
+    if (isFormal) {
+      let formalOutput = [
+        vigenciaLine || priceLine ? `<p>${[vigenciaLine, priceLine].filter(Boolean).join(" ")}</p>` : "",
+        `<p>${omitIcons ? "" : "🏛️ "}<strong>Presentación Institucional:</strong> ${rawValueProp}.</p>`,
+        `<p>${omitIcons ? "" : "📜 "}<strong>Servicios & Respaldo Oficial:</strong> Programas y prestaciones con estricto cumplimiento normativo, acreditación oficial y estándares de excelencia profesional.</p>`,
+        !omitDiferencial ? `<p>${omitIcons ? "" : "⭐ "}<strong>Diferencial Institucional:</strong> ${facts.diff || `Cuerpo profesional de destacada trayectoria, asesoramiento personalizado y canales de comunicación directos.`}</p>` : "",
+        !omitExclusiones ? `<p>${omitIcons ? "" : "⚠️ "}<strong>Información Importante:</strong> ${facts.excl || "Consultar requisitos y disponibilidad en los canales institucionales habilitados."}</p>` : "",
+        `<p>${omitIcons ? "" : "📍 "}<strong>Ubicación & Contacto:</strong> Sede oficial${locStr}. Canales habilitados para consultas e inscripciones.</p>`,
+      ].filter(Boolean).join("\n");
+
+      if (omitIcons) formalOutput = stripEmojisAndIcons(formalOutput);
+      return { description: formalOutput };
+    }
+
+    // 3. EIGHT DIVERSE DYNAMIC ROTATING LAYOUTS
+    const layoutIdx = variationIndex % 8;
+    const icons = {
+      rocket: omitIcons ? "" : "🚀 ",
+      grad: omitIcons ? "" : "🎓 ",
+      star: omitIcons ? "" : "⭐ ",
+      sparkles: omitIcons ? "" : "✨ ",
+      trophy: omitIcons ? "" : "🏆 ",
+      diamond: omitIcons ? "" : "💎 ",
+      target: omitIcons ? "" : "🎯 ",
+      lightbulb: omitIcons ? "" : "💡 ",
+      pin: omitIcons ? "" : "📍 ",
+      shield: omitIcons ? "" : "🛡️ ",
+      users: omitIcons ? "" : "👥 ",
+      phone: omitIcons ? "" : "📞 ",
+      calendar: omitIcons ? "" : "📅 ",
+      bullet: "• ",
     };
+
+    let resHtml = "";
+
+    if (layoutIdx === 0) {
+      // Layout 0: Executive Value Pitch
+      const hook = isEducation
+        ? `${icons.rocket}<strong>Liderá tu futuro con formación universitaria de vanguardia:</strong> ${rawValueProp}. Una propuesta pensada para potenciar tus competencias y acelerar tu inserción profesional en el mercado laboral.`
+        : `${icons.rocket}<strong>Propuesta de valor de excelencia:</strong> ${rawValueProp}. Compromiso, trayectoria y servicios diseñados para ofrecer los más altos estándares de calidad.`;
+
+      const reasonsTitle = isEducation ? `${icons.grad}<strong>¿Por qué elegir esta propuesta académica?</strong>` : `${icons.diamond}<strong>Aspectos destacados de la propuesta:</strong>`;
+      const b1 = isEducation ? "<strong>Inscripciones ciclo 2026 abiertas:</strong> Oferta integral en carreras de grado, posgrados y diplomaturas oficiales." : "<strong>Calidad certificada:</strong> Procesos verificados y estándares rigurosos en cada prestación.";
+      const b2 = isEducation ? (isVirtual ? "<strong>Modalidad virtual interactiva:</strong> Cursado 100% online con campus digital 24/7." : "<strong>Flexibilidad y tecnología:</strong> Cursado presencial y virtual adaptado a tus tiempos.") : "<strong>Atención personalizada:</strong> Asesoramiento continuo por canales oficiales.";
+      const b3 = isEducation ? (hasScholarships ? "<strong>Planes de becas y convenios:</strong> Facilidades de pago y aranceles preferenciales." : "<strong>Títulos oficiales de validez nacional:</strong> Articulación directa con empresas e instituciones líderes.") : "<strong>Respaldo verificado:</strong> Seguridad, confianza y auditoría Travelgrin.";
+
+      resHtml = [
+        priceLine ? `<p>${priceLine}</p>` : "",
+        `<p>${hook}</p>`,
+        `<p>${reasonsTitle}<br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
+        facts.diff && !omitDiferencial ? `<p>${icons.star}<strong>Diferencial:</strong> ${facts.diff}</p>` : "",
+        `<p>${icons.pin}<strong>Informes y Consultas:</strong> Sede${locStr} y canales oficiales habilitados.</p>`,
+      ].filter(Boolean).join("\n");
+    } else if (layoutIdx === 1) {
+      // Layout 1: The Transformative Experience
+      const hook = isEducation
+        ? `${icons.sparkles}<strong>Descubrí una experiencia universitaria transformadora:</strong> ${rawValueProp}. Diseñada para conectar tu vocación con oportunidades concretas y prepararte para destacar en un entorno competitivo.`
+        : `${icons.sparkles}<strong>Una experiencia diseñada para superar tus expectativas:</strong> ${rawValueProp}. Calidad, agilidad y soluciones a medida con respaldo profesional.`;
+
+      const b1 = isEducation ? "<strong>Planes de estudio actualizados:</strong> Diseñados junto a referentes del sector." : "<strong>Trayectoria sólida:</strong> Años de experiencia y prestigio en el rubro.";
+      const b2 = isEducation ? "<strong>Campus interactivo 24/7:</strong> Recursos digitales de última generación para potenciar tu cursado." : "<strong>Canales directos:</strong> Comunicación fluida y resolución ágil de solicitudes.";
+      const b3 = isEducation ? "<strong>Acompañamiento y orientación:</strong> Tutorías personalizadas durante toda tu carrera." : "<strong>Atención de excelencia:</strong> Soluciones pensadas para tu comodidad.";
+
+      resHtml = [
+        priceLine ? `<p>${priceLine}</p>` : "",
+        `<p>${hook}</p>`,
+        `<p>${icons.trophy}<strong>Ventajas competitivas clave:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
+        `<p>${icons.users}<strong>Dirigido a:</strong> ${facts.who || "Quienes buscan formación y servicios de nivel superior con respaldo garantizado."}</p>`,
+        `<p>${icons.phone}<strong>Canales habilitados:</strong> Asesoramiento personalizado disponible a través de vías oficiales.</p>`,
+      ].filter(Boolean).join("\n");
+    } else if (layoutIdx === 2) {
+      // Layout 2: Advantage Matrix & Action Focus
+      const hook = isEducation
+        ? `${icons.target}<strong>Impulsá tu crecimiento profesional con educación superior de élite:</strong> ${rawValueProp}. Formación práctica orientada a resultados reales.`
+        : `${icons.target}<strong>Soluciones integrales de alto impacto:</strong> ${rawValueProp}. Eficiencia, transparencia y respaldo garantizado.`;
+
+      const b1 = isEducation ? "<strong>Variedad académica:</strong> Programas de grado, especializaciones y diplomaturas." : "<strong>Servicios integrales:</strong> Cobertura completa de necesidades.";
+      const b2 = isEducation ? "<strong>Modalidad híbrida y online:</strong> Estudiá a tu ritmo desde cualquier punto del país." : "<strong>Tecnología aplicada:</strong> Procesos modernos y seguros.";
+      const b3 = isEducation ? "<strong>Inserción laboral:</strong> Vinculación activa y programas de pasantías profesionales." : "<strong>Garantía de satisfacción:</strong> Transparencia en aranceles y condiciones.";
+
+      resHtml = [
+        priceLine ? `<p>${priceLine}</p>` : "",
+        `<p>${hook}</p>`,
+        `<p>${icons.shield}<strong>Garantías y Pilares:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
+        `<p>${icons.pin}<strong>Sede y Alcance:</strong> ${cityStr ? `Presencia en ${cityStr}` : "Cobertura regional y nacional"} con gestión digital centralizada.</p>`,
+      ].filter(Boolean).join("\n");
+    } else if (layoutIdx === 3) {
+      // Layout 3: Direct Punchy Overview
+      const hook = `${icons.rocket}<strong>${rawValueProp}.</strong> Formación y servicios oficiales con sólida reputación${locStr}.`;
+      const b1 = isEducation ? "Títulos oficiales con validez nacional y programas actualizados." : "Atención profesional certificada y personalizada.";
+      const b2 = isEducation ? "Cursado flexible y plataformas de vanguardia." : "Respuesta inmediata y seguimiento continuo.";
+      const b3 = isEducation ? "Inscripciones abiertas y asesoramiento vocacional." : "Aranceles transparentes y canales directos.";
+
+      resHtml = [
+        priceLine ? `<p>${priceLine}</p>` : "",
+        `<p>${hook}</p>`,
+        `<p><strong>Aspectos fundamentales:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
+        `<p>${icons.phone}<strong>Contacto:</strong> Canales oficiales abiertos para consultas e inscripciones.</p>`,
+      ].filter(Boolean).join("\n");
+    } else if (layoutIdx === 4) {
+      // Layout 4: Innovation & Leadership
+      const hook = isEducation
+        ? `${icons.diamond}<strong>Liderazgo académico e innovación constante:</strong> ${rawValueProp}. Un modelo educativo que combina rigor conceptual con experiencia práctica de vanguardia.`
+        : `${icons.diamond}<strong>Liderazgo e innovación en servicios:</strong> ${rawValueProp}. Experiencia comprobada y estándares superiores de atención.`;
+
+      const b1 = isEducation ? "<strong>Modelo pedagógico innovador:</strong> Clases dinámicas y casos de estudio aplicados." : "<strong>Metodología comprobada:</strong> Soluciones probadas y adaptadas al cliente.";
+      const b2 = isEducation ? "<strong>Claustro docente destacado:</strong> Profesionales referentes en su disciplina." : "<strong>Equipo de especialistas:</strong> Trayectoria y solvencia técnica.";
+      const b3 = isEducation ? "<strong>Comunidad y networking:</strong> Intercambio enriquecedor entre estudiantes y egresados." : "<strong>Compromiso y cercanía:</strong> Vínculo de confianza a largo plazo.";
+
+      resHtml = [
+        priceLine ? `<p>${priceLine}</p>` : "",
+        `<p>${hook}</p>`,
+        `<p>${icons.lightbulb}<strong>Diferenciales de vanguardia:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
+        `<p>${icons.pin}<strong>Ubicación y Canales:</strong> Información institucional disponible en canales oficiales${locStr}.</p>`,
+      ].filter(Boolean).join("\n");
+    } else if (layoutIdx === 5) {
+      // Layout 5: Editorial Review & Decision Guide
+      const hook = isEducation
+        ? `${icons.trophy}<strong>Excelencia académica reconocida y trayectoria comprobada:</strong> ${rawValueProp}. Elegir esta institución significa asegurar una formación sólida, respetada y con proyección.`
+        : `${icons.trophy}<strong>Reconocimiento institucional y prestigio:</strong> ${rawValueProp}. Respaldado por años de experiencia y satisfacción de usuarios.`;
+
+      const b1 = isEducation ? "<strong>Acreditación oficial:</strong> Carreras y posgrados reconocidos por autoridades ministeriales." : "<strong>Habilitaciones oficiales:</strong> Cumplimiento riguroso de normativas vigentes.";
+      const b2 = isEducation ? "<strong>Infraestructura y campus:</strong> Espacios de aprendizaje modernos y equipados." : "<strong>Instalaciones y plataformas:</strong> Infraestructura óptima para un servicio seguro.";
+      const b3 = isEducation ? "<strong>Planes accesibles:</strong> Opciones de becas y convenios de pago." : "<strong>Condiciones claras:</strong> Transparencia total en aranceles y modalidades.";
+
+      resHtml = [
+        priceLine ? `<p>${priceLine}</p>` : "",
+        `<p>${hook}</p>`,
+        `<p>${icons.target}<strong>Claves para tu elección:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
+        `<p>${icons.calendar}<strong>Próximos inicios e inscripciones:</strong> Consultá vacantes y cronogramas en las vías de admisión oficial.</p>`,
+      ].filter(Boolean).join("\n");
+    } else if (layoutIdx === 6) {
+      // Layout 6: Key Features & Quick Access FAQ
+      const hook = `${icons.rocket}<strong>Todo lo que necesitás saber sobre esta propuesta:</strong> ${rawValueProp}. Información clara y actualizada para tu decisión.`;
+      const b1 = isEducation ? "<strong>¿Qué títulos se otorgan?:</strong> Carreras de grado, posgrados y diplomaturas oficiales." : "<strong>¿Qué alcance tiene?:</strong> Servicios personalizados presenciales y remotos.";
+      const b2 = isEducation ? "<strong>¿Cómo se cursa?:</strong> Opciones presenciales, semipresenciales y 100% a distancia." : "<strong>¿Cómo se contrata?:</strong> Asesoramiento directo y presupuestos sin compromiso.";
+      const b3 = isEducation ? "<strong>¿Cuáles son los requisitos?:</strong> DNI/Pasaporte y certificado de estudios secundarios." : "<strong>¿Qué respaldo ofrece?:</strong> Registro oficial y verificación Travelgrin.";
+
+      resHtml = [
+        priceLine ? `<p>${priceLine}</p>` : "",
+        `<p>${hook}</p>`,
+        `<p>${icons.lightbulb}<strong>Preguntas y Claves Frecuentes:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
+        `<p>${icons.phone}<strong>Más información:</strong> Atención disponible a través de canales oficiales${locStr}.</p>`,
+      ].filter(Boolean).join("\n");
+    } else {
+      // Layout 7: High-Conversion Benefit Story
+      const hook = isEducation
+        ? `${icons.sparkles}<strong>Tu futuro profesional empieza hoy:</strong> ${rawValueProp}. Da el paso hacia una formación de calidad que te abrirá puertas en el ámbito nacional e internacional.`
+        : `${icons.sparkles}<strong>La decisión acertada para tus proyectos:</strong> ${rawValueProp}. Calidad, respaldo y atención personalizada garantizada.`;
+
+      const b1 = isEducation ? "<strong>Convocatoria activa:</strong> Vacantes disponibles para el próximo ciclo lectivo." : "<strong>Disponibilidad inmediata:</strong> Atención y turnos programados ágiles.";
+      const b2 = isEducation ? "<strong>Flexibilidad horaria:</strong> Diseñado para compatibilizar estudio, trabajo y vida personal." : "<strong>Flexibilidad y convenios:</strong> Planes adaptados a tus necesidades.";
+      const b3 = isEducation ? "<strong>Red de egresados y convenios:</strong> Oportunidades directas de crecimiento y vinculación." : "<strong>Seguridad y confianza:</strong> Atención humana y profesionalismo constante.";
+
+      resHtml = [
+        priceLine ? `<p>${priceLine}</p>` : "",
+        `<p>${hook}</p>`,
+        `<p>${icons.diamond}<strong>Beneficios destacados:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
+        `<p>${icons.pin}<strong>Sede y contacto:</strong> Información oficial y vías de comunicación abiertas para consultas e informes${locStr}.</p>`,
+      ].filter(Boolean).join("\n");
+    }
+
+    if (omitIcons) {
+      resHtml = stripEmojisAndIcons(resHtml);
+    }
+
+    return { description: resHtml };
   }
 
   if (fieldType === "provider_info") {
@@ -1247,7 +1283,7 @@ function generateSemanticAiFallback(
     const scoreMatch = pLower.match(/\b(9\d|8\d|7\d|100)\b/);
     const scoreNum = scoreMatch ? scoreMatch[1] : "95";
     return {
-      title: `🛡️ Score Scout ${scoreNum}/100`,
+      title: `${omitIcons ? "" : "🛡️ "}Score Scout ${scoreNum}/100`,
       body: `Presencia/reputación 24/25 · Contacto verificable 15/15 · Trayectoria/evidencia operativa 20/20 · Claridad propuesta 15/15 · Transparencia/seguridad 15/15 · Datos Institucionales 10/10\nMadurez: Líder · Vínculo: Oficial · Evidencia: Presencia institucional verificada, canales directos y atención al cliente activa.`,
     };
   }
@@ -1334,6 +1370,7 @@ export async function POST(req: Request) {
       prompt,
     ].join(" ");
 
+    const omitIcons = checkOmitIcons(prompt, userAllPrompts);
     const forbiddenTerms = extractForbiddenTerms(userAllPrompts, cleanName, publisherName);
 
     const systemPrompt = buildSystemRefinePrompt(
@@ -1384,40 +1421,59 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Guarantee 100% adherence to negative constraints with Post-Sanitization
-    if (aiResult && forbiddenTerms.length > 0) {
-      if (fieldType === "title" && aiResult.title) {
-        aiResult.title = sanitizeForbiddenTerms(aiResult.title, forbiddenTerms);
-        if (!aiResult.title || aiResult.title.length < 10) {
-          const fb = generateSemanticAiFallback(
-            fieldType,
-            currentText,
-            prompt,
-            {
-              title: currentTitle || investigatedWeb?.pageTitle,
-              publisherName: publisherName || investigatedWeb?.pageTitle,
-              category,
-              city,
-              country,
-              url: targetInvestigateUrl || url,
-            },
-            conversationHistory,
-            variationIndex,
-            investigatedWeb
-          );
-          aiResult.title = fb.title || aiResult.title;
+    // 4. Guarantee 100% adherence to negative constraints & icon omission
+    if (aiResult) {
+      if (omitIcons) {
+        if (fieldType === "title" && aiResult.title) {
+          aiResult.title = stripEmojisAndIcons(aiResult.title);
+        }
+        if (fieldType === "description" && aiResult.description) {
+          aiResult.description = stripEmojisAndIcons(aiResult.description);
+        }
+        if (fieldType === "provider_info" && aiResult.providerInfo) {
+          aiResult.providerInfo = stripEmojisAndIcons(aiResult.providerInfo);
+        }
+        if (fieldType === "extra_block" || fieldType === "new_extra_block") {
+          if (aiResult.title) aiResult.title = stripEmojisAndIcons(aiResult.title);
+          if (aiResult.body) aiResult.body = stripEmojisAndIcons(aiResult.body);
         }
       }
-      if (fieldType === "description" && aiResult.description) {
-        aiResult.description = sanitizeForbiddenTerms(aiResult.description, forbiddenTerms);
-      }
-      if (fieldType === "provider_info" && aiResult.providerInfo) {
-        aiResult.providerInfo = sanitizeForbiddenTerms(aiResult.providerInfo, forbiddenTerms);
-      }
-      if ((fieldType === "extra_block" || fieldType === "new_extra_block") && aiResult.body) {
-        aiResult.body = sanitizeForbiddenTerms(aiResult.body, forbiddenTerms);
+
+      if (forbiddenTerms.length > 0) {
+        if (fieldType === "title" && aiResult.title) {
+          aiResult.title = sanitizeForbiddenTerms(aiResult.title, forbiddenTerms);
+          if (!aiResult.title || aiResult.title.length < 10) {
+            const fb = generateSemanticAiFallback(
+              fieldType,
+              currentText,
+              prompt,
+              {
+                title: currentTitle || investigatedWeb?.pageTitle,
+                publisherName: publisherName || investigatedWeb?.pageTitle,
+                category,
+                city,
+                country,
+                url: targetInvestigateUrl || url,
+              },
+              conversationHistory,
+              variationIndex,
+              investigatedWeb
+            );
+            aiResult.title = fb.title || aiResult.title;
+          }
+        }
+        if (fieldType === "description" && aiResult.description) {
+          aiResult.description = sanitizeForbiddenTerms(aiResult.description, forbiddenTerms);
+        }
+        if (fieldType === "provider_info" && aiResult.providerInfo) {
+          aiResult.providerInfo = sanitizeForbiddenTerms(aiResult.providerInfo, forbiddenTerms);
+        }
+        if ((fieldType === "extra_block" || fieldType === "new_extra_block") && aiResult.body) {
+          aiResult.body = sanitizeForbiddenTerms(aiResult.body, forbiddenTerms);
+        }
       }
     }
+
 
     // Handle translations if autoTranslate is requested
     let translations: Record<string, any> = {};
