@@ -351,29 +351,66 @@ function stripEmojisAndIcons(html: string): string {
     .trim();
 }
 
-function checkOmitIcons(prompt: string, userPrompts: string): boolean {
-  const pLower = prompt.toLowerCase();
-  const allLower = userPrompts.toLowerCase();
-  const explicitOmit = /(?:sin|no\s+(?:pongas?|coloques?|uses?|incluyas?|tenga)|sacale|sacar|quitar?|elimina|evita)\s+(?:los\s+|las\s+)?(?:iconos?|emojis?|viñetas?)/i.test(pLower);
-  if (explicitOmit) return true;
-  const historyOmit = /(?:sin|no\s+(?:pongas?|coloques?|uses?|incluyas?|tenga)|sacale|sacar|quitar?|elimina|evita)\s+(?:los\s+|las\s+)?(?:iconos?|emojis?|viñetas?)/i.test(allLower);
-  const promptWantsIcons = /(?:con|agregale?|ponele?|inclui|incluye)\s+(?:iconos?|emojis?)/i.test(pLower);
-  return historyOmit && !promptWantsIcons;
+function checkOmitIcons(prompt: string, conversationHistory: ConversationMessage[] | string = []): boolean {
+  const isPromptOmit = (p: string) =>
+    /(?:sin|no\s+(?:pongas?|coloques?|uses?|incluyas?|tenga|muestres?|dejes?)|sacale|sacar|quitar?|elimina[a-z]*|evita[a-z]*|borra[a-z]*)\s+(?:los\s+|las\s+)?(?:ic(?:i?[oó]|o)n[oa]s?|emoj?is?|emoyis?|viñetas?|vinetas?|dibujitos?|figuras?|s[ií]mbolos?)/i.test(p) ||
+    /\b(?:sin\s+ic(?:i?[oó]|o)n[oa]s?|sin\s+emoj?is?|sin\s+emoyis?|no\s+ic(?:i?[oó]|o)n[oa]s?|sin\s+s[ií]mbolos?|sin\s+figuras?)\b/i.test(p);
+
+  const isPromptWithIcons = (p: string) =>
+    /(?:con|agregale?|ponele?|inclui|incluye|usar?)\s+(?:los\s+|las\s+)?(?:ic(?:i?[oó]|o)n[oa]s?|emoj?is?|emoyis?|viñetas?|vinetas?|dibujitos?|figuras?|s[ií]mbolos?)/i.test(p) ||
+    /\b(?:con\s+ic(?:i?[oó]|o)n[oa]s?|con\s+emoj?is?|con\s+emoyis?)\b/i.test(p);
+
+  // 1. Check latest prompt first
+  if (isPromptOmit(prompt)) return true;
+  if (isPromptWithIcons(prompt)) return false;
+
+  // 2. Normalize history
+  let userMessages: string[] = [];
+  if (Array.isArray(conversationHistory)) {
+    userMessages = conversationHistory
+      .filter((m) => m && (typeof m === "string" || m.role === "user"))
+      .map((m) => (typeof m === "string" ? m : m.content))
+      .reverse();
+  } else if (typeof conversationHistory === "string") {
+    userMessages = [conversationHistory];
+  }
+
+  for (const msg of userMessages) {
+    if (isPromptOmit(msg)) return true;
+    if (isPromptWithIcons(msg)) return false;
+  }
+
+  return false;
 }
 
-function checkIsShort(prompt: string, userPrompts: string): boolean {
-  const pLower = prompt.toLowerCase();
-  const allLower = userPrompts.toLowerCase();
+function checkIsShort(prompt: string, conversationHistory: ConversationMessage[] | string = []): boolean {
+  const isPromptLong = (p: string) =>
+    /\b(?:larg[oa]s?|m[aá]s\s+larg[oa]s?|hazl[oa]\s+m[aá]s\s+larg[oa]s?|hacel[oa]\s+m[aá]s\s+larg[oa]s?|extens[oa]s?|ampli[oa]s?|complet[oa]s?|desarroll(?:ar|a|ado|ada)?|m[aá]s\s+texto|m[aá]s\s+contenido|m[aá]s\s+detalle|con\s+m[aá]s\s+detalle|llamativ[oa]s?|persuasiv[oa]s?|expand(?:ir|e|ido)?|detallad[oa]s?)\b/i.test(p);
 
-  // 1. If latest prompt asks to make it longer, wider, more detailed, or more persuasive/llamativa, CANCEL short mode immediately
-  const promptWantsLong = /\b(?:larg[oa]s?|m[aá]s\s+larg[oa]s?|hazl[oa]\s+m[aá]s\s+larg[oa]s?|extens[oa]s?|ampli[oa]s?|complet[oa]s?|desarroll(?:ar|a)?|m[aá]s\s+texto|m[aá]s\s+contenido|m[aá]s\s+detalle|con\s+m[aá]s\s+detalle|llamativ[oa]s?|persuasiv[oa]s?)\b/i.test(pLower);
-  if (promptWantsLong) return false;
+  const isPromptShort = (p: string) =>
+    /\b(?:cort[oa]s?|breve|breves|direct[oa]s?|resum(?:en|id[oa]|ilo|ila)?|s[ií]ntesis|concis[oa]s?|pocas?\s+palabras|en\s+un\s+p[aá]rrafo|en\s+dos\s+p[aá]rrafos|poco\s+texto|sint[eé]tic[oa]s?)\b/i.test(p);
 
-  const explicitShort = /\b(?:cort[oa]s?|breve|breves|direct[oa]s?|resum(?:en|id[oa])?|s[ií]ntesis|concis[oa]s?|pocas?\s+palabras|en\s+un\s+p[aá]rrafo|en\s+dos\s+p[aá]rrafos|resumilo|resumila)\b/i.test(pLower);
-  if (explicitShort) return true;
+  // 1. Check latest prompt first
+  if (isPromptLong(prompt)) return false;
+  if (isPromptShort(prompt)) return true;
 
-  const historyShort = /\b(?:cort[oa]s?|breve|breves|direct[oa]s?|resum(?:en|id[oa])?|s[ií]ntesis|concis[oa]s?|pocas?\s+palabras)\b/i.test(allLower);
-  return historyShort && !promptWantsLong;
+  // 2. Check conversation history in reverse order (newest to oldest)
+  let userMessages: string[] = [];
+  if (Array.isArray(conversationHistory)) {
+    userMessages = conversationHistory
+      .filter((m) => m && (typeof m === "string" || m.role === "user"))
+      .map((m) => (typeof m === "string" ? m : m.content))
+      .reverse();
+  } else if (typeof conversationHistory === "string") {
+    userMessages = [conversationHistory];
+  }
+
+  for (const msg of userMessages) {
+    if (isPromptLong(msg)) return false;
+    if (isPromptShort(msg)) return true;
+  }
+
+  return false;
 }
 
 function buildSystemRefinePrompt(
@@ -411,25 +448,27 @@ Comprender a la perfección lo que el usuario pide en su instrucción y generar 
 ⚠️ REGLAS MANDATORIAS DE PRIORIDAD MÁXIMA:
 1. CONTROL DE ICONOS Y EMOJIS:
    - Si el administrador pide "sin icono", "sin iconos", "sin emojis", "sacale los iconos", "no uses iconos", o similar:
-     ¡PROHIBIDO TOTALMENTE INCLUIR CUALQUIER EMOJI O ICONO (como 🚀, 🎓, ✨, ⭐, 💡, 💎, 🏆, etc.)! Usa títulos en negrita limpios y viñetas estándar (• o -).
+     ¡PROHIBIDO TOTALMENTE INCLUIR CUALQUIER EMOJI O ICONO (como 🚀, 🎓, ✨, ⭐, 💡, 💎, 🏆, etc.)! Usa títulos en negrita limpios y viñetas estándar (• o -). No acortes el contenido salvo que expresamente haya pedido acortarlo.
    - Si el administrador pide "con iconos", "con emojis", o una propuesta comercial llamativa:
      Usa emojis modernos y bien elegidos.
 
-2. CONTROL DE LONGITUD (CORTO / CONCISO):
+2. CONTROL DE LONGITUD (CORTO / LARGO):
    - Si el administrador pide "corta", "corto", "breve", "conciso", "resumido", "en pocas palabras":
-     ¡GENERA UN TEXTO ULTRA-BREVE Y DIRECTO! Máximo 1 a 2 párrafos cortos o 1 párrafo de gancho + 2 viñetas concisas (menos de 80 palabras). No agregues relleno.
+     ¡GENERA UN TEXTO ULTRA-BREVE Y DIRECTO! Máximo 1 a 2 párrafos cortos o 1 párrafo de gancho + 2 viñetas concisas.
+   - Si el administrador pide "hacelo más largo", "más extenso", "con más detalle", "más completo":
+     Desarrolla una propuesta amplia, completa y persuasiva.
 
 3. REGLA DE NO REPETIR SIEMPRE EL MISMO MOLDE (VARIEDAD Y FRESCURA):
-   - NO uses plantillas rígidas ni repitas siempre la misma frase introductoria ("Liderá tu futuro con una formación universitaria de excelencia...").
-   - Varía la estructura: usa enfoques narrativos, basados en soluciones, estilo pitch ejecutivo, preguntas frecuentes o síntesis ágiles.
+   - NO uses plantillas rígidas ni repitas siempre la misma frase introductoria.
    - NUNCA uses etiquetas burocráticas como "¿Para quién?:", "Documentación requerida:", "Permanencia:".
 
-4. CONTROL DE PRECIOS Y VIGENCIAS:
-   - Si pide quitar precios/vigencias: ¡OMÍTELOS por completo! Si pide poner que es gratis: <strong>Precio:</strong> Actividad 100% gratuita / Acceso libre.
-   - Si pide colocar precios/vigencias: Colócalos al inicio con formato claro.
+4. BLOQUES EXTRA Y FAQ CON CANTIDADES SOLICITADAS:
+   - Si se trata de un bloque (extra_block o new_extra_block) y el usuario pide una cantidad específica (ej. "haz que sean 10 preguntas", "agregá 5 items"):
+     GENERA EXACTAMENTE la cantidad de items o preguntas solicitadas completas (ej. 10 preguntas y respuestas completas en HTML).
+     MANTÉN el título correspondiente (ej. "Preguntas Frecuentes (FAQ)") y NUNCA lo cambies a "Información Adicional".
 
 5. AJUSTES Y SEGUIMIENTO:
-   - Si el historial indica un ajuste o refinamiento a la propuesta previa (ej: "ahora sacale los iconos", "agregale 20% de descuento", "hacelo más formal"):
+   - Si el historial indica un ajuste o refinamiento a la propuesta previa:
      ¡Prioriza 100% la indicación más reciente del usuario y aplícala sobre el contenido!
 
 📋 CONTEXTO DE LA PUBLICACIÓN:
@@ -711,8 +750,8 @@ function generateSemanticAiFallback(
       userPrompts
     );
 
-  const omitIcons = checkOmitIcons(prompt, userPrompts);
-  const isShort = checkIsShort(prompt, userPrompts);
+  const omitIcons = checkOmitIcons(prompt, conversationHistory);
+  const isShort = checkIsShort(prompt, conversationHistory);
 
   if (fieldType === "title") {
     if (isShort || /corto|breve|directo|solo nombre|s[ií]ntesis|concis/i.test(pLower)) {
@@ -1284,68 +1323,163 @@ function generateSemanticAiFallback(
   }
 
   // Extra block or new extra block
-  if (/score|scout|puntaje|auditor|madurez/i.test(`${pLower} ${currentText}`)) {
-    const scoreMatch = pLower.match(/\b(9\d|8\d|7\d|100)\b/);
-    const scoreNum = scoreMatch ? scoreMatch[1] : "95";
+  if (fieldType === "extra_block" || fieldType === "new_extra_block") {
+    const blockUserCorpus = `${pLower} ${meta.title || ""} ${currentText} ${userPrompts}`.toLowerCase();
+
+    // Check if user specifically requested a title change
+    let explicitNewTitle = "";
+    const changeTitleMatch = prompt.match(/(?:cambi[aá]|modific[aá]|pon[eé]|renombr[aá]|t[ií]tulo(?:\s*:|\s+a))\s+(?:el\s+t[ií]tulo\s+(?:a|por)\s+|a\s+|por\s+)?([^,.;:\n]+)/i);
+    if (changeTitleMatch && !/(?:10|pregunta|mas|largo|corto|sin icono|requisito)/i.test(changeTitleMatch[1].trim())) {
+      explicitNewTitle = changeTitleMatch[1].trim();
+      explicitNewTitle = explicitNewTitle.charAt(0).toUpperCase() + explicitNewTitle.slice(1);
+    }
+
+    if (/score|scout|puntaje|auditor|madurez/i.test(blockUserCorpus)) {
+      const scoreMatch = blockUserCorpus.match(/\b(9\d|8\d|7\d|100)\b/);
+      const scoreNum = scoreMatch ? scoreMatch[1] : "95";
+      return {
+        title: explicitNewTitle || meta.title || `${omitIcons ? "" : "🛡️ "}Score Scout ${scoreNum}/100`,
+        body: `Presencia/reputación 24/25 · Contacto verificable 15/15 · Trayectoria/evidencia operativa 20/20 · Claridad propuesta 15/15 · Transparencia/seguridad 15/15 · Datos Institucionales 10/10\nMadurez: Líder · Vínculo: Oficial · Evidencia: Presencia institucional verificada, canales directos y atención al cliente activa.`,
+      };
+    }
+
+    if (/faq|pregunt|pregunat|duda|consulta|q&a|cuestion/i.test(blockUserCorpus)) {
+      // Determine requested count (e.g. "haz que sean 10 pregunats", "5 preguntas", default 3 or 10 if specified)
+      const countMatch = prompt.match(/\b(1\d|[2-9])\b/) || userPrompts.match(/\b(1\d|[2-9])\s*(?:pregunt|pregunat|duda|item|punto)/i);
+      const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 15) : 3;
+
+      const faqPoolEdu = [
+        { q: "¿Cómo realizar la inscripción o reserva de vacante?", a: "A través de nuestros canales oficiales presenciales o vía plataforma web con asesoramiento personalizado y validación de requisitos." },
+        { q: "¿Cuáles son los medios de pago y financiación habilitados?", a: "Tarjetas de débito/crédito, transferencias bancarias directas y planes de financiación en cuotas con aranceles preferenciales." },
+        { q: "¿Los títulos y programas cuentan con validez oficial?", a: "Sí, todos los planes de estudio y carreras poseen acreditación y reconocimiento oficial ministerial." },
+        { q: "¿Se puede cursar de manera 100% online o virtual?", a: "Sí, disponemos de campus virtual activo las 24 horas con clases sincrónicas, asincrónicas y soporte tutorial continuo." },
+        { q: "¿Cuáles son los requisitos de ingreso?", a: "Presentación de Documento de Identidad (DNI/Pasaporte), certificado de estudios previos y formulario de admisión completo." },
+        { q: "¿Existen programas de becas o convenios de descuento?", a: "Sí, contamos con convenios corporativos e institucionales, y programas de becas al mérito y por pronta matriculación." },
+        { q: "¿Cómo se rinden los exámenes finales y parciales?", a: "Los exámenes se coordinan a través de la plataforma académica o en sedes habilitadas según la modalidad del programa." },
+        { q: "¿Puedo solicitar equivalencias o reconocimiento de materias?", a: "Sí, podés presentar tu plan de estudios previo para evaluación del comité académico sin cargo inicial." },
+        { q: "¿Se realizan prácticas profesionales o pasantías laborales?", a: "Sí, articulamos convenios con empresas y organizaciones líderes para inserción laboral y pasantías rentadas." },
+        { q: "¿Cómo me contacto para recibir asesoramiento personalizado?", a: "Podés comunicarte directamente a través de nuestros canales de WhatsApp, formulario web o en nuestras sedes de admisión." },
+        { q: "¿Cuándo inician las clases y cursos del ciclo 2026?", a: "Las convocatorias se abren periódicamente con ingresos en el primer y segundo semestre." },
+        { q: "¿Qué soporte técnico o tutorial tienen los estudiantes?", a: "Disponés de tutores académicos dedicados y mesa de ayuda técnica 24/7 para resolver cualquier inquietud." },
+      ];
+
+      const faqPoolHealth = [
+        { q: "¿Cómo solicitar un turno médico o consulta de especialidad?", a: "A través de nuestra plataforma de turnos online 24/7 o mediante la central telefónica y WhatsApp oficial." },
+        { q: "¿Qué coberturas médicas, obras sociales y prepagas se aceptan?", a: "Atendemos con las principales obras sociales, prepagas de primer nivel y opciones para pacientes particulares." },
+        { q: "¿Cuentan con servicio de guardia médica de urgencias 24 horas?", a: "Sí, disponemos de guardia activa permanente con especialistas en clínica médica, pediatría y emergencias." },
+        { q: "¿Cómo recibir los resultados de estudios diagnósticos y análisis?", a: "Podés descargarlos directamente desde el portal web del paciente o recibirlos vía correo electrónico seguro." },
+        { q: "¿Se atienden consultas médicas virtuales o por telemedicina?", a: "Sí, ofrecemos servicio de videoconsultas programadas con receta digital oficial." },
+        { q: "¿Qué documentación debo presentar en la primera consulta?", a: "DNI vigente, credencial de cobertura médica y orden de derivación médica en caso de corresponder." },
+        { q: "¿Se realizan chequeos preventivos integrales?", a: "Sí, disponemos de circuitos de chequeo preventivo en un solo día con informes consolidados." },
+        { q: "¿Cuáles son los medios de pago para copagos y consultas particulares?", a: "Tarjetas de débito/crédito, transferencias bancarias y efectivo en recepción." },
+        { q: "¿Cuentan con internación y quirófanos de alta complejidad?", a: "Sí, nuestras instalaciones están equipadas con tecnología de vanguardia y unidades de cuidados intensivos." },
+        { q: "¿Cómo acceder a la atención domiciliaria o traslados?", a: "Coordinando con la central de emergencias habilitada para afiliados y convenios vigentes." },
+      ];
+
+      const faqPoolSports = [
+        { q: "¿Cómo asociarse o adquirir un pase de entrenamiento?", a: "Podés inscribirte online o presencialmente en administración con DNI y certificado de aptitud física." },
+        { q: "¿Qué actividades y disciplinas deportivas están incluidas?", a: "Gimnasio de musculación, clases grupales guiadas, canchas, pileta y entrenamientos personalizados." },
+        { q: "¿Cuáles son los horarios de apertura y entrenamiento?", a: "Lunes a viernes de 07:00 a 22:00 hs y sábados de 08:00 a 18:00 hs." },
+        { q: "¿Se requiere apto médico para iniciar actividades?", a: "Sí, es obligatorio presentar certificado médico de aptitud física para garantizar la seguridad de todos los socios." },
+        { q: "¿Cuáles son los medios de pago y planes de membresía?", a: "Pases mensuales, semestrales o anuales con débito automático, tarjetas y descuentos por grupo familiar." },
+        { q: "¿Tienen vestuarios, lockers y estacionamiento?", a: "Sí, contamos con vestuarios climatizados completos, lockers con seguridad y área de estacionamiento vigilado." },
+        { q: "¿Se puede tomar una clase de prueba antes de inscribirse?", a: "Sí, coordinando previamente una clase de cortesía para conocer nuestras instalaciones." },
+        { q: "¿Hay profesores o entrenadores disponibles en sala?", a: "Contamos permanentemente con profesores de educación física para guiar tu rutina." },
+        { q: "¿Organizan torneos internos y eventos deportivos?", a: "Sí, realizamos ligas internas, clínicas de entrenamiento y competencias recreativas todo el año." },
+        { q: "¿Cómo reservar canchas o espacios de entrenamiento?", a: "A través de la aplicación oficial del club o en recepción con confirmación inmediata." },
+      ];
+
+      const faqPoolGeneral = [
+        { q: "¿Cómo contratar o solicitar información del servicio?", a: "A través de nuestros canales oficiales presenciales o vía plataforma web con asesoramiento personalizado." },
+        { q: "¿Cuáles son los medios de pago y facturación habilitados?", a: "Tarjetas de débito/crédito, transferencias bancarias directas y planes de financiación vigentes con factura oficial." },
+        { q: "¿Se requiere coordinación o turno previo?", a: "Recomendamos contactar con anticipación para asegurar disponibilidad y atención preferencial." },
+        { q: "¿Qué documentación o requisitos son necesarios?", a: "Documento de identidad vigente y datos de contacto oficiales para la formalización del servicio." },
+        { q: "¿Ofrecen atención o soporte de manera remota?", a: "Sí, contamos con canales digitales y soporte técnico continuo para resolver todas tus gestiones." },
+        { q: "¿Cuál es el tiempo de respuesta o entrega del servicio?", a: "Atendemos las solicitudes de manera prioritaria con tiempos ágiles informados desde el primer contacto." },
+        { q: "¿Cuentan con promociones o beneficios exclusivos?", a: "Sí, disponemos de planes especiales por suscripción anticipada y beneficios para clientes frecuentes." },
+        { q: "¿Qué garantías y respaldo ofrecen en cada prestación?", a: "Todos nuestros procesos cumplen con estrictos estándares de calidad y respaldo verificado Travelgrin." },
+        { q: "¿Cuáles son las políticas de cancelación o reprogramación?", a: "Podés solicitar cambios o cancelaciones con previo aviso según los términos y condiciones del servicio." },
+        { q: "¿Dónde se encuentran ubicadas las sedes oficiales?", a: "Podés consultar nuestras direcciones oficiales, teléfonos y horarios de atención en el portal." },
+        { q: "¿Tienen atención para empresas o grupos corporativos?", a: "Sí, contamos con un área corporativa dedicada a presupuestos y propuestas a medida." },
+        { q: "¿Cómo realizar el seguimiento de una solicitud o reclamo?", a: "Con tu número de gestión asignado podés consultar el estado en tiempo real por nuestros canales directos." },
+      ];
+
+      const selectedPool = isEduEntity || isEducation ? faqPoolEdu
+        : isHealthEntity || isHealth ? faqPoolHealth
+        : isSportsEntity || isSports ? faqPoolSports
+        : faqPoolGeneral;
+
+      const itemsToTake = selectedPool.slice(0, requestedCount);
+      const bodyHtml = itemsToTake
+        .map((item) => `<p><strong>${item.q}</strong><br/>${item.a}</p>`)
+        .join("");
+
+      const blockTitle = explicitNewTitle || (meta.title && /faq|pregunt/i.test(meta.title) ? meta.title : "Preguntas Frecuentes (FAQ)");
+
+      return {
+        title: blockTitle,
+        body: bodyHtml,
+      };
+    }
+
+    if (/requisito|admisi|inscrip|document/i.test(blockUserCorpus)) {
+      const blockTitle = explicitNewTitle || (meta.title && /requisito|admisi|inscrip/i.test(meta.title) ? meta.title : "Requisitos de Admisión e Inscripción");
+      return {
+        title: blockTitle,
+        body: "<p><strong>Documentación requerida:</strong> Documento de identidad vigente (DNI o Pasaporte), comprobante de domicilio y antecedentes pertinentes según la actividad.</p><p><strong>Modalidad de presentación:</strong> Gestión presencial en sede oficial o carga digital a través de la plataforma web habilitada.</p><p><strong>Validación y plazos:</strong> Proceso de verificación ágil en 24 a 48 hs hábiles con confirmación por canales oficiales.</p>",
+      };
+    }
+
+    if (/pago|financi|cuota|tarifa|precio/i.test(blockUserCorpus)) {
+      const blockTitle = explicitNewTitle || (meta.title && /pago|financi/i.test(meta.title) ? meta.title : "Medios de Pago y Financiación");
+      return {
+        title: blockTitle,
+        body: "<p><strong>Opciones disponibles:</strong> Transferencia bancaria, tarjetas de débito/crédito y planes de pago en cuotas según convenios vigentes.</p><p><strong>Beneficios:</strong> Bonificaciones por pago anticipado y convenios institucionales aplicables.</p><p><strong>Facturación:</strong> Emisión automática de comprobantes oficiales y recibos electrónicos de pago.</p>",
+      };
+    }
+
+    if (/especialidad|servicio|prestacion|prestación|cobertura/i.test(blockUserCorpus)) {
+      const blockTitle = explicitNewTitle || (meta.title && /especialidad|servicio/i.test(meta.title) ? meta.title : "Especialidades y Servicios Destacados");
+      return {
+        title: blockTitle,
+        body: "<p><strong>Áreas de atención:</strong> Consultoría especializada, atención programada y soporte integral continuo.</p><p><strong>Metodología de trabajo:</strong> Enfoque multidisciplinario con tecnología de vanguardia y profesionales de amplia trayectoria.</p><p><strong>Cobertura:</strong> Servicios disponibles tanto en sede central como mediante canales digitales habilitados.</p>",
+      };
+    }
+
+    if (/horario|guardia|atenci[oó]n|dias?|días?/i.test(blockUserCorpus)) {
+      const blockTitle = explicitNewTitle || (meta.title && /horario|guardia|atenci/i.test(meta.title) ? meta.title : "Horarios y Canales de Atención");
+      return {
+        title: blockTitle,
+        body: "<p><strong>Atención presencial:</strong> Lunes a Viernes de 08:00 a 20:00 hs / Sábados de 09:00 a 13:00 hs.</p><p><strong>Canales digitales y guardias:</strong> Asistencia y recepción de consultas a través de canales oficiales 24/7.</p>",
+      };
+    }
+
+    if (/instalacion|instalación|sede|equipamiento|infraestructura/i.test(blockUserCorpus)) {
+      const blockTitle = explicitNewTitle || (meta.title && /instalaci|sede|equip/i.test(meta.title) ? meta.title : "Instalaciones y Equipamiento");
+      return {
+        title: blockTitle,
+        body: "<p><strong>Infraestructura moderna:</strong> Espacios climatizados, áreas adaptadas y equipamiento de última generación.</p><p><strong>Seguridad y confort:</strong> Instalaciones diseñadas bajo rigurosos estándares de seguridad y comodidad.</p>",
+      };
+    }
+
+    // Generic custom block with smart title extraction
+    let customTitle = explicitNewTitle || meta.title || "";
+    if (!customTitle) {
+      const titleMatch = prompt.match(/(?:bloque\s+(?:de\s+)?|secci[oó]n\s+(?:de\s+)?|t[ií]tulo\s+)([^,.;:]+)/i);
+      if (titleMatch && titleMatch[1].trim().length > 3) {
+        customTitle = titleMatch[1].trim().charAt(0).toUpperCase() + titleMatch[1].trim().slice(1);
+      } else {
+        customTitle = "Información Adicional";
+      }
+    }
+
     return {
-      title: `${omitIcons ? "" : "🛡️ "}Score Scout ${scoreNum}/100`,
-      body: `Presencia/reputación 24/25 · Contacto verificable 15/15 · Trayectoria/evidencia operativa 20/20 · Claridad propuesta 15/15 · Transparencia/seguridad 15/15 · Datos Institucionales 10/10\nMadurez: Líder · Vínculo: Oficial · Evidencia: Presencia institucional verificada, canales directos y atención al cliente activa.`,
+      title: customTitle,
+      body: `<p><strong>Detalle de ${customTitle}:</strong> ${prompt.replace(/^(?:creame|crear|armar|generar|hacer|pone)\s+(?:un\s+bloque\s+de\s+|un\s+bloque\s+|bloque\s+de\s+|bloque\s+)?/i, "")}.</p><p><strong>Canales oficiales:</strong> Información verificada y disponible para consultas e informes directos.</p>`,
     };
   }
 
-  if (/faq|preguntas?\s+frecuentes?|dudas?/i.test(pLower)) {
-    return {
-      title: "Preguntas Frecuentes (FAQ)",
-      body: "<p><strong>¿Cómo realizar la inscripción o reserva?</strong><br/>A través de nuestros canales oficiales presenciales o vía plataforma web con asesoramiento personalizado.</p><p><strong>¿Cuáles son los medios de pago habilitados?</strong><br/>Tarjetas de débito/crédito, transferencias bancarias y planes en cuotas según convenios vigentes.</p><p><strong>¿Se requiere coordinación previa?</strong><br/>Recomendamos contactar con anticipación para asegurar disponibilidad y atención preferencial.</p>",
-    };
-  }
-
-  if (/requisito|admisi|inscrip|document/i.test(pLower)) {
-    return {
-      title: "Requisitos de Admisión e Inscripción",
-      body: "<p><strong>Documentación requerida:</strong> Documento de identidad vigente (DNI o Pasaporte), comprobante de domicilio y antecedentes pertinentes según la actividad.</p><p><strong>Modalidad de presentación:</strong> Gestión presencial en sede oficial o carga digital a través de la plataforma web habilitada.</p>",
-    };
-  }
-
-  if (/pago|financi|cuota|tarifa|precio/i.test(pLower)) {
-    return {
-      title: "Medios de Pago y Financiación",
-      body: "<p><strong>Opciones disponibles:</strong> Transferencia bancaria, tarjetas de débito/crédito y planes de pago en cuotas según convenios vigentes.</p><p><strong>Beneficios:</strong> Bonificaciones por pago anticipado y convenios institucionales aplicables.</p>",
-    };
-  }
-
-  if (/especialidad|servicio|prestacion|prestación|cobertura/i.test(pLower)) {
-    return {
-      title: "Especialidades y Servicios Destacados",
-      body: "<p><strong>Áreas de atención:</strong> Consultoría especializada, atención programada y soporte integral continuo.</p><p><strong>Metodología de trabajo:</strong> Enfoque multidisciplinario con tecnología de vanguardia y profesionales de amplia trayectoria.</p>",
-    };
-  }
-
-  if (/horario|guardia|atenci[oó]n|dias?|días?/i.test(pLower)) {
-    return {
-      title: "Horarios y Canales de Atención",
-      body: "<p><strong>Atención presencial:</strong> Lunes a Viernes de 08:00 a 20:00 hs / Sábados de 09:00 a 13:00 hs.</p><p><strong>Canales digitales y guardias:</strong> Asistencia y recepción de consultas a través de canales oficiales 24/7.</p>",
-    };
-  }
-
-  if (/instalacion|instalación|sede|equipamiento|infraestructura/i.test(pLower)) {
-    return {
-      title: "Instalaciones y Equipamiento",
-      body: "<p><strong>Infraestructura moderna:</strong> Espacios climatizados, áreas adaptadas y equipamiento de última generación.</p><p><strong>Seguridad y confort:</strong> Instalaciones diseñadas bajo rigurosos estándares de seguridad y comodidad.</p>",
-    };
-  }
-
-  // Generic custom block with smart title extraction
-  let customTitle = "Información Adicional";
-  const titleMatch = prompt.match(/(?:bloque\s+(?:de\s+)?|secci[oó]n\s+(?:de\s+)?|t[ií]tulo\s+)([^,.;:]+)/i);
-  if (titleMatch && titleMatch[1].trim().length > 3) {
-    customTitle = titleMatch[1].trim().charAt(0).toUpperCase() + titleMatch[1].trim().slice(1);
-  }
-
-  return {
-    title: customTitle,
-    body: `<p><strong>Detalle de ${customTitle}:</strong> ${prompt.replace(/^(?:creame|crear|armar|generar|hacer|pone)\s+(?:un\s+bloque\s+de\s+|un\s+bloque\s+|bloque\s+de\s+|bloque\s+)?/i, "")}.</p><p><strong>Canales oficiales:</strong> Información verificada y disponible para consultas e informes directos.</p>`,
-  };
+  return null;
 }
 
 export async function POST(req: Request) {
@@ -1412,7 +1546,7 @@ export async function POST(req: Request) {
       prompt,
     ].join(" ");
 
-    const omitIcons = checkOmitIcons(prompt, userAllPrompts);
+    const omitIcons = checkOmitIcons(prompt, conversationHistory);
     const forbiddenTerms = extractForbiddenTerms(userAllPrompts, cleanName, publisherName);
 
     const systemPrompt = buildSystemRefinePrompt(
