@@ -9374,9 +9374,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx))
-                            }
+                            onClick={() => {
+                              const blockToDelete = pExtraDescriptions[idx];
+                              const blockTitle = blockToDelete?.title || blockToDelete?.titleI18n?.es || "";
+                              setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx));
+                              if (blockTitle && typeof window !== "undefined") {
+                                try {
+                                  const savedRaw = window.localStorage.getItem("tgn_custom_scraper_blocks");
+                                  if (savedRaw) {
+                                    const list: Array<{ title: string; prompt?: string }> = JSON.parse(savedRaw);
+                                    const filtered = list.filter((b) => b.title?.toLowerCase() !== blockTitle.toLowerCase());
+                                    window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(filtered));
+                                  }
+                                } catch {}
+                              }
+                            }}
                             className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                           >
                             Eliminar
