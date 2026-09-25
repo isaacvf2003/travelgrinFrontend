@@ -1836,53 +1836,155 @@ function extractReviewCountFromText(text: string): string {
 }
 
 /**
- * Builds an authentic Score Scout evaluation block across 6 dimensions with complete 4-language translations.
+ * Builds an authentic, transparent Score Scout evaluation block across 6 dimensions with complete 4-language translations.
+ * Strictly penalizes missing terms, missing privacy policy, missing contact info or low reviews without artificial score inflation.
  */
 function buildScoreScoutBlock(
   title: string,
   startYear: string,
   rating: string,
   allText: string,
-  aiScoutData?: any
+  aiScoutData?: any,
+  url?: string,
+  reviewCount?: string
 ): ExtraDescriptionBlock {
   const detectedRating = extractRatingFromText(allText);
-  const ratingNum = parseFloat(rating || detectedRating || "4.8");
+  const ratingNum = parseFloat(rating || detectedRating || "0");
+  const revCount = parseInt(String(reviewCount || "0").replace(/[^0-9]/g, "") || "0", 10);
   const startYr = parseInt(startYear, 10);
   const currentYr = new Date().getFullYear();
   const hasValidYear = Number.isFinite(startYr) && startYr >= 1800 && startYr <= currentYr;
-  const yearsActive = hasValidYear ? Math.max(1, currentYr - startYr) : 10;
+  const yearsActive = hasValidYear ? Math.max(1, currentYr - startYr) : 0;
 
+  const fullCorpus = `${title} ${url || ""} ${allText}`.toLowerCase();
+
+  const hasHttps = Boolean(url && url.toLowerCase().startsWith("https://")) || /https:\/\//i.test(allText);
+  const hasCustomDomain = !/(?:wixsite|blogspot|wordpress|weebly|jimdo|site123)\.com/i.test(url || "");
+  const hasPrivacyPolicy = /\b(pol[ií]tica\s+de\s+privacidad|privacy\s+policy|protecci[oó]n\s+de\s+datos|cookies|pol[ií]tica\s+de\s+cookies|tratamiento\s+de\s+datos)\b/i.test(allText);
+  const hasTerms = /\b(t[eé]rminos\s+y\s+condiciones|terms\s+(?:of\s+service|and\s+conditions)|bases\s+y\s+condiciones|aviso\s+legal|t[eé]rminos\s+de\s+uso|condiciones\s+generales)\b/i.test(allText);
+  const hasTaxId = /\b(cuit|cuil|c\.u\.i\.t|rut|rfc|cnpj|cif|nif|raz[oó]n\s+social|r\.u\.t)\b/i.test(allText);
   const hasMaps = /google\.[a-z.]+\/maps|maps\.google|maps\.app\.goo\.gl|goo\.gl\/maps/i.test(allText);
   const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(allText);
   const hasPhone = /(?:\+?\d[\d\s().-]{7,}\d|whatsapp|wa\.me)/i.test(allText);
-  const isOfficialEntity = /osep|uba|nacional|publica|pública|estatal|gob|ministerio|tribunales/i.test(`${title} ${allText}`);
+  const hasPhysicalAddress = Boolean(allText && /\b(?:av\.|avenida|calle|ruta|piso|altura|esq\.|boulevard|diagonal|pasaje)\b/i.test(allText));
+  const hasPricingOrFees = /\b(precio|precios|arancel|aranceles|tarifa|tarifas|cuota|cuotas|costo|costos|valor|presupuesto|honorarios|inversi[oó]n)\b/i.test(allText);
+  const hasDetailedServices = allText.length > 800 && /\b(servicio|servicios|especialidad|especialidades|carrera|carreras|tratamiento|tratamientos|producto|productos|guardia|atenci[oó]n)\b/i.test(allText);
+  const isOfficialEntity = /osep|uba|nacional|publica|pública|estatal|gob|ministerio|tribunales|universidad\s+nacional|hospital\s+p[uú]blico/i.test(fullCorpus);
 
-  // Use AI scores if provided, otherwise compute solid realistic scores
-  const p1 = Math.min(25, Math.max(15, Number(aiScoutData?.p1) || (ratingNum >= 4.5 ? 24 : 22)));
-  const p2 = Math.min(15, Math.max(10, Number(aiScoutData?.p2) || ((hasEmail ? 5 : 0) + (hasPhone ? 5 : 0) + (hasMaps ? 4 : 2))));
-  const p3 = Math.min(20, Math.max(12, Number(aiScoutData?.p3) || (yearsActive >= 25 ? 20 : yearsActive >= 10 ? 18 : 15)));
-  const p4 = Math.min(15, Math.max(10, Number(aiScoutData?.p4) || 14));
-  const p5 = Math.min(15, Math.max(10, Number(aiScoutData?.p5) || 14));
-  const p6 = Math.min(10, Math.max(6, Number(aiScoutData?.p6) || (isOfficialEntity || hasValidYear ? 9 : 8)));
+  // Parse AI subscores if provided by Gemini / OpenAI
+  const parseSubscore = (val: any, max: number): number | null => {
+    if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
+      return Math.min(max, Math.max(0, Math.round(Number(val))));
+    }
+    return null;
+  };
 
-  const totalScore = Math.min(100, p1 + p2 + p3 + p4 + p5 + p6);
+  const aiP1 = parseSubscore(aiScoutData?.p1, 25);
+  const aiP2 = parseSubscore(aiScoutData?.p2, 15);
+  const aiP3 = parseSubscore(aiScoutData?.p3, 20);
+  const aiP4 = parseSubscore(aiScoutData?.p4, 15);
+  const aiP5 = parseSubscore(aiScoutData?.p5, 15);
+  const aiP6 = parseSubscore(aiScoutData?.p6, 10);
 
-  const madurez = aiScoutData?.maturity || (yearsActive >= 20 || isOfficialEntity ? "Líder" : "Consolidado");
-  const vinculo = aiScoutData?.relationship || (isOfficialEntity ? "Oficial" : "Directo");
+  // Grounded calculation for P1 (Presencia y reputación, 0 to 25)
+  let calcP1: number;
+  if (ratingNum >= 4.7) calcP1 = 15;
+  else if (ratingNum >= 4.3) calcP1 = 13;
+  else if (ratingNum >= 4.0) calcP1 = 11;
+  else if (ratingNum >= 3.5) calcP1 = 8;
+  else if (ratingNum >= 3.0) calcP1 = 5;
+  else if (ratingNum > 0) calcP1 = 3;
+  else calcP1 = hasMaps ? 7 : 4;
 
-  const madurezEn = madurez === "Líder" ? "Leader" : madurez === "Consolidado" ? "Established" : madurez === "En desarrollo" ? "Developing" : "Initial";
+  if (revCount >= 500) calcP1 += 9;
+  else if (revCount >= 100) calcP1 += 7;
+  else if (revCount >= 20) calcP1 += 5;
+  else if (revCount > 0) calcP1 += 3;
+  else if (hasMaps) calcP1 += 2;
+  else calcP1 += 1;
+
+  if (isOfficialEntity) calcP1 += 1;
+  calcP1 = Math.min(25, Math.max(2, calcP1));
+
+  // Grounded calculation for P2 (Contacto verificable, 0 to 15)
+  let calcP2 = (hasEmail ? 4 : 0) + (hasPhone ? 4 : 0) + (hasMaps ? 4 : hasPhysicalAddress ? 2 : 0) + (allText.length > 800 ? 3 : 1);
+  calcP2 = Math.min(15, Math.max(1, calcP2));
+
+  // Grounded calculation for P3 (Trayectoria / Madurez operativa, 0 to 20)
+  let calcP3: number;
+  if (yearsActive >= 50) calcP3 = 20;
+  else if (yearsActive >= 25) calcP3 = 18;
+  else if (yearsActive >= 15) calcP3 = 15;
+  else if (yearsActive >= 8) calcP3 = 12;
+  else if (yearsActive >= 3) calcP3 = 8;
+  else if (yearsActive > 0) calcP3 = 5;
+  else calcP3 = isOfficialEntity ? 16 : 7;
+  calcP3 = Math.min(20, Math.max(2, calcP3));
+
+  // Grounded calculation for P4 (Claridad de la propuesta, 0 to 15)
+  let calcP4 = (hasDetailedServices ? 6 : 2) + (hasPricingOrFees ? 5 : 2) + (allText.length > 1000 ? 4 : 2);
+  calcP4 = Math.min(15, Math.max(2, calcP4));
+
+  // Grounded calculation for P5 (Transparencia, Riesgo Legal y Privacidad, 0 to 15)
+  // Strictly penalize lack of terms or privacy policy!
+  let calcP5 = (hasTerms ? 5 : 1) + (hasPrivacyPolicy ? 5 : 1) + (hasTaxId ? 5 : 1);
+  calcP5 = Math.min(15, Math.max(2, calcP5));
+
+  // Grounded calculation for P6 (Datos Institucionales & Seguridad Técnica, 0 to 10)
+  let calcP6 = (hasHttps ? 4 : 1) + (hasCustomDomain ? 3 : 1) + (isOfficialEntity || hasValidYear ? 3 : 2);
+  calcP6 = Math.min(10, Math.max(2, calcP6));
+
+  const p1 = aiP1 !== null ? aiP1 : calcP1;
+  const p2 = aiP2 !== null ? aiP2 : calcP2;
+  const p3 = aiP3 !== null ? aiP3 : calcP3;
+  const p4 = aiP4 !== null ? aiP4 : calcP4;
+  const p5 = aiP5 !== null ? aiP5 : calcP5;
+  const p6 = aiP6 !== null ? aiP6 : calcP6;
+
+  const totalScore = Math.min(100, Math.max(1, p1 + p2 + p3 + p4 + p5 + p6));
+
+  // Transparent maturity classification based on real totalScore
+  let madurez: string;
+  if (totalScore >= 85) madurez = "Líder";
+  else if (totalScore >= 70) madurez = "Consolidado";
+  else if (totalScore >= 50) madurez = "En desarrollo";
+  else madurez = "Básico / Observado";
+
+  if (aiScoutData?.maturity && typeof aiScoutData.maturity === "string" && aiScoutData.maturity.trim()) {
+    const aiMat = aiScoutData.maturity.trim();
+    if (/l[ií]der/i.test(aiMat) && totalScore >= 75) madurez = "Líder";
+    else if (/consolid/i.test(aiMat)) madurez = "Consolidado";
+    else if (/desarrollo|observa/i.test(aiMat)) madurez = "En desarrollo";
+    else if (/b[aá]sic|inic/i.test(aiMat)) madurez = "Básico / Observado";
+  }
+
+  const vinculo = isOfficialEntity || aiScoutData?.relationship === "Oficial" ? "Oficial" : "Directo";
+
+  const madurezEn = madurez === "Líder" ? "Leader" : madurez === "Consolidado" ? "Established" : madurez === "En desarrollo" ? "Developing" : "Initial / Observed";
   const vinculoEn = vinculo === "Oficial" ? "Official" : "Direct";
 
-  const madurezPt = madurez === "Líder" ? "Líder" : madurez === "Consolidado" ? "Consolidado" : madurez === "En desarrollo" ? "Em desenvolvimento" : "Inicial";
+  const madurezPt = madurez === "Líder" ? "Líder" : madurez === "Consolidado" ? "Consolidado" : madurez === "En desarrollo" ? "Em desenvolvimento" : "Inicial / Observado";
   const vinculoPt = vinculo === "Oficial" ? "Oficial" : "Direto";
 
-  const madurezIt = madurez === "Líder" ? "Leader" : madurez === "Consolidado" ? "Consolidato" : madurez === "En desarrollo" ? "In sviluppo" : "Iniziale";
+  const madurezIt = madurez === "Líder" ? "Leader" : madurez === "Consolidado" ? "Consolidato" : madurez === "En desarrollo" ? "In sviluppo" : "Iniziale / Osservato";
   const vinculoIt = vinculo === "Oficial" ? "Ufficiale" : "Diretto";
 
-  const evidenceEs = hasMaps && (hasEmail || hasPhone) ? "Canales oficiales verificados, mapa de ubicación y datos de contacto activos" : "Presencia institucional y canales de contacto informados";
-  const evidenceEn = hasMaps && (hasEmail || hasPhone) ? "Verified official channels, location map, and active contact details" : "Institutional presence and published contact channels";
-  const evidencePt = hasMaps && (hasEmail || hasPhone) ? "Canais oficiais verificados, mapa de localização e dados de contato ativos" : "Presença institucional e canais de contato informados";
-  const evidenceIt = hasMaps && (hasEmail || hasPhone) ? "Canali ufficiali verificati, mappa di localizzazione e contatti attivi" : "Presenza istituzionale e canali di contatto comunicati";
+  let evidenceEs = "Presencia institucional y canales de contacto informados";
+  let evidenceEn = "Institutional presence and published contact channels";
+  let evidencePt = "Presença institucional e canais informados";
+  let evidenceIt = "Presenza istituzionale e canali informati";
+
+  if (!hasPrivacyPolicy && !hasTerms) {
+    evidenceEs = "Presencia institucional y canales informados con observaciones en políticas de privacidad o términos";
+    evidenceEn = "Institutional presence and published channels with observations on privacy policies or terms";
+    evidencePt = "Presença institucional e canais informados com observações sobre políticas de privacidade ou termos";
+    evidenceIt = "Presenza istituzionale e canali informati con osservazioni sulle politiche sulla privacy o termini";
+  } else if (hasMaps && (hasEmail || hasPhone)) {
+    evidenceEs = "Canales oficiales verificados, mapa de ubicación y datos de contacto activos";
+    evidenceEn = "Verified official channels, location map, and active contact details";
+    evidencePt = "Canais oficiais verificados, mapa de localização e dados de contato ativos";
+    evidenceIt = "Canali ufficiali verificati, mappa di localizzazione e contatti attivi";
+  }
 
   const bodyEs = `<p>Presencia/reputación ${p1}/25 · Contacto verificable ${p2}/15 · Trayectoria/evidencia operativa ${p3}/20 · Claridad propuesta ${p4}/15 · Transparencia/seguridad ${p5}/15 · Datos institucionales ${p6}/10<br>Madurez: ${madurez} - Vínculo: ${vinculo} - Evidencia: ${evidenceEs}.</p>`;
   const bodyEn = `<p>Reputation/presence ${p1}/25 · Verifiable contact ${p2}/15 · Track record/operational evidence ${p3}/20 · Proposal clarity ${p4}/15 · Safety/transparency ${p5}/15 · Institutional data ${p6}/10<br>Maturity: ${madurezEn} - Relationship: ${vinculoEn} - Evidence: ${evidenceEn}.</p>`;
@@ -2690,7 +2792,15 @@ async function createFallbackPublication(extractedData: any, taxonomies?: any, c
     extractedData.detectedCommentsUrl ||
     buildGoogleMapsUrl(`${titleClean}, ${primaryHq.city}, ${primaryHq.country}`);
 
-  const scoreBlock = buildScoreScoutBlock(titleClean, startYear, finalRating, allText);
+  const scoreBlock = buildScoreScoutBlock(
+    titleClean,
+    startYear,
+    finalRating,
+    allText,
+    undefined,
+    extractedData.url,
+    finalReviewCount
+  );
   const descriptions = await buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country);
 
   const fallbackExtraDescriptions: ExtraDescriptionBlock[] = [scoreBlock];
@@ -2968,17 +3078,23 @@ OBLIGATORIO Y ESTRICTO:
 - 'descriptionI18n.it': Traduce la descripción exacta anterior al Italiano (con 'Validità:', 'Proposta di valor:', 'Per chi?:', 'Documentazione richiesta:', 'Permanenza:', 'Differenziale:', 'Esclusioni:').
 NUNCA dejes las traducciones vacías, ni iguales al español, ni uses textos genéricos diferentes a lo descrito en 'es'.
 
-3. AUDITORÍA DEL SCORE SCOUT (0 a 100 PUNTOS):
-Audita la entidad en 6 dimensiones reales:
-- Presencia y reputación institucional: p1 (0 a 25 puntos)
-- Canales de contacto verificables (teléfono, email, whatsapp, maps): p2 (0 a 15 puntos)
-- Trayectoria y madurez operativa (años de actividad o fundación): p3 (0 a 20 puntos)
-- Claridad de la propuesta en su sitio web: p4 (0 a 15 puntos)
-- Transparencia y seguridad: p5 (0 a 15 puntos)
-- Datos institucionales y acreditación: p6 (0 a 10 puntos)
-Suma = totalScore (0 a 100).
-Madurez: "Líder", "Consolidado", "En desarrollo" o "Inicial".
+3. AUDITORÍA DEL SCORE SCOUT TRANSPARENTE Y REALISTA (0 a 100 PUNTOS):
+REGLA CRÍTICA Y MANDATORIA: Sé 100% transparente y riguroso en la auditoría. NUNCA infles los puntajes artificialmente. Si un sitio web carece de aspectos legales, términos o seguridad, penalízalo con firmeza:
+- Presencia y reputación institucional: p1 (0 a 25 puntos). Evalúa la valoración promedio de Google Maps (0-5), volumen de reseñas y presencia en redes sociales.
+- Canales de contacto verificables: p2 (0 a 15 puntos). Evalúa si cuenta con teléfono/WhatsApp (+4), email corporativo (+4), mapa/dirección (+4) y canales directos (+3). Si falta alguno, descuenta puntos.
+- Trayectoria y madurez operativa: p3 (0 a 20 puntos). Evalúa los años reales de actividad o año de fundación (>50 años: 19-20, >25 años: 17-18, >10 años: 14-16, <3 años: 4-8).
+- Claridad de la propuesta en su sitio web: p4 (0 a 15 puntos). Evalúa si los servicios, especialidades, aranceles y horarios están detallados y transparentes.
+- Transparencia, seguridad legal y privacidad: p5 (0 a 15 puntos). OBLIGATORIO: Revisa si el sitio web tiene páginas públicas de 'Términos y Condiciones', 'Política de Privacidad/Cookies' y CUIT/Razón Social visible. SI LA WEB CARECE DE TÉRMINOS O POLÍTICA DE PRIVACIDAD, este puntaje DEBE SER de 2 a 6 de 15 puntos (riesgo legal/privacidad observado). Si tiene todas las políticas legales y CUIT, califica 12 a 15.
+- Datos institucionales y seguridad técnica: p6 (0 a 10 puntos). Evalúa HTTPS con certificado válido (+5), dominio oficial propio (+3) y acreditaciones (+2).
+
+Suma totalScore = p1 + p2 + p3 + p4 + p5 + p6 (puede ser naturalmente 48, 58, 68, 74, 85, etc.).
+Madurez:
+- "Líder" (si totalScore >= 85)
+- "Consolidado" (si totalScore entre 70 y 84)
+- "En desarrollo" (si totalScore entre 50 y 69)
+- "Básico / Observado" (si totalScore < 50)
 Vínculo: "Oficial" (si es organismo estatal/público) o "Directo".
+evidenceSummary: Resumen honesto de la evidencia (ej: "Presencia institucional y canales informados con observaciones en políticas de privacidad o términos.").
 Genera dentro de 'extraDescriptions' el bloque del Score Scout con 'visibleInCard': true y textos en es, en, pt, it.
 
 4. DESCRIPCIONES OPCIONALES ADICIONALES:
@@ -3226,13 +3342,37 @@ async function formatPublicationResult(parsed: any, extractedData: any, taxonomi
     finalDescIt = normalizeToItalianDescriptionHeaders(finalDescIt);
   }
 
+  const detectedRating = extractedData.detectedRating || extractRatingFromText(`${extractedData.description || ""} ${extractedData.textContent || ""}`);
+  const detectedReviewCount = extractedData.detectedReviewCount || extractReviewCountFromText(`${extractedData.description || ""} ${extractedData.textContent || ""}`);
+
+  // Rating: if verified detectedRating (from known map, schema, or verified HTML/Maps), use it first! Else if AI provided valid rating, use it; else if Score Scout total score exists, calculate; else "4.5"
+  let finalRating = "4.5";
+  if (detectedRating && !isNaN(parseFloat(detectedRating)) && parseFloat(detectedRating) > 0) {
+    finalRating = Math.min(5, Math.max(1, parseFloat(detectedRating))).toFixed(1);
+  } else if (parsed.providerRating && !isNaN(parseFloat(parsed.providerRating)) && parseFloat(parsed.providerRating) > 0) {
+    finalRating = Math.min(5, Math.max(1, parseFloat(parsed.providerRating))).toFixed(1);
+  } else if (parsed.scoreScout?.totalScore) {
+    finalRating = Math.min(5, Math.max(1, Number(parsed.scoreScout.totalScore) / 20)).toFixed(1);
+  }
+
+  // Review count: if verified detectedReviewCount (from known map or verified HTML/Maps), use it first! Else if AI provided review count, use it; STRICTLY "0" if none found!
+  let finalReviewCount = "0";
+  if (detectedReviewCount && String(detectedReviewCount).trim() !== "" && String(detectedReviewCount).trim() !== "0") {
+    finalReviewCount = String(detectedReviewCount).replace(/[^0-9]/g, "") || "0";
+  } else if (parsed.providerReviewCount !== undefined && parsed.providerReviewCount !== null && String(parsed.providerReviewCount).trim() !== "") {
+    const rawCount = String(parsed.providerReviewCount).replace(/[^0-9]/g, "");
+    finalReviewCount = rawCount ? rawCount : "0";
+  }
+
   // Score Scout Block resolution
   const scoreBlock = buildScoreScoutBlock(
     publisherName || title,
     startYear,
-    parsed.providerRating || "4.8",
+    finalRating,
     allText,
-    parsed.scoreScout
+    parsed.scoreScout,
+    extractedData.url,
+    finalReviewCount
   );
 
   const formattedExtraDescriptions: ExtraDescriptionBlock[] = [scoreBlock];
@@ -3309,28 +3449,6 @@ async function formatPublicationResult(parsed: any, extractedData: any, taxonomi
         pt: `Instituição e provedor de servicios em ${primaryHq.city}.`,
         it: `Istituzione e fornitore di servicios a ${primaryHq.city}.`,
       };
-
-  const detectedRating = extractedData.detectedRating || extractRatingFromText(`${extractedData.description || ""} ${extractedData.textContent || ""}`);
-  const detectedReviewCount = extractedData.detectedReviewCount || extractReviewCountFromText(`${extractedData.description || ""} ${extractedData.textContent || ""}`);
-
-  // Rating: if verified detectedRating (from known map, schema, or verified HTML/Maps), use it first! Else if AI provided valid rating, use it; else if Score Scout total score exists, calculate; else "4.5"
-  let finalRating = "4.5";
-  if (detectedRating && !isNaN(parseFloat(detectedRating)) && parseFloat(detectedRating) > 0) {
-    finalRating = Math.min(5, Math.max(1, parseFloat(detectedRating))).toFixed(1);
-  } else if (parsed.providerRating && !isNaN(parseFloat(parsed.providerRating)) && parseFloat(parsed.providerRating) > 0) {
-    finalRating = Math.min(5, Math.max(1, parseFloat(parsed.providerRating))).toFixed(1);
-  } else if (parsed.scoreScout?.totalScore) {
-    finalRating = Math.min(5, Math.max(1, Number(parsed.scoreScout.totalScore) / 20)).toFixed(1);
-  }
-
-  // Review count: if verified detectedReviewCount (from known map or verified HTML/Maps), use it first! Else if AI provided review count, use it; STRICTLY "0" if none found!
-  let finalReviewCount = "0";
-  if (detectedReviewCount && String(detectedReviewCount).trim() !== "" && String(detectedReviewCount).trim() !== "0") {
-    finalReviewCount = String(detectedReviewCount).replace(/[^0-9]/g, "") || "0";
-  } else if (parsed.providerReviewCount !== undefined && parsed.providerReviewCount !== null && String(parsed.providerReviewCount).trim() !== "") {
-    const rawCount = String(parsed.providerReviewCount).replace(/[^0-9]/g, "");
-    finalReviewCount = rawCount ? rawCount : "0";
-  }
 
   // Comments URL: if Google Maps link is provided, use it. Otherwise build Google Maps search query URL
   let finalCommentsUrl = parsed.providerCommentsUrl || extractedData.detectedCommentsUrl || "";

@@ -438,41 +438,48 @@ function buildSystemRefinePrompt(
     : "";
 
   return `
-Eres el Asistente de IA y Lead Copywriter Creativo Senior de Travelgrin (actúas con total libertad, inteligencia y flexibilidad, exactamente como ChatGPT Plus o Gemini Advanced).
+Eres el Asistente de Inteligencia Artificial y Lead Copywriter Creativo Supremo de Travelgrin (actúas con total libertad, inteligencia y flexibilidad, exactamente como ChatGPT Plus o Gemini Advanced).
 
-🎯 TU MISIÓN:
-Comprender a la perfección lo que el usuario pide en su instrucción y generar la MEJOR propuesta posible (con impacto, elegancia, persuasión, variedad estructural y excelente SEO).
-- Si hay información investigada de la web o un texto previo de scraping en "TEXTO BASE ACTUAL", UTILÍZALA como fuente de la verdad para describir con precisión qué es el lugar/negocio, qué ofrece, qué servicios o carreras tiene y cuáles son sus diferenciales.
+🎯 TU MISIÓN FUNDAMENTAL:
+Comprender a la perfección lo que el usuario pide en su instrucción, sin importar qué tan loca, creativa, resumida, extensa, con errores ortográficos (ej. 'pregunats', 'iciono', 'descipcion', 'haslo', 'kiero', 'preecios') o informal ('broh', 'ponele', 'hacelo', 'sacale', 'dejame') sea su solicitud.
+
+💡 LIBERTAD TOTAL Y CERO LIMITACIONES:
+- NO estás atado a moldes rígidos. Si el usuario pide un formato particular (historia, resumen ejecutivo, sólo quiénes son, servicio por servicio, marketing persuasivo, institucional serio, tabla comparativa, lista directa), CRÉALO a la perfección.
+- Si hay información investigada de la web o un texto previo de scraping en "TEXTO BASE ACTUAL", UTILÍZALA como fuente de la verdad para describir con precisión qué es el lugar/negocio, qué ofrece, qué servicios, especialidades o carreras tiene y cuáles son sus diferenciales.
 - Si el administrador te da indicaciones desde cero, redacta una propuesta basada exactamente en sus requerimientos.
 
-⚠️ REGLAS MANDATORIAS DE PRIORIDAD MÁXIMA:
+⚠️ REGLAS Y RESTRICCIONES SOLICITADAS POR EL USUARIO:
 1. ENFOQUE PUNTUAL Y QUIÉNES SON:
    - Si el administrador pide "solo hable de quienes son", "lo más puntual", "quiénes somos", "qué es el lugar" o similar:
      Enfócate EXCLUSIVAMENTE en presentar de forma clara, directa y profesional qué es la institución/empresa, qué trayectoria y especialidades tiene y cuál es su rol.
      OMITE precios, vigencias y frases publicitarias huecas ("Una experiencia para superar tus expectativas...").
 
 2. CONTROL DE ICONOS Y EMOJIS:
-   - Si el administrador pide "sin icono", "sin iconos", "sin emojis", "sacale los iconos", "no uses iconos", o similar:
+   - Si el administrador pide "sin icono", "sin iconos", "sin emojis", "sin iciono", "sacale los iconos", "no uses iconos", o similar:
      ¡PROHIBIDO TOTALMENTE INCLUIR CUALQUIER EMOJI O ICONO (como 🚀, 🎓, ✨, ⭐, 💡, 💎, 🏆, etc.)! Usa títulos en negrita limpios y viñetas estándar (• o -). No acortes el contenido salvo que expresamente haya pedido acortarlo.
    - Si el administrador pide "con iconos", "con emojis", o una propuesta comercial llamativa:
      Usa emojis modernos y bien elegidos.
 
-3. CONTROL DE LONGITUD (CORTO / LARGO):
+3. PRECIOS Y VIGENCIAS:
+   - Si el administrador pide "sin precio", "sacale los precios", "no precios", "sin costo" o "sin vigencia":
+     Elimina de inmediato esas líneas y concéntrate en el contenido sustancial.
+
+4. CONTROL DE LONGITUD (CORTO / LARGO):
    - Si el administrador pide "corta", "corto", "breve", "conciso", "resumido", "puntual", "en pocas palabras":
      ¡GENERA UN TEXTO ULTRA-BREVE Y DIRECTO! Máximo 1 a 2 párrafos cortos o 1 párrafo de presentación + 2 viñetas concisas.
-   - Si el administrador pide "hacelo más largo", "más extenso", "con más detalle", "más completo":
-     Desarrolla una propuesta amplia, completa y persuasiva.
+   - Si el administrador pide "hacelo más largo", "más extenso", "con más detalle", "explicando servicio por servicio", "más completo":
+     Desarrolla una propuesta amplia, completa, estructurada y persuasiva.
 
-4. REGLA DE NO REPETIR SIEMPRE EL MISMO MOLDE (VARIEDAD Y FRESCURA):
+5. REGLA DE VARIEDAD Y FRESCURA:
    - NO uses plantillas rígidas ni repitas siempre la misma frase introductoria.
-   - NUNCA uses etiquetas burocráticas como "¿Para quién?:", "Documentación requerida:", "Permanencia:".
+   - NUNCA uses etiquetas burocráticas como "¿Para quién?:", "Documentación requerida:", "Permanencia:" salvo que el usuario expresamente lo solicite.
 
-5. BLOQUES EXTRA Y FAQ CON CANTIDADES SOLICITADAS:
+6. BLOQUES EXTRA Y FAQ CON CANTIDADES SOLICITADAS:
    - Si se trata de un bloque (extra_block o new_extra_block) y el usuario pide una cantidad específica (ej. "haz que sean 10 preguntas", "agregá 5 items"):
      GENERA EXACTAMENTE la cantidad de items o preguntas solicitadas completas (ej. 10 preguntas y respuestas completas en HTML).
      MANTÉN el título correspondiente (ej. "Preguntas Frecuentes (FAQ)", "Metodología y Proceso de Trabajo") y NUNCA uses el nombre de la institución como título del bloque.
 
-6. AJUSTES Y SEGUIMIENTO:
+7. AJUSTES Y SEGUIMIENTO:
    - Si el historial indica un ajuste o refinamiento a la propuesta previa:
      ¡Prioriza 100% la indicación más reciente del usuario y aplícala sobre el contenido!
 
@@ -1071,17 +1078,20 @@ function generateSemanticAiFallback(
     }
 
     const isWhoWeAre = /\b(?:qui[eé]nes?\s+son|qui[eé]nes?\s+somos|qui[eé]n\s+es|de\s+qui[eé]nes?\s+son|acerca\s+de|sobre\s+la\s+instituci[oó]n|sobre\s+la\s+empresa|s[oó]lo\s+hable\s+de|s[oó]lo\s+nombre\s+de|presentaci[oó]n\s+institucional|lo\s+m[aá]s\s+puntual|puntual|sin\s+relleno|al\s+grano)\b/i.test(userPrompts);
+    const isStory = /\b(?:historia|trayectoria|origen|inicios|como\s+naci[oó]|fundaci[oó]n|fundada|cu[eé]ntame\s+la\s+historia|contame\s+la\s+historia|relato|recorrido\s+hist[oó]rico)\b/i.test(userPrompts);
+    const isExecutiveSummary = /\b(?:resumen\s+ejecutivo|informe\s+ejecutivo|executive\s+summary|s[ií]ntesis\s+directiva|evaluaci[oó]n\s+general|auditor[ií]a\s+general)\b/i.test(userPrompts);
+    const isServicesDetailed = /\b(?:servicio\s+por\s+servicio|cada\s+servicio|todas?\s+las?\s+especialidades|explicame\s+los\s+servicios|detalle\s+de\s+servicios|prestaciones|servicios\s+que\s+tienen|qu[eé]\s+servicios|hacelo\s+m[aá]s\s+larg[oa]|hazlo\s+m[aá]s\s+larg[oa]|bien\s+larg[oa]|bien\s+desarrollad[oa]|extens[oa]|ampli[oa]|con\s+mucho\s+detalle)\b/i.test(userPrompts);
 
     // Dynamic price / vigencia lines
     let priceLine = "";
-    if (!isWhoWeAre && (explicitlyWantsPrice || (facts.price && !omitPrice && !omitIcons && !isShort))) {
+    if (!isWhoWeAre && !isStory && !isExecutiveSummary && (explicitlyWantsPrice || (facts.price && !omitPrice && !omitIcons && !isShort))) {
       priceLine = isFree ? "<strong>Precio:</strong> Actividad 100% gratuita / Acceso libre." : `<strong>Precio:</strong> ${facts.price || "A consultar según aranceles o tarifas vigentes."}`;
-    } else if (isFree && !isWhoWeAre) {
+    } else if (isFree && !isWhoWeAre && !isStory && !isExecutiveSummary) {
       priceLine = "<strong>Precio:</strong> Actividad 100% gratuita / Acceso libre.";
     }
 
     let vigenciaLine = "";
-    if (!isWhoWeAre && (explicitlyWantsVigencia || (facts.vigencia && !omitVigencia && !isShort))) {
+    if (!isWhoWeAre && !isStory && !isExecutiveSummary && (explicitlyWantsVigencia || (facts.vigencia && !omitVigencia && !isShort))) {
       vigenciaLine = `<strong>Vigencia:</strong> ${facts.vigencia || "Activo; información verificada en canales oficiales."}`;
     }
 
@@ -1111,6 +1121,63 @@ function generateSemanticAiFallback(
         : `Organización líder en su rubro${locStr}, respaldada por trayectoria verificada, calidad en sus prestaciones y atención personalizada.`;
     }
     rawValueProp = rawValueProp.replace(/\.\s*$/, "").trim();
+
+    // 0. SPECIAL: STORY & HISTORICAL ORIGIN
+    if (isStory) {
+      const storyTitle = cleanName ? `<strong>Historia y Trayectoria de ${cleanName}</strong>` : "<strong>Historia y Trayectoria Institucional</strong>";
+      const storyContent = [
+        `<p>${omitIcons ? "" : "📜 "}${storyTitle}: Con décadas de dedicación ininterrumpida y un compromiso inquebrantable con la comunidad${locStr}, la institución ha consolidado un legado de excelencia, innovación y servicio.</p>`,
+        `<p>${omitIcons ? "" : "🏛️ "}<strong>Evolución y Logros:</strong> A lo largo de su trayectoria, ha incorporado equipamiento de alta complejidad, cuerpos profesionales de primera línea y metodologías modernas orientadas a brindar la máxima calidad de atención.</p>`,
+        `<p>${omitIcons ? "" : "⭐ "}<strong>Compromiso y Actualidad:</strong> Hoy continúa liderando su rubro combinando calidez humana, rigurosidad técnica y constante superación en beneficio de usuarios y profesionales.</p>`,
+        `<p>${omitIcons ? "" : "📍 "}<strong>Presencia Oficial:</strong> Sede principal y canales de contacto informados y activos para atención y consultas.</p>`
+      ].join("\n");
+      return { description: omitIcons ? stripEmojisAndIcons(storyContent) : storyContent };
+    }
+
+    // 0.1 SPECIAL: EXECUTIVE SUMMARY
+    if (isExecutiveSummary) {
+      const summaryHeading = cleanName ? `<strong>Resumen Ejecutivo: ${cleanName}</strong>` : "<strong>Resumen Ejecutivo</strong>";
+      const execContent = [
+        `<p>${omitIcons ? "" : "📊 "}${summaryHeading}: ${rawValueProp}.</p>`,
+        `<p>${omitIcons ? "" : "🎯 "}<strong>Capacidades Operativas Clave:</strong> Estructura profesional interdisciplinaria, procesos certificados y capacidad de respuesta integral en ${cityStr || "la región"}.</p>`,
+        `<p>${omitIcons ? "" : "🛡️ "}<strong>Estándares de Calidad y Seguridad:</strong> Riguroso apego normativo, respaldo institucional continuo y auditoría de procesos verificada.</p>`,
+        `<p>${omitIcons ? "" : "📞 "}<strong>Vías de Acceso y Coordinación:</strong> Canales oficiales directos para información, turnos, aranceles y gestiones administrativas.</p>`
+      ].join("\n");
+      return { description: omitIcons ? stripEmojisAndIcons(execContent) : execContent };
+    }
+
+    // 0.2 SPECIAL: DETAILED SERVICE-BY-SERVICE BREAKDOWN
+    if (isServicesDetailed) {
+      const servicesTitle = isHealth ? "Especialidades y Servicios Médicos Integrales"
+        : isEducation ? "Oferta Académica y Programas de Formación"
+        : isSports ? "Disciplinas, Actividades y Entrenamiento"
+        : "Servicios y Soluciones Especializadas";
+
+      const s1 = isHealth ? "<strong>Atención Médica y Consultorios de Especialidad:</strong> Cobertura integral en clínica, cardiología, traumatología, pediatría y especialidades quirúrgicas."
+        : isEducation ? "<strong>Carreras de Grado y Posgrados Oficiales:</strong> Planes de estudio modernos con validez ministerial y alta salida laboral."
+        : isSports ? "<strong>Musculación y Clases Guiadas:</strong> Equipamiento biomecánico de última generación y seguimiento con profesores de educación física."
+        : "<strong>Consultoría y Soluciones Integrales:</strong> Prestaciones diseñadas a medida de cada requerimiento con estándares certificados.";
+
+      const s2 = isHealth ? "<strong>Guardia de Emergencias e Internación 24hs:</strong> Servicio continuo para la atención de urgencias y cuidados intensivos con tecnología médica de punta."
+        : isEducation ? "<strong>Campus Virtual y Cursado Híbrido:</strong> Plataforma digital 24/7 con recursos multimedia interactivos y tutoría docente permanente."
+        : isSports ? "<strong>Actividades Grupales y Canchas:</strong> Amplia grilla horaria con disciplinas recreativas y competitivas para todas las edades."
+        : "<strong>Metodología de Trabajo Comprobada:</strong> Procesos rigurosos, cumplimiento estricto de plazos y atención personalizada.";
+
+      const s3 = isHealth ? "<strong>Diagnóstico por Imágenes y Laboratorio:</strong> Equipamiento de alta resolución para estudios precisos y entrega ágil de resultados."
+        : isEducation ? "<strong>Pasantías y Vinculación Profesional:</strong> Convenios institucionales con empresas líderes para inserción laboral efectiva."
+        : isSports ? "<strong>Instalaciones y Confort:</strong> Vestuarios climatizados, lockers de seguridad y estacionamiento vigilado."
+        : "<strong>Garantía de Satisfacción y Respaldo:</strong> Soporte post-servicio continuo y transparencia total en cotizaciones.";
+
+      const detailedContent = [
+        priceLine ? `<p>${priceLine}</p>` : "",
+        `<p>${omitIcons ? "" : "💡 "}<strong>Presentación:</strong> ${rawValueProp}.</p>`,
+        `<p>${omitIcons ? "" : "🏥 "}<strong>${servicesTitle}:</strong><br/>• ${s1}<br/>• ${s2}<br/>• ${s3}</p>`,
+        `<p>${omitIcons ? "" : "⭐ "}<strong>Diferencial Institucional:</strong> ${facts.diff || "Años de trayectoria, cuerpo profesional de primer nivel y compromiso constante con la calidad."}</p>`,
+        `<p>${omitIcons ? "" : "📍 "}<strong>Ubicación y Canales:</strong> Atención presencial y digital a través de canales habilitados${locStr}.</p>`
+      ].filter(Boolean).join("\n");
+
+      return { description: omitIcons ? stripEmojisAndIcons(detailedContent) : detailedContent };
+    }
 
     // 0. SPECIAL: WHO WE ARE / PUNCTUAL INSTITUTIONAL SYNTHESIS
     if (isWhoWeAre) {
@@ -1399,11 +1466,26 @@ function generateSemanticAiFallback(
     }
 
     if (/score|scout|puntaje|auditor|madurez/i.test(blockUserCorpus)) {
-      const scoreMatch = blockUserCorpus.match(/\b(9\d|8\d|7\d|100)\b/);
-      const scoreNum = scoreMatch ? scoreMatch[1] : "95";
+      const scoreMatch = blockUserCorpus.match(/\b(100|[1-9]\d|\d)\b/);
+      const targetScore = scoreMatch ? Math.min(100, Math.max(10, parseInt(scoreMatch[1], 10))) : 68;
+
+      const p1 = Math.min(25, Math.max(2, Math.round(targetScore * 0.25)));
+      const p2 = Math.min(15, Math.max(1, Math.round(targetScore * 0.15)));
+      const p3 = Math.min(20, Math.max(2, Math.round(targetScore * 0.20)));
+      const p4 = Math.min(15, Math.max(2, Math.round(targetScore * 0.15)));
+      const p5 = Math.min(15, Math.max(2, Math.round(targetScore * 0.15)));
+      const p6 = Math.min(10, Math.max(1, targetScore - (p1 + p2 + p3 + p4 + p5)));
+
+      const realTotal = Math.min(100, p1 + p2 + p3 + p4 + p5 + p6);
+      const mad = realTotal >= 85 ? "Líder" : realTotal >= 70 ? "Consolidado" : realTotal >= 50 ? "En desarrollo" : "Básico / Observado";
+      const vin = /oficial/i.test(blockUserCorpus) ? "Oficial" : "Directo";
+      const evi = realTotal < 75
+        ? "Presencia institucional y canales informados con observaciones en políticas de privacidad o términos"
+        : "Canales oficiales verificados, mapa de ubicación y datos de contacto activos";
+
       return {
-        title: explicitNewTitle || meta.title || `${omitIcons ? "" : "🛡️ "}Score Scout ${scoreNum}/100`,
-        body: `Presencia/reputación 24/25 · Contacto verificable 15/15 · Trayectoria/evidencia operativa 20/20 · Claridad propuesta 15/15 · Transparencia/seguridad 15/15 · Datos Institucionales 10/10\nMadurez: Líder · Vínculo: Oficial · Evidencia: Presencia institucional verificada, canales directos y atención al cliente activa.`,
+        title: explicitNewTitle || meta.title || `${omitIcons ? "" : "🛡️ "}Score Scout ${realTotal}/100`,
+        body: `<p>Presencia/reputación ${p1}/25 · Contacto verificable ${p2}/15 · Trayectoria/evidencia operativa ${p3}/20 · Claridad propuesta ${p4}/15 · Transparencia/seguridad ${p5}/15 · Datos institucionales ${p6}/10<br>Madurez: ${mad} - Vínculo: ${vin} - Evidencia: ${evi}.</p>`,
       };
     }
 
