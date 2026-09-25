@@ -560,6 +560,33 @@ function sanitizeForbiddenTerms(text: string, forbiddenTerms: string[]): string 
     .trim();
 }
 
+function normalizeAiResponse(parsed: any, fieldType: FieldType): any {
+  if (!parsed || typeof parsed !== "object") return parsed;
+  const result: any = { ...parsed };
+
+  // Normalize title
+  if (!result.title && (result.titulo || result.name || result.nombre)) {
+    result.title = result.titulo || result.name || result.nombre;
+  }
+
+  // Normalize description
+  if (!result.description && (result.descripcion || result.html || result.text || result.texto || result.contenido)) {
+    result.description = result.descripcion || result.html || result.text || result.texto || result.contenido;
+  }
+
+  // Normalize body (for extra_block / new_extra_block)
+  if (!result.body && (result.cuerpo || result.contenido || result.content || result.description || result.descripcion || result.texto)) {
+    result.body = result.cuerpo || result.contenido || result.content || result.description || result.descripcion || result.texto;
+  }
+
+  // Normalize providerInfo
+  if (!result.providerInfo && (result.provider_info || result.info || result.informacion || result.descripcion_oferente || result.descripcion)) {
+    result.providerInfo = result.provider_info || result.info || result.informacion || result.descripcion_oferente || result.descripcion;
+  }
+
+  return result;
+}
+
 async function callGeminiApi(
   geminiKey: string,
   systemPrompt: string,
@@ -606,7 +633,7 @@ async function callGeminiApi(
         const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         const parsed = extractJsonFromText(rawText);
         if (parsed && typeof parsed === "object") {
-          return parsed;
+          return normalizeAiResponse(parsed, fieldType);
         }
       }
     } catch {}
@@ -637,7 +664,7 @@ async function callGeminiApi(
         const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         const parsed = extractJsonFromText(rawText);
         if (parsed && typeof parsed === "object") {
-          return parsed;
+          return normalizeAiResponse(parsed, fieldType);
         } else if (rawText && fieldType === "title") {
           const cleaned = cleanTitleString(rawText.replace(/[\{\}"]/g, "").replace(/title\s*:\s*/i, ""));
           if (cleaned) return { title: cleaned };
@@ -652,7 +679,8 @@ async function callGeminiApi(
 async function callOpenAiApi(
   openaiKey: string,
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
+  fieldType: FieldType = "description"
 ): Promise<any | null> {
   const models = ["gpt-4o-mini", "gpt-4o"];
   for (const model of models) {
@@ -682,7 +710,7 @@ async function callOpenAiApi(
         const rawContent = data.choices?.[0]?.message?.content || "";
         const parsed = extractJsonFromText(rawContent);
         if (parsed && typeof parsed === "object") {
-          return parsed;
+          return normalizeAiResponse(parsed, fieldType);
         }
       }
     } catch {}
