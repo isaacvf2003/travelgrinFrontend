@@ -82,6 +82,8 @@ export default function AiScraperModal({
   const [savingAll, setSavingAll] = useState(false);
   const [successNotice, setSuccessNotice] = useState("");
   const [customScraperBlocks, setCustomScraperBlocks] = useState<Array<{ title: string; prompt?: string }>>([]);
+  const [customScraperPrompts, setCustomScraperPrompts] = useState<string[]>([]);
+  const [newPromptInput, setNewPromptInput] = useState("");
 
   // Accordion Inline Form State for active draft inspection directly in the queue card
   const [expandedDraftIndex, setExpandedDraftIndex] = useState<number | null>(null);
@@ -89,7 +91,7 @@ export default function AiScraperModal({
   const [newImageUrl, setNewImageUrl] = useState("");
   const [customLogoInput, setCustomLogoInput] = useState("");
 
-  // Restore queue from sessionStorage and customApiKey/customScraperBlocks from localStorage on load if available (Client-side only)
+  // Restore queue from sessionStorage and customApiKey/customScraperBlocks/customScraperPrompts from localStorage on load if available (Client-side only)
   useEffect(() => {
     if (typeof window === "undefined" || !isOpen) return;
     try {
@@ -101,6 +103,14 @@ export default function AiScraperModal({
         const parsed = JSON.parse(savedBlocks);
         if (Array.isArray(parsed)) {
           setCustomScraperBlocks(parsed);
+        }
+      }
+
+      const savedPrompts = window.localStorage.getItem("tgn_custom_scraper_prompts");
+      if (savedPrompts) {
+        const parsed = JSON.parse(savedPrompts);
+        if (Array.isArray(parsed)) {
+          setCustomScraperPrompts(parsed);
         }
       }
 
@@ -123,6 +133,47 @@ export default function AiScraperModal({
         } else {
           window.localStorage.removeItem("tgn_ai_custom_api_key");
         }
+      }
+    } catch {}
+  };
+
+  const handleAddPromptRule = (promptText: string) => {
+    const trimmed = promptText.trim();
+    if (!trimmed) return;
+    setCustomScraperPrompts((prev) => {
+      if (prev.some((p) => p.toLowerCase() === trimmed.toLowerCase())) return prev;
+      const updated = [...prev, trimmed];
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tgn_custom_scraper_prompts", JSON.stringify(updated));
+        }
+      } catch {}
+      return updated;
+    });
+    setNewPromptInput("");
+  };
+
+  const handleRemovePromptRule = (index: number) => {
+    setCustomScraperPrompts((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      try {
+        if (typeof window !== "undefined") {
+          if (updated.length > 0) {
+            window.localStorage.setItem("tgn_custom_scraper_prompts", JSON.stringify(updated));
+          } else {
+            window.localStorage.removeItem("tgn_custom_scraper_prompts");
+          }
+        }
+      } catch {}
+      return updated;
+    });
+  };
+
+  const handleClearAllPrompts = () => {
+    setCustomScraperPrompts([]);
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("tgn_custom_scraper_prompts");
       }
     } catch {}
   };
@@ -188,6 +239,7 @@ export default function AiScraperModal({
           provider: aiProvider,
           apiKey: customApiKey.trim() || undefined,
           customBlocks: customScraperBlocks,
+          customPrompts: customScraperPrompts,
         }),
       });
 
@@ -483,6 +535,115 @@ export default function AiScraperModal({
               {successNotice}
             </div>
           )}
+
+          {/* Custom AI Training Prompts Section */}
+          <div className="rounded-2xl border border-cyan-200 bg-cyan-50/50 p-3.5 text-xs space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-[#007D92] flex items-center gap-1.5 text-xs">
+                  <Sparkles className="h-4 w-4 text-[#00A9C6]" />
+                  Instrucciones y Prompts para la IA (Entrenamiento de Estilo)
+                </span>
+                {customScraperPrompts.length > 0 ? (
+                  <span className="rounded-full bg-cyan-200/70 px-2 py-0.5 text-[10px] font-bold text-[#006070]">
+                    {customScraperPrompts.length} activa{customScraperPrompts.length > 1 ? "s" : ""}
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-slate-200/70 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                    Modo por defecto
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {customScraperPrompts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllPrompts}
+                    className="text-[11px] font-medium text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                  >
+                    Limpiar todo
+                  </button>
+                )}
+                <span className="text-[11px] text-slate-500 hidden sm:inline">
+                  Se guarda automáticamente para futuros scrapings
+                </span>
+              </div>
+            </div>
+
+            {/* Active prompts chips */}
+            {customScraperPrompts.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {customScraperPrompts.map((pText, pIdx) => (
+                  <span
+                    key={pIdx}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 shadow-xs"
+                  >
+                    <span>{pText}</span>
+                    <button
+                      type="button"
+                      title="Quitar esta instrucción"
+                      onClick={() => handleRemovePromptRule(pIdx)}
+                      className="rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600 transition cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Input to add custom prompt */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newPromptInput}
+                onChange={(e) => setNewPromptInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddPromptRule(newPromptInput);
+                  }
+                }}
+                placeholder="Escribí una instrucción para la IA (ej: Explicar servicio por servicio, sin precios, sin emojis...)"
+                className="flex-1 h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30 text-slate-800 placeholder:text-slate-400"
+                disabled={isProcessing}
+              />
+              <button
+                type="button"
+                onClick={() => handleAddPromptRule(newPromptInput)}
+                disabled={isProcessing || !newPromptInput.trim()}
+                className="h-9 px-3.5 rounded-xl bg-[#00A9C6] text-xs font-bold text-white hover:bg-[#0095AE] disabled:opacity-50 transition cursor-pointer"
+              >
+                Agregar
+              </button>
+            </div>
+
+            {/* Quick Suggestions Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+              <span className="text-slate-500 font-medium mr-1">Sugerencias rápidas:</span>
+              {[
+                "Sin precios ni aranceles",
+                "Sin emojis ni iconos",
+                "Explicar cada servicio con detalle",
+                "Resumen ejecutivo formal",
+                "Enfocado en historia y trayectoria",
+                "Lo más puntual (quiénes son)",
+              ].map((sug, sIdx) => {
+                const isAlreadyAdded = customScraperPrompts.some((p) => p.toLowerCase() === sug.toLowerCase());
+                if (isAlreadyAdded) return null;
+                return (
+                  <button
+                    key={sIdx}
+                    type="button"
+                    onClick={() => handleAddPromptRule(sug)}
+                    className="rounded-lg border border-cyan-200 bg-white/80 px-2 py-0.5 text-slate-700 hover:bg-cyan-100/60 hover:text-[#007D92] transition cursor-pointer"
+                  >
+                    + {sug}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Active AI Custom Blocks for Scraping */}
           {customScraperBlocks.length > 0 && (
