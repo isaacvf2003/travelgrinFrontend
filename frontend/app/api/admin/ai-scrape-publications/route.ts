@@ -2967,7 +2967,7 @@ async function callOpenAIApi(prompt: string, apiKey: string) {
   throw lastError || new Error("No se pudo conectar con la API de OpenAI.");
 }
 
-function buildPrompt(extractedData: any, taxonomies: any, customBlocks?: CustomScraperBlock[]): string {
+function buildPrompt(extractedData: any, taxonomies: any, customBlocks?: CustomScraperBlock[], customAdminPrompt?: string): string {
   const categoryTreeFormat = taxonomies.categoryTree.length
     ? taxonomies.categoryTree
         .map(
@@ -3000,8 +3000,28 @@ Para CADA uno de estos bloques personalizados, analiza exhaustivamente el conten
 `
       : "";
 
+  const adminPromptSection = customAdminPrompt && customAdminPrompt.trim()
+    ? `
+======================================================================
+🎯 INSTRUCCIONES / PROMPTS MAESTROS DEL ADMINISTRADOR (PRIORIDAD MÁXIMA):
+"${customAdminPrompt.trim()}"
+
+REGLAS DE APLICACIÓN DEL PROMPT DEL ADMINISTRADOR:
+- Aplica estas directivas estrictamente en:
+  * Título oficial ('title', 'titleI18n')
+  * Descripción Principal ('description', 'descriptionI18n')
+  * Bloques Adicionales ('extraDescriptions')
+- Comprende al 100% lo que pide el administrador sin importar si fue escrito con errores ortográficos, modismos coloquiales o tono informal.
+- NO alteres las Categorías ni las Taxonomías del catálogo (deben seleccionarse automáticamente según el rubro real).
+- NO alteres las valoraciones de Google Maps, cantidad de reseñas, direcciones físicas, teléfonos, WhatsApp, emails ni imágenes (deben ser los reales extraídos de la web).
+======================================================================
+`
+    : "";
+
   return `
-Eres el Lead AI Auditor y Clasificador Experto de Travelgrin. Travelgrin es una plataforma internacional que publica y audita todo tipo de entidades, empresas e instituciones en Argentina, Latinoamérica y el mundo:
+Eres el Lead AI Auditor y Clasificador Experto de Travelgrin (actúas con total inteligencia y empatía como ChatGPT Plus o Gemini Advanced).
+${adminPromptSection}
+Travelgrin es una plataforma internacional que publica y audita todo tipo de entidades, empresas e instituciones en Argentina, Latinoamérica y el mundo:
 - Automotriz: Concesionarias, talleres mecánicos, chapa y pintura, repuestos, gomerías, rent a car, motos y vehículos.
 - Minería, Petróleo, Gas, Energía e Industria: Empresas mineras, extracción, energía, litio, siderurgia, metalúrgica, manufactura, construcción e ingeniería.
 - Entretenimiento, Arte, Cultura y Espectáculos: Cines, teatros, salas de conciertos, parques temáticos, centros culturales, discotecas, productoras de eventos.
@@ -3692,10 +3712,11 @@ async function processUrlWithAI(
   preferredProvider: string,
   geminiKey: string,
   openaiKey: string,
-  customBlocks?: CustomScraperBlock[]
+  customBlocks?: CustomScraperBlock[],
+  customAdminPrompt?: string
 ): Promise<{ publication: ScrapedPublication; providerUsed: string }> {
   const extracted = await fetchPageContent(url);
-  const prompt = buildPrompt(extracted, taxonomies, customBlocks);
+  const prompt = buildPrompt(extracted, taxonomies, customBlocks, customAdminPrompt);
 
   const canUseGemini = Boolean(geminiKey);
   const canUseOpenAI = Boolean(openaiKey);
@@ -3802,6 +3823,17 @@ export async function POST(req: Request) {
         prompt: b.prompt ? String(b.prompt).trim() : undefined,
       }));
 
+    // Collect custom prompts if configured by the admin
+    const rawPrompts = Array.isArray(body.customPrompts)
+      ? body.customPrompts
+      : body.customPrompt
+      ? [body.customPrompt]
+      : [];
+    const customAdminPrompt = rawPrompts
+      .map((p: any) => String(p || "").trim())
+      .filter(Boolean)
+      .join(". ");
+
     const customKey = String(body.apiKey || "").trim();
     const requestedProvider = String(body.provider || "auto").toLowerCase();
 
@@ -3842,7 +3874,8 @@ export async function POST(req: Request) {
           effectiveProvider,
           geminiKey,
           openaiKey,
-          customBlocks
+          customBlocks,
+          customAdminPrompt
         );
         providersUsed.add(providerUsed);
         return publication;
