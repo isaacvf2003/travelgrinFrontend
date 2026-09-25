@@ -1450,8 +1450,66 @@ function generateSemanticAiFallback(
       };
     }
 
+    // 1. Cómo trabajan / Metodología / Procedimientos / Procesos
+    if (/c[oó]mo\s+trabajan|c[oó]mo\s+funciona|metodolog|procedimiento|proceso|modalidad\s+de\s+trabajo|forma\s+de\s+trabajo|c[oó]mo\s+se\s+atiende|pasos|protocolo/i.test(blockUserCorpus)) {
+      const blockTitle = explicitNewTitle || "Metodología y Proceso de Trabajo";
+      const bodyHtml = isHealthEntity || isHealth ? [
+        "<p><strong>1. Admisión y Evaluación Inicial:</strong> Recepción del paciente, registro administrativo y categorización médica según el nivel de complejidad o urgencia.</p>",
+        "<p><strong>2. Diagnóstico y Plan Terapéutico:</strong> Realización de estudios de alta complejidad y diseño de tratamientos interdisciplinarios a cargo de especialistas referentes.</p>",
+        "<p><strong>3. Seguimiento y Atención Continua:</strong> Monitoreo constante de la evolución médica, asignación de turnos de control y comunicación fluida con el paciente y su familia.</p>",
+        "<p><strong>Canales habilitados:</strong> Asistencia permanente y coordinación de consultas a través de nuestros canales oficiales.</p>"
+      ].join("") : isEduEntity || isEducation ? [
+        "<p><strong>1. Asesoramiento Vocacional y Admisión:</strong> Orientación personalizada para la elección del programa académico y gestión de la matrícula oficial.</p>",
+        "<p><strong>2. Cursado y Prácticas Profesionales:</strong> Clases dinámicas con docentes referentes, proyectos reales y acceso continuo al campus digital 24/7.</p>",
+        "<p><strong>3. Evaluación y Titulación:</strong> Exámenes programados, tutorías continuas y tramitación oficial de diplomas de validez nacional.</p>",
+        "<p><strong>Canales habilitados:</strong> Soporte académico y mesa de ayuda permanente en canales oficiales.</p>"
+      ] : isSportsEntity || isSports ? [
+        "<p><strong>1. Evaluación Física y Registro:</strong> Apto médico, entrevista de objetivos y diseño de rutina de entrenamiento personalizada.</p>",
+        "<p><strong>2. Entrenamientos y Clases Guiadas:</strong> Uso de instalaciones modernas, acompañamiento de profesores certificados y variedad de actividades grupales.</p>",
+        "<p><strong>3. Monitoreo de Progreso y Membresías:</strong> Evaluaciones periódicas de rendimiento y gestión de pases flexibles.</p>",
+        "<p><strong>Canales habilitados:</strong> Recepción y app del club activas para reservas y consultas.</p>"
+      ] : [
+        "<p><strong>1. Diagnóstico y Asesoramiento Inicial:</strong> Relevamiento exhaustivo de requerimientos y elaboración de presupuestos transparentes a medida.</p>",
+        "<p><strong>2. Ejecución y Control de Calidad:</strong> Prestación del servicio bajo rigurosos estándares técnicos y profesionales certificados.</p>",
+        "<p><strong>3. Soporte y Entrega:</strong> Cumplimiento estricto de plazos acordados y garantía de satisfacción continua.</p>",
+        "<p><strong>Canales habilitados:</strong> Atención directa y seguimiento personalizado a través de vías oficiales.</p>"
+      ].join("");
+
+      return {
+        title: blockTitle,
+        body: bodyHtml,
+      };
+    }
+
+    // 2. Equipo / Profesionales / Staff / Médicos / Docentes
+    if (/equipo|profesional|m[eé]dic|staff|especialista|docente|claustro|qui[eé]nes\s+somos/i.test(blockUserCorpus)) {
+      const blockTitle = explicitNewTitle || "Equipo Profesional y Especialistas";
+      return {
+        title: blockTitle,
+        body: "<p><strong>Cuerpo de profesionales certificados:</strong> Contamos con un equipo interdisciplinario de amplia trayectoria, sólida formación y estricto compromiso ético.</p><p><strong>Atención humana y personalizada:</strong> Cada servicio es abordado con rigor técnico y calidez humana adaptada a las necesidades de cada usuario.</p><p><strong>Actualización constante:</strong> Capacitación y formación continua en las últimas tecnologías e innovaciones del sector.</p><p><strong>Consultas:</strong> Consultá la nómina de profesionales e informes en nuestros canales oficiales habilitados.</p>",
+      };
+    }
+
+    // 3. Coberturas / Obras Sociales / Prepagas / Seguros / Convenios
+    if (/cobertura|obra\s+social|prepaga|seguro|convenio|afiliad/i.test(blockUserCorpus)) {
+      const blockTitle = explicitNewTitle || "Coberturas y Obras Sociales Habilitadas";
+      return {
+        title: blockTitle,
+        body: "<p><strong>Convenios institucionales:</strong> Atención integral a través de las principales obras sociales, prepagas y convenios corporativos vigentes.</p><p><strong>Planes particulares y reintegros:</strong> Aranceles preferenciales para consultas particulares con emisión de facturación oficial para reintegros.</p><p><strong>Gestión administrativa ágil:</strong> Asesoramiento previo para autorizaciones y verificación de cobertura en tiempo real.</p><p><strong>Consultas de padrón:</strong> Podés verificar tu cobertura comunicándote con nuestros canales de admisión habilitados.</p>",
+      };
+    }
+
+    // 4. Turnos / Consultas / Reservas
+    if (/turno|consulta|reserva|solicitar\s+atenci|pedir\s+turno/i.test(blockUserCorpus)) {
+      const blockTitle = explicitNewTitle || "Gestión de Turnos y Consultas";
+      return {
+        title: blockTitle,
+        body: "<p><strong>Plataforma online 24/7:</strong> Gestión inmediata de turnos y reservas a través de nuestra web oficial o WhatsApp institucional.</p><p><strong>Atención presencial y telefónica:</strong> Recepción y orientación personalizada de lunes a viernes en horario corrido.</p><p><strong>Reprogramación ágil:</strong> Sistema de avisos automáticos y facilidad para confirmar, cancelar o reprogramar citas.</p><p><strong>Canales oficiales:</strong> Comunicate directamente con nuestra central de atención para asegurar tu disponibilidad.</p>",
+      };
+    }
+
     if (/requisito|admisi|inscrip|document/i.test(blockUserCorpus)) {
-      const blockTitle = explicitNewTitle || (meta.title && /requisito|admisi|inscrip/i.test(meta.title) ? meta.title : "Requisitos de Admisión e Inscripción");
+      const blockTitle = explicitNewTitle || "Requisitos de Admisión e Inscripción";
       return {
         title: blockTitle,
         body: "<p><strong>Documentación requerida:</strong> Documento de identidad vigente (DNI o Pasaporte), comprobante de domicilio y antecedentes pertinentes según la actividad.</p><p><strong>Modalidad de presentación:</strong> Gestión presencial en sede oficial o carga digital a través de la plataforma web habilitada.</p><p><strong>Validación y plazos:</strong> Proceso de verificación ágil en 24 a 48 hs hábiles con confirmación por canales oficiales.</p>",
@@ -1459,7 +1517,7 @@ function generateSemanticAiFallback(
     }
 
     if (/pago|financi|cuota|tarifa|precio/i.test(blockUserCorpus)) {
-      const blockTitle = explicitNewTitle || (meta.title && /pago|financi/i.test(meta.title) ? meta.title : "Medios de Pago y Financiación");
+      const blockTitle = explicitNewTitle || "Medios de Pago y Financiación";
       return {
         title: blockTitle,
         body: "<p><strong>Opciones disponibles:</strong> Transferencia bancaria, tarjetas de débito/crédito y planes de pago en cuotas según convenios vigentes.</p><p><strong>Beneficios:</strong> Bonificaciones por pago anticipado y convenios institucionales aplicables.</p><p><strong>Facturación:</strong> Emisión automática de comprobantes oficiales y recibos electrónicos de pago.</p>",
@@ -1467,7 +1525,7 @@ function generateSemanticAiFallback(
     }
 
     if (/especialidad|servicio|prestacion|prestación|cobertura/i.test(blockUserCorpus)) {
-      const blockTitle = explicitNewTitle || (meta.title && /especialidad|servicio/i.test(meta.title) ? meta.title : "Especialidades y Servicios Destacados");
+      const blockTitle = explicitNewTitle || "Especialidades y Servicios Destacados";
       return {
         title: blockTitle,
         body: "<p><strong>Áreas de atención:</strong> Consultoría especializada, atención programada y soporte integral continuo.</p><p><strong>Metodología de trabajo:</strong> Enfoque multidisciplinario con tecnología de vanguardia y profesionales de amplia trayectoria.</p><p><strong>Cobertura:</strong> Servicios disponibles tanto en sede central como mediante canales digitales habilitados.</p>",
@@ -1475,35 +1533,49 @@ function generateSemanticAiFallback(
     }
 
     if (/horario|guardia|atenci[oó]n|dias?|días?/i.test(blockUserCorpus)) {
-      const blockTitle = explicitNewTitle || (meta.title && /horario|guardia|atenci/i.test(meta.title) ? meta.title : "Horarios y Canales de Atención");
+      const blockTitle = explicitNewTitle || "Horarios y Canales de Atención";
       return {
         title: blockTitle,
         body: "<p><strong>Atención presencial:</strong> Lunes a Viernes de 08:00 a 20:00 hs / Sábados de 09:00 a 13:00 hs.</p><p><strong>Canales digitales y guardias:</strong> Asistencia y recepción de consultas a través de canales oficiales 24/7.</p>",
       };
     }
 
-    if (/instalacion|instalación|sede|equipamiento|infraestructura/i.test(blockUserCorpus)) {
-      const blockTitle = explicitNewTitle || (meta.title && /instalaci|sede|equip/i.test(meta.title) ? meta.title : "Instalaciones y Equipamiento");
+    if (/instalacion|instalación|sede|equipamiento|infraestructura|tecnolog/i.test(blockUserCorpus)) {
+      const blockTitle = explicitNewTitle || "Instalaciones y Equipamiento de Vanguardia";
       return {
         title: blockTitle,
-        body: "<p><strong>Infraestructura moderna:</strong> Espacios climatizados, áreas adaptadas y equipamiento de última generación.</p><p><strong>Seguridad y confort:</strong> Instalaciones diseñadas bajo rigurosos estándares de seguridad y comodidad.</p>",
+        body: "<p><strong>Infraestructura moderna:</strong> Espacios climatizados, áreas adaptadas y equipamiento de última generación.</p><p><strong>Seguridad y confort:</strong> Instalaciones diseñadas bajo rigurosos estándares de seguridad, bioseguridad y comodidad.</p><p><strong>Capacidad operativa:</strong> Áreas especializadas preparadas para resolver requerimientos de diversas complejidades.</p>",
       };
     }
 
-    // Generic custom block with smart title extraction
-    let customTitle = explicitNewTitle || meta.title || "";
+    // Generic custom block with smart title extraction and structured body
+    let customTitle = explicitNewTitle || "";
     if (!customTitle) {
-      const titleMatch = prompt.match(/(?:bloque\s+(?:de\s+)?|secci[oó]n\s+(?:de\s+)?|t[ií]tulo\s+)([^,.;:]+)/i);
-      if (titleMatch && titleMatch[1].trim().length > 3) {
-        customTitle = titleMatch[1].trim().charAt(0).toUpperCase() + titleMatch[1].trim().slice(1);
+      const cleanPromptTopic = prompt
+        .replace(/^(?:crea|crear|armar|generar|hacer|pone|escribe|redacta)\s+(?:un\s+bloque\s+de\s+|un\s+bloque\s+|bloque\s+de\s+|bloque\s+|una\s+seccion\s+de\s+|seccion\s+de\s+|secci[oó]n\s+)?/i, "")
+        .replace(/^(?:informaci[oó]n\s+(?:de|sobre)\s+|detalle\s+(?:de|sobre)\s+|datos\s+(?:de|sobre)\s+)/i, "")
+        .trim();
+
+      if (cleanPromptTopic.length >= 3 && !/hospital|universidad|colegio|empresa/i.test(cleanPromptTopic)) {
+        customTitle = cleanPromptTopic.charAt(0).toUpperCase() + cleanPromptTopic.slice(1);
       } else {
-        customTitle = "Información Adicional";
+        customTitle = "Información y Servicios";
       }
     }
 
+    // Build rich, structured body using investigated web facts or smart sector template
+    const webSnippet = investigatedWeb?.description || investigatedWeb?.snippet || "";
+    const cleanTopicDesc = prompt.replace(/^(?:creame|crear|armar|generar|hacer|pone|escribe)\s+(?:un\s+bloque\s+de\s+|un\s+bloque\s+|bloque\s+de\s+|bloque\s+)?/i, "");
+
+    const richCustomBody = [
+      `<p><strong>Alcance y propuesta:</strong> ${webSnippet ? webSnippet.slice(0, 200) + "." : `Servicios y prestaciones de excelencia con sólida trayectoria y respaldo institucional verificado.`}</p>`,
+      `<p><strong>Aspectos destacados:</strong> Procesos certificados, atención a cargo de personal idóneo y cumplimiento de los más rigurosos estándares de calidad.</p>`,
+      `<p><strong>Canales y coordinación:</strong> Asesoramiento personalizado disponible a través de nuestras vías oficiales de comunicación.</p>`
+    ].join("");
+
     return {
       title: customTitle,
-      body: `<p><strong>Detalle de ${customTitle}:</strong> ${prompt.replace(/^(?:creame|crear|armar|generar|hacer|pone)\s+(?:un\s+bloque\s+de\s+|un\s+bloque\s+|bloque\s+de\s+|bloque\s+)?/i, "")}.</p><p><strong>Canales oficiales:</strong> Información verificada y disponible para consultas e informes directos.</p>`,
+      body: richCustomBody,
     };
   }
 
