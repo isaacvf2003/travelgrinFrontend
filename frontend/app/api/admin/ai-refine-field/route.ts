@@ -385,14 +385,14 @@ function checkOmitIcons(prompt: string, conversationHistory: ConversationMessage
 
 function checkIsShort(prompt: string, conversationHistory: ConversationMessage[] | string = []): boolean {
   const isPromptLong = (p: string) =>
-    /\b(?:larg[oa]s?|m[aá]s\s+larg[oa]s?|hazl[oa]\s+m[aá]s\s+larg[oa]s?|hacel[oa]\s+m[aá]s\s+larg[oa]s?|extens[oa]s?|ampli[oa]s?|complet[oa]s?|desarroll(?:ar|a|ado|ada)?|m[aá]s\s+texto|m[aá]s\s+contenido|m[aá]s\s+detalle|con\s+m[aá]s\s+detalle|llamativ[oa]s?|persuasiv[oa]s?|expand(?:ir|e|ido)?|detallad[oa]s?)\b/i.test(p);
+    /\b(?:larg[oa]s?|m[aá]s\s+larg[oa]s?|hazl[oa]\s+m[aá]s\s+larg[oa]s?|hacel[oa]\s+m[aá]s\s+larg[oa]s?|extens[oa]s?|ampli[oa]s?|complet[oa]s?|desarroll(?:ar|a|ado|ada)?|m[aá]s\s+texto|m[aá]s\s+contenido|m[aá]s\s+detalle|con\s+m[aá]s\s+detalle|expand(?:ir|e|ido)?|detallad[oa]s?)\b/i.test(p);
 
   const isPromptShort = (p: string) =>
-    /\b(?:cort[oa]s?|breve|breves|direct[oa]s?|resum(?:en|id[oa]|ilo|ila)?|s[ií]ntesis|concis[oa]s?|pocas?\s+palabras|en\s+un\s+p[aá]rrafo|en\s+dos\s+p[aá]rrafos|poco\s+texto|sint[eé]tic[oa]s?)\b/i.test(p);
+    /\b(?:cort[oa]s?|breve|breves|direct[oa]s?|resum(?:en|id[oa]|ilo|ila)?|s[ií]ntesis|concis[oa]s?|pocas?\s+palabras|en\s+un\s+p[aá]rrafo|en\s+dos\s+p[aá]rrafos|poco\s+texto|sint[eé]tic[oa]s?|puntual(?:es)?|lo\s+m[aá]s\s+puntual|solo\s+qui[eé]nes?\s+son|solo\s+hable\s+de\s+qui[eé]nes?\s+son|qui[eé]nes?\s+somos|al\s+grano|sin\s+relleno)\b/i.test(p);
 
   // 1. Check latest prompt first
-  if (isPromptLong(prompt)) return false;
   if (isPromptShort(prompt)) return true;
+  if (isPromptLong(prompt)) return false;
 
   // 2. Check conversation history in reverse order (newest to oldest)
   let userMessages: string[] = [];
@@ -406,8 +406,8 @@ function checkIsShort(prompt: string, conversationHistory: ConversationMessage[]
   }
 
   for (const msg of userMessages) {
-    if (isPromptLong(msg)) return false;
     if (isPromptShort(msg)) return true;
+    if (isPromptLong(msg)) return false;
   }
 
   return false;
@@ -446,28 +446,33 @@ Comprender a la perfección lo que el usuario pide en su instrucción y generar 
 - Si el administrador te da indicaciones desde cero, redacta una propuesta basada exactamente en sus requerimientos.
 
 ⚠️ REGLAS MANDATORIAS DE PRIORIDAD MÁXIMA:
-1. CONTROL DE ICONOS Y EMOJIS:
+1. ENFOQUE PUNTUAL Y QUIÉNES SON:
+   - Si el administrador pide "solo hable de quienes son", "lo más puntual", "quiénes somos", "qué es el lugar" o similar:
+     Enfócate EXCLUSIVAMENTE en presentar de forma clara, directa y profesional qué es la institución/empresa, qué trayectoria y especialidades tiene y cuál es su rol.
+     OMITE precios, vigencias y frases publicitarias huecas ("Una experiencia para superar tus expectativas...").
+
+2. CONTROL DE ICONOS Y EMOJIS:
    - Si el administrador pide "sin icono", "sin iconos", "sin emojis", "sacale los iconos", "no uses iconos", o similar:
      ¡PROHIBIDO TOTALMENTE INCLUIR CUALQUIER EMOJI O ICONO (como 🚀, 🎓, ✨, ⭐, 💡, 💎, 🏆, etc.)! Usa títulos en negrita limpios y viñetas estándar (• o -). No acortes el contenido salvo que expresamente haya pedido acortarlo.
    - Si el administrador pide "con iconos", "con emojis", o una propuesta comercial llamativa:
      Usa emojis modernos y bien elegidos.
 
-2. CONTROL DE LONGITUD (CORTO / LARGO):
-   - Si el administrador pide "corta", "corto", "breve", "conciso", "resumido", "en pocas palabras":
-     ¡GENERA UN TEXTO ULTRA-BREVE Y DIRECTO! Máximo 1 a 2 párrafos cortos o 1 párrafo de gancho + 2 viñetas concisas.
+3. CONTROL DE LONGITUD (CORTO / LARGO):
+   - Si el administrador pide "corta", "corto", "breve", "conciso", "resumido", "puntual", "en pocas palabras":
+     ¡GENERA UN TEXTO ULTRA-BREVE Y DIRECTO! Máximo 1 a 2 párrafos cortos o 1 párrafo de presentación + 2 viñetas concisas.
    - Si el administrador pide "hacelo más largo", "más extenso", "con más detalle", "más completo":
      Desarrolla una propuesta amplia, completa y persuasiva.
 
-3. REGLA DE NO REPETIR SIEMPRE EL MISMO MOLDE (VARIEDAD Y FRESCURA):
+4. REGLA DE NO REPETIR SIEMPRE EL MISMO MOLDE (VARIEDAD Y FRESCURA):
    - NO uses plantillas rígidas ni repitas siempre la misma frase introductoria.
    - NUNCA uses etiquetas burocráticas como "¿Para quién?:", "Documentación requerida:", "Permanencia:".
 
-4. BLOQUES EXTRA Y FAQ CON CANTIDADES SOLICITADAS:
+5. BLOQUES EXTRA Y FAQ CON CANTIDADES SOLICITADAS:
    - Si se trata de un bloque (extra_block o new_extra_block) y el usuario pide una cantidad específica (ej. "haz que sean 10 preguntas", "agregá 5 items"):
      GENERA EXACTAMENTE la cantidad de items o preguntas solicitadas completas (ej. 10 preguntas y respuestas completas en HTML).
-     MANTÉN el título correspondiente (ej. "Preguntas Frecuentes (FAQ)") y NUNCA lo cambies a "Información Adicional".
+     MANTÉN el título correspondiente (ej. "Preguntas Frecuentes (FAQ)", "Metodología y Proceso de Trabajo") y NUNCA uses el nombre de la institución como título del bloque.
 
-5. AJUSTES Y SEGUIMIENTO:
+6. AJUSTES Y SEGUIMIENTO:
    - Si el historial indica un ajuste o refinamiento a la propuesta previa:
      ¡Prioriza 100% la indicación más reciente del usuario y aplícala sobre el contenido!
 
@@ -1065,39 +1070,70 @@ function generateSemanticAiFallback(
       return { description: omitIcons ? stripEmojisAndIcons(pLegalSpec) : pLegalSpec };
     }
 
+    const isWhoWeAre = /\b(?:qui[eé]nes?\s+son|qui[eé]nes?\s+somos|qui[eé]n\s+es|de\s+qui[eé]nes?\s+son|acerca\s+de|sobre\s+la\s+instituci[oó]n|sobre\s+la\s+empresa|s[oó]lo\s+hable\s+de|s[oó]lo\s+nombre\s+de|presentaci[oó]n\s+institucional|lo\s+m[aá]s\s+puntual|puntual|sin\s+relleno|al\s+grano)\b/i.test(userPrompts);
+
     // Dynamic price / vigencia lines
     let priceLine = "";
-    if (explicitlyWantsPrice || (facts.price && !omitPrice && !omitIcons && !isShort)) {
+    if (!isWhoWeAre && (explicitlyWantsPrice || (facts.price && !omitPrice && !omitIcons && !isShort))) {
       priceLine = isFree ? "<strong>Precio:</strong> Actividad 100% gratuita / Acceso libre." : `<strong>Precio:</strong> ${facts.price || "A consultar según aranceles o tarifas vigentes."}`;
-    } else if (isFree) {
+    } else if (isFree && !isWhoWeAre) {
       priceLine = "<strong>Precio:</strong> Actividad 100% gratuita / Acceso libre.";
     }
 
     let vigenciaLine = "";
-    if (explicitlyWantsVigencia || (facts.vigencia && !omitVigencia && !isShort)) {
+    if (!isWhoWeAre && (explicitlyWantsVigencia || (facts.vigencia && !omitVigencia && !isShort))) {
       vigenciaLine = `<strong>Vigencia:</strong> ${facts.vigencia || "Activo; información verificada en canales oficiales."}`;
     }
 
-    // Extract real proposition from scraping / web
+    // Extract real proposition from scraping / web and clean out news / press-release boilerplate
     let rawValueProp = facts.valueProp || investigatedWeb?.description || "";
     if (!rawValueProp && currentText) {
       const cleanSentences = currentText.replace(/<[^>]+>/g, " ").replace(/&[a-z0-9#]+;/gi, " ").replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/);
       rawValueProp = cleanSentences.filter(s => s.length > 25 && !/(?:Vigencia|Precio|Para quién|Diferencial):/i.test(s))[0] || "";
     }
+
+    // Strip news / event / press-release fragments from scraped sentences
+    if (/(?:junto\s+a\s+|el\s+presidente\s+|celebr[oó]\s+|inaugur[oó]\s+|en\s+un\s+emotivo|acto\s+|comunicado|haga\s+clic|bienvenidos?\s+al?\s+sitio)/i.test(rawValueProp)) {
+      rawValueProp = "";
+    }
+
     if (!rawValueProp) {
-      rawValueProp = isEducation
-        ? `Formación universitaria oficial y carreras de vanguardia orientadas al éxito profesional${locStr}.`
-        : isHealth
-        ? `Atención médica integral con guardia 24hs y equipo de especialistas de destacada trayectoria${locStr}.`
+      rawValueProp = isHealth
+        ? `Institución de salud de alta complejidad${locStr}, reconocida por su trayectoria médica, servicio de emergencias 24hs, tecnología diagnóstica de vanguardia y atención integral de especialidades.`
+        : isEducation
+        ? `Institución de educación superior y formación universitaria${locStr}, destacada por su excelencia académica, carreras de grado, posgrados oficiales y alta inserción laboral.`
         : isSports
-        ? `Instalaciones deportivas modernas y programas de entrenamiento profesional para todas las edades${locStr}.`
+        ? `Centro de entrenamiento e institución deportiva de referencia${locStr}, equipada con instalaciones modernas y programas integrales para todas las edades.`
         : isFood
-        ? `Propuesta gastronómica de autor con sabores auténticos y atención esmerada${locStr}.`
+        ? `Propuesta gastronómica de autor${locStr}, reconocida por sus materias primas seleccionadas, sabores auténticos y atención esmerada.`
         : isJudicial
-        ? `Asesoramiento jurídico y notarial estratégico con respaldo profesional y trato confidencial${locStr}.`
-        : `Servicios profesionales de vanguardia con trayectoria verificada y atención personalizada${locStr}.`;
+        ? `Estudio jurídico y consultoría profesional estratégica${locStr}, respaldada por sólida trayectoria, solvencia técnica y estricta confidencialidad.`
+        : `Organización líder en su rubro${locStr}, respaldada por trayectoria verificada, calidad en sus prestaciones y atención personalizada.`;
     }
     rawValueProp = rawValueProp.replace(/\.\s*$/, "").trim();
+
+    // 0. SPECIAL: WHO WE ARE / PUNCTUAL INSTITUTIONAL SYNTHESIS
+    if (isWhoWeAre) {
+      const entityHeading = cleanName ? `<strong>${cleanName}</strong>` : "<strong>Presentación Institucional</strong>";
+      const b1 = isHealth ? "Guardia médica continua 24hs y cuerpo de especialistas multidisciplinarios."
+        : isEducation ? "Carreras de grado, posgrados y títulos con validez nacional."
+        : isSports ? "Instalaciones equipadas y entrenamiento profesional guiado."
+        : "Servicios certificados y estándares de calidad comprobados.";
+
+      const b2 = isHealth ? "Tecnología médica de vanguardia para diagnósticos e internación."
+        : isEducation ? "Modalidades presenciales y virtuales con campus digital 24/7."
+        : isSports ? "Horarios flexibles y programas para todas las disciplinas."
+        : "Atención personalizada y asesoramiento continuo.";
+
+      let whoWeAreOutput = [
+        `<p>${omitIcons ? "" : "🏛️ "}${entityHeading}: ${rawValueProp}.</p>`,
+        `<p>${omitIcons ? "" : "⭐ "}<strong>Aspectos y Servicios Destacados:</strong><br/>• ${b1}<br/>• ${b2}</p>`,
+        `<p>${omitIcons ? "" : "📍 "}<strong>Sede y Contacto:</strong> Información institucional y canales directos de atención disponibles${locStr}.</p>`,
+      ].join("\n");
+
+      if (omitIcons) whoWeAreOutput = stripEmojisAndIcons(whoWeAreOutput);
+      return { description: whoWeAreOutput };
+    }
 
     // 1. SHORT / CONCISE FORMAT
     if (isShort) {
