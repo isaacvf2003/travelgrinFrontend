@@ -3562,55 +3562,84 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const handleApproveAiDraftDirectly = async (draft: ScrapedPublicationDraft): Promise<boolean> => {
     try {
+      const titleEs = (draft.titleI18n?.es || draft.title || "").trim();
+      const descEs = (draft.descriptionI18n?.es || draft.description || "").trim();
+      const catSelections = draft.categorySelections?.length
+        ? draft.categorySelections
+        : draft.category
+        ? [draft.category]
+        : [];
+      const subcatSelections = draft.subcategorySelections?.length
+        ? draft.subcategorySelections
+        : draft.subcategory
+        ? [draft.subcategory]
+        : [];
+
       const payload = {
-        title: draft.title,
-        titleI18n: draft.titleI18n,
-        description: draft.description,
-        descriptionI18n: draft.descriptionI18n,
+        title: titleEs,
+        titleI18n: draft.titleI18n || { es: titleEs },
+        description: descEs,
+        descriptionI18n: draft.descriptionI18n || { es: descEs },
         publisherName: draft.publisherName || null,
-        status: "active",
+        status: draft.status || "active",
         featured: false,
-        category: draft.category || null,
-        subcategory: draft.subcategory || null,
+        category: catSelections[0] || draft.category || null,
+        subcategory: subcatSelections[0] || draft.subcategory || null,
         primaryGroupKey: "category",
-        country: draft.country || null,
-        city: draft.city || null,
+        country: draft.country || draft.headquarterCountry || (draft.headquarterLocations?.[0]?.country) || null,
+        headquarterCountry: draft.headquarterCountry || draft.country || (draft.headquarterLocations?.[0]?.country) || null,
+        city: draft.city || draft.headquarterCity || (draft.headquarterLocations?.[0]?.city) || null,
         currency: draft.currency || "USD",
         price: draft.price || null,
         pricePeriod: draft.pricePeriod || null,
-        languages: draft.languages ? draft.languages.split(",").map((s) => s.trim()).filter(Boolean) : null,
+        languages: draft.languages
+          ? typeof draft.languages === "string"
+            ? draft.languages.split(",").map((s) => s.trim()).filter(Boolean)
+            : draft.languages
+          : null,
         images: draft.images && draft.images.length ? draft.images : null,
         website: draft.website || null,
         fields: {
-          locationAddress: draft.locationAddress || null,
+          partner: false,
+          providerEmail: null,
+          locationAddress: draft.locationAddress || (draft.headquarterLocations?.[0]?.mapUrl) || null,
           headquarterLocations: draft.headquarterLocations || [],
           providerInfoI18n: draft.providerInfoI18n || null,
           providerRating: draft.providerRating || null,
           providerReviewCount: draft.providerReviewCount || null,
           providerCommentsUrl: draft.providerCommentsUrl || null,
           providerStartYear: draft.providerStartYear || null,
-          extraDescriptions: draft.extraDescriptions || [],
+          extraDescriptions: (draft.extraDescriptions || []).map((d) => ({
+            title: d.titleI18n?.es || d.title,
+            body: d.bodyI18n?.es || d.body,
+            titleI18n: d.titleI18n || { es: d.title },
+            bodyI18n: d.bodyI18n || { es: d.body },
+            visibleInCard: d.visibleInCard !== false,
+          })),
           socialLinksDetailed: draft.socialLinksDetailed || [],
           providerLogo: draft.providerLogo || null,
-          categorySelections: draft.categorySelections || (draft.category ? [draft.category] : []),
-          subcategorySelections: draft.subcategorySelections || (draft.subcategory ? [draft.subcategory] : []),
+          categorySelections: catSelections,
+          subcategorySelections: subcatSelections,
           providerActivities: draft.providerActivities || [],
           providerTypes: draft.providerTypes || [],
           providerModalities: draft.providerModalities || [],
+          providerActivity: draft.providerActivities?.[0] || null,
+          providerType: draft.providerTypes?.[0] || null,
+          providerModality: draft.providerModalities?.[0] || null,
+          needsAdminReview: false,
+          adminReviewReason: null,
+          adminReviewResolvedAt: new Date().toISOString(),
         },
       };
 
-      const res = await fetch("/api/publications", {
+      await api("/api/admin/publications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        await refresh();
-        return true;
-      }
-      return false;
+      await refresh();
+      return true;
     } catch (err) {
       console.error("Error approving AI draft directly:", err);
       return false;
