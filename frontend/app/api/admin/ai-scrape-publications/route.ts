@@ -2736,13 +2736,7 @@ async function buildGroundedDescriptions(
     es = stripEmojisAndIcons(es);
   }
 
-  const [en, pt, it] = await Promise.all([
-    translateFullHtmlDescriptionAsync(es, "en"),
-    translateFullHtmlDescriptionAsync(es, "pt"),
-    translateFullHtmlDescriptionAsync(es, "it"),
-  ]);
-
-  return { es, en, pt, it };
+  return { es, en: "", pt: "", it: "" };
 }
 
 async function buildGroundedCustomBlock(
@@ -3430,7 +3424,7 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
     Crea un título potente, vendedor, representativo y con gancho comercial basado en la oferta real y servicios del sitio web.
   * Evita fórmulas repetitivas fijas o clichés (como forzar siempre "de vanguardia" o estructuras idénticas con barras). Sé variado, natural, inteligente y creativo.
   * Si el administrador pide un título simple o no especifica nada: Puedes usar el nombre limpio de la entidad o un título descriptivo claro y profesional.
-  * Genera las traducciones equivalentes en 'titleI18n.es', 'titleI18n.en', 'titleI18n.pt' y 'titleI18n.it'.
+  * Genera 'title' y 'titleI18n.es' en Español (ES). Para optimizar tokens y velocidad, genera el contenido base en español (las traducciones a otros idiomas se generan luego bajo demanda).
 - ELIMINA por completo sufijos o prefijos genéricos de navegación web como "- Home", "| Home", "- Inicio", "| Inicio", "- Portada", "| Portada", "- Bienvenidos", "| Sitio Oficial", "- Web Oficial", etc.
 - 'providerStartYear': Determina el año real de inauguración o fundación histórica de la entidad según el texto de la web y conocimiento verificado (ej: Garrahan = 1987, UBA = 1821, Siglo 21 = 1995). NUNCA uses años de copyright del pie de página (como © 2010, © 2024), pues solo corresponden al creador del sitio web y no a la institución.
 
@@ -3481,7 +3475,7 @@ DIRECTIVAS PRINCIPALES:
   Adáptate al 100% a lo que pide (tono, estilo, longitud, si pide emojis o sin emojis, etc.), utilizando todos los datos y servicios reales del sitio web.
 - SI NO HAY PROMPT DEL ADMINISTRADOR:
   Genera la descripción más profesional, atractiva y adecuada para la entidad usando el estilo que mejor comunique su valor.
-- MULTILENGUAJE: Traduce con exactitud la descripción a 'descriptionI18n.es', 'descriptionI18n.en', 'descriptionI18n.pt' y 'descriptionI18n.it'.
+- IDIOMA PRINCIPAL Y OPTIMIZACIÓN DE TOKENS: Genera 'description' y 'descriptionI18n.es' en Español (ES). No es necesario redactar en inglés, portugués o italiano en este paso para optimizar tokens y velocidad de respuesta.
 
 3. AUDITORÍA DEL SCORE SCOUT TRANSPARENTE Y REALISTA (0 a 100 PUNTOS):
 REGLA CRÍTICA Y MANDATORIA: Sé 100% transparente y riguroso en la auditoría. NUNCA infles los puntajes artificialmente. Si un sitio web carece de aspectos legales, términos o seguridad, penalízalo con firmeza:
@@ -3707,30 +3701,9 @@ async function formatPublicationResult(parsed: any, extractedData: any, taxonomi
     finalDescEs = finalDescEs.replace(/sede en Buenos Aires(?:,\s*Argentina)?/gi, `sede en ${locText}`);
   }
 
-  let finalDescEn = rawDescEn ? normalizeToEnglishDescriptionHeaders(rawDescEn) : "";
-  let finalDescPt = rawDescPt ? normalizeToPortugueseDescriptionHeaders(rawDescPt) : "";
-  let finalDescIt = rawDescIt ? normalizeToItalianDescriptionHeaders(rawDescIt) : "";
-
-  const hasSpanishMarkers = (str: string) => /<strong>\s*(?:Vigencia|Propuesta de valor|¿?Para qui[eé]n|Documentaci[oó]n requerida|Permanencia|Diferencial|Exclusiones):/i.test(str);
-  const hasSpanishSentences = (str: string) => /(?:Presentamos nuestro|Junto a los médicos|sala de guardia|con sede en|Personas interesadas|Seg[uú]n la modalidad|Informaci[oó]n tomada|Contacto directo|Confirmar disponibilidad)/i.test(str);
-
-  if (!finalDescEn || finalDescEn === finalDescEs || hasSpanishMarkers(finalDescEn) || hasSpanishSentences(finalDescEn) || !finalDescEn.includes("<p>")) {
-    finalDescEn = await translateFullHtmlDescriptionAsync(finalDescEs, "en");
-  } else {
-    finalDescEn = normalizeToEnglishDescriptionHeaders(finalDescEn);
-  }
-
-  if (!finalDescPt || finalDescPt === finalDescEs || hasSpanishMarkers(finalDescPt) || hasSpanishSentences(finalDescPt) || !finalDescPt.includes("<p>")) {
-    finalDescPt = await translateFullHtmlDescriptionAsync(finalDescEs, "pt");
-  } else {
-    finalDescPt = normalizeToPortugueseDescriptionHeaders(finalDescPt);
-  }
-
-  if (!finalDescIt || finalDescIt === finalDescEs || hasSpanishMarkers(finalDescIt) || hasSpanishSentences(finalDescIt) || !finalDescIt.includes("<p>")) {
-    finalDescIt = await translateFullHtmlDescriptionAsync(finalDescEs, "it");
-  } else {
-    finalDescIt = normalizeToItalianDescriptionHeaders(finalDescIt);
-  }
+  const finalDescEn = rawDescEn || "";
+  const finalDescPt = rawDescPt || "";
+  const finalDescIt = rawDescIt || "";
 
   const detectedRating = extractedData.detectedRating || extractRatingFromText(`${extractedData.description || ""} ${extractedData.textContent || ""}`);
   const detectedReviewCount = extractedData.detectedReviewCount || extractReviewCountFromText(`${extractedData.description || ""} ${extractedData.textContent || ""}`);
