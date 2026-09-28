@@ -2567,7 +2567,7 @@ function generateImpactfulTitle(
   const isTech = sector === "tech" || /software|tecnolog|digital/i.test(cleanName);
 
   if (isEdu) {
-    return `${cleanName} | Carreras de Grado, Posgrados Oficiales y Educación de Vanguardia`;
+    return `${cleanName} | Carreras Universitarias, Títulos Oficiales y Modalidades Flexibles`;
   }
   if (isHealth) {
     return `${cleanName} | Atención Médica de Alta Complejidad y Guardia 24hs`;
@@ -2642,7 +2642,7 @@ async function buildGroundedDescriptions(
     if (isImpact || isEssential) {
       let hook = "";
       if (isEdu) {
-        hook = `<strong>${baseEntityName}</strong> se consolida como una de las instituciones universitarias líderes e innovadoras de Argentina${locationText ? ` con sede central en ${locationText}` : ""}, destacándose por su modelo de educación de vanguardia, tecnología aplicada y alta tasa de inserción profesional.`;
+        hook = `<strong>${baseEntityName}</strong> es una institución universitaria destacada${locationText ? ` con sede central en ${locationText}` : ""}, reconocida por su oferta académica, plataformas de aprendizaje y formación profesional.`;
       } else if (isHealth) {
         hook = `<strong>${baseEntityName}</strong> es una institución médica de referencia y alta complejidad${locationText ? ` en ${locationText}` : ""}, destacada por su excelencia clínica, tecnología de avanzada y atención humana integral 24 horas.`;
       } else if (isGastro) {
@@ -3233,7 +3233,7 @@ async function callGeminiApi(prompt: string, apiKey: string) {
             contents: [{ parts: [{ text: prompt }] }],
             tools: [{ googleSearch: {} }],
             generationConfig: {
-              temperature: 0.1,
+              temperature: 0.4,
             },
           }),
         }
@@ -3257,7 +3257,7 @@ async function callGeminiApi(prompt: string, apiKey: string) {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
-              temperature: 0.1,
+              temperature: 0.4,
               responseMimeType: "application/json",
             },
           }),
@@ -3423,9 +3423,15 @@ ${taxonomies.modalities.map((m: string) => `"${m}"`).join(", ")}
 
 REGLAS CRÍTICAS Y OBLIGATORIAS:
 
-0. TÍTULOS LIMPIOS Y AÑO HISTÓRICO REAL:
-- 'title' y 'publisherName' deben ser el nombre oficial y limpio de la entidad (ej: "Hospital Garrahan", "Universidad de Buenos Aires", "YPF", "Toyota Panamericana", "Club Atlético River Plate").
-- ELIMINA por completo sufijos o prefijos genéricos de navegación como "- Home", "| Home", "- Inicio", "| Inicio", "- Portada", "| Portada", "- Bienvenidos", "| Sitio Oficial", "- Web Oficial", etc.
+0. TÍTULOS ('title' y 'titleI18n') Y NOMBRE DE LA ENTIDAD ('publisherName'):
+- 'publisherName': Es estrictamente el nombre oficial y limpio de la entidad (ej: "Hospital Garrahan", "Universidad Siglo 21", "Toyota Panamericana", "Club Atlético River Plate").
+- 'title': TIENES TOTAL LIBERTAD EDITORIAL PARA GENERAR EL MEJOR TÍTULO.
+  * Si el administrador proporciona una instrucción o pide títulos "bien trabajados", "llamativos", "de impacto", "comerciales", "atractivos", "con ofertas" o un estilo específico:
+    Crea un título potente, vendedor, representativo y con gancho comercial basado en la oferta real y servicios del sitio web.
+  * Evita fórmulas repetitivas fijas o clichés (como forzar siempre "de vanguardia" o estructuras idénticas con barras). Sé variado, natural, inteligente y creativo.
+  * Si el administrador pide un título simple o no especifica nada: Puedes usar el nombre limpio de la entidad o un título descriptivo claro y profesional.
+  * Genera las traducciones equivalentes en 'titleI18n.es', 'titleI18n.en', 'titleI18n.pt' y 'titleI18n.it'.
+- ELIMINA por completo sufijos o prefijos genéricos de navegación web como "- Home", "| Home", "- Inicio", "| Inicio", "- Portada", "| Portada", "- Bienvenidos", "| Sitio Oficial", "- Web Oficial", etc.
 - 'providerStartYear': Determina el año real de inauguración o fundación histórica de la entidad según el texto de la web y conocimiento verificado (ej: Garrahan = 1987, UBA = 1821, Siglo 21 = 1995). NUNCA uses años de copyright del pie de página (como © 2010, © 2024), pues solo corresponden al creador del sitio web y no a la institución.
 
 1. VERACIDAD Y SELECCIÓN TAXONÓMICA EXACTA:
@@ -3445,24 +3451,24 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
 2. LIBERTAD CREATIVA Y ADAPTACIÓN EDITORIAL EN LA DESCRIPCIÓN ('description' y 'descriptionI18n'):
 Tienes total inteligencia, empatía editorial y libertad creativa para redactar y estructurar la descripción. Puedes decidir la estructura de párrafos HTML (<p>), los subtítulos en negrita (<strong>), si colocar emojis alusivos o no, y el enfoque que mejor transmita la propuesta según lo que pida el administrador o el rubro de la entidad.
 
-EJEMPLOS DE ESTILOS Y FORMATOS QUE PUEDES EMPLEAR:
+EJEMPLOS DE ESTILOS Y FORMATOS QUE PUEDES EMPLEAR (PURAMENTE ILUSTRATIVOS):
 
 • Ejemplo A: Enfoque de Impacto y Esencial (Llamativo y directo)
-  <p>🚀 <strong>Universidad Siglo 21</strong> se consolida como una de las instituciones universitarias líderes e innovadoras de Argentina, destacada por su educación de vanguardia y alta tasa de inserción profesional.</p>
-  <p>🎓 <strong>Oferta Académica:</strong> Amplia variedad de carreras de grado, licenciaturas y posgrados oficiales con modalidades flexibles presenciales y online adaptadas al mercado global.</p>
-  <p>⭐ <strong>Diferencial y Respaldo:</strong> Títulos oficiales avalados, plataformas tecnológicas de última generación y convenios estratégicos con empresas.</p>
-  <p>📍 <strong>Presencia Oficial:</strong> Sede central en Córdoba con centros de aprendizaje universitario en todo el país y canales de admisión directa.</p>
+  <p>🚀 <strong>[Nombre de Entidad]</strong> es una institución referente, destacada por su propuesta formativa y alta inserción laboral.</p>
+  <p>🎓 <strong>Oferta Principal:</strong> Carreras universitarias, licenciaturas y posgrados oficiales con cursado flexible presencial y online.</p>
+  <p>⭐ <strong>Diferencial y Respaldo:</strong> Acreditaciones ministeriales, convenios estratégicos con empresas y tutorías personalizadas.</p>
+  <p>📍 <strong>Presencia Oficial:</strong> Sede central y campus virtuales con canales de admisión directa habilitados.</p>
 
 • Ejemplo B: Enfoque de Servicios Detallados y Prestaciones
-  <p>🏥 <strong>Hospital Italiano de Buenos Aires</strong> brinda atención médica de alta complejidad con guardia activa 24 horas y más de 40 especialidades.</p>
-  <p>🩺 <strong>Servicios Principales:</strong> Cirugía de alta precisión, diagnóstico por imágenes, internación general, laboratorio central y consultorios externos.</p>
-  <p>🌟 <strong>Cuerpo Médico y Tecnología:</strong> Profesionales certificados, acreditaciones internacionales y equipamiento médico avanzado.</p>
-  <p>📍 <strong>Atención y Turnos:</strong> Sede central en CABA y centros ambulatorios con gestión online y telefónica.</p>
+  <p>🏥 <strong>[Centro Médico]</strong> brinda atención médica de alta complejidad con guardia activa 24 horas y múltiples especialidades.</p>
+  <p>🩺 <strong>Servicios Principales:</strong> Cirugía de precisión, diagnóstico por imágenes, internación general y consultorios externos.</p>
+  <p>🌟 <strong>Cuerpo Médico y Tecnología:</strong> Profesionales certificados, equipamiento avanzado y atención integral.</p>
+  <p>📍 <strong>Atención y Turnos:</strong> Sede central y centros ambulatorios con gestión online y telefónica.</p>
 
 • Ejemplo C: Enfoque de Historia, Trayectoria y Solidez
-  <p>🏛️ <strong>Universidad de Buenos Aires (UBA)</strong> cuenta con una destacada trayectoria histórica desde su fundación en 1821, posicionada entre las mejores universidades de Iberoamérica.</p>
-  <p>📚 <strong>Legado y Excelencia:</strong> Formación superior de excelencia, investigación científica de renombre y facultades de prestigio internacional.</p>
-  <p>📍 <strong>Sedes y Alcance:</strong> Múltiples facultades y sedes en la Ciudad de Buenos Aires con programas abiertos a la comunidad.</p>
+  <p>🏛️ <strong>[Institución Histórica]</strong> cuenta con una destacada trayectoria desde su fundación, consolidándose como líder en su disciplina.</p>
+  <p>📚 <strong>Legado y Excelencia:</strong> Formación superior de excelencia, investigación aplicada y prestigio internacional.</p>
+  <p>📍 <strong>Sedes y Alcance:</strong> Múltiples sedes con programas abiertos a toda la comunidad.</p>
 
 • Ejemplo D: Estructura Estándar / Comercial Clásica
   <p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> A consultar / Según aranceles o tarifas del oferente.</p>
@@ -3614,7 +3620,7 @@ async function formatPublicationResult(parsed: any, extractedData: any, taxonomi
     taxonomies
   );
 
-  if (customAdminPrompt && checkPromptIsImpact(customAdminPrompt) && (!parsed.title || parsed.title.toLowerCase().includes(title.toLowerCase()) || parsed.title.includes("|"))) {
+  if (!parsed.title && customAdminPrompt && checkPromptIsImpact(customAdminPrompt)) {
     title = generateImpactfulTitle(title, sectorClassification?.sector || "general", customAdminPrompt, city);
   }
 
@@ -3909,11 +3915,6 @@ function enforceStrictTaxonomyGuardrails(
 ): ScrapedPublication {
   const allText = `${publication.url} ${publication.title} ${publication.description} ${extractedData.textContent}`.toLowerCase();
   let titleClean = cleanTitleString(publication.title);
-  if (customAdminPrompt && checkPromptIsImpact(customAdminPrompt) && !titleClean.includes("|")) {
-    const locCity = publication.city || publication.headquarterCity;
-    const classifiedSector = classifySectorAndTaxonomy(publication.url, titleClean, allText, taxonomies)?.sector || "general";
-    titleClean = generateImpactfulTitle(titleClean, classifiedSector, customAdminPrompt, locCity);
-  }
   publication.title = titleClean;
   publication.publisherName = cleanTitleString(publication.publisherName || titleClean.split(/\s*[-–—|]\s*/)[0].trim());
   if (publication.titleI18n?.es) {

@@ -448,11 +448,17 @@ Comprender a la perfección la idea, tono y visión que el administrador pide en
 - Si el administrador te pide algo "bien trabajado, llamativo, de impacto o centrado en lo esencial", genera contenido potente, atractivo, profesional y sin textos de relleno.
 - Tienes libertad para usar emojis elegantes o no usarlos según el estilo solicitado (o si expresamente te pide sin emojis).
 
-EJEMPLOS DE ORIENTACIÓN PARA TÍTULOS:
-• Impacto / Comercial: "Universidad Siglo 21 | Carreras de Grado, Posgrados Oficiales y Educación de Vanguardia"
-• Invitacional / Cercano: "¡Vení a la Mejor Universidad! Carreras Oficiales y Modalidad Flexible"
-• Limpio / Institucional: "Hospital Alemán | Atención Médica de Alta Complejidad y Guardia 24hs"
-• Servicios Clave: "Estudio Jurídico Pérez & Asoc. | Asesoramiento Notarial y Legal Integral"
+EJEMPLOS DE ORIENTACIÓN PARA TÍTULOS (ESTILOS PURAMENTE ILUSTRATIVOS - NO COPIAR LITERALMENTE):
+• Impacto / Acción Comercial: "¡Estudiá Carreras Universitarias con Alta Salida Laboral en [Nombre]!"
+• Descriptivo y Beneficios: "[Nombre] - Carreras Oficiales, Modalidad Online y Becas"
+• Invitacional / Cercano: "¡Inscribite Hoy en [Nombre] y Liderá tu Futuro Profesional!"
+• Especialidades Médicas: "[Nombre de Clínica] | Atención Médica de Alta Complejidad y Guardia 24hs"
+• Servicios y Asesoramiento: "[Nombre de Estudio] | Asesoramiento Jurídico y Notarial Integral"
+• Limpio / Institucional: "[Nombre de la Entidad]"
+
+REGLAS CLAVE PARA TÍTULOS:
+- Adapta el título 100% a la intención de la instrucción del admin (si pide algo llamativo, o una pregunta, o un beneficio concreto, o eliminar palabras repetitivas).
+- NUNCA fuerces palabras clichés como "de vanguardia" ni la misma estructura con barras "|" a menos que el usuario lo pida. ¡Sé fresco, variado y creativo!
 
 EJEMPLOS DE ORIENTACIÓN PARA DESCRIPCIONES:
 • Impacto y Esencial: Párrafos directos con gancho institucional, propuesta formativa/servicios clave, diferenciales y canales oficiales.
@@ -869,11 +875,11 @@ function generateSemanticAiFallback(
       if (hasNegativeConstraint) {
         if (isEducation) {
           const v = [
-            "Educación Superior de Vanguardia: Formación Universitaria con Alta Salida Laboral",
+            "Educación Superior de Excelencia: Formación Universitaria con Alta Salida Laboral",
             "¡Vení a la Mejor Universidad! Carreras de Grado, Posgrados y Títulos Oficiales",
             "¡Liderá tu Futuro Profesional! Carreras Universitarias y Modalidad Flexible",
             "Excelencia Académica y Títulos Oficiales: Inscripciones Abiertas y Salida Laboral",
-            "Carreras Universitarias de Vanguardia: Formación de Alto Nivel y Becas",
+            "Carreras Universitarias Oficiales: Formación de Alto Nivel y Becas",
             "Tu Futuro Profesional Comienza Hoy: Carreras Oficiales de Primer Nivel",
           ];
           return { title: v[variationIndex % v.length] };
@@ -882,7 +888,7 @@ function generateSemanticAiFallback(
           const v = [
             "Soluciones Jurídicas de Excelencia: Asesoramiento y Representación Legal de Alto Nivel",
             "¡Protegé tus Derechos! Estrategia Legal, Trayectoria y Compromiso Profesional",
-            "Estudio Jurídico de Vanguardia: Asesoramiento Notarial y Procesal Integral",
+            "Estudio Jurídico Integral: Asesoramiento Notarial y Procesal Especializado",
           ];
           return { title: v[variationIndex % v.length] };
         }
@@ -933,7 +939,7 @@ function generateSemanticAiFallback(
       if (isEducation) {
         const v = [
           `¡Vení a la mejor universidad! Estudiá en ${cleanName} | Carreras de Grado y Posgrados`,
-          `${cleanName} | Carreras de Grado, Posgrados Oficiales y Formación de Vanguardia`,
+          `${cleanName} | Carreras Universitarias, Títulos Oficiales y Modalidades Flexibles`,
           `Liderá tu Futuro Profesional en ${cleanName} | Inscripciones Abiertas`,
         ];
         return { title: v[variationIndex % v.length] };
@@ -958,7 +964,7 @@ function generateSemanticAiFallback(
         if (isEducation) {
           const v = [
             "¡Inscribite Hoy! Carreras Universitarias Oficiales y Modalidades Flexibles",
-            "¡Vení a la Mejor Universidad! Formación de Vanguardia y Títulos Oficiales",
+            "¡Vení a la Mejor Universidad! Formación de Excelencia y Títulos Oficiales",
             "¡Elegí tu Futuro Profesional! Carreras de Grado y Posgrados Oficiales",
           ];
           return { title: v[variationIndex % v.length] };
@@ -972,7 +978,7 @@ function generateSemanticAiFallback(
         if (isJudicial) {
           return { title: `¡Protegé tus Derechos con Asesoramiento Legal Especializado en ${cityStr || 'tu ciudad'}!` };
         }
-        return { title: `¡Elegí Soluciones Profesionales de Vanguardia!` };
+        return { title: `¡Elegí Soluciones Profesionales de Excelencia!` };
       }
 
       if (isEducation) {
@@ -999,7 +1005,7 @@ function generateSemanticAiFallback(
       if (isEducation) {
         const v = [
           "¡Vení a la Mejor Universidad! Carreras Oficiales y Modalidades Flexibles",
-          "Liderá tu Futuro: Formación Universitaria y Carreras de Vanguardia",
+          "Liderá tu Futuro: Formación Universitaria y Carreras Oficiales",
           "Carreras de Grado, Posgrados Oficiales y Becas Universitarias",
           "Educación Superior de Excelencia: Inscripciones Abiertas y Salida Laboral",
           "Tu Futuro Profesional Comienza Hoy: Títulos Oficiales y Prácticas",
@@ -1008,7 +1014,7 @@ function generateSemanticAiFallback(
       }
       const vGeneral = [
         "Excelencia, Confianza y Soluciones Profesionales de Primer Nivel",
-        "Servicios de Vanguardia y Atención Personalizada Garantizada",
+        "Servicios Profesionales y Atención Personalizada Garantizada",
         "Calidad, Trayectoria y Respaldo Institucional Verificado",
       ];
       return { title: vGeneral[variationIndex % vGeneral.length] };
@@ -1121,7 +1127,7 @@ function generateSemanticAiFallback(
 
     if (!rawValueProp) {
       rawValueProp = isHealth
-        ? `Institución de salud de alta complejidad${locStr}, reconocida por su trayectoria médica, servicio de emergencias 24hs, tecnología diagnóstica de vanguardia y atención integral de especialidades.`
+        ? `Institución de salud de alta complejidad${locStr}, reconocida por su trayectoria médica, servicio de emergencias 24hs, tecnología diagnóstica avanzada y atención integral de especialidades.`
         : isEducation
         ? `Institución de educación superior y formación universitaria${locStr}, destacada por su excelencia académica, carreras de grado, posgrados oficiales y alta inserción laboral.`
         : isSports
@@ -1199,7 +1205,7 @@ function generateSemanticAiFallback(
         : isSports ? "Instalaciones equipadas y entrenamiento profesional guiado."
         : "Servicios certificados y estándares de calidad comprobados.";
 
-      const b2 = isHealth ? "Tecnología médica de vanguardia para diagnósticos e internación."
+      const b2 = isHealth ? "Tecnología médica avanzada para diagnósticos e internación."
         : isEducation ? "Modalidades presenciales y virtuales con campus digital 24/7."
         : isSports ? "Horarios flexibles y programas para todas las disciplinas."
         : "Atención personalizada y asesoramiento continuo.";
@@ -1217,7 +1223,7 @@ function generateSemanticAiFallback(
     // 1. SHORT / CONCISE FORMAT
     if (isShort) {
       const shortHooks = isEducation ? [
-        `Formación universitaria oficial de vanguardia${locStr}. Carreras de grado, posgrados y modalidades adaptadas a tus metas profesionales.`,
+        `Formación universitaria oficial de excelencia${locStr}. Carreras de grado, posgrados y modalidades adaptadas a tus metas profesionales.`,
         `Educación superior de excelencia: Programas académicos líderes con títulos de validez nacional y alta inserción laboral.`,
         `Impulsá tu carrera con carreras universitarias y posgrados oficiales: Flexibilidad horaria, campus digital y cuerpo docente de primer nivel.`,
       ] : isHealth ? [
@@ -1228,7 +1234,7 @@ function generateSemanticAiFallback(
         `Entrená al máximo nivel: Espacios equipados, clases guiadas y planes de membresía flexibles.`,
       ] : [
         `${rawValueProp}. Calidad certificada, trayectoria profesional y atención personalizada.`,
-        `Servicios profesionales de vanguardia con atención personalizada y soluciones de excelencia${locStr}.`,
+        `Servicios profesionales de excelencia con atención personalizada y soluciones a medida${locStr}.`,
       ];
 
       const chosenHook = shortHooks[variationIndex % shortHooks.length];
@@ -1296,7 +1302,7 @@ function generateSemanticAiFallback(
     if (layoutIdx === 0) {
       // Layout 0: Executive Value Pitch
       const hook = isEducation
-        ? `${icons.rocket}<strong>Liderá tu futuro con formación universitaria de vanguardia:</strong> ${rawValueProp}. Una propuesta pensada para potenciar tus competencias y acelerar tu inserción profesional en el mercado laboral.`
+        ? `${icons.rocket}<strong>Liderá tu futuro con formación universitaria oficial:</strong> ${rawValueProp}. Una propuesta pensada para potenciar tus competencias y acelerar tu inserción profesional en el mercado laboral.`
         : `${icons.rocket}<strong>Propuesta de valor de excelencia:</strong> ${rawValueProp}. Compromiso, trayectoria y servicios diseñados para ofrecer los más altos estándares de calidad.`;
 
       const reasonsTitle = isEducation ? `${icons.grad}<strong>¿Por qué elegir esta propuesta académica?</strong>` : `${icons.diamond}<strong>Aspectos destacados de la propuesta:</strong>`;
@@ -1348,7 +1354,7 @@ function generateSemanticAiFallback(
       // Layout 3: Direct Punchy Overview
       const hook = `${icons.rocket}<strong>${rawValueProp}.</strong> Formación y servicios oficiales con sólida reputación${locStr}.`;
       const b1 = isEducation ? "Títulos oficiales con validez nacional y programas actualizados." : "Atención profesional certificada y personalizada.";
-      const b2 = isEducation ? "Cursado flexible y plataformas de vanguardia." : "Respuesta inmediata y seguimiento continuo.";
+      const b2 = isEducation ? "Cursado flexible y campus interactivo." : "Respuesta inmediata y seguimiento continuo.";
       const b3 = isEducation ? "Inscripciones abiertas y asesoramiento vocacional." : "Aranceles transparentes y canales directos.";
 
       resHtml = [
@@ -1360,7 +1366,7 @@ function generateSemanticAiFallback(
     } else if (layoutIdx === 4) {
       // Layout 4: Innovation & Leadership
       const hook = isEducation
-        ? `${icons.diamond}<strong>Liderazgo académico e innovación constante:</strong> ${rawValueProp}. Un modelo educativo que combina rigor conceptual con experiencia práctica de vanguardia.`
+        ? `${icons.diamond}<strong>Liderazgo académico e innovación constante:</strong> ${rawValueProp}. Un modelo educativo que combina rigor conceptual con experiencia práctica aplicada.`
         : `${icons.diamond}<strong>Liderazgo e innovación en servicios:</strong> ${rawValueProp}. Experiencia comprobada y estándares superiores de atención.`;
 
       const b1 = isEducation ? "<strong>Modelo pedagógico innovador:</strong> Clases dinámicas y casos de estudio aplicados." : "<strong>Metodología comprobada:</strong> Soluciones probadas y adaptadas al cliente.";
@@ -1370,7 +1376,7 @@ function generateSemanticAiFallback(
       resHtml = [
         priceLine ? `<p>${priceLine}</p>` : "",
         `<p>${hook}</p>`,
-        `<p>${icons.lightbulb}<strong>Diferenciales de vanguardia:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
+        `<p>${icons.lightbulb}<strong>Diferenciales destacados:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
         `<p>${icons.pin}<strong>Ubicación y Canales:</strong> Información institucional disponible en canales oficiales${locStr}.</p>`,
       ].filter(Boolean).join("\n");
     } else if (layoutIdx === 5) {
@@ -1530,7 +1536,7 @@ function generateSemanticAiFallback(
         { q: "¿Qué documentación debo presentar en la primera consulta?", a: "DNI vigente, credencial de cobertura médica y orden de derivación médica en caso de corresponder." },
         { q: "¿Se realizan chequeos preventivos integrales?", a: "Sí, disponemos de circuitos de chequeo preventivo en un solo día con informes consolidados." },
         { q: "¿Cuáles son los medios de pago para copagos y consultas particulares?", a: "Tarjetas de débito/crédito, transferencias bancarias y efectivo en recepción." },
-        { q: "¿Cuentan con internación y quirófanos de alta complejidad?", a: "Sí, nuestras instalaciones están equipadas con tecnología de vanguardia y unidades de cuidados intensivos." },
+        { q: "¿Cuentan con internación y quirófanos de alta complejidad?", a: "Sí, nuestras instalaciones están equipadas con tecnología médica avanzada y unidades de cuidados intensivos." },
         { q: "¿Cómo acceder a la atención domiciliaria o traslados?", a: "Coordinando con la central de emergencias habilitada para afiliados y convenios vigentes." },
       ];
 
@@ -1658,7 +1664,7 @@ function generateSemanticAiFallback(
       const blockTitle = explicitNewTitle || "Especialidades y Servicios Destacados";
       return {
         title: blockTitle,
-        body: "<p><strong>Áreas de atención:</strong> Consultoría especializada, atención programada y soporte integral continuo.</p><p><strong>Metodología de trabajo:</strong> Enfoque multidisciplinario con tecnología de vanguardia y profesionales de amplia trayectoria.</p><p><strong>Cobertura:</strong> Servicios disponibles tanto en sede central como mediante canales digitales habilitados.</p>",
+        body: "<p><strong>Áreas de atención:</strong> Consultoría especializada, atención programada y soporte integral continuo.</p><p><strong>Metodología de trabajo:</strong> Enfoque interdisciplinario con equipamiento avanzado y profesionales de amplia trayectoria.</p><p><strong>Cobertura:</strong> Servicios disponibles tanto en sede central como mediante canales digitales habilitados.</p>",
       };
     }
 
@@ -1671,7 +1677,7 @@ function generateSemanticAiFallback(
     }
 
     if (/instalacion|instalación|sede|equipamiento|infraestructura|tecnolog/i.test(blockUserCorpus)) {
-      const blockTitle = explicitNewTitle || "Instalaciones y Equipamiento de Vanguardia";
+      const blockTitle = explicitNewTitle || "Instalaciones y Equipamiento Moderno";
       return {
         title: blockTitle,
         body: "<p><strong>Infraestructura moderna:</strong> Espacios climatizados, áreas adaptadas y equipamiento de última generación.</p><p><strong>Seguridad y confort:</strong> Instalaciones diseñadas bajo rigurosos estándares de seguridad, bioseguridad y comodidad.</p><p><strong>Capacidad operativa:</strong> Áreas especializadas preparadas para resolver requerimientos de diversas complejidades.</p>",
