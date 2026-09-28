@@ -80,6 +80,9 @@ export default function AiScraperModal({
   const [draftsQueue, setDraftsQueue] = useState<ScrapedPublicationDraft[]>([]);
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
   const [savingAll, setSavingAll] = useState(false);
+  const [translatingIndex, setTranslatingIndex] = useState<number | null>(null);
+  const [translatingAll, setTranslatingAll] = useState(false);
+  const [translateProgress, setTranslateProgress] = useState("");
   const [successNotice, setSuccessNotice] = useState("");
   const [customScraperBlocks, setCustomScraperBlocks] = useState<Array<{ title: string; prompt?: string }>>([]);
   const [customScraperPrompts, setCustomScraperPrompts] = useState<string[]>([]);
@@ -280,6 +283,231 @@ export default function AiScraperModal({
       setErrorMessage(err.message || "No se pudo completar la extracción web.");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const isDraftTranslated = (draft: ScrapedPublicationDraft): boolean => {
+    const enTitle = draft.titleI18n?.en;
+    const enDesc = draft.descriptionI18n?.en;
+    const esTitle = draft.titleI18n?.es || draft.title;
+    const esDesc = draft.descriptionI18n?.es || draft.description;
+    return Boolean((enTitle && enTitle.trim() !== esTitle.trim()) || (enDesc && enDesc.trim() !== esDesc.trim()));
+  };
+
+  const translateSingleDraft = async (
+    draft: ScrapedPublicationDraft,
+    customKey?: string
+  ): Promise<ScrapedPublicationDraft> => {
+    const sourceLang = "es";
+    const targetLangs = ["en", "pt", "it"];
+    const titleSource = (draft.titleI18n?.es || draft.title || "").trim();
+    const descSource = (draft.descriptionI18n?.es || draft.description || "").trim();
+    const provSource = (draft.providerInfoI18n?.es || "").trim();
+
+    let updatedTitleI18n = { ...(draft.titleI18n || { es: titleSource }) };
+    let updatedDescI18n = { ...(draft.descriptionI18n || { es: descSource }) };
+    let updatedProvI18n = { ...(draft.providerInfoI18n || { es: provSource }) };
+
+    // 1. Translate Title
+    if (titleSource) {
+      try {
+        const res = await fetch("/api/admin/translate-i18n", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: titleSource,
+            targetLangs,
+            sourceLang,
+            isHtml: false,
+            apiKey: customKey?.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (data?.translations) {
+          updatedTitleI18n = {
+            ...updatedTitleI18n,
+            es: titleSource,
+            ...data.translations,
+          };
+        }
+      } catch (e) {
+        console.error("Error translating title:", e);
+      }
+    }
+
+    // 2. Translate Description
+    if (descSource) {
+      try {
+        const res = await fetch("/api/admin/translate-i18n", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: descSource,
+            targetLangs,
+            sourceLang,
+            isHtml: true,
+            apiKey: customKey?.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (data?.translations) {
+          updatedDescI18n = {
+            ...updatedDescI18n,
+            es: descSource,
+            ...data.translations,
+          };
+        }
+      } catch (e) {
+        console.error("Error translating description:", e);
+      }
+    }
+
+    // 3. Translate Provider Info
+    if (provSource) {
+      try {
+        const res = await fetch("/api/admin/translate-i18n", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: provSource,
+            targetLangs,
+            sourceLang,
+            isHtml: true,
+            apiKey: customKey?.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (data?.translations) {
+          updatedProvI18n = {
+            ...updatedProvI18n,
+            es: provSource,
+            ...data.translations,
+          };
+        }
+      } catch (e) {
+        console.error("Error translating provider info:", e);
+      }
+    }
+
+    // 4. Translate Extra Description Blocks
+    let updatedExtraDescriptions = [...(draft.extraDescriptions || [])];
+    if (updatedExtraDescriptions.length > 0) {
+      const translatedBlocks = await Promise.all(
+        updatedExtraDescriptions.map(async (block) => {
+          const blockTitle = (block.titleI18n?.es || block.title || "").trim();
+          const blockBody = (block.bodyI18n?.es || block.body || "").trim();
+          let nextTitleI18n = { ...(block.titleI18n || { es: blockTitle }) };
+          let nextBodyI18n = { ...(block.bodyI18n || { es: blockBody }) };
+
+          if (blockTitle) {
+            try {
+              const res = await fetch("/api/admin/translate-i18n", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  text: blockTitle,
+                  targetLangs,
+                  sourceLang,
+                  isHtml: false,
+                  apiKey: customKey?.trim() || undefined,
+                }),
+              });
+              const data = await res.json();
+              if (data?.translations) {
+                nextTitleI18n = { ...nextTitleI18n, es: blockTitle, ...data.translations };
+              }
+            } catch {}
+          }
+
+          if (blockBody) {
+            try {
+              const res = await fetch("/api/admin/translate-i18n", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  text: blockBody,
+                  targetLangs,
+                  sourceLang,
+                  isHtml: true,
+                  apiKey: customKey?.trim() || undefined,
+                }),
+              });
+              const data = await res.json();
+              if (data?.translations) {
+                nextBodyI18n = { ...nextBodyI18n, es: blockBody, ...data.translations };
+              }
+            } catch {}
+          }
+
+          return {
+            ...block,
+            title: blockTitle,
+            body: blockBody,
+            titleI18n: nextTitleI18n,
+            bodyI18n: nextBodyI18n,
+          };
+        })
+      );
+      updatedExtraDescriptions = translatedBlocks;
+    }
+
+    return {
+      ...draft,
+      titleI18n: updatedTitleI18n,
+      descriptionI18n: updatedDescI18n,
+      providerInfoI18n: updatedProvI18n,
+      extraDescriptions: updatedExtraDescriptions,
+    };
+  };
+
+  const handleTranslateDraft = async (index: number) => {
+    const target = draftsQueue[index];
+    if (!target) return;
+    setTranslatingIndex(index);
+    setErrorMessage("");
+    try {
+      const updated = await translateSingleDraft(target, customApiKey);
+      setDraftsQueue((prev) => {
+        const copy = prev.map((d, i) => (i === index ? updated : d));
+        try {
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(copy));
+          }
+        } catch {}
+        return copy;
+      });
+      setSuccessNotice(`Borrador "${target.title.slice(0, 35)}..." traducido exitosamente a 4 idiomas (ES, EN, PT, IT).`);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Error al traducir el borrador.");
+    } finally {
+      setTranslatingIndex(null);
+    }
+  };
+
+  const handleTranslateAllDrafts = async () => {
+    if (!draftsQueue.length) return;
+    setTranslatingAll(true);
+    setErrorMessage("");
+    setTranslateProgress(`Traduciendo 1 de ${draftsQueue.length}...`);
+    try {
+      const newQueue: ScrapedPublicationDraft[] = [];
+      for (let i = 0; i < draftsQueue.length; i++) {
+        setTranslateProgress(`Traduciendo ${i + 1} de ${draftsQueue.length}...`);
+        const updated = await translateSingleDraft(draftsQueue[i], customApiKey);
+        newQueue.push(updated);
+      }
+      setDraftsQueue(newQueue);
+      try {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(newQueue));
+        }
+      } catch {}
+      setSuccessNotice(`Todos los borradores (${draftsQueue.length}) fueron traducidos a 4 idiomas (ES, EN, PT, IT).`);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Error al traducir el lote de borradores.");
+    } finally {
+      setTranslatingAll(false);
+      setTranslateProgress("");
     }
   };
 
@@ -742,26 +970,48 @@ export default function AiScraperModal({
         {/* Review Queue (Cola de Revisión) */}
         {draftsQueue.length > 0 && (
           <div className="mt-8 border-t border-slate-200 pt-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">
                   Cola de Revisión ({draftsQueue.length} borrador{draftsQueue.length > 1 ? "es" : ""})
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Inspecciona, edita imágenes/logos o cambia el estado antes de publicar.
+                  Inspecciona, traduce a 4 idiomas (EN, PT, IT) o pasa al formulario principal antes de publicar.
                 </p>
               </div>
 
-              {onApproveDirectly && draftsQueue.length > 1 && (
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  onClick={handleApproveAll}
-                  disabled={savingAll}
-                  className="h-9 rounded-xl border border-emerald-600 bg-emerald-50 px-4 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                  onClick={handleTranslateAllDrafts}
+                  disabled={translatingAll || isProcessing || translatingIndex !== null}
+                  className="h-9 rounded-xl border border-sky-300 bg-sky-50 px-3.5 text-xs font-semibold text-[#007D92] hover:bg-sky-100 disabled:opacity-50 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Traducir todos los borradores de la cola a Inglés, Portugués e Italiano"
                 >
-                  {savingAll ? "Guardando lote..." : "Aprobar y guardar todas"}
+                  {translatingAll ? (
+                    <>
+                      <span className="inline-block animate-spin">⏳</span>
+                      <span>{translateProgress || "Traduciendo lote..."}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🌐</span>
+                      <span>Traducir todo el lote (EN, PT, IT)</span>
+                    </>
+                  )}
                 </button>
-              )}
+
+                {onApproveDirectly && draftsQueue.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleApproveAll}
+                    disabled={savingAll || translatingAll}
+                    className="h-9 rounded-xl border border-emerald-600 bg-emerald-50 px-4 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 cursor-pointer shadow-xs"
+                  >
+                    {savingAll ? "Guardando lote..." : "Aprobar y guardar todas"}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
@@ -823,6 +1073,17 @@ export default function AiScraperModal({
                           >
                             {draft.status === "draft" ? "Borrador" : "Activo"}
                           </span>
+
+                          {/* Translation Status Badge */}
+                          {isDraftTranslated(draft) ? (
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                              <span>🌐</span> 4 Idiomas listos (ES, EN, PT, IT)
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 border border-slate-200 flex items-center gap-1">
+                              <span>🇪🇸</span> Solo Español
+                            </span>
+                          )}
                         </div>
                         <h4 className="text-base font-semibold text-slate-900 mt-0.5">{draft.title}</h4>
                         <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -843,24 +1104,53 @@ export default function AiScraperModal({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => {
                           onSelectDraftToEdit(draft);
                           onClose();
                         }}
-                        className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-sm"
+                        className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-xs cursor-pointer"
                       >
                         📝 Pasar a Formulario Principal
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleTranslateDraft(index)}
+                        disabled={translatingIndex === index || translatingAll}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 ${
+                          isDraftTranslated(draft)
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                            : "border-sky-300 bg-sky-50 text-[#007D92] hover:bg-sky-100"
+                        }`}
+                        title="Traducir título, descripción, datos de oferente y bloques adicionales a Inglés, Portugués e Italiano"
+                      >
+                        {translatingIndex === index ? (
+                          <>
+                            <span className="inline-block animate-spin">⏳</span>
+                            <span>Traduciendo...</span>
+                          </>
+                        ) : isDraftTranslated(draft) ? (
+                          <>
+                            <span>🔄</span>
+                            <span>Re-traducir (EN, PT, IT)</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>🌐</span>
+                            <span>Traducir a EN, PT, IT</span>
+                          </>
+                        )}
                       </button>
 
                       {onApproveDirectly && (
                         <button
                           type="button"
                           onClick={() => handleApproveDraft(draft, index)}
-                          disabled={savingIndex === index}
-                          className="rounded-lg bg-[#00A9C6] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50"
+                          disabled={savingIndex === index || translatingIndex === index || translatingAll}
+                          className="rounded-lg bg-[#00A9C6] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50 cursor-pointer shadow-xs"
                         >
                           {savingIndex === index ? "Guardando..." : "Aprobar y Guardar"}
                         </button>
@@ -869,7 +1159,8 @@ export default function AiScraperModal({
                       <button
                         type="button"
                         onClick={() => handleRemoveDraft(index)}
-                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                        disabled={translatingIndex === index || translatingAll}
+                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
                       >
                         Descartar
                       </button>
