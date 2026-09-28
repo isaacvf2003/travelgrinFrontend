@@ -2284,7 +2284,10 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Quiénes Somos):\s*<\/strong>/gi, "<strong>About Us:</strong>")
       .replace(/<strong>\s*(?:Propuesta de Vanguardia e Impacto|Propuesta Académica de Vanguardia):\s*<\/strong>/gi, "<strong>Cutting-Edge Proposal and Impact:</strong>")
       .replace(/<strong>\s*(?:Servicios Clave y Formación):\s*<\/strong>/gi, "<strong>Key Programs and Offerings:</strong>")
-      .replace(/<strong>\s*(?:Diferencial y Respaldo):\s*<\/strong>/gi, "<strong>Differentiator and Support:</strong>")
+      .replace(/<strong>\s*(?:Diferencial y Respaldo(?: Institucional)?):\s*<\/strong>/gi, "<strong>Differentiator and Institutional Support:</strong>")
+      .replace(/<strong>\s*(?:Presencia y Canales(?: Oficiales)?):\s*<\/strong>/gi, "<strong>Presence and Official Channels:</strong>")
+      .replace(/<strong>\s*(?:Oferta Académica y Formación):\s*<\/strong>/gi, "<strong>Academic Offer and Training:</strong>")
+      .replace(/<strong>\s*(?:Servicios Clave y Formación):\s*<\/strong>/gi, "<strong>Key Programs and Offerings:</strong>")
       .replace(/<strong>\s*(?:Presencia y Cobertura):\s*<\/strong>/gi, "<strong>Presence and Coverage:</strong>")
       .replace(/<strong>\s*(?:Presentación y Propuesta):\s*<\/strong>/gi, "<strong>Presentation and Proposal:</strong>")
       .replace(/<strong>\s*(?:Servicios y Especialidades):\s*<\/strong>/gi, "<strong>Services and Specialties:</strong>")
@@ -2302,6 +2305,10 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Active; official website updated.")
       .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Upon request / Subject to provider rates.")
       .replace(/A consultar/gi, "Upon request")
+      .replace(/se consolida como una de las instituciones universitarias líderes e innovadoras de Argentina/gi, "is consolidated as one of Argentina's leading and most innovative university institutions")
+      .replace(/destacándose por su modelo de educación de vanguardia, tecnología aplicada y alta tasa de inserción profesional\./gi, "standing out for its cutting-edge educational model, applied technology, and high rate of professional employment.")
+      .replace(/Su oferta académica integra una amplia variedad de carreras de grado, licenciaturas, diplomaturas y posgrados oficiales con modalidades flexibles \(presenciales y online\) diseñadas para responder a las exigencias del mercado profesional global\./gi, "Its academic offer integrates a wide variety of undergraduate degrees, bachelor's, diplomas, and official postgraduate programs with flexible modalities (on-campus and online) designed to meet the demands of the global professional market.")
+      .replace(/con centros universitarios y canales directos habilitados para admisiones, consultas e información académica\./gi, "with university learning centers and direct channels enabled for admissions, inquiries, and academic information.")
       .replace(/es una de las instituciones universitarias líderes más destacadas de Argentina/gi, "is one of the leading university institutions in Argentina")
       .replace(/reconocida por su propuesta académica de vanguardia, tecnología educativa aplicada y alta inserción laboral\./gi, "recognized for its cutting-edge academic approach, applied educational technology, and high job placement.")
       .replace(/Su oferta académica integra una amplia variedad de carreras de grado, licenciaturas, diplomaturas y posgrados oficiales con modalidades flexibles presenciales y online diseñadas para liderar el futuro profesional\./gi, "Its academic offer integrates a wide variety of undergraduate degrees, bachelor's, diplomas, and official postgraduate programs with flexible on-campus and online modalities designed to lead your professional future.")
@@ -2347,8 +2354,10 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Resumen Ejecutivo):\s*<\/strong>/gi, "<strong>Resumo Executivo:</strong>")
       .replace(/<strong>\s*(?:Quiénes Somos):\s*<\/strong>/gi, "<strong>Quem Somos:</strong>")
       .replace(/<strong>\s*(?:Propuesta de Vanguardia e Impacto|Propuesta Académica de Vanguardia):\s*<\/strong>/gi, "<strong>Proposta de Vanguarda e Impacto:</strong>")
+      .replace(/<strong>\s*(?:Diferencial y Respaldo(?: Institucional)?):\s*<\/strong>/gi, "<strong>Diferencial e Respaldo Institucional:</strong>")
+      .replace(/<strong>\s*(?:Presencia y Canales(?: Oficiales)?):\s*<\/strong>/gi, "<strong>Presença e Canais Oficiais:</strong>")
+      .replace(/<strong>\s*(?:Oferta Académica y Formación):\s*<\/strong>/gi, "<strong>Oferta Acadêmica e Formação:</strong>")
       .replace(/<strong>\s*(?:Servicios Clave y Formación):\s*<\/strong>/gi, "<strong>Cursos Principais e Formação:</strong>")
-      .replace(/<strong>\s*(?:Diferencial y Respaldo):\s*<\/strong>/gi, "<strong>Diferencial e Respaldo:</strong>")
       .replace(/<strong>\s*(?:Presencia y Cobertura):\s*<\/strong>/gi, "<strong>Presença e Cobertura:</strong>")
       .replace(/<strong>\s*(?:Presentación y Propuesta):\s*<\/strong>/gi, "<strong>Apresentação e Proposta:</strong>")
       .replace(/<strong>\s*(?:Servicios y Especialidades):\s*<\/strong>/gi, "<strong>Serviços e Especialidades:</strong>")
@@ -2360,12 +2369,17 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Ubicación y Contacto):\s*<\/strong>/gi, "<strong>Localização e Contato:</strong>")
       .replace(/<strong>\s*(?:Información y Canales Oficiales):\s*<\/strong>/gi, "<strong>Informações e Canais Oficiais:</strong>")
       .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Idiomas de atendimento:</em>")
-      .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
+      .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Esperienza e supporto):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
       .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Diferencial vs. alternativas:</em>")
       .replace(/<strong>\s*(?:Exclusiones|Exclusions|Esclusioni):\s*<\/strong>/gi, "<strong>Exclusões:</strong>")
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Ativo; site oficial atualizado.")
       .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Sob consulta / Conforme tarifas do provedor.")
       .replace(/A consultar/gi, "Sob consulta")
+      .replace(/se consolida como una de las instituciones universitarias líderes e innovadoras de Argentina/gi, "consolida-se como uma das instituições universitárias líderes e inovadoras da Argentina")
+      .replace(/destacándose por su modelo de educación de vanguardia, tecnología aplicada y alta tasa de inserción profesional\./gi, "destacando-se pelo seu modelo de educação de vanguarda, tecnologia aplicada e alta taxa de inserção profissional.")
+      .replace(/Su oferta académica integra una amplia variedad de carreras de grado, licenciaturas, diplomaturas y posgrados oficiales con modalidades flexibles \(presenciales y online\) diseñadas para responder a las exigencias del mercado profesional global\./gi, "Sua oferta acadêmica integra uma ampla variedade de cursos de graduação, licenciaturas e pós-graduações com modalidades flexíveis (presenciais e online) desenhadas para responder às exigências do mercado profissional global.")
+      .replace(/con centros universitarios y canales directos habilitados para admisiones, consultas e información académica\./gi, "com centros universitários e canais diretos habilitados para admissões, consultas e informações acadêmicas.")
+      .replace(/Títulos oficiales verificados, infraestructura moderna, convenios estratégicos y compromiso permanente con la calidad y la innovación\./gi, "Diplomas oficiais verificados, infraestrutura moderna, convênios estratégicos e compromisso permanente com a qualidade e inovação.")
       .replace(/cuenta con una sólida trajetória institucional desde su fundación en el año/gi, "possui uma sólida trajetória institucional desde sua fundação em")
       .replace(/consolidándose como un referente en/gi, "consolidando-se como referência em")
       .replace(/A lo largo de su historia ha desarrollado un modelo de excelencia y servicio continuo\./gi, "Ao longo de sua história, desenvolveu um modelo de excelência e serviço contínuo.")
@@ -2406,8 +2420,10 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Resumen Ejecutivo):\s*<\/strong>/gi, "<strong>Riassunto Esecutivo:</strong>")
       .replace(/<strong>\s*(?:Quiénes Somos):\s*<\/strong>/gi, "<strong>Chi Siamo:</strong>")
       .replace(/<strong>\s*(?:Propuesta de Vanguardia e Impacto|Propuesta Académica de Vanguardia):\s*<\/strong>/gi, "<strong>Proposta di Avanguardia e Impatto:</strong>")
+      .replace(/<strong>\s*(?:Diferencial y Respaldo(?: Institucional)?):\s*<\/strong>/gi, "<strong>Differenziale e Supporto Istituzionale:</strong>")
+      .replace(/<strong>\s*(?:Presencia y Canales(?: Oficiales)?):\s*<\/strong>/gi, "<strong>Presenza e Canali Ufficiali:</strong>")
+      .replace(/<strong>\s*(?:Oferta Académica y Formación):\s*<\/strong>/gi, "<strong>Offerta Accademica e Formazione:</strong>")
       .replace(/<strong>\s*(?:Servicios Clave y Formación):\s*<\/strong>/gi, "<strong>Corsi Principali e Formazione:</strong>")
-      .replace(/<strong>\s*(?:Diferencial y Respaldo):\s*<\/strong>/gi, "<strong>Differenziale e Supporto:</strong>")
       .replace(/<strong>\s*(?:Presencia y Cobertura):\s*<\/strong>/gi, "<strong>Presenza e Copertura:</strong>")
       .replace(/<strong>\s*(?:Presentación y Propuesta):\s*<\/strong>/gi, "<strong>Presentazione e Proposta:</strong>")
       .replace(/<strong>\s*(?:Servicios y Especialidades):\s*<\/strong>/gi, "<strong>Servizi e Specialità:</strong>")
@@ -2425,6 +2441,11 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Attivo; sito ufficiale aggiornato.")
       .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Su richiesta / In base alle tariffe del fornitore.")
       .replace(/A consultar/gi, "Su richiesta")
+      .replace(/se consolida como una de las instituciones universitarias líderes e innovadoras de Argentina/gi, "si consolida come una delle istituzioni universitarie leader e innovative dell'Argentina")
+      .replace(/destacándose por su modelo de educación de vanguardia, tecnología aplicada y alta tasa de inserción profesional\./gi, "distinguendosi per il suo modello educativo all'avanguardia, la tecnologia applicata e l'alto tasso di inserimento lavorativo.")
+      .replace(/Su oferta académica integra una amplia variedad de carreras de grado, licenciaturas, diplomaturas y posgrados oficiales con modalidades flexibles \(presenciales y online\) diseñadas para responder a las exigencias del mercado profesional global\./gi, "La sua offerta accademica comprende un'ampia varietà di corsi di laurea e master ufficiali con modalità flessibili (in presenza e online) progettate per rispondere alle esigenze del mercato professionale globale.")
+      .replace(/con centros universitarios y canales directos habilitados para admisiones, consultas e información académica\./gi, "con centri universitari e canali diretti attivi per ammissioni, informazioni e richieste accademiche.")
+      .replace(/Títulos oficiales verificados, infraestructura moderna, convenios estratégicos y compromiso permanente con la calidad y la innovación\./gi, "Titoli ufficiali verificati, infrastrutture moderne, accordi strategici e impegno costante per la qualità e l'innovazione.")
       .replace(/cuenta con una sólida trayectoria institucional desde su fundación en el año/gi, "vanta una solida traiettoria istituzionale dalla sua fondazione nel")
       .replace(/consolidándose como un referente en/gi, "affermandosi come punto di riferimento a")
       .replace(/A lo largo de su historia ha desarrollado un modelo de excelencia y servicio continuo\./gi, "Nel corso della sua storia ha sviluppato un modelo di eccellenza e servizio continuo.")
@@ -2578,7 +2599,8 @@ async function buildGroundedDescriptions(
   customAdminPrompt?: string
 ): Promise<I18nRecord> {
   const prompt = (customAdminPrompt || "").trim();
-  const omitIcons = checkPromptOmitIcons(prompt);
+  const wantsIcons = /con\s+emojis?|usar\s+emojis?|incluir\s+emojis?/i.test(prompt);
+  const omitIcons = checkPromptOmitIcons(prompt) || (prompt.length > 0 && !wantsIcons);
   const omitPrice = checkPromptOmitPrice(prompt);
   const omitVigencia = checkPromptOmitVigencia(prompt);
   const isStory = checkPromptIsStory(prompt);
@@ -2595,8 +2617,8 @@ async function buildGroundedDescriptions(
 
   let rawDesc = cleanJunkTextPhrases(extractedData.description || "");
   if (!rawDesc || rawDesc.length < 20) {
-    const paragraphs = (extractedData.textContent || "").split("\n\n").map((p: string) => cleanJunkTextPhrases(p.trim()));
-    rawDesc = paragraphs.find((p: string) => p.length >= 45 && !p.includes("•") && !/portal del empleado|webmail|intranet|gde|login|iniciar sesi/i.test(p)) || paragraphs[0] || cleanTitle;
+    const rawParagraphs = (extractedData.textContent || "").split("\n\n").map((p: string) => cleanJunkTextPhrases(p.trim()));
+    rawDesc = rawParagraphs.find((p: string) => p.length >= 45 && !p.includes("•") && !/portal del empleado|webmail|intranet|gde|login|iniciar sesi/i.test(p)) || rawParagraphs[0] || cleanTitle;
   }
   rawDesc = cleanJunkTextPhrases(rawDesc);
   const cleanSummary = escapeHtml(decodeHtmlEntities(rawDesc.slice(0, 380))).trim();
@@ -2620,76 +2642,76 @@ async function buildGroundedDescriptions(
     if (isImpact || isEssential) {
       let hook = "";
       if (isEdu) {
-        hook = `${baseEntityName} es una de las instituciones universitarias líderes más destacadas de Argentina${locationText ? ` con sede central en ${locationText}` : ""}, reconocida por su propuesta académica de vanguardia, tecnología educativa aplicada y alta inserción laboral.`;
+        hook = `<strong>${baseEntityName}</strong> se consolida como una de las instituciones universitarias líderes e innovadoras de Argentina${locationText ? ` con sede central en ${locationText}` : ""}, destacándose por su modelo de educación de vanguardia, tecnología aplicada y alta tasa de inserción profesional.`;
       } else if (isHealth) {
-        hook = `${baseEntityName} es una institución médica de referencia y alta complejidad${locationText ? ` en ${locationText}` : ""}, destacada por su excelencia clínica, tecnología de avanzada y atención humana integral 24 horas.`;
+        hook = `<strong>${baseEntityName}</strong> es una institución médica de referencia y alta complejidad${locationText ? ` en ${locationText}` : ""}, destacada por su excelencia clínica, tecnología de avanzada y atención humana integral 24 horas.`;
       } else if (isGastro) {
-        hook = `${baseEntityName} ofrece una destacada propuesta gastronómica de autor${locationText ? ` en ${locationText}` : ""}, combinando materias primas seleccionadas, sabores auténticos y una atmósfera exclusiva.`;
+        hook = `<strong>${baseEntityName}</strong> ofrece una destacada propuesta gastronómica de autor${locationText ? ` en ${locationText}` : ""}, combinando materias primas seleccionadas, sabores auténticos y una atmósfera exclusiva.`;
       } else if (isTourism) {
-        hook = `${baseEntityName} se destaca por su propuesta de hospedaje y experiencias de primer nivel${locationText ? ` en ${locationText}` : ""}, brindando confort superior, hospitalidad y atención personalizada.`;
+        hook = `<strong>${baseEntityName}</strong> se destaca por su propuesta de hospedaje y experiencias de primer nivel${locationText ? ` en ${locationText}` : ""}, brindando confort superior, hospitalidad y atención personalizada.`;
       } else {
-        hook = `${baseEntityName} es una entidad de referencia${locationText ? ` con sede en ${locationText}` : ""}, distinguida por su trayectoria, calidad en sus prestaciones y un modelo operativo de excelencia enfocado en resultados reales.`;
+        hook = `<strong>${baseEntityName}</strong> es una entidad de referencia${locationText ? ` con sede en ${locationText}` : ""}, distinguida por su trayectoria, calidad en sus prestaciones y un modelo operativo de excelencia enfocado en resultados reales.`;
       }
-      paragraphs.push(`<p>${omitIcons ? "" : "🚀 "}<strong>Propuesta de Vanguardia e Impacto:</strong> ${hook}</p>`);
+      paragraphs.push(`<p>${hook}</p>`);
 
       let coreOffer = "";
       if (isEdu) {
-        coreOffer = `Su oferta académica integra una amplia variedad de carreras de grado, licenciaturas, diplomaturas y posgrados oficiales con modalidades flexibles presenciales y online diseñadas para liderar el futuro profesional.`;
+        coreOffer = `Su oferta académica integra una amplia variedad de carreras de grado, licenciaturas, diplomaturas y posgrados oficiales con modalidades flexibles (presenciales y online) diseñadas para responder a las exigencias del mercado profesional global.`;
       } else if (isHealth) {
         coreOffer = `Cuenta con guardia activa permanente, consultorios externos en todas las especialidades, internación general y diagnóstico por imágenes de alta resolución.`;
       } else {
-        coreOffer = `Brinda soluciones integrales que incluyen: ${servicesListStr}, con procesos certificados y soporte interdisciplinario.`;
+        coreOffer = `Brinda soluciones integrales que incluyen: ${servicesListStr}, con procesos certificados y soporte interdisciplinario adaptado a cada necesidad.`;
       }
-      paragraphs.push(`<p>${omitIcons ? "" : "🎓 "}<strong>Servicios Clave y Formación:</strong> ${coreOffer}</p>`);
+      paragraphs.push(`<p><strong>Servicios Clave y Formación:</strong> ${coreOffer}</p>`);
 
       paragraphs.push(
-        `<p>${omitIcons ? "" : "⭐ "}<strong>Diferencial y Respaldo:</strong> Títulos oficiales verificados, infraestructura moderna, convenios estratégicos y compromiso permanente con la calidad y la innovación.</p>`
+        `<p><strong>Diferencial y Respaldo Institucional:</strong> Títulos oficiales verificados, infraestructura moderna, convenios estratégicos y compromiso permanente con la calidad y la innovación.</p>`
       );
 
       paragraphs.push(
-        `<p>${omitIcons ? "" : "📍 "}<strong>Presencia y Cobertura:</strong> ${locationText ? `Sede principal en ${locationText}` : "Sede institucional"} con canales oficiales activos para atención directa, consultas e inscripciones.</p>`
+        `<p><strong>Presencia y Canales Oficiales:</strong> ${locationText ? `Sede principal en ${locationText}` : "Sede institucional"} con centros universitarios y canales directos habilitados para admisiones, consultas e información académica.</p>`
       );
     } else if (isStory) {
       const year = extractedData.detectedFoundingYear || extractFoundingYear("", extractedData.textContent || "", extractedData.url, cleanTitle);
       const histText = year
         ? `${baseEntityName} cuenta con una sólida trayectoria institucional desde su fundación en el año ${year}, consolidándose como un referente en ${locationText || "su sector"}. A lo largo de su historia ha desarrollado un modelo de excelencia y servicio continuo.`
         : `${baseEntityName} se destaca por su amplia trayectoria y solidez en ${locationText || "su región"}, brindando soluciones de calidad y compromiso profesional sustentado en su experiencia.`;
-      paragraphs.push(`<p>${omitIcons ? "" : "🏛️ "}<strong>Historia y Trayectoria:</strong> ${histText}</p>`);
-      paragraphs.push(`<p>${omitIcons ? "" : "⭐ "}<strong>Consolidación y Crecimiento:</strong> A lo largo de los años ha expandido su infraestructura y equipo profesional para brindar una cobertura integral y adaptada a las demandas actuales.</p>`);
-      paragraphs.push(`<p>${omitIcons ? "" : "📍 "}<strong>Presencia Oficial:</strong> Sede principal en ${locationText || "su localidad"} y canales activos de atención institucional.</p>`);
+      paragraphs.push(`<p><strong>Historia y Trayectoria:</strong> ${histText}</p>`);
+      paragraphs.push(`<p><strong>Consolidación y Crecimiento:</strong> A lo largo de los años ha expandido su infraestructura y equipo profesional para brindar una cobertura integral y adaptada a las demandas actuales.</p>`);
+      paragraphs.push(`<p><strong>Presencia Oficial:</strong> Sede principal en ${locationText || "su localidad"} y canales activos de atención institucional.</p>`);
     } else if (isServicesDetailed) {
-      paragraphs.push(`<p>${omitIcons ? "" : "🩺 "}<strong>Detalle de Servicios y Prestaciones:</strong> ${baseEntityName} ofrece una cartera completa de prestaciones que incluye: ${servicesListStr}. Cada área cuenta con soporte calificado, procesos certificados y atención adaptada a cada necesidad.</p>`);
-      paragraphs.push(`<p>${omitIcons ? "" : "⭐ "}<strong>Metodología y Alcance:</strong> Atención integral con profesionales capacitados e infraestructura moderna en ${locationText || "su sede principal"}.</p>`);
-      paragraphs.push(`<p>${omitIcons ? "" : "📍 "}<strong>Canales Habilitados:</strong> Consultas, turnos y coordinación directa a través de vías oficiales verificadas.</p>`);
+      paragraphs.push(`<p><strong>Detalle de Servicios y Prestaciones:</strong> ${baseEntityName} ofrece una cartera completa de prestaciones que incluye: ${servicesListStr}. Cada área cuenta con soporte calificado, procesos certificados y atención adaptada a cada necesidad.</p>`);
+      paragraphs.push(`<p><strong>Metodología y Alcance:</strong> Atención integral con profesionales capacitados e infraestructura moderna en ${locationText || "su sede principal"}.</p>`);
+      paragraphs.push(`<p><strong>Canales Habilitados:</strong> Consultas, turnos y coordinación directa a través de vías oficiales verificadas.</p>`);
     } else if (isExecutiveSummary) {
       paragraphs.push(
-        `<p>${omitIcons ? "" : "💼 "}<strong>Resumen Ejecutivo:</strong> ${cleanSummary || `${baseEntityName} es una entidad de referencia en ${locationText}.`} Su propuesta integra altos estándares operativos, tecnología y atención especializada orientada a satisfacer los requerimientos de sus usuarios y clientes.</p>`
+        `<p><strong>Resumen Ejecutivo:</strong> ${cleanSummary || `${baseEntityName} es una entidad de referencia en ${locationText}.`} Su propuesta integra altos estándares operativos, tecnología y atención especializada orientada a satisfacer los requerimientos de sus usuarios y clientes.</p>`
       );
       paragraphs.push(
-        `<p>${omitIcons ? "" : "🎯 "}<strong>Capacidades Operativas:</strong> Estructura profesional interdisciplinaria, procesos certificados y capacidad de respuesta integral en ${locationText || "la región"}.</p>`
+        `<p><strong>Capacidades Operativas:</strong> Estructura profesional interdisciplinaria, procesos certificados y capacidad de respuesta integral en ${locationText || "la región"}.</p>`
       );
       paragraphs.push(
-        `<p>${omitIcons ? "" : "🛡️ "}<strong>Estándares de Calidad:</strong> Respaldo verificado, auditoría de procesos y canales oficiales directos para información y gestiones.</p>`
+        `<p><strong>Estándares de Calidad:</strong> Respaldo verificado, auditoría de procesos y canales oficiales directos para información y gestiones.</p>`
       );
     } else if (isWhoWeAre) {
       paragraphs.push(
-        `<p>${omitIcons ? "" : "🏢 "}<strong>Quiénes Somos:</strong> ${cleanSummary || `${baseEntityName} es una institución orientada a brindar soluciones integrales en ${locationText}.`} Cuenta con profesionales capacitados e infraestructura moderna.</p>`
+        `<p><strong>Quiénes Somos:</strong> ${cleanSummary || `${baseEntityName} es una institución orientada a brindar soluciones integrales en ${locationText}.`} Cuenta con profesionales capacitados e infraestructura moderna.</p>`
       );
       paragraphs.push(
-        `<p>${omitIcons ? "" : "⭐ "}<strong>Misión y Compromiso:</strong> Excelencia en el servicio, calidez en la atención y respaldo institucional garantizado.</p>`
+        `<p><strong>Misión y Compromiso:</strong> Excelencia en el servicio, calidez en la atención y respaldo institucional garantizado.</p>`
       );
       paragraphs.push(
-        `<p>${omitIcons ? "" : "📍 "}<strong>Ubicación y Contacto:</strong> Sede en ${locationText || "su localidad"} y canales oficiales para consultas directas.</p>`
+        `<p><strong>Ubicación y Contacto:</strong> Sede en ${locationText || "su localidad"} y canales oficiales para consultas directas.</p>`
       );
     } else {
       paragraphs.push(
-        `<p>${omitIcons ? "" : "💡 "}<strong>Presentación y Propuesta:</strong> ${cleanSummary}${locationText ? ` con sede en ${locationText}` : ""}.</p>`
+        `<p><strong>Presentación y Propuesta:</strong> ${cleanSummary}${locationText ? ` con sede en ${locationText}` : ""}.</p>`
       );
       paragraphs.push(
-        `<p>${omitIcons ? "" : "⭐ "}<strong>Servicios y Especialidades:</strong> ${servicesListStr}.</p>`
+        `<p><strong>Servicios y Especialidades:</strong> ${servicesListStr}.</p>`
       );
       paragraphs.push(
-        `<p>${omitIcons ? "" : "📍 "}<strong>Información y Canales Oficiales:</strong> Acceso a asesoramiento y gestión directa a través del portal oficial ${siteUrl}.</p>`
+        `<p><strong>Información y Canales Oficiales:</strong> Acceso a asesoramiento y gestión directa a través del portal oficial ${siteUrl}.</p>`
       );
     }
 
@@ -3420,24 +3442,40 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
   * Si es ESTUDIO JURÍDICO / LEGAL: Actividad: ["Servicios profesionales y técnicos"]. Categoría: ["Residencia y ciudadanía"] o legal.
   * Si es HOTEL / ALOJAMIENTO: Actividad: ["Hostelería, alojamiento y turismo"]. Categoría: ["Alojamiento"].
 
-2. DESCRIPCIÓN PRINCIPAL Y MULTILENGUAJE OBLIGATORIO:
-- SI HAY PROMPT DEL ADMINISTRADOR (en '🎯 INSTRUCCIONES / PROMPTS MAESTROS DEL ADMINISTRADOR'):
-  * Redacta 'description' (en español) y 'descriptionI18n' (es, en, pt, it) siguiendo FIELMENTE y de manera exhaustiva todo lo solicitado por el administrador (ej: historia y trayectoria, detalle de cada servicio o especialidad, sin precios, resumen ejecutivo, etc.), utilizando todos los datos reales y servicios extraídos del sitio web.
-  * Formatea la descripción en párrafos HTML limpios (<p><strong>Subtítulo:</strong> Contenido...</p>).
-- SI NO HAY PROMPT DEL ADMINISTRADOR (o si el prompt no pide un formato particular):
-  * Utiliza la estructura estándar de 4 párrafos HTML:
-    <p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> [Precio/Aranceles reales en la web o "A consultar"].</p>
-    <p>💡 <strong>Propuesta de valor:</strong> [Explicación exhaustiva y REAL de los servicios o productos que brinda según el texto de la web]. <strong>¿Para quién?:</strong> [Público objetivo real]. <strong>Documentación requerida:</strong> [Requisitos reales según la web o acordes a su rubro]. <strong>Permanencia:</strong> [Modalidad temporal].</p>
-    <p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> [Idiomas detectados]. <em>Experiencia y soporte:</em> [Alcance y respaldo]. <em>Diferencial vs. alternativas:</em> [Ventajas competitivas reales].</p>
-    <p>⚠️ <strong>Exclusiones:</strong> [Políticas, aclaraciones o condiciones particulares].</p>
+2. LIBERTAD CREATIVA Y ADAPTACIÓN EDITORIAL EN LA DESCRIPCIÓN ('description' y 'descriptionI18n'):
+Tienes total inteligencia, empatía editorial y libertad creativa para redactar y estructurar la descripción. Puedes decidir la estructura de párrafos HTML (<p>), los subtítulos en negrita (<strong>), si colocar emojis alusivos o no, y el enfoque que mejor transmita la propuesta según lo que pida el administrador o el rubro de la entidad.
 
-OBLIGATORIO Y ESTRICTO:
-- LIMPIEZA ABSOLUTA DE TEXTO: ELIMINA terminantemente botones, enlaces o frases residuales de noticias o navegación como 'Leer nota »', 'Leer nota', 'Leer más »', 'Ver más »', 'Click aquí', 'Seguir leyendo', 'Ir a la nota', 'Conocé más', etc. NUNCA las dejes en la descripción ni en ningún párrafo.
-- 'descriptionI18n.es': La descripción completa anterior en Español.
-- 'descriptionI18n.en': Traduce la descripción exacta anterior al Inglés (con 'Validity:', 'Value proposition:', 'Who is it for?:', 'Required documents:', 'Length of stay:', 'Differentiator:', 'Exclusions:').
-- 'descriptionI18n.pt': Traduce la descripción exacta anterior al Portugués (con 'Validade:', 'Proposta de valor:', 'Para quem?:', 'Documentação necessária:', 'Permanência:', 'Diferencial:', 'Exclusões:').
-- 'descriptionI18n.it': Traduce la descripción exacta anterior al Italiano (con 'Validità:', 'Proposta di valor:', 'Per chi?:', 'Documentazione richiesta:', 'Permanenza:', 'Differenziale:', 'Esclusioni:').
-NUNCA dejes las traducciones vacías, ni iguales al español, ni uses textos genéricos diferentes a lo descrito en 'es'.
+EJEMPLOS DE ESTILOS Y FORMATOS QUE PUEDES EMPLEAR:
+
+• Ejemplo A: Enfoque de Impacto y Esencial (Llamativo y directo)
+  <p>🚀 <strong>Universidad Siglo 21</strong> se consolida como una de las instituciones universitarias líderes e innovadoras de Argentina, destacada por su educación de vanguardia y alta tasa de inserción profesional.</p>
+  <p>🎓 <strong>Oferta Académica:</strong> Amplia variedad de carreras de grado, licenciaturas y posgrados oficiales con modalidades flexibles presenciales y online adaptadas al mercado global.</p>
+  <p>⭐ <strong>Diferencial y Respaldo:</strong> Títulos oficiales avalados, plataformas tecnológicas de última generación y convenios estratégicos con empresas.</p>
+  <p>📍 <strong>Presencia Oficial:</strong> Sede central en Córdoba con centros de aprendizaje universitario en todo el país y canales de admisión directa.</p>
+
+• Ejemplo B: Enfoque de Servicios Detallados y Prestaciones
+  <p>🏥 <strong>Hospital Italiano de Buenos Aires</strong> brinda atención médica de alta complejidad con guardia activa 24 horas y más de 40 especialidades.</p>
+  <p>🩺 <strong>Servicios Principales:</strong> Cirugía de alta precisión, diagnóstico por imágenes, internación general, laboratorio central y consultorios externos.</p>
+  <p>🌟 <strong>Cuerpo Médico y Tecnología:</strong> Profesionales certificados, acreditaciones internacionales y equipamiento médico avanzado.</p>
+  <p>📍 <strong>Atención y Turnos:</strong> Sede central en CABA y centros ambulatorios con gestión online y telefónica.</p>
+
+• Ejemplo C: Enfoque de Historia, Trayectoria y Solidez
+  <p>🏛️ <strong>Universidad de Buenos Aires (UBA)</strong> cuenta con una destacada trayectoria histórica desde su fundación en 1821, posicionada entre las mejores universidades de Iberoamérica.</p>
+  <p>📚 <strong>Legado y Excelencia:</strong> Formación superior de excelencia, investigación científica de renombre y facultades de prestigio internacional.</p>
+  <p>📍 <strong>Sedes y Alcance:</strong> Múltiples facultades y sedes en la Ciudad de Buenos Aires con programas abiertos a la comunidad.</p>
+
+• Ejemplo D: Estructura Estándar / Comercial Clásica
+  <p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> A consultar / Según aranceles o tarifas del oferente.</p>
+  <p>💡 <strong>Propuesta de valor:</strong> Servicios y prestaciones oficiales brindadas por la entidad según la información del portal oficial.</p>
+  <p>⭐ <strong>Diferencial:</strong> Idiomas de atención, soporte personalizado y respaldo institucional.</p>
+  <p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes y requisitos directamente en su sitio web oficial.</p>
+
+DIRECTIVAS PRINCIPALES:
+- SI HAY PROMPT DEL ADMINISTRADOR (en '🎯 INSTRUCCIONES / PROMPTS MAESTROS DEL ADMINISTRADOR'):
+  Adáptate al 100% a lo que pide (tono, estilo, longitud, si pide emojis o sin emojis, etc.), utilizando todos los datos y servicios reales del sitio web.
+- SI NO HAY PROMPT DEL ADMINISTRADOR:
+  Genera la descripción más profesional, atractiva y adecuada para la entidad usando el estilo que mejor comunique su valor.
+- MULTILENGUAJE: Traduce con exactitud la descripción a 'descriptionI18n.es', 'descriptionI18n.en', 'descriptionI18n.pt' y 'descriptionI18n.it'.
 
 3. AUDITORÍA DEL SCORE SCOUT TRANSPARENTE Y REALISTA (0 a 100 PUNTOS):
 REGLA CRÍTICA Y MANDATORIA: Sé 100% transparente y riguroso en la auditoría. NUNCA infles los puntajes artificialmente. Si un sitio web carece de aspectos legales, términos o seguridad, penalízalo con firmeza:
@@ -3860,35 +3898,65 @@ async function formatPublicationResult(parsed: any, extractedData: any, taxonomi
     providerModalities: matchedModalities.length ? matchedModalities : ["Atención presencial", "Atención online"],
   };
 
-  return enforceStrictTaxonomyGuardrails(draftResult, extractedData, taxonomies);
+  return enforceStrictTaxonomyGuardrails(draftResult, extractedData, taxonomies, customAdminPrompt);
 }
 
 function enforceStrictTaxonomyGuardrails(
   publication: ScrapedPublication,
   extractedData: any,
-  taxonomies?: any
+  taxonomies?: any,
+  customAdminPrompt?: string
 ): ScrapedPublication {
   const allText = `${publication.url} ${publication.title} ${publication.description} ${extractedData.textContent}`.toLowerCase();
-  const titleClean = cleanTitleString(publication.title);
+  let titleClean = cleanTitleString(publication.title);
+  if (customAdminPrompt && checkPromptIsImpact(customAdminPrompt) && !titleClean.includes("|")) {
+    const locCity = publication.city || publication.headquarterCity;
+    const classifiedSector = classifySectorAndTaxonomy(publication.url, titleClean, allText, taxonomies)?.sector || "general";
+    titleClean = generateImpactfulTitle(titleClean, classifiedSector, customAdminPrompt, locCity);
+  }
   publication.title = titleClean;
-  publication.publisherName = cleanTitleString(publication.publisherName || titleClean);
+  publication.publisherName = cleanTitleString(publication.publisherName || titleClean.split(/\s*[-–—|]\s*/)[0].trim());
   if (publication.titleI18n?.es) {
-    publication.titleI18n.es = cleanTitleString(publication.titleI18n.es);
+    publication.titleI18n.es = publication.title;
   }
 
   let descEs = publication.description || publication.descriptionI18n?.es || "";
-  if (!descEs || descEs.length < 50 || !descEs.includes("<p>") || !descEs.includes("Propuesta de valor")) {
+  if (!descEs || descEs.length < 25 || !descEs.includes("<p>")) {
     const locText = [publication.city, publication.country].filter(Boolean).join(", ");
     const siteUrl = escapeHtml(publication.website || publication.url);
     const summaryClean = escapeHtml(decodeHtmlEntities((extractedData.description || extractedData.textContent || publication.title).slice(0, 380))).trim();
-    descEs = [
-      `<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> ${publication.price && publication.price !== "A consultar" ? escapeHtml(publication.price) : "A consultar / Según aranceles o tarifas del oferente."}</p>`,
-      `<p>💡 <strong>Propuesta de valor:</strong> ${summaryClean}${locText ? ` con sede en ${locText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`,
-      `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ${publication.languages || "Español, Inglés"}. <em>Experiencia y soporte:</em> Información tomada directamente del portal oficial. <em>Diferencial vs. alternativas:</em> Contacto directo con el oferente y respaldo institucional.</p>`,
-      `<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${siteUrl} antes de contratar o postular.</p>`,
-    ].join("\n");
+    if (customAdminPrompt && customAdminPrompt.trim().length > 0) {
+      const baseEntity = publication.publisherName || publication.title;
+      descEs = [
+        `<p><strong>${baseEntity}</strong> se destaca como una institución de referencia${locText ? ` con sede en ${locText}` : ""}, ofreciendo soluciones y servicios de primer nivel orientados a la excelencia y la innovación.</p>`,
+        `<p><strong>Propuesta y Servicios:</strong> ${summaryClean}</p>`,
+        `<p><strong>Presencia y Contacto:</strong> Información y canales habilitados directamente en su portal oficial ${siteUrl}.</p>`
+      ].join("\n");
+    } else {
+      descEs = [
+        `<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> ${publication.price && publication.price !== "A consultar" ? escapeHtml(publication.price) : "A consultar / Según aranceles o tarifas del oferente."}</p>`,
+        `<p>💡 <strong>Propuesta de valor:</strong> ${summaryClean}${locText ? ` con sede en ${locText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`,
+        `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ${publication.languages || "Español, Inglés"}. <em>Experiencia y soporte:</em> Información tomada directamente del portal oficial. <em>Diferencial vs. alternativas:</em> Contacto directo con el oferente y respaldo institucional.</p>`,
+        `<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${siteUrl} antes de contratar o postular.</p>`,
+      ].join("\n");
+    }
   } else {
     descEs = normalizeToSpanishDescriptionHeaders(descEs);
+  }
+
+  if (customAdminPrompt) {
+    const wantsIcons = /con\s+emojis?|usar\s+emojis?|incluir\s+emojis?/i.test(customAdminPrompt);
+    if (checkPromptOmitIcons(customAdminPrompt) || !wantsIcons) {
+      descEs = stripEmojisAndIcons(descEs);
+    }
+    if (checkPromptOmitPrice(customAdminPrompt) || checkPromptIsEssential(customAdminPrompt)) {
+      descEs = descEs
+        .replace(/<p>\s*<strong>\s*Precio:[\s\S]*?<\/p>/gi, "")
+        .replace(/<strong>\s*Precio:[\s\S]*?(?=<strong>|<\/p>|$)/gi, "")
+        .replace(/<p>\s*<strong>\s*Vigencia:[\s\S]*?Precio:[\s\S]*?<\/p>/gi, (m) => {
+          return m.replace(/<strong>\s*Precio:[\s\S]*?(?=<\/p>|$)/gi, "");
+        });
+    }
   }
 
   publication.description = descEs;
@@ -3933,7 +4001,9 @@ function enforceStrictTaxonomyGuardrails(
     const hostname = new URL(publication.url).hostname.replace(/^www\./, "").toLowerCase();
     for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
       if (hostname.includes(domainKey) || publication.url.toLowerCase().includes(domainKey)) {
-        publication.title = cleanTitleString(publication.title || info.name);
+        if (!customAdminPrompt || !checkPromptIsImpact(customAdminPrompt) || !publication.title.includes("|")) {
+          publication.title = cleanTitleString(publication.title || info.name);
+        }
         publication.publisherName = cleanTitleString(info.name);
         publication.providerStartYear = info.startYear;
         if (info.rating) publication.providerRating = info.rating;
@@ -4050,15 +4120,13 @@ async function processUrlWithAI(
   const executeGemini = async () => {
     if (!canUseGemini) throw new Error("No hay GEMINI_API_KEY configurada.");
     const parsed = await callGeminiApi(prompt, geminiKey);
-    const pub = await formatPublicationResult(parsed, extracted, taxonomies, customBlocks, customAdminPrompt);
-    return enforceStrictTaxonomyGuardrails(pub, extracted, taxonomies);
+    return await formatPublicationResult(parsed, extracted, taxonomies, customBlocks, customAdminPrompt);
   };
 
   const executeOpenAI = async () => {
     if (!canUseOpenAI) throw new Error("No hay OPENAI_API_KEY configurada.");
     const parsed = await callOpenAIApi(prompt, openaiKey);
-    const pub = await formatPublicationResult(parsed, extracted, taxonomies, customBlocks, customAdminPrompt);
-    return enforceStrictTaxonomyGuardrails(pub, extracted, taxonomies);
+    return await formatPublicationResult(parsed, extracted, taxonomies, customBlocks, customAdminPrompt);
   };
 
   let publication: ScrapedPublication;
@@ -4075,7 +4143,7 @@ async function processUrlWithAI(
         engineUsed = "gemini";
       } catch (geminiErr: any) {
         console.error(`Gemini fallback also failed for ${url}:`, geminiErr.message);
-        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies, customBlocks, customAdminPrompt), extracted, taxonomies);
+        publication = await createFallbackPublication(extracted, taxonomies, customBlocks, customAdminPrompt);
         engineUsed = "fallback";
       }
     }
@@ -4091,7 +4159,7 @@ async function processUrlWithAI(
         engineUsed = "openai";
       } catch (openAiErr: any) {
         console.error(`OpenAI fallback also failed for ${url}:`, openAiErr.message);
-        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies, customBlocks, customAdminPrompt), extracted, taxonomies);
+        publication = await createFallbackPublication(extracted, taxonomies, customBlocks, customAdminPrompt);
         engineUsed = "fallback";
       }
     }
@@ -4210,7 +4278,7 @@ export async function POST(req: Request) {
         let host = "";
         try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
         const fallbackExtracted = { url, title: host, textContent: host, htmlContent: "", images: [], metaTags: {} };
-        return enforceStrictTaxonomyGuardrails(await createFallbackPublication(fallbackExtracted, taxonomies, customBlocks, customAdminPrompt), fallbackExtracted, taxonomies);
+        return await createFallbackPublication(fallbackExtracted, taxonomies, customBlocks, customAdminPrompt);
       }
     });
 
