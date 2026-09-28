@@ -2264,7 +2264,6 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
   let text = descEs;
 
   if (targetLang === "en") {
-    text = normalizeToEnglishDescriptionHeaders(text);
     text = text
       .replace(/<strong>\s*(?:Vigencia|Validade|Validità):\s*<\/strong>/gi, "<strong>Validity:</strong>")
       .replace(/<strong>\s*(?:Precio|Preço|Prezzo):\s*<\/strong>/gi, "<strong>Price:</strong>")
@@ -2273,6 +2272,10 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Required documents:</strong>")
       .replace(/<strong>\s*(?:Permanencia|Permanência|Permanenza):\s*<\/strong>/gi, "<strong>Length of stay:</strong>")
       .replace(/<strong>\s*(?:Diferencial|Differenziale):\s*<\/strong>/gi, "<strong>Differentiator:</strong>")
+      .replace(/<strong>\s*(?:Historia y Trayectoria):\s*<\/strong>/gi, "<strong>History and Background:</strong>")
+      .replace(/<strong>\s*(?:Detalle de Servicios y Prestaciones):\s*<\/strong>/gi, "<strong>Detailed Services:</strong>")
+      .replace(/<strong>\s*(?:Resumen Ejecutivo):\s*<\/strong>/gi, "<strong>Executive Summary:</strong>")
+      .replace(/<strong>\s*(?:Quiénes Somos):\s*<\/strong>/gi, "<strong>About Us:</strong>")
       .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Service languages:</em>")
       .replace(/<em>\s*(?:Experiencia y soporte|Experiência e suporte|Esperienza e supporto):\s*<\/em>/gi, "<em>Experience and support:</em>")
       .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Differentiator vs. alternatives:</em>")
@@ -2280,6 +2283,17 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Active; official website updated.")
       .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Upon request / Subject to provider rates.")
       .replace(/A consultar/gi, "Upon request")
+      .replace(/cuenta con una sólida trayectoria institucional desde su fundación en el año/gi, "has a solid institutional track record since its founding in")
+      .replace(/consolidándose como un referente en/gi, "establishing itself as a benchmark in")
+      .replace(/A lo largo de su historia ha desarrollado un modelo de excelencia y servicio continuo\./gi, "Throughout its history, it has developed a model of excellence and continuous service.")
+      .replace(/se destaca por su amplia trayectoria y solidez en/gi, "stands out for its extensive track record and strength in")
+      .replace(/brindando soluciones de calidad y compromiso profesional sustentado en su experiencia\./gi, "providing quality solutions and professional commitment based on its experience.")
+      .replace(/ofrece una cartera completa de prestaciones que incluye:/gi, "offers a comprehensive portfolio of services including:")
+      .replace(/Cada área cuenta con soporte calificado, procesos certificados y atención adaptada a cada necesidad\./gi, "Each area has qualified support, certified processes, and care tailored to every need.")
+      .replace(/es una entidad de referencia en/gi, "is a leading institution in")
+      .replace(/Su propuesta integra altos estándares operativos, tecnología y atención especializada orientada a satisfacer los requerimientos de sus usuarios y clientes\./gi, "Its approach combines high operational standards, technology, and specialized care to meet user and client needs.")
+      .replace(/es una institución orientada a brindar soluciones integrales en/gi, "is an institution dedicated to providing comprehensive solutions in")
+      .replace(/Cuenta con profesionales capacitados e infraestructura moderna\./gi, "It features trained professionals and modern infrastructure.")
       .replace(/con sede en\b/gi, "headquartered in")
       .replace(/Personas interesadas,\s*clientes,\s*familias,\s*estudiantes o profesionales seg[uú]n el rubro\./gi, "Interested individuals, clients, families, students, or professionals according to sector.")
       .replace(/DNI o pasaporte y documentaci[oó]n informada por el oferente\./gi, "ID or passport and documentation informed by the provider.")
@@ -2288,12 +2302,12 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/Informaci[oó]n tomada directamente del portal oficial\./gi, "Information sourced directly from the official portal.")
       .replace(/Contacto directo con el oferente y respaldo institucional\./gi, "Direct contact with the provider and institutional backing.")
       .replace(/Confirmar disponibilidad,\s*tarifas vigentes,\s*requisitos y condiciones particulares directamente en\b/gi, "Confirm availability, current rates, requirements, and specific conditions directly at")
+      .replace(/Confirmar disponibilidad,\s*requisitos y condiciones particulares directamente en\b/gi, "Confirm availability, requirements, and specific conditions directly at")
       .replace(/antes de contratar o postular\./gi, "before hiring or applying.");
     return text;
   }
 
   if (targetLang === "pt") {
-    text = normalizeToPortugueseDescriptionHeaders(text);
     text = text
       .replace(/<strong>\s*(?:Vigencia|Validity|Validità):\s*<\/strong>/gi, "<strong>Validade:</strong>")
       .replace(/<strong>\s*(?:Precio|Price|Prezzo):\s*<\/strong>/gi, "<strong>Preço:</strong>")
@@ -2302,6 +2316,10 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentação necessária:</strong>")
       .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanenza):\s*<\/strong>/gi, "<strong>Permanência:</strong>")
       .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Diferencial:</strong>")
+      .replace(/<strong>\s*(?:Historia y Trayectoria):\s*<\/strong>/gi, "<strong>História e Trajetória:</strong>")
+      .replace(/<strong>\s*(?:Detalle de Servicios y Prestaciones):\s*<\/strong>/gi, "<strong>Detalhe dos Serviços:</strong>")
+      .replace(/<strong>\s*(?:Resumen Ejecutivo):\s*<\/strong>/gi, "<strong>Resumo Executivo:</strong>")
+      .replace(/<strong>\s*(?:Quiénes Somos):\s*<\/strong>/gi, "<strong>Quem Somos:</strong>")
       .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Lingue di assistenza):\s*<\/em>/gi, "<em>Idiomas de atendimento:</em>")
       .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Experiência e suporte:</em>")
       .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Diferencial vs. alternativas:</em>")
@@ -2309,29 +2327,43 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Ativo; site oficial atualizado.")
       .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Sob consulta / Conforme tarifas do provedor.")
       .replace(/A consultar/gi, "Sob consulta")
+      .replace(/cuenta con una sólida trayectoria institucional desde su fundación en el año/gi, "possui uma sólida trajetória institucional desde sua fundação em")
+      .replace(/consolidándose como un referente en/gi, "consolidando-se como referência em")
+      .replace(/A lo largo de su historia ha desarrollado un modelo de excelencia y servicio continuo\./gi, "Ao longo de sua história, desenvolveu um modelo de excelência e serviço contínuo.")
+      .replace(/se destaca por su amplia trayectoria y solidez en/gi, "destaca-se por sua ampla trajetória e solidez em")
+      .replace(/brindando soluciones de calidad y compromiso profesional sustentado en su experiencia\./gi, "oferecendo soluções de qualidade e compromisso profissional baseado em sua experiência.")
+      .replace(/ofrece una cartera completa de prestaciones que incluye:/gi, "oferece uma gama completa de serviços que inclui:")
+      .replace(/Cada área cuenta con soporte calificado, procesos certificados y atención adaptada a cada necesidad\./gi, "Cada área conta com suporte qualificado, processos certificados e atendimento sob medida.")
+      .replace(/es una entidad de referencia en/gi, "é uma entidade de referência em")
+      .replace(/Su propuesta integra altos estándares operativos, tecnología y atención especializada orientada a satisfacer los requerimientos de sus usuarios y clientes\./gi, "Sua proposta integra altos padrões operacionais, tecnologia e atendimento especializado.")
+      .replace(/es una institución orientada a brindar soluciones integrales en/gi, "é uma instituição voltada a fornecer soluções integrais em")
+      .replace(/Cuenta con profesionales capacitados e infraestructura moderna\./gi, "Conta com profissionais capacitados e infraestrutura moderna.")
       .replace(/con sede en\b/gi, "com sede em")
       .replace(/Personas interesadas,\s*clientes,\s*familias,\s*estudiantes o profesionales seg[uú]n el rubro\./gi, "Interessados, clientes, famílias, estudantes ou profissionais conforme o setor.")
       .replace(/DNI o pasaporte y documentaci[oó]n informada por el oferente\./gi, "RG ou passaporte e documentação informada pelo provedor.")
       .replace(/Seg[uú]n la modalidad o servicio contratado\./gi, "Conforme a modalidade ou serviço contratado.")
       .replace(/Espa[ñn]ol,\s*Ingl[eé]s\./gi, "Espanhol, Inglês.")
       .replace(/Informaci[oó]n tomada directamente del portal oficial\./gi, "Informações obtidas diretamente do portal oficial.")
-      .replace(/Informações retiradas directamente do portal oficial\./gi, "Informações obtidas diretamente do portal oficial.")
       .replace(/Contacto directo con el oferente y respaldo institucional\./gi, "Contato direto com o provedor e respaldo institucional.")
-      .replace(/Confirmar disponibilidade,\s*tarifas vigentes,\s*requisitos e condições particulares directamente en\b/gi, "Confirmar disponibilidade, tarifas vigentes, requisitos e condições diretamente em")
+      .replace(/Confirmar disponibilidad,\s*tarifas vigentes,\s*requisitos y condiciones particulares directamente en\b/gi, "Confirmar disponibilidade, tarifas vigentes, requisitos e condições diretamente em")
+      .replace(/Confirmar disponibilidad,\s*requisitos y condiciones particulares directamente en\b/gi, "Confirmar disponibilidade, requisitos e condições diretamente em")
       .replace(/antes de contratar o postular\./gi, "antes de contratar ou se candidatar.");
     return text;
   }
 
   if (targetLang === "it") {
-    text = normalizeToItalianDescriptionHeaders(text);
     text = text
       .replace(/<strong>\s*(?:Vigencia|Validity|Validade):\s*<\/strong>/gi, "<strong>Validità:</strong>")
       .replace(/<strong>\s*(?:Precio|Price|Preço):\s*<\/strong>/gi, "<strong>Prezzo:</strong>")
       .replace(/<strong>\s*(?:Propuesta de valor|Value proposition|Proposta de valor):\s*<\/strong>/gi, "<strong>Proposta di valore:</strong>")
       .replace(/<strong>\s*(?:¿?Para qui[eé]n\??|Who is it for\??|Para quem\??):\s*<\/strong>/gi, "<strong>Per chi?:</strong>")
-      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária|Documentazione richiesta):\s*<\/strong>/gi, "<strong>Documentazione richiesta:</strong>")
-      .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanenza):\s*<\/strong>/gi, "<strong>Permanenza:</strong>")
+      .replace(/<strong>\s*(?:Documentaci[oó]n requerida|Required documents|Documentação necessária):\s*<\/strong>/gi, "<strong>Documentazione richiesta:</strong>")
+      .replace(/<strong>\s*(?:Permanencia|Length of stay|Permanência):\s*<\/strong>/gi, "<strong>Permanenza:</strong>")
       .replace(/<strong>\s*(?:Diferencial|Differentiator):\s*<\/strong>/gi, "<strong>Differenziale:</strong>")
+      .replace(/<strong>\s*(?:Historia y Trayectoria):\s*<\/strong>/gi, "<strong>Storia e Traiettoria:</strong>")
+      .replace(/<strong>\s*(?:Detalle de Servicios y Prestaciones):\s*<\/strong>/gi, "<strong>Dettaglio dei Servizi:</strong>")
+      .replace(/<strong>\s*(?:Resumen Ejecutivo):\s*<\/strong>/gi, "<strong>Riassunto Esecutivo:</strong>")
+      .replace(/<strong>\s*(?:Quiénes Somos):\s*<\/strong>/gi, "<strong>Chi Siamo:</strong>")
       .replace(/<em>\s*(?:Idiomas de atenci[oó]n|Service languages|Idiomas de atendimento):\s*<\/em>/gi, "<em>Lingue di assistenza:</em>")
       .replace(/<em>\s*(?:Experiencia y soporte|Experience and support|Experiência e suporte):\s*<\/em>/gi, "<em>Esperienza e supporto:</em>")
       .replace(/<em>\s*(?:Diferencial vs\. alternativas|Differentiator vs\. alternatives|Differenziale vs\. alternative):\s*<\/em>/gi, "<em>Differenziale vs. alternative:</em>")
@@ -2339,6 +2371,17 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/Activo;\s*sitio oficial actualizado\./gi, "Attivo; sito ufficiale aggiornato.")
       .replace(/A consultar\s*\/\s*Seg[uú]n aranceles o tarifas del oferente\./gi, "Su richiesta / In base alle tariffe del fornitore.")
       .replace(/A consultar/gi, "Su richiesta")
+      .replace(/cuenta con una sólida trayectoria institucional desde su fundación en el año/gi, "vanta una solida traiettoria istituzionale dalla sua fondazione nel")
+      .replace(/consolidándose como un referente en/gi, "affermandosi come punto di riferimento a")
+      .replace(/A lo largo de su historia ha desarrollado un modelo de excelencia y servicio continuo\./gi, "Nel corso della sua storia ha sviluppato un modello di eccellenza e servizio continuo.")
+      .replace(/se destaca por su amplia trayectoria y solidez en/gi, "si distingue per la sua vasta esperienza e solidità a")
+      .replace(/brindando soluciones de calidad y compromiso profesional sustentado en su experiencia\./gi, "offrendo soluzioni di qualità e impegno professionale supportato dalla sua esperienza.")
+      .replace(/ofrece una cartera completa de prestaciones que incluye:/gi, "offre una gamma completa di prestazioni tra cui:")
+      .replace(/Cada área cuenta con soporte calificado, procesos certificados y atención adaptada a cada necesidad\./gi, "Ogni area dispone di personale qualificato, processi certificati e assistenza personalizzata.")
+      .replace(/es una entidad de referencia en/gi, "è un'istituzione di riferimento a")
+      .replace(/Su propuesta integra altos estándares operativos, tecnología y atención especializada orientada a satisfacer los requerimientos de sus usuarios y clientes\./gi, "La sua proposta integra elevati standard operativi, tecnologia e assistenza specializzata.")
+      .replace(/es una institución orientada a brindar soluciones integrales en/gi, "è un'istituzione volta a fornire soluzioni complete a")
+      .replace(/Cuenta con profesionales capacitados e infraestructura moderna\./gi, "Dispone di professionisti qualificati e infrastrutture moderne.")
       .replace(/con sede en\b/gi, "con sede a")
       .replace(/Personas interesadas,\s*clientes,\s*familias,\s*estudiantes o profesionales seg[uú]n el rubro\./gi, "Persone interessate, clienti, famiglie, studenti o professionisti a seconda del settore.")
       .replace(/DNI o pasaporte y documentaci[oó]n informada por el oferente\./gi, "Carta d'identità o passaporto e documenti richiesti dal fornitore.")
@@ -2347,6 +2390,7 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
       .replace(/Informaci[oó]n tomada directamente del portal oficial\./gi, "Informazioni tratte direttamente dal portale ufficiale.")
       .replace(/Contacto directo con el oferente y respaldo institucional\./gi, "Contatto diretto con il fornitore e supporto istituzionale.")
       .replace(/Confirmar disponibilidad,\s*tarifas vigentes,\s*requisitos y condiciones particulares directamente en\b/gi, "Verificare disponibilità, tariffe vigenti, requisiti e condizioni direttamente su")
+      .replace(/Confirmar disponibilidad,\s*requisitos y condiciones particulares directamente en\b/gi, "Verificare disponibilità, requisiti e condizioni direttamente su")
       .replace(/antes de contratar o postular\./gi, "prima di procedere o candidarsi.");
     return text;
   }
@@ -2357,28 +2401,161 @@ function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" 
 /**
  * High-quality grounded description generator if AI output is empty or completely missing.
  */
+
+const emojisRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1FA00}-\u{1FAFF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F0FF}\u{1F100}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{FE0F}]/gu;
+
+function stripEmojisAndIcons(html: string): string {
+  if (!html) return "";
+  return html
+    .replace(emojisRegex, "")
+    .replace(/<p>\s*[:•\-*–—]\s*/gi, "<p>")
+    .replace(/<p>\s*<strong>\s*[:•\-*–—]\s*/gi, "<p><strong>")
+    .replace(/<strong>\s*[:•\-*–—]\s*/gi, "<strong>")
+    .replace(/<br\s*\/?>\s*[:•\-*–—]\s*/gi, "<br/>• ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/<p>\s+/gi, "<p>")
+    .replace(/\s+<\/p>/gi, "</p>")
+    .trim();
+}
+
+function checkPromptOmitIcons(prompt: string): boolean {
+  if (!prompt) return false;
+  return (
+    /(?:sin|no\s+(?:pongas?|coloques?|uses?|incluyas?|tenga|muestres?|dejes?)|sacale|sacar|quitar?|elimina[a-z]*|evita[a-z]*|borra[a-z]*)\s+(?:los\s+|las\s+)?(?:ic(?:i?[oó]|o)n[oa]s?|emoj?is?|emoyis?|viñetas?|vinetas?|dibujitos?|figuras?|s[ií]mbolos?)/i.test(prompt) ||
+    /\b(?:sin\s+ic(?:i?[oó]|o)n[oa]s?|sin\s+emoj?is?|sin\s+emoyis?|no\s+ic(?:i?[oó]|o)n[oa]s?|sin\s+s[ií]mbolos?|sin\s+figuras?)\b/i.test(prompt)
+  );
+}
+
+function checkPromptOmitPrice(prompt: string): boolean {
+  if (!prompt) return false;
+  return (
+    /(?:sin|no\s+(?:pongas?|coloques?|uses?|incluyas?|tenga|muestres?|dejes?)|sacale|sacar|quitar?|elimina[a-z]*|evita[a-z]*|borra[a-z]*)\s+(?:los\s+|las\s+)?(?:precios?|aranceles?|tarifas?|costos?|arancel|valores?|cuotas?)/i.test(prompt) ||
+    /\b(?:sin\s+precios?|sin\s+aranceles?|sin\s+tarifas?|sin\s+costos?|sin\s+arancel|no\s+precios?|sin\s+cuotas?)\b/i.test(prompt)
+  );
+}
+
+function checkPromptOmitVigencia(prompt: string): boolean {
+  if (!prompt) return false;
+  return (
+    /(?:sin|no\s+(?:pongas?|coloques?|uses?|incluyas?|tenga|muestres?|dejes?)|sacale|sacar|quitar?|elimina[a-z]*|evita[a-z]*|borra[a-z]*)\s+(?:la\s+)?(?:vigencia|fecha de vigencia|validez)/i.test(prompt) ||
+    /\b(?:sin\s+vigencia|sin\s+validez|no\s+vigencia)\b/i.test(prompt)
+  );
+}
+
+function checkPromptIsStory(prompt: string): boolean {
+  if (!prompt) return false;
+  return /\b(historia|trayectoria|fundaci[oó]n|origen|c[oó]mo naci[oó]|c[oó]mo se fund[oó]|recorrido|antig[uü]edad|a[ñn]os de experiencia|crecimiento|legado)\b/i.test(prompt);
+}
+
+function checkPromptIsServicesDetailed(prompt: string): boolean {
+  if (!prompt) return false;
+  return /\b(explicar cada servicio|servicio por servicio|servicios? detallad[oa]s?|detalle de servicios?|prestaciones?|especialidades?|carreras?|qu[eé] ofrece|qu[eé] servicios brinda|cartera de servicios)\b/i.test(prompt);
+}
+
+function checkPromptIsExecutiveSummary(prompt: string): boolean {
+  if (!prompt) return false;
+  return /\b(resumen ejecutivo|institucional formal|resumen formal|presentaci[oó]n institucional|perfil corporativo|perfil ejecutivo)\b/i.test(prompt);
+}
+
+function checkPromptIsWhoWeAre(prompt: string): boolean {
+  if (!prompt) return false;
+  return /\b(qui[eé]nes? son|qui[eé]nes? somos|lo m[aá]s puntual|solo identidad|identidad institucional|presentaci[oó]n de la empresa)\b/i.test(prompt);
+}
+
 async function buildGroundedDescriptions(
   extractedData: any,
   title: string,
   city: string,
-  country: string
+  country: string,
+  customAdminPrompt?: string
 ): Promise<I18nRecord> {
-  let rawDesc = cleanJunkTextPhrases(extractedData.description || "");
-  if (!rawDesc || rawDesc.length < 20) {
-    const paragraphs = (extractedData.textContent || "").split("\n\n").map((p: string) => cleanJunkTextPhrases(p.trim()));
-    rawDesc = paragraphs.find((p: string) => p.length >= 45 && !p.includes("•") && !/portal del empleado|webmail|intranet|gde|login|iniciar sesi/i.test(p)) || paragraphs[0] || title;
-  }
-  rawDesc = cleanJunkTextPhrases(rawDesc);
-  const cleanSummary = escapeHtml(decodeHtmlEntities(rawDesc.slice(0, 380))).trim();
+  const prompt = customAdminPrompt || "";
+  const omitIcons = checkPromptOmitIcons(prompt);
+  const omitPrice = checkPromptOmitPrice(prompt);
+  const omitVigencia = checkPromptOmitVigencia(prompt);
+  const isStory = checkPromptIsStory(prompt);
+  const isServicesDetailed = checkPromptIsServicesDetailed(prompt);
+  const isExecutiveSummary = checkPromptIsExecutiveSummary(prompt);
+  const isWhoWeAre = checkPromptIsWhoWeAre(prompt);
+
+  const cleanTitle = title || cleanTitleString(extractedData.title) || "";
   const locationText = [city, country].filter(Boolean).join(", ");
   const siteUrl = escapeHtml(extractedData.url);
 
-  const es = [
-    `<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> A consultar / Según aranceles o tarifas del oferente.</p>`,
-    `<p>💡 <strong>Propuesta de valor:</strong> ${cleanSummary}${locationText ? ` con sede en ${locationText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`,
-    `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> Español, Inglés. <em>Experiencia y soporte:</em> Información tomada directamente del portal oficial. <em>Diferencial vs. alternativas:</em> Contacto directo con el oferente y respaldo institucional.</p>`,
-    `<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${siteUrl} antes de contratar o postular.</p>`,
-  ].join("\n");
+  let rawDesc = cleanJunkTextPhrases(extractedData.description || "");
+  if (!rawDesc || rawDesc.length < 20) {
+    const paragraphs = (extractedData.textContent || "").split("\n\n").map((p: string) => cleanJunkTextPhrases(p.trim()));
+    rawDesc = paragraphs.find((p: string) => p.length >= 45 && !p.includes("•") && !/portal del empleado|webmail|intranet|gde|login|iniciar sesi/i.test(p)) || paragraphs[0] || cleanTitle;
+  }
+  rawDesc = cleanJunkTextPhrases(rawDesc);
+  const cleanSummary = escapeHtml(decodeHtmlEntities(rawDesc.slice(0, 380))).trim();
+
+  const headingsList = (extractedData.headings || [])
+    .filter((h: string) => h && h.length > 3 && h.length < 90 && !/menu|navegaci|inicio|contacto|buscar|copyright|login/i.test(h))
+    .slice(0, 6);
+  const servicesListStr = headingsList.length > 0 ? headingsList.join(", ") : "Servicios profesionales, atención especializada y asesoramiento integral";
+
+  const paragraphs: string[] = [];
+
+  if (isStory || isServicesDetailed || isExecutiveSummary || isWhoWeAre || omitPrice || omitIcons || omitVigencia) {
+    // 1. Vigencia / Price header only if not omitted
+    if (!omitVigencia && !omitPrice) {
+      paragraphs.push(`<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> A consultar / Según aranceles o tarifas del oferente.</p>`);
+    } else if (!omitVigencia && omitPrice) {
+      paragraphs.push(`<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado.</p>`);
+    }
+
+    // 2. Story / Trajectory if requested
+    if (isStory) {
+      const year = extractedData.detectedFoundingYear || extractFoundingYear("", extractedData.textContent || "", extractedData.url, cleanTitle);
+      const histText = year
+        ? `${cleanTitle} cuenta con una sólida trayectoria institucional desde su fundación en el año ${year}, consolidándose como un referente en ${locationText || "su sector"}. A lo largo de su historia ha desarrollado un modelo de excelencia y servicio continuo.`
+        : `${cleanTitle} se destaca por su amplia trayectoria y solidez en ${locationText || "su región"}, brindando soluciones de calidad y compromiso profesional sustentado en su experiencia.`;
+      paragraphs.push(`<p>${omitIcons ? "" : "🏛️ "}<strong>Historia y Trayectoria:</strong> ${histText}</p>`);
+    }
+
+    // 3. Executive summary / Who we are / Value proposition
+    if (isExecutiveSummary) {
+      paragraphs.push(
+        `<p>${omitIcons ? "" : "💼 "}<strong>Resumen Ejecutivo:</strong> ${cleanSummary || `${cleanTitle} es una entidad de referencia en ${locationText}.`} Su propuesta integra altos estándares operativos, tecnología y atención especializada orientada a satisfacer los requerimientos de sus usuarios y clientes.</p>`
+      );
+    } else if (isWhoWeAre && !isStory) {
+      paragraphs.push(
+        `<p>${omitIcons ? "" : "🏢 "}<strong>Quiénes Somos:</strong> ${cleanSummary || `${cleanTitle} es una institución orientada a brindar soluciones integrales en ${locationText}.`} Cuenta con profesionales capacitados e infraestructura moderna.</p>`
+      );
+    } else if (!isStory) {
+      paragraphs.push(
+        `<p>${omitIcons ? "" : "💡 "}<strong>Propuesta de valor:</strong> ${cleanSummary}${locationText ? ` con sede en ${locationText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`
+      );
+    }
+
+    // 4. Detailed services if requested
+    if (isServicesDetailed) {
+      paragraphs.push(
+        `<p>${omitIcons ? "" : "🩺 "}<strong>Detalle de Servicios y Prestaciones:</strong> ${cleanTitle} ofrece una cartera completa de prestaciones que incluye: ${servicesListStr}. Cada área cuenta con soporte calificado, procesos certificados y atención adaptada a cada necesidad.</p>`
+      );
+    }
+
+    // 5. Differential
+    paragraphs.push(
+      `<p>${omitIcons ? "" : "⭐ "}<strong>Diferencial:</strong> <em>Idiomas de atención:</em> Español, Inglés. <em>Experiencia y soporte:</em> Información tomada directamente del portal oficial. <em>Diferencial vs. alternativas:</em> Contacto directo con el oferente y respaldo institucional.</p>`
+    );
+
+    // 6. Exclusions
+    paragraphs.push(
+      `<p>${omitIcons ? "" : "⚠️ "}<strong>Exclusiones:</strong> Confirmar disponibilidad, requisitos y condiciones particulares directamente en ${siteUrl} antes de contratar o postular.</p>`
+    );
+  } else {
+    paragraphs.push(`<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> A consultar / Según aranceles o tarifas del oferente.</p>`);
+    paragraphs.push(`<p>💡 <strong>Propuesta de valor:</strong> ${cleanSummary}${locationText ? ` con sede en ${locationText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`);
+    paragraphs.push(`<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> Español, Inglés. <em>Experiencia y soporte:</em> Información tomada directamente del portal oficial. <em>Diferencial vs. alternativas:</em> Contacto directo con el oferente y respaldo institucional.</p>`);
+    paragraphs.push(`<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${siteUrl} antes de contratar o postular.</p>`);
+  }
+
+  let es = paragraphs.join("\n");
+  if (omitIcons) {
+    es = stripEmojisAndIcons(es);
+  }
 
   const [en, pt, it] = await Promise.all([
     translateFullHtmlDescriptionAsync(es, "en"),
@@ -2750,7 +2927,7 @@ function classifySectorAndTaxonomy(
   };
 }
 
-async function createFallbackPublication(extractedData: any, taxonomies?: any, customBlocks?: CustomScraperBlock[]): Promise<ScrapedPublication> {
+async function createFallbackPublication(extractedData: any, taxonomies?: any, customBlocks?: CustomScraperBlock[], customAdminPrompt?: string): Promise<ScrapedPublication> {
   const host = new URL(extractedData.url).hostname.replace("www.", "");
   const allText = `${extractedData.url} ${extractedData.title} ${extractedData.description} ${extractedData.textContent}`.toLowerCase();
   const titleClean = cleanTitleString(extractedData.title) || host;
@@ -2801,7 +2978,7 @@ async function createFallbackPublication(extractedData: any, taxonomies?: any, c
     extractedData.url,
     finalReviewCount
   );
-  const descriptions = await buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country);
+  const descriptions = await buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country, customAdminPrompt);
 
   const fallbackExtraDescriptions: ExtraDescriptionBlock[] = [scoreBlock];
   if (Array.isArray(customBlocks) && customBlocks.length > 0) {
@@ -3003,15 +3180,16 @@ Para CADA uno de estos bloques personalizados, analiza exhaustivamente el conten
   const adminPromptSection = customAdminPrompt && customAdminPrompt.trim()
     ? `
 ======================================================================
-🎯 INSTRUCCIONES / PROMPTS MAESTROS DEL ADMINISTRADOR (PRIORIDAD MÁXIMA):
+🎯 INSTRUCCIONES / PROMPTS MAESTROS DEL ADMINISTRADOR (PRIORIDAD ABSOLUTA Y MÁXIMA):
 "${customAdminPrompt.trim()}"
 
 REGLAS DE APLICACIÓN DEL PROMPT DEL ADMINISTRADOR:
-- Aplica estas directivas estrictamente en:
+- Aplica estas directivas estrictamente en la redacción de:
   * Título oficial ('title', 'titleI18n')
   * Descripción Principal ('description', 'descriptionI18n')
   * Bloques Adicionales ('extraDescriptions')
 - Comprende al 100% lo que pide el administrador sin importar si fue escrito con errores ortográficos, modismos coloquiales o tono informal.
+- LIBERTAD TOTAL DE ESTRUCTURA Y ENFOQUE: Si el administrador solicita un estilo específico (ej: "Explicar cada servicio con detalle", "Enfocado en historia y trayectoria", "Sin precios ni aranceles", "Resumen ejecutivo", "Sin emojis", etc.), LA DESCRIPCIÓN PRINCIPAL ('description' y 'descriptionI18n') DEBE SEGUIR TOTALMENTE ESAS INSTRUCCIONES EN SU REDACCIÓN Y ESTRUCTURA DE PÁRRAFOS HTML <p>, REEMPLAZANDO CUALQUIER FORMATO ESTÁNDAR.
 - NO alteres las Categorías ni las Taxonomías del catálogo (deben seleccionarse automáticamente según el rubro real).
 - NO alteres las valoraciones de Google Maps, cantidad de reseñas, direcciones físicas, teléfonos, WhatsApp, emails ni imágenes (deben ser los reales extraídos de la web).
 ======================================================================
@@ -3083,12 +3261,16 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
   * Si es ESTUDIO JURÍDICO / LEGAL: Actividad: ["Servicios profesionales y técnicos"]. Categoría: ["Residencia y ciudadanía"] o legal.
   * Si es HOTEL / ALOJAMIENTO: Actividad: ["Hostelería, alojamiento y turismo"]. Categoría: ["Alojamiento"].
 
-2. DESCRIPCIÓN PRINCIPAL (ESTRUCTURA DE 4 PÁRRAFOS HTML CON ICONOS) Y MULTILENGUAJE OBLIGATORIO:
-Genera 'description' (en español) y 'descriptionI18n' (con traducciones COMPLETAS, AUTÉNTICAS Y NATURALES de esa misma descripción exacta en los 4 idiomas: es, en, pt, it) respetando EXACTAMENTE estos 4 párrafos:
-<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> [Precio/Aranceles reales informados en la web o "A consultar"].</p>
-<p>💡 <strong>Propuesta de valor:</strong> [Explicación exhaustiva y REAL de los servicios o productos que brinda según el texto de la web]. <strong>¿Para quién?:</strong> [Público objetivo real]. <strong>Documentación requerida:</strong> [Requisitos reales según la web o acordes a su rubro]. <strong>Permanencia:</strong> [Modalidad temporal, ej: según servicio contratado, ciclo lectivo anual, estadía por noche, etc.].</p>
-<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> [Idiomas de atención detectados]. <em>Experiencia con clientes o extranjeros:</em> [Alcance y soporte real]. <em>Diferencial vs. alternativas:</em> [Ventajas competitivas reales, acreditación, trayectoria].</p>
-<p>⚠️ <strong>Exclusiones:</strong> [Políticas, aclaraciones, aranceles o condiciones informadas en la web].</p>
+2. DESCRIPCIÓN PRINCIPAL Y MULTILENGUAJE OBLIGATORIO:
+- SI HAY PROMPT DEL ADMINISTRADOR (en '🎯 INSTRUCCIONES / PROMPTS MAESTROS DEL ADMINISTRADOR'):
+  * Redacta 'description' (en español) y 'descriptionI18n' (es, en, pt, it) siguiendo FIELMENTE y de manera exhaustiva todo lo solicitado por el administrador (ej: historia y trayectoria, detalle de cada servicio o especialidad, sin precios, resumen ejecutivo, etc.), utilizando todos los datos reales y servicios extraídos del sitio web.
+  * Formatea la descripción en párrafos HTML limpios (<p><strong>Subtítulo:</strong> Contenido...</p>).
+- SI NO HAY PROMPT DEL ADMINISTRADOR (o si el prompt no pide un formato particular):
+  * Utiliza la estructura estándar de 4 párrafos HTML:
+    <p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> [Precio/Aranceles reales en la web o "A consultar"].</p>
+    <p>💡 <strong>Propuesta de valor:</strong> [Explicación exhaustiva y REAL de los servicios o productos que brinda según el texto de la web]. <strong>¿Para quién?:</strong> [Público objetivo real]. <strong>Documentación requerida:</strong> [Requisitos reales según la web o acordes a su rubro]. <strong>Permanencia:</strong> [Modalidad temporal].</p>
+    <p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> [Idiomas detectados]. <em>Experiencia y soporte:</em> [Alcance y respaldo]. <em>Diferencial vs. alternativas:</em> [Ventajas competitivas reales].</p>
+    <p>⚠️ <strong>Exclusiones:</strong> [Políticas, aclaraciones o condiciones particulares].</p>
 
 OBLIGATORIO Y ESTRICTO:
 - LIMPIEZA ABSOLUTA DE TEXTO: ELIMINA terminantemente botones, enlaces o frases residuales de noticias o navegación como 'Leer nota »', 'Leer nota', 'Leer más »', 'Ver más »', 'Click aquí', 'Seguir leyendo', 'Ir a la nota', 'Conocé más', etc. NUNCA las dejes en la descripción ni en ningún párrafo.
@@ -3201,7 +3383,7 @@ function mergeSocialLinks(linksA: SocialLinkDetail[] = [], linksB: SocialLinkDet
   return merged;
 }
 
-async function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: any, customBlocks?: CustomScraperBlock[]): Promise<ScrapedPublication> {
+async function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: any, customBlocks?: CustomScraperBlock[], customAdminPrompt?: string): Promise<ScrapedPublication> {
   const host = new URL(extractedData.url).hostname.replace("www.", "");
   const rawTitle = parsed.title || extractedData.title || `Publicación de ${host}`;
   const title = cleanTitleString(rawTitle);
@@ -3315,16 +3497,26 @@ async function formatPublicationResult(parsed: any, extractedData: any, taxonomi
 
   let finalDescEs = normalizeToSpanishDescriptionHeaders(rawDescEs);
 
-  // Check if description strictly complies with the 4-paragraph HTML structure
-  const hasFullStructure =
-    finalDescEs.length >= 80 &&
-    finalDescEs.includes("<p>") &&
-    /Propuesta de valor/i.test(finalDescEs) &&
-    /Diferencial/i.test(finalDescEs);
+  // If prompt asks to strip icons / emojis
+  if (customAdminPrompt && checkPromptOmitIcons(customAdminPrompt)) {
+    finalDescEs = stripEmojisAndIcons(finalDescEs);
+  }
+  // If prompt asks to strip prices
+  if (customAdminPrompt && checkPromptOmitPrice(customAdminPrompt)) {
+    finalDescEs = finalDescEs
+      .replace(/<p>\s*<strong>\s*Precio:[\s\S]*?<\/p>/gi, "")
+      .replace(/<strong>\s*Precio:[\s\S]*?(?=<strong>|<\/p>|$)/gi, "")
+      .replace(/<p>\s*<strong>\s*Vigencia:[\s\S]*?Precio:[\s\S]*?<\/p>/gi, (m) => {
+        return m.replace(/<strong>\s*Precio:[\s\S]*?(?=<\/p>|$)/gi, "");
+      });
+  }
 
-  // If the AI description was missing, too short, or lacks the 4-paragraph structure, generate grounded 4-paragraph descriptions
-  if (!hasFullStructure) {
-    const fallbackDesc = await buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country);
+  // Check if AI description is valid and sufficiently descriptive
+  const hasValidContent = finalDescEs.length >= 25 && (finalDescEs.includes("<p>") || finalDescEs.length >= 60);
+
+  // If the AI description was missing, too short, or lacks content, generate grounded descriptions
+  if (!hasValidContent) {
+    const fallbackDesc = await buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country, customAdminPrompt);
     finalDescEs = fallbackDesc.es;
     rawDescEn = fallbackDesc.en;
     rawDescPt = fallbackDesc.pt;
@@ -3724,14 +3916,14 @@ async function processUrlWithAI(
   const executeGemini = async () => {
     if (!canUseGemini) throw new Error("No hay GEMINI_API_KEY configurada.");
     const parsed = await callGeminiApi(prompt, geminiKey);
-    const pub = await formatPublicationResult(parsed, extracted, taxonomies, customBlocks);
+    const pub = await formatPublicationResult(parsed, extracted, taxonomies, customBlocks, customAdminPrompt);
     return enforceStrictTaxonomyGuardrails(pub, extracted, taxonomies);
   };
 
   const executeOpenAI = async () => {
     if (!canUseOpenAI) throw new Error("No hay OPENAI_API_KEY configurada.");
     const parsed = await callOpenAIApi(prompt, openaiKey);
-    const pub = await formatPublicationResult(parsed, extracted, taxonomies, customBlocks);
+    const pub = await formatPublicationResult(parsed, extracted, taxonomies, customBlocks, customAdminPrompt);
     return enforceStrictTaxonomyGuardrails(pub, extracted, taxonomies);
   };
 
@@ -3749,7 +3941,7 @@ async function processUrlWithAI(
         engineUsed = "gemini";
       } catch (geminiErr: any) {
         console.error(`Gemini fallback also failed for ${url}:`, geminiErr.message);
-        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies, customBlocks), extracted, taxonomies);
+        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies, customBlocks, customAdminPrompt), extracted, taxonomies);
         engineUsed = "fallback";
       }
     }
@@ -3765,7 +3957,7 @@ async function processUrlWithAI(
         engineUsed = "openai";
       } catch (openAiErr: any) {
         console.error(`OpenAI fallback also failed for ${url}:`, openAiErr.message);
-        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies, customBlocks), extracted, taxonomies);
+        publication = enforceStrictTaxonomyGuardrails(await createFallbackPublication(extracted, taxonomies, customBlocks, customAdminPrompt), extracted, taxonomies);
         engineUsed = "fallback";
       }
     }
@@ -3884,7 +4076,7 @@ export async function POST(req: Request) {
         let host = "";
         try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
         const fallbackExtracted = { url, title: host, textContent: host, htmlContent: "", images: [], metaTags: {} };
-        return enforceStrictTaxonomyGuardrails(await createFallbackPublication(fallbackExtracted, taxonomies, customBlocks), fallbackExtracted, taxonomies);
+        return enforceStrictTaxonomyGuardrails(await createFallbackPublication(fallbackExtracted, taxonomies, customBlocks, customAdminPrompt), fallbackExtracted, taxonomies);
       }
     });
 
