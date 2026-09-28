@@ -39,7 +39,7 @@ const FIELD_LABELS: Record<RefineFieldType, { title: string; subtitle: string; p
   title: {
     title: "Asistente IA para Título",
     subtitle: "Podés pedirle que sea llamativo, de impacto, invitacional, corto, o enfocado en lo que vos quieras.",
-    placeholder: "Ej: Hacelo bien trabajado y de impacto, o 'Vení a la mejor opción...', o 'Universidad Siglo 21 | Carreras oficiales'...",
+    placeholder: "Ej: Hacelo bien trabajado y de impacto, o '¡Inscribite hoy...!', o con los servicios principales...",
     suggestions: [
       "Hacerlo más trabajado, llamativo y de impacto",
       "Nombre oficial con subtítulo destacado (Nombre | Oferta)",
