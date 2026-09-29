@@ -259,194 +259,7 @@ function filterItemsByAllSelectedCategories(items: Publication[], rawCategory: s
   });
 }
 
-const CONVERSATIONAL_STOPWORDS = new Set([
-  "estoy", "estas", "esta", "estamos", "estan", "busco", "buscando", "buscar", "buscamos", "buscan",
-  "necesito", "necesitamos", "necesita", "necesitan", "quiero", "queremos", "quisiera", "quisieramos",
-  "me", "te", "se", "nos", "les", "le", "mi", "tu", "su", "mis", "tus", "sus", "mio", "mia", "tuyo",
-  "gustaria", "gustaría", "interesa", "interesaria", "interesaría", "ando", "andamos",
-  "esto", "esta", "este", "estos", "estas", "eso", "esa", "ese", "esos", "esas", "aquel", "aquello",
-  "algo", "asi", "así", "tipo", "tal", "tales", "como", "cosa", "cosas", "tema", "temas",
-  "lugar", "lugares", "sitio", "sitios", "para", "por", "sobre", "entre", "hacia", "desde", "hasta",
-  "sin", "tras", "durante", "mediante", "segun", "según", "contra",
-  "un", "una", "unos", "unas", "el", "la", "los", "las", "lo", "al", "del", "de", "en", "a", "con",
-  "que", "qué", "quien", "quién", "quienes", "quiénes", "cual", "cuál", "cuales", "cuáles",
-  "donde", "dónde", "cuando", "cuándo", "como", "cómo", "cuanto", "cuánto", "cuanta", "cuánta",
-  "y", "e", "o", "u", "pero", "sino", "mas", "más", "ademas", "además", "tambien", "también",
-  "si", "no", "ni", "ya", "muy", "mucho", "mucha", "muchos", "muchas", "poco", "poca",
-  "viaje", "viajes", "viajar", "viajero", "viajeros", "viajera",
-  "i", "you", "we", "they", "he", "she", "it", "my", "your", "our", "their",
-  "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
-  "looking", "search", "searching", "find", "finding", "need", "needs", "want", "wants",
-  "would", "like", "for", "to", "in", "at", "by", "from", "with", "about",
-  "a", "an", "the", "this", "that", "some", "any", "something", "somewhere",
-  "estou", "procurando", "preciso", "quero", "sto", "cercando", "cerco", "bisogno"
-]);
-
-const CONCEPT_EXPANSIONS: Record<string, string[]> = {
-  "escuela": ["educacion", "estudios", "colegio", "universidad", "instituto", "facultad", "carrera", "carreras", "academico", "formacion", "curso", "clases", "licenciatura", "grado", "posgrado", "master", "maestria", "intercambio"],
-  "colegio": ["escuela", "instituto", "educacion", "universidad", "estudios"],
-  "universidad": ["facultad", "carrera", "carreras", "posgrado", "maestria", "licenciatura", "educacion", "estudios", "universitaria", "universitario", "academico", "instituto", "escuela"],
-  "facultad": ["universidad", "carrera", "licenciatura", "educacion", "posgrado"],
-  "carrera": ["universidad", "carreras", "licenciatura", "estudios", "grado", "facultad"],
-  "carreras": ["universidad", "carrera", "licenciatura", "estudios", "grado", "facultad"],
-  "estudiar": ["educacion", "estudios", "universidad", "escuela", "curso", "carrera", "instituto", "academico"],
-  "estudio": ["educacion", "estudios", "universidad", "escuela", "curso", "carrera"],
-  "estudios": ["educacion", "estudio", "universidad", "escuela", "curso", "carrera", "universitario"],
-  "educacion": ["escuela", "universidad", "estudios", "instituto", "colegio", "carrera", "formacion", "capacitacion"],
-
-  "salud": ["medicina", "medico", "medica", "hospital", "clinica", "sanatorio", "obra social", "prepaga", "osep", "atencion", "asistencia", "doctor", "emergencia", "guardia", "consulta"],
-  "medicina": ["salud", "medico", "medica", "hospital", "clinica", "sanatorio", "obra social", "atencion", "doctor"],
-  "medico": ["medicina", "salud", "hospital", "clinica", "sanatorio", "obra social", "doctor", "atencion"],
-  "medica": ["medicina", "salud", "hospital", "clinica", "sanatorio", "obra social", "doctor", "atencion"],
-  "hospital": ["salud", "clinica", "sanatorio", "medicina", "medico", "atencion", "osep"],
-  "clinica": ["hospital", "salud", "sanatorio", "medicina", "medico", "atencion"],
-  "obra social": ["salud", "osep", "prepaga", "medicina", "cobertura", "afiliacion"],
-  "osep": ["obra social", "salud", "medicina", "hospital", "atencion", "mendoza"],
-
-  "abogado": ["legal", "juridico", "leyes", "tramite", "visa", "visas", "ciudadania", "migratorio", "migraciones", "pasaporte", "radicacion", "residencia", "estudio juridico"],
-  "abogados": ["legal", "juridico", "leyes", "tramite", "visa", "visas", "ciudadania", "migratorio", "migraciones", "pasaporte", "radicacion", "residencia", "estudio juridico"],
-  "legal": ["abogado", "juridico", "leyes", "tramite", "visa", "ciudadania", "migratorio"],
-  "juridico": ["legal", "abogado", "leyes", "tramite", "estudio juridico"],
-  "visa": ["visas", "tramite", "migratorio", "migraciones", "pasaporte", "ciudadania", "residencia", "consulado", "embajada", "abogado"],
-  "visas": ["visa", "tramite", "migratorio", "migraciones", "pasaporte", "ciudadania", "residencia", "consulado", "embajada", "abogado"],
-  "ciudadania": ["pasaporte", "tramite", "italiana", "espanola", "visa", "migratorio", "abogado", "nacionalidad", "residencia"],
-  "pasaporte": ["ciudadania", "tramite", "visa", "migraciones", "nacionalidad"],
-  "migraciones": ["migratorio", "visa", "radicacion", "residencia", "tramite", "abogado"],
-
-  "alojamiento": ["hospedaje", "residencia", "habitacion", "departamento", "depto", "hotel", "hostel", "alquiler", "estudiantes", "vivienda"],
-  "hospedaje": ["alojamiento", "hotel", "hostel", "residencia", "habitacion", "alquiler"],
-  "departamento": ["alquiler", "depto", "alojamiento", "habitacion", "vivienda", "residencia"],
-  "hotel": ["hospedaje", "alojamiento", "hostel", "residencia", "habitacion"],
-
-  "trabajo": ["empleo", "pasantia", "voluntariado", "laboral", "puesto", "remunerado", "work"],
-  "empleo": ["trabajo", "pasantia", "laboral", "voluntariado"],
-  "voluntariado": ["voluntario", "pasantia", "ong", "social", "intercambio", "trabajo"],
-  "pasantia": ["practica", "trabajo", "empleo", "formacion", "estudiantes", "internship"],
-
-  "idioma": ["idiomas", "ingles", "italiano", "portugues", "aleman", "frances", "curso", "aprender", "profesor", "clases"],
-  "idiomas": ["idioma", "ingles", "italiano", "portugues", "aleman", "frances", "curso", "aprender", "profesor", "clases"],
-  "ingles": ["idioma", "idiomas", "english", "curso", "clases", "toefl", "ielts", "profesor"],
-  "italiano": ["idioma", "idiomas", "curso", "clases", "ciudadania"],
-
-  "ingenieria": ["carrera", "carreras", "universidad", "facultad", "educacion", "grado", "estudios", "licenciatura", "tecnologia", "sistemas"],
-  "ingeniería": ["carrera", "carreras", "universidad", "facultad", "educacion", "grado", "estudios", "licenciatura", "tecnologia", "sistemas"],
-  "abogacia": ["carrera", "carreras", "universidad", "facultad", "abogado", "derecho", "leyes", "educacion", "licenciatura"],
-  "abogacía": ["carrera", "carreras", "universidad", "facultad", "abogado", "derecho", "leyes", "educacion", "licenciatura"],
-  "psicologia": ["carrera", "carreras", "universidad", "facultad", "salud", "educacion", "licenciatura"],
-  "psicología": ["carrera", "carreras", "universidad", "facultad", "salud", "educacion", "licenciatura"],
-  "administracion": ["carrera", "carreras", "universidad", "facultad", "negocios", "empresa", "educacion", "licenciatura"],
-  "administración": ["carrera", "carreras", "universidad", "facultad", "negocios", "empresa", "educacion", "licenciatura"],
-  "marketing": ["carrera", "carreras", "universidad", "facultad", "negocios", "publicidad", "comunicacion", "educacion"],
-  "diseno": ["carrera", "carreras", "universidad", "facultad", "grafico", "educacion"],
-  "diseño": ["carrera", "carreras", "universidad", "facultad", "grafico", "educacion"],
-  "seguro": ["salud", "obra social", "prepaga", "asistencia", "cobertura", "viaje", "medico"],
-  "cobertura": ["salud", "obra social", "prepaga", "seguro", "medicina", "osep"],
-
-  "mendoza": ["mendoza", "argentina", "osep"],
-  "cordoba": ["cordoba", "argentina", "siglo 21", "universidad"],
-  "buenos aires": ["buenos aires", "argentina", "kennedy", "uba"],
-  "argentina": ["argentina", "buenos aires", "mendoza", "cordoba"],
-  "italia": ["italia", "italiana", "roma", "milan"],
-  "espana": ["espana", "espanola", "madrid", "barcelona"],
-};
-
-function calculateSmartSearchScore(p: Publication, queryRaw: string): number {
-  const qClean = normalizeText(queryRaw);
-  if (!qClean) return 1;
-
-  const rawTokens = qClean.split(/\s+/).filter(Boolean);
-  if (!rawTokens.length) return 1;
-
-  const fields = ((p as any)?.fields ?? {}) as Record<string, unknown>;
-  const titleI18nValues = Object.values((p as any).titleI18n ?? {}).map(String);
-  const descI18nValues = Object.values((p as any).descriptionI18n ?? {}).map(String);
-  const catI18nValues = Object.values((p as any).categoryI18n ?? {}).map(String);
-  const subcatI18nValues = Object.values((p as any).subcategoryI18n ?? {}).map(String);
-
-  const titleText = normalizeText([p.title, ...titleI18nValues].filter(Boolean).join(" "));
-  const publisherText = normalizeText((p as any).publisherName || "");
-  const categoryText = normalizeText([p.category, ...catI18nValues, p.subcategory, ...subcatI18nValues].filter(Boolean).join(" "));
-  const travelDestinations = Array.isArray(fields.travelDestinations) ? fields.travelDestinations : [];
-  const headquarterLocations = Array.isArray(fields.headquarterLocations) ? fields.headquarterLocations : [];
-  const locationText = normalizeText([
-    p.country,
-    p.city,
-    ...travelDestinations.flatMap((d: any) => [d?.country, d?.city]),
-    ...headquarterLocations.flatMap((d: any) => [d?.country, d?.city]),
-  ].filter(Boolean).join(" "));
-  const descText = normalizeText([p.description, ...descI18nValues].filter(Boolean).join(" "));
-
-  const filterOptionLabels = (p.filterOptions ?? []).flatMap((entry) => [
-    String((entry as any)?.filterOption?.label ?? ""),
-    ...Object.values((entry as any)?.filterOption?.labelI18n ?? {}).map(String),
-  ]);
-  const categorySelections = Array.isArray(fields.categorySelections) ? fields.categorySelections : [];
-  const subcategorySelections = Array.isArray(fields.subcategorySelections) ? fields.subcategorySelections : [];
-  const extraDescriptions = Array.isArray(fields.extraDescriptions) ? fields.extraDescriptions.flatMap((e: any) => [e?.title, e?.body]) : [];
-
-  const tagsText = normalizeText([
-    ...filterOptionLabels,
-    ...categorySelections,
-    ...subcategorySelections,
-    ...extraDescriptions,
-  ].filter(Boolean).join(" "));
-
-  const fullHaystack = `${titleText} ${publisherText} ${categoryText} ${locationText} ${descText} ${tagsText}`;
-
-  // 1. Exact full phrase match bonus
-  let score = 0;
-  if (fullHaystack.includes(qClean)) {
-    score += 180;
-    if (titleText.includes(qClean)) score += 150;
-    if (publisherText.includes(qClean)) score += 120;
-    if (categoryText.includes(qClean)) score += 80;
-  }
-
-  // 2. Extract meaningful keywords (strip conversational stopwords)
-  let meaningfulTokens = rawTokens.filter((t) => t.length >= 2 && !CONVERSATIONAL_STOPWORDS.has(t));
-  if (!meaningfulTokens.length) {
-    meaningfulTokens = rawTokens.filter((t) => t.length >= 3);
-  }
-  if (!meaningfulTokens.length) {
-    meaningfulTokens = rawTokens;
-  }
-
-  // 3. Match and score meaningful tokens
-  let matchedMeaningfulCount = 0;
-
-  for (const token of meaningfulTokens) {
-    let tokenScore = 0;
-
-    if (titleText.includes(token)) tokenScore += 50;
-    if (publisherText.includes(token)) tokenScore += 45;
-    if (categoryText.includes(token)) tokenScore += 40;
-    if (locationText.includes(token)) tokenScore += 30;
-    if (tagsText.includes(token)) tokenScore += 20;
-    if (descText.includes(token)) tokenScore += 15;
-
-    // Semantic concept expansions
-    const expansions = CONCEPT_EXPANSIONS[token] || [];
-    for (const exp of expansions) {
-      if (titleText.includes(exp)) tokenScore += 30;
-      if (categoryText.includes(exp)) tokenScore += 30;
-      if (publisherText.includes(exp)) tokenScore += 25;
-      if (locationText.includes(exp)) tokenScore += 20;
-      if (tagsText.includes(exp)) tokenScore += 15;
-      if (descText.includes(exp)) tokenScore += 10;
-    }
-
-    if (tokenScore > 0) {
-      matchedMeaningfulCount++;
-      score += tokenScore;
-    }
-  }
-
-  if (matchedMeaningfulCount > 1) {
-    score += matchedMeaningfulCount * 30;
-  }
-
-  return score;
-}
+import { calculateSmartSearchScore } from "@/app/lib/aiSmartSearch";
 
 function isFeaturedPublication(item: Publication) {
   const fromRoot = Boolean((item as any)?.featured);
@@ -759,42 +572,51 @@ export default async function BuscarPage({
                   {shouldActivateResults ? (
                   <>
                   <div id="publicaciones-normales">
-                  <ResultsGrid items={visibleSortedItems} categories={publicCategories} filterGroups={filterGroups} />
+                    <ResultsGrid items={visibleSortedItems} categories={publicCategories} filterGroups={filterGroups} />
 
-                  <PaginationControls
-                    currentPage={page}
-                    totalPages={visibleTotalPages}
-                    totalItems={visibleTotal}
-                    pageSize={perPage}
-                    searchParams={sp}
-                    pageParam="page"
-                    anchor="publicaciones-normales"
-                    label={hasPrestacionFilter ? "Paginación general de publicaciones" : "Paginación de publicaciones normales"}
-                    clearParams={hasPrestacionFilter ? ["prestacionesPage"] : []}
-                  />
-                </div>
+                    {visibleSortedItems.length > 0 ? (
+                      <PaginationControls
+                        currentPage={page}
+                        totalPages={visibleTotalPages}
+                        totalItems={visibleTotal}
+                        pageSize={perPage}
+                        searchParams={sp}
+                        pageParam="page"
+                        anchor="publicaciones-normales"
+                        label={hasPrestacionFilter ? "Paginación general de publicaciones" : "Paginación de publicaciones normales"}
+                        clearParams={hasPrestacionFilter ? ["prestacionesPage"] : []}
+                      />
+                    ) : null}
+                  </div>
 
-                {/* These two cards are always shown below the results (Figma) */}
-                <ClientBottomCards emptyState={!visibleSortedItems.length && !visiblePrestacionesItems.length} />
+                  {!hasPrestacionFilter && prestacionesPayload && visiblePrestacionesItems.length > 0 ? (
+                    <section id="publicaciones-prestaciones" className={visibleSortedItems.length ? "mt-8" : "mb-8"}>
+                      <PrestacionesSectionHeader />
 
-                {!hasPrestacionFilter && prestacionesPayload ? (
-                  <section id="publicaciones-prestaciones" className="mt-8">
-                    {visiblePrestacionesItems.length ? <PrestacionesSectionHeader /> : null}
+                      <ResultsGrid items={visiblePrestacionesItems} categories={publicCategories} filterGroups={filterGroups} />
 
-                    <ResultsGrid items={visiblePrestacionesItems} categories={publicCategories} filterGroups={filterGroups} />
+                      <PaginationControls
+                        currentPage={prestacionesPayload.page}
+                        totalPages={prestacionesPayload.totalPages}
+                        totalItems={prestacionesPayload.total}
+                        pageSize={prestacionesPayload.perPage}
+                        searchParams={sp}
+                        pageParam="prestacionesPage"
+                        anchor="publicaciones-prestaciones"
+                        label="Paginación de publicaciones de prestaciones"
+                      />
+                    </section>
+                  ) : null}
 
-                    <PaginationControls
-                      currentPage={prestacionesPayload.page}
-                      totalPages={prestacionesPayload.totalPages}
-                      totalItems={prestacionesPayload.total}
-                      pageSize={prestacionesPayload.perPage}
-                      searchParams={sp}
-                      pageParam="prestacionesPage"
-                      anchor="publicaciones-prestaciones"
-                      label="Paginación de publicaciones de prestaciones"
-                    />
-                  </section>
-                ) : null}
+                  {!visibleSortedItems.length && !visiblePrestacionesItems.length ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm my-6">
+                      <p className="text-base font-semibold text-slate-700">No se encontraron publicaciones que coincidan con tu búsqueda.</p>
+                      <p className="mt-1 text-sm text-slate-500">Prueba ajustando los términos o limpiando los filtros seleccionados.</p>
+                    </div>
+                  ) : null}
+
+                  {/* These two cards are always shown below the results (Figma) */}
+                  <ClientBottomCards emptyState={!visibleSortedItems.length && !visiblePrestacionesItems.length} />
                   </>
                   ) : (
                     <div className="rounded-3xl border border-[#BDECF2] bg-[#EFFBFD] p-6 text-center text-[#0B6B7A] shadow-sm">
