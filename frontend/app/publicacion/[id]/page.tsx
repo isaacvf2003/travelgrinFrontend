@@ -614,6 +614,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
         .map((entry: any) => ({
           kind: String(entry?.kind ?? ""),
           label: String(entry?.label ?? ""),
+          labelI18n: (entry?.labelI18n && typeof entry.labelI18n === "object") ? entry.labelI18n : null,
           url: String(entry?.url ?? ""),
         }))
         .filter((entry: any) => entry.kind && entry.url)
@@ -635,6 +636,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
     const href = normalizeContactHref(entry.kind, entry.url);
     return {
       label,
+      labelI18n: entry.labelI18n ?? null,
       href,
       icon: entry.kind === "web" ? "web" : entry.kind,
     };

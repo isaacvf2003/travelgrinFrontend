@@ -13,7 +13,7 @@ import {
   Phone,
   Youtube,
 } from "lucide-react";
-
+import { useTranslation } from "@/app/hooks/useTranslation";
 import { trackPublicationMetric } from "./PublicationMetricsTracker";
 import SafetyAdvisoryModal from "./SafetyAdvisoryModal";
 
@@ -32,6 +32,7 @@ const ICONS = {
 
 export type ContactEntry = {
   label: string;
+  labelI18n?: Record<string, string> | null;
   href: string;
   icon: keyof typeof ICONS;
 };
@@ -41,6 +42,37 @@ type ContactAccordionProps = {
   publicationId?: string;
   className?: string;
 };
+
+const COMMON_LABEL_TRANSLATIONS: Record<string, Record<string, string>> = {
+  "página oficial": { es: "Página Oficial", en: "Official Website", pt: "Página Oficial", it: "Sito Ufficiale" },
+  "pagina oficial": { es: "Página Oficial", en: "Official Website", pt: "Página Oficial", it: "Sito Ufficiale" },
+  "sitio oficial": { es: "Sitio Oficial", en: "Official Website", pt: "Site Oficial", it: "Sito Ufficiale" },
+  "sitio web": { es: "Sitio Web", en: "Website", pt: "Site", it: "Sito Web" },
+  "web": { es: "Web", en: "Website", pt: "Web", it: "Web" },
+  "teléfono de contacto": { es: "Teléfono de contacto", en: "Contact Phone", pt: "Telefone de contato", it: "Telefono di contatto" },
+  "telefono de contacto": { es: "Teléfono de contacto", en: "Contact Phone", pt: "Telefone de contato", it: "Telefono di contacto" },
+  "central telefónica": { es: "Central Telefónica", en: "Switchboard / Main Phone", pt: "Central Telefônica", it: "Centralino Telefonico" },
+  "central telefonica": { es: "Central Telefónica", en: "Switchboard / Main Phone", pt: "Central Telefônica", it: "Centralino Telefonico" },
+  "línea gratuita (0800)": { es: "Línea gratuita (0800)", en: "Toll-free line (0800)", pt: "Linha gratuita (0800)", it: "Numero verde (0800)" },
+  "linea gratuita (0800)": { es: "Línea gratuita (0800)", en: "Toll-free line (0800)", pt: "Linha gratuita (0800)", it: "Numero verde (0800)" },
+  "email de contacto": { es: "Email de contacto", en: "Contact Email", pt: "E-mail de contato", it: "Email di contatto" },
+  "correo de contacto": { es: "Correo de contacto", en: "Contact Email", pt: "E-mail de contato", it: "Email di contatto" },
+  "guardia": { es: "Guardia", en: "Emergency / 24h Duty", pt: "Plantão", it: "Pronto Soccorso" },
+};
+
+function resolveLocalizedContactLabel(entry: ContactEntry, locale: "es" | "en" | "pt" | "it"): string {
+  if (entry.labelI18n && typeof entry.labelI18n === "object") {
+    const direct = entry.labelI18n[locale] || entry.labelI18n.es;
+    if (direct) return direct;
+  }
+  const raw = String(entry.label ?? "").trim();
+  const lower = raw.toLowerCase();
+  const mapped = COMMON_LABEL_TRANSLATIONS[lower];
+  if (mapped && mapped[locale]) {
+    return mapped[locale];
+  }
+  return raw;
+}
 
 function extractEmailAddress(rawHref: string): string {
   const raw = String(rawHref ?? "").trim();
@@ -122,6 +154,7 @@ function buildSafeContactHref(icon: keyof typeof ICONS, href: string) {
 }
 
 export default function ContactAccordion({ entries, publicationId = "", className = "" }: ContactAccordionProps) {
+  const { t, locale } = useTranslation();
   const contentId = useId();
   const labelId = useMemo(() => `contact-toggle-${contentId}`, [contentId]);
   const [pendingContact, setPendingContact] = useState<{ href: string; icon: keyof typeof ICONS } | null>(null);
@@ -191,6 +224,15 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
   const [expanded, setExpanded] = useState(false);
   const visibleEntries = expanded || entries.length <= 4 ? entries : entries.slice(0, 4);
 
+  const moreTextMap: Record<"es" | "en" | "pt" | "it", { more: string; less: string; moreSuffix: string }> = {
+    es: { more: "Ver más", less: "Ver menos", moreSuffix: "más" },
+    en: { more: "See more", less: "See less", moreSuffix: "more" },
+    pt: { more: "Ver mais", less: "Ver menos", moreSuffix: "mais" },
+    it: { more: "Vedi altro", less: "Vedi meno", moreSuffix: "altri" },
+  };
+  const activeLang = (["es", "en", "pt", "it"].includes(locale as any) ? locale : "es") as "es" | "en" | "pt" | "it";
+  const { more: lblMore, less: lblLess, moreSuffix: lblMoreSuffix } = moreTextMap[activeLang] || moreTextMap.es;
+
   return (
     <>
     <div id="contacto" className={`rounded-3xl border border-[#1A4DA1]/35 bg-gradient-to-r from-[#17BEB7] to-[#1A4DA1] p-5 shadow-[0_12px_34px_rgba(26,77,161,0.28)] ${className}`}>
@@ -198,7 +240,7 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
         id={labelId}
         className="flex w-full items-center justify-between text-left text-lg font-semibold text-white md:text-xl"
       >
-        Conectar
+        {t("conectar") || "Conectar"}
       </div>
 
       <div
@@ -213,6 +255,7 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
               const Icon = ICONS[entry.icon] || ICONS.other || LinkIcon;
               const safeHref = buildSafeContactHref(entry.icon, entry.href);
               const opensInNewTab = !/^(mailto:|tel:)/i.test(safeHref);
+              const labelText = resolveLocalizedContactLabel(entry, activeLang);
               return (
                 <a
                   key={`${entry.label}-${entry.href}`}
@@ -223,7 +266,7 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
                   onClick={(event) => onContactClick(event, entry.href, entry.icon)}
                 >
                   <Icon className="h-4 w-4" />
-                  {entry.label}
+                  {labelText}
                 </a>
               );
             })}
@@ -233,7 +276,7 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
                 onClick={() => setExpanded((prev) => !prev)}
                 className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/40 bg-white/20 px-3 py-2 text-xs font-semibold text-white backdrop-blur-xs transition hover:bg-white/30 cursor-pointer"
               >
-                <span>{expanded ? "Ver menos" : `Ver más (${entries.length - 4} más)`}</span>
+                <span>{expanded ? lblLess : `${lblMore} (${entries.length - 4} ${lblMoreSuffix})`}</span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
               </button>
             ) : null}

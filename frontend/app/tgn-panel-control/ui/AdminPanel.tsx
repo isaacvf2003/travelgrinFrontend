@@ -267,7 +267,7 @@ type Publication = {
 };
 
 type LocationInput = { country: string; city: string; mapUrl: string };
-type SocialLinkDetail = { kind: string; label: string; url: string };
+type SocialLinkDetail = { kind: string; label: string; labelI18n?: I18nRecord; url: string };
 type PrestacionButton = { label: string; labelI18n?: I18nRecord; url: string; style: "primary" | "secondary"; bgColor?: string; textColor?: string };
 type PrestacionResource = {
   title: string;
@@ -2770,6 +2770,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       .map((entry) => ({
         kind: String(entry.kind ?? "").trim(),
         label: String(entry.label ?? "").trim(),
+        labelI18n: entry.labelI18n ?? null,
         url: (() => {
           const rawUrl = String(entry.url ?? "").trim();
           const kind = String(entry.kind ?? "").trim().toLowerCase();
@@ -3279,6 +3280,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           linkMap.set(key, {
             kind,
             label: String(entry.label || "").trim() || (kind === "phone" ? "Teléfono de contacto" : kind === "whatsapp" ? "WhatsApp" : kind === "email" ? "Email de contacto" : "Página Oficial"),
+            labelI18n: (entry as any).labelI18n || undefined,
             url: u,
           });
         }
@@ -4131,6 +4133,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           .map((entry: any) => ({
             kind: String(entry?.kind ?? ""),
             label: String(entry?.label ?? ""),
+            labelI18n: entry?.labelI18n ?? null,
             url: String(entry?.url ?? ""),
           }))
           .filter((entry: any) => entry.kind && entry.url)
@@ -10032,16 +10035,23 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     ))}
                   </select>
                   <input
-                    value={entry.label}
-                    onChange={(e) =>
+                    value={getLangEditValue(entry.labelI18n, pLang, pLang === "es" ? entry.label : "")}
+                    onChange={(e) => {
+                      const val = e.target.value;
                       setPSocialLinksDetailed((prev) =>
                         prev.map((item, index) =>
-                          index === idx ? { ...item, label: e.target.value } : item
+                          index === idx
+                            ? {
+                                ...item,
+                                label: pLang === "es" ? val : item.label,
+                                labelI18n: setLangText(item.label || "", item.labelI18n, pLang, val),
+                              }
+                            : item
                         )
-                      )
-                    }
+                      );
+                    }}
                     className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                    placeholder="Renombre del link (opcional)"
+                    placeholder={pLang === "es" ? "Renombre del link (ej: Página Oficial, Teléfono...)" : `Renombre del link (${pLang.toUpperCase()})`}
                   />
                   <input
                     value={entry.url}
@@ -10722,6 +10732,33 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     });
                     const updatedExtras = await Promise.all(extraPromises);
                     setPExtraDescriptions(updatedExtras);
+                  }
+
+                  // Translate social links labels
+                  if (pSocialLinksDetailed.length) {
+                    const socialPromises = pSocialLinksDetailed.map(async (item) => {
+                      const lSource = (item.labelI18n?.[sourceLang] || item.labelI18n?.es || item.label || "").trim();
+                      if (!lSource) return item;
+                      try {
+                        const r = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: lSource, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
+                        });
+                        const trans = (await r.json())?.translations;
+                        const nextLabelI18n = { ...(item.labelI18n || {}), [sourceLang]: lSource, ...(trans || {}) };
+                        return {
+                          ...item,
+                          label: sourceLang === "es" ? lSource : (item.label || nextLabelI18n.es || lSource),
+                          labelI18n: nextLabelI18n,
+                        };
+                      } catch (e) {
+                        console.warn("Failed translating social link label:", e);
+                        return item;
+                      }
+                    });
+                    const updatedSocials = await Promise.all(socialPromises);
+                    setPSocialLinksDetailed(updatedSocials);
                   }
 
                   setSaveMessage("Traducción completada a todos los idiomas.");
