@@ -62,14 +62,17 @@ const COMMON_LABEL_TRANSLATIONS: Record<string, Record<string, string>> = {
 
 function resolveLocalizedContactLabel(entry: ContactEntry, locale: "es" | "en" | "pt" | "it"): string {
   if (entry.labelI18n && typeof entry.labelI18n === "object") {
-    const direct = entry.labelI18n[locale] || entry.labelI18n.es;
-    if (direct) return direct;
+    const direct = entry.labelI18n[locale];
+    if (direct && String(direct).trim()) return String(direct).trim();
   }
   const raw = String(entry.label ?? "").trim();
   const lower = raw.toLowerCase();
   const mapped = COMMON_LABEL_TRANSLATIONS[lower];
   if (mapped && mapped[locale]) {
     return mapped[locale];
+  }
+  if (entry.labelI18n && typeof entry.labelI18n === "object" && entry.labelI18n.es) {
+    return String(entry.labelI18n.es).trim();
   }
   return raw;
 }

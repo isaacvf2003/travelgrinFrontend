@@ -1002,6 +1002,52 @@ function getLangMediaValue(i18n: I18nRecord | null | undefined, lang: Lang, fall
   return value;
 }
 
+const COMMON_CONTACT_TRANSLATIONS: Record<string, Record<string, string>> = {
+  "página oficial": { es: "Página Oficial", en: "Official Website", pt: "Página Oficial", it: "Sito Ufficiale" },
+  "pagina oficial": { es: "Página Oficial", en: "Official Website", pt: "Página Oficial", it: "Sito Ufficiale" },
+  "sitio oficial": { es: "Sitio Oficial", en: "Official Website", pt: "Site Oficial", it: "Sito Ufficiale" },
+  "sitio web": { es: "Sitio Web", en: "Website", pt: "Site", it: "Sito Web" },
+  "web": { es: "Web", en: "Website", pt: "Web", it: "Web" },
+  "página web": { es: "Página Web", en: "Website", pt: "Site", it: "Sito Web" },
+  "pagina web": { es: "Página Web", en: "Website", pt: "Site", it: "Sito Web" },
+  "teléfono": { es: "Teléfono", en: "Contact Phone", pt: "Telefone de contato", it: "Telefono di contatto" },
+  "telefono": { es: "Teléfono", en: "Contact Phone", pt: "Telefone de contato", it: "Telefono di contacto" },
+  "teléfono de contacto": { es: "Teléfono de contacto", en: "Contact Phone", pt: "Telefone de contato", it: "Telefono di contacto" },
+  "telefono de contacto": { es: "Teléfono de contacto", en: "Contact Phone", pt: "Telefone de contato", it: "Telefono di contacto" },
+  "central telefónica": { es: "Central Telefónica", en: "Switchboard / Main Phone", pt: "Central Telefônica", it: "Centralino Telefonico" },
+  "central telefonica": { es: "Central Telefónica", en: "Switchboard / Main Phone", pt: "Central Telefônica", it: "Centralino Telefonico" },
+  "línea gratuita (0800)": { es: "Línea gratuita (0800)", en: "Toll-free line (0800)", pt: "Linha gratuita (0800)", it: "Numero verde (0800)" },
+  "linea gratuita (0800)": { es: "Línea gratuita (0800)", en: "Toll-free line (0800)", pt: "Linha gratuita (0800)", it: "Numero verde (0800)" },
+  "línea gratuita": { es: "Línea gratuita", en: "Toll-free line", pt: "Linha gratuita", it: "Numero verde" },
+  "linea gratuita": { es: "Línea gratuita", en: "Toll-free line", pt: "Linha gratuita", it: "Numero verde" },
+  "email": { es: "Email", en: "Contact Email", pt: "E-mail de contato", it: "Email di contatto" },
+  "email de contacto": { es: "Email de contacto", en: "Contact Email", pt: "E-mail de contato", it: "Email di contacto" },
+  "correo": { es: "Correo", en: "Contact Email", pt: "E-mail de contato", it: "Email di contacto" },
+  "correo de contacto": { es: "Correo de contacto", en: "Contact Email", pt: "E-mail de contato", it: "Email di contacto" },
+  "correo electrónico": { es: "Correo electrónico", en: "Email", pt: "E-mail", it: "Email" },
+  "correo electronico": { es: "Correo electrónico", en: "Email", pt: "E-mail", it: "Email" },
+  "instagram": { es: "Instagram", en: "Instagram", pt: "Instagram", it: "Instagram" },
+  "facebook": { es: "Facebook", en: "Facebook", pt: "Facebook", it: "Facebook" },
+  "youtube": { es: "YouTube", en: "YouTube", pt: "YouTube", it: "YouTube" },
+  "linkedin": { es: "LinkedIn", en: "LinkedIn", pt: "LinkedIn", it: "LinkedIn" },
+  "whatsapp": { es: "WhatsApp", en: "WhatsApp", pt: "WhatsApp", it: "WhatsApp" },
+  "tiktok": { es: "TikTok", en: "TikTok", pt: "TikTok", it: "TikTok" },
+  "contacto": { es: "Contacto", en: "Contact", pt: "Contato", it: "Contatto" },
+  "guardia": { es: "Guardia", en: "Emergency / 24h Duty", pt: "Plantão", it: "Pronto Soccorso" },
+};
+
+function resolveContactLabelI18nRecord(rawLabel: string, existingI18n?: I18nRecord | null): I18nRecord {
+  const baseLabel = String(rawLabel || "").trim();
+  const lower = baseLabel.toLowerCase();
+  const dict = COMMON_CONTACT_TRANSLATIONS[lower];
+  return {
+    es: existingI18n?.es || dict?.es || baseLabel,
+    en: existingI18n?.en || dict?.en || "",
+    pt: existingI18n?.pt || dict?.pt || "",
+    it: existingI18n?.it || dict?.it || "",
+  };
+}
+
 
 type DashboardStatCardProps = {
   label: string;
@@ -3277,10 +3323,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         }
         const key = `${kind}:${u}`;
         if (!linkMap.has(key)) {
+          const rawLabel = String(entry.label || "").trim() || (kind === "phone" ? "Teléfono de contacto" : kind === "whatsapp" ? "WhatsApp" : kind === "email" ? "Email de contacto" : "Página Oficial");
+          const resolvedI18n = resolveContactLabelI18nRecord(rawLabel, (entry as any).labelI18n);
           linkMap.set(key, {
             kind,
-            label: String(entry.label || "").trim() || (kind === "phone" ? "Teléfono de contacto" : kind === "whatsapp" ? "WhatsApp" : kind === "email" ? "Email de contacto" : "Página Oficial"),
-            labelI18n: (entry as any).labelI18n || undefined,
+            label: rawLabel,
+            labelI18n: resolvedI18n,
             url: u,
           });
         }
@@ -8674,7 +8722,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   onClick={handleCancelScraperDraftEdit}
                   className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 shadow-xs cursor-pointer"
                 >
-                  Volver a la cola (sin guardar)
+                  Volver a la lista
                 </button>
               </div>
             ) : null}
@@ -8718,72 +8766,87 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   type="button"
                   disabled={translatingField === "all"}
                   onClick={async () => {
-                    const sourceLang = pLang || "es";
-                    const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
-                    const titleSource = (pTitleI18n[pLang] || pTitleI18n.es || pTitle || "").trim();
-                    const descSource = (pDescriptionI18n[pLang] || pDescriptionI18n.es || pDescription || "").trim();
-                    const provSource = (pProviderInfoI18n[pLang] || pProviderInfoI18n.es || "").trim();
-                    if (!titleSource && !descSource && !provSource && !pExtraDescriptions.length) return;
+                    const rawSourceLang = pLang || "es";
+                    const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
+
+                    // 1. Title
+                    const titleSource = (pTitleI18n.es || pTitle || pTitleI18n[rawSourceLang] || "").trim();
+                    const effectiveTitleLang = (pTitleI18n.es || pTitle) ? "es" : (rawSourceLang || "es");
+                    const titleTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveTitleLang);
+
+                    // 2. Description
+                    const descSource = (pDescriptionI18n.es || pDescription || pDescriptionI18n[rawSourceLang] || "").trim();
+                    const effectiveDescLang = (pDescriptionI18n.es || pDescription) ? "es" : (rawSourceLang || "es");
+                    const descTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveDescLang);
+
+                    // 3. Provider info
+                    const provSource = (pProviderInfoI18n.es || pProviderInfoI18n[rawSourceLang] || "").trim();
+                    const effectiveProvLang = pProviderInfoI18n.es ? "es" : (rawSourceLang || "es");
+                    const provTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveProvLang);
+
+                    if (!titleSource && !descSource && !provSource && !pExtraDescriptions.length && !pSocialLinksDetailed.length) return;
                     setTranslatingField("all");
                     try {
                       if (titleSource) {
                         const resT = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: titleSource, targetLangs, sourceLang, isHtml: false }),
+                          body: JSON.stringify({ text: titleSource, targetLangs: titleTargetLangs, sourceLang: effectiveTitleLang, isHtml: false, apiKey: customKey }),
                         });
                         const dataT = await resT.json();
                         if (dataT?.translations) {
                           setPTitleI18n((prev) => ({
                             ...prev,
-                            [sourceLang]: titleSource,
+                            [effectiveTitleLang]: titleSource,
                             ...dataT.translations,
                           }));
-                          if (sourceLang === "es" || !pTitle) setPTitle(titleSource);
+                          if (effectiveTitleLang === "es" || !pTitle) setPTitle(titleSource);
                         }
                       }
                       if (descSource) {
                         const resD = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: descSource, targetLangs, sourceLang, isHtml: true }),
+                          body: JSON.stringify({ text: descSource, targetLangs: descTargetLangs, sourceLang: effectiveDescLang, isHtml: true, apiKey: customKey }),
                         });
                         const dataD = await resD.json();
                         if (dataD?.translations) {
                           setPDescriptionI18n((prev) => ({
                             ...prev,
-                            [sourceLang]: descSource,
+                            [effectiveDescLang]: descSource,
                             ...dataD.translations,
                           }));
-                          if (sourceLang === "es" || !pDescription) setPDescription(descSource);
+                          if (effectiveDescLang === "es" || !pDescription) setPDescription(descSource);
                         }
                       }
                       if (provSource) {
                         const resP = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: provSource, targetLangs, sourceLang, isHtml: true }),
+                          body: JSON.stringify({ text: provSource, targetLangs: provTargetLangs, sourceLang: effectiveProvLang, isHtml: true, apiKey: customKey }),
                         });
                         const dataP = await resP.json();
                         if (dataP?.translations) {
                           setPProviderInfoI18n((prev) => ({
                             ...prev,
-                            [sourceLang]: provSource,
+                            [effectiveProvLang]: provSource,
                             ...dataP.translations,
                           }));
                         }
                       }
                       if (pExtraDescriptions.length) {
                         const extraPromises = pExtraDescriptions.map(async (d) => {
-                          const tSource = (d.titleI18n?.[sourceLang] || d.titleI18n?.es || d.title || "").trim();
-                          const bSource = (d.bodyI18n?.[sourceLang] || d.bodyI18n?.es || d.body || "").trim();
+                          const tSource = (d.titleI18n?.es || d.title || d.titleI18n?.[rawSourceLang] || "").trim();
+                          const bSource = (d.bodyI18n?.es || d.body || d.bodyI18n?.[rawSourceLang] || "").trim();
+                          const extLang = (d.titleI18n?.es || d.bodyI18n?.es || d.title || d.body) ? "es" : (rawSourceLang || "es");
+                          const extTargets = ["es", "en", "pt", "it"].filter((l) => l !== extLang);
                           let tTrans = null;
                           let bTrans = null;
                           if (tSource) {
                             const r = await fetch("/api/admin/translate-i18n", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ text: tSource, targetLangs, sourceLang, isHtml: false }),
+                              body: JSON.stringify({ text: tSource, targetLangs: extTargets, sourceLang: extLang, isHtml: false, apiKey: customKey }),
                             });
                             tTrans = (await r.json())?.translations;
                           }
@@ -8791,22 +8854,61 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             const r = await fetch("/api/admin/translate-i18n", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ text: bSource, targetLangs, sourceLang, isHtml: true }),
+                              body: JSON.stringify({ text: bSource, targetLangs: extTargets, sourceLang: extLang, isHtml: true, apiKey: customKey }),
                             });
                             bTrans = (await r.json())?.translations;
                           }
-                          const nextTitleI18n = { ...d.titleI18n, [sourceLang]: tSource, ...(tTrans || {}) };
-                          const nextBodyI18n = { ...d.bodyI18n, [sourceLang]: bSource, ...(bTrans || {}) };
+                          const nextTitleI18n = { ...d.titleI18n, [extLang]: tSource, ...(tTrans || {}) };
+                          const nextBodyI18n = { ...d.bodyI18n, [extLang]: bSource, ...(bTrans || {}) };
                           return {
                             ...d,
-                            title: sourceLang === "es" ? tSource : d.title || tSource,
-                            body: sourceLang === "es" ? bSource : d.body || bSource,
+                            title: extLang === "es" ? tSource : (d.title || nextTitleI18n.es || tSource),
+                            body: extLang === "es" ? bSource : (d.body || nextBodyI18n.es || bSource),
                             titleI18n: nextTitleI18n,
                             bodyI18n: nextBodyI18n,
                           };
                         });
                         const updatedExtras = await Promise.all(extraPromises);
                         setPExtraDescriptions(updatedExtras);
+                      }
+                      // Translate social links labels with AI
+                      if (pSocialLinksDetailed.length) {
+                        const socialPromises = pSocialLinksDetailed.map(async (item) => {
+                          const rawLabel = (item.labelI18n?.es || item.label || item.labelI18n?.[rawSourceLang] || "").trim() ||
+                            (item.kind === "phone" ? "Teléfono de contacto" : item.kind === "whatsapp" ? "WhatsApp" : item.kind === "email" ? "Email de contacto" : item.kind === "web" ? "Página Oficial" : "Enlace");
+                          const linkLang = (item.labelI18n?.es || item.label) ? "es" : (rawSourceLang || "es");
+                          const linkTargets = ["es", "en", "pt", "it"].filter((l) => l !== linkLang);
+                          let apiTrans: Record<string, string> | null = null;
+                          try {
+                            const r = await fetch("/api/admin/translate-i18n", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ text: rawLabel, targetLangs: linkTargets, sourceLang: linkLang, isHtml: false, apiKey: customKey }),
+                            });
+                            const apiData = await r.json();
+                            if (apiData?.translations) {
+                              apiTrans = apiData.translations;
+                            }
+                          } catch (e) {
+                            console.warn("Failed translating social link label:", e);
+                          }
+                          const dict = COMMON_CONTACT_TRANSLATIONS[rawLabel.toLowerCase()];
+                          const nextLabelI18n: I18nRecord = {
+                            es: item.labelI18n?.es || (linkLang === "es" ? rawLabel : (apiTrans?.es || dict?.es || rawLabel)),
+                            en: apiTrans?.en || dict?.en || item.labelI18n?.en || "",
+                            pt: apiTrans?.pt || dict?.pt || item.labelI18n?.pt || "",
+                            it: apiTrans?.it || dict?.it || item.labelI18n?.it || "",
+                            ...(apiTrans || {}),
+                            [linkLang]: rawLabel,
+                          };
+                          return {
+                            ...item,
+                            label: item.label || nextLabelI18n.es || rawLabel,
+                            labelI18n: nextLabelI18n,
+                          };
+                        });
+                        const updatedSocials = await Promise.all(socialPromises);
+                        setPSocialLinksDetailed(updatedSocials);
                       }
                       setSaveMessage("Traducción completada a todos los idiomas.");
                       window.setTimeout(() => setSaveMessage(""), 4000);
@@ -8816,7 +8918,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       setTranslatingField(null);
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-300 bg-gradient-to-r from-cyan-600 to-[#007D92] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-300 bg-gradient-to-r from-cyan-600 to-[#007D92] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50 cursor-pointer"
                 >
                   <Languages className="h-3.5 w-3.5 text-white" />
                   {translatingField === "all" ? "Traduciendo..." : "🌐 Traducir publicación completa a EN, PT, IT"}
@@ -10035,19 +10137,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     ))}
                   </select>
                   <input
-                    value={getLangEditValue(entry.labelI18n, pLang, pLang === "es" ? entry.label : "")}
+                    value={
+                      getLangEditValue(entry.labelI18n, pLang) ||
+                      (COMMON_CONTACT_TRANSLATIONS[String(entry.label || "").trim().toLowerCase()]?.[pLang] ?? "") ||
+                      (pLang === "es" ? entry.label : "")
+                    }
                     onChange={(e) => {
                       const val = e.target.value;
                       setPSocialLinksDetailed((prev) =>
-                        prev.map((item, index) =>
-                          index === idx
-                            ? {
-                                ...item,
-                                label: pLang === "es" ? val : item.label,
-                                labelI18n: setLangText(item.label || "", item.labelI18n, pLang, val),
-                              }
-                            : item
-                        )
+                        prev.map((item, index) => {
+                          if (index !== idx) return item;
+                          const baseLabel = item.label || "";
+                          const baseI18n = resolveContactLabelI18nRecord(baseLabel, item.labelI18n);
+                          return {
+                            ...item,
+                            label: pLang === "es" ? val : item.label,
+                            labelI18n: setLangText(baseLabel, baseI18n, pLang, val),
+                          };
+                        })
                       );
                     }}
                     className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
@@ -10630,44 +10737,49 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               onClick={async () => {
                 setTranslatingField("all");
                 try {
-                  const sourceLang = pLang || "es";
-                  const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
+                  const rawSourceLang = pLang || "es";
                   const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
                   const promises: Promise<any>[] = [];
 
                   // Title
-                  const titleSource = (pTitleI18n[sourceLang] || pTitleI18n.es || pTitle || "").trim();
+                  const titleSource = (pTitleI18n.es || pTitle || pTitleI18n[rawSourceLang] || "").trim();
+                  const effectiveTitleLang = (pTitleI18n.es || pTitle) ? "es" : (rawSourceLang || "es");
+                  const titleTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveTitleLang);
                   if (titleSource) {
                     promises.push(
                       fetch("/api/admin/translate-i18n", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: titleSource, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
-                      }).then((res) => res.json().then((d) => ({ key: "title", translations: d.translations })))
+                        body: JSON.stringify({ text: titleSource, targetLangs: titleTargetLangs, sourceLang: effectiveTitleLang, isHtml: false, apiKey: customKey }),
+                      }).then((res) => res.json().then((d) => ({ key: "title", sourceLang: effectiveTitleLang, sourceText: titleSource, translations: d.translations })))
                     );
                   }
 
                   // Description
-                  const descSource = (pDescriptionI18n[sourceLang] || pDescriptionI18n.es || pDescription || "").trim();
+                  const descSource = (pDescriptionI18n.es || pDescription || pDescriptionI18n[rawSourceLang] || "").trim();
+                  const effectiveDescLang = (pDescriptionI18n.es || pDescription) ? "es" : (rawSourceLang || "es");
+                  const descTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveDescLang);
                   if (descSource) {
                     promises.push(
                       fetch("/api/admin/translate-i18n", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: descSource, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
-                      }).then((res) => res.json().then((d) => ({ key: "description", translations: d.translations })))
+                        body: JSON.stringify({ text: descSource, targetLangs: descTargetLangs, sourceLang: effectiveDescLang, isHtml: true, apiKey: customKey }),
+                      }).then((res) => res.json().then((d) => ({ key: "description", sourceLang: effectiveDescLang, sourceText: descSource, translations: d.translations })))
                     );
                   }
 
                   // Provider info
-                  const providerSource = (pProviderInfoI18n[sourceLang] || pProviderInfoI18n.es || "").trim();
+                  const providerSource = (pProviderInfoI18n.es || pProviderInfoI18n[rawSourceLang] || "").trim();
+                  const effectiveProvLang = pProviderInfoI18n.es ? "es" : (rawSourceLang || "es");
+                  const provTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveProvLang);
                   if (providerSource) {
                     promises.push(
                       fetch("/api/admin/translate-i18n", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: providerSource, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
-                      }).then((res) => res.json().then((d) => ({ key: "providerInfo", translations: d.translations })))
+                        body: JSON.stringify({ text: providerSource, targetLangs: provTargetLangs, sourceLang: effectiveProvLang, isHtml: true, apiKey: customKey }),
+                      }).then((res) => res.json().then((d) => ({ key: "providerInfo", sourceLang: effectiveProvLang, sourceText: providerSource, translations: d.translations })))
                     );
                   }
 
@@ -10677,21 +10789,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     if (item.key === "title") {
                       setPTitleI18n((prev) => ({
                         ...prev,
-                        [sourceLang]: titleSource,
+                        [item.sourceLang]: item.sourceText,
                         ...item.translations,
                       }));
-                      if (sourceLang === "es" || !pTitle) setPTitle(titleSource);
+                      if (item.sourceLang === "es" || !pTitle) setPTitle(item.sourceText);
                     } else if (item.key === "description") {
                       setPDescriptionI18n((prev) => ({
                         ...prev,
-                        [sourceLang]: descSource,
+                        [item.sourceLang]: item.sourceText,
                         ...item.translations,
                       }));
-                      if (sourceLang === "es" || !pDescription) setPDescription(descSource);
+                      if (item.sourceLang === "es" || !pDescription) setPDescription(item.sourceText);
                     } else if (item.key === "providerInfo") {
                       setPProviderInfoI18n((prev) => ({
                         ...prev,
-                        [sourceLang]: providerSource,
+                        [item.sourceLang]: item.sourceText,
                         ...item.translations,
                       }));
                     }
@@ -10700,15 +10812,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   // Translate extra descriptions
                   if (pExtraDescriptions.length) {
                     const extraPromises = pExtraDescriptions.map(async (d) => {
-                      const tSource = (d.titleI18n?.[sourceLang] || d.titleI18n?.es || d.title || "").trim();
-                      const bSource = (d.bodyI18n?.[sourceLang] || d.bodyI18n?.es || d.body || "").trim();
+                      const tSource = (d.titleI18n?.es || d.title || d.titleI18n?.[rawSourceLang] || "").trim();
+                      const bSource = (d.bodyI18n?.es || d.body || d.bodyI18n?.[rawSourceLang] || "").trim();
+                      const extLang = (d.titleI18n?.es || d.bodyI18n?.es || d.title || d.body) ? "es" : (rawSourceLang || "es");
+                      const extTargets = ["es", "en", "pt", "it"].filter((l) => l !== extLang);
                       let tTrans = null;
                       let bTrans = null;
                       if (tSource) {
                         const r = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: tSource, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
+                          body: JSON.stringify({ text: tSource, targetLangs: extTargets, sourceLang: extLang, isHtml: false, apiKey: customKey }),
                         });
                         tTrans = (await r.json())?.translations;
                       }
@@ -10716,16 +10830,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         const r = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: bSource, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
+                          body: JSON.stringify({ text: bSource, targetLangs: extTargets, sourceLang: extLang, isHtml: true, apiKey: customKey }),
                         });
                         bTrans = (await r.json())?.translations;
                       }
-                      const nextTitleI18n = { ...(d.titleI18n || {}), [sourceLang]: tSource, ...(tTrans || {}) };
-                      const nextBodyI18n = { ...(d.bodyI18n || {}), [sourceLang]: bSource, ...(bTrans || {}) };
+                      const nextTitleI18n = { ...(d.titleI18n || {}), [extLang]: tSource, ...(tTrans || {}) };
+                      const nextBodyI18n = { ...(d.bodyI18n || {}), [extLang]: bSource, ...(bTrans || {}) };
                       return {
                         ...d,
-                        title: sourceLang === "es" ? tSource : (d.title || nextTitleI18n.es || tSource),
-                        body: sourceLang === "es" ? bSource : (d.body || nextBodyI18n.es || bSource),
+                        title: extLang === "es" ? tSource : (d.title || nextTitleI18n.es || tSource),
+                        body: extLang === "es" ? bSource : (d.body || nextBodyI18n.es || bSource),
                         titleI18n: nextTitleI18n,
                         bodyI18n: nextBodyI18n,
                       };
@@ -10734,28 +10848,41 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     setPExtraDescriptions(updatedExtras);
                   }
 
-                  // Translate social links labels
+                  // Translate social links labels with AI
                   if (pSocialLinksDetailed.length) {
                     const socialPromises = pSocialLinksDetailed.map(async (item) => {
-                      const lSource = (item.labelI18n?.[sourceLang] || item.labelI18n?.es || item.label || "").trim();
-                      if (!lSource) return item;
+                      const rawLabel = (item.labelI18n?.es || item.label || item.labelI18n?.[rawSourceLang] || "").trim() ||
+                        (item.kind === "phone" ? "Teléfono de contacto" : item.kind === "whatsapp" ? "WhatsApp" : item.kind === "email" ? "Email de contacto" : item.kind === "web" ? "Página Oficial" : "Enlace");
+                      const linkLang = (item.labelI18n?.es || item.label) ? "es" : (rawSourceLang || "es");
+                      const linkTargets = ["es", "en", "pt", "it"].filter((l) => l !== linkLang);
+                      let apiTrans: Record<string, string> | null = null;
                       try {
                         const r = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: lSource, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
+                          body: JSON.stringify({ text: rawLabel, targetLangs: linkTargets, sourceLang: linkLang, isHtml: false, apiKey: customKey }),
                         });
-                        const trans = (await r.json())?.translations;
-                        const nextLabelI18n = { ...(item.labelI18n || {}), [sourceLang]: lSource, ...(trans || {}) };
-                        return {
-                          ...item,
-                          label: sourceLang === "es" ? lSource : (item.label || nextLabelI18n.es || lSource),
-                          labelI18n: nextLabelI18n,
-                        };
+                        const apiData = await r.json();
+                        if (apiData?.translations) {
+                          apiTrans = apiData.translations;
+                        }
                       } catch (e) {
                         console.warn("Failed translating social link label:", e);
-                        return item;
                       }
+                      const dict = COMMON_CONTACT_TRANSLATIONS[rawLabel.toLowerCase()];
+                      const nextLabelI18n: I18nRecord = {
+                        es: item.labelI18n?.es || (linkLang === "es" ? rawLabel : (apiTrans?.es || dict?.es || rawLabel)),
+                        en: apiTrans?.en || dict?.en || item.labelI18n?.en || "",
+                        pt: apiTrans?.pt || dict?.pt || item.labelI18n?.pt || "",
+                        it: apiTrans?.it || dict?.it || item.labelI18n?.it || "",
+                        ...(apiTrans || {}),
+                        [linkLang]: rawLabel,
+                      };
+                      return {
+                        ...item,
+                        label: item.label || nextLabelI18n.es || rawLabel,
+                        labelI18n: nextLabelI18n,
+                      };
                     });
                     const updatedSocials = await Promise.all(socialPromises);
                     setPSocialLinksDetailed(updatedSocials);
