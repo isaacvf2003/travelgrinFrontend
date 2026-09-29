@@ -13,8 +13,13 @@ const DEFAULT_PLACEHOLDER_IMAGE = "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
 
 function safeUrl(src: any) {
   if (!src) return null;
-  const s = String(src);
-  return s || null;
+  const s = String(src).trim();
+  if (!s) return null;
+  try {
+    return encodeURI(decodeURI(s));
+  } catch {
+    return s.replace(/\s+/g, "%20");
+  }
 }
 
 export default function OthersCarousel({ items }: { items: Publication[] }) {
@@ -65,7 +70,7 @@ export default function OthersCarousel({ items }: { items: Publication[] }) {
               className="min-w-[260px] max-w-[260px] rounded-2xl border border-gray-200 bg-white p-3 hover:shadow-md transition-all"
             >
               <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50" style={{ aspectRatio: "16/9" }}>
-                <Image src={cover} alt={String(p.title)} fill className="object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
+                <Image src={cover} alt={String(p.title)} fill unoptimized className="object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
               </div>
 
               <div className="mt-3 flex items-start justify-between gap-3">

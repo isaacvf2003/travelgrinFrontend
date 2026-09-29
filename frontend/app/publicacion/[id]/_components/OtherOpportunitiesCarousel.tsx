@@ -11,9 +11,13 @@ const DEFAULT_PLACEHOLDER_IMAGE = "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
 
 function safeUrl(src: unknown) {
   if (!src) return null;
-  const s = String(src);
+  const s = String(src).trim();
   if (!s) return null;
-  return s;
+  try {
+    return encodeURI(decodeURI(s));
+  } catch {
+    return s.replace(/\s+/g, "%20");
+  }
 }
 
 export default function OtherOpportunitiesCarousel({ items }: { items: Publication[] }) {
@@ -75,7 +79,7 @@ export default function OtherOpportunitiesCarousel({ items }: { items: Publicati
                 className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50"
                 style={{ aspectRatio: "16/9" }}
               >
-                <Image src={cover} alt={String(p.title)} fill className="object-cover" />
+                <Image src={cover} alt={String(p.title)} fill unoptimized className="object-cover" />
               </div>
               <div className="mt-3 text-xs text-gray-500">
                 {p.country ? String(p.country) : ""}

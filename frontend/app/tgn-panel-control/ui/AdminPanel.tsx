@@ -1640,6 +1640,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [pFeatured, setPFeatured] = useState(false);
   const [pPartner, setPPartner] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeScraperDraftIndex, setActiveScraperDraftIndex] = useState<number | null>(null);
+  const [activeScraperDraftUrl, setActiveScraperDraftUrl] = useState<string | null>(null);
 
   const [pCategory, setPCategory] = useState("");
   const [pCategoryI18n, setPCategoryI18n] = useState<I18nRecord | null>(null);
@@ -3112,7 +3114,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
   }
 
-  const applyAiDraftToForm = (draft: ScrapedPublicationDraft) => {
+  const applyAiDraftToForm = (draft: ScrapedPublicationDraft, index?: number) => {
+    setActiveScraperDraftIndex(typeof index === "number" ? index : 0);
+    setActiveScraperDraftUrl(draft.url || null);
+    setEditingId(null);
     const cleanTitleStr = (s: string) => {
       if (!s) return "";
       let res = s
@@ -3560,6 +3565,123 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }, 50);
   };
 
+  const handleCancelScraperDraftEdit = () => {
+    setActiveScraperDraftIndex(null);
+    setActiveScraperDraftUrl(null);
+    if (isNewPublicationPage) {
+      router.push(`${basePath}?section=publicaciones`);
+    } else {
+      setShowPublicationEditor(false);
+    }
+    setAiModalOpen(true);
+  };
+
+  const handleSaveAiDraftChangesToQueue = () => {
+    const titleEs = (pTitleI18n[pLang] || pTitleI18n.es || pTitle || "").trim();
+    const descEs = (pDescriptionI18n[pLang] || pDescriptionI18n.es || pDescription || "").trim();
+    const catSelections = pCategorySelections.length ? pCategorySelections : (pCategory ? [pCategory] : []);
+    const subcatSelections = pSubcategorySelections.length ? pSubcategorySelections : (pSubcategory ? [pSubcategory] : []);
+
+    const headquarterLocations = [
+      {
+        country: pHeadquarterCountry || pCountry || "Argentina",
+        city: pHeadquarterCity || pCity || "Buenos Aires",
+        address: pLocationAddress || pHeadquarterMapUrl || "",
+        mapUrl: pHeadquarterMapUrl || pLocationAddress || "",
+      },
+      ...pHeadquarterExtras.map((e) => ({
+        country: e.country || pHeadquarterCountry || pCountry || "Argentina",
+        city: e.city || "",
+        address: e.mapUrl || "",
+        mapUrl: e.mapUrl || "",
+      })),
+    ];
+
+    const updatedDraft: ScrapedPublicationDraft = {
+      url: activeScraperDraftUrl || "",
+      title: titleEs,
+      titleI18n: {
+        ...pTitleI18n,
+        [pLang || "es"]: titleEs,
+        es: pTitleI18n.es || titleEs,
+      },
+      description: descEs,
+      descriptionI18n: {
+        ...pDescriptionI18n,
+        [pLang || "es"]: descEs,
+        es: pDescriptionI18n.es || descEs,
+      },
+      extraDescriptions: pExtraDescriptions.map((d) => ({
+        title: d.titleI18n?.[pLang] || d.titleI18n?.es || d.title,
+        titleI18n: d.titleI18n || { es: d.title },
+        body: d.bodyI18n?.[pLang] || d.bodyI18n?.es || d.body,
+        bodyI18n: d.bodyI18n || { es: d.body },
+        visibleInCard: d.visibleInCard !== false,
+      })),
+      publisherName: pPublisherName || "",
+      providerInfoI18n: pProviderInfoI18n,
+      providerStartYear: pProviderStartYear,
+      providerRating: pProviderRating,
+      providerReviewCount: pProviderReviewCount,
+      providerCommentsUrl: pProviderCommentsUrl,
+      providerLogo: pProviderLogo,
+      country: pCountry || pHeadquarterCountry || "Argentina",
+      city: pCity || pHeadquarterCity || "Buenos Aires",
+      locationAddress: pLocationAddress || pHeadquarterMapUrl || "",
+      currency: pCurrency || "USD",
+      price: pPrice || "",
+      pricePeriod: pPricePeriod || "",
+      languages: pLanguages || "Español",
+      website: pWebsite || "",
+      socialLinksDetailed: pSocialLinksDetailed || [],
+      images: pImageUrls
+        ? pImageUrls
+            .split("\n")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
+      category: catSelections[0] || pCategory || "General",
+      subcategory: subcatSelections[0] || pSubcategory || "",
+      categorySelections: catSelections,
+      subcategorySelections: subcatSelections,
+      providerActivities: pProviderActivities,
+      providerTypes: pProviderTypes,
+      providerModalities: pProviderModalities,
+      headquarterCountry: pHeadquarterCountry || pCountry || "Argentina",
+      headquarterCity: pHeadquarterCity || pCity || "Buenos Aires",
+      headquarterLocations,
+      status: (pStatus as "active" | "draft" | "paused") || "active",
+    };
+
+    try {
+      if (typeof window !== "undefined") {
+        const raw = window.sessionStorage.getItem("tgn_ai_drafts_queue");
+        let queue: ScrapedPublicationDraft[] = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(queue)) queue = [];
+
+        const targetIdx = typeof activeScraperDraftIndex === "number" ? activeScraperDraftIndex : 0;
+        if (targetIdx >= 0 && targetIdx < queue.length) {
+          queue[targetIdx] = updatedDraft;
+        } else {
+          queue.push(updatedDraft);
+        }
+
+        window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(queue));
+      }
+    } catch (err) {
+      console.error("Error saving updated draft to sessionStorage:", err);
+    }
+
+    setActiveScraperDraftIndex(null);
+    setActiveScraperDraftUrl(null);
+    if (isNewPublicationPage) {
+      router.push(`${basePath}?section=publicaciones`);
+    } else {
+      setShowPublicationEditor(false);
+    }
+    setAiModalOpen(true);
+  };
+
   const handleApproveAiDraftDirectly = async (draft: ScrapedPublicationDraft): Promise<boolean> => {
     try {
       const titleEs = (draft.titleI18n?.es || draft.title || "").trim();
@@ -3698,7 +3820,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     await refresh();
   }
 
+  const openNewPublicationEditor = () => {
+    setActiveScraperDraftIndex(null);
+    setActiveScraperDraftUrl(null);
+    cancelEdit();
+    if (isNewPublicationPage) {
+      router.push(`${basePath}?section=publicaciones`);
+    } else {
+      setShowPublicationEditor(true);
+      window.setTimeout(() => publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    }
+  };
+
   function editPublication(pub: Publication) {
+    setActiveScraperDraftIndex(null);
+    setActiveScraperDraftUrl(null);
     setShowPublicationEditor(true);
     window.setTimeout(() => publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     setPTourismType("receptivo");
@@ -4046,6 +4182,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   function cancelEdit() {
+    setActiveScraperDraftIndex(null);
+    setActiveScraperDraftUrl(null);
     setEditingId(null);
     setSaveMessage("");
     setPTitle("");
@@ -7190,10 +7328,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     </section>
   );
 
-  const openNewPublicationEditor = () => {
-    router.push(`${basePath}/publicaciones/nueva`);
-  };
-
   const publicationTypeLabel = (item: Publication) => (item.primaryGroupKey === "prestacion" ? "Prestación" : "Publicación");
   const publicationTypeColors = (item: Publication) =>
     item.primaryGroupKey === "prestacion"
@@ -8519,11 +8653,53 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
           {(showPublicationEditor || isNewPublicationPage) ? (
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+            {activeScraperDraftIndex !== null ? (
+              <div className="mb-4 rounded-xl border border-cyan-300 bg-gradient-to-r from-cyan-50 to-sky-50 p-3.5 flex flex-wrap items-center justify-between gap-3 text-cyan-950">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">🤖</span>
+                  <div>
+                    <div className="font-bold text-sm text-[#007D92]">
+                      Editando borrador de IA #{activeScraperDraftIndex + 1}
+                    </div>
+                    <div className="text-xs text-slate-600">
+                      Los cambios se guardarán en tu borrador al pulsar <strong>Guardar publicación</strong> abajo. Para cerrar sin guardar cambios, pulsá <strong>Cerrar</strong>.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelScraperDraftEdit}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 shadow-xs cursor-pointer"
+                >
+                  Volver a la cola (sin guardar)
+                </button>
+              </div>
+            ) : null}
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
+              <h3 className="text-xl font-semibold text-slate-900">
+                {activeScraperDraftIndex !== null
+                  ? `Borrador de IA: ${pTitle || "Sin título"}`
+                  : editingId
+                    ? "Editar publicación"
+                    : "Nueva publicación"}
+              </h3>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-[#007D92] hover:bg-cyan-100">Generar con IA</button>
-                <button type="button" onClick={() => (isNewPublicationPage ? router.push(`${basePath}?section=publicaciones`) : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeScraperDraftIndex !== null) {
+                      handleCancelScraperDraftEdit();
+                    } else if (isNewPublicationPage) {
+                      router.push(`${basePath}?section=publicaciones`);
+                    } else {
+                      setShowPublicationEditor(false);
+                    }
+                  }}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  Cerrar
+                </button>
               </div>
             </div>
           <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
@@ -10417,17 +10593,27 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           ) : null}
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={createPublication}
-              className="h-11 rounded-xl bg-[#00A9C6] px-6 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={savingPublication}
-            >
-              {savingPublication
-                ? "Guardando..."
-                : editingId
-                  ? "Guardar cambios"
-                  : "Crear publicación"}
-            </button>
+            {activeScraperDraftIndex !== null ? (
+              <button
+                type="button"
+                onClick={handleSaveAiDraftChangesToQueue}
+                className="h-11 rounded-xl bg-[#00A9C6] px-6 text-sm font-semibold text-white hover:bg-[#0095AE] shadow-md transition cursor-pointer"
+              >
+                💾 Guardar publicación
+              </button>
+            ) : (
+              <button
+                onClick={createPublication}
+                className="h-11 rounded-xl bg-[#00A9C6] px-6 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={savingPublication}
+              >
+                {savingPublication
+                  ? "Guardando..."
+                  : editingId
+                    ? "Guardar cambios"
+                    : "Crear publicación"}
+              </button>
+            )}
             <button
               type="button"
               disabled={translatingField === "all"}
@@ -10551,7 +10737,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <Languages className="h-4 w-4 text-cyan-600" />
               {translatingField === "all" ? "Traduciendo todo..." : "🌐 Traducir todo a multilenguaje (EN, PT, IT)"}
             </button>
-            {editingId ? (
+            {activeScraperDraftIndex !== null ? (
+              <button
+                type="button"
+                onClick={handleCancelScraperDraftEdit}
+                className="h-11 rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Cerrar sin guardar
+              </button>
+            ) : editingId ? (
               <button
                 onClick={cancelEdit}
                 className="h-11 rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"

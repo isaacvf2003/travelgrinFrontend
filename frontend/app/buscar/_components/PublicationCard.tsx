@@ -16,7 +16,17 @@ import { getDisplayPrice, type PriceOverride } from "@/app/lib/currency";
 
 function pickImage(p: Publication) {
   const imgs = (p.images as any) ?? [];
-  if (Array.isArray(imgs) && imgs.length > 0) return String(imgs[0]);
+  if (Array.isArray(imgs) && imgs.length > 0) {
+    const first = imgs.find((entry: any) => String(entry ?? "").trim());
+    if (first) {
+      const str = String(first).trim();
+      try {
+        return encodeURI(decodeURI(str));
+      } catch {
+        return str.replace(/\s+/g, "%20");
+      }
+    }
+  }
   return "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
 }
 
@@ -572,6 +582,7 @@ export function PublicationCard({
             fill
             className="object-cover object-center"
             sizes="(max-width: 768px) 100vw, 400px"
+            unoptimized
           />
 
           <div className="absolute left-3 top-3 flex flex-wrap items-center gap-2">
