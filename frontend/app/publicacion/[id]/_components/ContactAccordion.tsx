@@ -2,6 +2,7 @@
 
 import { type MouseEvent, useId, useMemo, useState } from "react";
 import {
+  ChevronDown,
   Facebook,
   Globe,
   Instagram,
@@ -187,6 +188,9 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
     setWarningOpen(true);
   };
 
+  const [expanded, setExpanded] = useState(false);
+  const visibleEntries = expanded || entries.length <= 4 ? entries : entries.slice(0, 4);
+
   return (
     <>
     <div id="contacto" className={`rounded-3xl border border-[#1A4DA1]/35 bg-gradient-to-r from-[#17BEB7] to-[#1A4DA1] p-5 shadow-[0_12px_34px_rgba(26,77,161,0.28)] ${className}`}>
@@ -205,7 +209,7 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
       >
         {entries.length ? (
           <div className="grid gap-2.5 text-sm text-gray-700">
-            {entries.map((entry) => {
+            {visibleEntries.map((entry) => {
               const Icon = ICONS[entry.icon] || ICONS.other || LinkIcon;
               const safeHref = buildSafeContactHref(entry.icon, entry.href);
               const opensInNewTab = !/^(mailto:|tel:)/i.test(safeHref);
@@ -223,6 +227,16 @@ export default function ContactAccordion({ entries, publicationId = "", classNam
                 </a>
               );
             })}
+            {entries.length > 4 ? (
+              <button
+                type="button"
+                onClick={() => setExpanded((prev) => !prev)}
+                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/40 bg-white/20 px-3 py-2 text-xs font-semibold text-white backdrop-blur-xs transition hover:bg-white/30 cursor-pointer"
+              >
+                <span>{expanded ? "Ver menos" : `Ver más (${entries.length - 4} más)`}</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+              </button>
+            ) : null}
           </div>
         ) : (
           <p className="text-sm text-white/90">Todavía no hay enlaces de contacto disponibles.</p>

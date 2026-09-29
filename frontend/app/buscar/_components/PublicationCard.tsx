@@ -449,9 +449,14 @@ export function PublicationCard({
 
   const languages = useMemo(() => resolveLanguages(item), [item]);
   const publisherLabel = useMemo(() => {
-    if (item.publisherName) return item.publisherName;
+    if (item.publisherName) {
+      const raw = String(item.publisherName).trim()
+        .replace(/^Informaci[oó]n\s+de\s+/i, "");
+      const clean = raw.split(/\s*[-–—|]\s*/)[0].trim();
+      return clean || raw;
+    }
     if (item.primaryGroupKey === "prestacion") return t("taxonomyType_prestacion");
-    return t("oferente_nombre_placeholder") || "Nombre completo del oferente";
+    return t("oferente_nombre_placeholder") || "Oferente";
   }, [item.publisherName, item.primaryGroupKey, t]);
   const isPrestacion = item.primaryGroupKey === "prestacion";
   const isPartner = Boolean((item as any)?.partner ?? (item as any)?.fields?.partner);

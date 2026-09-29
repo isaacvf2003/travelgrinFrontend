@@ -59,22 +59,14 @@ export default function PublicationGallery({ images, title }: PublicationGallery
 
   if (!total) {
     return (
-      <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-br from-slate-50 via-cyan-50/30 to-slate-100/60 p-8">
-        <div className="relative aspect-[4/3] w-full md:aspect-[16/10] flex flex-col items-center justify-center text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white border border-cyan-100 shadow-sm text-[#00A9C6]">
-            <ImageIcon className="h-8 w-8 text-[#00A9C6]" />
-          </div>
-          <div className="mt-4 max-w-md px-4">
-            <span className="inline-flex rounded-full bg-[#00A9C6]/10 px-3 py-1 text-xs font-semibold text-[#007D92]">
-              Publicación Oficial
-            </span>
-            <h4 className="mt-2 text-base font-semibold text-slate-800 line-clamp-2">
-              {title}
-            </h4>
-            <p className="mt-1 text-xs text-slate-500">
-              Información y propuesta verificada
-            </p>
-          </div>
+      <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-gray-100">
+        <div className="relative aspect-[4/3] w-full md:aspect-[16/10] flex items-center justify-center overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://i.ibb.co/VmrmGrx/sin-foto.jpg"
+            alt={title || "Travelgrin"}
+            className="h-full w-full object-cover object-center"
+          />
         </div>
       </div>
     );
