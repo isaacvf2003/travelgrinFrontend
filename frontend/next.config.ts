@@ -9,7 +9,7 @@ const securityHeaders = [
       "default-src 'self';",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.clarity.ms https://*.clarity.ms;",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
-      "img-src 'self' data: blob: i.ibb.co res.cloudinary.com api.qrserver.com flagcdn.com https://flagcdn.com https://*.cloudinary.com;",
+      "img-src 'self' data: blob: https: http:;",
       "font-src 'self' https://fonts.gstatic.com;",
       "frame-src 'self' https://challenges.cloudflare.com https://checkout.dlocalgo.com https://checkout-sbx.dlocalgo.com;",
       "connect-src 'self' ws: wss: https://www.apicountries.com https://www.clarity.ms https://*.clarity.ms https://www.google-analytics.com https://*.google-analytics.com https://api.cloudinary.com https://*.cloudinary.com https://api.dlocalgo.com https://checkout.dlocalgo.com https://api-sbx.dlocalgo.com https://checkout-sbx.dlocalgo.com https://*.vercel.app;",
@@ -26,7 +26,7 @@ const securityHeaders = [
   },
   {
     key: "Referrer-Policy",
-    value: "strict-origin-when-cross-origin"
+    value: "no-referrer-when-downgrade"
   },
   {
     key: "Permissions-Policy",
@@ -46,9 +46,10 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
+    unoptimized: true,
     remotePatterns: [
-      { protocol: "https", hostname: "i.ibb.co" },
-      { protocol: "https", hostname: "res.cloudinary.com" },
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "**" },
     ],
   },
   async headers() {
