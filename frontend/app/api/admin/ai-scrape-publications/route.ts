@@ -558,7 +558,119 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Pontificia+Universidad+Catolica+Argentina+Buenos+Aires",
     additionalCities: ["Mendoza", "Rosario", "Paraná"],
   },
+  "kennedy.edu.ar": {
+    name: "Universidad Kennedy",
+    startYear: "1964",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Educación y formación",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
+    type: "Institución privada",
+    rating: "4.3",
+    reviewCount: "580",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy+Buenos+Aires",
+    additionalCities: [],
+  },
+  "21.edu.ar": {
+    name: "Universidad Siglo 21",
+    startYear: "1995",
+    primaryCity: "Córdoba",
+    primaryCountry: "Argentina",
+    activity: "Educación y formación",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
+    type: "Institución privada",
+    rating: "4.5",
+    reviewCount: "1350",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21+Cordoba",
+    additionalCities: ["Buenos Aires", "Rosario", "Mendoza", "Salta", "Neuquén"],
+  },
+  "siglo21.edu.ar": {
+    name: "Universidad Siglo 21",
+    startYear: "1995",
+    primaryCity: "Córdoba",
+    primaryCountry: "Argentina",
+    activity: "Educación y formación",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
+    type: "Institución privada",
+    rating: "4.5",
+    reviewCount: "1350",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21+Cordoba",
+    additionalCities: ["Buenos Aires", "Rosario", "Mendoza", "Salta", "Neuquén"],
+  },
 };
+
+function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: string): string {
+  // 1. Check known institutions dictionary first
+  if (sourceUrl) {
+    try {
+      const hostname = new URL(sourceUrl).hostname.replace(/^www\./, "").toLowerCase();
+      for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
+        if (hostname === domainKey || hostname.endsWith(`.${domainKey}`) || sourceUrl.toLowerCase().includes(domainKey)) {
+          if (info.name) return info.name;
+        }
+      }
+    } catch {}
+  }
+
+  let text = decodeHtmlEntities(rawName || rawTitle || "");
+  text = text
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  text = text
+    .replace(/^(?:Informaci[oó]n\s+de\s+|Acerca\s+de\s+|Sitio\s+Oficial\s+de\s+|Portal\s+de\s+|Bienvenid[oa]s?\s+a\s+|P[aá]gina\s+de\s+|Perfil\s+de\s+)/i, "")
+    .trim();
+
+  text = text
+    .replace(/^https?:\/\/(?:www\.)?/i, "")
+    .replace(/^(?:www\.)/i, "")
+    .trim();
+
+  const segments = text.split(/\s*[-–—|/]\s*/).map((s) => s.trim()).filter(Boolean);
+  if (segments.length > 1) {
+    const institutionKeywordRegex = /\b(?:Universidad|Facultad|Instituto|Colegio|Hospital|Cl[ií]nica|Sanatorio|Centro|Club|Asociaci[oó]n|Fundaci[oó]n|Federaci[oó]n|Gobierno|Ministerio|Secretar[ií]a|Municipalidad|Organismo|C[aá]mara|Empresa|Sociedad|OSEP|PAMI|IOMA|OSDE|Swiss Medical|Galeno|Toyota|Ford|Renault|Chevrolet|Volkswagen|Banco|Santander|Galicia|BBVA|Macro|Despegar|Booking|Aerol[ií]neas|Kennedy|Siglo 21)\b/i;
+    
+    const matchingSegment = segments.find((seg) => institutionKeywordRegex.test(seg));
+    if (matchingSegment && matchingSegment.length < 60) {
+      text = matchingSegment;
+    } else {
+      const nonGeneric = segments.find((seg) => !/^(?:Home|Inicio|Portada|Bienvenidos?|Principal|Carreras|Servicios|Cursos|Atenci[oó]n|Educaci[oó]n\s+que)/i.test(seg));
+      if (nonGeneric) {
+        text = nonGeneric;
+      } else {
+        text = segments[0];
+      }
+    }
+  }
+
+  text = text.replace(/:\s*.*$/, "").trim();
+
+  text = text
+    .replace(/\s*[-–—|]\s*(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*$/i, "")
+    .replace(/^(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*[-–—|]\s*/i, "")
+    .trim();
+
+  if (/\.(?:com|org|net|edu|gob|gov|ar|cl|uy|br)/i.test(text)) {
+    try {
+      const cleanHost = text.replace(/^https?:\/\//i, "").split("/")[0].replace(/\.(?:com|org|net|edu|gob|gov|ar|cl|uy|br)+/gi, "");
+      if (cleanHost.length > 2) {
+        if (/^osep/i.test(cleanHost)) {
+          text = cleanHost.toUpperCase();
+        } else {
+          text = cleanHost.charAt(0).toUpperCase() + cleanHost.slice(1);
+        }
+      }
+    } catch {}
+  }
+
+  text = text.replace(/^["'«“]+|["'»”]+$/g, "").trim();
+
+  return text || "Oferente";
+}
 
 function extractFoundingYear(cleanHtml: string, textContent: string, url: string, title: string): string | null {
   // 1. Check known institutions dictionary first
@@ -3175,7 +3287,7 @@ async function createFallbackPublication(extractedData: any, taxonomies?: any, c
     description: descriptions.es,
     descriptionI18n: descriptions,
     extraDescriptions: fallbackExtraDescriptions,
-    publisherName: titleClean,
+    publisherName: cleanPublisherName(extractedData.title, extractedData.url, titleClean),
     providerInfoI18n: {
       es: `Institución y prestador de servicios en ${primaryHq.city}.`,
       en: `Institution and service provider in ${primaryHq.city}.`,
@@ -3417,8 +3529,11 @@ ${taxonomies.modalities.map((m: string) => `"${m}"`).join(", ")}
 
 REGLAS CRÍTICAS Y OBLIGATORIAS:
 
-0. TÍTULOS ('title' y 'titleI18n') Y NOMBRE DE LA ENTIDAD ('publisherName'):
-- 'publisherName': Es estrictamente el nombre oficial y limpio de la entidad (ej: "Hospital Garrahan", "Universidad Siglo 21", "Toyota Panamericana", "Club Atlético River Plate").
+0. TÍTULOS ('title' y 'titleI18n') Y NOMBRE DEL OFERENTE / ENTIDAD ('publisherName'):
+- 'publisherName': OBLIGATORIO Y ESTRICTO: Es ÚNICAMENTE el nombre corto, limpio y oficial de la institución, empresa u oferente (ej: "Universidad Kennedy", "OSEP Mendoza", "Universidad Siglo 21", "Hospital Garrahan", "Toyota Panamericana", "Google").
+  * NUNCA pongas aquí el título largo de la publicación ni slogans publicitarios.
+  * NUNCA agregues frases con guiones ni barras como "- Educación virtual..." ni "Información de...".
+  * Debe ser exclusivamente el nombre propio o marca de la entidad.
 - 'title': TIENES TOTAL LIBERTAD EDITORIAL PARA GENERAR EL MEJOR TÍTULO.
   * Si el administrador proporciona una instrucción o pide títulos "bien trabajados", "llamativos", "de impacto", "comerciales", "atractivos", "con ofertas" o un estilo específico:
     Crea un título potente, vendedor, representativo y con gancho comercial basado en la oferta real y servicios del sitio web.
@@ -3584,7 +3699,7 @@ async function formatPublicationResult(parsed: any, extractedData: any, taxonomi
   const host = new URL(extractedData.url).hostname.replace("www.", "");
   const rawTitle = parsed.title || extractedData.title || `Publicación de ${host}`;
   let title = cleanTitleString(rawTitle);
-  const publisherName = cleanTitleString(parsed.publisherName || title);
+  const publisherName = cleanPublisherName(parsed.publisherName || extractedData.title || title, extractedData.url, rawTitle);
 
   const validCats = taxonomies?.categories || [];
   const validSubcats = taxonomies?.subcategories || [];
