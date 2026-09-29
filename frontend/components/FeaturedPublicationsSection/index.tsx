@@ -57,7 +57,13 @@ function firstImage(item: PublicationLite) {
   const raw = item.images;
   const arr = Array.isArray(raw) ? raw : [];
   const first = arr.find((entry) => String(entry ?? "").trim());
-  return String(first ?? "https://i.ibb.co/VmrmGrx/sin-foto.jpg");
+  if (!first) return "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
+  const str = String(first).trim();
+  try {
+    return encodeURI(decodeURI(str));
+  } catch {
+    return str.replace(/\s+/g, "%20");
+  }
 }
 
 function normalizeKey(value: unknown) {
@@ -885,6 +891,7 @@ export default function FeaturedPublicationsSection() {
                       fill
                       className="object-cover"
                       sizes="(max-width: 1280px) 50vw, 25vw"
+                      unoptimized
                     />
                   </div>
                   <div className="space-y-2 p-4">

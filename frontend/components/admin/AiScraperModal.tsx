@@ -59,7 +59,7 @@ export interface ScrapedPublicationDraft {
 interface AiScraperModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectDraftToEdit: (draft: ScrapedPublicationDraft) => void;
+  onSelectDraftToEdit: (draft: ScrapedPublicationDraft, index?: number) => void;
   onApproveDirectly?: (draft: ScrapedPublicationDraft) => Promise<boolean>;
 }
 
@@ -120,7 +120,7 @@ export default function AiScraperModal({
       const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           setDraftsQueue(parsed);
         }
       }
@@ -1108,7 +1108,7 @@ export default function AiScraperModal({
                       <button
                         type="button"
                         onClick={() => {
-                          onSelectDraftToEdit(draft);
+                          onSelectDraftToEdit(draft, index);
                           onClose();
                         }}
                         className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-xs cursor-pointer"
