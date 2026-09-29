@@ -191,28 +191,35 @@ export default function PublicationSidebarCard({
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+          <div className="mt-4 flex items-center gap-2.5 text-sm text-gray-600">
             {providerLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={providerLogo}
-                alt={publisherName ?? "Logo"}
-                className="h-8 w-8 rounded-full object-cover"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  if (website) {
-                    try {
-                      const host = new URL(website).hostname;
-                      target.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
-                      return;
-                    } catch {}
-                  }
-                  target.style.display = "none";
-                }}
-              />
+              <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white p-0.5 shadow-2xs">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={providerLogo}
+                  alt={publisherName ?? "Logo"}
+                  className="h-full w-full object-contain rounded-full"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (website) {
+                      try {
+                        const host = new URL(website).hostname;
+                        target.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+                        return;
+                      } catch {}
+                    }
+                    target.style.display = "none";
+                  }}
+                />
+              </div>
             ) : null}
-            <span className="font-semibold text-gray-900">
-              {publisherName ? publisherName : t("oferente_nombre_placeholder")}
+            <span className="font-semibold text-gray-900 leading-snug">
+              {publisherName
+                ? String(publisherName)
+                    .replace(/^Informaci[oó]n\s+de\s+/i, "")
+                    .split(/\s*[-–—|]\s*/)[0]
+                    .trim()
+                : t("oferente_nombre_placeholder")}
             </span>
           </div>
 

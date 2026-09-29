@@ -53,27 +53,36 @@ export default function DetailSidebar({
       <div className="rounded-3xl border border-gray-200 bg-white p-5">
         <div className="flex items-center gap-3">
           {providerLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={providerLogoUrl}
-              alt={publisherName ?? t("nombre_oferente")}
-              className="h-10 w-10 rounded-full border border-gray-200 object-cover"
-              onError={(e) => {
-                const target = e.currentTarget;
-                if (websiteUrl) {
-                  try {
-                    const host = new URL(websiteUrl).hostname;
-                    target.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
-                    return;
-                  } catch {}
-                }
-                target.style.display = "none";
-              }}
-            />
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white p-0.5 shadow-2xs">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={providerLogoUrl}
+                alt={publisherName ?? t("nombre_oferente")}
+                className="h-full w-full object-contain rounded-full"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (website) {
+                    try {
+                      const host = new URL(website).hostname;
+                      target.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+                      return;
+                    } catch {}
+                  }
+                  target.style.display = "none";
+                }}
+              />
+            </div>
           ) : null}
-          <div>
-            <div className="text-sm text-gray-500">{t("nombre_oferente")}</div>
-            <div className="text-sm font-semibold text-gray-900">{publisherName || "-"}</div>
+          <div className="min-w-0">
+            <div className="text-xs text-gray-500">{t("nombre_oferente")}</div>
+            <div className="text-sm font-semibold text-gray-900 leading-snug">
+              {publisherName
+                ? String(publisherName)
+                    .replace(/^Informaci[oó]n\s+de\s+/i, "")
+                    .split(/\s*[-–—|]\s*/)[0]
+                    .trim()
+                : "-"}
+            </div>
           </div>
         </div>
 

@@ -173,15 +173,20 @@ export default function ProviderInfo({
   const activityDisplay = normalizedActivityList.length ? normalizedActivityList.join(", ") : (activity ?? "");
   const providerTypeDisplay = normalizedTypeList.length ? normalizedTypeList.join(", ") : (providerType ?? "");
 
-  const cleanName = String(name ?? "").trim();
+  const rawClean = String(name ?? "")
+    .replace(/^Informaci[oó]n\s+de\s+/i, "")
+    .trim();
+  const cleanName = rawClean.split(/\s*[-–—|]\s*/)[0].trim();
   const headerTitle = cleanName ? `Información de ${cleanName}` : t("oferente_info_titulo");
 
   return (
     <div className="rounded-3xl border border-gray-200 bg-white p-5">
       <div className="flex items-center gap-3">
         {logo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} alt={cleanName || t("oferente_info_titulo")} className="h-11 w-11 flex-shrink-0 rounded-full object-cover border border-slate-200 shadow-sm" />
+          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white p-0.5 shadow-2xs">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logo} alt={cleanName || t("oferente_info_titulo")} className="h-full w-full object-contain rounded-full" />
+          </div>
         ) : null}
         <div className="min-w-0">
           <h3 className="text-xl font-semibold text-gray-900 leading-snug break-words">{headerTitle}</h3>

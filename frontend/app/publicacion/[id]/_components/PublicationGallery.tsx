@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ImageIcon } from "lucide-react";
 
 type PublicationGalleryProps = {
   images: string[];
@@ -58,14 +59,22 @@ export default function PublicationGallery({ images, title }: PublicationGallery
 
   if (!total) {
     return (
-      <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-gray-100">
-        <div className="relative aspect-[4/3] w-full md:aspect-[16/10]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?q=80&w=1200&auto=format&fit=crop"
-            alt={`Placeholder de ${title}`}
-            className="h-full w-full object-cover"
-          />
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-br from-slate-50 via-cyan-50/30 to-slate-100/60 p-8">
+        <div className="relative aspect-[4/3] w-full md:aspect-[16/10] flex flex-col items-center justify-center text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white border border-cyan-100 shadow-sm text-[#00A9C6]">
+            <ImageIcon className="h-8 w-8 text-[#00A9C6]" />
+          </div>
+          <div className="mt-4 max-w-md px-4">
+            <span className="inline-flex rounded-full bg-[#00A9C6]/10 px-3 py-1 text-xs font-semibold text-[#007D92]">
+              Publicación Oficial
+            </span>
+            <h4 className="mt-2 text-base font-semibold text-slate-800 line-clamp-2">
+              {title}
+            </h4>
+            <p className="mt-1 text-xs text-slate-500">
+              Información y propuesta verificada
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -73,14 +82,14 @@ export default function PublicationGallery({ images, title }: PublicationGallery
 
   if (total === 1) {
     return (
-      <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-gray-50">
-        <div className="relative aspect-[4/3] w-full md:aspect-[16/10]">
+      <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-slate-900/5">
+        <div className="relative aspect-[4/3] w-full md:aspect-[16/10] flex items-center justify-center overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={mainImage}
             alt={title}
             onError={() => handleImageError(mainImage)}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover object-center"
           />
         </div>
         <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center rounded-full bg-slate-900/20 px-2 py-1 backdrop-blur-sm md:hidden">
@@ -134,7 +143,7 @@ export default function PublicationGallery({ images, title }: PublicationGallery
                   src={src}
                   alt={`${title}-${idx + 1}`}
                   onError={() => handleImageError(src)}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover object-center"
                 />
               </div>
             </div>
@@ -147,13 +156,13 @@ export default function PublicationGallery({ images, title }: PublicationGallery
           className="hidden h-full w-full md:block"
           aria-label="Siguiente imagen"
         >
-          <div className="relative w-full aspect-[16/10]">
+          <div className="relative w-full aspect-[16/10] bg-slate-900/5 flex items-center justify-center overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={mainImage}
               alt={title}
               onError={() => handleImageError(mainImage)}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-center"
             />
           </div>
         </button>
