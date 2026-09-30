@@ -1035,6 +1035,7 @@ export default function ModalOferente({
   const paymentResultReceivedRef = useRef(false);
   const submittedServiceIdRef = useRef<string | null>(null);
   const [isOpenModalAI, setIsOpenModalAI] = useState(false);
+  const [aiFieldTarget, setAiFieldTarget] = useState<AiFieldTarget>("included");
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const draftLoadedRef = useRef(false);
   const [hasHydratedInitialData, setHasHydratedInitialData] = useState(false);
@@ -2349,7 +2350,6 @@ export default function ModalOferente({
   const paidPlanTitle = selectedPlan === "monthly"
     ? (locale === "en" ? "Monthly plan" : locale === "pt" ? "Plano mensal" : locale === "it" ? "Piano mensile" : "Plan mensual")
     : mt("oferente_publicacion_destacada");
-  const aiFieldTarget: AiFieldTarget = step === "featured" ? "included" : "description";
   const isPublicationChangeRequestMode = publicationChangeMode || requestKind === "edit_publication";
   const resumeSubmitLabel = locale === "en"
     ? "Update publication"
@@ -2702,8 +2702,55 @@ export default function ModalOferente({
       </div>
 
       <div className="space-y-4">
-        <MaterialTextarea value={included} setValue={setIncluded} placeholder={mt("oferente_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
-        <MaterialTextarea value={notIncluded} setValue={setNotIncluded} placeholder={mt("oferente_no_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-sm font-semibold text-[#273166]">
+              {locale === "en"
+                ? "* What does your proposal include?"
+                : locale === "pt"
+                  ? "* O que sua proposta inclui?"
+                  : locale === "it"
+                    ? "* Cosa include la tua proposta?"
+                    : "* ¿Qué incluye tu propuesta?"}
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setAiFieldTarget("included");
+                setIsOpenModalAI(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00A9C6]/15 to-emerald-500/15 px-3 py-1 text-xs font-semibold text-[#008299] hover:from-[#00A9C6]/25 hover:to-emerald-500/25 transition shadow-sm"
+            >
+              <span>✨</span> {locale === "en" ? "Improve with AI" : locale === "pt" ? "Melhorar com IA" : locale === "it" ? "Migliora con IA" : "Mejorar con IA"}
+            </button>
+          </div>
+          <MaterialTextarea value={included} setValue={setIncluded} placeholder={mt("oferente_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        </div>
+
+        <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-sm font-semibold text-[#273166]">
+              {locale === "en"
+                ? "What is NOT included?"
+                : locale === "pt"
+                  ? "O que NÃO está incluído?"
+                  : locale === "it"
+                    ? "Cosa NON è incluso?"
+                    : "¿Qué NO incluye?"}
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setAiFieldTarget("notIncluded");
+                setIsOpenModalAI(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 px-3 py-1 text-xs font-semibold text-amber-800 hover:from-amber-500/25 hover:to-orange-500/25 transition shadow-sm"
+            >
+              <span>✨</span> {locale === "en" ? "Draft with AI" : locale === "pt" ? "Redigir com IA" : locale === "it" ? "Redigi con IA" : "Redactar con IA"}
+            </button>
+          </div>
+          <MaterialTextarea value={notIncluded} setValue={setNotIncluded} placeholder={mt("oferente_no_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
+        </div>
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-[0_12px_36px_rgba(8,217,189,0.12)]">
@@ -2841,21 +2888,26 @@ export default function ModalOferente({
             </div>
           </div>
 
-          {step !== "featured" ? (
-            <div className="pointer-events-none absolute bottom-4 right-4 z-[2147483000] h-16 w-16 md:h-14 md:w-14">
-              <div className="pointer-events-auto relative h-full w-full">
-                <FloatingAIButton is425w={false} onClick={() => setIsOpenModalAI(true)} isInFooter />
-              </div>
+          <div className="pointer-events-none absolute bottom-4 right-4 z-[2147483000] h-16 w-16 md:h-14 md:w-14">
+            <div className="pointer-events-auto relative h-full w-full">
+              <FloatingAIButton is425w={false} onClick={() => setIsOpenModalAI(true)} isInFooter />
             </div>
-          ) : null}
+          </div>
         </div>
       </div>
 
       {isOpenModalAI ? (
         <ModalAI
           onClose={() => setIsOpenModalAI(false)}
-          description={step === "featured" ? included : description}
-          setDescription={step === "featured" ? setIncluded : setDescription}
+          step={step}
+          description={description}
+          setDescription={setDescription}
+          included={included}
+          setIncluded={setIncluded}
+          notIncluded={notIncluded}
+          setNotIncluded={setNotIncluded}
+          publicationTitle={publicationTitle}
+          setPublicationTitle={setPublicationTitle}
           typeProfile={providerType}
           selectedCategory={proposalCategories.join(", ")}
           isOfrezco={isOfrezco}
