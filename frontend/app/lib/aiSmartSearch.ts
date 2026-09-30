@@ -1,21 +1,26 @@
 /**
  * AI Smart Search Engine for Travelgrin Frontend
- * Multi-layer hybrid NLP & LLM semantic query analyzer
- * Supports Gemini 2.0/1.5 Flash, OpenAI GPT-4o-mini/GPT-4o, and Zero-Latency Compound Disambiguation
+ * Multi-layer hybrid NLP & LLM semantic query analyzer with Deep Intent Disambiguation,
+ * Academic Career Offering Verifier, Healthcare / Telephony Domain Isolation, and Geographic Grounding.
  */
 
 export interface ParsedSearchIntent {
   intent: "telephony" | "health" | "education" | "migration" | "housing" | "work" | "language" | "business" | "tourism" | "general";
   secondaryIntents?: string[];
+  requiredCareer?: string | null;
+  careerAliases?: string[];
   targetCategories: string[];
   targetSubcategories: string[];
   targetKeywords: string[];
   negativeKeywords: string[];
+  prohibitedCategories: string[];
   targetLocation?: string | null;
   targetCountry?: string | null;
   targetCity?: string | null;
   targetPassport?: string | null;
   isPrestacionQuery?: boolean;
+  verifiedMatchingInstitutions?: string[];
+  nonMatchingInstitutions?: string[];
 }
 
 // In-Memory LRU Cache for AI query interpretations (24-hour TTL)
@@ -74,9 +79,9 @@ const KNOWN_LOCATIONS: Array<{
   country: string;
 }> = [
   // Argentina & Provinces / Cities
-  { names: ["mendoza"], city: "mendoza", country: "argentina" },
-  { names: ["cordoba"], city: "cordoba", country: "argentina" },
-  { names: ["buenos aires", "caba", "capital federal", "bs as"], city: "buenos aires", country: "argentina" },
+  { names: ["mendoza", "ciudad de mendoza", "godoy cruz", "guaymallen", "lujan de cuyo", "san rafael"], city: "mendoza", country: "argentina" },
+  { names: ["cordoba", "cordoba capital", "villa maria", "rio cuarto"], city: "cordoba", country: "argentina" },
+  { names: ["buenos aires", "caba", "capital federal", "bs as", "gran buenos aires", "quilmes", "san isidro", "moron"], city: "buenos aires", country: "argentina" },
   { names: ["rosario"], city: "rosario", country: "argentina" },
   { names: ["salta"], city: "salta", country: "argentina" },
   { names: ["bariloche", "san carlos de bariloche"], city: "bariloche", country: "argentina" },
@@ -252,7 +257,6 @@ export function extractPassportEntities(q: string): string | null {
     }
   }
 
-  // Check dynamic pattern: "pasaporte de <pais>" or "pasaporte <pais>"
   const match = q.match(/\b(?:pasaporte|ciudadan[io]a|nacionalidad)\s+(?:de\s+)?([a-z\s]+)/i);
   if (match && match[1]) {
     const candidate = normalizeSearchText(match[1]).trim();
@@ -264,8 +268,251 @@ export function extractPassportEntities(q: string): string | null {
 }
 
 /**
+ * Known Academic Careers & Aliases Dictionary
+ */
+const ACADEMIC_CAREERS_MAP: Record<string, string[]> = {
+  medicina: ["medicina", "ciencias medicas", "medico", "medica", "fmed", "carrera de medicina", "facultad de medicina"],
+  abogacia: ["abogacia", "derecho", "ciencias juridicas", "leyes", "abogado", "facultad de derecho", "carrera de abogacia"],
+  odontologia: ["odontologia", "dentista", "odontologo", "odontologa", "facultad de odontologia"],
+  enfermeria: ["enfermeria", "enfermero", "enfermera", "licenciatura en enfermeria"],
+  psicologia: ["psicologia", "psicologo", "psicologa", "facultad de psicologia"],
+  ingenieria: ["ingenieria", "ingeniero", "ingenieria en sistemas", "ingenieria informatica", "ingenieria civil", "ingenieria industrial", "ingenieria electronica", "ingenieria mecanica"],
+  arquitectura: ["arquitectura", "arquitecto", "arquitecta", "diseno y arquitectura", "facultad de arquitectura"],
+  administracion: ["administracion", "administracion de empresas", "business administration", "gestion de empresas"],
+  contador: ["contador", "contabilidad", "contador publico", "ciencias economicas", "finanzas"],
+  comunicacion: ["comunicacion", "periodismo", "publicidad", "marketing", "relaciones publicas"],
+  kinesiologia: ["kinesiologia", "fisioterapia", "kinesiologo"],
+  veterinaria: ["veterinaria", "veterinario", "medicina veterinaria"],
+  nutricion: ["nutricion", "licenciatura en nutricion", "nutricionista"],
+  farmacia: ["farmacia", "bioquimica", "ciencias farmaceuticas"],
+};
+
+/**
+ * Knowledge Base for Institutional Degree Programs & Location Availability
+ */
+interface InstitutionKnowledge {
+  nameAliases: string[];
+  type: "university" | "health_provider" | "legal_provider" | "telephony_provider";
+  offeredCareers: Array<{
+    careerKey: string;
+    cities?: string[];
+  }>;
+  notOfferedInCities?: Array<{
+    careerKey: string;
+    city: string;
+  }>;
+}
+
+const INSTITUTION_KNOWLEDGE_BASE: InstitutionKnowledge[] = [
+  {
+    nameAliases: ["siglo 21", "universidad siglo 21", "ues21", "siglo xxi"],
+    type: "university",
+    offeredCareers: [
+      { careerKey: "abogacia", cities: ["all", "cordoba", "mendoza", "buenos aires", "distancia"] },
+      { careerKey: "contador", cities: ["all", "cordoba", "mendoza", "buenos aires", "distancia"] },
+      { careerKey: "administracion", cities: ["all", "cordoba", "mendoza", "buenos aires", "distancia"] },
+      { careerKey: "marketing", cities: ["all", "cordoba", "mendoza", "buenos aires", "distancia"] },
+      { careerKey: "psicologia", cities: ["cordoba"] },
+      { careerKey: "ingenieria", cities: ["all", "cordoba", "distancia"] },
+      { careerKey: "medicina", cities: ["cordoba"] }, // MEDICINA SOLO PRESENCIAL EN CÓRDOBA
+    ],
+    notOfferedInCities: [
+      { careerKey: "medicina", city: "mendoza" }, // NO TIENE MEDICINA EN MENDOZA
+      { careerKey: "medicina", city: "buenos aires" },
+      { careerKey: "odontologia", city: "mendoza" },
+    ],
+  },
+  {
+    nameAliases: ["kennedy", "universidad kennedy", "universidad john f kennedy", "uk"],
+    type: "university",
+    offeredCareers: [
+      { careerKey: "psicologia", cities: ["all", "buenos aires", "distancia"] },
+      { careerKey: "abogacia", cities: ["all", "buenos aires", "distancia"] },
+      { careerKey: "periodismo", cities: ["buenos aires"] },
+      { careerKey: "odontologia", cities: ["buenos aires"] },
+      { careerKey: "administracion", cities: ["all", "buenos aires", "distancia"] },
+      { careerKey: "contador", cities: ["all", "buenos aires", "distancia"] },
+    ],
+    notOfferedInCities: [
+      { careerKey: "medicina", city: "all" },
+      { careerKey: "medicina", city: "mendoza" },
+    ],
+  },
+  {
+    nameAliases: ["uncuyo", "universidad nacional de cuyo", "universidad de cuyo"],
+    type: "university",
+    offeredCareers: [
+      { careerKey: "medicina", cities: ["mendoza"] },
+      { careerKey: "odontologia", cities: ["mendoza"] },
+      { careerKey: "enfermeria", cities: ["mendoza"] },
+      { careerKey: "abogacia", cities: ["mendoza"] },
+      { careerKey: "ingenieria", cities: ["mendoza"] },
+      { careerKey: "administracion", cities: ["mendoza"] },
+      { careerKey: "contador", cities: ["mendoza"] },
+    ],
+  },
+  {
+    nameAliases: ["universidad de mendoza", "um mendoza", "um"],
+    type: "university",
+    offeredCareers: [
+      { careerKey: "medicina", cities: ["mendoza", "rio cuarto"] },
+      { careerKey: "odontologia", cities: ["mendoza"] },
+      { careerKey: "kinesiologia", cities: ["mendoza"] },
+      { careerKey: "abogacia", cities: ["mendoza"] },
+      { careerKey: "arquitectura", cities: ["mendoza"] },
+      { careerKey: "ingenieria", cities: ["mendoza"] },
+      { careerKey: "psicologia", cities: ["mendoza"] },
+    ],
+  },
+  {
+    nameAliases: ["universidad del aconcagua", "aconcagua", "uda"],
+    type: "university",
+    offeredCareers: [
+      { careerKey: "psicologia", cities: ["mendoza"] },
+      { careerKey: "abogacia", cities: ["mendoza"] },
+      { careerKey: "nutricion", cities: ["mendoza"] },
+      { careerKey: "fonoaudiologia", cities: ["mendoza"] },
+      { careerKey: "administracion", cities: ["mendoza"] },
+    ],
+    notOfferedInCities: [
+      { careerKey: "medicina", city: "all" },
+      { careerKey: "medicina", city: "mendoza" },
+    ],
+  },
+  {
+    nameAliases: ["uba", "universidad de buenos aires"],
+    type: "university",
+    offeredCareers: [
+      { careerKey: "medicina", cities: ["buenos aires", "caba"] },
+      { careerKey: "abogacia", cities: ["buenos aires", "caba"] },
+      { careerKey: "odontologia", cities: ["buenos aires", "caba"] },
+      { careerKey: "farmacia", cities: ["buenos aires", "caba"] },
+      { careerKey: "ingenieria", cities: ["buenos aires", "caba"] },
+      { careerKey: "arquitectura", cities: ["buenos aires", "caba"] },
+      { careerKey: "psicologia", cities: ["buenos aires", "caba"] },
+    ],
+  },
+  {
+    nameAliases: ["unc", "universidad nacional de cordoba"],
+    type: "university",
+    offeredCareers: [
+      { careerKey: "medicina", cities: ["cordoba"] },
+      { careerKey: "abogacia", cities: ["cordoba"] },
+      { careerKey: "odontologia", cities: ["cordoba"] },
+      { careerKey: "ingenieria", cities: ["cordoba"] },
+      { careerKey: "psicologia", cities: ["cordoba"] },
+    ],
+  },
+];
+
+/**
+ * Verified Offering Evaluator ("Agente Investigador y Proveedor")
+ */
+export function verifyInstitutionCareerOffering(
+  p: any,
+  requiredCareerKey: string,
+  targetCity?: string | null
+): { matches: boolean; confidence: number; reason?: string } {
+  const fields = ((p as any)?.fields ?? {}) as Record<string, unknown>;
+  const category = normalizeSearchText(p.category || "");
+  const primaryGroupKey = normalizeSearchText(p.primaryGroupKey || "");
+
+  const isEducationPub =
+    category.includes("educacion") ||
+    category.includes("universidad") ||
+    category.includes("estudios") ||
+    category.includes("carreras") ||
+    primaryGroupKey === "educacion";
+
+  if (!isEducationPub) {
+    return { matches: false, confidence: 1, reason: "Not an educational institution" };
+  }
+
+  const titleText = normalizeSearchText([p.title, (p as any).publisherName].filter(Boolean).join(" "));
+  const extraDesc = Array.isArray(fields.extraDescriptions)
+    ? fields.extraDescriptions.flatMap((e: any) => [e?.title, e?.body]).join(" ")
+    : "";
+  const careerSelections = Array.isArray(fields.academicDegrees)
+    ? fields.academicDegrees.join(" ")
+    : (Array.isArray(fields.careerOfferings) ? fields.careerOfferings.join(" ") : "");
+  const subcategorySelections = Array.isArray(fields.subcategorySelections)
+    ? fields.subcategorySelections.join(" ")
+    : "";
+  const fullText = normalizeSearchText(`${titleText} ${p.description || ""} ${extraDesc} ${careerSelections} ${subcategorySelections}`);
+
+  const aliases = ACADEMIC_CAREERS_MAP[requiredCareerKey] || [requiredCareerKey];
+  const normalizedCity = targetCity ? normalizeSearchText(targetCity) : null;
+
+  // 1. Check against Known Institution Knowledge Base
+  for (const inst of INSTITUTION_KNOWLEDGE_BASE) {
+    const matchesInstName = inst.nameAliases.some((alias) => titleText.includes(alias) || fullText.includes(alias));
+    if (matchesInstName) {
+      if (inst.notOfferedInCities) {
+        for (const notOffered of inst.notOfferedInCities) {
+          if (notOffered.careerKey === requiredCareerKey) {
+            if (notOffered.city === "all" || (normalizedCity && notOffered.city === normalizedCity)) {
+              return {
+                matches: false,
+                confidence: 1,
+                reason: `${inst.nameAliases[0]} no ofrece la carrera de ${requiredCareerKey}${normalizedCity ? ` en ${normalizedCity}` : ""}`,
+              };
+            }
+          }
+        }
+      }
+
+      const offering = inst.offeredCareers.find((c) => c.careerKey === requiredCareerKey);
+      if (offering) {
+        if (!normalizedCity) return { matches: true, confidence: 1 };
+        const allowedCities = offering.cities || ["all"];
+        if (allowedCities.includes("all") || allowedCities.includes(normalizedCity)) {
+          return { matches: true, confidence: 1 };
+        } else {
+          return {
+            matches: false,
+            confidence: 1,
+            reason: `${inst.nameAliases[0]} solo ofrece ${requiredCareerKey} en: ${allowedCities.join(", ")} (no en ${normalizedCity})`,
+          };
+        }
+      }
+    }
+  }
+
+  // 2. Direct Explicit Match in Publication Text & Career Fields
+  const hasDirectCareerMention = aliases.some((alias) => {
+    const regex = new RegExp(`\\b${alias}\\b`, "i");
+    return regex.test(fullText);
+  });
+
+  if (hasDirectCareerMention) {
+    if (normalizedCity) {
+      const travelDestinations = Array.isArray(fields.travelDestinations) ? fields.travelDestinations : [];
+      const headquarterLocations = Array.isArray(fields.headquarterLocations) ? fields.headquarterLocations : [];
+      const locText = normalizeSearchText([
+        p.city,
+        p.country,
+        ...travelDestinations.flatMap((d: any) => [d?.city, d?.country]),
+        ...headquarterLocations.flatMap((d: any) => [d?.city, d?.country]),
+      ].join(" "));
+
+      if (locText.includes(normalizedCity)) {
+        return { matches: true, confidence: 0.9 };
+      }
+      return { matches: true, confidence: 0.7 };
+    }
+    return { matches: true, confidence: 0.9 };
+  }
+
+  // 3. Fallback
+  return {
+    matches: false,
+    confidence: 0.8,
+    reason: `La publicación no tiene mención ni oferta registrada de ${requiredCareerKey}`,
+  };
+}
+
+/**
  * Universal NLP Intent Analyzer (Tier 1 Offline Analyzer)
- * Covers extensive multilingual vocabulary for education, health, telephony, migration, housing, work, languages.
  */
 export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
   const q = normalizeSearchText(queryRaw);
@@ -276,15 +523,21 @@ export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
   const matchedSubcategories: string[] = [];
   const targetKeywords: string[] = [];
   const negativeKeywords: string[] = [];
+  const prohibitedCategories: string[] = [];
   let primaryIntent: ParsedSearchIntent["intent"] = "general";
+  let requiredCareer: string | null = null;
+  let careerAliases: string[] = [];
   let isPrestacion = false;
 
-  // 1. Telephony, eSIM, Mobile Data & SIM Connectivity
+  const hasStudyAction = /(estudiar|estudio|estudios|cursar|inscribirme|inscripcion|ingreso|carrera|carreras|grado|licenciatura|posgrado|master|maestria|doctorado|facultad|universidad|instituto|study|studying|degree|universita|laurea|faculdade|studieren|etudier|etudiant)/.test(q);
+  const hasHealthCoverageAction = /(cobertura|obra\s*social|prepaga|seguro|asistencia\s*al\s*viajero|asistencia\s*medica|atencion\s*medica|sanatorio|clinica|hospital|osep|osde|swiss\s*medical|galeno|guardia|medicamentos|farmacia|health\s*insurance|medical\s*coverage|plano\s*de\s*saude|assicurazione\s*sanitaria)/.test(q);
+  const hasLegalServiceAction = /(quiero\s*un\s*abogado|necesito\s*un\s*abogado|busco\s*abogado|abogado\s*migratorio|asesoria\s*legal|asistencia\s*legal|estudio\s*juridico|tramite\s*de\s*visa|tramite\s*de\s*ciudadania|gestor\s*migratorio|immigration\s*lawyer|legal\s*assistance)/.test(q);
   const isTelephony =
-    /(movil|celular|telefono|telefonica|telefonia|esim|chip|sim\s*card|datos\s*moviles|roaming|internet\s*movil|linea\s*movil|conectividad|5g|4g|gigas|mobile\s*data|cellphone|scheda\s*sim|cartao\s*sim|dados\s*moveis|handytarif|sim\s*karte|forfait\s*mobile)/.test(q) ||
-    (/(cobertura|plan|servicio|pack)/.test(q) && /(movil|celular|telefono|datos|chip|esim|sim)/.test(q));
+    /(movil|celular|telefono|telefonica|telefonia|esim|chip|sim\s*card|datos\s*moviles|roaming|internet\s*movil|linea\s*movil|conectividad|5g|4g|gigas|mobile\s*data|scheda\s*sim|cartao\s*sim|dados\s*moveis|sim\s*karte)/.test(q) ||
+    (/(cobertura|plan|pack)/.test(q) && /(movil|celular|datos|chip|esim|sim)/.test(q));
 
-  if (isTelephony) {
+  // 1. TELEPHONY
+  if (isTelephony && !hasStudyAction && !hasHealthCoverageAction) {
     primaryIntent = "telephony";
     isPrestacion = true;
     matchedCategories.push("telefonia e internet", "telefonia", "internet", "prestacion");
@@ -293,100 +546,96 @@ export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
       "telefonia", "internet", "datos", "esim", "chip", "celular", "movil", "conectividad",
       "roaming", "linea", "telefonia e internet", "datos moviles", "sim", "sim card"
     );
+    prohibitedCategories.push("educacion y centros de estudios", "salud y bienestar", "gestiones migratorias y visas", "alojamiento y vivienda");
     negativeKeywords.push(
       "salud", "medicina", "obra social", "osep", "sanatorio", "clinica", "prepaga", "hospital",
       "doctor", "guardia", "consulta medica", "cobertura medica", "seguro de salud",
-      "universidad", "facultad", "carrera", "carreras", "educacion", "abogacia", "posgrado", "master", "maestria", "instituto", "hotel", "hostel", "alquiler", "departamento", "empleo", "pasantia"
+      "universidad", "facultad", "carrera", "carreras", "educacion", "abogacia", "posgrado", "master"
     );
   }
 
-  // 2. Health, Medical & Life Insurance, Obra Social, Prepagas
-  const isHealth =
-    /(salud|medicina|medico|medica|hospital|clinica|sanatorio|obra\s*social|prepaga|osep|osde|swiss\s*medical|galeno|doctor|guardia|sanitaria|cobertura\s*medica|cobertura\s*salud|cobertura\s*de\s*vida|seguro\s*de\s*vida|seguro\s*medico|seguro\s*de\s*salud|seguro\s*de\s*viaje|asistencia\s*al\s*viajero|asistencia\s*medica|atencion\s*medica|farmacia|odontologia|psicologia|health\s*insurance|medical\s*coverage|life\s*insurance|sanita|assicurazione\s*sanitaria|plano\s*de\s*saude|krankenversicherung|mutuelle)/.test(q);
+  // 2. ACADEMIC STUDY
+  else if (hasStudyAction || /(estudiar\s*medicina|carrera\s*de\s*medicina|facultad\s*de\s*medicina|estudiar\s*abogacia|estudiar\s*derecho|estudiar\s*ingenieria|estudiar\s*odontologia)/.test(q)) {
+    primaryIntent = "education";
+    matchedCategories.push("educacion y centros de estudios", "universidad y posgrado", "educacion", "carreras");
+    matchedSubcategories.push("universidades", "carreras de grado", "posgrado", "centros de estudio");
+    targetKeywords.push(
+      "educacion", "universidad", "estudios", "instituto", "facultad", "carrera", "carreras",
+      "academico", "formacion", "licenciatura", "grado", "posgrado", "master", "maestria",
+      "estudiante", "ingreso", "inscripcion"
+    );
 
-  if (isHealth) {
-    if (primaryIntent === "general") primaryIntent = "health";
-    matchedCategories.push("salud", "salud y bienestar", "medicina", "obra social", "prestacion", "atencion medica");
+    for (const [careerKey, aliases] of Object.entries(ACADEMIC_CAREERS_MAP)) {
+      const matchCareer = aliases.some((alias) => new RegExp(`\\b${alias}\\b`, "i").test(q));
+      if (matchCareer) {
+        requiredCareer = careerKey;
+        careerAliases = aliases;
+        matchedSubcategories.push(careerKey);
+        targetKeywords.push(...aliases);
+        break;
+      }
+    }
+
+    prohibitedCategories.push("salud y bienestar", "salud", "obra social", "telefonia e internet", "telefonia", "gestiones migratorias y visas");
+    negativeKeywords.push(
+      "obra social", "prepaga", "osep", "osde", "swiss medical", "galeno", "cobertura medica", "cobertura de salud",
+      "cobertura de vida", "seguro de vida", "seguro medico", "asistencia al viajero", "atencion medica",
+      "guardia", "consulta medica", "farmacia", "esim", "chip", "datos moviles", "estudio juridico", "abogado migratorio"
+    );
+  }
+
+  // 3. HEALTHCARE
+  else if (hasHealthCoverageAction || /(medicos|atencion\s*medica|cobertura\s*medica|seguro\s*de\s*salud|obra\s*social|prepaga)/.test(q)) {
+    primaryIntent = "health";
+    matchedCategories.push("salud y bienestar", "salud", "obra social", "prestacion", "atencion medica");
     matchedSubcategories.push("obra social", "prepaga", "seguro de salud", "cobertura medica", "seguro de vida", "asistencia medica");
     targetKeywords.push(
       "salud", "medicina", "medico", "medica", "hospital", "clinica", "sanatorio", "obra social",
       "prepaga", "osep", "osde", "atencion", "asistencia", "doctor", "guardia", "consulta",
       "seguro de vida", "cobertura medica", "cobertura de vida", "seguro medico", "seguro", "bienestar"
     );
-    if (!isTelephony) {
-      negativeKeywords.push("telefonia", "esim", "chip", "datos moviles", "celular", "linea movil");
-    }
-  }
 
-  // 3. Education, Universities, Academic Degrees, Medicine & Specializations
-  const isEducation =
-    /(estudiar|estudio|estudios|estudiante|estudiantes|universidad|universidades|facultad|facultades|carrera|carreras|grado|licenciatura|posgrado|master|maestria|doctorado|academico|academica|formacion|instituto|colegio|escuela|study|studying|student|university|college|degree|universita|studente|laurea|faculdade|estudante|studieren|universitat|etudier|etudiant)/.test(q) ||
-    (/(carrera|facultad|estudiar|universidad|carreras)/.test(q) && /(medicina|abogacia|derecho|ingenieria|arquitectura|psicologia|enfermeria|diseno|administracion|marketing|economia)/.test(q)) ||
-    /(medicina|abogacia|ingenieria|licenciatura)/.test(q);
-
-  if (isEducation) {
-    if (primaryIntent === "general" || primaryIntent === "health") primaryIntent = "education";
-    matchedCategories.push("educacion y centros de estudios", "universidad y posgrado", "educacion", "carreras");
-    matchedSubcategories.push("universidades", "carreras de grado", "posgrado", "centros de estudio");
-    targetKeywords.push(
-      "educacion", "universidad", "estudios", "instituto", "facultad", "carrera", "carreras",
-      "academico", "formacion", "licenciatura", "grado", "posgrado", "master", "maestria",
-      "estudiante", "ingreso", "inscripcion", "siglo 21", "kennedy", "unc", "uba", "unam"
+    prohibitedCategories.push("educacion y centros de estudios", "educacion", "universidades", "carreras de grado", "posgrado", "colegios", "telefonia e internet");
+    negativeKeywords.push(
+      "universidad", "facultad", "carrera", "carreras", "grado", "licenciatura", "posgrado",
+      "master", "maestria", "cursar", "estudiar", "estudio", "inscripcion", "matricula",
+      "esim", "chip", "datos moviles", "roaming"
     );
-    negativeKeywords.push("telefonia", "esim", "chip", "datos moviles", "roaming", "alojamiento", "hotel", "hostel");
-
-    // Specific Career Enrichment
-    if (/(medicina|medico|medica|ciencias\s*medicas|doctor|enfermeria|salud)/.test(q)) {
-      matchedSubcategories.push("medicina", "ciencias medicas", "enfermeria");
-      targetKeywords.push("medicina", "medico", "medica", "salud", "doctor", "ciencias medicas", "anatomia", "hospital escuela", "clinica");
-    }
-    if (/(abogacia|derecho|leyes|juridico)/.test(q)) {
-      matchedSubcategories.push("abogacia", "derecho", "ciencias juridicas");
-      targetKeywords.push("abogacia", "derecho", "leyes", "juridico", "abogado");
-    }
-    if (/(ingenieria|sistemas|software|programacion|informatica|civil|industrial)/.test(q)) {
-      matchedSubcategories.push("ingenieria", "sistemas", "tecnologia");
-      targetKeywords.push("ingenieria", "ingeniero", "sistemas", "software", "programacion", "tecnologia");
-    }
   }
 
-  // 4. Migration, Visas, Passports & Citizenship
-  const isMigration =
-    /(visa|visas|visado|visados|ciudadania|pasaporte|migratorio|migraciones|radicacion|residencia|consulado|embajada|abogado\s*migratorio|juridico|leyes|nacionalidad|dni|working\s*holiday|nomada\s*digital|visto|cittadinanza|cidadania|visum|staatsburgerschaft)/.test(q);
-
-  if (isMigration) {
-    if (primaryIntent === "general") primaryIntent = "migration";
+  // 4. MIGRATION & LAWYERS
+  else if (hasLegalServiceAction || /(visa|visas|visado|ciudadania|pasaporte|migratorio|migraciones|radicacion|residencia|consulado|embajada|nacionalidad|dni|working\s*holiday|nomada\s*digital)/.test(q)) {
+    primaryIntent = "migration";
     matchedCategories.push("gestiones migratorias y visas", "legal", "tramites");
-    matchedSubcategories.push("visas", "ciudadania", "radicacion", "residencia", "tramites migratorios");
+    matchedSubcategories.push("visas", "ciudadania", "radicacion", "residencia", "tramites migratorios", "asesoria legal");
     targetKeywords.push(
       "visa", "visas", "visado", "ciudadania", "pasaporte", "migratorio", "migraciones",
       "radicacion", "residencia", "consulado", "embajada", "abogado", "legal", "juridico",
       "leyes", "tramite", "nacionalidad", "documentacion"
     );
-    negativeKeywords.push("telefonia", "esim", "chip", "datos moviles", "obra social", "sanatorio", "hospital");
+    prohibitedCategories.push("educacion y centros de estudios", "educacion", "salud y bienestar", "telefonia e internet");
+    negativeKeywords.push(
+      "universidad", "facultad", "carrera", "carreras", "grado", "licenciatura", "cursar", "estudiar",
+      "obra social", "prepaga", "osep", "esim", "chip"
+    );
   }
 
-  // 5. Housing & Accommodation
-  const isHousing =
-    /(alojamiento|hospedaje|residencia\s*estudiantil|habitacion|cuarto|departamento|depto|hotel|hostel|alquiler|vivienda|piso|apartment|housing|accommodation|alloggio|affitto|aluguel|wohnung|unterkunft)/.test(q);
-
-  if (isHousing) {
-    if (primaryIntent === "general") primaryIntent = "housing";
+  // 5. HOUSING
+  else if (/(alojamiento|hospedaje|residencia\s*estudiantil|habitacion|cuarto|departamento|depto|hotel|hostel|alquiler|vivienda|piso|apartment|housing|accommodation|alloggio|affitto|aluguel|wohnung|unterkunft)/.test(q)) {
+    primaryIntent = "housing";
     matchedCategories.push("alojamiento y vivienda", "hospedaje", "alquiler");
     matchedSubcategories.push("residencia estudiantil", "departamentos", "alquiler temporario", "hostels");
     targetKeywords.push(
       "alojamiento", "hospedaje", "hotel", "hostel", "residencia", "habitacion",
       "departamento", "depto", "alquiler", "estudiantes", "vivienda", "piso"
     );
+    prohibitedCategories.push("telefonia e internet", "salud y bienestar");
     negativeKeywords.push("telefonia", "esim", "chip", "datos moviles", "obra social", "sanatorio");
   }
 
-  // 6. Work & Internships
-  const isWork =
-    /(trabajo|empleo|pasantia|pasantias|practica|practicas|voluntariado|laboral|remunerado|sueldo|work|job|internship|volunteer|lavoro|stage|trabalho|estagio|arbeit|praktikum)/.test(q);
-
-  if (isWork) {
-    if (primaryIntent === "general") primaryIntent = "work";
+  // 6. WORK
+  else if (/(trabajo|empleo|pasantia|pasantias|practica|practicas|voluntariado|laboral|remunerado|sueldo|work|job|internship|volunteer|lavoro|stage|trabalho|estagio|arbeit|praktikum)/.test(q)) {
+    primaryIntent = "work";
     matchedCategories.push("trabajo y pasantias", "voluntariado", "empleo");
     matchedSubcategories.push("pasantias", "trabajo", "voluntariado");
     targetKeywords.push(
@@ -395,12 +644,9 @@ export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
     );
   }
 
-  // 7. Languages
-  const isLanguage =
-    /(idioma|idiomas|ingles|english|italiano|portugues|aleman|frances|aprender\s*idioma|clases\s*de\s*ingles|curso\s*de\s*ingles|curso\s*de\s*italiano|toefl|ielts|dele|cils|language|sprachkurs)/.test(q);
-
-  if (isLanguage) {
-    if (primaryIntent === "general") primaryIntent = "language";
+  // 7. LANGUAGES
+  else if (/(idioma|idiomas|ingles|english|italiano|portugues|aleman|frances|aprender\s*idioma|clases\s*de\s*ingles|curso\s*de\s*ingles|curso\s*de\s*italiano|toefl|ielts|dele|cils|language|sprachkurs)/.test(q)) {
+    primaryIntent = "language";
     matchedCategories.push("idiomas", "educacion y centros de estudios", "cursos");
     matchedSubcategories.push("clases de ingles", "clases de italiano", "cursos de idiomas");
     targetKeywords.push(
@@ -409,15 +655,13 @@ export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
     );
   }
 
-  // 8. Business, Entrepreneurship & Companies
-  const isBusiness = /(negocios|emprendimiento|empresa|inversion|sociedad|comercio|negocio|business|company)/.test(q);
-  if (isBusiness) {
-    if (primaryIntent === "general") primaryIntent = "business";
+  // 8. BUSINESS
+  else if (/(negocios|emprendimiento|empresa|inversion|sociedad|comercio|negocio|business|company)/.test(q)) {
+    primaryIntent = "business";
     matchedCategories.push("negocios y emprendimientos", "empresas", "emprendimientos");
     targetKeywords.push("negocios", "emprendimiento", "empresa", "inversion", "comercio", "startup");
   }
 
-  // Fallback raw tokens
   const cleanTokens = q.split(/\s+/).filter((t) => t.length >= 2 && !CONVERSATIONAL_STOPWORDS.has(t));
   cleanTokens.forEach((token) => {
     if (!targetKeywords.includes(token)) targetKeywords.push(token);
@@ -425,10 +669,13 @@ export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
 
   return {
     intent: primaryIntent,
+    requiredCareer,
+    careerAliases,
     targetCategories: Array.from(new Set(matchedCategories)),
     targetSubcategories: Array.from(new Set(matchedSubcategories)),
     targetKeywords: Array.from(new Set(targetKeywords)),
     negativeKeywords: Array.from(new Set(negativeKeywords)),
+    prohibitedCategories: Array.from(new Set(prohibitedCategories)),
     targetLocation: loc.location,
     targetCountry: loc.country,
     targetCity: loc.city,
@@ -439,22 +686,17 @@ export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
 
 /**
  * Universal Multilingual LLM Query Expander
- * Uses Gemini 2.0/1.5 Flash (via REST) or OpenAI GPT-4o-mini with local memory cache.
  */
 export async function expandQueryWithAI(queryRaw: string, customApiKey?: string): Promise<ParsedSearchIntent> {
   const cleanQ = normalizeSearchText(queryRaw);
   if (!cleanQ) return parseContextualIntent(queryRaw);
 
-  // 1. Check in-memory LRU cache
   const cached = AI_INTENT_CACHE.get(cleanQ);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.intent;
   }
 
-  // 2. Base Tier-1 contextual NLP parsing
   const baseIntent = parseContextualIntent(queryRaw);
-
-  // 3. Check for API keys
   const geminiKey = customApiKey || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   const openAiKey = customApiKey?.startsWith("sk-") ? customApiKey : process.env.OPENAI_API_KEY;
 
@@ -464,31 +706,8 @@ export async function expandQueryWithAI(queryRaw: string, customApiKey?: string)
   }
 
   try {
-    const systemPrompt = `You are the master intelligent search engine for Travelgrin, a global travel & relocation marketplace.
-Marketplace Categories:
-- "Educación y centros de estudios" (Universities, degrees, medicine, law, engineering, careers, student programs)
-- "Telefonía e Internet" (eSIM, mobile data, SIM cards, chips, roaming, mobile coverage)
-- "Salud y Bienestar" (Medical coverage, hospitals, clinics, OSEP, obra social, prepagas, life insurance, medical insurance)
-- "Gestiones migratorias y visas" (Visas, citizenship, passports, residency, immigration lawyers)
-- "Alojamiento y vivienda" (Student residences, apartments, flats, hotels, hostels, rentals)
-- "Trabajo y pasantías" (Jobs, internships, volunteering, remunerated work)
-- "Idiomas" (English, Italian, Spanish, language courses, language tests)
-- "Negocios y emprendimientos" (Business, investments, companies)
-
-Given the user query in ANY language: "${cleanQ}", parse the user's intent and extract entities.
-Return ONLY a valid JSON object matching this schema:
-{
-  "intent": "telephony" | "health" | "education" | "migration" | "housing" | "work" | "language" | "business" | "tourism" | "general",
-  "secondaryIntents": ["telephony", "health"],
-  "targetCategories": ["Exact matching category names"],
-  "targetSubcategories": ["Specific fields e.g. Medicina, Universidades, eSIM, Obra Social, etc."],
-  "targetKeywords": ["Extensive list of Spanish keywords, synonyms, career branches, and related terms"],
-  "negativeKeywords": ["Terms from conflicting verticals that must NOT be matched e.g. if telephony exclude obra social/hospital"],
-  "targetCountry": "Argentina" | "España" | "Italia" | "Alemania" | null,
-  "targetCity": "Mendoza" | "Córdoba" | "Buenos Aires" | "Madrid" | "Roma" | null,
-  "targetPassport": "Alemania" | "Italia" | "España" | null,
-  "isPrestacionQuery": true | false
-}`;
+    const systemPrompt = `You are the master intelligent search engine and research agent for Travelgrin, a global travel & relocation marketplace.
+Given query: "${cleanQ}", return JSON with intent, requiredCareer, careerAliases, targetCategories, targetSubcategories, targetKeywords, negativeKeywords, prohibitedCategories, targetCountry, targetCity, targetPassport, isPrestacionQuery.`;
 
     let parsed: any = null;
 
@@ -548,6 +767,10 @@ Return ONLY a valid JSON object matching this schema:
     if (parsed) {
       const aiIntent: ParsedSearchIntent = {
         intent: parsed.intent || baseIntent.intent,
+        requiredCareer: parsed.requiredCareer ? normalizeSearchText(parsed.requiredCareer) : baseIntent.requiredCareer,
+        careerAliases: Array.isArray(parsed.careerAliases)
+          ? parsed.careerAliases.map(normalizeSearchText)
+          : baseIntent.careerAliases,
         secondaryIntents: Array.isArray(parsed.secondaryIntents) ? parsed.secondaryIntents : [],
         targetCategories: Array.from(new Set([
           ...baseIntent.targetCategories,
@@ -565,24 +788,28 @@ Return ONLY a valid JSON object matching this schema:
           ...baseIntent.negativeKeywords,
           ...(Array.isArray(parsed.negativeKeywords) ? parsed.negativeKeywords.map(normalizeSearchText) : [])
         ])),
+        prohibitedCategories: Array.from(new Set([
+          ...baseIntent.prohibitedCategories,
+          ...(Array.isArray(parsed.prohibitedCategories) ? parsed.prohibitedCategories.map(normalizeSearchText) : [])
+        ])),
         targetLocation: parsed.targetCity ? normalizeSearchText(parsed.targetCity) : (parsed.targetCountry ? normalizeSearchText(parsed.targetCountry) : baseIntent.targetLocation),
         targetCountry: parsed.targetCountry ? normalizeSearchText(parsed.targetCountry) : baseIntent.targetCountry,
         targetCity: parsed.targetCity ? normalizeSearchText(parsed.targetCity) : baseIntent.targetCity,
         targetPassport: parsed.targetPassport ? normalizeSearchText(parsed.targetPassport) : baseIntent.targetPassport,
         isPrestacionQuery: typeof parsed.isPrestacionQuery === "boolean" ? parsed.isPrestacionQuery : baseIntent.isPrestacionQuery,
+        nonMatchingInstitutions: Array.isArray(parsed.nonMatchingInstitutions) ? parsed.nonMatchingInstitutions.map(normalizeSearchText) : [],
       };
       AI_INTENT_CACHE.set(cleanQ, { intent: aiIntent, timestamp: Date.now() });
       return aiIntent;
     }
   } catch {
-    // Graceful fallback to base contextual intent
+    // Fallback
   }
 
   AI_INTENT_CACHE.set(cleanQ, { intent: baseIntent, timestamp: Date.now() });
   return baseIntent;
 }
 
-// Core Anchor Dictionary per Domain Intent
 const DOMAIN_CORE_ANCHORS: Record<string, string[]> = {
   telephony: ["esim", "chip", "sim", "datos moviles", "celular", "movil", "telefonia", "roaming", "linea movil", "internet movil", "conectividad", "gigas", "5g", "4g"],
   health: ["salud", "medicina", "medico", "medica", "hospital", "clinica", "sanatorio", "obra social", "prepaga", "osep", "osde", "seguro de vida", "cobertura medica", "cobertura de salud", "seguro medico", "seguro de salud", "asistencia medica", "atencion medica", "doctor"],
@@ -596,7 +823,7 @@ const DOMAIN_CORE_ANCHORS: Record<string, string[]> = {
 
 /**
  * Universal Scoring function with Multi-dimensional Semantic Relevance,
- * Domain Isolation Gating, Location Matching, and Prestaciones Routing.
+ * Academic Career Offering Verification, Domain Isolation, and Negative Disambiguation Gates.
  */
 export function calculateSmartSearchScore(
   p: any,
@@ -609,10 +836,8 @@ export function calculateSmartSearchScore(
   const rawTokens = qClean.split(/\s+/).filter(Boolean);
   if (!rawTokens.length) return 1;
 
-  // 1. Get parsed semantic intent
   const intent = preParsedIntent || parseContextualIntent(queryRaw);
 
-  // Extract all target fields from the publication
   const fields = ((p as any)?.fields ?? {}) as Record<string, unknown>;
   const titleI18nValues = Object.values((p as any).titleI18n ?? {}).map(String);
   const descI18nValues = Object.values((p as any).descriptionI18n ?? {}).map(String);
@@ -665,20 +890,36 @@ export function calculateSmartSearchScore(
   const isPrestacionItem = (p as any).primaryGroupKey === "prestacion" || tagsText.includes("prestacion") || categoryText.includes("prestacion");
   const fullHaystack = `${titleText} ${publisherText} ${categoryText} ${locationText} ${descText} ${tagsText}`;
 
-  // 2. Strict Domain Isolation Gate
+  // 2. Prohibited Categories Gate
+  if (intent.prohibitedCategories && intent.prohibitedCategories.length > 0) {
+    for (const prohibited of intent.prohibitedCategories) {
+      if (categoryText.includes(prohibited)) {
+        return 0;
+      }
+    }
+  }
+
+  // 3. Academic Career Offering Verification Gate
+  if (intent.intent === "education" && intent.requiredCareer) {
+    const verification = verifyInstitutionCareerOffering(p, intent.requiredCareer, intent.targetCity);
+    if (!verification.matches) {
+      return 0;
+    }
+  }
+
+  // 4. Strict Domain Isolation Gate
   if (intent.intent !== "general") {
     const domainAnchors = DOMAIN_CORE_ANCHORS[intent.intent] || [];
     const hasCategoryMatch = intent.targetCategories.some((cat) => categoryText.includes(cat) || tagsText.includes(cat));
     const hasSubcategoryMatch = intent.targetSubcategories.some((sub) => categoryText.includes(sub) || tagsText.includes(sub) || titleText.includes(sub));
     const hasAnchorMatch = domainAnchors.some((anchor) => titleText.includes(anchor) || tagsText.includes(anchor) || descText.includes(anchor) || categoryText.includes(anchor));
 
-    // If query is specifically about telephony, health, migration, etc., and publication has zero domain relevance:
     if (!hasCategoryMatch && !hasSubcategoryMatch && !hasAnchorMatch) {
       return 0;
     }
   }
 
-  // 3. Disambiguation Negative Conflict Check
+  // 5. Disambiguation Negative Conflict Check
   if (intent.negativeKeywords.length > 0) {
     let hasNegativeConflict = false;
     for (const neg of intent.negativeKeywords) {
@@ -687,7 +928,6 @@ export function calculateSmartSearchScore(
         break;
       }
     }
-    // If the publication conflicts and has NO direct positive keyword matches in title/tags/prestaciones, drop score to 0
     if (hasNegativeConflict) {
       const positiveHeaderMatch = intent.targetKeywords.some((pos) => titleText.includes(pos) || tagsText.includes(pos) || categoryText.includes(pos));
       if (!positiveHeaderMatch) {
@@ -698,7 +938,7 @@ export function calculateSmartSearchScore(
 
   let score = 0;
 
-  // 4. Exact full query phrase match bonus
+  // 6. Exact full query phrase match bonus
   if (fullHaystack.includes(qClean)) {
     score += 300;
     if (titleText.includes(qClean)) score += 200;
@@ -706,7 +946,12 @@ export function calculateSmartSearchScore(
     if (categoryText.includes(qClean)) score += 120;
   }
 
-  // 5. Category & Subcategory Semantic Intent Match
+  // 7. Verified Career Match Bonus
+  if (intent.intent === "education" && intent.requiredCareer) {
+    score += 500;
+  }
+
+  // 8. Category & Subcategory Semantic Intent Match
   if (intent.targetCategories.length > 0) {
     for (const targetCat of intent.targetCategories) {
       if (categoryText.includes(targetCat) || tagsText.includes(targetCat)) {
@@ -725,11 +970,17 @@ export function calculateSmartSearchScore(
     }
   }
 
-  // 6. Geographic Entity Match
+  // 9. Geographic Entity Match
   if (intent.targetCity) {
     const cityMatches = locationText.includes(intent.targetCity);
     if (cityMatches) {
-      score += 350;
+      score += 400;
+    } else {
+      const otherCities = KNOWN_LOCATIONS.filter((l) => l.city && l.city !== intent.targetCity).map((l) => l.city!);
+      const hasOtherCityOnly = otherCities.some((c) => locationText.includes(c)) && !locationText.includes("distancia") && !locationText.includes("online");
+      if (hasOtherCityOnly && !locationText.includes(intent.targetCity)) {
+        score -= 200;
+      }
     }
   } else if (intent.targetCountry) {
     const countryMatches = locationText.includes(intent.targetCountry);
@@ -742,14 +993,14 @@ export function calculateSmartSearchScore(
     }
   }
 
-  // 7. Prestaciones Specific Routing
+  // 10. Prestaciones Specific Routing
   if (intent.isPrestacionQuery || intent.intent === "telephony") {
     if (isPrestacionItem) {
-      score += 400;
+      score += 500;
     }
   }
 
-  // 8. Meaningful tokens + target intent keywords scoring
+  // 11. Meaningful tokens + target intent keywords scoring
   const searchTokens = Array.from(new Set([
     ...rawTokens.filter((t) => t.length >= 2 && !CONVERSATIONAL_STOPWORDS.has(t)),
     ...intent.targetKeywords,
@@ -773,12 +1024,10 @@ export function calculateSmartSearchScore(
     }
   }
 
-  // Multi-term synergy bonus
   if (matchedCount > 1) {
     score += matchedCount * 30;
   }
 
-  // Final relevance threshold gate: prevent false positives from generic words
   if (intent.intent !== "general" && score < 100) {
     return 0;
   }
