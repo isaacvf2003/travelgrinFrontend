@@ -2888,7 +2888,7 @@ export default function ModalOferente({
             </div>
           </div>
 
-          <div className="pointer-events-none absolute bottom-2 right-2 z-[2147483000] h-16 w-16 sm:h-18 sm:w-18">
+          <div className="pointer-events-none absolute bottom-4 right-4 z-[2147483000] h-16 w-16 md:h-14 md:w-14">
             <div className="pointer-events-auto relative h-full w-full">
               <FloatingAIButton is425w={false} onClick={() => setIsOpenModalAI(true)} isInFooter />
             </div>
