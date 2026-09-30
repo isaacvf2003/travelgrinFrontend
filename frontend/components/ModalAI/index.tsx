@@ -25,7 +25,7 @@ const AI_I18N = {
     toast_title_updated: "¡Título de publicación actualizado!",
     toast_desc_updated: "¡Descripción actualizada correctamente!",
     toast_error_gen: "Error al generar contenido con IA",
-    bot_applied_confirmation: "¡Perfecto! He aplicado los cambios directamente en tu formulario. Tu propuesta destacada luce mucho más atractiva para los viajeros.",
+    bot_applied_confirmation: "¡Perfecto! He volcado los cambios directamente en tu formulario. Tu propuesta luce mucho más atractiva para los viajeros.",
     bot_error_message: "Disculpa, hubo un error al generar. Por favor inténtalo de nuevo.",
     bot_proposal_intro: (target: string, content: string) => `He preparado esta propuesta para "${target}":\n\n"${content}"\n\n¿Te gusta cómo quedó?`,
     target_labels: {
@@ -43,13 +43,22 @@ const AI_I18N = {
     user_msg_improve_not_included: "Redactar '¿Qué NO incluye?'",
     user_msg_improve_title: "Optimizar el Título de mi publicación destacada",
     user_msg_featured_doubts: "Dudas sobre la publicación destacada",
-    bot_included_detected: (val: string) => `Detecté lo que pusiste en '¿Qué incluye?':\n\n"${val}"\n\nContame qué más querés sumar, resaltar o aclarar, o presioná enviar para que te arme una versión estructurada y atractiva para viajeros con viñetas.`,
-    bot_included_empty: "Contame con tus palabras qué incluye tu servicio para el viajero (ej. traslados, clases, materiales, asesoría personalizada, soporte 24/7, etc.), y te redactaré un detalle claro, profesional y estructurado.",
-    bot_not_included_detected: (val: string) => `Detecté tu texto actual en '¿Qué NO incluye?':\n\n"${val}"\n\n¿Querés agregar alguna exclusión adicional para que los viajeros tengan expectativas 100% claras?`,
-    bot_not_included_empty: "Aclarar qué NO incluye tu propuesta genera gran confianza. Contame qué cosas no están cubiertas (ej: pasajes aéreos, gastos personales, tasas de visado, comidas) y te armo una redacción profesional.",
+    bot_included_detected: (val: string) => `Detecté lo que pusiste en '¿Qué incluye?':\n\n"${val}"\n\n¿Cómo preferís que lo trabajemos?`,
+    bot_included_empty: "Contame con tus palabras qué incluye tu servicio para el viajero (ej. traslados, clases, materiales, asesoría personalizada, soporte 24/7), y te armaré una redacción clara y estructurada con viñetas.",
+    bot_not_included_detected: (val: string) => `Detecté tu texto actual en '¿Qué NO incluye?':\n\n"${val}"\n\n¿Querés agregar alguna exclusión adicional para dar expectativas 100% claras?`,
+    bot_not_included_empty: "Aclarar qué NO incluye tu propuesta genera gran confianza. Contame qué no está cubierto (ej: pasajes aéreos, gastos personales, tasas de visado, comidas) y te armo una redacción profesional.",
     bot_title_detected: (val: string) => `Tu título actual es: "${val}". Contame qué enfoque preferís o dejame sugerirte opciones atractivas y de alto impacto.`,
     bot_title_empty: "Contame brevemente tu servicio y destino para redactarte títulos atractivos, profesionales y de alto impacto para viajeros.",
     bot_featured_doubts_answer: "⭐ Las publicaciones destacadas tienen máxima visibilidad en los primeros lugares del marketplace, badge oficial de Destacado, permiten subir hasta 5 fotos, logo oficial, links directos de contacto (WhatsApp, web, redes) y detallar todo lo que incluye tu servicio para que los viajeros conecten directamente con vos.",
+    btn_optimize_current: "✨ Optimizar redacción y destacar beneficios",
+    btn_focus_trust_cta: "🎯 Enfocar en confianza y llamada a la acción",
+    btn_custom_instructions: "✍️ Indicar qué agregar o cambiar",
+    qualification_success_msg: "🎉 ¡Excelente! Tu propuesta califica para ser publicada en Travelgrin y conectar con viajeros.",
+    qualification_fail_msg: "Por ahora tu propuesta no califica directamente en esta categoría, pero podés revisar otras opciones o consultarnos.",
+    auto_restart_countdown_msg: (sec: number) => `⏱️ Esta conversación se reiniciará automáticamente en ${sec}s...`,
+    btn_cancel_restart: "⏹️ Mantener chat abierto",
+    btn_restart_now: "🔄 Reiniciar ahora",
+    btn_finish_conversation: "✅ Finalizar conversación",
   },
   en: {
     asistente_ia: "AI Assistant",
@@ -70,7 +79,7 @@ const AI_I18N = {
     toast_title_updated: "Publication title updated!",
     toast_desc_updated: "Description updated successfully!",
     toast_error_gen: "Error generating content with AI",
-    bot_applied_confirmation: "Great! I have applied the changes directly to your form. Your featured listing looks much more appealing to travelers.",
+    bot_applied_confirmation: "Great! I have applied the changes directly to your form. Your listing looks much more appealing to travelers.",
     bot_error_message: "Sorry, an error occurred during generation. Please try again.",
     bot_proposal_intro: (target: string, content: string) => `I have prepared this proposal for "${target}":\n\n"${content}"\n\nDo you like how it looks?`,
     target_labels: {
@@ -88,13 +97,22 @@ const AI_I18N = {
     user_msg_improve_not_included: "Draft 'What's NOT included?'",
     user_msg_improve_title: "Optimize the Title of my featured publication",
     user_msg_featured_doubts: "Questions about Featured Listing",
-    bot_included_detected: (val: string) => `I noticed what you entered in 'What's included?':\n\n"${val}"\n\nTell me what else you'd like to highlight or clarify, or press send so I can create a structured, high-converting bulleted list for travelers.`,
-    bot_included_empty: "Tell me in your own words what your service includes for travelers (e.g. airport pickups, classes, materials, 1-on-1 guidance, 24/7 support), and I will create a structured, professional overview.",
-    bot_not_included_detected: (val: string) => `I noticed your current text in 'What's NOT included?':\n\n"${val}"\n\nWould you like to add any other exclusions to set 100% clear expectations?`,
-    bot_not_included_empty: "Clarifying what is NOT included builds huge trust with travelers. Tell me what is not covered (e.g. flight tickets, visa fees, personal expenses, meals) and I will format it professionally.",
-    bot_title_detected: (val: string) => `Your current title is: "${val}". Tell me what style you prefer or let me suggest high-impact, catchy alternatives.`,
+    bot_included_detected: (val: string) => `I noticed what you entered in 'What's included?':\n\n"${val}"\n\nHow would you prefer to improve it?`,
+    bot_included_empty: "Tell me in your own words what your service includes for travelers (e.g. transfers, classes, materials, personalized guidance, 24/7 support), and I will create a structured bulleted overview.",
+    bot_not_included_detected: (val: string) => `I noticed your current text in 'What's NOT included?':\n\n"${val}"\n\nWould you like to add any extra exclusions to set 100% clear expectations?`,
+    bot_not_included_empty: "Clarifying what is NOT included builds huge trust with travelers. Tell me what is not covered (e.g. flights, visa fees, personal expenses, meals) and I will format it professionally.",
+    bot_title_detected: (val: string) => `Your current title is: "${val}". Tell me what style you prefer or let me suggest high-impact alternatives.`,
     bot_title_empty: "Tell me briefly about your service and destination so I can generate catchy, professional, high-impact titles for travelers.",
     bot_featured_doubts_answer: "⭐ Featured publications receive top placement in search results, an official Featured badge, up to 5 photos, your brand logo, direct contact buttons (WhatsApp, website, social media), and structured inclusions so travelers connect directly with you.",
+    btn_optimize_current: "✨ Polish copy & highlight key benefits",
+    btn_focus_trust_cta: "🎯 Focus on trust and call-to-action",
+    btn_custom_instructions: "✍️ Specify custom adjustments",
+    qualification_success_msg: "🎉 Perfect! Your proposal qualifies to be published on Travelgrin and connect with travelers.",
+    qualification_fail_msg: "For now your offer does not directly qualify in this category, but you can explore other categories or contact us.",
+    auto_restart_countdown_msg: (sec: number) => `⏱️ This conversation will restart automatically in ${sec}s...`,
+    btn_cancel_restart: "⏹️ Keep chat open",
+    btn_restart_now: "🔄 Restart now",
+    btn_finish_conversation: "✅ End conversation",
   },
   pt: {
     asistente_ia: "Assistente IA",
@@ -133,13 +151,22 @@ const AI_I18N = {
     user_msg_improve_not_included: "Redigir 'O que NÃO inclui?'",
     user_msg_improve_title: "Otimizar o Título da minha publicação em destaque",
     user_msg_featured_doubts: "Dúvidas sobre a publicação em destaque",
-    bot_included_detected: (val: string) => `Detectei o que você colocou em 'O que inclui?':\n\n"${val}"\n\nConte-me o que mais deseja adicionar ou destacar, ou envie para eu criar uma versão estruturada e atraente com tópicos.`,
-    bot_included_empty: "Conte-me com suas palavras o que seu serviço inclui para o viajante (ex: traslados, aulas, materiais, assessoria personalizada, suporte 24/7, etc.) e redigirei um detalhamento claro e profissional.",
+    bot_included_detected: (val: string) => `Detectei o que você colocou em 'O que inclui?':\n\n"${val}"\n\nComo prefere aprimorá-lo?`,
+    bot_included_empty: "Conte-me com suas palavras o que seu serviço inclui para o viajante (ex: traslados, aulas, materiais, assessoria personalizada, suporte 24/7) e redigirei um detalhamento estruturado.",
     bot_not_included_detected: (val: string) => `Detectei seu texto atual em 'O que NÃO inclui?':\n\n"${val}"\n\nDeseja adicionar alguma exclusão para que os viajantes tenham expectativas 100% claras?`,
     bot_not_included_empty: "Esclarecer o que NÃO está incluso gera muita confiança. Conte-me o que não é coberto (ex: passagens aéreas, despesas pessoais, taxas de visto, refeições) e criarei uma redação profissional.",
     bot_title_detected: (val: string) => `Seu título atual é: "${val}". Conte-me qual estilo prefere ou deixe-me sugerir opções atraentes de alto impacto.`,
     bot_title_empty: "Conte-me brevemente sobre seu serviço e destino para eu redigir títulos atraentes, profissionais e de alto impacto para viajantes.",
     bot_featured_doubts_answer: "⭐ As publicações em destaque têm visibilidade máxima no topo do marketplace, selo oficial de Destaque, permitem até 5 fotos, logotipo oficial, links diretos de contato (WhatsApp, site, redes sociais) e detalhamento completo para viajantes entrarem em contato direto com você.",
+    btn_optimize_current: "✨ Otimizar redação e destacar benefícios",
+    btn_focus_trust_cta: "🎯 Focar em confiança e chamada para ação",
+    btn_custom_instructions: "✍️ Indicar ajustes personalizados",
+    qualification_success_msg: "🎉 Perfeito! Sua proposta se qualifica para ser publicada na Travelgrin e conectar-se com viajantes.",
+    qualification_fail_msg: "Por enquanto sua proposta não se qualifica diretamente nesta categoria, mas você pode conferir outras ou nos contatar.",
+    auto_restart_countdown_msg: (sec: number) => `⏱️ Esta conversa será reiniciada automaticamente em ${sec}s...`,
+    btn_cancel_restart: "⏹️ Manter chat aberto",
+    btn_restart_now: "🔄 Reiniciar agora",
+    btn_finish_conversation: "✅ Finalizar conversa",
   },
   it: {
     asistente_ia: "Assistente IA",
@@ -178,13 +205,22 @@ const AI_I18N = {
     user_msg_improve_not_included: "Redigi 'Cosa NON include?'",
     user_msg_improve_title: "Ottimizza il Titolo della mia pubblicazione in evidenza",
     user_msg_featured_doubts: "Dubbi sulla pubblicazione in evidenza",
-    bot_included_detected: (val: string) => `Ho rilevato quello che hai inserito in 'Cosa include?':\n\n"${val}"\n\nDimmi cosa vorresti aggiungere o evidenziare, oppure premi invia per creare una versione strutturata ed efficace con elenchi puntati.`,
-    bot_included_empty: "Raccontami con parole tue cosa include il tuo servizio per il viaggiatore (es. trasferimenti, lezioni, materiali, consulenza personalizzata, supporto 24/7, ecc.) e redigerò un dettaglio chiaro e professionale.",
+    bot_included_detected: (val: string) => `Ho rilevato quello che hai inserito in 'Cosa include?':\n\n"${val}"\n\nCome preferisci migliorarlo?`,
+    bot_included_empty: "Raccontami con parole tue cosa include il tuo servizio per il viaggiatore (es. trasferimenti, lezioni, materiali, consulenza personalizzata, supporto 24/7) e redigerò un dettaglio chiaro ed efficace con elenchi puntati.",
     bot_not_included_detected: (val: string) => `Ho rilevato il tuo testo attuale in 'Cosa NON include?':\n\n"${val}"\n\nVuoi aggiungere qualche esclusione per dare ai viaggiatori aspettative chiare al 100%?`,
     bot_not_included_empty: "Chiarire cosa NON è incluso genera grande fiducia. Dimmi cosa non è coperto (es. voli aerei, spese personali, tasse di visto, pasti) e ti preparerò una descrizione professionale.",
     bot_title_detected: (val: string) => `Il tuo titolo attuale è: "${val}". Dimmi quale stile preferisci o lascia che ti suggerisca opzioni accattivanti e ad alto impatto.`,
     bot_title_empty: "Raccontami brevemente il tuo servizio e destinazione per redigere titoli accattivanti, professionali e ad alto impatto per viaggiatori.",
     bot_featured_doubts_answer: "⭐ Le pubblicazioni in evidenza hanno la massima visibilità in cima al marketplace, badge ufficiale In Evidenza, fino a 5 foto, logo ufficiale, link diretti di contatto (WhatsApp, sito web, social) e descrizione dettagliata dei servizi inclusi per permettere ai viaggiatori di contattarti direttamente.",
+    btn_optimize_current: "✨ Ottimizza il testo ed evidenzia i vantaggi",
+    btn_focus_trust_cta: "🎯 Punta sulla fiducia e call-to-action",
+    btn_custom_instructions: "✍️ Indica modifiche personalizzate",
+    qualification_success_msg: "🎉 Perfetto! La tua proposta è idonea per essere pubblicata su Travelgrin e connettersi con i viaggiatori.",
+    qualification_fail_msg: "Per il momento la tua proposta non è direttamente idonea in questa categoria, ma puoi verificare altre opzioni o contattarci.",
+    auto_restart_countdown_msg: (sec: number) => `⏱️ Questa conversazione si riavvierà automaticamente tra ${sec}s...`,
+    btn_cancel_restart: "⏹️ Mantieni chat aperta",
+    btn_restart_now: "🔄 Riavvia ora",
+    btn_finish_conversation: "✅ Termina conversazione",
   }
 };
 
@@ -244,6 +280,10 @@ export default function ModalAI({
   const [suggestedContent, setSuggestedContent] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Auto restart countdown state
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -261,7 +301,7 @@ export default function ModalAI({
       scrollToBottom();
     }, 100);
     return () => clearTimeout(timer);
-  }, [messages, isGenerating, showDescriptionInput]);
+  }, [messages, isGenerating, showDescriptionInput, countdown]);
 
   const getCurrentTimestamp = () => {
     return new Date()
@@ -276,7 +316,6 @@ export default function ModalAI({
   const storageSuffix = `${step}_${activeTarget}_${locale}`;
   const CHAT_STORAGE_KEY = `travelgrin_ai_chat_${storageSuffix}`;
   const CHAT_TIMESTAMP_KEY = `travelgrin_ai_chat_timestamp_${storageSuffix}`;
-  const WAITING_FIELDS_KEY = `travelgrin_ai_waiting_fields_${storageSuffix}`;
 
   const getInitialBotMessage = () => {
     if (step === "featured") {
@@ -298,6 +337,36 @@ export default function ModalAI({
     };
   };
 
+  const clearCountdown = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdown(null);
+  };
+
+  const startAutoRestartCountdown = (seconds = 5) => {
+    clearCountdown();
+    setCountdown(seconds);
+    let remaining = seconds;
+
+    countdownIntervalRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearCountdown();
+        restartChat();
+      } else {
+        setCountdown(remaining);
+      }
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearCountdown();
+    };
+  }, []);
+
   const loadMessagesFromStorage = () => {
     try {
       const stored = localStorage.getItem(CHAT_STORAGE_KEY);
@@ -311,7 +380,6 @@ export default function ModalAI({
         if (now - storedTime > tenMinutes) {
           localStorage.removeItem(CHAT_STORAGE_KEY);
           localStorage.removeItem(CHAT_TIMESTAMP_KEY);
-          localStorage.removeItem(WAITING_FIELDS_KEY);
         } else {
           return JSON.parse(stored);
         }
@@ -336,13 +404,13 @@ export default function ModalAI({
     try {
       localStorage.removeItem(CHAT_STORAGE_KEY);
       localStorage.removeItem(CHAT_TIMESTAMP_KEY);
-      localStorage.removeItem(WAITING_FIELDS_KEY);
     } catch (error) {
       console.error("Error clearing chat storage:", error);
     }
   };
 
   useEffect(() => {
+    clearCountdown();
     const initialMessages = loadMessagesFromStorage();
     setMessages(initialMessages);
     setIsInitialized(true);
@@ -365,6 +433,7 @@ export default function ModalAI({
   }, [messages, isInitialized]);
 
   const restartChat = () => {
+    clearCountdown();
     clearChatStorage();
     setMessages([getInitialBotMessage()]);
     setSuggestedContent("");
@@ -374,6 +443,7 @@ export default function ModalAI({
 
   // 1. DUDA DE CALIFICACIÓN (BASIC STEP)
   const handleQualificationDubt = () => {
+    clearCountdown();
     const userMessage = {
       id: messages.length + 1,
       type: "user",
@@ -415,11 +485,18 @@ export default function ModalAI({
     const botResponse = {
       id: messages.length + 2,
       type: "bot",
-      content: hasExperience ? t("perfect") : t("por_ahora_no_califica"),
+      content: hasExperience
+        ? strings.qualification_success_msg
+        : strings.qualification_fail_msg,
       timestamp: getCurrentTimestamp(),
+      showCompletionControls: true,
     };
 
     setMessages((prev) => [...prev, userMessage, botResponse]);
+
+    if (hasExperience) {
+      startAutoRestartCountdown(5);
+    }
   };
 
   const handleCategoryResponse = (hasCategory: boolean) => {
@@ -433,15 +510,23 @@ export default function ModalAI({
     const botResponse = {
       id: messages.length + 2,
       type: "bot",
-      content: hasCategory ? t("perfecto_tu_propuesta") : t("no_califica_por_ahora"),
+      content: hasCategory
+        ? strings.qualification_success_msg
+        : strings.qualification_fail_msg,
       timestamp: getCurrentTimestamp(),
+      showCompletionControls: true,
     };
 
     setMessages((prev) => [...prev, userMessage, botResponse]);
+
+    if (hasCategory) {
+      startAutoRestartCountdown(5);
+    }
   };
 
   // 2. MEJORAR DESCRIPCIÓN (BASIC STEP)
   const handleDescriptionImprovement = () => {
+    clearCountdown();
     setActiveTarget("description");
     const userMessage = {
       id: messages.length + 1,
@@ -455,9 +540,9 @@ export default function ModalAI({
       botResponse = {
         id: messages.length + 2,
         type: "bot",
-        content: t("detecte"),
+        content: `Detecté tu descripción actual:\n\n"${description}"\n\n¿Cómo te gustaría trabajar la mejora?`,
         timestamp: getCurrentTimestamp(),
-        showDescriptionInput: true,
+        showRefineChoices: true,
       };
       setUserInput(description);
     } else {
@@ -469,14 +554,16 @@ export default function ModalAI({
         showDescriptionInput: true,
       };
       setUserInput("");
+      setShowDescriptionInput(true);
     }
-    setShowDescriptionInput(true);
+
     setMessages((prev) => [...prev, userMessage, botResponse]);
     setCurrentStep("description");
   };
 
   // 3. FEATURED STEP: MEJORAR "¿QUÉ INCLUYE?"
   const handleImproveIncluded = () => {
+    clearCountdown();
     setActiveTarget("included");
     const userMessage = {
       id: messages.length + 1,
@@ -492,7 +579,7 @@ export default function ModalAI({
         type: "bot",
         content: strings.bot_included_detected(included),
         timestamp: getCurrentTimestamp(),
-        showDescriptionInput: true,
+        showRefineChoices: true,
       };
       setUserInput(included);
     } else {
@@ -504,15 +591,16 @@ export default function ModalAI({
         showDescriptionInput: true,
       };
       setUserInput("");
+      setShowDescriptionInput(true);
     }
 
-    setShowDescriptionInput(true);
     setMessages((prev) => [...prev, userMessage, botResponse]);
     setCurrentStep("included");
   };
 
   // 4. FEATURED STEP: REDACTAR "¿QUÉ NO INCLUYE?"
   const handleImproveNotIncluded = () => {
+    clearCountdown();
     setActiveTarget("notIncluded");
     const userMessage = {
       id: messages.length + 1,
@@ -528,7 +616,7 @@ export default function ModalAI({
         type: "bot",
         content: strings.bot_not_included_detected(notIncluded),
         timestamp: getCurrentTimestamp(),
-        showDescriptionInput: true,
+        showRefineChoices: true,
       };
       setUserInput(notIncluded);
     } else {
@@ -540,15 +628,16 @@ export default function ModalAI({
         showDescriptionInput: true,
       };
       setUserInput("");
+      setShowDescriptionInput(true);
     }
 
-    setShowDescriptionInput(true);
     setMessages((prev) => [...prev, userMessage, botResponse]);
     setCurrentStep("notIncluded");
   };
 
   // 5. FEATURED STEP: OPTIMIZAR TÍTULO
   const handleImproveTitle = () => {
+    clearCountdown();
     setActiveTarget("title");
     const userMessage = {
       id: messages.length + 1,
@@ -564,7 +653,7 @@ export default function ModalAI({
         type: "bot",
         content: strings.bot_title_detected(publicationTitle),
         timestamp: getCurrentTimestamp(),
-        showDescriptionInput: true,
+        showRefineChoices: true,
       };
       setUserInput(publicationTitle);
     } else {
@@ -576,15 +665,16 @@ export default function ModalAI({
         showDescriptionInput: true,
       };
       setUserInput("");
+      setShowDescriptionInput(true);
     }
 
-    setShowDescriptionInput(true);
     setMessages((prev) => [...prev, userMessage, botResponse]);
     setCurrentStep("title");
   };
 
   // 6. FEATURED STEP: DUDAS DESTACADO
   const handleFeaturedDoubt = () => {
+    clearCountdown();
     const userMessage = {
       id: messages.length + 1,
       type: "user",
@@ -597,6 +687,7 @@ export default function ModalAI({
       type: "bot",
       content: strings.bot_featured_doubts_answer,
       timestamp: getCurrentTimestamp(),
+      showCompletionControls: true,
     };
 
     setMessages((prev) => [...prev, userMessage, botResponse]);
@@ -604,6 +695,7 @@ export default function ModalAI({
 
   // LLAMADA A LA API DE GENERACIÓN
   const generateContent = async (userMessageText?: string) => {
+    clearCountdown();
     setIsGenerating(true);
 
     try {
@@ -709,12 +801,15 @@ export default function ModalAI({
       type: "bot",
       content: strings.bot_applied_confirmation,
       timestamp: getCurrentTimestamp(),
+      showCompletionControls: true,
     };
 
     setMessages((prev) => [...prev, confirmMessage]);
+    startAutoRestartCountdown(5);
   };
 
   const generateAnotherOption = () => {
+    clearCountdown();
     const requestMessage = {
       id: messages.length + 1,
       type: "user",
@@ -736,6 +831,7 @@ export default function ModalAI({
 
   const sendInputMessage = () => {
     if (userInput.trim()) {
+      clearCountdown();
       const userMessage = {
         id: messages.length + 1,
         type: "user",
@@ -770,7 +866,7 @@ export default function ModalAI({
         }}
       >
         <div
-          className="bg-white rounded-2xl shadow-2xl w-84 sm:w-96 h-[28rem] flex flex-col border border-slate-200/80"
+          className="bg-white rounded-2xl shadow-2xl w-84 sm:w-96 h-[28rem] flex flex-col border border-slate-200/80 overflow-hidden"
           style={{
             zIndex: 10000000000,
             WebkitFontSmoothing: "antialiased",
@@ -778,8 +874,8 @@ export default function ModalAI({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="flex-shrink-0 bg-gradient-to-r from-[#00A9C6] to-[#008299] text-white p-3.5 rounded-t-2xl relative">
+          {/* Header - Royal Blue travelgrin theme */}
+          <div className="flex-shrink-0 bg-blue-600 text-white p-3.5 relative">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
                 <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm shadow-inner">
@@ -794,7 +890,7 @@ export default function ModalAI({
                       </span>
                     ) : null}
                   </h3>
-                  <p className="text-[11px] text-cyan-100 flex items-center gap-1">
+                  <p className="text-[11px] text-blue-100 flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
                     {strings.en_linea}
                   </p>
@@ -808,7 +904,7 @@ export default function ModalAI({
                   title={strings.reiniciar_chat}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </button>
 
@@ -833,7 +929,7 @@ export default function ModalAI({
             {messages.map((message) => (
               <div key={message.id} className="flex items-start space-x-2">
                 {message.type === "bot" && (
-                  <div className="w-6 h-6 bg-[#00A9C6] rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm">
+                  <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm">
                     🤖
                   </div>
                 )}
@@ -842,37 +938,83 @@ export default function ModalAI({
                   className={`rounded-2xl p-3 shadow-sm max-w-[85%] ${
                     message.type === "bot"
                       ? "bg-white text-slate-800 rounded-tl-none border border-slate-100"
-                      : "bg-[#00A9C6] text-white rounded-tr-none ml-auto"
+                      : "bg-blue-600 text-white rounded-tr-none ml-auto"
                   }`}
                 >
                   <p className="text-xs whitespace-pre-line leading-relaxed font-normal">
                     {message.content}
                   </p>
 
+                  {/* Refinement choices (Option 1: Benefits, Option 2: Trust/CTA, Option 3: Custom input) */}
+                  {message.showRefineChoices && (
+                    <div className="flex flex-col space-y-2 mt-3">
+                      <button
+                        onClick={() => {
+                          const promptContext =
+                            locale === "en"
+                              ? "Optimize this proposal highlighting key benefits, professionalism, and traveler value"
+                              : locale === "pt"
+                              ? "Otimize esta proposta destacando benefícios principais, profissionalismo e valor para o viajante"
+                              : locale === "it"
+                              ? "Ottimizza questa proposta evidenziando i vantaggi chiave, la professionalità e il valore per il viaggiatore"
+                              : "Optimiza esta propuesta destacando beneficios clave, profesionalismo y valor para el viajero";
+                          generateContent(promptContext);
+                        }}
+                        className="bg-[#10B981] hover:bg-[#059669] text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition text-left"
+                      >
+                        {strings.btn_optimize_current}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const promptContext =
+                            locale === "en"
+                              ? "Focus this copy on building traveler trust, safety, and a clear call-to-action"
+                              : locale === "pt"
+                              ? "Foque este texto em gerar confiança, segurança e uma chamada para ação clara"
+                              : locale === "it"
+                              ? "Concentra questo testo sulla fiducia, sicurezza e una call-to-action chiara"
+                              : "Enfoca este texto en generar confianza, seguridad y una llamada a la acción clara";
+                          generateContent(promptContext);
+                        }}
+                        className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition text-left"
+                      >
+                        {strings.btn_focus_trust_cta}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowDescriptionInput(true);
+                        }}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium transition text-left"
+                      >
+                        {strings.btn_custom_instructions}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Botones iniciales FEATURED STEP */}
                   {message.showFeaturedButtons && (
                     <div className="flex flex-col space-y-2 mt-3">
                       <button
                         onClick={handleImproveIncluded}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left flex items-center gap-1.5"
+                        className="bg-[#10B981] hover:bg-[#059669] text-white px-3.5 py-2 rounded-2xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left flex items-center gap-1.5"
                       >
                         {strings.btn_improve_included}
                       </button>
                       <button
                         onClick={handleImproveNotIncluded}
-                        className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left flex items-center gap-1.5"
+                        className="bg-[#F97316] hover:bg-[#EA580C] text-white px-3.5 py-2 rounded-2xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left flex items-center gap-1.5"
                       >
                         {strings.btn_improve_not_included}
                       </button>
                       <button
                         onClick={handleImproveTitle}
-                        className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left flex items-center gap-1.5"
+                        className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-3.5 py-2 rounded-2xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left flex items-center gap-1.5"
                       >
                         {strings.btn_improve_title}
                       </button>
                       <button
                         onClick={handleFeaturedDoubt}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium transition text-left flex items-center gap-1.5"
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-2xl text-xs font-medium transition text-left flex items-center gap-1.5"
                       >
                         {strings.btn_featured_doubts}
                       </button>
@@ -884,13 +1026,13 @@ export default function ModalAI({
                     <div className="flex flex-col space-y-2 mt-3">
                       <button
                         onClick={handleQualificationDubt}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition text-left"
+                        className="bg-[#F97316] hover:bg-[#EA580C] text-white px-4 py-2.5 rounded-2xl text-xs font-semibold shadow-sm transition text-left"
                       >
                         {t("dudas_califico") || "Tengo dudas si califico para Travelgrin"}
                       </button>
                       <button
                         onClick={handleDescriptionImprovement}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition text-left"
+                        className="bg-[#10B981] hover:bg-[#059669] text-white px-4 py-2.5 rounded-2xl text-xs font-semibold shadow-sm transition text-left"
                       >
                         {t("mejorar_descripcion") || "Mejorar la descripción de mi propuesta"}
                       </button>
@@ -902,13 +1044,13 @@ export default function ModalAI({
                     <div className="flex flex-row space-x-2 mt-3">
                       <button
                         onClick={() => handleExperience(true)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1 rounded-full text-xs font-semibold transition"
+                        className="bg-[#10B981] hover:bg-[#059669] text-white px-4 py-1.5 rounded-full text-xs font-semibold transition"
                       >
                         {t("si") || "Sí"}
                       </button>
                       <button
                         onClick={() => handleExperience(false)}
-                        className="bg-rose-500 hover:bg-rose-600 text-white px-3.5 py-1 rounded-full text-xs font-semibold transition"
+                        className="bg-rose-500 hover:bg-rose-600 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition"
                       >
                         {t("no") || "No"}
                       </button>
@@ -920,13 +1062,13 @@ export default function ModalAI({
                     <div className="flex flex-row space-x-2 mt-3">
                       <button
                         onClick={() => handleCategoryResponse(true)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1 rounded-full text-xs font-semibold transition"
+                        className="bg-[#10B981] hover:bg-[#059669] text-white px-4 py-1.5 rounded-full text-xs font-semibold transition"
                       >
                         {t("si") || "Sí"}
                       </button>
                       <button
                         onClick={() => handleCategoryResponse(false)}
-                        className="bg-rose-500 hover:bg-rose-600 text-white px-3.5 py-1 rounded-full text-xs font-semibold transition"
+                        className="bg-rose-500 hover:bg-rose-600 text-white px-4 py-1.5 rounded-full text-xs font-semibold transition"
                       >
                         {t("no") || "No"}
                       </button>
@@ -938,7 +1080,7 @@ export default function ModalAI({
                     <div className="flex flex-col space-y-2 mt-3">
                       <button
                         onClick={acceptContent}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition flex items-center justify-center gap-1.5"
+                        className="bg-[#10B981] hover:bg-[#059669] text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition flex items-center justify-center gap-1.5"
                       >
                         <span>✅</span> {strings.btn_accept_apply}
                       </button>
@@ -952,6 +1094,52 @@ export default function ModalAI({
                     </div>
                   )}
 
+                  {/* Completion / Finish Controls & Auto Restart Banner */}
+                  {message.showCompletionControls && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-col space-y-2">
+                      {countdown !== null ? (
+                        <div className="rounded-xl bg-blue-50 border border-blue-100 p-2 text-center">
+                          <p className="text-[11px] font-semibold text-blue-800 mb-1.5">
+                            {strings.auto_restart_countdown_msg(countdown)}
+                          </p>
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={clearCountdown}
+                              className="px-2.5 py-1 text-[11px] font-medium bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-100 transition"
+                            >
+                              {strings.btn_cancel_restart}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={restartChat}
+                              className="px-2.5 py-1 text-[11px] font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            >
+                              {strings.btn_restart_now}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={restartChat}
+                            className="flex-1 px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-sm"
+                          >
+                            {strings.btn_restart_now}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 px-3 py-1.5 text-xs font-medium bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition"
+                          >
+                            {strings.btn_finish_conversation}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <span className="text-[10px] text-slate-400 mt-1 block">
                     {message.timestamp}
                   </span>
@@ -962,15 +1150,15 @@ export default function ModalAI({
             {/* Typing indicator */}
             {isGenerating && (
               <div className="flex items-start space-x-2">
-                <div className="w-6 h-6 bg-[#00A9C6] rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs">
+                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs">
                   🤖
                 </div>
                 <div className="bg-white rounded-2xl rounded-tl-none p-3 shadow-sm border border-slate-100">
                   <p className="text-xs text-slate-600 mb-1.5">{strings.escribiendo}</p>
                   <div className="flex space-x-1">
-                    <div className="w-1.5 h-1.5 bg-[#00A9C6] rounded-full animate-bounce"></div>
-                    <div className="w-1.5 h-1.5 bg-[#00A9C6] rounded-full animate-bounce [animation-delay:0.15s]"></div>
-                    <div className="w-1.5 h-1.5 bg-[#00A9C6] rounded-full animate-bounce [animation-delay:0.3s]"></div>
+                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce"></div>
+                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce [animation-delay:0.15s]"></div>
+                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce [animation-delay:0.3s]"></div>
                   </div>
                 </div>
               </div>
@@ -998,13 +1186,13 @@ export default function ModalAI({
                       : strings.placeholder_description
                   }
                   disabled={isGenerating}
-                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#00A9C6] focus:border-transparent text-slate-800"
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-slate-800"
                 />
 
                 <button
                   onClick={sendInputMessage}
                   disabled={isGenerating || !userInput.trim()}
-                  className="bg-[#00A9C6] hover:bg-[#008299] text-white rounded-full p-2 transition disabled:bg-slate-300"
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 transition disabled:bg-slate-300"
                   title={strings.enviar}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
