@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { Loader2, Search, Sparkles, X } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { useSearchNavigation } from "./SearchNavigationContext";
 
 type SearchEntry = [string, string | string[] | undefined];
@@ -26,17 +26,17 @@ export default function SearchForm({
   }, [q, params]);
 
   const placeholderByLocale: Record<string, string> = {
-    es: "Búsqueda inteligente con IA: Ej. 'Quiero estudiar medicina en Mendoza', 'Cobertura móvil para viajar', 'Obra social'...",
-    en: "AI Smart Search: e.g. 'I want to study medicine in Argentina', 'Mobile phone coverage', 'Health insurance'...",
-    pt: "Busca inteligente com IA: Ex. 'Quero estudar medicina em Mendoza', 'Cobertura celular e chip', 'Plano de saúde'...",
-    it: "Ricerca intelligente con IA: Es. 'Voglio studiare medicina a Mendoza', 'Copertura cellulare', 'Assicurazione sanitaria'...",
+    es: "Búsqueda inteligente con IA",
+    en: "Smart AI search",
+    pt: "Busca inteligente com IA",
+    it: "Ricerca intelligente con IA",
   };
 
   const searchingLabelByLocale: Record<string, string> = {
-    es: "Buscando con IA...",
-    en: "AI Searching...",
-    pt: "Buscando com IA...",
-    it: "Ricerca con IA...",
+    es: "Buscando...",
+    en: "Searching...",
+    pt: "Buscando...",
+    it: "Ricerca in corso...",
   };
 
   const placeholderText = isSubmitting || isNavigating
@@ -65,16 +65,8 @@ export default function SearchForm({
     performSearch("");
   };
 
-  const suggestionChips: Array<{ label: string; query: string }> = [
-    { label: "Estudiar medicina", query: "Soy estudiante y quiero estudiar medicina" },
-    { label: "Cobertura móvil / eSIM", query: "Cobertura móvil y celular para viajar" },
-    { label: "Obra social en Mendoza", query: "Quiero ir a Mendoza y busco una obra social o seguro de vida" },
-    { label: "Gestión de visas", query: "Gestión de visado y trámites migratorios" },
-    { label: "Alojamiento", query: "Alojamiento y residencia estudiantil" },
-  ];
-
   return (
-    <div className="w-full space-y-2">
+    <div className="w-full">
       <form
         onSubmit={onSubmit}
         className="group relative flex items-center gap-2.5 rounded-2xl border border-[#14A7B8]/25 bg-gradient-to-r from-white via-[#F8FDFF] to-white px-3.5 py-2.5 shadow-[0_8px_30px_rgba(20,167,184,0.08)] transition-all duration-300 focus-within:border-[#14A7B8] focus-within:shadow-[0_12px_35px_rgba(20,167,184,0.16)]"
@@ -92,14 +84,11 @@ export default function SearchForm({
           return null;
         })}
 
-        <div className="flex items-center gap-1.5 text-[#14A7B8]">
+        <div className="flex items-center text-[#14A7B8]">
           {isSubmitting || isNavigating ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
-            <div className="flex items-center gap-1">
-              <Search className="h-5 w-5" />
-              <Sparkles className="h-3.5 w-3.5 text-[#14A7B8]/70 hidden sm:inline" />
-            </div>
+            <Search className="h-5 w-5" />
           )}
         </div>
 
@@ -125,35 +114,11 @@ export default function SearchForm({
 
         <button
           type="submit"
-          className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#14A7B8] to-[#128B99] px-4 py-1.5 text-xs font-semibold text-white shadow-md hover:from-[#128B99] hover:to-[#0F7582] transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+          className="hidden sm:inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#14A7B8] to-[#128B99] px-4 py-1.5 text-xs font-semibold text-white shadow-md hover:from-[#128B99] hover:to-[#0F7582] transition-all transform hover:scale-[1.02] active:scale-[0.98]"
         >
-          <Sparkles className="h-3.5 w-3.5" />
           {t("buscar")}
         </button>
       </form>
-
-      {/* Quick Suggestion Chips */}
-      {!q && !inputValue ? (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 text-xs text-slate-500 scrollbar-none">
-          <span className="shrink-0 flex items-center gap-1 font-medium text-slate-400 pl-1">
-            <Sparkles className="h-3 w-3 text-[#14A7B8]" />
-            Sugerencias IA:
-          </span>
-          {suggestionChips.map((chip, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => {
-                setInputValue(chip.query);
-                performSearch(chip.query);
-              }}
-              className="shrink-0 rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-[#14A7B8]/40 hover:bg-[#EAF9FB] hover:text-[#14758B]"
-            >
-              {chip.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }
