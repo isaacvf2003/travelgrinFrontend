@@ -874,12 +874,18 @@ export default function ModalAI({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header - Royal Blue travelgrin theme */}
-          <div className="flex-shrink-0 bg-blue-600 text-white p-3.5 relative">
+          {/* Header */}
+          <div className="flex-shrink-0 bg-gradient-to-r from-[#00A9C6] to-[#008299] text-white p-3.5 relative">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm shadow-inner">
-                  🤖
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm shadow-inner overflow-hidden p-0.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/chatbot.webp"
+                    alt="Chatbot IA"
+                    className="w-full h-full object-contain select-none"
+                    draggable={false}
+                  />
                 </div>
                 <div>
                   <h3 className="font-semibold text-sm text-white flex items-center gap-1.5">
@@ -890,7 +896,7 @@ export default function ModalAI({
                       </span>
                     ) : null}
                   </h3>
-                  <p className="text-[11px] text-blue-100 flex items-center gap-1">
+                  <p className="text-[11px] text-cyan-100 flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
                     {strings.en_linea}
                   </p>
@@ -929,8 +935,14 @@ export default function ModalAI({
             {messages.map((message) => (
               <div key={message.id} className="flex items-start space-x-2">
                 {message.type === "bot" && (
-                  <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm">
-                    🤖
+                  <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border border-slate-200/80 overflow-hidden p-0.5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/chatbot.webp"
+                      alt="Chatbot IA"
+                      className="w-full h-full object-contain select-none"
+                      draggable={false}
+                    />
                   </div>
                 )}
 
@@ -1150,15 +1162,21 @@ export default function ModalAI({
             {/* Typing indicator */}
             {isGenerating && (
               <div className="flex items-start space-x-2">
-                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs">
-                  🤖
+                <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border border-slate-200/80 overflow-hidden p-0.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/chatbot.webp"
+                    alt="Chatbot IA"
+                    className="w-full h-full object-contain select-none"
+                    draggable={false}
+                  />
                 </div>
                 <div className="bg-white rounded-2xl rounded-tl-none p-3 shadow-sm border border-slate-100">
                   <p className="text-xs text-slate-600 mb-1.5">{strings.escribiendo}</p>
                   <div className="flex space-x-1">
-                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce"></div>
-                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce [animation-delay:0.15s]"></div>
-                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce [animation-delay:0.3s]"></div>
+                    <div className="w-1.5 h-1.5 bg-[#00A9C6] rounded-full animate-bounce"></div>
+                    <div className="w-1.5 h-1.5 bg-[#00A9C6] rounded-full animate-bounce [animation-delay:0.15s]"></div>
+                    <div className="w-1.5 h-1.5 bg-[#00A9C6] rounded-full animate-bounce [animation-delay:0.3s]"></div>
                   </div>
                 </div>
               </div>

@@ -52,13 +52,19 @@ export default function FloatingAIButton({
         }}
       >
         {/* Icono de IA */}
-        <div className="relative">
-          <span>🤖</span>
+        <div className="relative flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/chatbot.webp"
+            alt="Asistente IA"
+            className={`${isInFooter ? "w-7 h-7" : "w-8 h-8"} object-contain select-none`}
+            draggable={false}
+          />
 
           {/* Indicador de "online" */}
           <div
             className={`absolute -top-1 -right-1 ${
-              isInFooter ? "w-3 h-3" : "w-4 h-4"
+              isInFooter ? "w-3 h-3" : "w-3.5 h-3.5"
             } bg-green-400 border-2 border-white rounded-full animate-pulse`}
           ></div>
         </div>

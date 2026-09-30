@@ -118,8 +118,9 @@ export default function ButtonSolid({
           <div className="flex flex-row justify-between">
             <span className="w-6 md:w-22"></span>
             <span className="relative z-20">{title}</span>
-            <div className="mt-3 md:mt-0 bg-white z-10 h-7 w-7 rounded-full flex flex-col justify-center items-center">
-              <span className="text-white z-20 text-end">🤖</span>
+            <div className="mt-3 md:mt-0 bg-white z-10 h-7 w-7 rounded-full flex flex-col justify-center items-center overflow-hidden p-0.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/chatbot.webp" alt="Chatbot" className="w-full h-full object-contain select-none" />
             </div>
           </div>
         )}
