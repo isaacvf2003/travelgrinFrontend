@@ -67,7 +67,7 @@ export const CONVERSATIONAL_STOPWORDS = new Set([
   "je", "tu", "nous", "vous", "ils", "mon", "ma", "mes", "cherche", "veux", "besoin", "pour", "avec", "dans"
 ]);
 
-// Worldwide and Regional Geographies Map
+// Worldwide and Regional Geographies Map aligned with ApiCountries
 const KNOWN_LOCATIONS: Array<{
   names: string[];
   city?: string;
@@ -144,15 +144,60 @@ const KNOWN_LOCATIONS: Array<{
   { names: ["colombia"], country: "colombia" },
   { names: ["lima"], city: "lima", country: "peru" },
   { names: ["peru"], country: "peru" },
-  { names: ["ciudad de mexico", "cdmx"], city: "ciudad de mexico", country: "mexico" },
+  { names: ["ciudad de mexico", "cdmx", "guadalajara", "monterrey"], city: "ciudad de mexico", country: "mexico" },
   { names: ["mexico"], country: "mexico" },
-  { names: ["montevideo"], city: "montevideo", country: "uruguay" },
+  { names: ["montevideo", "punta del este"], city: "montevideo", country: "uruguay" },
   { names: ["uruguay"], country: "uruguay" },
-  { names: ["miami"], city: "miami", country: "estados unidos" },
+  { names: ["asuncion"], city: "asuncion", country: "paraguay" },
+  { names: ["paraguay"], country: "paraguay" },
+  { names: ["la paz", "santa cruz de la sierra"], city: "la paz", country: "bolivia" },
+  { names: ["bolivia"], country: "bolivia" },
+  { names: ["quito", "guayaquil"], city: "quito", country: "ecuador" },
+  { names: ["ecuador"], country: "ecuador" },
+  { names: ["caracas"], city: "caracas", country: "venezuela" },
+  { names: ["venezuela"], country: "venezuela" },
+  { names: ["san jose"], city: "san jose", country: "costa rica" },
+  { names: ["costa rica"], country: "costa rica" },
+  { names: ["panama", "ciudad de panama"], city: "panama", country: "panama" },
+  { names: ["santo domingo"], city: "santo domingo", country: "republica dominicana" },
+  { names: ["republica dominicana", "dominicana"], country: "republica dominicana" },
+  { names: ["miami", "orlando", "los angeles", "chicago"], city: "miami", country: "estados unidos" },
   { names: ["nueva york", "new york", "nyc"], city: "nueva york", country: "estados unidos" },
   { names: ["estados unidos", "usa", "eeuu", "united states"], country: "estados unidos" },
-  { names: ["londres", "london"], city: "londres", country: "reino unido" },
-  { names: ["reino unido", "uk", "england", "inglaterra"], country: "reino unido" },
+  { names: ["toronto", "vancouver", "montreal"], city: "toronto", country: "canada" },
+  { names: ["canada"], country: "canada" },
+
+  // Europe & Oceania & Asia
+  { names: ["londres", "london", "manchester", "edimburgo"], city: "londres", country: "reino unido" },
+  { names: ["reino unido", "uk", "england", "inglaterra", "gran bretana"], country: "reino unido" },
+  { names: ["dublin"], city: "dublin", country: "irlanda" },
+  { names: ["irlanda", "ireland"], country: "irlanda" },
+  { names: ["zurich", "ginebra", "geneva"], city: "zurich", country: "suiza" },
+  { names: ["suiza", "switzerland", "schweiz", "suisse"], country: "suiza" },
+  { names: ["viena", "vienna"], city: "viena", country: "austria" },
+  { names: ["austria", "osterreich"], country: "austria" },
+  { names: ["amsterdam", "rotterdam"], city: "amsterdam", country: "paises bajos" },
+  { names: ["paises bajos", "holanda", "netherlands"], country: "paises bajos" },
+  { names: ["bruselas", "brussels"], city: "bruselas", country: "belgica" },
+  { names: ["belgica", "belgium"], country: "belgica" },
+  { names: ["estocolmo", "stockholm"], city: "estocolmo", country: "suecia" },
+  { names: ["suecia", "sweden"], country: "suecia" },
+  { names: ["oslo"], city: "oslo", country: "noruega" },
+  { names: ["noruega", "norway"], country: "noruega" },
+  { names: ["copenhague", "copenhagen"], city: "copenhague", country: "dinamarca" },
+  { names: ["dinamarca", "denmark"], country: "dinamarca" },
+  { names: ["varsovia", "warsaw"], city: "varsovia", country: "polonia" },
+  { names: ["polonia", "poland"], country: "polonia" },
+  { names: ["sidney", "sydney", "melbourne", "brisbane"], city: "sidney", country: "australia" },
+  { names: ["australia"], country: "australia" },
+  { names: ["auckland", "wellington"], city: "auckland", country: "nueva zelanda" },
+  { names: ["nueva zelanda", "new zealand"], country: "nueva zelanda" },
+  { names: ["tokio", "tokyo", "kioto", "osaka"], city: "tokio", country: "japon" },
+  { names: ["japon", "japan"], country: "japon" },
+  { names: ["shanghai", "beijing", "pekin"], city: "shanghai", country: "china" },
+  { names: ["china"], country: "china" },
+  { names: ["seul", "seoul"], city: "seul", country: "corea del sur" },
+  { names: ["corea", "corea del sur", "korea"], country: "corea del sur" },
 ];
 
 export function extractLocationEntities(q: string): { country: string | null; city: string | null; location: string | null } {
@@ -172,15 +217,49 @@ export function extractLocationEntities(q: string): { country: string | null; ci
 }
 
 export function extractPassportEntities(q: string): string | null {
-  if (/(pasaporte\s+aleman|aleman|alemana|ciudadano\s+aleman|germany\s+passport|german)/i.test(q)) return "alemania";
-  if (/(pasaporte\s+italiano|italiano|italiana|ciudadania\s+italiana|italian\s+passport)/i.test(q)) return "italia";
-  if (/(pasaporte\s+espanol|espanol|espanola|spanish\s+passport)/i.test(q)) return "espana";
-  if (/(pasaporte\s+argentino|argentino|argentina)/i.test(q)) return "argentina";
-  if (/(pasaporte\s+brasileno|brasileno|brasileiro|brazilian\s+passport)/i.test(q)) return "brasil";
-  if (/(pasaporte\s+chileno|chileno|chilena)/i.test(q)) return "chile";
-  if (/(pasaporte\s+colombiano|colombiano|colombiana)/i.test(q)) return "colombia";
-  if (/(pasaporte\s+peruano|peruano|peruana)/i.test(q)) return "peru";
-  if (/(pasaporte\s+frances|frances|francesa|french\s+passport)/i.test(q)) return "francia";
+  const demonymMap: Record<string, string> = {
+    aleman: "alemania", alemana: "alemania", german: "alemania",
+    italiano: "italia", italiana: "italia", italian: "italia",
+    espanol: "espana", espanola: "espana", spanish: "espana",
+    argentino: "argentina", argentina: "argentina", argentine: "argentina",
+    brasileno: "brasil", brasilena: "brasil", brasileiro: "brasil", brazilian: "brasil",
+    chileno: "chile", chilena: "chile",
+    colombiano: "colombia", colombiana: "colombia",
+    peruano: "peru", peruana: "peru",
+    frances: "francia", francesa: "francia", french: "francia",
+    uruguayo: "uruguay", uruguaya: "uruguay",
+    mexicano: "mexico", mexicana: "mexico",
+    estadounidense: "estados unidos", americano: "estados unidos", americana: "estados unidos", american: "estados unidos",
+    britanico: "reino unido", britanica: "reino unido", british: "reino unido",
+    canadiense: "canada", canadian: "canada",
+    australiano: "australia", australiana: "australia", australian: "australia",
+    suizo: "suiza", swiss: "suiza",
+    austriaco: "austria", austriaca: "austria",
+    holandes: "paises bajos", holandesa: "paises bajos", dutch: "paises bajos",
+    paraguayo: "paraguay", paraguaya: "paraguay",
+    boliviano: "bolivia", boliviana: "bolivia",
+    ecuatoriano: "ecuador", ecuatoriana: "ecuador",
+    venezolano: "venezuela", venezolana: "venezuela",
+    japones: "japon", japonesa: "japon", japanese: "japon",
+    chino: "china", chinese: "china",
+    portugues: "portugal", portuguesa: "portugal", portuguese: "portugal",
+  };
+
+  for (const [demonym, country] of Object.entries(demonymMap)) {
+    const regex = new RegExp(`\\b(?:pasaporte|ciudadan[io]a?|nacionalidad|soy)?\\s*${demonym}\\b`, "i");
+    if (regex.test(q)) {
+      return country;
+    }
+  }
+
+  // Check dynamic pattern: "pasaporte de <pais>" or "pasaporte <pais>"
+  const match = q.match(/\b(?:pasaporte|ciudadan[io]a|nacionalidad)\s+(?:de\s+)?([a-z\s]+)/i);
+  if (match && match[1]) {
+    const candidate = normalizeSearchText(match[1]).trim();
+    const loc = extractLocationEntities(candidate);
+    if (loc.country) return loc.country;
+  }
+
   return null;
 }
 
@@ -212,11 +291,12 @@ export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
     matchedSubcategories.push("telefonia movil", "esim", "conectividad", "chip", "datos moviles");
     targetKeywords.push(
       "telefonia", "internet", "datos", "esim", "chip", "celular", "movil", "conectividad",
-      "roaming", "linea", "telefonia e internet", "datos moviles", "sim", "sim card", "comunicacion"
+      "roaming", "linea", "telefonia e internet", "datos moviles", "sim", "sim card"
     );
     negativeKeywords.push(
       "salud", "medicina", "obra social", "osep", "sanatorio", "clinica", "prepaga", "hospital",
-      "doctor", "guardia", "consulta medica", "cobertura medica", "seguro de salud"
+      "doctor", "guardia", "consulta medica", "cobertura medica", "seguro de salud",
+      "universidad", "facultad", "carrera", "carreras", "educacion", "abogacia", "posgrado", "master", "maestria", "instituto", "hotel", "hostel", "alquiler", "departamento", "empleo", "pasantia"
     );
   }
 
@@ -253,6 +333,7 @@ export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
       "academico", "formacion", "licenciatura", "grado", "posgrado", "master", "maestria",
       "estudiante", "ingreso", "inscripcion", "siglo 21", "kennedy", "unc", "uba", "unam"
     );
+    negativeKeywords.push("telefonia", "esim", "chip", "datos moviles", "roaming", "alojamiento", "hotel", "hostel");
 
     // Specific Career Enrichment
     if (/(medicina|medico|medica|ciencias\s*medicas|doctor|enfermeria|salud)/.test(q)) {
@@ -282,6 +363,7 @@ export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
       "radicacion", "residencia", "consulado", "embajada", "abogado", "legal", "juridico",
       "leyes", "tramite", "nacionalidad", "documentacion"
     );
+    negativeKeywords.push("telefonia", "esim", "chip", "datos moviles", "obra social", "sanatorio", "hospital");
   }
 
   // 5. Housing & Accommodation
@@ -296,6 +378,7 @@ export function parseContextualIntent(queryRaw: string): ParsedSearchIntent {
       "alojamiento", "hospedaje", "hotel", "hostel", "residencia", "habitacion",
       "departamento", "depto", "alquiler", "estudiantes", "vivienda", "piso"
     );
+    negativeKeywords.push("telefonia", "esim", "chip", "datos moviles", "obra social", "sanatorio");
   }
 
   // 6. Work & Internships
@@ -499,9 +582,21 @@ Return ONLY a valid JSON object matching this schema:
   return baseIntent;
 }
 
+// Core Anchor Dictionary per Domain Intent
+const DOMAIN_CORE_ANCHORS: Record<string, string[]> = {
+  telephony: ["esim", "chip", "sim", "datos moviles", "celular", "movil", "telefonia", "roaming", "linea movil", "internet movil", "conectividad", "gigas", "5g", "4g"],
+  health: ["salud", "medicina", "medico", "medica", "hospital", "clinica", "sanatorio", "obra social", "prepaga", "osep", "osde", "seguro de vida", "cobertura medica", "cobertura de salud", "seguro medico", "seguro de salud", "asistencia medica", "atencion medica", "doctor"],
+  education: ["universidad", "facultad", "estudiar", "estudio", "carrera", "carreras", "grado", "posgrado", "licenciatura", "medicina", "abogacia", "ingenieria", "instituto", "estudios", "academico", "master", "maestria", "formacion"],
+  migration: ["visa", "visas", "visado", "ciudadania", "pasaporte", "migratorio", "migraciones", "radicacion", "residencia", "consulado", "embajada", "abogado migratorio", "tramite"],
+  housing: ["alojamiento", "hospedaje", "residencia estudiantil", "departamento", "depto", "habitacion", "hotel", "hostel", "alquiler", "piso", "vivienda"],
+  work: ["trabajo", "empleo", "pasantia", "pasantias", "practica", "practicas", "voluntariado", "laboral", "remunerado", "sueldo"],
+  language: ["idioma", "idiomas", "ingles", "italiano", "portugues", "aleman", "frances", "curso de ingles", "clases de ingles", "curso de idiomas", "aprender ingles"],
+  business: ["negocios", "emprendimiento", "empresa", "inversion", "sociedad", "comercio", "startup"],
+};
+
 /**
  * Universal Scoring function with Multi-dimensional Semantic Relevance,
- * Intent Disambiguation, Location Matching, and Prestaciones Routing.
+ * Domain Isolation Gating, Location Matching, and Prestaciones Routing.
  */
 export function calculateSmartSearchScore(
   p: any,
@@ -570,7 +665,20 @@ export function calculateSmartSearchScore(
   const isPrestacionItem = (p as any).primaryGroupKey === "prestacion" || tagsText.includes("prestacion") || categoryText.includes("prestacion");
   const fullHaystack = `${titleText} ${publisherText} ${categoryText} ${locationText} ${descText} ${tagsText}`;
 
-  // 2. Disambiguation Negative Conflict Check
+  // 2. Strict Domain Isolation Gate
+  if (intent.intent !== "general") {
+    const domainAnchors = DOMAIN_CORE_ANCHORS[intent.intent] || [];
+    const hasCategoryMatch = intent.targetCategories.some((cat) => categoryText.includes(cat) || tagsText.includes(cat));
+    const hasSubcategoryMatch = intent.targetSubcategories.some((sub) => categoryText.includes(sub) || tagsText.includes(sub) || titleText.includes(sub));
+    const hasAnchorMatch = domainAnchors.some((anchor) => titleText.includes(anchor) || tagsText.includes(anchor) || descText.includes(anchor) || categoryText.includes(anchor));
+
+    // If query is specifically about telephony, health, migration, etc., and publication has zero domain relevance:
+    if (!hasCategoryMatch && !hasSubcategoryMatch && !hasAnchorMatch) {
+      return 0;
+    }
+  }
+
+  // 3. Disambiguation Negative Conflict Check
   if (intent.negativeKeywords.length > 0) {
     let hasNegativeConflict = false;
     for (const neg of intent.negativeKeywords) {
@@ -579,10 +687,10 @@ export function calculateSmartSearchScore(
         break;
       }
     }
-    // If the publication conflicts and has NO direct positive keyword matches, drop score to 0
+    // If the publication conflicts and has NO direct positive keyword matches in title/tags/prestaciones, drop score to 0
     if (hasNegativeConflict) {
-      const hasDirectPositive = intent.targetKeywords.some((pos) => fullHaystack.includes(pos));
-      if (!hasDirectPositive) {
+      const positiveHeaderMatch = intent.targetKeywords.some((pos) => titleText.includes(pos) || tagsText.includes(pos) || categoryText.includes(pos));
+      if (!positiveHeaderMatch) {
         return 0;
       }
     }
@@ -590,7 +698,7 @@ export function calculateSmartSearchScore(
 
   let score = 0;
 
-  // 3. Exact full query phrase match bonus
+  // 4. Exact full query phrase match bonus
   if (fullHaystack.includes(qClean)) {
     score += 300;
     if (titleText.includes(qClean)) score += 200;
@@ -598,7 +706,7 @@ export function calculateSmartSearchScore(
     if (categoryText.includes(qClean)) score += 120;
   }
 
-  // 4. Category & Subcategory Semantic Intent Match
+  // 5. Category & Subcategory Semantic Intent Match
   if (intent.targetCategories.length > 0) {
     for (const targetCat of intent.targetCategories) {
       if (categoryText.includes(targetCat) || tagsText.includes(targetCat)) {
@@ -617,7 +725,7 @@ export function calculateSmartSearchScore(
     }
   }
 
-  // 5. Geographic Entity Match
+  // 6. Geographic Entity Match
   if (intent.targetCity) {
     const cityMatches = locationText.includes(intent.targetCity);
     if (cityMatches) {
@@ -634,14 +742,14 @@ export function calculateSmartSearchScore(
     }
   }
 
-  // 6. Prestaciones Specific Routing
+  // 7. Prestaciones Specific Routing
   if (intent.isPrestacionQuery || intent.intent === "telephony") {
     if (isPrestacionItem) {
       score += 400;
     }
   }
 
-  // 7. Meaningful tokens + target intent keywords scoring
+  // 8. Meaningful tokens + target intent keywords scoring
   const searchTokens = Array.from(new Set([
     ...rawTokens.filter((t) => t.length >= 2 && !CONVERSATIONAL_STOPWORDS.has(t)),
     ...intent.targetKeywords,
@@ -652,10 +760,10 @@ export function calculateSmartSearchScore(
   for (const token of searchTokens) {
     let tokenScore = 0;
 
-    if (titleText.includes(token)) tokenScore += 60;
-    if (publisherText.includes(token)) tokenScore += 50;
-    if (categoryText.includes(token)) tokenScore += 45;
-    if (tagsText.includes(token)) tokenScore += 40;
+    if (titleText.includes(token)) tokenScore += 70;
+    if (categoryText.includes(token)) tokenScore += 50;
+    if (tagsText.includes(token)) tokenScore += 45;
+    if (publisherText.includes(token)) tokenScore += 40;
     if (locationText.includes(token)) tokenScore += 30;
     if (descText.includes(token)) tokenScore += 15;
 
@@ -668,6 +776,11 @@ export function calculateSmartSearchScore(
   // Multi-term synergy bonus
   if (matchedCount > 1) {
     score += matchedCount * 30;
+  }
+
+  // Final relevance threshold gate: prevent false positives from generic words
+  if (intent.intent !== "general" && score < 100) {
+    return 0;
   }
 
   return score;

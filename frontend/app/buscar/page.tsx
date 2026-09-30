@@ -418,10 +418,12 @@ export default async function BuscarPage({
     loadCategories(),
     loadFilterGroups(),
   ]);
+  const q = spGet(sp, "q") ?? "";
+  const hasActiveSearchQuery = Boolean(q.trim());
   const hasPrestacionFilter = hasSelectedPrestacionFilter(sp, filterGroups);
   const normalPage = spGet(sp, "page") ?? "1";
   const prestacionesPage = spGet(sp, "prestacionesPage") ?? "1";
-  const [publicationsPayload, prestacionesPayload] = hasPrestacionFilter
+  const [publicationsPayload, prestacionesPayload] = (hasPrestacionFilter || hasActiveSearchQuery)
     ? [await loadPublications(sp, { page: normalPage, perPage: "15", prestacionesPage: undefined }), null]
     : await Promise.all([
         loadPublications(sp, { page: normalPage, perPage: "15", excludePrimaryGroupKey: "prestacion", prestacionesPage: undefined }),
@@ -432,7 +434,6 @@ export default async function BuscarPage({
     (category) => category.isPublicVisible !== false && (!category.blockId || visibleBlockIds.has(category.blockId))
   );
   const { items, total, page, perPage, totalPages } = publicationsPayload;
-  const q = spGet(sp, "q") ?? "";
   const city = spGet(sp, "city") ?? "";
   const categoryId = spGet(sp, "category") ?? "";
   const sort = spGet(sp, "sort") ?? "relevance";
@@ -583,8 +584,8 @@ export default async function BuscarPage({
                         searchParams={sp}
                         pageParam="page"
                         anchor="publicaciones-normales"
-                        label={hasPrestacionFilter ? "Paginación general de publicaciones" : "Paginación de publicaciones normales"}
-                        clearParams={hasPrestacionFilter ? ["prestacionesPage"] : []}
+                        label={hasPrestacionFilter || hasActiveSearchQuery ? "Paginación general de publicaciones" : "Paginación de publicaciones normales"}
+                        clearParams={hasPrestacionFilter || hasActiveSearchQuery ? ["prestacionesPage"] : []}
                       />
                     ) : null}
                   </div>
