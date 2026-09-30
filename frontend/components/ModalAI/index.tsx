@@ -859,14 +859,13 @@ export default function ModalAI({
       />
 
       <div
-        className="fixed bottom-4 right-4"
+        className="fixed bottom-4 right-4 z-[9999999999]"
         style={{
-          zIndex: 9999999999,
           pointerEvents: "auto",
         }}
       >
         <div
-          className="bg-white rounded-2xl shadow-2xl w-84 sm:w-96 h-[28rem] flex flex-col border border-slate-200/80 overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl w-[94vw] sm:w-[26rem] md:w-[28rem] h-[33rem] sm:h-[36rem] max-h-[88vh] flex flex-col border border-slate-200/80 overflow-hidden"
           style={{
             zIndex: 10000000000,
             WebkitFontSmoothing: "antialiased",
@@ -878,12 +877,12 @@ export default function ModalAI({
           <div className="flex-shrink-0 bg-gradient-to-r from-[#00A9C6] to-[#008299] text-white p-3.5 relative">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm shadow-inner overflow-hidden p-0.5">
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shadow-inner overflow-hidden p-0.5 flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/chatbot.webp"
                     alt="Chatbot IA"
-                    className="w-full h-full object-contain select-none"
+                    className="w-full h-full object-contain select-none scale-110 drop-shadow-sm"
                     draggable={false}
                   />
                 </div>
@@ -935,12 +934,12 @@ export default function ModalAI({
             {messages.map((message) => (
               <div key={message.id} className="flex items-start space-x-2">
                 {message.type === "bot" && (
-                  <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border border-slate-200/80 overflow-hidden p-0.5">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 bg-white rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border border-slate-200/80 overflow-hidden p-0.5">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src="/chatbot.webp"
                       alt="Chatbot IA"
-                      className="w-full h-full object-contain select-none"
+                      className="w-full h-full object-contain select-none scale-110"
                       draggable={false}
                     />
                   </div>
@@ -1162,12 +1161,12 @@ export default function ModalAI({
             {/* Typing indicator */}
             {isGenerating && (
               <div className="flex items-start space-x-2">
-                <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border border-slate-200/80 overflow-hidden p-0.5">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 bg-white rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border border-slate-200/80 overflow-hidden p-0.5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/chatbot.webp"
                     alt="Chatbot IA"
-                    className="w-full h-full object-contain select-none"
+                    className="w-full h-full object-contain select-none scale-110"
                     draggable={false}
                   />
                 </div>

@@ -17,7 +17,7 @@ export default function FloatingAIButton({
     <div
       className={
         isInFooter
-          ? `absolute ${is425w ? "-right-0 md:-right-0 top-[3em]" : "-right-0 md:-right-0 top-[3.5rem]"}  transform -translate-y-1/2`
+          ? `absolute ${is425w ? "right-1 top-[2.8rem]" : "right-1 md:right-2 top-[3.2rem]"} transform -translate-y-1/2`
           : "fixed bottom-6 right-6 z-[9999]"
       }
       style={{
@@ -39,33 +39,31 @@ export default function FloatingAIButton({
         className={`
           group relative 
           hover:from-blue-600 hover:to-purple-700
-          text-white rounded-full shadow-lg hover:shadow-xl
+          text-white rounded-full shadow-lg hover:shadow-2xl
           transition-all duration-300 ease-out
           ${isHovered ? "scale-110" : "scale-100"}
           flex items-center justify-center
-          ${isInFooter ? "w-12 h-12 ml-3" : "w-14 h-14"}
+          w-14 h-14 sm:w-16 sm:h-16
         `}
         style={{
-          boxShadow: "0 4px 20px rgba(59, 130, 246, 0.4)",
+          boxShadow: "0 6px 24px rgba(8, 217, 189, 0.45)",
           background:
             "linear-gradient(90deg, #08D9BD 0%, #04B5BD 50%, #009ABC 100%)",
         }}
       >
-        {/* Icono de IA */}
-        <div className="relative flex items-center justify-center">
+        {/* Icono de IA agrandado */}
+        <div className="relative flex items-center justify-center w-full h-full p-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/chatbot.webp"
             alt="Asistente IA"
-            className={`${isInFooter ? "w-7 h-7" : "w-8 h-8"} object-contain select-none`}
+            className="w-10 h-10 sm:w-11 sm:h-11 object-contain select-none drop-shadow-sm scale-110"
             draggable={false}
           />
 
           {/* Indicador de "online" */}
           <div
-            className={`absolute -top-1 -right-1 ${
-              isInFooter ? "w-3 h-3" : "w-3.5 h-3.5"
-            } bg-green-400 border-2 border-white rounded-full animate-pulse`}
+            className="absolute top-1 right-1 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full animate-pulse shadow-sm"
           ></div>
         </div>
 
