@@ -353,32 +353,36 @@ function getCountryCode(country: string) {
   return "";
 }
 
-function getVisibleBlockLabelForCategory(
+function resolveCategoryTagText(
   tagText: string | null | undefined,
   categories: Category[] | undefined,
   filterGroups: FilterGroup[] | undefined,
   locale: "es" | "en" | "pt" | "it"
 ): string | null {
-  if (!tagText || typeof tagText !== "string" || !categories || !filterGroups) return null;
+  if (!tagText || typeof tagText !== "string" || !tagText.trim()) return null;
 
-  const normTag = tagText.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+  const raw = tagText.trim();
+  const normTag = raw.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
 
-  const matchedCategory = categories.find((c) => {
-    if (c.id === tagText) return true;
-    const desc = c.description ?? "";
-    const normDesc = desc.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
-    if (normDesc === normTag) return true;
-    if (c.descriptionI18n) {
-      return Object.values(c.descriptionI18n).some((val) => {
-        const normVal = String(val ?? "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
-        return normVal === normTag;
-      });
-    }
-    return false;
-  });
+  let matchedCategory: Category | undefined;
+  if (categories && categories.length > 0) {
+    matchedCategory = categories.find((c) => {
+      if (c.id === raw) return true;
+      const desc = c.description ?? "";
+      const normDesc = desc.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+      if (normDesc === normTag) return true;
+      if (c.descriptionI18n) {
+        return Object.values(c.descriptionI18n).some((val) => {
+          const normVal = String(val ?? "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+          return normVal === normTag;
+        });
+      }
+      return false;
+    });
+  }
 
-  if (matchedCategory?.blockId) {
-    const block = filterGroups.find((g) => g.id === matchedCategory.blockId);
+  if (matchedCategory?.blockId && filterGroups && filterGroups.length > 0) {
+    const block = filterGroups.find((g) => g.id === matchedCategory!.blockId);
     if (block) {
       const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
       const isVisible = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
@@ -388,7 +392,11 @@ function getVisibleBlockLabelForCategory(
     }
   }
 
-  return null;
+  if (matchedCategory) {
+    return pickI18nText(matchedCategory.descriptionI18n ?? null, locale, matchedCategory.description);
+  }
+
+  return raw;
 }
 
 function resolveSubcategoryText(
@@ -559,17 +567,17 @@ export function PublicationCard({
     const raw = (item.primaryGroupKey === "prestacion"
       ? [
           ...(Array.isArray((item as any)?.fields?.prestaciones)
-            ? (item as any).fields.prestaciones.map((value: any) => String(value ?? "").trim()).map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale))
+            ? (item as any).fields.prestaciones.map((value: any) => String(value ?? "").trim()).map((v) => resolveCategoryTagText(v, categories, filterGroups, locale))
             : []),
           ...fieldSubcategoryLabels,
-          ...fieldCategoryTags.map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale)),
+          ...fieldCategoryTags.map((v) => resolveCategoryTagText(v, categories, filterGroups, locale)),
           ...prestacionFilterTags,
         ]
       : [
           item.category
-            ? getVisibleBlockLabelForCategory(pickI18nText(item.categoryI18n ?? null, locale, item.category), categories, filterGroups, locale)
+            ? resolveCategoryTagText(pickI18nText(item.categoryI18n ?? null, locale, item.category), categories, filterGroups, locale)
             : null,
-          ...fieldCategoryTags.map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale)),
+          ...fieldCategoryTags.map((v) => resolveCategoryTagText(v, categories, filterGroups, locale)),
           subcategoryLabel,
           ...fieldSubcategoryLabels,
           ...(item.filterOptions ?? []).map((f) => getVisibleBlockLabelForOption(f, filterGroups, locale)),
