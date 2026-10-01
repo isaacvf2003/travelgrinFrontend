@@ -2713,16 +2713,6 @@ export default function ModalOferente({
                     ? "* Cosa include la tua proposta?"
                     : "* ¿Qué incluye tu propuesta?"}
             </label>
-            <button
-              type="button"
-              onClick={() => {
-                setAiFieldTarget("included");
-                setIsOpenModalAI(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00A9C6]/15 to-emerald-500/15 px-3 py-1 text-xs font-semibold text-[#008299] hover:from-[#00A9C6]/25 hover:to-emerald-500/25 transition shadow-sm"
-            >
-              <span>✨</span> {locale === "en" ? "Improve with AI" : locale === "pt" ? "Melhorar com IA" : locale === "it" ? "Migliora con IA" : "Mejorar con IA"}
-            </button>
           </div>
           <MaterialTextarea value={included} setValue={setIncluded} placeholder={mt("oferente_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
         </div>
@@ -2738,16 +2728,6 @@ export default function ModalOferente({
                     ? "Cosa NON è incluso?"
                     : "¿Qué NO incluye?"}
             </label>
-            <button
-              type="button"
-              onClick={() => {
-                setAiFieldTarget("notIncluded");
-                setIsOpenModalAI(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 px-3 py-1 text-xs font-semibold text-amber-800 hover:from-amber-500/25 hover:to-orange-500/25 transition shadow-sm"
-            >
-              <span>✨</span> {locale === "en" ? "Draft with AI" : locale === "pt" ? "Redigir com IA" : locale === "it" ? "Redigi con IA" : "Redactar con IA"}
-            </button>
           </div>
           <MaterialTextarea value={notIncluded} setValue={setNotIncluded} placeholder={mt("oferente_no_incluye_placeholder")} textCharsRestantes={t("caracteres_restantes")} textPerfecto={t("perfecto")} />
         </div>

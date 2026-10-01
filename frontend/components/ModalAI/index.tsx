@@ -34,14 +34,14 @@ const AI_I18N = {
       title: "Título",
       description: "Descripción",
     },
-    featured_initial_greeting: "Hola 👋, veo que estás configurando tu Publicación Destacada. Puedo ayudarte a redactar y optimizar:",
-    btn_improve_included: "✨ Mejorar \"¿Qué incluye?\" de mi propuesta",
-    btn_improve_not_included: "🛡️ Redactar \"¿Qué NO incluye?\"",
-    btn_improve_title: "🎯 Optimizar Título de la publicación",
-    btn_featured_doubts: "ℹ️ Dudas sobre la publicación destacada",
+    featured_initial_greeting: "Hola, veo que estás configurando tu Publicación Destacada. Puedo ayudarte a redactar y optimizar:",
+    btn_improve_included: "Mejorar \"¿Qué incluye?\" de mi propuesta",
+    btn_improve_not_included: "Redactar \"¿Qué NO incluye?\"",
+    btn_improve_title: "Optimizar Título de la publicación",
+    btn_featured_doubts: "Dudas sobre la publicación destacada",
     user_msg_improve_included: "Mejorar '¿Qué incluye?' de mi propuesta",
     user_msg_improve_not_included: "Redactar '¿Qué NO incluye?'",
-    user_msg_improve_title: "Optimizar el Título de mi publicación destacada",
+    user_msg_improve_title: "Optimizar el Título de mi publicación",
     user_msg_featured_doubts: "Dudas sobre la publicación destacada",
     bot_included_detected: (val: string) => `Detecté lo que pusiste en '¿Qué incluye?':\n\n"${val}"\n\n¿Cómo preferís que lo trabajemos?`,
     bot_included_empty: "Contame con tus palabras qué incluye tu servicio para el viajero (ej. traslados, clases, materiales, asesoría personalizada, soporte 24/7), y te armaré una redacción clara y estructurada con viñetas.",
@@ -49,16 +49,16 @@ const AI_I18N = {
     bot_not_included_empty: "Aclarar qué NO incluye tu propuesta genera gran confianza. Contame qué no está cubierto (ej: pasajes aéreos, gastos personales, tasas de visado, comidas) y te armo una redacción profesional.",
     bot_title_detected: (val: string) => `Tu título actual es: "${val}". Contame qué enfoque preferís o dejame sugerirte opciones atractivas y de alto impacto.`,
     bot_title_empty: "Contame brevemente tu servicio y destino para redactarte títulos atractivos, profesionales y de alto impacto para viajeros.",
-    bot_featured_doubts_answer: "⭐ Las publicaciones destacadas tienen máxima visibilidad en los primeros lugares del marketplace, badge oficial de Destacado, permiten subir hasta 5 fotos, logo oficial, links directos de contacto (WhatsApp, web, redes) y detallar todo lo que incluye tu servicio para que los viajeros conecten directamente con vos.",
-    btn_optimize_current: "✨ Optimizar redacción y destacar beneficios",
-    btn_focus_trust_cta: "🎯 Enfocar en confianza y llamada a la acción",
-    btn_custom_instructions: "✍️ Indicar qué agregar o cambiar",
-    qualification_success_msg: "🎉 ¡Excelente! Tu propuesta califica para ser publicada en Travelgrin y conectar con viajeros.",
+    bot_featured_doubts_answer: "Las publicaciones destacadas tienen máxima visibilidad en los primeros lugares del marketplace, badge oficial de Destacado, permiten subir hasta 5 fotos, logo oficial, links directos de contacto (WhatsApp, web, redes) y detallar todo lo que incluye tu servicio para que los viajeros conecten directamente con vos.",
+    btn_optimize_current: "Optimizar redacción y destacar beneficios",
+    btn_focus_trust_cta: "Enfocar en confianza y llamada a la acción",
+    btn_custom_instructions: "Indicar qué agregar o cambiar",
+    qualification_success_msg: "¡Excelente! Tu propuesta califica para ser publicada en Travelgrin y conectar con viajeros.",
     qualification_fail_msg: "Por ahora tu propuesta no califica directamente en esta categoría, pero podés revisar otras opciones o consultarnos.",
-    auto_restart_countdown_msg: (sec: number) => `⏱️ Esta conversación se reiniciará automáticamente en ${sec}s...`,
-    btn_cancel_restart: "⏹️ Mantener chat abierto",
-    btn_restart_now: "🔄 Reiniciar ahora",
-    btn_finish_conversation: "✅ Finalizar conversación",
+    auto_restart_countdown_msg: (sec: number) => `Esta conversación se reiniciará automáticamente en ${sec}s...`,
+    btn_cancel_restart: "Mantener chat abierto",
+    btn_restart_now: "Reiniciar ahora",
+    btn_finish_conversation: "Finalizar conversación",
   },
   en: {
     asistente_ia: "AI Assistant",
@@ -88,14 +88,14 @@ const AI_I18N = {
       title: "Title",
       description: "Description",
     },
-    featured_initial_greeting: "Hello 👋, I see you are setting up your Featured Publication. I can help you draft and optimize:",
-    btn_improve_included: "✨ Improve \"What's included?\" in my offer",
-    btn_improve_not_included: "🛡️ Draft \"What's NOT included?\"",
-    btn_improve_title: "🎯 Optimize Publication Title",
-    btn_featured_doubts: "ℹ️ Questions about Featured Listing",
+    featured_initial_greeting: "Hello, I see you are setting up your Featured Publication. I can help you draft and optimize:",
+    btn_improve_included: "Improve \"What's included?\" in my offer",
+    btn_improve_not_included: "Draft \"What's NOT included?\"",
+    btn_improve_title: "Optimize Publication Title",
+    btn_featured_doubts: "Questions about Featured Listing",
     user_msg_improve_included: "Improve 'What's included?' in my offer",
     user_msg_improve_not_included: "Draft 'What's NOT included?'",
-    user_msg_improve_title: "Optimize the Title of my featured publication",
+    user_msg_improve_title: "Optimize the Title of my publication",
     user_msg_featured_doubts: "Questions about Featured Listing",
     bot_included_detected: (val: string) => `I noticed what you entered in 'What's included?':\n\n"${val}"\n\nHow would you prefer to improve it?`,
     bot_included_empty: "Tell me in your own words what your service includes for travelers (e.g. transfers, classes, materials, personalized guidance, 24/7 support), and I will create a structured bulleted overview.",
@@ -103,16 +103,16 @@ const AI_I18N = {
     bot_not_included_empty: "Clarifying what is NOT included builds huge trust with travelers. Tell me what is not covered (e.g. flights, visa fees, personal expenses, meals) and I will format it professionally.",
     bot_title_detected: (val: string) => `Your current title is: "${val}". Tell me what style you prefer or let me suggest high-impact alternatives.`,
     bot_title_empty: "Tell me briefly about your service and destination so I can generate catchy, professional, high-impact titles for travelers.",
-    bot_featured_doubts_answer: "⭐ Featured publications receive top placement in search results, an official Featured badge, up to 5 photos, your brand logo, direct contact buttons (WhatsApp, website, social media), and structured inclusions so travelers connect directly with you.",
-    btn_optimize_current: "✨ Polish copy & highlight key benefits",
-    btn_focus_trust_cta: "🎯 Focus on trust and call-to-action",
-    btn_custom_instructions: "✍️ Specify custom adjustments",
-    qualification_success_msg: "🎉 Perfect! Your proposal qualifies to be published on Travelgrin and connect with travelers.",
+    bot_featured_doubts_answer: "Featured publications receive top placement in search results, an official Featured badge, up to 5 photos, your brand logo, direct contact buttons (WhatsApp, website, social media), and structured inclusions so travelers connect directly with you.",
+    btn_optimize_current: "Polish copy & highlight key benefits",
+    btn_focus_trust_cta: "Focus on trust and call-to-action",
+    btn_custom_instructions: "Specify custom adjustments",
+    qualification_success_msg: "Perfect! Your proposal qualifies to be published on Travelgrin and connect with travelers.",
     qualification_fail_msg: "For now your offer does not directly qualify in this category, but you can explore other categories or contact us.",
-    auto_restart_countdown_msg: (sec: number) => `⏱️ This conversation will restart automatically in ${sec}s...`,
-    btn_cancel_restart: "⏹️ Keep chat open",
-    btn_restart_now: "🔄 Restart now",
-    btn_finish_conversation: "✅ End conversation",
+    auto_restart_countdown_msg: (sec: number) => `This conversation will restart automatically in ${sec}s...`,
+    btn_cancel_restart: "Keep chat open",
+    btn_restart_now: "Restart now",
+    btn_finish_conversation: "End conversation",
   },
   pt: {
     asistente_ia: "Assistente IA",
@@ -142,14 +142,14 @@ const AI_I18N = {
       title: "Título",
       description: "Descrição",
     },
-    featured_initial_greeting: "Olá 👋, vejo que você está configurando sua Publicação em Destaque. Posso te ajudar a redigir e otimizar:",
-    btn_improve_included: "✨ Melhorar \"O que inclui?\" na minha proposta",
-    btn_improve_not_included: "🛡️ Redigir \"O que NÃO inclui?\"",
-    btn_improve_title: "🎯 Otimizar Título da publicação",
-    btn_featured_doubts: "ℹ️ Dúvidas sobre publicação em destaque",
+    featured_initial_greeting: "Olá, vejo que você está configurando sua Publicação em Destaque. Posso te ajudar a redigir e otimizar:",
+    btn_improve_included: "Melhorar \"O que inclui?\" na minha proposta",
+    btn_improve_not_included: "Redigir \"O que NÃO inclui?\"",
+    btn_improve_title: "Otimizar Título da publicação",
+    btn_featured_doubts: "Dúvidas sobre publicação em destaque",
     user_msg_improve_included: "Melhorar 'O que inclui?' na minha proposta",
     user_msg_improve_not_included: "Redigir 'O que NÃO inclui?'",
-    user_msg_improve_title: "Otimizar o Título da minha publicação em destaque",
+    user_msg_improve_title: "Otimizar o Título da minha publicação",
     user_msg_featured_doubts: "Dúvidas sobre a publicação em destaque",
     bot_included_detected: (val: string) => `Detectei o que você colocou em 'O que inclui?':\n\n"${val}"\n\nComo prefere aprimorá-lo?`,
     bot_included_empty: "Conte-me com suas palavras o que seu serviço inclui para o viajante (ex: traslados, aulas, materiais, assessoria personalizada, suporte 24/7) e redigirei um detalhamento estruturado.",
@@ -157,16 +157,16 @@ const AI_I18N = {
     bot_not_included_empty: "Esclarecer o que NÃO está incluso gera muita confiança. Conte-me o que não é coberto (ex: passagens aéreas, despesas pessoais, taxas de visto, refeições) e criarei uma redação profissional.",
     bot_title_detected: (val: string) => `Seu título atual é: "${val}". Conte-me qual estilo prefere ou deixe-me sugerir opções atraentes de alto impacto.`,
     bot_title_empty: "Conte-me brevemente sobre seu serviço e destino para eu redigir títulos atraentes, profissionais e de alto impacto para viajantes.",
-    bot_featured_doubts_answer: "⭐ As publicações em destaque têm visibilidade máxima no topo do marketplace, selo oficial de Destaque, permitem até 5 fotos, logotipo oficial, links diretos de contato (WhatsApp, site, redes sociais) e detalhamento completo para viajantes entrarem em contato direto com você.",
-    btn_optimize_current: "✨ Otimizar redação e destacar benefícios",
-    btn_focus_trust_cta: "🎯 Focar em confiança e chamada para ação",
-    btn_custom_instructions: "✍️ Indicar ajustes personalizados",
-    qualification_success_msg: "🎉 Perfeito! Sua proposta se qualifica para ser publicada na Travelgrin e conectar-se com viajantes.",
+    bot_featured_doubts_answer: "As publicações em destaque têm visibilidade máxima no topo do marketplace, selo oficial de Destaque, permitem até 5 fotos, logotipo oficial, links diretos de contato (WhatsApp, site, redes sociais) e detalhamento completo para viajantes entrarem em contato direto com você.",
+    btn_optimize_current: "Otimizar redação e destacar benefícios",
+    btn_focus_trust_cta: "Focar em confiança e chamada para ação",
+    btn_custom_instructions: "Indicar ajustes personalizados",
+    qualification_success_msg: "Perfeito! Sua proposta se qualifica para ser publicada na Travelgrin e conectar-se com viajantes.",
     qualification_fail_msg: "Por enquanto sua proposta não se qualifica diretamente nesta categoria, mas você pode conferir outras ou nos contatar.",
-    auto_restart_countdown_msg: (sec: number) => `⏱️ Esta conversa será reiniciada automaticamente em ${sec}s...`,
-    btn_cancel_restart: "⏹️ Manter chat aberto",
-    btn_restart_now: "🔄 Reiniciar agora",
-    btn_finish_conversation: "✅ Finalizar conversa",
+    auto_restart_countdown_msg: (sec: number) => `Esta conversa será reiniciada automaticamente em ${sec}s...`,
+    btn_cancel_restart: "Manter chat aberto",
+    btn_restart_now: "Reiniciar agora",
+    btn_finish_conversation: "Finalizar conversa",
   },
   it: {
     asistente_ia: "Assistente IA",
@@ -196,14 +196,14 @@ const AI_I18N = {
       title: "Titolo",
       description: "Descrizione",
     },
-    featured_initial_greeting: "Ciao 👋, vedo che stai configurando la tua Pubblicazione in Evidenza. Posso aiutarti a redigere e ottimizzare:",
-    btn_improve_included: "✨ Migliora \"Cosa include?\" della mia proposta",
-    btn_improve_not_included: "🛡️ Redigi \"Cosa NON include?\"",
-    btn_improve_title: "🎯 Ottimizza Titolo della pubblicazione",
-    btn_featured_doubts: "ℹ️ Dubbi sulla pubblicazione in evidenza",
+    featured_initial_greeting: "Ciao, vedo che stai configurando la tua Pubblicazione in Evidenza. Posso aiutarti a redigere e ottimizzare:",
+    btn_improve_included: "Migliora \"Cosa include?\" della mia proposta",
+    btn_improve_not_included: "Redigi \"Cosa NON include?\"",
+    btn_improve_title: "Ottimizza Titolo della pubblicazione",
+    btn_featured_doubts: "Dubbi sulla pubblicazione in evidenza",
     user_msg_improve_included: "Migliora 'Cosa include?' della mia proposta",
     user_msg_improve_not_included: "Redigi 'Cosa NON include?'",
-    user_msg_improve_title: "Ottimizza il Titolo della mia pubblicazione in evidenza",
+    user_msg_improve_title: "Ottimizza il Titolo della mia pubblicazione",
     user_msg_featured_doubts: "Dubbi sulla pubblicazione in evidenza",
     bot_included_detected: (val: string) => `Ho rilevato quello che hai inserito in 'Cosa include?':\n\n"${val}"\n\nCome preferisci migliorarlo?`,
     bot_included_empty: "Raccontami con parole tue cosa include il tuo servizio per il viaggiatore (es. trasferimenti, lezioni, materiali, consulenza personalizzata, supporto 24/7) e redigerò un dettaglio chiaro ed efficace con elenchi puntati.",
@@ -211,16 +211,16 @@ const AI_I18N = {
     bot_not_included_empty: "Chiarire cosa NON è incluso genera grande fiducia. Dimmi cosa non è coperto (es. voli aerei, spese personali, tasse di visto, pasti) e ti preparerò una descrizione professionale.",
     bot_title_detected: (val: string) => `Il tuo titolo attuale è: "${val}". Dimmi quale stile preferisci o lascia che ti suggerisca opzioni accattivanti e ad alto impatto.`,
     bot_title_empty: "Raccontami brevemente il tuo servizio e destinazione per redigere titoli accattivanti, professionali e ad alto impatto per viaggiatori.",
-    bot_featured_doubts_answer: "⭐ Le pubblicazioni in evidenza hanno la massima visibilità in cima al marketplace, badge ufficiale In Evidenza, fino a 5 foto, logo ufficiale, link diretti di contatto (WhatsApp, sito web, social) e descrizione dettagliata dei servizi inclusi per permettere ai viaggiatori di contattarti direttamente.",
-    btn_optimize_current: "✨ Ottimizza il testo ed evidenzia i vantaggi",
-    btn_focus_trust_cta: "🎯 Punta sulla fiducia e call-to-action",
-    btn_custom_instructions: "✍️ Indica modifiche personalizzate",
-    qualification_success_msg: "🎉 Perfetto! La tua proposta è idonea per essere pubblicata su Travelgrin e connettersi con i viaggiatori.",
+    bot_featured_doubts_answer: "Le pubblicazioni in evidenza hanno la massima visibilità in cima al marketplace, badge ufficiale In Evidenza, fino a 5 foto, logo ufficiale, link diretti di contatto (WhatsApp, sito web, social) e descrizione dettagliata dei servizi inclusi per permettere ai viaggiatori di contattarti direttamente.",
+    btn_optimize_current: "Ottimizza il testo ed evidenzia i vantaggi",
+    btn_focus_trust_cta: "Punta sulla fiducia e call-to-action",
+    btn_custom_instructions: "Indica modifiche personalizzate",
+    qualification_success_msg: "Perfetto! La tua proposta è idonea per essere pubblicata su Travelgrin e connettersi con i viaggiatori.",
     qualification_fail_msg: "Per il momento la tua proposta non è direttamente idonea in questa categoria, ma puoi verificare altre opzioni o contattarci.",
-    auto_restart_countdown_msg: (sec: number) => `⏱️ Questa conversazione si riavvierà automaticamente tra ${sec}s...`,
-    btn_cancel_restart: "⏹️ Mantieni chat aperta",
-    btn_restart_now: "🔄 Riavvia ora",
-    btn_finish_conversation: "✅ Termina conversazione",
+    auto_restart_countdown_msg: (sec: number) => `Questa conversazione si riavvierà automaticamente tra ${sec}s...`,
+    btn_cancel_restart: "Mantieni chat aperta",
+    btn_restart_now: "Riavvia ora",
+    btn_finish_conversation: "Termina conversazione",
   }
 };
 
@@ -1008,25 +1008,19 @@ export default function ModalAI({
                     <div className="flex flex-col space-y-2 mt-3">
                       <button
                         onClick={handleImproveIncluded}
-                        className="bg-[#10B981] hover:bg-[#059669] text-white px-3.5 py-2 rounded-2xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left flex items-center gap-1.5"
+                        className="bg-[#10B981] hover:bg-[#059669] text-white px-3.5 py-2 rounded-2xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left"
                       >
                         {strings.btn_improve_included}
                       </button>
                       <button
                         onClick={handleImproveNotIncluded}
-                        className="bg-[#F97316] hover:bg-[#EA580C] text-white px-3.5 py-2 rounded-2xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left flex items-center gap-1.5"
+                        className="bg-[#F97316] hover:bg-[#EA580C] text-white px-3.5 py-2 rounded-2xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left"
                       >
                         {strings.btn_improve_not_included}
                       </button>
                       <button
-                        onClick={handleImproveTitle}
-                        className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-3.5 py-2 rounded-2xl text-xs font-semibold shadow-sm transition transform hover:scale-[1.01] text-left flex items-center gap-1.5"
-                      >
-                        {strings.btn_improve_title}
-                      </button>
-                      <button
                         onClick={handleFeaturedDoubt}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-2xl text-xs font-medium transition text-left flex items-center gap-1.5"
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-2xl text-xs font-medium transition text-left"
                       >
                         {strings.btn_featured_doubts}
                       </button>
@@ -1047,6 +1041,12 @@ export default function ModalAI({
                         className="bg-[#10B981] hover:bg-[#059669] text-white px-4 py-2.5 rounded-2xl text-xs font-semibold shadow-sm transition text-left"
                       >
                         {t("mejorar_descripcion") || "Mejorar la descripción de mi propuesta"}
+                      </button>
+                      <button
+                        onClick={handleImproveTitle}
+                        className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-4 py-2.5 rounded-2xl text-xs font-semibold shadow-sm transition text-left"
+                      >
+                        {strings.btn_improve_title}
                       </button>
                     </div>
                   )}
@@ -1092,16 +1092,16 @@ export default function ModalAI({
                     <div className="flex flex-col space-y-2 mt-3">
                       <button
                         onClick={acceptContent}
-                        className="bg-[#10B981] hover:bg-[#059669] text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition flex items-center justify-center gap-1.5"
+                        className="bg-[#10B981] hover:bg-[#059669] text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition text-center"
                       >
-                        <span>✅</span> {strings.btn_accept_apply}
+                        {strings.btn_accept_apply}
                       </button>
                       <button
                         onClick={generateAnotherOption}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center justify-center gap-1.5"
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium transition text-center"
                         disabled={isGenerating}
                       >
-                        <span>🔄</span> {strings.btn_another_option}
+                        {strings.btn_another_option}
                       </button>
                     </div>
                   )}
