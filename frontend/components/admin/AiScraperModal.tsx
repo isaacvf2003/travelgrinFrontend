@@ -234,6 +234,11 @@ export default function AiScraperModal({
     setIsProcessing(true);
 
     try {
+      const effectivePrompts = [...customScraperPrompts];
+      if (newPromptInput.trim() && !effectivePrompts.some((p) => p.toLowerCase() === newPromptInput.trim().toLowerCase())) {
+        effectivePrompts.push(newPromptInput.trim());
+      }
+
       const res = await fetch("/api/admin/ai-scrape-publications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -242,7 +247,7 @@ export default function AiScraperModal({
           provider: aiProvider,
           apiKey: customApiKey.trim() || undefined,
           customBlocks: customScraperBlocks,
-          customPrompts: customScraperPrompts,
+          customPrompts: effectivePrompts,
         }),
       });
 

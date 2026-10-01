@@ -397,6 +397,24 @@ export default function AiFieldRefineModal({
                 }}
               />
             </div>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <span className="text-[11px] text-slate-400">
+                Podés escribir tu instrucción libremente o elegir una sugerencia rápida
+              </span>
+              <button
+                type="button"
+                onClick={() => handleGenerate(prompt)}
+                disabled={loading || !prompt.trim()}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-[#00A9C6] px-4 py-2 text-xs font-bold text-white shadow-md hover:from-cyan-700 hover:to-[#008da6] transition disabled:opacity-50 active:scale-95"
+              >
+                {loading ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {previewResult ? "Actualizar con esta instrucción" : "Generar propuesta con IA"}
+              </button>
+            </div>
           </div>
 
           {/* Quick suggestions pills */}
