@@ -391,6 +391,38 @@ function getVisibleBlockLabelForCategory(
   return null;
 }
 
+function resolveSubcategoryText(
+  tagText: string | null | undefined,
+  categories: Category[] | undefined,
+  locale: "es" | "en" | "pt" | "it"
+): string | null {
+  if (!tagText || typeof tagText !== "string" || !tagText.trim()) return null;
+  const raw = tagText.trim();
+  const normTag = raw.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+
+  if (categories && categories.length > 0) {
+    const matched = categories.find((c) => {
+      if (c.id === raw) return true;
+      const desc = c.description ?? "";
+      const normDesc = desc.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+      if (normDesc === normTag) return true;
+      if (c.descriptionI18n) {
+        return Object.values(c.descriptionI18n).some((val) => {
+          const normVal = String(val ?? "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+          return normVal === normTag;
+        });
+      }
+      return false;
+    });
+
+    if (matched) {
+      return pickI18nText(matched.descriptionI18n ?? null, locale, matched.description);
+    }
+  }
+
+  return raw;
+}
+
 function getVisibleBlockLabelForOption(
   f: any,
   filterGroups: FilterGroup[] | undefined,
@@ -484,6 +516,15 @@ export function PublicationCard({
     const blocks = Array.isArray((item as any)?.fields?.extraDescriptions) ? (item as any).fields.extraDescriptions : [];
     return blocks
       .filter((block: any) => booleanLike(block?.visibleInCard))
+      .filter((block: any) => {
+        const title = String(block?.title ?? "").trim();
+        const titleEs = String(block?.titleI18n?.es ?? "").trim();
+        if (/score\s*scout/i.test(title) || /score\s*scout/i.test(titleEs)) return false;
+        if (block?.titleI18n && typeof block.titleI18n === "object") {
+          return !Object.values(block.titleI18n).some((val: any) => /score\s*scout/i.test(String(val ?? "")));
+        }
+        return true;
+      })
       .map((block: any) => {
         const title = pickI18nText(block?.titleI18n ?? null, locale, String(block?.title ?? "").trim());
         return normalizeTagKey(title) === "lo que incluye" ? t("observaciones_label") : title;
@@ -508,12 +549,19 @@ export function PublicationCard({
       .map((entry) => getVisibleBlockLabelForOption(entry, filterGroups, locale))
       .filter(Boolean) as string[];
 
+    const subcategoryLabel = item.subcategory
+      ? resolveSubcategoryText(pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory), categories, locale)
+      : null;
+    const fieldSubcategoryLabels = fieldSubcategoryTags
+      .map((v) => resolveSubcategoryText(v, categories, locale))
+      .filter(Boolean) as string[];
+
     const raw = (item.primaryGroupKey === "prestacion"
       ? [
           ...(Array.isArray((item as any)?.fields?.prestaciones)
             ? (item as any).fields.prestaciones.map((value: any) => String(value ?? "").trim()).map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale))
             : []),
-          ...fieldSubcategoryTags.map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale)),
+          ...fieldSubcategoryLabels,
           ...fieldCategoryTags.map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale)),
           ...prestacionFilterTags,
         ]
@@ -522,10 +570,8 @@ export function PublicationCard({
             ? getVisibleBlockLabelForCategory(pickI18nText(item.categoryI18n ?? null, locale, item.category), categories, filterGroups, locale)
             : null,
           ...fieldCategoryTags.map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale)),
-          item.subcategory
-            ? getVisibleBlockLabelForCategory(pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory), categories, filterGroups, locale)
-            : null,
-          ...fieldSubcategoryTags.map((v) => getVisibleBlockLabelForCategory(v, categories, filterGroups, locale)),
+          subcategoryLabel,
+          ...fieldSubcategoryLabels,
           ...(item.filterOptions ?? []).map((f) => getVisibleBlockLabelForOption(f, filterGroups, locale)),
         ]).filter(Boolean) as string[];
 
