@@ -2124,7 +2124,7 @@ function buildScoreScoutBlock(
       pt: bodyPt,
       it: bodyIt,
     },
-    visibleInCard: true,
+    visibleInCard: false,
   };
 }
 
@@ -3609,7 +3609,7 @@ Madurez:
 - "Básico / Observado" (si totalScore < 50)
 Vínculo: "Oficial" (si es organismo estatal/público) o "Directo".
 evidenceSummary: Resumen honesto de la evidencia (ej: "Presencia institucional y canales informados con observaciones en políticas de privacidad o términos.").
-Genera dentro de 'extraDescriptions' el bloque del Score Scout con 'visibleInCard': true y textos en es, en, pt, it.
+Genera dentro de 'extraDescriptions' el bloque del Score Scout con 'visibleInCard': false y textos en es, en, pt, it.
 
 4. DESCRIPCIONES OPCIONALES ADICIONALES:
 Si la web contiene secciones específicas e importantes (ej: "Requisitos", "Servicios Principales", "Catálogo", "Sucursales"), agrega 1 o 2 bloques en 'extraDescriptions' con 'title', 'titleI18n', 'body', 'bodyI18n' (es, en, pt, it) y 'visibleInCard': false.
