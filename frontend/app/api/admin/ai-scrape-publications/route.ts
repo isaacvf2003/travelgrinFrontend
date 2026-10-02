@@ -3635,7 +3635,15 @@ async function callOpenAIApi(prompt: string, apiKey: string) {
   throw lastError || new Error("No se pudo conectar con la API de OpenAI.");
 }
 
-function buildPrompt(extractedData: any, taxonomies: any, customBlocks?: CustomScraperBlock[], customAdminPrompt?: string): string {
+function buildPrompt(
+  extractedData: any,
+  taxonomies: any,
+  customBlocks?: CustomScraperBlock[],
+  customAdminPrompt?: string,
+  customTitlePrompt?: string,
+  customDescriptionPrompt?: string,
+  includeScoreScout: boolean = true
+): string {
   const categoryTreeFormat = taxonomies.categoryTree.length
     ? taxonomies.categoryTree
         .map(
@@ -3657,39 +3665,62 @@ function buildPrompt(extractedData: any, taxonomies: any, customBlocks?: CustomS
   const customBlocksPrompt =
     customBlocks && customBlocks.length > 0
       ? `
-BLOQUES ADICIONALES PERSONALIZADOS OBLIGATORIOS (Generar dentro de 'extraDescriptions' para CADA uno con 'visibleInCard': false):
+======================================================================
+🎯 BLOQUES DE DESCRIPCIÓN OPCIONALES PERSONALIZADOS OBLIGATORIOS ('extraDescriptions'):
+Para CADA uno de los siguientes bloques, analiza la información del sitio web y genera un objeto en 'extraDescriptions' con { "title": "...", "titleI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." }, "body": "...", "bodyI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." }, "visibleInCard": false }:
 ${customBlocks
   .map(
     (b, i) =>
-      `   - Bloque Personalizado ${i + 1}: "${b.title}" ${b.prompt ? `(Indicación del Administrador: ${b.prompt})` : ""}`
+      `   * Bloque ${i + 1}: Título: "${b.title}"\n     Directiva específica del administrador para el contenido de este bloque: "${b.prompt ? b.prompt : 'Extraer y detallar información clara, útil y relevante del sitio web en párrafos <p> y viñetas.'}"`
   )
   .join("\n")}
-Para CADA uno de estos bloques personalizados, analiza exhaustivamente el contenido web y extrae o redacta un objeto en 'extraDescriptions' con { "title": "${customBlocks[0].title}", "titleI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." }, "body": "HTML formateado con <p> y viñetas", "bodyI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." }, "visibleInCard": false }.
+======================================================================
 `
       : "";
 
-  const adminPromptSection = customAdminPrompt && customAdminPrompt.trim()
+  const titlePromptSection = customTitlePrompt && customTitlePrompt.trim()
     ? `
 ======================================================================
-🎯 INSTRUCCIONES / PROMPTS MAESTROS DEL ADMINISTRADOR (PRIORIDAD ABSOLUTA Y MÁXIMA):
-"${customAdminPrompt.trim()}"
-
-REGLAS DE APLICACIÓN DEL PROMPT DEL ADMINISTRADOR:
-- Aplica estas directivas estrictamente en la redacción de:
-  * Título oficial ('title', 'titleI18n')
-  * Descripción Principal ('description', 'descriptionI18n')
-  * Bloques Adicionales ('extraDescriptions')
-- Comprende al 100% lo que pide el administrador sin importar si fue escrito con errores ortográficos, modismos coloquiales o tono informal.
-- LIBERTAD TOTAL DE ESTRUCTURA Y ENFOQUE: Si el administrador solicita un estilo específico (ej: "Explicar cada servicio con detalle", "Enfocado en historia y trayectoria", "Sin precios ni aranceles", "Resumen ejecutivo", "Sin emojis", etc.), LA DESCRIPCIÓN PRINCIPAL ('description' y 'descriptionI18n') DEBE SEGUIR TOTALMENTE ESAS INSTRUCCIONES EN SU REDACCIÓN Y ESTRUCTURA DE PÁRRAFOS HTML <p>, REEMPLAZANDO CUALQUIER FORMATO ESTÁNDAR.
-- NO alteres las Categorías ni las Taxonomías del catálogo (deben seleccionarse automáticamente según el rubro real).
-- NO alteres las valoraciones de Google Maps, cantidad de reseñas, direcciones físicas, teléfonos, WhatsApp, emails ni imágenes (deben ser los reales extraídos de la web).
+🎯 DIRECTIVA MAESTRA FIJA PARA EL TÍTULO ('title' y 'titleI18n'):
+"${customTitlePrompt.trim()}"
+REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del título (ej: especialista en marketing, mirada para extranjeros, tono humanista, sin tecnicismos, atractivo y representativo de la oferta real).
 ======================================================================
 `
     : "";
 
+  const descriptionPromptSection = customDescriptionPrompt && customDescriptionPrompt.trim()
+    ? `
+======================================================================
+🎯 DIRECTIVA MAESTRA FIJA PARA LA DESCRIPCIÓN PRINCIPAL ('description' y 'descriptionI18n'):
+"${customDescriptionPrompt.trim()}"
+REGLA ESTRICTA DE DESCRIPCIÓN: Aplica al 100% esta directiva en la estructura de párrafos <p>, tono, enfoque y contenido de la descripción general. EVITA PLANTILLAS RÍGIDAS y redacta de forma natural y atractiva adaptada a lo que pide el administrador.
+======================================================================
+`
+    : "";
+
+  const adminPromptSection = customAdminPrompt && customAdminPrompt.trim()
+    ? `
+======================================================================
+🎯 INSTRUCCIONES / PROMPTS ADICIONALES DEL ADMINISTRADOR:
+"${customAdminPrompt.trim()}"
+======================================================================
+`
+    : "";
+
+  const scoreScoutDirective = includeScoreScout === false
+    ? `
+- BLOQUE SCORE SCOUT: El administrador ha desactivado el bloque Score Scout para esta publicación. NO generes el bloque Score Scout dentro de 'extraDescriptions'.
+`
+    : "";
+
   return `
-Eres el Lead AI Auditor y Clasificador Experto de Travelgrin (actúas con total inteligencia y empatía como ChatGPT Plus o Gemini Advanced).
+Eres el Lead AI Auditor y Clasificador Experto de Travelgrin (actúas con total inteligencia, empatía editorial y adaptabilidad como ChatGPT Plus o Gemini Advanced).
+${titlePromptSection}
+${descriptionPromptSection}
 ${adminPromptSection}
+${customBlocksPrompt}
+${scoreScoutDirective}
+
 Travelgrin es una plataforma internacional que publica y audita todo tipo de entidades, empresas e instituciones en Argentina, Latinoamérica y el mundo:
 - Automotriz: Concesionarias, talleres mecánicos, chapa y pintura, repuestos, gomerías, rent a car, motos y vehículos.
 - Minería, Petróleo, Gas, Energía e Industria: Empresas mineras, extracción, energía, litio, siderurgia, metalúrgica, manufactura, construcción e ingeniería.
@@ -3856,6 +3887,15 @@ function mergeSocialLinks(linksA: SocialLinkDetail[] = [], linksB: SocialLinkDet
     if (!l || !l.url) return;
     let u = String(l.url).trim();
     if (!u) return;
+
+    // Reject broken / incomplete social links (e.g. youtube.com/watch without video ID, facebook/instagram homepages)
+    if (/^https?:\/\/(?:www\.)?youtube\.com\/watch(?:\?.*)?$/i.test(u) && !u.includes("v=")) return;
+    if (/^https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/?$/i.test(u)) return;
+    if (/^https?:\/\/(?:www\.)?facebook\.com\/(?:sharer|share|tr|dialog)?\/?$/i.test(u)) return;
+    if (/^https?:\/\/(?:www\.)?instagram\.com\/(?:p|stories|explore)?\/?$/i.test(u)) return;
+    if (/^https?:\/\/(?:www\.)?tiktok\.com\/?$/i.test(u)) return;
+    if (/^https?:\/\/(?:www\.)?linkedin\.com\/?$/i.test(u)) return;
+
     const norm = u.toLowerCase().replace(/\/+$/, "");
     if (seenUrls.has(norm)) return;
     seenUrls.add(norm);
@@ -3879,6 +3919,14 @@ function mergeSocialLinks(linksA: SocialLinkDetail[] = [], linksB: SocialLinkDet
       u = `tel:${u.replace(/[^\d+]/g, "")}`;
     }
 
+    // Preserve valid WhatsApp message tokens (e.g. wa.me/message/...) without digit mangling
+    if (kind === "whatsapp") {
+      if (!u.startsWith("http")) {
+        const digits = u.replace(/\D/g, "");
+        if (digits.length >= 8) u = `https://wa.me/${digits}`;
+      }
+    }
+
     if (!label) {
       if (kind === "phone") label = "Teléfono de contacto";
       else if (kind === "whatsapp") label = "WhatsApp";
@@ -3899,7 +3947,16 @@ function mergeSocialLinks(linksA: SocialLinkDetail[] = [], linksB: SocialLinkDet
   return merged;
 }
 
-async function formatPublicationResult(parsed: any, extractedData: any, taxonomies?: any, customBlocks?: CustomScraperBlock[], customAdminPrompt?: string): Promise<ScrapedPublication> {
+async function formatPublicationResult(
+  parsed: any,
+  extractedData: any,
+  taxonomies?: any,
+  customBlocks?: CustomScraperBlock[],
+  customAdminPrompt?: string,
+  customTitlePrompt?: string,
+  customDescriptionPrompt?: string,
+  includeScoreScout: boolean = true
+): Promise<ScrapedPublication> {
   const host = new URL(extractedData.url).hostname.replace("www.", "");
   const rawTitle = parsed.title || extractedData.title || `Publicación de ${host}`;
   let title = cleanTitleString(rawTitle);
@@ -4088,24 +4145,27 @@ async function formatPublicationResult(parsed: any, extractedData: any, taxonomi
     finalReviewCount = rawCount ? rawCount : "0";
   }
 
-  // Score Scout Block resolution
-  const scoreBlock = buildScoreScoutBlock(
-    publisherName || title,
-    startYear,
-    finalRating,
-    allText,
-    parsed.scoreScout,
-    extractedData.url,
-    finalReviewCount
-  );
-
-  const formattedExtraDescriptions: ExtraDescriptionBlock[] = [scoreBlock];
+  // Score Scout Block resolution - only included if includeScoreScout is true
+  const formattedExtraDescriptions: ExtraDescriptionBlock[] = [];
+  if (includeScoreScout !== false) {
+    const scoreBlock = buildScoreScoutBlock(
+      publisherName || title,
+      startYear,
+      finalRating,
+      allText,
+      parsed.scoreScout,
+      extractedData.url,
+      finalReviewCount
+    );
+    formattedExtraDescriptions.push(scoreBlock);
+  }
 
   // Append any extra description blocks generated by the AI
   if (Array.isArray(parsed.extraDescriptions)) {
     parsed.extraDescriptions.forEach((extra: any) => {
       const blockTitle = String(extra?.title || "").trim();
-      if (!blockTitle || /score scout/i.test(blockTitle)) return;
+      if (!blockTitle) return;
+      if (/score scout/i.test(blockTitle) && includeScoreScout === false) return;
       const rawBody = String(extra?.body || "").trim();
       if (!rawBody) return;
 
@@ -4451,12 +4511,23 @@ async function processUrlWithAI(
   geminiKey: string,
   openaiKey: string,
   customBlocks?: CustomScraperBlock[],
-  customAdminPrompt?: string
+  customAdminPrompt?: string,
+  customTitlePrompt?: string,
+  customDescriptionPrompt?: string,
+  includeScoreScout: boolean = true
 ): Promise<{ publication: ScrapedPublication; providerUsed: string }> {
   const extracted = await fetchPageContent(url);
   // Real-time Google Maps & Live Search enrichment
   await enrichWithLiveGoogleMapsAndSearch(extracted);
-  const prompt = buildPrompt(extracted, taxonomies, customBlocks, customAdminPrompt);
+  const prompt = buildPrompt(
+    extracted,
+    taxonomies,
+    customBlocks,
+    customAdminPrompt,
+    customTitlePrompt,
+    customDescriptionPrompt,
+    includeScoreScout
+  );
 
   const canUseGemini = Boolean(geminiKey);
   const canUseOpenAI = Boolean(openaiKey);
@@ -4464,13 +4535,31 @@ async function processUrlWithAI(
   const executeGemini = async () => {
     if (!canUseGemini) throw new Error("No hay GEMINI_API_KEY configurada.");
     const parsed = await callGeminiApi(prompt, geminiKey);
-    return await formatPublicationResult(parsed, extracted, taxonomies, customBlocks, customAdminPrompt);
+    return await formatPublicationResult(
+      parsed,
+      extracted,
+      taxonomies,
+      customBlocks,
+      customAdminPrompt,
+      customTitlePrompt,
+      customDescriptionPrompt,
+      includeScoreScout
+    );
   };
 
   const executeOpenAI = async () => {
     if (!canUseOpenAI) throw new Error("No hay OPENAI_API_KEY configurada.");
     const parsed = await callOpenAIApi(prompt, openaiKey);
-    return await formatPublicationResult(parsed, extracted, taxonomies, customBlocks, customAdminPrompt);
+    return await formatPublicationResult(
+      parsed,
+      extracted,
+      taxonomies,
+      customBlocks,
+      customAdminPrompt,
+      customTitlePrompt,
+      customDescriptionPrompt,
+      includeScoreScout
+    );
   };
 
   let publication: ScrapedPublication;
@@ -4572,6 +4661,10 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join(". ");
 
+    const customTitlePrompt = typeof body.customTitlePrompt === "string" ? body.customTitlePrompt.trim() : undefined;
+    const customDescriptionPrompt = typeof body.customDescriptionPrompt === "string" ? body.customDescriptionPrompt.trim() : undefined;
+    const includeScoreScout = body.includeScoreScout !== false;
+
     const customKey = String(body.apiKey || "").trim();
     const requestedProvider = String(body.provider || "auto").toLowerCase();
 
@@ -4613,7 +4706,10 @@ export async function POST(req: Request) {
           geminiKey,
           openaiKey,
           customBlocks,
-          customAdminPrompt
+          customAdminPrompt,
+          customTitlePrompt,
+          customDescriptionPrompt,
+          includeScoreScout
         );
         providersUsed.add(providerUsed);
         return publication;
