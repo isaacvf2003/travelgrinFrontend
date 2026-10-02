@@ -11,6 +11,7 @@ export interface AiFieldRefineModalProps {
   fieldType: RefineFieldType;
   currentValue?: string;
   currentTitleValue?: string;
+  initialPrompt?: string;
   blockIndex?: number;
   metadata?: {
     title?: string;
@@ -105,6 +106,7 @@ export default function AiFieldRefineModal({
   fieldType,
   currentValue = "",
   currentTitleValue = "",
+  initialPrompt = "",
   blockIndex,
   metadata = {},
   onApply,
@@ -130,14 +132,32 @@ export default function AiFieldRefineModal({
   // Reset all state when modal opens or when target field changes so each field is 100% isolated
   useEffect(() => {
     if (isOpen) {
-      setPrompt("");
+      let defaultPrompt = initialPrompt ? initialPrompt.trim() : "";
+      if (!defaultPrompt && typeof window !== "undefined") {
+        try {
+          if (fieldType === "title") {
+            defaultPrompt = window.localStorage.getItem("tgn_custom_title_prompt") || "";
+          } else if (fieldType === "description") {
+            defaultPrompt = window.localStorage.getItem("tgn_custom_desc_prompt") || "";
+          } else if (fieldType === "extra_block" || fieldType === "new_extra_block") {
+            const savedRaw = window.localStorage.getItem("tgn_custom_scraper_blocks");
+            if (savedRaw) {
+              const list: Array<{ title: string; prompt?: string }> = JSON.parse(savedRaw);
+              const found = list.find((b) => b.title?.toLowerCase() === (currentTitleValue || "").toLowerCase());
+              if (found?.prompt) defaultPrompt = found.prompt;
+            }
+          }
+        } catch {}
+      }
+
+      setPrompt(defaultPrompt);
       setPreviewResult(null);
       setErrorMsg("");
       setConversationHistory([]);
       setVariationCount(0);
       setFollowUpPrompt("");
     }
-  }, [isOpen, fieldType, blockIndex]);
+  }, [isOpen, fieldType, blockIndex, currentTitleValue, initialPrompt]);
 
   const handleSaveKey = (val: string) => {
     setCustomKey(val);
