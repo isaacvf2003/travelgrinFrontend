@@ -1583,6 +1583,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     fieldType: RefineFieldType;
     currentValue?: string;
     currentTitleValue?: string;
+    initialPrompt?: string;
     blockIndex?: number;
   }>({
     isOpen: false,
@@ -9607,10 +9608,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             type="button"
                             onClick={() => {
                               const blockToDelete = pExtraDescriptions[idx];
-                              const blockTitle = blockToDelete?.title || blockToDelete?.titleI18n?.es || "";
+                              const blockTitle = (blockToDelete?.title || blockToDelete?.titleI18n?.es || "").trim();
                               setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx));
-                              if (blockTitle && typeof window !== "undefined") {
+                              if (typeof window !== "undefined") {
                                 try {
+                                  if (/score\s*scout/i.test(blockTitle)) {
+                                    window.localStorage.setItem("tgn_include_score_scout", "false");
+                                  }
                                   const savedRaw = window.localStorage.getItem("tgn_custom_scraper_blocks");
                                   if (savedRaw) {
                                     const list: Array<{ title: string; prompt?: string }> = JSON.parse(savedRaw);
@@ -11187,6 +11191,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         fieldType={aiRefineState.fieldType}
         currentValue={aiRefineState.currentValue}
         currentTitleValue={aiRefineState.currentTitleValue}
+        initialPrompt={aiRefineState.initialPrompt}
         blockIndex={aiRefineState.blockIndex}
         metadata={{
           title: pTitleI18n[pLang] || pTitle || "",
