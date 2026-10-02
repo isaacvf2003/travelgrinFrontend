@@ -3254,8 +3254,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if ((!startYear || startYear === "2010" || startYear === "2015") && /garrahan/i.test(`${draft.url || ""} ${draft.title || ""}`)) {
       startYear = "1987";
     }
+    if ((!startYear || startYear === "2010" || startYear === "2015") && /serra\s*mansilla/i.test(`${draft.url || ""} ${draft.title || ""}`)) {
+      startYear = "2018";
+    }
     setPProviderStartYear(startYear);
-    setPProviderRating(draft.providerRating || "0");
+    setPProviderRating(draft.providerRating && draft.providerRating !== "0" ? draft.providerRating : "5.0");
     setPProviderReviewCount(draft.providerReviewCount ?? "0");
     setPProviderCommentsUrl(draft.providerCommentsUrl || "");
     const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
@@ -9150,7 +9153,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   value={pProviderStartYear}
                   onChange={(e) => setPProviderStartYear(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="2010"
+                  placeholder="Ej: 2018"
                 />
               </div>
               <div className="grid gap-2">
@@ -9159,7 +9162,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   value={pProviderRating}
                   onChange={(e) => setPProviderRating(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="4.5"
+                  placeholder="Ej: 5.0"
                 />
               </div>
               <div className="grid gap-2">
@@ -9168,7 +9171,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   value={pProviderReviewCount}
                   onChange={(e) => setPProviderReviewCount(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="200"
+                  placeholder="Ej: 15"
                 />
               </div>
               <div className="grid gap-2">
