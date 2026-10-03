@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bot, Sparkles, X, Trash2, Plus, Info, RefreshCw, FileText, Check, Settings2 } from "lucide-react";
+import { Bot, Sparkles, X, Trash2, Plus, Info, RefreshCw, FileText, Check, Settings2, ArrowUp, ArrowDown, Pencil } from "lucide-react";
 
 export type I18nRecord = Record<string, string>;
 
@@ -92,6 +92,11 @@ export default function AiScraperModal({
   const [newBlockPromptInput, setNewBlockPromptInput] = useState("");
   const [customScraperPrompts, setCustomScraperPrompts] = useState<string[]>([]);
   const [newPromptInput, setNewPromptInput] = useState("");
+
+  // Reordering and inline editing of custom description blocks
+  const [editingBlockIndex, setEditingBlockIndex] = useState<number | null>(null);
+  const [editingBlockTitle, setEditingBlockTitle] = useState("");
+  const [editingBlockPrompt, setEditingBlockPrompt] = useState("");
 
   // Accordion Inline Form State for active draft inspection directly in the queue card
   const [expandedDraftIndex, setExpandedDraftIndex] = useState<number | null>(null);
@@ -222,6 +227,86 @@ export default function AiScraperModal({
       } catch {}
       return updated;
     });
+  };
+
+  const handleMoveCustomBlock = (index: number, direction: "up" | "down") => {
+    setCustomScraperBlocks((prev) => {
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[targetIndex];
+      copy[targetIndex] = temp;
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(copy));
+        }
+      } catch {}
+      return copy;
+    });
+  };
+
+  const handleStartEditBlock = (index: number) => {
+    const block = customScraperBlocks[index];
+    if (!block) return;
+    setEditingBlockIndex(index);
+    setEditingBlockTitle(block.title);
+    setEditingBlockPrompt(block.prompt || "");
+  };
+
+  const handleSaveEditBlock = () => {
+    if (editingBlockIndex === null) return;
+    const cleanTitle = editingBlockTitle.trim();
+    if (!cleanTitle) return;
+    setCustomScraperBlocks((prev) => {
+      const copy = [...prev];
+      copy[editingBlockIndex] = {
+        title: cleanTitle,
+        prompt: editingBlockPrompt.trim() || undefined,
+      };
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(copy));
+        }
+      } catch {}
+      return copy;
+    });
+    setEditingBlockIndex(null);
+    setEditingBlockTitle("");
+    setEditingBlockPrompt("");
+  };
+
+  const handleCancelEditBlock = () => {
+    setEditingBlockIndex(null);
+    setEditingBlockTitle("");
+    setEditingBlockPrompt("");
+  };
+
+  const ensureCustomBlocksInDraft = (draft: ScrapedPublicationDraft): ScrapedPublicationDraft => {
+    const existing = [...(draft.extraDescriptions || [])];
+    customScraperBlocks.forEach((b) => {
+      const cleanTitle = b.title.trim();
+      const existingIdx = existing.findIndex((eb) => eb.title.toLowerCase() === cleanTitle.toLowerCase());
+      if (existingIdx === -1) {
+        existing.push({
+          title: cleanTitle,
+          titleI18n: { es: cleanTitle, en: cleanTitle, pt: cleanTitle, it: cleanTitle },
+          body: "",
+          bodyI18n: { es: "", en: "", pt: "", it: "" },
+          visibleInCard: false,
+          prompt: b.prompt,
+        });
+      } else if (b.prompt && !existing[existingIdx].prompt) {
+        existing[existingIdx] = {
+          ...existing[existingIdx],
+          prompt: b.prompt,
+        };
+      }
+    });
+    return {
+      ...draft,
+      extraDescriptions: existing,
+    };
   };
 
   const handleAddPromptRule = (promptText: string) => {
@@ -600,8 +685,9 @@ export default function AiScraperModal({
   };
 
   const handleApproveDraft = async (draft: ScrapedPublicationDraft, index: number) => {
+    const effectiveDraft = ensureCustomBlocksInDraft(draft);
     if (!onApproveDirectly) {
-      onSelectDraftToEdit(draft);
+      onSelectDraftToEdit(effectiveDraft);
       handleRemoveDraft(index);
       onClose();
       return;
@@ -609,7 +695,7 @@ export default function AiScraperModal({
 
     setSavingIndex(index);
     try {
-      const success = await onApproveDirectly(draft);
+      const success = await onApproveDirectly(effectiveDraft);
       if (success) {
         handleRemoveDraft(index);
       } else {
@@ -1016,35 +1102,124 @@ export default function AiScraperModal({
                 )}
 
                 {/* Other Custom Blocks */}
-                {customScraperBlocks.map((b, bIdx) => (
-                  <div
-                    key={bIdx}
-                    className="flex items-center justify-between rounded-xl border border-purple-200 bg-purple-50/50 p-2.5"
-                  >
-                    <div className="space-y-0.5 overflow-hidden pr-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-purple-900 text-xs truncate">{b.title}</span>
-                        <span className="rounded bg-purple-200/80 px-1.5 py-0.2 text-[9px] font-bold text-purple-800">
-                          Personalizado
-                        </span>
-                      </div>
-                      {b.prompt ? (
-                        <p className="text-[10px] text-purple-700 truncate">{b.prompt}</p>
+                {customScraperBlocks.map((b, bIdx) => {
+                  const isEditing = editingBlockIndex === bIdx;
+                  return (
+                    <div
+                      key={bIdx}
+                      className="rounded-xl border border-purple-200 bg-purple-50/50 p-2.5 transition space-y-2"
+                    >
+                      {isEditing ? (
+                        <div className="space-y-2 bg-white/90 p-2.5 rounded-lg border border-purple-300">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-purple-900">Editar Bloque Opcional</span>
+                            <span className="text-[10px] text-slate-500">Posición {bIdx + 1} de {customScraperBlocks.length}</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Título del bloque:</label>
+                              <input
+                                type="text"
+                                value={editingBlockTitle}
+                                onChange={(e) => setEditingBlockTitle(e.target.value)}
+                                className="w-full rounded-lg border border-purple-300 bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                placeholder="Título del bloque"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Prompt o instrucción para la IA:</label>
+                              <input
+                                type="text"
+                                value={editingBlockPrompt}
+                                onChange={(e) => setEditingBlockPrompt(e.target.value)}
+                                className="w-full rounded-lg border border-purple-300 bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                placeholder="Prompt para la IA (ej: hazme o generame 10 preguntas con respuestas)"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={handleCancelEditBlock}
+                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSaveEditBlock}
+                              className="rounded-lg bg-purple-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-purple-700 cursor-pointer shadow-xs"
+                            >
+                              Guardar Cambios
+                            </button>
+                          </div>
+                        </div>
                       ) : (
-                        <p className="text-[10px] text-slate-400">Extracción automática de contenido</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="space-y-0.5 overflow-hidden pr-2 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-purple-900 text-xs truncate">{b.title}</span>
+                              <span className="rounded bg-purple-200/80 px-1.5 py-0.2 text-[9px] font-bold text-purple-800">
+                                Personalizado
+                              </span>
+                            </div>
+                            {b.prompt ? (
+                              <p className="text-[10px] text-purple-700 truncate" title={b.prompt}>
+                                <span className="font-semibold text-purple-900">Prompt:</span> {b.prompt}
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-slate-400">Extracción automática de contenido</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Reorder Arrows */}
+                            <div className="flex items-center border border-purple-200 rounded-lg bg-white overflow-hidden shadow-xs">
+                              <button
+                                type="button"
+                                onClick={() => handleMoveCustomBlock(bIdx, "up")}
+                                disabled={bIdx === 0}
+                                title="Subir posición de este bloque"
+                                className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition border-r border-purple-100"
+                              >
+                                <ArrowUp className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMoveCustomBlock(bIdx, "down")}
+                                disabled={bIdx === customScraperBlocks.length - 1}
+                                title="Bajar posición de este bloque"
+                                className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition"
+                              >
+                                <ArrowDown className="h-3 w-3" />
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditBlock(bIdx)}
+                              title="Editar título o prompt de este bloque"
+                              className="rounded-lg border border-purple-200 bg-white px-2 py-1 text-[11px] font-semibold text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition flex items-center gap-1 cursor-pointer shadow-xs"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Editar prompt
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCustomScraperBlock(b.title)}
+                              title="Eliminar este bloque opcional"
+                              className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition flex items-center gap-1 cursor-pointer shadow-xs"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              Eliminar bloque
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveCustomScraperBlock(b.title)}
-                      title="Eliminar este bloque opcional"
-                      className="shrink-0 rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      Eliminar bloque
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Form to Add New Custom Block */}
@@ -1292,7 +1467,7 @@ export default function AiScraperModal({
                       <button
                         type="button"
                         onClick={() => {
-                          onSelectDraftToEdit(draft, index);
+                          onSelectDraftToEdit(ensureCustomBlocksInDraft(draft), index);
                           onClose();
                         }}
                         className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-xs cursor-pointer"
