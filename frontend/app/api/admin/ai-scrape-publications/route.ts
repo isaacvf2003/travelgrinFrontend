@@ -2829,76 +2829,80 @@ function generateImpactfulTitle(
   cleanName: string,
   sector: string,
   prompt: string,
-  city?: string
+  city?: string,
+  corpusText?: string,
+  publisherName?: string
 ): string {
   const wantsImpact = checkPromptIsImpact(prompt) || (prompt && prompt.trim().length > 0);
   if (!wantsImpact) return cleanName;
 
+  const baseEntityName = publisherName?.trim() || cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const pLower = (prompt || "").toLowerCase();
+  const allCorpus = `${cleanName} ${prompt} ${corpusText || ""}`.toLowerCase();
   const isMarketing = /marketing|conversi[oó]n|especialista|vendedor|llamativ|gancho|cta|captar|potente|atractiv/i.test(pLower);
 
-  const isEdu = sector === "education" || /universidad|facultad|instituto|colegio|carrera|estudio/i.test(cleanName);
-  const isHealth = sector === "health" || /hospital|sanatorio|cl[ií]nica|salud|m[eé]dic/i.test(cleanName);
-  const isGastro = sector === "gastronomy" || /restaurante|bar|gastronom|parrilla/i.test(cleanName);
-  const isTourism = sector === "tourism" || /hotel|hostel|turismo|alojam|posada/i.test(cleanName);
-  const isRealEstate = sector === "real_estate" || /inmobiliar|propiedad|bienes ra/i.test(cleanName);
-  const isLegal = sector === "legal" || /estudio jur|abogad|notar|escriban|migrat|ciudadan|extranjer/i.test(cleanName) || /migrat|ciudadan/i.test(prompt);
-  const isTech = sector === "tech" || /software|tecnolog|digital/i.test(cleanName);
+  const isEdu = sector === "education" || /universidad|facultad|instituto|colegio|carrera|estudio/i.test(allCorpus);
+  const isHealth = sector === "health" || /hospital|sanatorio|cl[ií]nica|salud|m[eé]dic/i.test(allCorpus);
+  const isGastro = sector === "gastronomy" || /restaurante|bar|gastronom|parrilla/i.test(allCorpus);
+  const isTourism = sector === "tourism" || /hotel|hostel|turismo|alojam|posada/i.test(allCorpus);
+  const isRealEstate = sector === "real_estate" || /inmobiliar|propiedad|bienes ra/i.test(allCorpus);
+  const isLegal = sector === "legal" || /estudio jur|abogad|notar|escriban|migrat|ciudadan|extranjer|visas?|radicaci[oó]n|dni|nacionalidad|asilo|legal/i.test(allCorpus);
+  const isTech = sector === "tech" || /software|tecnolog|digital/i.test(allCorpus);
 
   if (isMarketing) {
     if (isLegal) {
-      if (/migrat|ciudadan|extranjer/i.test(`${cleanName} ${prompt}`)) {
-        return `${cleanName} | Especialista Líder en Derecho Migratorio, Ciudadanías y Radicaciones`;
+      if (/migrat|ciudadan|extranjer|visas?|radicaci[oó]n/i.test(allCorpus)) {
+        return `${baseEntityName} | Especialista Líder en Derecho Migratorio, Ciudadanías y Radicaciones`;
       }
-      return `${cleanName} | Especialistas en Asesoría Legal Estratégica y Soluciones Jurídicas`;
+      return `${baseEntityName} | Especialistas en Asesoría Legal Estratégica y Soluciones Jurídicas`;
     }
     if (isEdu) {
-      return `${cleanName} | Especialistas en Formación Universitaria Líder con Alta Salida Laboral`;
+      return `${baseEntityName} | Especialistas en Formación Universitaria Líder con Alta Salida Laboral`;
     }
     if (isHealth) {
-      return `${cleanName} | Especialistas Médicos de Primer Nivel: Guardia 24hs y Turnos Inmediatos`;
+      return `${baseEntityName} | Especialistas Médicos de Primer Nivel: Guardia 24hs y Turnos Inmediatos`;
     }
     if (isTourism) {
-      return `${cleanName} | Experiencias de Hospedaje Exclusivas y Atención de Primer Nivel`;
+      return `${baseEntityName} | Experiencias de Hospedaje Exclusivas y Atención de Primer Nivel`;
     }
     if (isGastro) {
-      return `${cleanName} | Gastronomía de Autor y Experiencias Culinarias de Alta Calidad`;
+      return `${baseEntityName} | Gastronomía de Autor y Experiencias Culinarias de Alta Calidad`;
     }
     if (isRealEstate) {
-      return `${cleanName} | Especialistas en Asesoramiento Inmobiliario y Propiedades Exclusivas`;
+      return `${baseEntityName} | Especialistas en Asesoramiento Inmobiliario y Propiedades Exclusivas`;
     }
     if (isTech) {
-      return `${cleanName} | Soluciones Tecnológicas de Alto Rendimiento e Innovación Digital`;
+      return `${baseEntityName} | Soluciones Tecnológicas de Alto Rendimiento e Innovación Digital`;
     }
-    return `${cleanName} | Especialistas en Soluciones Profesionales de Alto Impacto y Conversión`;
+    return `${baseEntityName} | Especialistas en Soluciones Profesionales de Alto Impacto y Conversión`;
   }
 
   if (isEdu) {
-    return `${cleanName} | Carreras Universitarias, Títulos Oficiales y Modalidades Flexibles`;
+    return `${baseEntityName} | Carreras Universitarias, Títulos Oficiales y Modalidades Flexibles`;
   }
   if (isHealth) {
-    return `${cleanName} | Atención Médica de Alta Complejidad y Guardia 24hs`;
+    return `${baseEntityName} | Atención Médica de Alta Complejidad y Guardia 24hs`;
   }
   if (isGastro) {
-    return `${cleanName} | Gastronomía de Autor, Cocina Exclusiva y Reservas`;
+    return `${baseEntityName} | Gastronomía de Autor, Cocina Exclusiva y Reservas`;
   }
   if (isTourism) {
-    return `${cleanName} | Hospedaje de Primer Nivel y Experiencias Exclusivas`;
+    return `${baseEntityName} | Hospedaje de Primer Nivel y Experiencias Exclusivas`;
   }
   if (isRealEstate) {
-    return `${cleanName} | Venta, Alquiler y Tasación de Propiedades Exclusivas`;
+    return `${baseEntityName} | Venta, Alquiler y Tasación de Propiedades Exclusivas`;
   }
   if (isLegal) {
-    if (/migrat|ciudadan|extranjer/i.test(`${cleanName} ${prompt}`)) {
-      return `${cleanName} | Especialista en Derecho Migratorio, Ciudadanías y Trámites de Residencia`;
+    if (/migrat|ciudadan|extranjer|visas?|radicaci[oó]n/i.test(allCorpus)) {
+      return `${baseEntityName} | Especialista en Derecho Migratorio, Ciudadanías y Trámites de Residencia`;
     }
-    return `${cleanName} | Estudio Jurídico, Asesoramiento Notarial y Legal Integral`;
+    return `${baseEntityName} | Estudio Jurídico, Asesoramiento Notarial y Legal Integral`;
   }
   if (isTech) {
-    return `${cleanName} | Soluciones Tecnológicas, Desarrollo de Software e Innovación`;
+    return `${baseEntityName} | Soluciones Tecnológicas, Desarrollo de Software e Innovación`;
   }
 
-  return `${cleanName} | Calidad, Trayectoria y Soluciones Profesionales de Excelencia`;
+  return `${baseEntityName} | Calidad, Trayectoria y Soluciones Profesionales de Excelencia`;
 }
 
 async function buildGroundedDescriptions(
@@ -2943,6 +2947,7 @@ async function buildGroundedDescriptions(
   const isHealth = /hospital|sanatorio|cl[ií]nica|salud|m[eé]dic|guardia|paciente/i.test(allCorpus);
   const isGastro = /restaurante|bar|gastronom|parrilla|comida|cena/i.test(allCorpus);
   const isTourism = /hotel|hostel|turismo|alojam|posada|cabaña/i.test(allCorpus);
+  const isLegal = /abogad|estudio jur|notar|escriban|migrat|ciudadan|extranjer|visas?|radicaci[oó]n|dni|nacionalidad|asilo|legal/i.test(allCorpus) || /migrat|ciudadan|legal/i.test(prompt);
 
   const paragraphs: string[] = [];
 
@@ -2951,7 +2956,9 @@ async function buildGroundedDescriptions(
     // 1. If impact / essential / llamativo requested:
     if (isImpact || isEssential) {
       let hook = "";
-      if (isEdu) {
+      if (isLegal) {
+        hook = `<strong>${baseEntityName}</strong> es un estudio jurídico y consultoría especializada${locationText ? ` con sede en ${locationText}` : ""}, con destacada trayectoria en asesoramiento integral, gestiones migratorias, ciudadanías y resoluciones jurídicas efectivas.`;
+      } else if (isEdu) {
         hook = `<strong>${baseEntityName}</strong> es una institución universitaria destacada${locationText ? ` con sede central en ${locationText}` : ""}, reconocida por su oferta académica, plataformas de aprendizaje y formación profesional.`;
       } else if (isHealth) {
         hook = `<strong>${baseEntityName}</strong> es una institución médica de referencia y alta complejidad${locationText ? ` en ${locationText}` : ""}, destacada por su excelencia clínica, tecnología de avanzada y atención humana integral 24 horas.`;
@@ -2965,7 +2972,9 @@ async function buildGroundedDescriptions(
       paragraphs.push(`<p>${hook}</p>`);
 
       let coreOffer = "";
-      if (isEdu) {
+      if (isLegal) {
+        coreOffer = `Brinda asesoramiento especializado en derecho migratorio, tramitación de visas, radicaciones, ciudadanías, recursos administrativos y asistencia legal integral en cada etapa procesal.`;
+      } else if (isEdu) {
         coreOffer = `Su oferta académica integra una amplia variedad de carreras de grado, licenciaturas, diplomaturas y posgrados oficiales con modalidades flexibles (presenciales y online) diseñadas para responder a las exigencias del mercado profesional global.`;
       } else if (isHealth) {
         coreOffer = `Cuenta con guardia activa permanente, consultorios externos en todas las especialidades, internación general y diagnóstico por imágenes de alta resolución.`;
@@ -2994,25 +3003,49 @@ async function buildGroundedDescriptions(
       paragraphs.push(`<p><strong>Metodología y Alcance:</strong> Atención integral con profesionales capacitados e infraestructura moderna en ${locationText || "su sede principal"}.</p>`);
       paragraphs.push(`<p><strong>Canales Habilitados:</strong> Consultas, turnos y coordinación directa a través de vías oficiales verificadas.</p>`);
     } else if (isExecutiveSummary) {
-      paragraphs.push(
-        `<p><strong>Resumen Ejecutivo:</strong> ${cleanSummary || `${baseEntityName} es una entidad de referencia en ${locationText}.`} Su propuesta integra altos estándares operativos, tecnología y atención especializada orientada a satisfacer los requerimientos de sus usuarios y clientes.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Capacidades Operativas:</strong> Estructura profesional interdisciplinaria, procesos certificados y capacidad de respuesta integral en ${locationText || "la región"}.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Estándares de Calidad:</strong> Respaldo verificado, auditoría de procesos y canales oficiales directos para información y gestiones.</p>`
-      );
+      if (isLegal) {
+        paragraphs.push(
+          `<p><strong>Resumen Ejecutivo:</strong> ${cleanSummary || `${baseEntityName} es una firma jurídica de referencia especializada en derecho migratorio y corporativo.`} Ofrece soluciones estratégicas y personalizadas orientadas a la resolución eficiente de trámites de radicación, visas y ciudadanías con máximos estándares de seguridad jurídica.</p>`
+        );
+        paragraphs.push(
+          `<p><strong>Capacidades Profesionales:</strong> Equipo legal interdisciplinario, experiencia comprobada en normativas migratorias nacionales e internacionales y representación de clientes particulares y corporativos en ${locationText || "su región"}.</p>`
+        );
+        paragraphs.push(
+          `<p><strong>Seguridad y Respaldo Jurídico:</strong> Acompañamiento personalizado en cada instancia administrativa y judicial, gestión documental rigurosa y canales directos para consultas y asesoramiento oficial.</p>`
+        );
+      } else {
+        paragraphs.push(
+          `<p><strong>Resumen Ejecutivo:</strong> ${cleanSummary || `${baseEntityName} es una entidad de referencia en ${locationText}.`} Su propuesta integra altos estándares operativos, tecnología y atención especializada orientada a satisfacer los requerimientos de sus usuarios y clientes.</p>`
+        );
+        paragraphs.push(
+          `<p><strong>Capacidades Operativas:</strong> Estructura profesional interdisciplinaria, procesos certificados y capacidad de respuesta integral en ${locationText || "la región"}.</p>`
+        );
+        paragraphs.push(
+          `<p><strong>Estándares de Calidad:</strong> Respaldo verificado, auditoría de procesos y canales oficiales directos para información y gestiones.</p>`
+        );
+      }
     } else if (isWhoWeAre) {
-      paragraphs.push(
-        `<p><strong>Quiénes Somos:</strong> ${cleanSummary || `${baseEntityName} es una institución orientada a brindar soluciones integrales en ${locationText}.`} Cuenta con profesionales capacitados e infraestructura moderna.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Misión y Compromiso:</strong> Excelencia en el servicio, calidez en la atención y respaldo institucional garantizado.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Ubicación y Contacto:</strong> Sede en ${locationText || "su localidad"} y canales oficiales para consultas directas.</p>`
-      );
+      if (isLegal) {
+        paragraphs.push(
+          `<p><strong>Quiénes Somos:</strong> ${cleanSummary || `${baseEntityName} es un equipo legal y notarial dedicado a brindar asesoría jurídica especializada y soluciones migratorias integrales.`} Con sede en ${locationText || "su localidad"}, combinamos excelencia técnica y trato cercano.</p>`
+        );
+        paragraphs.push(
+          `<p><strong>Misión y Compromiso:</strong> Defender los intereses de nuestros clientes y facilitar sus procesos migratorios y legales con total transparencia, agilidad y respaldo normativo garantizado.</p>`
+        );
+        paragraphs.push(
+          `<p><strong>Ubicación y Contacto:</strong> Despacho oficial en ${locationText || "su localidad"} y canales de comunicación directa para consultas confidenciales.</p>`
+        );
+      } else {
+        paragraphs.push(
+          `<p><strong>Quiénes Somos:</strong> ${cleanSummary || `${baseEntityName} es una institución orientada a brindar soluciones integrales en ${locationText}.`} Cuenta con profesionales capacitados e infraestructura moderna.</p>`
+        );
+        paragraphs.push(
+          `<p><strong>Misión y Compromiso:</strong> Excelencia en el servicio, calidez en la atención y respaldo institucional garantizado.</p>`
+        );
+        paragraphs.push(
+          `<p><strong>Ubicación y Contacto:</strong> Sede en ${locationText || "su localidad"} y canales oficiales para consultas directas.</p>`
+        );
+      }
     } else {
       paragraphs.push(
         `<p><strong>Presentación y Propuesta:</strong> ${cleanSummary}${locationText ? ` con sede en ${locationText}` : ""}.</p>`
@@ -3114,6 +3147,11 @@ async function buildGroundedCustomBlock(
       { q: "¿Cómo son las evaluaciones y exámenes finales?", a: "Dependiendo de la modalidad, se realizan exámenes presenciales en sede o a través de la plataforma virtual con supervisión docente." },
       { q: "¿Cuentan con bolsa de empleo o convenios con empresas?", a: "Sí, facilitamos prácticas profesionales y vinculación directa con el mercado laboral para estudiantes y egresados." },
       { q: "¿Cómo comunicarse con secretaría académica?", a: "Mediante nuestros canales directos de atención telefónica, mensajería y correo institucional." },
+      { q: "¿Tienen convenios internacionales o programas de intercambio?", a: "Sí, mantenemos alianzas y convenios con universidades y centros educativos del exterior para movilidad académica." },
+      { q: "¿Cuáles son las formas de pago de matrículas y aranceles?", a: "Disponemos de débito automático, tarjetas de crédito, transferencias y planes de pago en cuotas fijas." },
+      { q: "¿Otorgan certificados intermedios o títulos oficiales de validez nacional?", a: "Todas nuestras carreras y diplomaturas otorgan títulos oficiales reconocidos por el Ministerio de Educación." },
+      { q: "¿Cómo acceder a tutorías y apoyo pedagógico?", a: "Los estudiantes cuentan con acompañamiento tutorial personalizado y espacios de consulta docente durante toda la cursada." },
+      { q: "¿Ofrecen actividades extracurriculares o cursos de extensión?", a: "Sí, desarrollamos talleres, cursos de actualización continua, webinars y actividades deportivas y culturales." },
     ];
 
     const faqPoolGeneral = [
@@ -3127,6 +3165,11 @@ async function buildGroundedCustomBlock(
       { q: "¿Cuál es el horario habitual de atención?", a: "Lunes a Viernes de 09:00 a 18:00 hs con guardia para consultas urgentes." },
       { q: "¿Dónde puedo ver opiniones o testimonios de clientes?", a: "Podés revisar la sección de valoraciones en nuestra web y ficha de Google Maps verificada." },
       { q: "¿Cómo comunicarme en caso de urgencia o consulta especial?", a: "Disponemos de canal de WhatsApp y línea de atención directa habilitada." },
+      { q: "¿Emiten factura fiscal (A o B) por los servicios contratados?", a: "Sí, emitimos comprobantes fiscales oficiales conforme a la normativa vigente para personas físicas y jurídicas." },
+      { q: "¿Cuentan con promociones especiales o descuentos por contratación anticipada?", a: "Consulte periódicamente con nuestro equipo sobre beneficios vigentes, convenios y promociones activas." },
+      { q: "¿Cómo cancelo o reprogramo una cita o servicio coordinado?", a: "Podés avisar con antelación a través de nuestros canales de mensajería para reprogramar sin costo adicional." },
+      { q: "¿Disponen de canales de atención post-venta o soporte continuo?", a: "Sí, brindamos seguimiento y soporte post-servicio para asegurar la completa satisfacción de cada cliente." },
+      { q: "¿Tienen políticas de confidencialidad y privacidad de datos?", a: "Toda la información y documentación compartida es tratada bajo estrictos estándares de confidencialidad y protección de datos." },
     ];
 
     const pool = isLegalEntity ? faqPoolLegal : (/universidad|colegio|facultad|carrera/i.test(host) ? faqPoolEdu : faqPoolGeneral);
@@ -3499,7 +3542,7 @@ async function createFallbackPublication(
 
   const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
   if (effectiveTitlePrompt) {
-    titleClean = generateImpactfulTitle(titleClean, classified.sector, effectiveTitlePrompt, locInfo.primaryCity);
+    titleClean = generateImpactfulTitle(titleClean, classified.sector, effectiveTitlePrompt, locInfo.primaryCity, allText, extractedData.title);
   }
 
   const headquarterLocations = resolveHeadquarterLocations(
@@ -3565,7 +3608,7 @@ async function createFallbackPublication(
     }
   }
 
-  return {
+  const fallbackResult: ScrapedPublication = {
     url: extractedData.url,
     title: titleClean,
     titleI18n: { es: titleClean, en: titleClean, pt: titleClean, it: titleClean },
@@ -3606,6 +3649,15 @@ async function createFallbackPublication(
     providerTypes: classified.providerTypes,
     providerModalities: classified.providerModalities,
   };
+
+  return enforceStrictTaxonomyGuardrails(
+    fallbackResult,
+    extractedData,
+    taxonomies,
+    customAdminPrompt,
+    customTitlePrompt,
+    customDescriptionPrompt
+  );
 }
 
 function extractJsonFromModelResponse(text: string): any {
@@ -3792,7 +3844,7 @@ Para CADA uno de los siguientes bloques, analiza la información del sitio web y
 ${customBlocks
   .map(
     (b, i) =>
-      `   * Bloque ${i + 1}: Título: "${b.title}"\n     Directiva específica del administrador para el contenido de este bloque: "${b.prompt ? b.prompt : 'Extraer y detallar información clara, útil y relevante del sitio web en párrafos <p> y viñetas.'}"\n     REGLA ESTRICTA DE EXHAUSTIVIDAD: Si la directiva pide una cantidad de preguntas o ítems (ej: 10 preguntas con respuestas), genera RIGUROSAMENTE TODAS las preguntas solicitadas con respuestas completas y útiles en párrafos <p><strong>¿Pregunta?</strong><br/>Respuesta detallada.</p>. NUNCA limites o trunques a 3 o 4 preguntas.`
+      `   * Bloque ${i + 1}: Título: "${b.title}"\n     Directiva específica del administrador para el contenido de este bloque: "${b.prompt ? b.prompt : 'Extraer y detallar información clara, útil y relevante del sitio web en párrafos <p> y viñetas.'}"\n     REGLA OBLIGATORIA DE EXHAUSTIVIDAD Y CANTIDAD: Si la directiva pide una cantidad de preguntas o ítems (ej: "10 preguntas con sus respuestas", "8 preguntas", etc.), DEBES GENERAR EXACTAMENTE ESE NÚMERO DE PREGUNTAS (ej: exactamente 10 bloques <p><strong>¿Pregunta?</strong><br/>Respuesta detallada.</p>). ESTÁ TERMINANTEMENTE PROHIBIDO resumir o truncar a 3 o 4 preguntas. Devuelve la lista completa y exhaustiva solicitada.`
   )
   .join("\n")}
 ======================================================================
@@ -4152,10 +4204,7 @@ async function formatPublicationResult(
 
   const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
   if (effectiveTitlePrompt) {
-    const isGenericTitle = !title.includes("|") || title.trim() === publisherName || title.trim() === cleanTitleString(extractedData.title);
-    if (isGenericTitle || checkPromptIsImpact(effectiveTitlePrompt)) {
-      title = generateImpactfulTitle(title, sectorClassification?.sector || "general", effectiveTitlePrompt, city);
-    }
+    title = generateImpactfulTitle(title, sectorClassification?.sector || "general", effectiveTitlePrompt, city, allText, publisherName);
   }
 
   // Use fuzzy matching against canonical DB options
@@ -4209,12 +4258,14 @@ async function formatPublicationResult(
 
   let finalDescEs = normalizeToSpanishDescriptionHeaders(rawDescEs);
 
+  const effectiveDescPrompt = (customDescriptionPrompt || "").trim() || (customAdminPrompt || "").trim();
+
   // If prompt asks to strip icons / emojis
-  if (customAdminPrompt && checkPromptOmitIcons(customAdminPrompt)) {
+  if (effectiveDescPrompt && checkPromptOmitIcons(effectiveDescPrompt)) {
     finalDescEs = stripEmojisAndIcons(finalDescEs);
   }
   // If prompt asks to strip prices
-  if (customAdminPrompt && checkPromptOmitPrice(customAdminPrompt)) {
+  if (effectiveDescPrompt && checkPromptOmitPrice(effectiveDescPrompt)) {
     finalDescEs = finalDescEs
       .replace(/<p>\s*<strong>\s*Precio:[\s\S]*?<\/p>/gi, "")
       .replace(/<strong>\s*Precio:[\s\S]*?(?=<strong>|<\/p>|$)/gi, "")
@@ -4223,12 +4274,24 @@ async function formatPublicationResult(
       });
   }
 
-  // Check if AI description is valid and sufficiently descriptive
-  const hasValidContent = finalDescEs.length >= 25 && (finalDescEs.includes("<p>") || finalDescEs.length >= 60);
+  const hasExecutiveSummary = /resumen ejecutivo/i.test(finalDescEs);
+  const hasWhoWeAre = /qui[eé]nes somos/i.test(finalDescEs);
+  const hasStory = /historia|trayectoria/i.test(finalDescEs);
+  const hasServices = /servicios? y prestaciones|prestaciones y áreas|servicios clave/i.test(finalDescEs);
 
-  // If the AI description was missing, too short, or lacks content, generate grounded descriptions
+  const promptMismatch = Boolean(effectiveDescPrompt && (
+    (checkPromptIsExecutiveSummary(effectiveDescPrompt) && !hasExecutiveSummary) ||
+    (checkPromptIsWhoWeAre(effectiveDescPrompt) && !hasWhoWeAre) ||
+    (checkPromptIsStory(effectiveDescPrompt) && !hasStory) ||
+    (checkPromptIsServicesDetailed(effectiveDescPrompt) && !hasServices)
+  ));
+
+  // Check if AI description is valid, has HTML structure, and satisfies custom prompt
+  const hasValidContent = !promptMismatch && finalDescEs.length >= 25 && (finalDescEs.includes("<p>") || finalDescEs.length >= 60);
+
+  // If the AI description was missing, too short, lacks content, or failed the specific prompt, generate grounded descriptions
   if (!hasValidContent) {
-    const fallbackDesc = await buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country, customAdminPrompt);
+    const fallbackDesc = await buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country, effectiveDescPrompt);
     finalDescEs = fallbackDesc.es;
     rawDescEn = fallbackDesc.en;
     rawDescPt = fallbackDesc.pt;
@@ -4336,9 +4399,16 @@ async function formatPublicationResult(
           formattedExtraDescriptions[existingIdx].prompt = customBlock.prompt;
         }
         const currentBody = formattedExtraDescriptions[existingIdx].body || "";
-        const requested10Faqs = /10|diez/i.test(customBlock.prompt || "") && /faq|pregunt/i.test(cleanCustomTitle);
-        const hasFewFaqs = (currentBody.match(/<strong/g) || []).length < 6;
-        if (requested10Faqs && hasFewFaqs) {
+        const countMatch = (customBlock.prompt || "").match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) ||
+          (customBlock.prompt || "").match(/\b(1\d|[2-9])\b/);
+        const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (/faq|pregunt/i.test(cleanCustomTitle) ? 8 : 0);
+        const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(cleanCustomTitle) || /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(customBlock.prompt || "");
+
+        const questionMarks = (currentBody.match(/\?/g) || []).length;
+        const pTagsCount = (currentBody.match(/<p>/gi) || []).length;
+        const actualQCount = Math.max(questionMarks, pTagsCount);
+
+        if (isFaq && requestedCount > 0 && actualQCount < requestedCount) {
           const generatedCustom = await buildGroundedCustomBlock(
             customBlock,
             extractedData,
@@ -4437,15 +4507,27 @@ async function formatPublicationResult(
     providerModalities: matchedModalities.length ? matchedModalities : ["Atención presencial", "Atención online"],
   };
 
-  return enforceStrictTaxonomyGuardrails(draftResult, extractedData, taxonomies, customAdminPrompt);
+  return enforceStrictTaxonomyGuardrails(
+    draftResult,
+    extractedData,
+    taxonomies,
+    customAdminPrompt,
+    customTitlePrompt,
+    customDescriptionPrompt
+  );
 }
 
 function enforceStrictTaxonomyGuardrails(
   publication: ScrapedPublication,
   extractedData: any,
   taxonomies?: any,
-  customAdminPrompt?: string
+  customAdminPrompt?: string,
+  customTitlePrompt?: string,
+  customDescriptionPrompt?: string
 ): ScrapedPublication {
+  const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
+  const effectiveDescPrompt = (customDescriptionPrompt || "").trim() || (customAdminPrompt || "").trim();
+
   const allText = `${publication.url} ${publication.title} ${publication.description} ${extractedData.textContent}`.toLowerCase();
   let titleClean = cleanTitleString(publication.title);
   publication.title = titleClean;
@@ -4459,7 +4541,7 @@ function enforceStrictTaxonomyGuardrails(
     const locText = [publication.city, publication.country].filter(Boolean).join(", ");
     const siteUrl = escapeHtml(publication.website || publication.url);
     const summaryClean = escapeHtml(decodeHtmlEntities((extractedData.description || extractedData.textContent || publication.title).slice(0, 380))).trim();
-    if (customAdminPrompt && customAdminPrompt.trim().length > 0) {
+    if (effectiveDescPrompt && effectiveDescPrompt.trim().length > 0) {
       const baseEntity = publication.publisherName || publication.title;
       descEs = [
         `<p><strong>${baseEntity}</strong> se destaca como una institución de referencia${locText ? ` con sede en ${locText}` : ""}, ofreciendo soluciones y servicios de primer nivel orientados a la excelencia y la innovación.</p>`,
@@ -4478,12 +4560,12 @@ function enforceStrictTaxonomyGuardrails(
     descEs = normalizeToSpanishDescriptionHeaders(descEs);
   }
 
-  if (customAdminPrompt) {
-    const wantsIcons = /con\s+emojis?|usar\s+emojis?|incluir\s+emojis?/i.test(customAdminPrompt);
-    if (checkPromptOmitIcons(customAdminPrompt) || !wantsIcons) {
+  if (effectiveDescPrompt) {
+    const wantsIcons = /con\s+emojis?|usar\s+emojis?|incluir\s+emojis?/i.test(effectiveDescPrompt);
+    if (checkPromptOmitIcons(effectiveDescPrompt) || !wantsIcons) {
       descEs = stripEmojisAndIcons(descEs);
     }
-    if (checkPromptOmitPrice(customAdminPrompt) || checkPromptIsEssential(customAdminPrompt)) {
+    if (checkPromptOmitPrice(effectiveDescPrompt) || checkPromptIsEssential(effectiveDescPrompt)) {
       descEs = descEs
         .replace(/<p>\s*<strong>\s*Precio:[\s\S]*?<\/p>/gi, "")
         .replace(/<strong>\s*Precio:[\s\S]*?(?=<strong>|<\/p>|$)/gi, "")
@@ -4535,7 +4617,7 @@ function enforceStrictTaxonomyGuardrails(
     const hostname = new URL(publication.url).hostname.replace(/^www\./, "").toLowerCase();
     for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
       if (hostname.includes(domainKey) || publication.url.toLowerCase().includes(domainKey)) {
-        if (!customAdminPrompt || !checkPromptIsImpact(customAdminPrompt) || !publication.title.includes("|")) {
+        if (!effectiveTitlePrompt || !publication.title.includes("|")) {
           publication.title = cleanTitleString(publication.title || info.name);
         }
         publication.publisherName = cleanTitleString(info.name);

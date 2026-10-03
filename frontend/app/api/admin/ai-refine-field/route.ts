@@ -419,7 +419,8 @@ function buildSystemRefinePrompt(
   prompt: string,
   meta: { title?: string; publisherName?: string; category?: string; city?: string; country?: string; url?: string },
   conversationHistory: ConversationMessage[] = [],
-  investigatedWeb?: InvestigatedWebInfo | null
+  investigatedWeb?: InvestigatedWebInfo | null,
+  variationIndex: number = 0
 ): string {
   const historyStr = conversationHistory.length > 0
     ? conversationHistory.map(m => `${m.role === "user" ? "Administrador" : "Asistente"}: "${m.content}"`).join("\n")
@@ -437,8 +438,27 @@ function buildSystemRefinePrompt(
 `
     : "";
 
+  const variationDirectives = [
+    "ÁNGULO COMERCIAL Y DIRECTO: Enfócate en la solución inmediata, propuesta de valor concreta y llamado a la acción persuasivo.",
+    "ÁNGULO INSTITUCIONAL Y PRESTIGIO: Destaca solidez, trayectoria, acreditaciones y rigurosidad profesional.",
+    "ÁNGULO BENEFICIOS Y DIFERENCIALES: Enfócate en las ventajas clave, métodos de atención modernos y conveniencia para el usuario.",
+    "ÁNGULO CERCANO Y CONSULTIVO: Tono empático, resolutivo y consultivo enfocado en acompañamiento integral.",
+    "ÁNGULO ESTRATÉGICO Y RESULTADOS: Síntesis ejecutiva de alto impacto, celeridad y efectividad comprobable.",
+    "ÁNGULO DE SERVICIOS Y ESPECIALIDADES: Desglose claro de prestaciones, cobertura y capacidades operativas.",
+    "ÁNGULO INNOVADOR Y VANGUARDISTA: Métodos modernos, atención digital ágil y soluciones simplificadas.",
+    "ÁNGULO DE CONFIABILIDAD Y TRANSPARENCIA: Enfoque en seguridad jurídica, honestidad en presupuestos y respaldo integral.",
+  ];
+  const currentDirective = variationDirectives[Math.abs(variationIndex) % variationDirectives.length];
+
   return `
 Eres el Asistente de Inteligencia Artificial y Lead Copywriter Creativo Supremo de Travelgrin (actúas con total libertad, inteligencia y flexibilidad, exactamente como ChatGPT Plus o Gemini Advanced).
+
+🔄 DIRECTIVA OBLIGATORIA DE VARIACIÓN Y ROTACIÓN (VERSIÓN #${variationIndex + 1}):
+- ¡ES IMPERATIVO QUE ESTA RESPUESTA SEA COMPLETAMENTE DIFERENTE A CUALQUIER PROPUESTA PREVIA!
+- Si el texto actual ya tiene un enfoque, redacción o estructura, CAMBIA TOTALMENTE el ángulo, el gancho inicial, el vocabulario y la disposición de ideas.
+- En esta iteración debes adoptar preferentemente el enfoque: "${currentDirective}".
+- En títulos: prueba un formato totalmente distinto (ej: si antes fue "Nombre | Especialista...", ahora prueba una frase de impacto con beneficio directo, o una pregunta potente, o un gancho comercial enfocado en soluciones).
+- En descripciones: cambia los títulos de las secciones, el orden de los argumentos, los conectores y la forma de presentar los servicios o trayectoria.
 
 🎯 TU MISIÓN FUNDAMENTAL:
 Comprender a la perfección la idea, tono y visión que el administrador pide en su instrucción, sin importar qué tan loca, creativa, resumida, extensa, con errores ortográficos (ej. 'pregunats', 'iciono', 'descipcion', 'haslo', 'kiero', 'preecios') o informal ('broh', 'ponele', 'hacelo', 'sacale', 'dejame') sea su solicitud. Debes alinearte siempre a lo que él busque transmitir.
@@ -621,7 +641,8 @@ async function callGeminiApi(
   geminiKey: string,
   systemPrompt: string,
   userMessage: string,
-  fieldType: FieldType
+  fieldType: FieldType,
+  variationIndex: number = 0
 ): Promise<any | null> {
   const models = [
     "gemini-2.0-flash",
@@ -631,6 +652,10 @@ async function callGeminiApi(
     "gemini-1.5-flash-latest",
     "gemini-1.5-flash-8b",
   ];
+
+  const enrichedUserMessage = variationIndex > 0
+    ? `${userMessage}\n\n[INSTRUCCIÓN ESTRICTA DE ROTACIÓN: Variación #${variationIndex + 1}. Prohibido devolver la misma plantilla, texto o estructura que la versión anterior. Genera un contenido completamente fresco, variado y con otro vocabulario y orden.]`
+    : userMessage;
 
   for (const model of models) {
     try {
@@ -646,11 +671,11 @@ async function callGeminiApi(
             contents: [
               {
                 role: "user",
-                parts: [{ text: userMessage }],
+                parts: [{ text: enrichedUserMessage }],
               },
             ],
             generationConfig: {
-              temperature: 0.7,
+              temperature: 0.85,
               responseMimeType: "application/json",
             },
           }),
@@ -678,11 +703,11 @@ async function callGeminiApi(
             contents: [
               {
                 role: "user",
-                parts: [{ text: `${systemPrompt}\n\n${userMessage}` }],
+                parts: [{ text: `${systemPrompt}\n\n${enrichedUserMessage}` }],
               },
             ],
             generationConfig: {
-              temperature: 0.7,
+              temperature: 0.85,
             },
           }),
         },
@@ -710,9 +735,14 @@ async function callOpenAiApi(
   openaiKey: string,
   systemPrompt: string,
   userMessage: string,
-  fieldType: FieldType = "description"
+  fieldType: FieldType = "description",
+  variationIndex: number = 0
 ): Promise<any | null> {
   const models = ["gpt-4o-mini", "gpt-4o"];
+  const enrichedUserMessage = variationIndex > 0
+    ? `${userMessage}\n\n[INSTRUCCIÓN ESTRICTA DE ROTACIÓN: Variación #${variationIndex + 1}. Genera una propuesta diferente a las versiones previas.]`
+    : userMessage;
+
   for (const model of models) {
     try {
       const resp = await fetchWithTimeout(
@@ -727,10 +757,10 @@ async function callOpenAiApi(
             model,
             messages: [
               { role: "system", content: systemPrompt },
-              { role: "user", content: userMessage },
+              { role: "user", content: enrichedUserMessage },
             ],
             response_format: { type: "json_object" },
-            temperature: 0.7,
+            temperature: 0.85,
           }),
         },
         15000
@@ -873,39 +903,54 @@ function generateSemanticAiFallback(
 
     // 0. Marketing, Conversión, Especialista o Enfoque Comercial
     if (/marketing|conversi[oó]n|especialista|vendedor|llamativ|gancho|cta|captar|potente|atractiv/i.test(pLower)) {
-      if (isJudicial || /abogad|migrat|jur[ií]dic|legal|ciudadan/i.test(`${cleanName} ${prompt} ${meta.title || ''}`)) {
+      if (isJudicial || /abogad|migrat|jur[ií]dic|legal|ciudadan|extranjer|residencia/i.test(`${cleanName} ${prompt} ${meta.title || ''} ${entityCorpus}`)) {
         const v = [
           `${cleanName} | Especialista Líder en Derecho Migratorio, Ciudadanías y Radicaciones`,
-          `${cleanName} | Asesoría Legal Estratégica: Tu Residencia y Ciudadanía con Éxito Asegurado`,
-          `${cleanName} | Soluciones Migratorias Rápidas: Ciudadanía Italiana, Española y Residencia Argentina`,
+          `¡Tu Residencia y Ciudadanía con Éxito Asegurado! | ${cleanName} - Asesoría Legal`,
+          `${cleanName}: Soluciones Migratorias Rápidas, Ciudadanía Italiana y Residencia Argentina`,
           `Especialista en Trámites Migratorios y Extranjería | ${cleanName} - Asesoramiento Integral`,
-          `${cleanName} | Consultoría Legal de Alta Conversión: Gestión Segura de Visas y Nacionalidades`,
+          `${cleanName} | Consultoría Legal Estratégica: Gestión Segura de Visas y Nacionalidades`,
+          `¿Buscás Regularizar tu Situación Migratoria? ${cleanName} te Asesora con Respaldo Total`,
           `Estudio Jurídico Especializado en Migraciones | ${cleanName} - Atención Remota y Presencial`,
+          `${cleanName} | Seguridad Jurídica y Celeridad en Trámites Consulares y Notariales`,
         ];
         return { title: v[Math.abs(variationIndex) % v.length] };
       }
       if (isEducation) {
         const v = [
           `${cleanName} | Formación Universitaria Líder con Alta Salida Laboral e Inscripciones Abiertas`,
-          `${cleanName} | Carreras Oficiales de Vanguardia y Modalidad Flexible Diseñadas para tu Éxito`,
-          `¡Impulsá tu Futuro Profesional! ${cleanName} | Títulos Oficiales y Becas Disponibles`,
-          `${cleanName} | Especialistas en Educación Superior: Planes Modernos y Campus Virtual 24/7`,
+          `¡Impulsá tu Futuro Profesional! ${cleanName} | Carreras Oficiales y Becas Disponibles`,
+          `${cleanName}: Carreras de Vanguardia y Modalidad Flexible Diseñadas para tu Éxito`,
+          `Especialistas en Educación Superior | ${cleanName} - Campus Virtual 24/7`,
+          `${cleanName} | Títulos Oficiales con Validez Nacional y Rápida Inserción Laboral`,
+          `¿Querés una Carrera Universitaria de Primer Nivel? Estudiá en ${cleanName}`,
+          `${cleanName} | Excelencia Académica y Programas Diseñados para Trabajar`,
+          `Liderá el Mercado Laboral con ${cleanName} | Inscripciones Abiertas`,
         ];
         return { title: v[Math.abs(variationIndex) % v.length] };
       }
       if (isHealth) {
         const v = [
           `${cleanName} | Especialistas Médicos de Primer Nivel: Guardia 24hs y Turnos Inmediatos`,
-          `${cleanName} | Centro de Salud Líder: Tecnología Médica Avanzada y Atención Humanizada`,
           `¡Cuidá tu Salud con los Mejores Profesionales! ${cleanName} | Cobertura Médica Integral`,
+          `${cleanName}: Centro de Salud Líder con Tecnología Avanzada y Atención Humanizada`,
+          `Especialistas en Medicina y Diagnóstico | ${cleanName} - Turnos Online Sin Demoras`,
+          `${cleanName} | Excelencia Médica, Guardia Activa y Consultorios Multidisciplinarios`,
+          `¿Buscás Atención Médica de Alta Complejidad? ${cleanName} te Ofrece Seguridad Total`,
+          `${cleanName} | Sanatorio y Especialidades con Cobertura para Toda la Familia`,
+          `Atención Médica Inmediata y Especialistas Referentes | ${cleanName}`,
         ];
         return { title: v[Math.abs(variationIndex) % v.length] };
       }
       const vGen = [
         `${cleanName} | Especialistas en Soluciones Profesionales de Alto Impacto y Conversión`,
-        `${cleanName} | Calidad, Trayectoria y Resultados Concretos para tus Proyectos`,
-        `${cleanName} | Servicios Profesionales Líderes: Asesoramiento Estratégico a Medida`,
-        `¡Elegí la Mejor Opción con Respaldo Garantizado! ${cleanName} | Asesoría Inmediata`,
+        `¡Resultados Concretos y Calidad Verificada! ${cleanName} | Asesoramiento Inmediato`,
+        `${cleanName}: Calidad, Trayectoria y Soluciones Estratégicas a Medida`,
+        `Servicios Profesionales de Referencia | ${cleanName} - Atención Personalizada`,
+        `${cleanName} | Máxima Eficiencia y Respaldo Garantizado para tus Proyectos`,
+        `¿Buscás Asesoramiento de Primer Nivel? Elegí ${cleanName} con Confianza`,
+        `${cleanName} | Experiencia Comprobada y Soluciones Integrales para vos`,
+        `Líderes en el Rubro | ${cleanName} - Atención Ágil y Resultados Concretos`,
       ];
       return { title: vGen[Math.abs(variationIndex) % vGen.length] };
     }
@@ -1311,22 +1356,47 @@ function generateSemanticAiFallback(
 
     // 0. SPECIAL: WHO WE ARE / PUNCTUAL INSTITUTIONAL SYNTHESIS
     if (isWhoWeAre) {
-      const entityHeading = cleanName ? `<strong>${cleanName}</strong>` : "<strong>Presentación Institucional</strong>";
-      const b1 = isHealth ? "Guardia médica continua 24hs y cuerpo de especialistas multidisciplinarios."
-        : isEducation ? "Carreras de grado, posgrados y títulos con validez nacional."
-        : isSports ? "Instalaciones equipadas y entrenamiento profesional guiado."
-        : "Servicios certificados y estándares de calidad comprobados.";
-
-      const b2 = isHealth ? "Tecnología médica avanzada para diagnósticos e internación."
-        : isEducation ? "Modalidades presenciales y virtuales con campus digital 24/7."
-        : isSports ? "Horarios flexibles y programas para todas las disciplinas."
-        : "Atención personalizada y asesoramiento continuo.";
-
-      let whoWeAreOutput = [
-        `<p>${omitIcons ? "" : "🏛️ "}${entityHeading}: ${rawValueProp}.</p>`,
-        `<p>${omitIcons ? "" : "⭐ "}<strong>Aspectos y Servicios Destacados:</strong><br/>• ${b1}<br/>• ${b2}</p>`,
-        `<p>${omitIcons ? "" : "📍 "}<strong>Sede y Contacto:</strong> Información institucional y canales directos de atención disponibles${locStr}.</p>`,
-      ].join("\n");
+      const whoIdx = Math.abs(variationIndex) % 6;
+      let whoWeAreOutput = "";
+      if (whoIdx === 0) {
+        const b1 = isLegal || isJudicial ? "Asesoría especializada en derecho migratorio, radicaciones, doble nacionalidad y visas consulares." : isHealth ? "Guardia médica continua 24hs y cuerpo de especialistas multidisciplinarios." : isEducation ? "Carreras de grado, posgrados y títulos con validez nacional." : "Servicios certificados y estándares de calidad comprobados.";
+        const b2 = isLegal || isJudicial ? "Gestión remota nacional e internacional con respaldo jurídico integral." : isHealth ? "Tecnología médica avanzada para diagnósticos e internación." : isEducation ? "Modalidades presenciales y virtuales con campus digital 24/7." : "Atención personalizada y asesoramiento continuo.";
+        whoWeAreOutput = [
+          `<p>${omitIcons ? "" : "🏛️ "}<strong>Quiénes Somos:</strong> ${cleanName ? `${cleanName} es una entidad referente en ` : ""}${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "⭐ "}<strong>Aspectos y Servicios Destacados:</strong><br/>• ${b1}<br/>• ${b2}</p>`,
+          `<p>${omitIcons ? "" : "📍 "}<strong>Sede y Contacto:</strong> Información institucional y canales directos de atención disponibles${locStr}.</p>`,
+        ].join("\n");
+      } else if (whoIdx === 1) {
+        whoWeAreOutput = [
+          `<p>${omitIcons ? "" : "🎯 "}<strong>Nuestra Identidad y Misión:</strong> ${cleanName || "La institución"} orienta su labor profesional a resolver las necesidades de cada usuario con máxima dedicación: ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "🤝 "}<strong>Compromiso y Ética:</strong> Transparencia, confidencialidad y vocación de servicio en cada gestión y consulta.</p>`,
+          `<p>${omitIcons ? "" : "📞 "}<strong>Vías de Comunicación:</strong> Canales oficiales directos habilitados para asesoramiento personalizado.</p>`,
+        ].join("\n");
+      } else if (whoIdx === 2) {
+        whoWeAreOutput = [
+          `<p>${omitIcons ? "" : "💼 "}<strong>Presentación Institucional:</strong> Con sólida presencia y trayectoria${locStr}, ${cleanName ? `el equipo de ${cleanName}` : "nuestro equipo"} se especializa en ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "🔍 "}<strong>Metodología de Trabajo:</strong> Diagnóstico detallado desde el primer contacto para brindar soluciones eficaces y seguras.</p>`,
+          `<p>${omitIcons ? "" : "📍 "}<strong>Atención y Canales:</strong> Atención presencial y asistencia remota centralizada por vías digitales.</p>`,
+        ].join("\n");
+      } else if (whoIdx === 3) {
+        whoWeAreOutput = [
+          `<p>${omitIcons ? "" : "👥 "}<strong>Quiénes Integran el Equipo:</strong> Profesionales capacitados con amplia experiencia y sólida formación técnica: ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "🛡️ "}<strong>Garantía de Respaldo:</strong> Procesos transparentes, comunicación permanente y cumplimiento normativo estricto.</p>`,
+          `<p>${omitIcons ? "" : "💬 "}<strong>Consultas:</strong> Mesa de informes y orientación disponible para todos los interesados.</p>`,
+        ].join("\n");
+      } else if (whoIdx === 4) {
+        whoWeAreOutput = [
+          `<p>${omitIcons ? "" : "📌 "}<strong>Perfil Institucional Conciso:</strong> ${cleanName ? `${cleanName} - ` : ""}${rawValueProp}. Enfoque directo, profesional y orientado a resultados concretos.</p>`,
+          `<p>${omitIcons ? "" : "✨ "}<strong>Valores Clave:</strong> Excelencia operativa, calidez en la atención y rigurosidad técnica.</p>`,
+          `<p>${omitIcons ? "" : "🌐 "}<strong>Acceso y Gestión:</strong> Plataforma oficial y canales de consulta habilitados permanentemente.</p>`,
+        ].join("\n");
+      } else {
+        whoWeAreOutput = [
+          `<p>${omitIcons ? "" : "🌟 "}<strong>Acerca de ${cleanName || "la Entidad"}:</strong> Referente destacado por su trayectoria, calidad en sus prestaciones y compromiso constante: ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "🚀 "}<strong>Diferencial Operativo:</strong> Asesoramiento personalizado adaptado a cada caso, reduciendo tiempos y asegurando respuestas claras.</p>`,
+          `<p>${omitIcons ? "" : "📩 "}<strong>Atención Directa:</strong> Consultas e información coordinadas a través de sus canales oficiales.</p>`,
+        ].join("\n");
+      }
 
       if (omitIcons) whoWeAreOutput = stripEmojisAndIcons(whoWeAreOutput);
       return { description: whoWeAreOutput };
@@ -1377,14 +1447,49 @@ function generateSemanticAiFallback(
 
     // 2. FORMAL INSTITUTIONAL FORMAT
     if (isFormal) {
-      let formalOutput = [
-        vigenciaLine || priceLine ? `<p>${[vigenciaLine, priceLine].filter(Boolean).join(" ")}</p>` : "",
-        `<p>${omitIcons ? "" : "🏛️ "}<strong>Presentación Institucional:</strong> ${rawValueProp}.</p>`,
-        `<p>${omitIcons ? "" : "📜 "}<strong>Servicios & Respaldo Oficial:</strong> Programas y prestaciones con estricto cumplimiento normativo, acreditación oficial y estándares de excelencia profesional.</p>`,
-        !omitDiferencial ? `<p>${omitIcons ? "" : "⭐ "}<strong>Diferencial Institucional:</strong> ${facts.diff || `Cuerpo profesional de destacada trayectoria, asesoramiento personalizado y canales de comunicación directos.`}</p>` : "",
-        !omitExclusiones ? `<p>${omitIcons ? "" : "⚠️ "}<strong>Información Importante:</strong> ${facts.excl || "Consultar requisitos y disponibilidad en los canales institucionales habilitados."}</p>` : "",
-        `<p>${omitIcons ? "" : "📍 "}<strong>Ubicación & Contacto:</strong> Sede oficial${locStr}. Canales habilitados para consultas e inscripciones.</p>`,
-      ].filter(Boolean).join("\n");
+      const formalIdx = Math.abs(variationIndex) % 6;
+      let formalOutput = "";
+      if (formalIdx === 0) {
+        formalOutput = [
+          vigenciaLine || priceLine ? `<p>${[vigenciaLine, priceLine].filter(Boolean).join(" ")}</p>` : "",
+          `<p>${omitIcons ? "" : "🏛️ "}<strong>Presentación Institucional:</strong> ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "📜 "}<strong>Servicios & Respaldo Oficial:</strong> Programas y prestaciones con estricto cumplimiento normativo, acreditación oficial y estándares de excelencia profesional.</p>`,
+          !omitDiferencial ? `<p>${omitIcons ? "" : "⭐ "}<strong>Diferencial Institucional:</strong> ${facts.diff || `Cuerpo profesional de destacada trayectoria, asesoramiento personalizado y canales de comunicación directos.`}</p>` : "",
+          !omitExclusiones ? `<p>${omitIcons ? "" : "⚠️ "}<strong>Información Importante:</strong> ${facts.excl || "Consultar requisitos y disponibilidad en los canales institucionales habilitados."}</p>` : "",
+          `<p>${omitIcons ? "" : "📍 "}<strong>Ubicación & Contacto:</strong> Sede oficial${locStr}. Canales habilitados para consultas e inscripciones.</p>`,
+        ].filter(Boolean).join("\n");
+      } else if (formalIdx === 1) {
+        formalOutput = [
+          `<p>${omitIcons ? "" : "⚖️ "}<strong>Marco Institucional y Operativo:</strong> ${cleanName || "La entidad"} desarrolla sus actividades bajo rigurosos protocolos técnicos y de calidad: ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "📋 "}<strong>Áreas de Cobertura y Especialidad:</strong> Servicios integrales diseñados con base en las normativas vigentes y mejores prácticas del sector.</p>`,
+          `<p>${omitIcons ? "" : "🛡️ "}<strong>Garantía de Seguridad Jurídica:</strong> Confidencialidad absoluta, matriculación oficial y respaldo institucional continuo.</p>`,
+          `<p>${omitIcons ? "" : "📞 "}<strong>Mesa de Entradas y Atención:</strong> Canales institucionales formales habilitados para recepción de trámites.</p>`,
+        ].join("\n");
+      } else if (formalIdx === 2) {
+        formalOutput = [
+          `<p>${omitIcons ? "" : "📜 "}<strong>Reseña y Competencias Profesionales:</strong> ${rawValueProp}. Trayectoria consolidada en ${cityStr || "su jurisdicción"}.</p>`,
+          `<p>${omitIcons ? "" : "🔍 "}<strong>Estándares de Auditoría:</strong> Procesos certificados orientados a la máxima exactitud técnica y satisfacción del usuario.</p>`,
+          `<p>${omitIcons ? "" : "🏛️ "}<strong>Sede y Vías Formales:</strong> Asistencia presencial programada y gestión electrónica habilitada.</p>`,
+        ].join("\n");
+      } else if (formalIdx === 3) {
+        formalOutput = [
+          `<p>${omitIcons ? "" : "📑 "}<strong>Síntesis Corporativa Oficial:</strong> ${cleanName ? `${cleanName} opera como una institución de referencia` : "Institución de referencia"} en ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "✨ "}<strong>Pilares Institucionales:</strong> Responsabilidad profesional, transparencia en costos y celeridad en la resolución de expedientes.</p>`,
+          `<p>${omitIcons ? "" : "📍 "}<strong>Dependencias Oficiales:</strong> Canales centralizados de atención ciudadana y corporativa.</p>`,
+        ].join("\n");
+      } else if (formalIdx === 4) {
+        formalOutput = [
+          `<p>${omitIcons ? "" : "🎯 "}<strong>Declaración de Prestaciones Institucionales:</strong> ${rawValueProp}. Metodología orientada a la excelencia y respaldo normativo.</p>`,
+          `<p>${omitIcons ? "" : "🤝 "}<strong>Atención Especializada:</strong> Asesoramiento a particulares, instituciones y empresas con profesionales matriculados.</p>`,
+          `<p>${omitIcons ? "" : "📩 "}<strong>Contacto Institucional:</strong> Consultas formales y coordinación por vías oficiales.</p>`,
+        ].join("\n");
+      } else {
+        formalOutput = [
+          `<p>${omitIcons ? "" : "💎 "}<strong>Dictamen Institucional:</strong> ${cleanName || "El prestador"} consolida su propuesta de valor: ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "🔒 "}<strong>Compromiso y Confiabilidad:</strong> Procedimientos auditados, información fehaciente y resguardo integral de datos.</p>`,
+          `<p>${omitIcons ? "" : "🌐 "}<strong>Canales Habilitados:</strong> Plataforma digital y vías presenciales oficiales para atención al público.</p>`,
+        ].join("\n");
+      }
 
       if (omitIcons) formalOutput = stripEmojisAndIcons(formalOutput);
       return { description: formalOutput };
@@ -1933,19 +2038,20 @@ export async function POST(req: Request) {
         url: targetInvestigateUrl || url,
       },
       conversationHistory,
-      investigatedWeb
+      investigatedWeb,
+      variationIndex
     );
 
     let aiResult: any = null;
 
     // 1. Try Gemini Live API with high creative capability
     if (geminiKey) {
-      aiResult = await callGeminiApi(geminiKey, systemPrompt, prompt, fieldType);
+      aiResult = await callGeminiApi(geminiKey, systemPrompt, prompt, fieldType, variationIndex);
     }
 
     // 2. Try OpenAI API if Gemini was not configured or did not return
     if (!aiResult && openaiKey) {
-      aiResult = await callOpenAiApi(openaiKey, systemPrompt, prompt);
+      aiResult = await callOpenAiApi(openaiKey, systemPrompt, prompt, fieldType, variationIndex);
     }
 
     // 3. Fallback to advanced Semantic NLP Generator
