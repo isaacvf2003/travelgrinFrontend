@@ -1683,6 +1683,46 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   };
 
   const [directRefiningField, setDirectRefiningField] = useState<string | null>(null);
+  const reformulateCounterRef = useRef<number>(0);
+
+  const getDefaultCustomBlocks = (): ExtraDescription[] => {
+    try {
+      if (typeof window !== "undefined") {
+        const raw = window.localStorage.getItem("tgn_custom_scraper_blocks");
+        if (raw) {
+          const list: Array<{ title: string; prompt?: string }> = JSON.parse(raw);
+          if (Array.isArray(list) && list.length > 0) {
+            return list
+              .filter((b) => b && b.title && b.title.trim())
+              .map((b) => {
+                const cleanTitle = b.title.trim();
+                return {
+                  title: cleanTitle,
+                  body: "",
+                  titleI18n: { es: cleanTitle, en: cleanTitle, pt: cleanTitle, it: cleanTitle },
+                  bodyI18n: { es: "", en: "", pt: "", it: "" },
+                  lang: "es" as Lang,
+                  visibleInCard: false,
+                };
+              });
+          }
+        }
+      }
+    } catch {}
+    return [];
+  };
+
+  const handleMoveExtraBlock = (index: number, direction: "up" | "down") => {
+    setPExtraDescriptions((prev) => {
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[targetIndex];
+      copy[targetIndex] = temp;
+      return copy;
+    });
+  };
 
   const handleDirectReformulateField = async (
     target: "title" | "description" | "provider_info" | { type: "extra_block"; index: number }
@@ -1692,6 +1732,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (directRefiningField) return;
 
     setDirectRefiningField(fieldTypeKey);
+    reformulateCounterRef.current += 1;
+    const variationIndex = reformulateCounterRef.current;
     const sourceLang = pLang || "es";
     const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
 
@@ -1733,7 +1775,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           }
         } catch {}
 
-        promptToUse = savedBlockPrompt || (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) ||
+        promptToUse = (block as any)?.prompt || savedBlockPrompt || (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) ||
           `Generar contenido estructurado y relevante para el bloque '${currentTitleVal || "Información adicional"}' en párrafos HTML <p>`;
       }
 
@@ -1753,6 +1795,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           sourceLang,
           autoTranslate: false,
           apiKey: customKey,
+          variationIndex,
         }),
       });
 
@@ -3389,6 +3432,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         visibleInCard: d.visibleInCard !== false,
       };
     });
+
+    // Merge any saved custom blocks from localStorage so no configured block is ever missing
+    try {
+      const defaultBlocks = getDefaultCustomBlocks();
+      defaultBlocks.forEach((db) => {
+        const exists = extraDescInit.some(
+          (eb) => eb.title.toLowerCase() === db.title.toLowerCase()
+        );
+        if (!exists) {
+          extraDescInit.push(db);
+        }
+      });
+    } catch {}
+
     setPExtraDescriptions(extraDescInit);
 
     const providerInfoInit = draft.providerInfoI18n || { es: "" };
@@ -4573,7 +4630,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPReceivingCountries([]);
     setPReceivingCountriesMode("all");
     setPTourismType("receptivo");
-    setPExtraDescriptions([]);
+    setPExtraDescriptions(getDefaultCustomBlocks());
     setPProviderInfoLang("es");
     setPProviderInfoI18n({ es: "" });
     setPProviderRating("4");
@@ -9822,13 +9879,36 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   </button>
                   <button
                     type="button"
+                    onClick={() => {
+                      const defs = getDefaultCustomBlocks();
+                      if (defs.length) {
+                        setPExtraDescriptions((prev) => {
+                          const merged = [...prev];
+                          defs.forEach((db) => {
+                            if (!merged.some((eb) => eb.title.toLowerCase() === db.title.toLowerCase())) {
+                              merged.push(db);
+                            }
+                          });
+                          return merged;
+                        });
+                        setSaveMessage("✓ Bloques guardados cargados correctamente.");
+                        window.setTimeout(() => setSaveMessage(""), 3000);
+                      }
+                    }}
+                    title="Cargar los bloques opcionales guardados en el navegador"
+                    className="rounded-lg border border-purple-200 bg-purple-50/70 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition cursor-pointer"
+                  >
+                    + Cargar bloques guardados
+                  </button>
+                  <button
+                    type="button"
                     onClick={() =>
                       setPExtraDescriptions((prev) => [
                         ...prev,
                         { title: "", body: "", titleI18n: { es: "" }, bodyI18n: { es: "" }, lang: "es", visibleInCard: false },
                       ])
                     }
-                    className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                   >
                     + Agregar bloque
                   </button>
@@ -9838,9 +9918,33 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               {pExtraDescriptions.length ? (
                 <div className="grid gap-3">
                   {pExtraDescriptions.map((desc, idx) => (
-                    <div key={`extra-${idx}`} className="grid gap-2 rounded-xl border border-slate-100 p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
+                    <div key={`extra-${idx}`} className="grid gap-2 rounded-xl border border-slate-100 p-3 bg-slate-50/30">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <div className="text-xs font-bold uppercase text-slate-600">Bloque {idx + 1}</div>
+                          {/* Reorder Arrows */}
+                          <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-xs">
+                            <button
+                              type="button"
+                              onClick={() => handleMoveExtraBlock(idx, "up")}
+                              disabled={idx === 0}
+                              title="Subir posición"
+                              className="px-1.5 py-0.5 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer border-r border-slate-100 transition"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveExtraBlock(idx, "down")}
+                              disabled={idx === pExtraDescriptions.length - 1}
+                              title="Bajar posición"
+                              className="px-1.5 py-0.5 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -9938,12 +10042,33 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                 } catch {}
                               }
                             }}
-                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                           >
                             Eliminar
                           </button>
                         </div>
                       </div>
+
+                      {(() => {
+                        const currentTitleVal = (desc.titleI18n?.[pLang] || desc.titleI18n?.es || desc.title || "").trim();
+                        let savedPrompt = "";
+                        try {
+                          const rawSaved = typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_scraper_blocks") : null;
+                          if (rawSaved) {
+                            const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawSaved);
+                            const found = list.find((b) => b.title?.toLowerCase() === currentTitleVal.toLowerCase());
+                            if (found?.prompt) savedPrompt = found.prompt;
+                          }
+                        } catch {}
+                        if (!savedPrompt) return null;
+                        return (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50/80 border border-purple-200 text-[11px] text-purple-800">
+                            <Sparkles className="h-3 w-3 text-purple-600 shrink-0" />
+                            <span className="font-bold text-purple-900">Prompt IA asignado:</span>
+                            <span className="truncate flex-1 font-mono text-[10.5px]" title={savedPrompt}>{savedPrompt}</span>
+                          </div>
+                        );
+                      })()}
                       <input
                         value={desc.titleI18n[pLang] ?? ""}
                         onChange={(e) =>
