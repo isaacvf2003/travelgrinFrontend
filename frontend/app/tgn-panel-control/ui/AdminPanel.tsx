@@ -1683,7 +1683,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   };
 
   const [directRefiningField, setDirectRefiningField] = useState<string | null>(null);
-  const reformulateCounterRef = useRef<number>(0);
+  const reformulateCountersRef = useRef<Record<string, number>>({});
 
   const getDefaultCustomBlocks = (): ExtraDescription[] => {
     try {
@@ -1732,8 +1732,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (directRefiningField) return;
 
     setDirectRefiningField(fieldTypeKey);
-    reformulateCounterRef.current += 1;
-    const variationIndex = reformulateCounterRef.current;
+    reformulateCountersRef.current[fieldTypeKey] = (reformulateCountersRef.current[fieldTypeKey] || 0) + 1;
+    const variationIndex = reformulateCountersRef.current[fieldTypeKey];
     const sourceLang = pLang || "es";
     const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
 
@@ -1787,7 +1787,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           currentText: currentVal,
           currentTitle: currentTitleVal,
           prompt: promptToUse,
-          publisherName: pPublisherName || "",
+          publisherName: pPublisherName || (pTitle ? pTitle.split(/\s*[-–—|]\s*/)[0].trim() : ""),
           category: pCategorySelections.join(", ") || pCategory || "",
           city: pCity || pHeadquarterCity || "",
           country: pCountry || pHeadquarterCountry || "",
