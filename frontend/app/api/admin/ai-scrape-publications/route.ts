@@ -3000,11 +3000,23 @@ async function buildGroundedDescriptions(
       }
     }
   } else {
-    // Standard default 4 paragraphs when NO prompt was provided
-    paragraphs.push(`<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> A consultar / Según aranceles o tarifas del oferente.</p>`);
-    paragraphs.push(`<p>💡 <strong>Propuesta de valor:</strong> ${cleanSummary}${locationText ? ` con sede en ${locationText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`);
-    paragraphs.push(`<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> Español, Inglés. <em>Experiencia y soporte:</em> Información tomada directamente del portal oficial. <em>Diferencial vs. alternativas:</em> Contacto directo con el oferente y respaldo institucional.</p>`);
-    paragraphs.push(`<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${siteUrl} antes de contratar o postular.</p>`);
+    // Standard default paragraphs when NO prompt was provided
+    paragraphs.push(
+      `<p><strong>${baseEntityName}</strong> ofrece servicios y soluciones integrales${locationText ? ` en ${locationText}` : ""}, orientadas a brindar asesoramiento, calidad y atención personalizada a sus usuarios y clientes.</p>`
+    );
+    if (cleanSummary && cleanSummary !== cleanTitle) {
+      paragraphs.push(
+        `<p><strong>Propuesta y Servicios:</strong> ${cleanSummary}.</p>`
+      );
+    }
+    if (servicesListStr && !servicesListStr.includes("Servicios profesionales, atención especializada")) {
+      paragraphs.push(
+        `<p><strong>Especialidades y Prestaciones:</strong> ${servicesListStr}.</p>`
+      );
+    }
+    paragraphs.push(
+      `<p><strong>Información y Canales Oficiales:</strong> Asesoramiento, consultas y gestión directa a través de su plataforma oficial ${siteUrl}.</p>`
+    );
   }
 
   let es = paragraphs.join("\n");
@@ -3376,14 +3388,24 @@ function classifySectorAndTaxonomy(
   };
 }
 
-async function createFallbackPublication(extractedData: any, taxonomies?: any, customBlocks?: CustomScraperBlock[], customAdminPrompt?: string): Promise<ScrapedPublication> {
+async function createFallbackPublication(
+  extractedData: any,
+  taxonomies?: any,
+  customBlocks?: CustomScraperBlock[],
+  customAdminPrompt?: string,
+  customTitlePrompt?: string,
+  customDescriptionPrompt?: string,
+  includeScoreScout: boolean = true
+): Promise<ScrapedPublication> {
   const host = new URL(extractedData.url).hostname.replace("www.", "");
   const allText = `${extractedData.url} ${extractedData.title} ${extractedData.description} ${extractedData.textContent}`.toLowerCase();
   let titleClean = cleanTitleString(extractedData.title) || host;
   const locInfo = detectAllLocationsAndHeadquarters(allText, extractedData.url, titleClean);
   const classified = classifySectorAndTaxonomy(extractedData.url, titleClean, allText, taxonomies);
-  if (customAdminPrompt && customAdminPrompt.trim()) {
-    titleClean = generateImpactfulTitle(titleClean, classified.sector, customAdminPrompt, locInfo.primaryCity);
+
+  const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
+  if (effectiveTitlePrompt) {
+    titleClean = generateImpactfulTitle(titleClean, classified.sector, effectiveTitlePrompt, locInfo.primaryCity);
   }
 
   const headquarterLocations = resolveHeadquarterLocations(
@@ -3420,18 +3442,23 @@ async function createFallbackPublication(extractedData: any, taxonomies?: any, c
     extractedData.detectedCommentsUrl ||
     buildGoogleMapsUrl(`${titleClean}, ${primaryHq.city}, ${primaryHq.country}`);
 
-  const scoreBlock = buildScoreScoutBlock(
-    titleClean,
-    startYear,
-    finalRating,
-    allText,
-    undefined,
-    extractedData.url,
-    finalReviewCount
-  );
-  const descriptions = await buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country, customAdminPrompt);
+  const fallbackExtraDescriptions: ExtraDescriptionBlock[] = [];
+  if (includeScoreScout !== false) {
+    const scoreBlock = buildScoreScoutBlock(
+      titleClean,
+      startYear,
+      finalRating,
+      allText,
+      undefined,
+      extractedData.url,
+      finalReviewCount
+    );
+    fallbackExtraDescriptions.push(scoreBlock);
+  }
 
-  const fallbackExtraDescriptions: ExtraDescriptionBlock[] = [scoreBlock];
+  const effectiveDescPrompt = (customDescriptionPrompt || "").trim() || (customAdminPrompt || "").trim();
+  const descriptions = await buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country, effectiveDescPrompt);
+
   if (Array.isArray(customBlocks) && customBlocks.length > 0) {
     for (const customBlock of customBlocks) {
       if (!customBlock.title || !customBlock.title.trim()) continue;
@@ -3814,17 +3841,16 @@ EJEMPLOS DE ESTILOS Y FORMATOS QUE PUEDES EMPLEAR (PURAMENTE ILUSTRATIVOS):
   <p>📚 <strong>Legado y Excelencia:</strong> Formación superior de excelencia, investigación aplicada y prestigio internacional.</p>
   <p>📍 <strong>Sedes y Alcance:</strong> Múltiples sedes con programas abiertos a toda la comunidad.</p>
 
-• Ejemplo D: Estructura Estándar / Comercial Clásica
-  <p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> A consultar / Según aranceles o tarifas del oferente.</p>
-  <p>💡 <strong>Propuesta de valor:</strong> Servicios y prestaciones oficiales brindadas por la entidad según la información del portal oficial.</p>
-  <p>⭐ <strong>Diferencial:</strong> Idiomas de atención, soporte personalizado y respaldo institucional.</p>
-  <p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes y requisitos directamente en su sitio web oficial.</p>
+• Ejemplo D: Enfoque Corporativo e Institucional Moderno
+  <p><strong>[Nombre de Entidad]</strong> es una entidad destacada en su sector, orientada a ofrecer soluciones integrales y asesoramiento calificado de primer nivel.</p>
+  <p><strong>Servicios y Prestaciones:</strong> Consultoría especializada, procesos certificados y atención adaptada a las necesidades de cada usuario.</p>
+  <p><strong>Respaldo y Canales Oficiales:</strong> Equipo interdisciplinario, infraestructura moderna y gestión directa a través de su plataforma oficial.</p>
 
 DIRECTIVAS PRINCIPALES:
-- SI HAY PROMPT DEL ADMINISTRADOR (en '🎯 INSTRUCCIONES / PROMPTS MAESTROS DEL ADMINISTRADOR'):
-  Adáptate al 100% a lo que pide (tono, estilo, longitud, si pide emojis o sin emojis, etc.), utilizando todos los datos y servicios reales del sitio web.
+- SI HAY DIRECTIVAS O PROMPTS DEL ADMINISTRADOR (en 'DIRECTIVA MAESTRA FIJA PARA EL TÍTULO' o 'DIRECTIVA MAESTRA FIJA PARA LA DESCRIPCIÓN'):
+  Adáptate al 100% y de forma prioritaria a lo que pide (persona, tono, estilo, longitud, si pide emojis o sin emojis, etc.), utilizando todos los datos y servicios reales del sitio web. NUNCA generes plantillas rígidas fijas ni uses estructuras de '💡 Propuesta de valor: ... ¿Para quién? ...'.
 - SI NO HAY PROMPT DEL ADMINISTRADOR:
-  Genera la descripción más profesional, atractiva y adecuada para la entidad usando el estilo que mejor comunique su valor.
+  Genera la descripción más profesional, atractiva y adecuada para la entidad usando el estilo y párrafos HTML <p> que mejor comuniquen su valor.
 - IDIOMA PRINCIPAL Y OPTIMIZACIÓN DE TOKENS: Genera 'description' y 'descriptionI18n.es' en Español (ES). No es necesario redactar en inglés, portugués o italiano en este paso para optimizar tokens y velocidad de respuesta.
 
 3. AUDITORÍA DEL SCORE SCOUT TRANSPARENTE Y REALISTA (0 a 100 PUNTOS):
@@ -4576,7 +4602,15 @@ async function processUrlWithAI(
         engineUsed = "gemini";
       } catch (geminiErr: any) {
         console.error(`Gemini fallback also failed for ${url}:`, geminiErr.message);
-        publication = await createFallbackPublication(extracted, taxonomies, customBlocks, customAdminPrompt);
+        publication = await createFallbackPublication(
+          extracted,
+          taxonomies,
+          customBlocks,
+          customAdminPrompt,
+          customTitlePrompt,
+          customDescriptionPrompt,
+          includeScoreScout
+        );
         engineUsed = "fallback";
       }
     }
@@ -4592,7 +4626,15 @@ async function processUrlWithAI(
         engineUsed = "openai";
       } catch (openAiErr: any) {
         console.error(`OpenAI fallback also failed for ${url}:`, openAiErr.message);
-        publication = await createFallbackPublication(extracted, taxonomies, customBlocks, customAdminPrompt);
+        publication = await createFallbackPublication(
+          extracted,
+          taxonomies,
+          customBlocks,
+          customAdminPrompt,
+          customTitlePrompt,
+          customDescriptionPrompt,
+          includeScoreScout
+        );
         engineUsed = "fallback";
       }
     }
@@ -4718,7 +4760,15 @@ export async function POST(req: Request) {
         let host = "";
         try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
         const fallbackExtracted = { url, title: host, textContent: host, htmlContent: "", images: [], metaTags: {} };
-        return await createFallbackPublication(fallbackExtracted, taxonomies, customBlocks, customAdminPrompt);
+        return await createFallbackPublication(
+          fallbackExtracted,
+          taxonomies,
+          customBlocks,
+          customAdminPrompt,
+          customTitlePrompt,
+          customDescriptionPrompt,
+          includeScoreScout
+        );
       }
     });
 
