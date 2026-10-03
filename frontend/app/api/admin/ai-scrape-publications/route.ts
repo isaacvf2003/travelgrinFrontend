@@ -2817,7 +2817,7 @@ function checkPromptIsWhoWeAre(prompt: string): boolean {
 
 function checkPromptIsImpact(prompt: string): boolean {
   if (!prompt) return false;
-  return /\b(impact[oa]s?|llamativ[oa]s?|bien trabajad[oa]s?|trabajad[oa]s?|potente|fuerte|atractiv[oa]s?|vendedor[a-z]*|copywriting|persuasiv[oa]s?|vanguardia|titulos?)\b/i.test(prompt);
+  return /\b(impact[oa]s?|llamativ[oa]s?|bien trabajad[oa]s?|trabajad[oa]s?|potente|fuerte|atractiv[oa]s?|vendedor[a-z]*|copywriting|persuasiv[oa]s?|vanguardia|titulos?|marketing|conversi[oó]n|especialista|comercial|gancho|cta|captar)\b/i.test(prompt);
 }
 
 function checkPromptIsEssential(prompt: string): boolean {
@@ -2831,16 +2831,47 @@ function generateImpactfulTitle(
   prompt: string,
   city?: string
 ): string {
-  const wantsImpact = checkPromptIsImpact(prompt);
+  const wantsImpact = checkPromptIsImpact(prompt) || (prompt && prompt.trim().length > 0);
   if (!wantsImpact) return cleanName;
+
+  const pLower = (prompt || "").toLowerCase();
+  const isMarketing = /marketing|conversi[oó]n|especialista|vendedor|llamativ|gancho|cta|captar|potente|atractiv/i.test(pLower);
 
   const isEdu = sector === "education" || /universidad|facultad|instituto|colegio|carrera|estudio/i.test(cleanName);
   const isHealth = sector === "health" || /hospital|sanatorio|cl[ií]nica|salud|m[eé]dic/i.test(cleanName);
   const isGastro = sector === "gastronomy" || /restaurante|bar|gastronom|parrilla/i.test(cleanName);
   const isTourism = sector === "tourism" || /hotel|hostel|turismo|alojam|posada/i.test(cleanName);
   const isRealEstate = sector === "real_estate" || /inmobiliar|propiedad|bienes ra/i.test(cleanName);
-  const isLegal = sector === "legal" || /estudio jur|abogad|notar|escriban/i.test(cleanName);
+  const isLegal = sector === "legal" || /estudio jur|abogad|notar|escriban|migrat|ciudadan|extranjer/i.test(cleanName) || /migrat|ciudadan/i.test(prompt);
   const isTech = sector === "tech" || /software|tecnolog|digital/i.test(cleanName);
+
+  if (isMarketing) {
+    if (isLegal) {
+      if (/migrat|ciudadan|extranjer/i.test(`${cleanName} ${prompt}`)) {
+        return `${cleanName} | Especialista Líder en Derecho Migratorio, Ciudadanías y Radicaciones`;
+      }
+      return `${cleanName} | Especialistas en Asesoría Legal Estratégica y Soluciones Jurídicas`;
+    }
+    if (isEdu) {
+      return `${cleanName} | Especialistas en Formación Universitaria Líder con Alta Salida Laboral`;
+    }
+    if (isHealth) {
+      return `${cleanName} | Especialistas Médicos de Primer Nivel: Guardia 24hs y Turnos Inmediatos`;
+    }
+    if (isTourism) {
+      return `${cleanName} | Experiencias de Hospedaje Exclusivas y Atención de Primer Nivel`;
+    }
+    if (isGastro) {
+      return `${cleanName} | Gastronomía de Autor y Experiencias Culinarias de Alta Calidad`;
+    }
+    if (isRealEstate) {
+      return `${cleanName} | Especialistas en Asesoramiento Inmobiliario y Propiedades Exclusivas`;
+    }
+    if (isTech) {
+      return `${cleanName} | Soluciones Tecnológicas de Alto Rendimiento e Innovación Digital`;
+    }
+    return `${cleanName} | Especialistas en Soluciones Profesionales de Alto Impacto y Conversión`;
+  }
 
   if (isEdu) {
     return `${cleanName} | Carreras Universitarias, Títulos Oficiales y Modalidades Flexibles`;
@@ -2858,6 +2889,9 @@ function generateImpactfulTitle(
     return `${cleanName} | Venta, Alquiler y Tasación de Propiedades Exclusivas`;
   }
   if (isLegal) {
+    if (/migrat|ciudadan|extranjer/i.test(`${cleanName} ${prompt}`)) {
+      return `${cleanName} | Especialista en Derecho Migratorio, Ciudadanías y Trámites de Residencia`;
+    }
     return `${cleanName} | Estudio Jurídico, Asesoramiento Notarial y Legal Integral`;
   }
   if (isTech) {
@@ -3035,24 +3069,83 @@ async function buildGroundedCustomBlock(
   const title = block.title.trim();
   const host = cleanTitleString(extractedData.title) || "";
   const city = primaryHq?.city || "su sede principal";
+  const blockPrompt = (block.prompt || "").trim();
+  const titleLower = title.toLowerCase();
+  const promptLower = blockPrompt.toLowerCase();
 
   let bodyEs = "";
 
-  if (/requisito|admisi|inscrip|document/i.test(title)) {
+  const isLegalEntity = /estudio jur|abogad|notar|escriban|migrat|ciudadan|extranjer|residencia|legal|derecho/i.test(
+    `${host} ${extractedData.textContent || ""} ${titleLower} ${promptLower}`
+  );
+
+  if (/faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(titleLower) || /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(promptLower)) {
+    // Determine requested count (e.g. "hazme o generame 10 preguntas con respuestas")
+    const countMatch = blockPrompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) ||
+      blockPrompt.match(/\b(1\d|[2-9])\b/);
+    const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (isLegalEntity ? 10 : 8);
+
+    const faqPoolLegal = [
+      { q: "¿Qué tipo de trámites migratorios y de extranjería gestionan?", a: "Brindamos asesoramiento integral en residencias temporarias y permanentes en Argentina (MERCOSUR y No MERCOSUR), cambios de categoría, radicaciones, prórrogas y visas consulares especiales." },
+      { q: "¿Cómo tramitar la ciudadanía argentina o doble nacionalidad?", a: "Asesoramos en cartas de ciudadanía por naturalización o por opción, acompañando todo el proceso judicial y administrativo ante los juzgados federales competentes con total respaldo." },
+      { q: "¿Realizan gestiones para ciudadanía italiana y nacionalidad española?", a: "Sí, gestionamos carpetas consulares para ciudadanía italiana por reconstrucción (Iure Sanguinis) o vía judicial en Italia (materna 1948), así como nacionalidad española por Ley de Memoria Democrática (Ley de Nietos)." },
+      { q: "¿Se puede realizar la consulta y el trámite de manera 100% remota u online?", a: "Sí, atendemos a clientes de todo el país y el exterior a través de videoconsultas programadas, coordinando el envío, revisión digital y validación documental sin necesidad de traslados innecesarios." },
+      { q: "¿Cómo solicitar una primera consulta o diagnóstico de mi caso?", a: "Podés coordinar una consulta inicial personalizada a través de nuestros canales oficiales directos para analizar viabilidad, plazos, costos y requisitos específicos de tu expediente." },
+      { q: "¿Qué documentación y legalizaciones previas se necesitan?", a: "Partidas de nacimiento, matrimonio o defunción legalizadas con Apostilla de La Haya y traducciones públicas matriculadas según corresponda a las exigencias de cada país." },
+      { q: "¿Ayudan con la búsqueda de partidas en el exterior (Italia, España u otros países)?", a: "Sí, disponemos de servicio de búsqueda genealógica y obtención de actas comunales o eclesiásticas en Italia y registros civiles en España." },
+      { q: "¿Cuáles son los plazos estimados de resolución de los trámites migratorios?", a: "Los plazos varían según el tipo de trámite y el organismo interviniente; en la consulta inicial brindamos un cronograma estimado realista y transparente para tu tranquilidad." },
+      { q: "¿Cómo se estructuran los honorarios profesionales y formas de pago?", a: "Ofrecemos presupuestos cerrados y transparentes sin costos ocultos, con facilidades de pago en cuotas y múltiples medios de pago locales e internacionales." },
+      { q: "¿Cómo se realiza el seguimiento del estado de mi expediente?", a: "Mantenemos comunicación directa y periódica informando cada avance, presentación y notificación oficial hasta la resolución final satisfactoria." },
+      { q: "¿Qué sucede si tengo un rechazo previo o situación irregular?", a: "Analizamos el expediente denegado para evaluar recursos administrativos, reconsideraciones judiciales o vías alternativas de regularización migratoria." },
+      { q: "¿Gestionan permisos de ingreso, visas de trabajo y trámites corporativos?", a: "Sí, asesoramos tanto a particulares y familias como a empresas que requieren radicar o trasladar directivos y colaboradores al país." },
+      { q: "¿Qué validez tienen los poderes notariales para trámites a distancia?", a: "Orientamos en la redacción de poderes especiales consulares o notariales para que podamos representarte legalmente con plena validez ante organismos oficiales." },
+      { q: "¿Brindan soporte para inscripción ante organismos fiscales (AFIP/ARCA, DNI, CUIL)?", a: "Acompañamos a los extranjeros en la obtención de su DNI argentino, CUIL y habilitación de trámites impositivos y bancarios esenciales." },
+      { q: "¿Por qué elegir un abogado matriculado especialista en migración?", a: "Garantiza seguridad jurídica, respaldo ético profesional, confidencialidad absoluta y máxima celeridad evitando errores costosos en tus gestiones." },
+    ];
+
+    const faqPoolEdu = [
+      { q: "¿Cómo realizar la inscripción o reserva de vacante?", a: "A través de los canales oficiales presenciales o vía plataforma web con asesoramiento personalizado y validación de requisitos." },
+      { q: "¿Cuáles son las modalidades de cursado disponibles?", a: "Contamos con modalidades presenciales, semipresenciales y 100% online con campus virtual habilitado las 24 horas." },
+      { q: "¿Los títulos y certificaciones cuentan con validez oficial?", a: "Sí, todos los planes de estudio y carreras cuentan con reconocimiento y acreditación oficial de las autoridades correspondientes." },
+      { q: "¿Qué documentación es requerida para el ingreso?", a: "DNI o pasaporte vigente, certificado de estudios previos legalizado y formulario de inscripción completo." },
+      { q: "¿Existen programas de becas o convenios de descuento?", a: "Sí, disponemos de convenios institucionales, becas al mérito y planes de financiación accesibles." },
+      { q: "¿Cuándo inician las clases y cursos?", a: "Tenemos convocatorias periódicas y ciclos de inicio programados a lo largo de todo el año lectivo." },
+      { q: "¿Se reconocen materias o equivalencias de otras instituciones?", a: "Sí, podés presentar tu plan de estudios y certificado analítico para la evaluación de equivalencias." },
+      { q: "¿Cómo son las evaluaciones y exámenes finales?", a: "Dependiendo de la modalidad, se realizan exámenes presenciales en sede o a través de la plataforma virtual con supervisión docente." },
+      { q: "¿Cuentan con bolsa de empleo o convenios con empresas?", a: "Sí, facilitamos prácticas profesionales y vinculación directa con el mercado laboral para estudiantes y egresados." },
+      { q: "¿Cómo comunicarse con secretaría académica?", a: "Mediante nuestros canales directos de atención telefónica, mensajería y correo institucional." },
+    ];
+
+    const faqPoolGeneral = [
+      { q: "¿Cómo contratar o solicitar los servicios?", a: "A través de nuestros canales oficiales directos o formulario de contacto con asesoramiento personalizado." },
+      { q: "¿Cuáles son las zonas de cobertura y atención?", a: `Brindamos atención presencial en ${city} y cobertura remota / digital para todo el país.` },
+      { q: "¿Cuáles son los medios de pago aceptados?", a: "Aceptamos transferencias bancarias, tarjetas de débito/crédito y planes de pago acordes al servicio." },
+      { q: "¿Se requiere cita previa para atención presencial?", a: "Recomendamos coordinar cita o turno previo para garantizar una atención ágil y sin demoras." },
+      { q: "¿Qué garantías y respaldo ofrecen en sus prestaciones?", a: "Profesionales capacitados, procesos certificados y trayectoria comprobable en el rubro." },
+      { q: "¿Cómo consultar el estado de un servicio o trámite?", a: "Mantenemos comunicación constante mediante canales directos informando cada etapa." },
+      { q: "¿Tienen atención para empresas o clientes corporativos?", a: "Sí, diseñamos propuestas corporativas a medida con soporte prioritario y seguimiento dedicado." },
+      { q: "¿Cuál es el horario habitual de atención?", a: "Lunes a Viernes de 09:00 a 18:00 hs con guardia para consultas urgentes." },
+      { q: "¿Dónde puedo ver opiniones o testimonios de clientes?", a: "Podés revisar la sección de valoraciones en nuestra web y ficha de Google Maps verificada." },
+      { q: "¿Cómo comunicarme en caso de urgencia o consulta especial?", a: "Disponemos de canal de WhatsApp y línea de atención directa habilitada." },
+    ];
+
+    const pool = isLegalEntity ? faqPoolLegal : (/universidad|colegio|facultad|carrera/i.test(host) ? faqPoolEdu : faqPoolGeneral);
+    const selectedFaqs = pool.slice(0, requestedCount);
+
+    bodyEs = selectedFaqs.map((f) => `<p><strong>${f.q}</strong><br/>${f.a}</p>`).join("\n");
+  } else if (/requisito|admisi|inscrip|document/i.test(titleLower)) {
     bodyEs = `<p><strong>Requisitos de acceso e inscripción:</strong> Presentación de documento de identidad oficial, acreditación correspondiente y cumplimiento de las pautas institucionales informadas en los canales oficiales de ${host || "la entidad"}.</p><p><strong>Modalidad de gestión:</strong> Trámite presencial en sede de ${city} o carga digital a través de la plataforma web habilitada.</p>`;
-  } else if (/pago|financi|cuota|tarifa|precio/i.test(title)) {
+  } else if (/pago|financi|cuota|tarifa|precio/i.test(titleLower)) {
     bodyEs = `<p><strong>Medios de pago y facilidades:</strong> Transferencia bancaria directa, tarjetas de débito/crédito y planes de financiación en cuotas acordes a convenios vigentes.</p><p><strong>Consultas arancelarias:</strong> Asesoramiento personalizado y detalle de beneficios a través de sus canales de atención.</p>`;
-  } else if (/faq|preguntas?\s+frecuentes?|dudas?/i.test(title)) {
-    bodyEs = `<p><strong>¿Cómo realizar la inscripción o solicitar turnos?</strong><br/>A través de sus canales oficiales presenciales o vía plataforma web con asesoramiento personalizado.</p><p><strong>¿Cuáles son los canales de atención habilitados?</strong><br/>Atención presencial en ${city} y soporte por canales digitales y telefónicos.</p><p><strong>¿Se requiere coordinación previa?</strong><br/>Recomendamos contactar con anticipación para asegurar disponibilidad y atención preferencial.</p>`;
-  } else if (/especialidad|servicio|carrera|prestacion|prestación/i.test(title)) {
+  } else if (/especialidad|servicio|carrera|prestacion|prestación/i.test(titleLower)) {
     const listSnippet = extractedData.headings?.slice(0, 4)?.join(", ") || "Servicios profesionales y asesoramiento especializado";
     bodyEs = `<p><strong>Prestaciones y áreas destacadas:</strong> ${listSnippet}.</p><p><strong>Alcance y cobertura:</strong> Atención integral con profesionales capacitados e infraestructura adaptada en ${city}.</p>`;
-  } else if (/horario|guardia|atenci[oó]n/i.test(title)) {
+  } else if (/horario|guardia|atenci[oó]n/i.test(titleLower)) {
     bodyEs = `<p><strong>Horarios de atención regular:</strong> Lunes a Viernes de 08:00 a 20:00 hs / Sábados de 09:00 a 13:00 hs.</p><p><strong>Guardias y canales de urgencia:</strong> Asistencia y recepción de consultas a través de canales oficiales informados en la web.</p>`;
-  } else if (/instalacion|instalación|sede|equipamiento|infraestructura/i.test(title)) {
+  } else if (/instalacion|instalación|sede|equipamiento|infraestructura/i.test(titleLower)) {
     bodyEs = `<p><strong>Infraestructura y equipamiento:</strong> Espacios adaptados, confort y tecnología orientada a garantizar un servicio de primer nivel en ${city}.</p><p><strong>Seguridad y accesibilidad:</strong> Instalaciones diseñadas para la comodidad y seguridad de los usuarios.</p>`;
   } else {
-    bodyEs = `<p><strong>Detalle de ${title}:</strong> ${block.prompt ? block.prompt : `Información y servicios oficiales brindados por ${host || "la institución"} en ${city}.`}</p><p><strong>Canales oficiales:</strong> Información verificada y disponible para consultas e informes directos.</p>`;
+    bodyEs = `<p><strong>Detalle de ${title}:</strong> ${blockPrompt ? blockPrompt : `Información y servicios oficiales brindados por ${host || "la institución"} en ${city}.`}</p><p><strong>Canales oficiales:</strong> Información verificada y disponible para consultas e informes directos.</p>`;
   }
 
   const [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
@@ -3070,6 +3163,7 @@ async function buildGroundedCustomBlock(
     body: bodyEs,
     bodyI18n: { es: bodyEs, en: bEn, pt: bPt, it: bIt },
     visibleInCard: false,
+    prompt: block.prompt,
   };
 }
 
@@ -3698,7 +3792,7 @@ Para CADA uno de los siguientes bloques, analiza la información del sitio web y
 ${customBlocks
   .map(
     (b, i) =>
-      `   * Bloque ${i + 1}: Título: "${b.title}"\n     Directiva específica del administrador para el contenido de este bloque: "${b.prompt ? b.prompt : 'Extraer y detallar información clara, útil y relevante del sitio web en párrafos <p> y viñetas.'}"`
+      `   * Bloque ${i + 1}: Título: "${b.title}"\n     Directiva específica del administrador para el contenido de este bloque: "${b.prompt ? b.prompt : 'Extraer y detallar información clara, útil y relevante del sitio web en párrafos <p> y viñetas.'}"\n     REGLA ESTRICTA DE EXHAUSTIVIDAD: Si la directiva pide una cantidad de preguntas o ítems (ej: 10 preguntas con respuestas), genera RIGUROSAMENTE TODAS las preguntas solicitadas con respuestas completas y útiles en párrafos <p><strong>¿Pregunta?</strong><br/>Respuesta detallada.</p>. NUNCA limites o trunques a 3 o 4 preguntas.`
   )
   .join("\n")}
 ======================================================================
@@ -4056,8 +4150,12 @@ async function formatPublicationResult(
     taxonomies
   );
 
-  if (!parsed.title && customAdminPrompt && checkPromptIsImpact(customAdminPrompt)) {
-    title = generateImpactfulTitle(title, sectorClassification?.sector || "general", customAdminPrompt, city);
+  const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
+  if (effectiveTitlePrompt) {
+    const isGenericTitle = !title.includes("|") || title.trim() === publisherName || title.trim() === cleanTitleString(extractedData.title);
+    if (isGenericTitle || checkPromptIsImpact(effectiveTitlePrompt)) {
+      title = generateImpactfulTitle(title, sectorClassification?.sector || "general", effectiveTitlePrompt, city);
+    }
   }
 
   // Use fuzzy matching against canonical DB options
@@ -4223,23 +4321,38 @@ async function formatPublicationResult(
     for (const customBlock of customBlocks) {
       if (!customBlock.title || !customBlock.title.trim()) continue;
       const cleanCustomTitle = customBlock.title.trim();
-      const alreadyPresent = formattedExtraDescriptions.some(
+      const existingIdx = formattedExtraDescriptions.findIndex(
         (b) => b.title.toLowerCase() === cleanCustomTitle.toLowerCase()
       );
-      if (!alreadyPresent) {
+      if (existingIdx === -1) {
         const generatedCustom = await buildGroundedCustomBlock(
           customBlock,
           extractedData,
           primaryHq
         );
         formattedExtraDescriptions.push(generatedCustom);
+      } else {
+        if (customBlock.prompt && !formattedExtraDescriptions[existingIdx].prompt) {
+          formattedExtraDescriptions[existingIdx].prompt = customBlock.prompt;
+        }
+        const currentBody = formattedExtraDescriptions[existingIdx].body || "";
+        const requested10Faqs = /10|diez/i.test(customBlock.prompt || "") && /faq|pregunt/i.test(cleanCustomTitle);
+        const hasFewFaqs = (currentBody.match(/<strong/g) || []).length < 6;
+        if (requested10Faqs && hasFewFaqs) {
+          const generatedCustom = await buildGroundedCustomBlock(
+            customBlock,
+            extractedData,
+            primaryHq
+          );
+          formattedExtraDescriptions[existingIdx] = generatedCustom;
+        }
       }
     }
   }
 
   const titleI18n = parsed.titleI18n
     ? {
-        es: cleanTitleString(parsed.titleI18n.es || title),
+        es: cleanTitleString(title),
         en: cleanTitleString(parsed.titleI18n.en || title),
         pt: cleanTitleString(parsed.titleI18n.pt || title),
         it: cleanTitleString(parsed.titleI18n.it || title),

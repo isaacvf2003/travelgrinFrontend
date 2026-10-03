@@ -871,6 +871,45 @@ function generateSemanticAiFallback(
       return { title: cleanName };
     }
 
+    // 0. Marketing, Conversión, Especialista o Enfoque Comercial
+    if (/marketing|conversi[oó]n|especialista|vendedor|llamativ|gancho|cta|captar|potente|atractiv/i.test(pLower)) {
+      if (isJudicial || /abogad|migrat|jur[ií]dic|legal|ciudadan/i.test(`${cleanName} ${prompt} ${meta.title || ''}`)) {
+        const v = [
+          `${cleanName} | Especialista Líder en Derecho Migratorio, Ciudadanías y Radicaciones`,
+          `${cleanName} | Asesoría Legal Estratégica: Tu Residencia y Ciudadanía con Éxito Asegurado`,
+          `${cleanName} | Soluciones Migratorias Rápidas: Ciudadanía Italiana, Española y Residencia Argentina`,
+          `Especialista en Trámites Migratorios y Extranjería | ${cleanName} - Asesoramiento Integral`,
+          `${cleanName} | Consultoría Legal de Alta Conversión: Gestión Segura de Visas y Nacionalidades`,
+          `Estudio Jurídico Especializado en Migraciones | ${cleanName} - Atención Remota y Presencial`,
+        ];
+        return { title: v[Math.abs(variationIndex) % v.length] };
+      }
+      if (isEducation) {
+        const v = [
+          `${cleanName} | Formación Universitaria Líder con Alta Salida Laboral e Inscripciones Abiertas`,
+          `${cleanName} | Carreras Oficiales de Vanguardia y Modalidad Flexible Diseñadas para tu Éxito`,
+          `¡Impulsá tu Futuro Profesional! ${cleanName} | Títulos Oficiales y Becas Disponibles`,
+          `${cleanName} | Especialistas en Educación Superior: Planes Modernos y Campus Virtual 24/7`,
+        ];
+        return { title: v[Math.abs(variationIndex) % v.length] };
+      }
+      if (isHealth) {
+        const v = [
+          `${cleanName} | Especialistas Médicos de Primer Nivel: Guardia 24hs y Turnos Inmediatos`,
+          `${cleanName} | Centro de Salud Líder: Tecnología Médica Avanzada y Atención Humanizada`,
+          `¡Cuidá tu Salud con los Mejores Profesionales! ${cleanName} | Cobertura Médica Integral`,
+        ];
+        return { title: v[Math.abs(variationIndex) % v.length] };
+      }
+      const vGen = [
+        `${cleanName} | Especialistas en Soluciones Profesionales de Alto Impacto y Conversión`,
+        `${cleanName} | Calidad, Trayectoria y Resultados Concretos para tus Proyectos`,
+        `${cleanName} | Servicios Profesionales Líderes: Asesoramiento Estratégico a Medida`,
+        `¡Elegí la Mejor Opción con Respaldo Garantizado! ${cleanName} | Asesoría Inmediata`,
+      ];
+      return { title: vGen[Math.abs(variationIndex) % vGen.length] };
+    }
+
     if (/impact|atenci[oó]n|trabajad|llamativ|potente|fuerte|nivel|profesional|excelen|destac|mejor|buen seo|posicionam/i.test(pLower)) {
       if (hasNegativeConstraint) {
         if (isEducation) {
@@ -889,6 +928,7 @@ function generateSemanticAiFallback(
             "Soluciones Jurídicas de Excelencia: Asesoramiento y Representación Legal de Alto Nivel",
             "¡Protegé tus Derechos! Estrategia Legal, Trayectoria y Compromiso Profesional",
             "Estudio Jurídico Integral: Asesoramiento Notarial y Procesal Especializado",
+            "Asesoramiento Legal Estratégico: Soluciones Jurídicas y Notariales Efectivas",
           ];
           return { title: v[variationIndex % v.length] };
         }
@@ -945,18 +985,43 @@ function generateSemanticAiFallback(
         return { title: v[variationIndex % v.length] };
       }
       if (isJudicial) {
-        return { title: `${cleanName} | Estudio Jurídico y Asesoramiento Legal Integral` };
+        const v = [
+          `${cleanName} | Estudio Jurídico y Asesoramiento Legal Integral`,
+          `${cleanName} | Abogacía Especializada, Consultoría y Representación Legal`,
+          `${cleanName} | Servicios Jurídicos de Excelencia: Respaldo, Trayectoria y Confianza`,
+          `${cleanName} | Asesoría Legal Estratégica y Resolución Efectiva de Casos`,
+        ];
+        return { title: v[Math.abs(variationIndex) % v.length] };
       }
       if (isSports) {
-        return { title: `${cleanName} | Club Deportivo, Entrenamientos y Pases Oficiales` };
+        const v = [
+          `${cleanName} | Club Deportivo, Entrenamientos y Pases Oficiales`,
+          `${cleanName} | Centro Deportivo de Alto Rendimiento e Instalaciones Modernas`,
+          `¡Viví el Deporte en ${cleanName}! Actividades y Membresías Flexibles`,
+        ];
+        return { title: v[Math.abs(variationIndex) % v.length] };
       }
       if (isHealth) {
-        return { title: `¡Contratá la mejor atención médica! ${cleanName} | Guardia 24hs y Turnos Online` };
+        const v = [
+          `¡Contratá la mejor atención médica! ${cleanName} | Guardia 24hs y Turnos Online`,
+          `${cleanName} | Centro Médico de Excelencia y Guardia Activa 24 Horas`,
+          `${cleanName} | Consultorios de Especialidad y Diagnóstico Médico Integral`,
+        ];
+        return { title: v[Math.abs(variationIndex) % v.length] };
       }
       if (isTourism) {
-        return { title: `¡Viví la mejor experiencia! ${cleanName} | Hoteles y Excursiones Oficiales` };
+        const v = [
+          `¡Viví la mejor experiencia! ${cleanName} | Hoteles y Excursiones Oficiales`,
+          `${cleanName} | Hospedaje de Primer Nivel, Confort y Reservas Exclusivas`,
+        ];
+        return { title: v[Math.abs(variationIndex) % v.length] };
       }
-      return { title: `¡Elegí la mejor propuesta! ${cleanName}: Excelencia y Servicios de Primer Nivel` };
+      const vGen = [
+        `¡Elegí la mejor propuesta! ${cleanName}: Excelencia y Servicios de Primer Nivel`,
+        `${cleanName} | Soluciones Profesionales de Alta Calidad y Respaldo Institucional`,
+        `${cleanName} | Servicios Destacados, Trayectoria y Asesoramiento Personalizado`,
+      ];
+      return { title: vGen[Math.abs(variationIndex) % vGen.length] };
     }
 
     if (/veni|vení|inscribite|estudia|estudiá|entr[aá]|eleg[ií]|sumat|contrat[aá]|asociat|afiliat/i.test(pLower)) {
@@ -1155,12 +1220,59 @@ function generateSemanticAiFallback(
     // 0.1 SPECIAL: EXECUTIVE SUMMARY
     if (isExecutiveSummary) {
       const summaryHeading = cleanName ? `<strong>Resumen Ejecutivo: ${cleanName}</strong>` : "<strong>Resumen Ejecutivo</strong>";
-      const execContent = [
-        `<p>${omitIcons ? "" : "📊 "}${summaryHeading}: ${rawValueProp}.</p>`,
-        `<p>${omitIcons ? "" : "🎯 "}<strong>Capacidades Operativas Clave:</strong> Estructura profesional interdisciplinaria, procesos certificados y capacidad de respuesta integral en ${cityStr || "la región"}.</p>`,
-        `<p>${omitIcons ? "" : "🛡️ "}<strong>Estándares de Calidad y Seguridad:</strong> Riguroso apego normativo, respaldo institucional continuo y auditoría de procesos verificada.</p>`,
-        `<p>${omitIcons ? "" : "📞 "}<strong>Vías de Acceso y Coordinación:</strong> Canales oficiales directos para información, turnos, aranceles y gestiones administrativas.</p>`
-      ].join("\n");
+      const execIdx = Math.abs(variationIndex) % 6;
+      let execContent = "";
+
+      if (execIdx === 0) {
+        // Variation 0: Strategic Overview & Operational Excellence
+        execContent = [
+          `<p>${omitIcons ? "" : "📊 "}${summaryHeading}: ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "🎯 "}<strong>Capacidades Operativas Clave:</strong> Estructura profesional interdisciplinaria, procesos certificados y capacidad de respuesta integral en ${cityStr || "la región"}.</p>`,
+          `<p>${omitIcons ? "" : "🛡️ "}<strong>Estándares de Calidad y Seguridad:</strong> Riguroso apego normativo, respaldo institucional continuo y auditoría de procesos verificada.</p>`,
+          `<p>${omitIcons ? "" : "📞 "}<strong>Vías de Acceso y Coordinación:</strong> Canales oficiales directos para información, turnos, aranceles y gestiones administrativas.</p>`
+        ].join("\n");
+      } else if (execIdx === 1) {
+        // Variation 1: Strategic Advisory & Market Leadership
+        execContent = [
+          `<p>${omitIcons ? "" : "💼 "}<strong>Síntesis Directiva y Posicionamiento:</strong> ${cleanName ? `${cleanName} se consolida como una firma referente` : "Firma referente"} en ${rawValueProp}. Combina solvencia técnica, visión estratégica y un riguroso estándar de servicio orientado a resultados comprobables.</p>`,
+          `<p>${omitIcons ? "" : "🚀 "}<strong>Diferenciales y Ventajas Competitivas:</strong> Metodología de gestión ágil, comunicación permanente y soluciones personalizadas diseñadas para reducir tiempos de tramitación y maximizar el éxito en cada gestión.</p>`,
+          `<p>${omitIcons ? "" : "🌐 "}<strong>Alcance Operativo:</strong> Asesoramiento personalizado presencial y modalidad 100% remota con atención nacional e internacional.</p>`,
+          `<p>${omitIcons ? "" : "🤝 "}<strong>Compromiso y Confiabilidad:</strong> Transparencia absoluta en honorarios y cumplimiento estricto de acuerdos contractuales.</p>`
+        ].join("\n");
+      } else if (execIdx === 2) {
+        // Variation 2: Institutional Backing & Problem-Solution Model
+        execContent = [
+          `<p>${omitIcons ? "" : "🏛️ "}<strong>Perfil Institucional y Propuesta de Valor:</strong> Con sólida trayectoria${cityStr ? ` en ${cityStr}` : ""}, ${cleanName || "la institución"} ofrece un modelo integral de asistencia profesional: ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "🔍 "}<strong>Diagnóstico y Metodología:</strong> Análisis exhaustivo de cada requerimiento desde el primer contacto para estructurar planes de acción claros, viables y eficientes.</p>`,
+          `<p>${omitIcons ? "" : "⚖️ "}<strong>Seguridad Jurídica y Respaldo:</strong> Procesos auditados, matriculación oficial y estricta confidencialidad en el tratamiento de expedientes y datos sensibles.</p>`,
+          `<p>${omitIcons ? "" : "📱 "}<strong>Atención Directa:</strong> Consultas y coordinación de turnos habilitados por canales digitales oficiales.</p>`
+        ].join("\n");
+      } else if (execIdx === 3) {
+        // Variation 3: Client Success & Comprehensive Management
+        execContent = [
+          `<p>${omitIcons ? "" : "⭐ "}<strong>Informe Ejecutivo de Prestaciones:</strong> ${rawValueProp}. Especialistas en brindar soluciones prácticas ante trámites y gestiones complejas.</p>`,
+          `<p>${omitIcons ? "" : "👥 "}<strong>Destinatarios y Cobertura:</strong> Orientado a particulares, familias, profesionales y corporaciones que demandan celeridad, rigor técnico y atención humana personalizada.</p>`,
+          `<p>${omitIcons ? "" : "📈 "}<strong>Efectividad y Acompañamiento:</strong> Seguimiento paso a paso con reportes periódicos de avance hasta la conclusión definitiva de cada trámite.</p>`,
+          `<p>${omitIcons ? "" : "💬 "}<strong>Canales Habilitados:</strong> Mesa de consulta directa disponible para evaluación preliminar de casos.</p>`
+        ].join("\n");
+      } else if (execIdx === 4) {
+        // Variation 4: Key Pillars & Governance
+        execContent = [
+          `<p>${omitIcons ? "" : "📑 "}<strong>Dictamen y Resumen Ejecutivo:</strong> ${cleanName ? `${cleanName} - ` : ""}${rawValueProp}. Enfoque multidisciplinario sustentado en pilares de calidad, confianza y celeridad.</p>`,
+          `<p>${omitIcons ? "" : "✨ "}<strong>Fortalezas Operativas:</strong> Equipo altamente capacitado, soporte tecnológico para gestión documental digital y presencia activa en canales formales de atención.</p>`,
+          `<p>${omitIcons ? "" : "🔒 "}<strong>Garantía de Satisfacción:</strong> Compromiso ético y legal en cada etapa del servicio con información transparente sobre viabilidad y plazos.</p>`,
+          `<p>${omitIcons ? "" : "📍 "}<strong>Coordinación General:</strong> Asesoramiento continuo por canales de contacto centralizados.</p>`
+        ].join("\n");
+      } else {
+        // Variation 5: High-Impact Strategic Synthesis
+        execContent = [
+          `<p>${omitIcons ? "" : "💎 "}<strong>Evaluación Estratégica:</strong> Soluciones profesionales de alto impacto brindadas por ${cleanName || "el oferente"}. ${rawValueProp}.</p>`,
+          `<p>${omitIcons ? "" : "🎯 "}<strong>Enfoque a Resultados:</strong> Simplificación de procesos burocráticos y optimización de tiempos para garantizar la tranquilidad de los clientes.</p>`,
+          `<p>${omitIcons ? "" : "🛡️ "}<strong>Transparencia y Solidez:</strong> Respaldo verificado, aranceles informados con antelación y acompañamiento legal integral.</p>`,
+          `<p>${omitIcons ? "" : "📩 "}<strong>Contacto Oficial:</strong> Vías de atención y agenda de consultas abiertas para coordinación inmediata.</p>`
+        ].join("\n");
+      }
+
       return { description: omitIcons ? stripEmojisAndIcons(execContent) : execContent };
     }
 
@@ -1508,9 +1620,31 @@ function generateSemanticAiFallback(
     }
 
     if (/faq|pregunt|pregunat|duda|consulta|q&a|cuestion/i.test(blockUserCorpus)) {
-      // Determine requested count (e.g. "haz que sean 10 pregunats", "5 preguntas", default 3 or 10 if specified)
-      const countMatch = prompt.match(/\b(1\d|[2-9])\b/) || userPrompts.match(/\b(1\d|[2-9])\s*(?:pregunt|pregunat|duda|item|punto)/i);
-      const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 15) : 3;
+      const isLegalEntity = isJudicial || /abogad|migrat|jur[ií]dic|legal|ciudadan|residencia|notari/i.test(`${cleanName} ${prompt} ${meta.title || ''} ${blockUserCorpus}`);
+
+      // Determine requested count (e.g. "hazme o generame 10 preguntas con respuestas", "10 preguntas", etc.)
+      const countMatch = prompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) ||
+        prompt.match(/\b(1\d|[2-9])\b/) ||
+        userPrompts.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?)/i);
+      const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (isLegalEntity ? 10 : 6);
+
+      const faqPoolLegal = [
+        { q: "¿Qué tipo de trámites migratorios y de extranjería gestionan?", a: "Brindamos asesoramiento integral en residencias temporarias y permanentes en Argentina (MERCOSUR y No MERCOSUR), cambios de categoría, radicaciones, prórrogas y visas consulares especiales." },
+        { q: "¿Cómo tramitar la ciudadanía argentina o doble nacionalidad?", a: "Asesoramos en cartas de ciudadanía por naturalización o por opción, acompañando todo el proceso judicial y administrativo ante los juzgados federales competentes con total respaldo." },
+        { q: "¿Realizan gestiones para ciudadanía italiana y nacionalidad española?", a: "Sí, gestionamos carpetas consulares para ciudadanía italiana por reconstrucción (Iure Sanguinis) o vía judicial en Italia (materna 1948), así como nacionalidad española por Ley de Memoria Democrática (Ley de Nietos)." },
+        { q: "¿Se puede realizar la consulta y el trámite de manera 100% remota u online?", a: "Sí, atendemos a clientes de todo el país y el exterior a través de videoconsultas programadas, coordinando el envío, revisión digital y validación documental sin necesidad de traslados innecesarios." },
+        { q: "¿Cómo solicitar una primera consulta o diagnóstico de mi caso?", a: "Podés coordinar una consulta inicial personalizada a través de nuestros canales oficiales directos para analizar viabilidad, plazos, costos y requisitos específicos de tu expediente." },
+        { q: "¿Qué documentación y legalizaciones previas se necesitan?", a: "Partidas de nacimiento, matrimonio o defunción legalizadas con Apostilla de La Haya y traducciones públicas matriculadas según corresponda a las exigencias de cada país." },
+        { q: "¿Ayudan con la búsqueda de partidas en el exterior (Italia, España u otros países)?`: "Sí, disponemos de servicio de búsqueda genealógica y obtención de actas comunales o eclesiásticas en Italia y registros civiles en España." },
+        { q: "¿Cuáles son los plazos estimados de resolución de los trámites migratorios?", a: "Los plazos varían según el tipo de trámite y el organismo interviniente; en la consulta inicial brindamos un cronograma estimado realista y transparente para tu tranquilidad." },
+        { q: "¿Cómo se estructuran los honorarios profesionales y formas de pago?", a: "Ofrecemos presupuestos cerrados y transparentes sin costos ocultos, con facilidades de pago en cuotas y múltiples medios de pago locales e internacionales." },
+        { q: "¿Cómo se realiza el seguimiento del estado de mi expediente?", a: "Mantenemos comunicación directa y periódica informando cada avance, presentación y notificación oficial hasta la resolución final satisfactoria." },
+        { q: "¿Qué sucede si tengo un rechazo previo o situación irregular?", a: "Analizamos el expediente denegado para evaluar recursos administrativos, reconsideraciones judiciales o vías alternativas de regularización migratoria." },
+        { q: "¿Gestionan permisos de ingreso, visas de trabajo y trámites corporativos?", a: "Sí, asesoramos tanto a particulares y familias como a empresas que requieren radicar o trasladar directivos y colaboradores al país." },
+        { q: "¿Qué validez tienen los poderes notariales para trámites a distancia?", a: "Orientamos en la redacción de poderes especiales consulares o notariales para que podamos representarte legalmente con plena validez ante organismos oficiales." },
+        { q: "¿Brindan soporte para inscripción ante organismos fiscales (AFIP/ARCA, DNI, CUIL)?", a: "Acompañamos a los extranjeros en la obtención de su DNI argentino, CUIL y habilitación de trámites impositivos y bancarios esenciales." },
+        { q: "¿Por qué elegir un abogado matriculado especialista en migración?", a: "Garantiza seguridad jurídica, respaldo ético profesional, confidencialidad absoluta y máxima celeridad evitando errores costosos en tus gestiones." },
+      ];
 
       const faqPoolEdu = [
         { q: "¿Cómo realizar la inscripción o reserva de vacante?", a: "A través de nuestros canales oficiales presenciales o vía plataforma web con asesoramiento personalizado y validación de requisitos." },
@@ -1568,7 +1702,8 @@ function generateSemanticAiFallback(
         { q: "¿Cómo realizar el seguimiento de una solicitud o reclamo?", a: "Con tu número de gestión asignado podés consultar el estado en tiempo real por nuestros canales directos." },
       ];
 
-      const selectedPool = isEduEntity || isEducation ? faqPoolEdu
+      const selectedPool = isLegalEntity ? faqPoolLegal
+        : isEduEntity || isEducation ? faqPoolEdu
         : isHealthEntity || isHealth ? faqPoolHealth
         : isSportsEntity || isSports ? faqPoolSports
         : faqPoolGeneral;
