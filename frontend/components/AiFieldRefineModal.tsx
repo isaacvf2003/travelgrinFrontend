@@ -199,7 +199,7 @@ export default function AiFieldRefineModal({
       else if (fieldType === "description") baseText = previewResult.result?.description || currentValue;
       else if (fieldType === "provider_info") baseText = previewResult.result?.providerInfo || currentValue;
       else if (fieldType === "extra_block" || fieldType === "new_extra_block") {
-        baseText = previewResult.result?.body || currentValue;
+        baseText = previewResult.result?.body || previewResult.result?.description || previewResult.result?.text || currentValue;
         baseTitle = previewResult.result?.title || currentTitleValue;
       }
     }
@@ -240,12 +240,19 @@ export default function AiFieldRefineModal({
       setPreviewResult(data);
       setVariationCount(nextVariationIndex);
 
-      const assistantOutputText =
-        data.result?.title ||
-        data.result?.description ||
-        data.result?.providerInfo ||
-        data.result?.body ||
-        "";
+      let assistantOutputText = "";
+      if (fieldType === "extra_block" || fieldType === "new_extra_block") {
+        const genT = data.result?.title || "";
+        const genB = data.result?.body || data.result?.description || data.result?.text || "";
+        assistantOutputText = genT ? `Título: ${genT}\nContenido:\n${genB}` : genB;
+      } else {
+        assistantOutputText =
+          data.result?.description ||
+          data.result?.title ||
+          data.result?.providerInfo ||
+          data.result?.body ||
+          "";
+      }
 
       if (assistantOutputText) {
         updatedHistory.push({ role: "assistant", content: assistantOutputText });
