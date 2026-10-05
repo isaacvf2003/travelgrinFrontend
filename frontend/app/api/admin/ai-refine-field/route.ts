@@ -223,7 +223,7 @@ export async function POST(req: Request) {
 
     if (fieldType === "extra_block" || fieldType === "new_extra_block") {
       const blockTitle = currentTitle || "Información Adicional";
-      const blockRes = await runCustomBlockAgent(context, blockTitle, effectivePrompt);
+      const blockRes = await runCustomBlockAgent(context, blockTitle, effectivePrompt, currentText);
       if (blockRes.estado === "sin_datos" || !blockRes.body) {
         return NextResponse.json(
           { error: "No se pudo generar el bloque con IA. Verifique su clave o intente nuevamente." },
