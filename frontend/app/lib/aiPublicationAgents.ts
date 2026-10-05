@@ -197,18 +197,23 @@ async function executeModelCall(
   preferredProvider: "auto" | "gemini" | "openai" = "auto"
 ): Promise<{ rawText: string; providerUsed: string }> {
   const customKey = String(apiKeyParam || "").trim();
-  const geminiKey =
+  const rawGemini =
     (customKey && (customKey.startsWith("AIza") || !customKey.startsWith("sk-")) ? customKey : "") ||
     process.env.GEMINI_API_KEY ||
+    process.env.GEMINI_KEY ||
     process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GEMINI_API_KEY ||
     process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
     "";
+  const geminiKey = rawGemini.trim();
 
-  const openaiKey =
+  const rawOpenai =
     (customKey && customKey.startsWith("sk-") ? customKey : "") ||
     process.env.OPENAI_API_KEY ||
+    process.env.OPENAI_KEY ||
     process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
     "";
+  const openaiKey = rawOpenai.trim();
 
   if (!geminiKey && !openaiKey) {
     throw new Error("No hay ninguna API Key de IA configurada. Ingresá tu clave de Gemini (AIza...) u OpenAI (sk-...) en el modal o en la configuración para continuar.");
@@ -216,12 +221,19 @@ async function executeModelCall(
 
   const executeGemini = async (): Promise<string> => {
     if (!geminiKey) throw new Error("GEMINI_API_KEY no disponible.");
-    const models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+    const candidateEndpoints = [
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
+      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
+    ];
     let lastErr: any = null;
-    for (const model of models) {
+    for (const url of candidateEndpoints) {
       try {
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          `${url}?key=${geminiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -233,7 +245,7 @@ async function executeModelCall(
                 },
               ],
               generationConfig: {
-                temperature: 0.7,
+                temperature: 0.75,
                 responseMimeType: "application/json",
               },
             }),
@@ -244,13 +256,15 @@ async function executeModelCall(
           const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
           if (raw) return raw;
         } else {
-          lastErr = new Error(`Gemini ${model}: HTTP ${res.status}`);
+          const errDetail = await res.text().catch(() => "");
+          const modelName = url.split("/models/")[1]?.split(":")[0] || url;
+          lastErr = new Error(`Gemini ${modelName} (HTTP ${res.status}): ${errDetail || res.statusText}`);
         }
       } catch (e: any) {
         lastErr = e;
       }
     }
-    throw lastErr || new Error("Gemini falló.");
+    throw lastErr || new Error("Gemini falló en todos los endpoints disponibles.");
   };
 
   const executeOpenAI = async (): Promise<string> => {
@@ -272,7 +286,7 @@ async function executeModelCall(
               { role: "user", content: userPrompt },
             ],
             response_format: { type: "json_object" },
-            temperature: 0.7,
+            temperature: 0.75,
           }),
         });
         if (res.ok) {
@@ -280,7 +294,8 @@ async function executeModelCall(
           const raw = json.choices?.[0]?.message?.content || "";
           if (raw) return raw;
         } else {
-          lastErr = new Error(`OpenAI ${model}: HTTP ${res.status}`);
+          const errDetail = await res.text().catch(() => "");
+          lastErr = new Error(`OpenAI ${model} (HTTP ${res.status}): ${errDetail || res.statusText}`);
         }
       } catch (e: any) {
         lastErr = e;
@@ -290,22 +305,44 @@ async function executeModelCall(
   };
 
   if (preferredProvider === "openai") {
-    try {
-      const raw = await executeOpenAI();
-      return { rawText: raw, providerUsed: "openai" };
-    } catch {
+    if (openaiKey) {
+      try {
+        const raw = await executeOpenAI();
+        return { rawText: raw, providerUsed: "openai" };
+      } catch (err: any) {
+        if (geminiKey) {
+          const raw = await executeGemini();
+          return { rawText: raw, providerUsed: "gemini" };
+        }
+        throw err;
+      }
+    } else if (geminiKey) {
       const raw = await executeGemini();
       return { rawText: raw, providerUsed: "gemini" };
     }
   } else {
-    try {
-      const raw = await executeGemini();
-      return { rawText: raw, providerUsed: "gemini" };
-    } catch {
+    // preferredProvider === "auto" or "gemini"
+    if (geminiKey) {
+      try {
+        const raw = await executeGemini();
+        return { rawText: raw, providerUsed: "gemini" };
+      } catch (geminiErr: any) {
+        if (openaiKey) {
+          try {
+            const raw = await executeOpenAI();
+            return { rawText: raw, providerUsed: "openai" };
+          } catch (openAiErr: any) {
+            throw new Error(`Gemini falló [${geminiErr.message}] y OpenAI falló [${openAiErr.message}]`);
+          }
+        }
+        throw geminiErr;
+      }
+    } else if (openaiKey) {
       const raw = await executeOpenAI();
       return { rawText: raw, providerUsed: "openai" };
     }
   }
+  throw new Error("No se pudo contactar a ningún proveedor de IA.");
 }
 
 // ============================================================================
