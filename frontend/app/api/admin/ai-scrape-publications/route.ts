@@ -24,6 +24,10 @@ export interface ExtraDescriptionBlock {
   body: string;
   bodyI18n: I18nRecord;
   visibleInCard: boolean;
+  estado?: "ok" | "parcial" | "sin_datos";
+  contenido?: string;
+  evidencias?: string[];
+  prompt?: string;
 }
 
 export interface CustomScraperBlock {
@@ -2846,42 +2850,35 @@ function generateImpactfulTitle(
   const isGastro = sector === "gastronomy" || /restaurante|bar|gastronom|parrilla/i.test(allCorpus);
   const isTourism = sector === "tourism" || /hotel|hostel|turismo|alojam|posada/i.test(allCorpus);
   const isRealEstate = sector === "real_estate" || /inmobiliar|propiedad|bienes ra/i.test(allCorpus);
-  const isLegal = sector === "legal" || /estudio jur|abogad|notar|escriban|migrat|ciudadan|extranjer|visas?|radicaci[oó]n|dni|nacionalidad|asilo|legal/i.test(allCorpus);
   const isTech = sector === "tech" || /software|tecnolog|digital/i.test(allCorpus);
 
   if (isMarketing) {
-    if (isLegal) {
-      if (/migrat|ciudadan|extranjer|visas?|radicaci[oó]n/i.test(allCorpus)) {
-        return `${baseEntityName} | Especialista Líder en Derecho Migratorio, Ciudadanías y Radicaciones`;
-      }
-      return `${baseEntityName} | Especialistas en Asesoría Legal Estratégica y Soluciones Jurídicas`;
-    }
     if (isEdu) {
-      return `${baseEntityName} | Especialistas en Formación Universitaria Líder con Alta Salida Laboral`;
+      return `${baseEntityName} | Especialistas en Formación Universitaria y Carreras Oficiales`;
     }
     if (isHealth) {
-      return `${baseEntityName} | Especialistas Médicos de Primer Nivel: Guardia 24hs y Turnos Inmediatos`;
+      return `${baseEntityName} | Atención Médica de Excelencia, Guardia y Especialidades`;
     }
     if (isTourism) {
-      return `${baseEntityName} | Experiencias de Hospedaje Exclusivas y Atención de Primer Nivel`;
+      return `${baseEntityName} | Experiencias de Hospedaje y Atención de Primer Nivel`;
     }
     if (isGastro) {
-      return `${baseEntityName} | Gastronomía de Autor y Experiencias Culinarias de Alta Calidad`;
+      return `${baseEntityName} | Gastronomía de Autor y Experiencias Culinarias`;
     }
     if (isRealEstate) {
-      return `${baseEntityName} | Especialistas en Asesoramiento Inmobiliario y Propiedades Exclusivas`;
+      return `${baseEntityName} | Asesoramiento Inmobiliario y Gestión de Propiedades`;
     }
     if (isTech) {
       return `${baseEntityName} | Soluciones Tecnológicas de Alto Rendimiento e Innovación Digital`;
     }
-    return `${baseEntityName} | Especialistas en Soluciones Profesionales de Alto Impacto y Conversión`;
+    return `${baseEntityName} | Servicios Profesionales y Atención Especializada`;
   }
 
   if (isEdu) {
     return `${baseEntityName} | Carreras Universitarias, Títulos Oficiales y Modalidades Flexibles`;
   }
   if (isHealth) {
-    return `${baseEntityName} | Atención Médica de Alta Complejidad y Guardia 24hs`;
+    return `${baseEntityName} | Atención Médica de Alta Complejidad y Especialidades`;
   }
   if (isGastro) {
     return `${baseEntityName} | Gastronomía de Autor, Cocina Exclusiva y Reservas`;
@@ -2890,19 +2887,13 @@ function generateImpactfulTitle(
     return `${baseEntityName} | Hospedaje de Primer Nivel y Experiencias Exclusivas`;
   }
   if (isRealEstate) {
-    return `${baseEntityName} | Venta, Alquiler y Tasación de Propiedades Exclusivas`;
-  }
-  if (isLegal) {
-    if (/migrat|ciudadan|extranjer|visas?|radicaci[oó]n/i.test(allCorpus)) {
-      return `${baseEntityName} | Especialista en Derecho Migratorio, Ciudadanías y Trámites de Residencia`;
-    }
-    return `${baseEntityName} | Estudio Jurídico, Asesoramiento Notarial y Legal Integral`;
+    return `${baseEntityName} | Venta, Alquiler y Tasación de Propiedades`;
   }
   if (isTech) {
-    return `${baseEntityName} | Soluciones Tecnológicas, Desarrollo de Software e Innovación`;
+    return `${baseEntityName} | Soluciones Tecnológicas, Software e Innovación`;
   }
 
-  return `${baseEntityName} | Calidad, Trayectoria y Soluciones Profesionales de Excelencia`;
+  return `${baseEntityName} | Información Oficial y Servicios Profesionales`;
 }
 
 async function buildGroundedDescriptions(
@@ -2915,14 +2906,6 @@ async function buildGroundedDescriptions(
   const prompt = (customAdminPrompt || "").trim();
   const wantsIcons = /con\s+emojis?|usar\s+emojis?|incluir\s+emojis?/i.test(prompt);
   const omitIcons = checkPromptOmitIcons(prompt) || (prompt.length > 0 && !wantsIcons);
-  const omitPrice = checkPromptOmitPrice(prompt);
-  const omitVigencia = checkPromptOmitVigencia(prompt);
-  const isStory = checkPromptIsStory(prompt);
-  const isServicesDetailed = checkPromptIsServicesDetailed(prompt);
-  const isExecutiveSummary = checkPromptIsExecutiveSummary(prompt);
-  const isWhoWeAre = checkPromptIsWhoWeAre(prompt);
-  const isImpact = checkPromptIsImpact(prompt);
-  const isEssential = checkPromptIsEssential(prompt);
 
   const cleanTitle = title || cleanTitleString(extractedData.title) || "";
   const baseEntityName = cleanTitle.split(/\s*[-–—|]\s*/)[0].trim() || cleanTitle;
@@ -2940,151 +2923,24 @@ async function buildGroundedDescriptions(
   const headingsList = (extractedData.headings || [])
     .filter((h: string) => h && h.length > 3 && h.length < 90 && !/menu|navegaci|inicio|contacto|buscar|copyright|login/i.test(h))
     .slice(0, 6);
-  const servicesListStr = headingsList.length > 0 ? headingsList.join(", ") : "Servicios profesionales, atención especializada y asesoramiento integral";
-
-  const allCorpus = `${cleanTitle} ${extractedData.url} ${cleanSummary} ${headingsList.join(" ")}`.toLowerCase();
-  const isEdu = /universidad|facultad|instituto|colegio|carrera|posgrado|grado|licenciatura/i.test(allCorpus);
-  const isHealth = /hospital|sanatorio|cl[ií]nica|salud|m[eé]dic|guardia|paciente/i.test(allCorpus);
-  const isGastro = /restaurante|bar|gastronom|parrilla|comida|cena/i.test(allCorpus);
-  const isTourism = /hotel|hostel|turismo|alojam|posada|cabaña/i.test(allCorpus);
-  const isLegal = /abogad|estudio jur|notar|escriban|migrat|ciudadan|extranjer|visas?|radicaci[oó]n|dni|nacionalidad|asilo|legal/i.test(allCorpus) || /migrat|ciudadan|legal/i.test(prompt);
+  const servicesListStr = headingsList.length > 0 ? headingsList.join(", ") : "Servicios profesionales y atención institucional";
 
   const paragraphs: string[] = [];
+  paragraphs.push(
+    `<p><strong>${baseEntityName}</strong> es una institución de referencia${locationText ? ` con sede en ${locationText}` : ""}, orientada a brindar servicios y soluciones de calidad en su rubro.</p>`
+  );
 
-  // If ANY custom prompt exists:
-  if (prompt.length > 0) {
-    // 1. If impact / essential / llamativo requested:
-    if (isImpact || isEssential) {
-      let hook = "";
-      if (isLegal) {
-        hook = `<strong>${baseEntityName}</strong> es un estudio jurídico y consultoría especializada${locationText ? ` con sede en ${locationText}` : ""}, con destacada trayectoria en asesoramiento integral, gestiones migratorias, ciudadanías y resoluciones jurídicas efectivas.`;
-      } else if (isEdu) {
-        hook = `<strong>${baseEntityName}</strong> es una institución universitaria destacada${locationText ? ` con sede central en ${locationText}` : ""}, reconocida por su oferta académica, plataformas de aprendizaje y formación profesional.`;
-      } else if (isHealth) {
-        hook = `<strong>${baseEntityName}</strong> es una institución médica de referencia y alta complejidad${locationText ? ` en ${locationText}` : ""}, destacada por su excelencia clínica, tecnología de avanzada y atención humana integral 24 horas.`;
-      } else if (isGastro) {
-        hook = `<strong>${baseEntityName}</strong> ofrece una destacada propuesta gastronómica de autor${locationText ? ` en ${locationText}` : ""}, combinando materias primas seleccionadas, sabores auténticos y una atmósfera exclusiva.`;
-      } else if (isTourism) {
-        hook = `<strong>${baseEntityName}</strong> se destaca por su propuesta de hospedaje y experiencias de primer nivel${locationText ? ` en ${locationText}` : ""}, brindando confort superior, hospitalidad y atención personalizada.`;
-      } else {
-        hook = `<strong>${baseEntityName}</strong> es una entidad de referencia${locationText ? ` con sede en ${locationText}` : ""}, distinguida por su trayectoria, calidad en sus prestaciones y un modelo operativo de excelencia enfocado en resultados reales.`;
-      }
-      paragraphs.push(`<p>${hook}</p>`);
-
-      let coreOffer = "";
-      if (isLegal) {
-        coreOffer = `Brinda asesoramiento especializado en derecho migratorio, tramitación de visas, radicaciones, ciudadanías, recursos administrativos y asistencia legal integral en cada etapa procesal.`;
-      } else if (isEdu) {
-        coreOffer = `Su oferta académica integra una amplia variedad de carreras de grado, licenciaturas, diplomaturas y posgrados oficiales con modalidades flexibles (presenciales y online) diseñadas para responder a las exigencias del mercado profesional global.`;
-      } else if (isHealth) {
-        coreOffer = `Cuenta con guardia activa permanente, consultorios externos en todas las especialidades, internación general y diagnóstico por imágenes de alta resolución.`;
-      } else {
-        coreOffer = `Brinda soluciones integrales que incluyen: ${servicesListStr}, con procesos certificados y soporte interdisciplinario adaptado a cada necesidad.`;
-      }
-      paragraphs.push(`<p><strong>Servicios Clave y Formación:</strong> ${coreOffer}</p>`);
-
-      paragraphs.push(
-        `<p><strong>Diferencial y Respaldo Institucional:</strong> Títulos oficiales verificados, infraestructura moderna, convenios estratégicos y compromiso permanente con la calidad y la innovación.</p>`
-      );
-
-      paragraphs.push(
-        `<p><strong>Presencia y Canales Oficiales:</strong> ${locationText ? `Sede principal en ${locationText}` : "Sede institucional"} con centros universitarios y canales directos habilitados para admisiones, consultas e información académica.</p>`
-      );
-    } else if (isStory) {
-      const year = extractedData.detectedFoundingYear || extractFoundingYear("", extractedData.textContent || "", extractedData.url, cleanTitle);
-      const histText = year
-        ? `${baseEntityName} cuenta con una sólida trayectoria institucional desde su fundación en el año ${year}, consolidándose como un referente en ${locationText || "su sector"}. A lo largo de su historia ha desarrollado un modelo de excelencia y servicio continuo.`
-        : `${baseEntityName} se destaca por su amplia trayectoria y solidez en ${locationText || "su región"}, brindando soluciones de calidad y compromiso profesional sustentado en su experiencia.`;
-      paragraphs.push(`<p><strong>Historia y Trayectoria:</strong> ${histText}</p>`);
-      paragraphs.push(`<p><strong>Consolidación y Crecimiento:</strong> A lo largo de los años ha expandido su infraestructura y equipo profesional para brindar una cobertura integral y adaptada a las demandas actuales.</p>`);
-      paragraphs.push(`<p><strong>Presencia Oficial:</strong> Sede principal en ${locationText || "su localidad"} y canales activos de atención institucional.</p>`);
-    } else if (isServicesDetailed) {
-      paragraphs.push(`<p><strong>Detalle de Servicios y Prestaciones:</strong> ${baseEntityName} ofrece una cartera completa de prestaciones que incluye: ${servicesListStr}. Cada área cuenta con soporte calificado, procesos certificados y atención adaptada a cada necesidad.</p>`);
-      paragraphs.push(`<p><strong>Metodología y Alcance:</strong> Atención integral con profesionales capacitados e infraestructura moderna en ${locationText || "su sede principal"}.</p>`);
-      paragraphs.push(`<p><strong>Canales Habilitados:</strong> Consultas, turnos y coordinación directa a través de vías oficiales verificadas.</p>`);
-    } else if (isExecutiveSummary) {
-      if (isLegal) {
-        paragraphs.push(
-          `<p><strong>Resumen Ejecutivo:</strong> ${cleanSummary || `${baseEntityName} es una firma jurídica de referencia especializada en derecho migratorio y corporativo.`} Ofrece soluciones estratégicas y personalizadas orientadas a la resolución eficiente de trámites de radicación, visas y ciudadanías con máximos estándares de seguridad jurídica.</p>`
-        );
-        paragraphs.push(
-          `<p><strong>Capacidades Profesionales:</strong> Equipo legal interdisciplinario, experiencia comprobada en normativas migratorias nacionales e internacionales y representación de clientes particulares y corporativos en ${locationText || "su región"}.</p>`
-        );
-        paragraphs.push(
-          `<p><strong>Seguridad y Respaldo Jurídico:</strong> Acompañamiento personalizado en cada instancia administrativa y judicial, gestión documental rigurosa y canales directos para consultas y asesoramiento oficial.</p>`
-        );
-      } else {
-        paragraphs.push(
-          `<p><strong>Resumen Ejecutivo:</strong> ${cleanSummary || `${baseEntityName} es una entidad de referencia en ${locationText}.`} Su propuesta integra altos estándares operativos, tecnología y atención especializada orientada a satisfacer los requerimientos de sus usuarios y clientes.</p>`
-        );
-        paragraphs.push(
-          `<p><strong>Capacidades Operativas:</strong> Estructura profesional interdisciplinaria, procesos certificados y capacidad de respuesta integral en ${locationText || "la región"}.</p>`
-        );
-        paragraphs.push(
-          `<p><strong>Estándares de Calidad:</strong> Respaldo verificado, auditoría de procesos y canales oficiales directos para información y gestiones.</p>`
-        );
-      }
-    } else if (isWhoWeAre) {
-      if (isLegal) {
-        paragraphs.push(
-          `<p><strong>Quiénes Somos:</strong> ${cleanSummary || `${baseEntityName} es un equipo legal y notarial dedicado a brindar asesoría jurídica especializada y soluciones migratorias integrales.`} Con sede en ${locationText || "su localidad"}, combinamos excelencia técnica y trato cercano.</p>`
-        );
-        paragraphs.push(
-          `<p><strong>Misión y Compromiso:</strong> Defender los intereses de nuestros clientes y facilitar sus procesos migratorios y legales con total transparencia, agilidad y respaldo normativo garantizado.</p>`
-        );
-        paragraphs.push(
-          `<p><strong>Ubicación y Contacto:</strong> Despacho oficial en ${locationText || "su localidad"} y canales de comunicación directa para consultas confidenciales.</p>`
-        );
-      } else {
-        paragraphs.push(
-          `<p><strong>Quiénes Somos:</strong> ${cleanSummary || `${baseEntityName} es una institución orientada a brindar soluciones integrales en ${locationText}.`} Cuenta con profesionales capacitados e infraestructura moderna.</p>`
-        );
-        paragraphs.push(
-          `<p><strong>Misión y Compromiso:</strong> Excelencia en el servicio, calidez en la atención y respaldo institucional garantizado.</p>`
-        );
-        paragraphs.push(
-          `<p><strong>Ubicación y Contacto:</strong> Sede en ${locationText || "su localidad"} y canales oficiales para consultas directas.</p>`
-        );
-      }
-    } else {
-      paragraphs.push(
-        `<p><strong>Presentación y Propuesta:</strong> ${cleanSummary}${locationText ? ` con sede en ${locationText}` : ""}.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Servicios y Especialidades:</strong> ${servicesListStr}.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Información y Canales Oficiales:</strong> Acceso a asesoramiento y gestión directa a través del portal oficial ${siteUrl}.</p>`
-      );
-    }
-
-    // Add vigencia/price ONLY if explicitly NOT omitted AND the user didn't ask for "lo esencial / llamativo / historia / quienessomos"
-    if (!isEssential && !isImpact && !isStory && !isWhoWeAre && !isExecutiveSummary) {
-      if (!omitVigencia && !omitPrice) {
-        paragraphs.unshift(`<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> A consultar / Según aranceles o tarifas del oferente.</p>`);
-      } else if (!omitVigencia && omitPrice) {
-        paragraphs.unshift(`<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado.</p>`);
-      }
-    }
-  } else {
-    // Standard default paragraphs when NO prompt was provided
-    paragraphs.push(
-      `<p><strong>${baseEntityName}</strong> ofrece servicios y soluciones integrales${locationText ? ` en ${locationText}` : ""}, orientadas a brindar asesoramiento, calidad y atención personalizada a sus usuarios y clientes.</p>`
-    );
-    if (cleanSummary && cleanSummary !== cleanTitle) {
-      paragraphs.push(
-        `<p><strong>Propuesta y Servicios:</strong> ${cleanSummary}.</p>`
-      );
-    }
-    if (servicesListStr && !servicesListStr.includes("Servicios profesionales, atención especializada")) {
-      paragraphs.push(
-        `<p><strong>Especialidades y Prestaciones:</strong> ${servicesListStr}.</p>`
-      );
-    }
-    paragraphs.push(
-      `<p><strong>Información y Canales Oficiales:</strong> Asesoramiento, consultas y gestión directa a través de su plataforma oficial ${siteUrl}.</p>`
-    );
+  if (cleanSummary && cleanSummary !== baseEntityName) {
+    paragraphs.push(`<p><strong>Propuesta y Alcance:</strong> ${cleanSummary}</p>`);
   }
+
+  if (servicesListStr) {
+    paragraphs.push(`<p><strong>Servicios y Prestaciones:</strong> ${servicesListStr}.</p>`);
+  }
+
+  paragraphs.push(
+    `<p><strong>Información y Canales Oficiales:</strong> Asesoramiento, consultas y gestión directa a través de su plataforma oficial ${siteUrl}.</p>`
+  );
 
   let es = paragraphs.join("\n");
   if (omitIcons) {
@@ -3100,104 +2956,59 @@ async function buildGroundedCustomBlock(
   primaryHq: any
 ): Promise<ExtraDescriptionBlock> {
   const title = block.title.trim();
-  const host = cleanTitleString(extractedData.title) || "";
-  const city = primaryHq?.city || "su sede principal";
   const blockPrompt = (block.prompt || "").trim();
   const titleLower = title.toLowerCase();
   const promptLower = blockPrompt.toLowerCase();
 
+  const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(titleLower) || /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(promptLower);
+
   let bodyEs = "";
+  let estado: "ok" | "parcial" | "sin_datos" = "sin_datos";
+  const evidencias: string[] = [];
 
-  const isLegalEntity = /estudio jur|abogad|notar|escriban|migrat|ciudadan|extranjer|residencia|legal|derecho/i.test(
-    `${host} ${extractedData.textContent || ""} ${titleLower} ${promptLower}`
-  );
-
-  if (/faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(titleLower) || /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(promptLower)) {
-    // Determine requested count (e.g. "hazme o generame 10 preguntas con respuestas")
-    const countMatch = blockPrompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) ||
-      blockPrompt.match(/\b(1\d|[2-9])\b/);
-    const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (isLegalEntity ? 10 : 8);
-
-    const faqPoolLegal = [
-      { q: "¿Qué tipo de trámites migratorios y de extranjería gestionan?", a: "Brindamos asesoramiento integral en residencias temporarias y permanentes en Argentina (MERCOSUR y No MERCOSUR), cambios de categoría, radicaciones, prórrogas y visas consulares especiales." },
-      { q: "¿Cómo tramitar la ciudadanía argentina o doble nacionalidad?", a: "Asesoramos en cartas de ciudadanía por naturalización o por opción, acompañando todo el proceso judicial y administrativo ante los juzgados federales competentes con total respaldo." },
-      { q: "¿Realizan gestiones para ciudadanía italiana y nacionalidad española?", a: "Sí, gestionamos carpetas consulares para ciudadanía italiana por reconstrucción (Iure Sanguinis) o vía judicial en Italia (materna 1948), así como nacionalidad española por Ley de Memoria Democrática (Ley de Nietos)." },
-      { q: "¿Se puede realizar la consulta y el trámite de manera 100% remota u online?", a: "Sí, atendemos a clientes de todo el país y el exterior a través de videoconsultas programadas, coordinando el envío, revisión digital y validación documental sin necesidad de traslados innecesarios." },
-      { q: "¿Cómo solicitar una primera consulta o diagnóstico de mi caso?", a: "Podés coordinar una consulta inicial personalizada a través de nuestros canales oficiales directos para analizar viabilidad, plazos, costos y requisitos específicos de tu expediente." },
-      { q: "¿Qué documentación y legalizaciones previas se necesitan?", a: "Partidas de nacimiento, matrimonio o defunción legalizadas con Apostilla de La Haya y traducciones públicas matriculadas según corresponda a las exigencias de cada país." },
-      { q: "¿Ayudan con la búsqueda de partidas en el exterior (Italia, España u otros países)?", a: "Sí, disponemos de servicio de búsqueda genealógica y obtención de actas comunales o eclesiásticas en Italia y registros civiles en España." },
-      { q: "¿Cuáles son los plazos estimados de resolución de los trámites migratorios?", a: "Los plazos varían según el tipo de trámite y el organismo interviniente; en la consulta inicial brindamos un cronograma estimado realista y transparente para tu tranquilidad." },
-      { q: "¿Cómo se estructuran los honorarios profesionales y formas de pago?", a: "Ofrecemos presupuestos cerrados y transparentes sin costos ocultos, con facilidades de pago en cuotas y múltiples medios de pago locales e internacionales." },
-      { q: "¿Cómo se realiza el seguimiento del estado de mi expediente?", a: "Mantenemos comunicación directa y periódica informando cada avance, presentación y notificación oficial hasta la resolución final satisfactoria." },
-      { q: "¿Qué sucede si tengo un rechazo previo o situación irregular?", a: "Analizamos el expediente denegado para evaluar recursos administrativos, reconsideraciones judiciales o vías alternativas de regularización migratoria." },
-      { q: "¿Gestionan permisos de ingreso, visas de trabajo y trámites corporativos?", a: "Sí, asesoramos tanto a particulares y familias como a empresas que requieren radicar o trasladar directivos y colaboradores al país." },
-      { q: "¿Qué validez tienen los poderes notariales para trámites a distancia?", a: "Orientamos en la redacción de poderes especiales consulares o notariales para que podamos representarte legalmente con plena validez ante organismos oficiales." },
-      { q: "¿Brindan soporte para inscripción ante organismos fiscales (AFIP/ARCA, DNI, CUIL)?", a: "Acompañamos a los extranjeros en la obtención de su DNI argentino, CUIL y habilitación de trámites impositivos y bancarios esenciales." },
-      { q: "¿Por qué elegir un abogado matriculado especialista en migración?", a: "Garantiza seguridad jurídica, respaldo ético profesional, confidencialidad absoluta y máxima celeridad evitando errores costosos en tus gestiones." },
-    ];
-
-    const faqPoolEdu = [
-      { q: "¿Cómo realizar la inscripción o reserva de vacante?", a: "A través de los canales oficiales presenciales o vía plataforma web con asesoramiento personalizado y validación de requisitos." },
-      { q: "¿Cuáles son las modalidades de cursado disponibles?", a: "Contamos con modalidades presenciales, semipresenciales y 100% online con campus virtual habilitado las 24 horas." },
-      { q: "¿Los títulos y certificaciones cuentan con validez oficial?", a: "Sí, todos los planes de estudio y carreras cuentan con reconocimiento y acreditación oficial de las autoridades correspondientes." },
-      { q: "¿Qué documentación es requerida para el ingreso?", a: "DNI o pasaporte vigente, certificado de estudios previos legalizado y formulario de inscripción completo." },
-      { q: "¿Existen programas de becas o convenios de descuento?", a: "Sí, disponemos de convenios institucionales, becas al mérito y planes de financiación accesibles." },
-      { q: "¿Cuándo inician las clases y cursos?", a: "Tenemos convocatorias periódicas y ciclos de inicio programados a lo largo de todo el año lectivo." },
-      { q: "¿Se reconocen materias o equivalencias de otras instituciones?", a: "Sí, podés presentar tu plan de estudios y certificado analítico para la evaluación de equivalencias." },
-      { q: "¿Cómo son las evaluaciones y exámenes finales?", a: "Dependiendo de la modalidad, se realizan exámenes presenciales en sede o a través de la plataforma virtual con supervisión docente." },
-      { q: "¿Cuentan con bolsa de empleo o convenios con empresas?", a: "Sí, facilitamos prácticas profesionales y vinculación directa con el mercado laboral para estudiantes y egresados." },
-      { q: "¿Cómo comunicarse con secretaría académica?", a: "Mediante nuestros canales directos de atención telefónica, mensajería y correo institucional." },
-      { q: "¿Tienen convenios internacionales o programas de intercambio?", a: "Sí, mantenemos alianzas y convenios con universidades y centros educativos del exterior para movilidad académica." },
-      { q: "¿Cuáles son las formas de pago de matrículas y aranceles?", a: "Disponemos de débito automático, tarjetas de crédito, transferencias y planes de pago en cuotas fijas." },
-      { q: "¿Otorgan certificados intermedios o títulos oficiales de validez nacional?", a: "Todas nuestras carreras y diplomaturas otorgan títulos oficiales reconocidos por el Ministerio de Educación." },
-      { q: "¿Cómo acceder a tutorías y apoyo pedagógico?", a: "Los estudiantes cuentan con acompañamiento tutorial personalizado y espacios de consulta docente durante toda la cursada." },
-      { q: "¿Ofrecen actividades extracurriculares o cursos de extensión?", a: "Sí, desarrollamos talleres, cursos de actualización continua, webinars y actividades deportivas y culturales." },
-    ];
-
-    const faqPoolGeneral = [
-      { q: "¿Cómo contratar o solicitar los servicios?", a: "A través de nuestros canales oficiales directos o formulario de contacto con asesoramiento personalizado." },
-      { q: "¿Cuáles son las zonas de cobertura y atención?", a: `Brindamos atención presencial en ${city} y cobertura remota / digital para todo el país.` },
-      { q: "¿Cuáles son los medios de pago aceptados?", a: "Aceptamos transferencias bancarias, tarjetas de débito/crédito y planes de pago acordes al servicio." },
-      { q: "¿Se requiere cita previa para atención presencial?", a: "Recomendamos coordinar cita o turno previo para garantizar una atención ágil y sin demoras." },
-      { q: "¿Qué garantías y respaldo ofrecen en sus prestaciones?", a: "Profesionales capacitados, procesos certificados y trayectoria comprobable en el rubro." },
-      { q: "¿Cómo consultar el estado de un servicio o trámite?", a: "Mantenemos comunicación constante mediante canales directos informando cada etapa." },
-      { q: "¿Tienen atención para empresas o clientes corporativos?", a: "Sí, diseñamos propuestas corporativas a medida con soporte prioritario y seguimiento dedicado." },
-      { q: "¿Cuál es el horario habitual de atención?", a: "Lunes a Viernes de 09:00 a 18:00 hs con guardia para consultas urgentes." },
-      { q: "¿Dónde puedo ver opiniones o testimonios de clientes?", a: "Podés revisar la sección de valoraciones en nuestra web y ficha de Google Maps verificada." },
-      { q: "¿Cómo comunicarme en caso de urgencia o consulta especial?", a: "Disponemos de canal de WhatsApp y línea de atención directa habilitada." },
-      { q: "¿Emiten factura fiscal (A o B) por los servicios contratados?", a: "Sí, emitimos comprobantes fiscales oficiales conforme a la normativa vigente para personas físicas y jurídicas." },
-      { q: "¿Cuentan con promociones especiales o descuentos por contratación anticipada?", a: "Consulte periódicamente con nuestro equipo sobre beneficios vigentes, convenios y promociones activas." },
-      { q: "¿Cómo cancelo o reprogramo una cita o servicio coordinado?", a: "Podés avisar con antelación a través de nuestros canales de mensajería para reprogramar sin costo adicional." },
-      { q: "¿Disponen de canales de atención post-venta o soporte continuo?", a: "Sí, brindamos seguimiento y soporte post-servicio para asegurar la completa satisfacción de cada cliente." },
-      { q: "¿Tienen políticas de confidencialidad y privacidad de datos?", a: "Toda la información y documentación compartida es tratada bajo estrictos estándares de confidencialidad y protección de datos." },
-    ];
-
-    const pool = isLegalEntity ? faqPoolLegal : (/universidad|colegio|facultad|carrera/i.test(host) ? faqPoolEdu : faqPoolGeneral);
-    const selectedFaqs = pool.slice(0, requestedCount);
-
-    bodyEs = selectedFaqs.map((f) => `<p><strong>${f.q}</strong><br/>${f.a}</p>`).join("\n");
-  } else if (/requisito|admisi|inscrip|document/i.test(titleLower)) {
-    bodyEs = `<p><strong>Requisitos de acceso e inscripción:</strong> Presentación de documento de identidad oficial, acreditación correspondiente y cumplimiento de las pautas institucionales informadas en los canales oficiales de ${host || "la entidad"}.</p><p><strong>Modalidad de gestión:</strong> Trámite presencial en sede de ${city} o carga digital a través de la plataforma web habilitada.</p>`;
-  } else if (/pago|financi|cuota|tarifa|precio/i.test(titleLower)) {
-    bodyEs = `<p><strong>Medios de pago y facilidades:</strong> Transferencia bancaria directa, tarjetas de débito/crédito y planes de financiación en cuotas acordes a convenios vigentes.</p><p><strong>Consultas arancelarias:</strong> Asesoramiento personalizado y detalle de beneficios a través de sus canales de atención.</p>`;
-  } else if (/especialidad|servicio|carrera|prestacion|prestación/i.test(titleLower)) {
-    const listSnippet = extractedData.headings?.slice(0, 4)?.join(", ") || "Servicios profesionales y asesoramiento especializado";
-    bodyEs = `<p><strong>Prestaciones y áreas destacadas:</strong> ${listSnippet}.</p><p><strong>Alcance y cobertura:</strong> Atención integral con profesionales capacitados e infraestructura adaptada en ${city}.</p>`;
-  } else if (/horario|guardia|atenci[oó]n/i.test(titleLower)) {
-    bodyEs = `<p><strong>Horarios de atención regular:</strong> Lunes a Viernes de 08:00 a 20:00 hs / Sábados de 09:00 a 13:00 hs.</p><p><strong>Guardias y canales de urgencia:</strong> Asistencia y recepción de consultas a través de canales oficiales informados en la web.</p>`;
-  } else if (/instalacion|instalación|sede|equipamiento|infraestructura/i.test(titleLower)) {
-    bodyEs = `<p><strong>Infraestructura y equipamiento:</strong> Espacios adaptados, confort y tecnología orientada a garantizar un servicio de primer nivel en ${city}.</p><p><strong>Seguridad y accesibilidad:</strong> Instalaciones diseñadas para la comodidad y seguridad de los usuarios.</p>`;
+  if (isFaq) {
+    const textContent = extractedData.textContent || "";
+    const faqMatches = textContent.match(/(?:¿[^?]+\?|[A-ZÁÉÍÓÚÑ][^?\n]+\?)\s*[\n\r]+\s*([^\n\r]+)/g);
+    if (faqMatches && faqMatches.length > 0) {
+      const parsedFaqs = faqMatches.slice(0, 8).map((m: string) => {
+        const parts = m.split(/\?/);
+        const q = `${parts[0].trim()}?`;
+        const a = parts.slice(1).join("?").trim();
+        if (q.length > 5) evidencias.push(q);
+        return `<p><strong>${escapeHtml(q)}</strong><br/>${escapeHtml(a)}</p>`;
+      });
+      bodyEs = parsedFaqs.join("\n");
+      estado = "ok";
+    } else {
+      bodyEs = "";
+      estado = "sin_datos";
+    }
   } else {
-    bodyEs = `<p><strong>Detalle de ${title}:</strong> ${blockPrompt ? blockPrompt : `Información y servicios oficiales brindados por ${host || "la institución"} en ${city}.`}</p><p><strong>Canales oficiales:</strong> Información verificada y disponible para consultas e informes directos.</p>`;
+    const keywords = titleLower.split(/[\s,/-]+/).filter((w) => w.length > 3 && !/bloque|informaci|detalle|general/i.test(w));
+    const textContent = extractedData.textContent || "";
+    const matchedSentences = textContent
+      .split(/[.\n\r]+/)
+      .map((s: string) => s.trim())
+      .filter((s: string) => s.length > 25 && s.length < 250 && keywords.some((k) => s.toLowerCase().includes(k)))
+      .slice(0, 3);
+
+    if (matchedSentences.length > 0) {
+      bodyEs = matchedSentences.map((s: string) => `<p>${escapeHtml(s)}.</p>`).join("\n");
+      evidencias.push(...matchedSentences.map((s: string) => s.slice(0, 100)));
+      estado = "parcial";
+    } else {
+      bodyEs = "";
+      estado = "sin_datos";
+    }
   }
 
   const [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
     translateTextDirect(title, "es", "en"),
     translateTextDirect(title, "es", "pt"),
     translateTextDirect(title, "es", "it"),
-    translateFullHtmlDescriptionAsync(bodyEs, "en"),
-    translateFullHtmlDescriptionAsync(bodyEs, "pt"),
-    translateFullHtmlDescriptionAsync(bodyEs, "it"),
+    bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "en") : Promise.resolve(""),
+    bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "pt") : Promise.resolve(""),
+    bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "it") : Promise.resolve(""),
   ]);
 
   return {
@@ -3206,6 +3017,9 @@ async function buildGroundedCustomBlock(
     body: bodyEs,
     bodyI18n: { es: bodyEs, en: bEn, pt: bPt, it: bIt },
     visibleInCard: false,
+    estado,
+    contenido: bodyEs,
+    evidencias,
     prompt: block.prompt,
   };
 }
@@ -3835,16 +3649,37 @@ function buildPrompt(
         .join("\n\n")
     : "Sin categorías cargadas";
 
+  const now = new Date();
+  const formattedCurrentDate = now.toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
   const customBlocksPrompt =
     customBlocks && customBlocks.length > 0
       ? `
 ======================================================================
-🎯 BLOQUES DE DESCRIPCIÓN OPCIONALES PERSONALIZADOS OBLIGATORIOS ('extraDescriptions'):
-Para CADA uno de los siguientes bloques, analiza la información del sitio web y genera un objeto en 'extraDescriptions' con { "title": "...", "titleI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." }, "body": "...", "bodyI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." }, "visibleInCard": false }:
+🎯 BLOQUES DE DESCRIPCIÓN PERSONALIZADOS ('extraDescriptions'):
+Para CADA uno de los siguientes bloques requeridos por el administrador, analiza estrictamente el contenido del sitio web y genera un objeto dentro del array 'extraDescriptions' con esta estructura JSON exacta:
+{
+  "title": "Nombre del bloque",
+  "titleI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
+  "estado": "ok" | "parcial" | "sin_datos",
+  "contenido": "...", // Redacción en formato HTML <p>...</p> en tercera persona. Si el sitio web no contiene datos para este bloque, coloca "" (cadena vacía) y estado "sin_datos".
+  "evidencias": ["frase textual breve copiada literalmente del sitio web"],
+  "body": "...", // idéntico al valor de contenido
+  "bodyI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
+  "visibleInCard": false
+}
+
+LISTA DE BLOQUES A GENERAR:
 ${customBlocks
   .map(
     (b, i) =>
-      `   * Bloque ${i + 1}: Título: "${b.title}"\n     Directiva específica del administrador para el contenido de este bloque: "${b.prompt ? b.prompt : 'Extraer y detallar información clara, útil y relevante del sitio web en párrafos <p> y viñetas.'}"\n     REGLA OBLIGATORIA DE EXHAUSTIVIDAD Y CANTIDAD: Si la directiva pide una cantidad de preguntas o ítems (ej: "10 preguntas con sus respuestas", "8 preguntas", etc.), DEBES GENERAR EXACTAMENTE ESE NÚMERO DE PREGUNTAS (ej: exactamente 10 bloques <p><strong>¿Pregunta?</strong><br/>Respuesta detallada.</p>). ESTÁ TERMINANTEMENTE PROHIBIDO resumir o truncar a 3 o 4 preguntas. Devuelve la lista completa y exhaustiva solicitada.`
+      `   * Bloque ${i + 1}: Título: "${b.title}"\n     Directiva específica del administrador: "${b.prompt ? b.prompt : 'Extraer y detallar información clara, útil y relevante del sitio web en párrafos <p> y viñetas en tercera persona.'}"\n     REGLA ESTRICTA DE VERACIDAD: Si el sitio web NO tiene datos o información sobre este bloque, el estado DEBE ser "sin_datos", con contenido "" y evidencias []. PROHIBIDO inventar o asumir información no presente en el texto fuente.`
   )
   .join("\n")}
 ======================================================================
@@ -3856,7 +3691,7 @@ ${customBlocks
 ======================================================================
 🎯 DIRECTIVA MAESTRA FIJA PARA EL TÍTULO ('title' y 'titleI18n'):
 "${customTitlePrompt.trim()}"
-REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del título (ej: especialista en marketing, mirada para extranjeros, tono humanista, sin tecnicismos, atractivo y representativo de la oferta real).
+REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del título (en tercera persona, tono profesional y representativo de la oferta real).
 ======================================================================
 `
     : "";
@@ -3866,7 +3701,7 @@ REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del t�
 ======================================================================
 🎯 DIRECTIVA MAESTRA FIJA PARA LA DESCRIPCIÓN PRINCIPAL ('description' y 'descriptionI18n'):
 "${customDescriptionPrompt.trim()}"
-REGLA ESTRICTA DE DESCRIPCIÓN: Aplica al 100% esta directiva en la estructura de párrafos <p>, tono, enfoque y contenido de la descripción general. EVITA PLANTILLAS RÍGIDAS y redacta de forma natural y atractiva adaptada a lo que pide el administrador.
+REGLA ESTRICTA DE DESCRIPCIÓN: Aplica al 100% esta directiva en la estructura de párrafos <p>, tono en tercera persona y contenido de la descripción general. EVITA PLANTILLAS RÍGIDAS y redacta de forma natural basada exclusivamente en datos reales del sitio web.
 ======================================================================
 `
     : "";
@@ -3887,27 +3722,34 @@ REGLA ESTRICTA DE DESCRIPCIÓN: Aplica al 100% esta directiva en la estructura d
     : "";
 
   return `
-Eres el Lead AI Auditor y Clasificador Experto de Travelgrin (actúas con total inteligencia, empatía editorial y adaptabilidad como ChatGPT Plus o Gemini Advanced).
+Eres el Lead AI Auditor y Clasificador Experto de Travelgrin (actúas con total inteligencia editorial, veracidad y adaptabilidad).
+
+======================================================================
+📅 CONTEXTO TEMPORAL OBLIGATORIO:
+FECHA ACTUAL DE REFERENCIA: ${formattedCurrentDate} (Mes: ${currentMonth}, Año: ${currentYear}).
+REGLA DE VIGENCIA Y PLAZOS:
+Toda fecha, plazo, convocatoria, arancel, beneficio o vigencia debe ser validada estrictamente respecto a la FECHA ACTUAL (${formattedCurrentDate}).
+Cualquier trámite, convocatoria o plazo con fecha anterior a ${formattedCurrentDate} (por ejemplo fechas de 2024, 2025 o meses pasados) está VENCIDO y NO debe presentarse como vigente. Si una información o trámite ha caducado, indícalo explícitamente o descártalo.
+======================================================================
+
+======================================================================
+🚫 REGLAS DE ORO PROMPTS V2 (ANTI-ALUCINACIÓN Y VERACIDAD ESTRICTA):
+1. CERO ALUCINACIONES: PROHIBIDO inventar o citar leyes, decretos, números de artículos, normativas, años de antigüedad, precios o trámites que NO estén presentes de forma literal y textual en el texto fuente analizado del sitio web.
+2. REDACCIÓN EN TERCERA PERSONA: Redactar siempre en tono institucional, neutral y formal en TERCERA PERSONA (ej: "La institución ofrece...", "La entidad cuenta con...", "El centro brinda..."). NUNCA uses primera persona ("ofrecemos", "brindamos", "nuestro estudio") ni segunda persona ("te ayudamos", "podés").
+3. SECCIÓN DE PREGUNTAS FRECUENTES (FAQs): Las FAQs deben extraerse ÚNICAMENTE a partir de la sección de preguntas frecuentes o contenidos informativos reales y explícitos del sitio web. Si el sitio web no cuenta con una sección de FAQs o información concreta para responderlas, el estado del bloque de FAQ DEBE SER OBLIGATORIAMENTE "sin_datos" con contenido "" (cadena vacía) y evidencias []. PROHIBIDO inventar preguntas genéricas o plantillas.
+4. ESTRUCTURA JSON ESTRICTA POR BLOQUE:
+   Para CADA bloque (Título, Descripción Principal, y cada uno de los bloques en 'extraDescriptions' como Requisitos, Proceso y costos, Logística, FAQs, etc.):
+   El bloque debe incluir obligatoriamente:
+   - "estado": "ok" | "parcial" | "sin_datos"
+   - "contenido": "..." (HTML <p>...</p> para descripciones/bloques, o texto plano para el título; si estado === "sin_datos", DEBE SER una cadena vacía "")
+   - "evidencias": ["frase textual breve copiada literalmente del sitio web"]
+======================================================================
+
 ${titlePromptSection}
 ${descriptionPromptSection}
 ${adminPromptSection}
 ${customBlocksPrompt}
 ${scoreScoutDirective}
-
-Travelgrin es una plataforma internacional que publica y audita todo tipo de entidades, empresas e instituciones en Argentina, Latinoamérica y el mundo:
-- Automotriz: Concesionarias, talleres mecánicos, chapa y pintura, repuestos, gomerías, rent a car, motos y vehículos.
-- Minería, Petróleo, Gas, Energía e Industria: Empresas mineras, extracción, energía, litio, siderurgia, metalúrgica, manufactura, construcción e ingeniería.
-- Entretenimiento, Arte, Cultura y Espectáculos: Cines, teatros, salas de conciertos, parques temáticos, centros culturales, discotecas, productoras de eventos.
-- Deportes, Fitness y Bienestar: Gimnasios, clubes deportivos, complejos de canchas, crossfit, natación, artes marciales, academias.
-- Gastronomía, Bares y Restaurantes: Restaurantes, parrillas, pizzerías, cafeterías, cervecerías artesanales, bodegas, vinotecas, confiterías, catering.
-- Tecnología, Software e Informática: Empresas de software, desarrollo web y móvil, agencias de marketing digital, consultoras IT, ciberseguridad, ecommerce.
-- Inmobiliarias, Bienes Raíces y Coworking: Inmobiliarias, venta y alquiler de inmuebles, desarrollos urbanos, espacios de coworking, oficinas.
-- Finanzas, Seguros y Legal: Bancos, fintech, aseguradoras, créditos, estudios contables, estudios jurídicos, abogados, escribanías, notarías.
-- Salud, Medicina y Bienestar: Hospitales, sanatorios, clínicas, centros de diagnóstico, odontología, farmacias, laboratorios.
-- Educación y Formación: Universidades, facultades, colegios, institutos terciarios, academias, centros de capacitación.
-- Turismo y Hospedaje: Hoteles, hostels, cabañas, posadas, agencias de viajes, tours.
-- Voluntariados, ONGs y Centros de Ayuda Social.
-- Comercios y Servicios Profesionales de cualquier otro sector.
 
 DATOS EXTRAÍDOS DE LA WEB:
 - URL: ${extractedData.url}
@@ -3937,117 +3779,70 @@ ${taxonomies.modalities.map((m: string) => `"${m}"`).join(", ")}
 
 REGLAS CRÍTICAS Y OBLIGATORIAS:
 
-0. TÍTULOS ('title' y 'titleI18n') Y NOMBRE DEL OFERENTE / ENTIDAD ('publisherName'):
-- 'publisherName': OBLIGATORIO Y ESTRICTO: Es ÚNICAMENTE el nombre corto, limpio y oficial de la institución, empresa u oferente (ej: "Universidad Kennedy", "OSEP Mendoza", "Universidad Siglo 21", "Hospital Garrahan", "Toyota Panamericana", "Google").
-  * NUNCA pongas aquí el título largo de la publicación ni slogans publicitarios.
-  * NUNCA agregues frases con guiones ni barras como "- Educación virtual..." ni "Información de...".
-  * Debe ser exclusivamente el nombre propio o marca de la entidad.
-- 'title': TIENES TOTAL LIBERTAD EDITORIAL PARA GENERAR EL MEJOR TÍTULO.
-  * Si el administrador proporciona una instrucción o pide títulos "bien trabajados", "llamativos", "de impacto", "comerciales", "atractivos", "con ofertas" o un estilo específico:
-    Crea un título potente, vendedor, representativo y con gancho comercial basado en la oferta real y servicios del sitio web.
-  * Evita fórmulas repetitivas fijas o clichés (como forzar siempre "de vanguardia" o estructuras idénticas con barras). Sé variado, natural, inteligente y creativo.
-  * Si el administrador pide un título simple o no especifica nada: Puedes usar el nombre limpio de la entidad o un título descriptivo claro y profesional.
-  * Genera 'title' y 'titleI18n.es' en Español (ES). Para optimizar tokens y velocidad, genera el contenido base en español (las traducciones a otros idiomas se generan luego bajo demanda).
-- ELIMINA por completo sufijos o prefijos genéricos de navegación web como "- Home", "| Home", "- Inicio", "| Inicio", "- Portada", "| Portada", "- Bienvenidos", "| Sitio Oficial", "- Web Oficial", etc.
-- 'providerStartYear': Determina el año real de inicio de actividad profesional, matriculación, graduación o inauguración/fundación histórica de la entidad según el texto de la web, datos de búsqueda y conocimiento verificado (ej: profesional con matrícula o ejerciendo desde 2018 = "2018", Garrahan = "1987", UBA = "1821", Siglo 21 = "1995"). NUNCA uses años de copyright del pie de página (como © 2010, © 2024), pues solo corresponden al creador del sitio web. Si no existe ningún año real comprobable, deja una cadena vacía "". NUNCA coloques 2010 ni 2015 por defecto si no es real.
+0. TÍTULOS Y NOMBRE DEL OFERENTE ('publisherName'):
+- 'publisherName': Es ÚNICAMENTE el nombre corto, limpio y oficial de la institución, empresa u oferente (ej: "Universidad Kennedy", "OSEP Mendoza", "Universidad Siglo 21", "Hospital Garrahan", "Google").
+  * NUNCA pongas aquí el título largo ni slogans publicitarios.
+- 'title': Título claro, representativo y profesional en tercera persona. Puede ser un objeto { "estado": "ok"|"parcial"|"sin_datos", "contenido": "Título", "evidencias": ["..."] } o cadena de texto.
+- 'providerStartYear': Año real de fundación/inicio según el sitio web. Si no existe año comprobable en el texto, dejar "".
 
-1. VERACIDAD Y SELECCIÓN TAXONÓMICA EXACTA:
-- Elige las opciones más precisas del catálogo oficial de la base de datos según la verdadera actividad de la entidad:
-  * Si es AUTOMOTRIZ: Selecciona la categoría/subcategoría de automotriz/vehículos y actividad comercial o de reparación correspondiente.
-  * Si es MINERÍA / INDUSTRIA / ENERGÍA: Selecciona la categoría de industria/minería/energía y actividad industrial/construcción.
-  * Si es ENTRETENIMIENTO / CULTURA: Selecciona entretenimiento/cultura/espectáculos y actividad de arte/entretenimiento.
-  * Si es DEPORTES / FITNESS: Selecciona deportes/fitness/gimnasios y actividad de deportes/bienestar.
-  * Si es GASTRONOMÍA: Selecciona gastronomía/restaurantes y actividad gastronómica.
-  * Si es TECNOLOGÍA: Selecciona tecnología/software y actividad tecnológica o servicios profesionales.
-  * Si is INMOBILIARIA: Selecciona inmobiliarias/propiedades y actividad inmobiliaria.
-  * Si es HOSPITAL / SALUD: Actividad: ["Salud y asistencia social"]. Categoría: ["Centros médicos, salud y bienestar"].
-  * Si es UNIVERSIDAD / EDUCACIÓN: Actividad: ["Educación y formación"]. Categoría: ["Educación y centros de estudios"].
-  * Si es ESTUDIO JURÍDICO / LEGAL: Actividad: ["Servicios profesionales y técnicos"]. Categoría: ["Residencia y ciudadanía"] o legal.
-  * Si es HOTEL / ALOJAMIENTO: Actividad: ["Hostelería, alojamiento y turismo"]. Categoría: ["Alojamiento"].
+1. DESCRIPCIÓN PRINCIPAL ('description'):
+- Objeto con { "estado": "ok"|"parcial"|"sin_datos", "contenido": "<p>...</p>", "evidencias": ["..."] } en tercera persona e idioma Español. Si no hay datos, estado "sin_datos" con contenido "".
 
-2. LIBERTAD CREATIVA Y ADAPTACIÓN EDITORIAL EN LA DESCRIPCIÓN ('description' y 'descriptionI18n'):
-Tienes total inteligencia, empatía editorial y libertad creativa para redactar y estructurar la descripción. Puedes decidir la estructura de párrafos HTML (<p>), los subtítulos en negrita (<strong>), si colocar emojis alusivos o no, y el enfoque que mejor transmita la propuesta según lo que pida el administrador o el rubro de la entidad.
+2. AUDITORÍA DEL SCORE SCOUT (0 a 100 PUNTOS):
+- Transparente y fundamentado en p1..p6 (evaluando contacto, mapas, términos, HTTPS).
 
-EJEMPLOS DE ESTILOS Y FORMATOS QUE PUEDES EMPLEAR (PURAMENTE ILUSTRATIVOS):
-
-• Ejemplo A: Enfoque de Impacto y Esencial (Llamativo y directo)
-  <p>🚀 <strong>[Nombre de Entidad]</strong> es una institución referente, destacada por su propuesta formativa y alta inserción laboral.</p>
-  <p>🎓 <strong>Oferta Principal:</strong> Carreras universitarias, licenciaturas y posgrados oficiales con cursado flexible presencial y online.</p>
-  <p>⭐ <strong>Diferencial y Respaldo:</strong> Acreditaciones ministeriales, convenios estratégicos con empresas y tutorías personalizadas.</p>
-  <p>📍 <strong>Presencia Oficial:</strong> Sede central y campus virtuales con canales de admisión directa habilitados.</p>
-
-• Ejemplo B: Enfoque de Servicios Detallados y Prestaciones
-  <p>🏥 <strong>[Centro Médico]</strong> brinda atención médica de alta complejidad con guardia activa 24 horas y múltiples especialidades.</p>
-  <p>🩺 <strong>Servicios Principales:</strong> Cirugía de precisión, diagnóstico por imágenes, internación general y consultorios externos.</p>
-  <p>🌟 <strong>Cuerpo Médico y Tecnología:</strong> Profesionales certificados, equipamiento avanzado y atención integral.</p>
-  <p>📍 <strong>Atención y Turnos:</strong> Sede central y centros ambulatorios con gestión online y telefónica.</p>
-
-• Ejemplo C: Enfoque de Historia, Trayectoria y Solidez
-  <p>🏛️ <strong>[Institución Histórica]</strong> cuenta con una destacada trayectoria desde su fundación, consolidándose como líder en su disciplina.</p>
-  <p>📚 <strong>Legado y Excelencia:</strong> Formación superior de excelencia, investigación aplicada y prestigio internacional.</p>
-  <p>📍 <strong>Sedes y Alcance:</strong> Múltiples sedes con programas abiertos a toda la comunidad.</p>
-
-• Ejemplo D: Enfoque Corporativo e Institucional Moderno
-  <p><strong>[Nombre de Entidad]</strong> es una entidad destacada en su sector, orientada a ofrecer soluciones integrales y asesoramiento calificado de primer nivel.</p>
-  <p><strong>Servicios y Prestaciones:</strong> Consultoría especializada, procesos certificados y atención adaptada a las necesidades de cada usuario.</p>
-  <p><strong>Respaldo y Canales Oficiales:</strong> Equipo interdisciplinario, infraestructura moderna y gestión directa a través de su plataforma oficial.</p>
-
-DIRECTIVAS PRINCIPALES:
-- SI HAY DIRECTIVAS O PROMPTS DEL ADMINISTRADOR (en 'DIRECTIVA MAESTRA FIJA PARA EL TÍTULO' o 'DIRECTIVA MAESTRA FIJA PARA LA DESCRIPCIÓN'):
-  Adáptate al 100% y de forma prioritaria a lo que pide (persona, tono, estilo, longitud, si pide emojis o sin emojis, etc.), utilizando todos los datos y servicios reales del sitio web. NUNCA generes plantillas rígidas fijas ni uses estructuras de '💡 Propuesta de valor: ... ¿Para quién? ...'.
-- SI NO HAY PROMPT DEL ADMINISTRADOR:
-  Genera la descripción más profesional, atractiva y adecuada para la entidad usando el estilo y párrafos HTML <p> que mejor comuniquen su valor.
-- IDIOMA PRINCIPAL Y OPTIMIZACIÓN DE TOKENS: Genera 'description' y 'descriptionI18n.es' en Español (ES). No es necesario redactar en inglés, portugués o italiano en este paso para optimizar tokens y velocidad de respuesta.
-
-3. AUDITORÍA DEL SCORE SCOUT TRANSPARENTE Y REALISTA (0 a 100 PUNTOS):
-REGLA CRÍTICA Y MANDATORIA: Sé 100% transparente y riguroso en la auditoría. NUNCA infles los puntajes artificialmente. Si un sitio web carece de aspectos legales, términos o seguridad, penalízalo con firmeza:
-- Presencia y reputación institucional: p1 (0 a 25 puntos). Evalúa la valoración promedio de Google Maps (0-5), volumen de reseñas y presencia en redes sociales.
-- Canales de contacto verificables: p2 (0 a 15 puntos). Evalúa si cuenta con teléfono/WhatsApp (+4), email corporativo (+4), mapa/dirección (+4) y canales directos (+3). Si falta alguno, descuenta puntos.
-- Trayectoria y madurez operativa: p3 (0 a 20 puntos). Evalúa los años reales de actividad o año de fundación (>50 años: 19-20, >25 años: 17-18, >10 años: 14-16, <3 años: 4-8).
-- Claridad de la propuesta en su sitio web: p4 (0 a 15 puntos). Evalúa si los servicios, especialidades, aranceles y horarios están detallados y transparentes.
-- Transparencia, seguridad legal y privacidad: p5 (0 a 15 puntos). OBLIGATORIO: Revisa si el sitio web tiene páginas públicas de 'Términos y Condiciones', 'Política de Privacidad/Cookies' y CUIT/Razón Social visible. SI LA WEB CARECE DE TÉRMINOS O POLÍTICA DE PRIVACIDAD, este puntaje DEBE SER de 2 a 6 de 15 puntos (riesgo legal/privacidad observado). Si tiene todas las políticas legales y CUIT, califica 12 a 15.
-- Datos institucionales y seguridad técnica: p6 (0 a 10 puntos). Evalúa HTTPS con certificado válido (+5), dominio oficial propio (+3) y acreditaciones (+2).
-
-Suma totalScore = p1 + p2 + p3 + p4 + p5 + p6 (puede ser naturalmente 48, 58, 68, 74, 85, etc.).
-Madurez:
-- "Líder" (si totalScore >= 85)
-- "Consolidado" (si totalScore entre 70 y 84)
-- "En desarrollo" (si totalScore entre 50 y 69)
-- "Básico / Observado" (si totalScore < 50)
-Vínculo: "Oficial" (si es organismo estatal/público) o "Directo".
-evidenceSummary: Resumen honesto de la evidencia (ej: "Presencia institucional y canales informados con observaciones en políticas de privacidad o términos.").
-Genera dentro de 'extraDescriptions' el bloque del Score Scout con 'visibleInCard': false y textos en es, en, pt, it.
-
-4. DESCRIPCIONES OPCIONALES ADICIONALES:
-Si la web contiene secciones específicas e importantes (ej: "Requisitos", "Servicios Principales", "Catálogo", "Sucursales"), agrega 1 o 2 bloques en 'extraDescriptions' con 'title', 'titleI18n', 'body', 'bodyI18n' (es, en, pt, it) y 'visibleInCard': false.
-${customBlocksPrompt}
-
-5. SEDES MÚLTIPLES Y DESTINOS OPERATIVOS:
-- 'country': País principal (ej: "Argentina", "Chile", "Brasil", etc.).
-- 'city': Ciudad principal (ej: "Buenos Aires", "Córdoba", "Rosario", "Mendoza", "Santiago", "São Paulo", etc.).
-- 'headquarterCountry', 'headquarterCity', 'locationAddress'.
-- 'destinationCountries': Array con TODOS los países donde la empresa ofrece servicios u opera (ej: ["Argentina"], o ["Argentina", "Chile", "Brasil"]).
-- 'headquarterLocations': Si la entidad posee una única sede principal (como un hospital único, sede única o casa central), 'headquarterLocations' debe contener ÚNICAMENTE esa sede principal. NUNCA agregues barrios, distritos o departamentos de la misma conurbación (ej: 'San José' y 'Guaymallén' dentro de Mendoza) como sedes adicionales separadas. Si tiene múltiples sedes físicas en distintas ciudades:
-  [{ "country": "Argentina", "city": "Buenos Aires", "address": "Av. Corrientes 1234", "mapUrl": "https://www.google.com/maps/search/?api=1&query=..." }, { "country": "Argentina", "city": "Córdoba", "address": "...", "mapUrl": "..." }].
-
-6. VALORACIÓN, COMENTARIOS Y GOOGLE MAPS OBLIGATORIO Y ESTRICTO:
-- ATENCIÓN CON NOMBRES DUPLICADOS Y CIUDADES: Identifica la ficha de Google Maps que corresponde EXACTAMENTE a la ciudad detectada (${extractedData.detectedCity || "según web"}) y su dirección real (${extractedData.detectedAddress || "según web"}).
-- 'providerRating': Valoración o calificación promedio exacta de 0 a 5 en Google Maps (ej: "5.0", "4.8", "4.2", "4.6"). Si en Google Maps o en los datos detectados la calificación es 5.0 u otra nota real, COLOCA ESA VALORACIÓN EXACTA (ej: "5.0"). NUNCA inventes números ficticios ni pongas "4.5" por defecto si en Google Maps la calificación es diferente.
-- 'providerReviewCount': Cantidad total real de reseñas / comentarios informados en Google Maps (ej: "8", "15", "89", "702"). Si la entidad tiene comentarios o reseñas en Google Maps, DEBES colocar el número exacto informado. Solo si la entidad NO tiene ninguna reseña informada en Google Maps, coloca "0".
-- 'providerCommentsUrl': Enlace directo a la ficha de Google Maps o enlace calificado de Google Maps que incluya el nombre limpio, la dirección exacta y la ciudad (ej: "https://www.google.com/maps/search/?api=1&query=Adriana+Serra+Mansilla+Abogada+Cordoba").
-
-7. TELÉFONOS, CELULARES, WHATSAPP Y REDES SOCIALES:
-- 'socialLinksDetailed': Extrae TODOS los canales de contacto verificables encontrados en la web:
-  * Teléfonos fijos o centrales: { kind: "phone", label: "Teléfono de contacto", url: "tel:+54..." }
-  * Celulares o WhatsApp: { kind: "whatsapp", label: "WhatsApp", url: "https://wa.me/..." }
-  * Correos electrónicos: { kind: "email", label: "Email de contacto", url: "mailto:..." }
-  * Redes sociales: { kind: "instagram" | "facebook" | "linkedin" | "youtube" | "tiktok", label: "...", url: "..." }
-  * Web oficial: { kind: "web", label: "Página Oficial", url: "..." }
+3. DESCRIPCIONES OPCIONALES ADICIONALES ('extraDescriptions'):
+- Array con los bloques solicitados (Requisitos, Proceso y costos, Logística, FAQs, etc.) con { "title": "...", "titleI18n": {...}, "estado": "ok"|"parcial"|"sin_datos", "contenido": "...", "evidencias": ["..."], "body": "...", "bodyI18n": {...}, "visibleInCard": false }.
 
 Devuelve UN OBJETO JSON con las siguientes claves exactas:
-url, title, titleI18n, description, descriptionI18n, extraDescriptions, publisherName, providerInfoI18n, providerStartYear, providerRating, providerReviewCount, providerCommentsUrl, country, city, headquarterCountry, headquarterCity, locationAddress, destinationCountries, headquarterLocations, currency, price, pricePeriod, languages, website, socialLinksDetailed, category, subcategory, categorySelections, subcategorySelections, providerActivities, providerTypes, providerModalities, scoreScout: { totalScore, p1, p2, p3, p4, p5, p6, maturity, relationship, evidenceSummary }.
+{
+  "url": "${extractedData.url}",
+  "title": { "estado": "ok", "contenido": "...", "evidencias": ["..."] },
+  "titleI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
+  "description": { "estado": "ok", "contenido": "<p>...</p>", "evidencias": ["..."] },
+  "descriptionI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
+  "extraDescriptions": [
+    {
+      "title": "...",
+      "titleI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
+      "estado": "ok" | "parcial" | "sin_datos",
+      "contenido": "...",
+      "evidencias": ["..."],
+      "body": "...",
+      "bodyI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
+      "visibleInCard": false
+    }
+  ],
+  "publisherName": "...",
+  "providerInfoI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
+  "providerStartYear": "...",
+  "providerRating": "5.0",
+  "providerReviewCount": "0",
+  "providerCommentsUrl": "https://www.google.com/maps/search/?api=1&query=...",
+  "country": "...",
+  "city": "...",
+  "headquarterCountry": "...",
+  "headquarterCity": "...",
+  "locationAddress": "...",
+  "destinationCountries": ["..."],
+  "headquarterLocations": [{ "country": "...", "city": "...", "address": "...", "mapUrl": "..." }],
+  "currency": "USD",
+  "price": "A consultar",
+  "pricePeriod": "",
+  "languages": "Español",
+  "website": "${extractedData.url}",
+  "socialLinksDetailed": [{ "kind": "web", "label": "Sitio Oficial", "url": "..." }],
+  "category": "...",
+  "subcategory": "...",
+  "categorySelections": ["..."],
+  "subcategorySelections": ["..."],
+  "providerActivities": ["..."],
+  "providerTypes": ["..."],
+  "providerModalities": ["..."],
+  "scoreScout": { "totalScore": 75, "p1": 20, "p2": 12, "p3": 15, "p4": 10, "p5": 10, "p6": 8, "maturity": "Consolidado", "relationship": "Directo", "evidenceSummary": "..." }
+}
 
-Responde ÚNICAMENTE con JSON estricto sin formato markdown ni texto adicional.
+Responde ÚNICAMENTE con JSON estricto sin backticks ni texto adicional.
 `;
 }
 
@@ -4130,7 +3925,15 @@ async function formatPublicationResult(
   includeScoreScout: boolean = true
 ): Promise<ScrapedPublication> {
   const host = new URL(extractedData.url).hostname.replace("www.", "");
-  const rawTitle = parsed.title || extractedData.title || `Publicación de ${host}`;
+  let rawTitle = "";
+  if (parsed.title && typeof parsed.title === "object" && !Array.isArray(parsed.title)) {
+    rawTitle = String(parsed.title.contenido || parsed.title.title || "").trim();
+  } else if (typeof parsed.title === "string") {
+    rawTitle = parsed.title.trim();
+  }
+  if (!rawTitle) {
+    rawTitle = extractedData.title || `Publicación de ${host}`;
+  }
   let title = cleanTitleString(rawTitle);
   const publisherName = cleanPublisherName(parsed.publisherName || extractedData.title || title, extractedData.url, rawTitle);
 
@@ -4247,7 +4050,13 @@ async function formatPublicationResult(
     if (typeof rawSingleDesc === "string") {
       rawDescEs = rawSingleDesc.trim();
     } else if (rawSingleDesc && typeof rawSingleDesc === "object" && !Array.isArray(rawSingleDesc)) {
-      rawDescEs = String(rawSingleDesc.es || rawSingleDesc.ES || "").trim();
+      if (rawSingleDesc.estado === "sin_datos") {
+        rawDescEs = "";
+      } else if (rawSingleDesc.contenido !== undefined) {
+        rawDescEs = String(rawSingleDesc.contenido).trim();
+      } else {
+        rawDescEs = String(rawSingleDesc.es || rawSingleDesc.ES || "").trim();
+      }
       if (!rawDescEn) rawDescEn = String(rawSingleDesc.en || rawSingleDesc.EN || "").trim();
       if (!rawDescPt) rawDescPt = String(rawSingleDesc.pt || rawSingleDesc.PT || "").trim();
       if (!rawDescIt) rawDescIt = String(rawSingleDesc.it || rawSingleDesc.IT || "").trim();
@@ -4353,8 +4162,18 @@ async function formatPublicationResult(
       const blockTitle = String(extra?.title || "").trim();
       if (!blockTitle) return;
       if (/score scout/i.test(blockTitle) && includeScoreScout === false) return;
-      const rawBody = String(extra?.body || "").trim();
-      if (!rawBody) return;
+
+      const estado: "ok" | "parcial" | "sin_datos" =
+        extra?.estado === "sin_datos" || extra?.estado === "parcial" || extra?.estado === "ok"
+          ? extra.estado
+          : (extra?.body || extra?.contenido)
+          ? "ok"
+          : "sin_datos";
+
+      const rawBody = estado === "sin_datos" ? "" : String(extra?.contenido ?? extra?.body ?? "").trim();
+      const evidencias = Array.isArray(extra?.evidencias)
+        ? extra.evidencias.map((e: any) => String(e).trim()).filter(Boolean)
+        : [];
 
       const tI18n = extra.titleI18n || {};
       const bI18n = extra.bodyI18n || {};
@@ -4369,12 +4188,16 @@ async function formatPublicationResult(
         },
         body: rawBody,
         bodyI18n: {
-          es: String(bI18n.es || rawBody).trim(),
-          en: String(bI18n.en || bI18n.es || rawBody).trim(),
-          pt: String(bI18n.pt || bI18n.es || rawBody).trim(),
-          it: String(bI18n.it || bI18n.es || rawBody).trim(),
+          es: estado === "sin_datos" ? "" : String(bI18n.es || rawBody).trim(),
+          en: estado === "sin_datos" ? "" : String(bI18n.en || bI18n.es || rawBody).trim(),
+          pt: estado === "sin_datos" ? "" : String(bI18n.pt || bI18n.es || rawBody).trim(),
+          it: estado === "sin_datos" ? "" : String(bI18n.it || bI18n.es || rawBody).trim(),
         },
         visibleInCard: extra.visibleInCard === true,
+        estado,
+        contenido: rawBody,
+        evidencias,
+        prompt: extra?.prompt,
       });
     });
   }

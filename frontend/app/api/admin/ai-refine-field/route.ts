@@ -422,6 +422,13 @@ function buildSystemRefinePrompt(
   investigatedWeb?: InvestigatedWebInfo | null,
   variationIndex: number = 0
 ): string {
+  const now = new Date();
+  const formattedCurrentDate = now.toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
   const historyStr = conversationHistory.length > 0
     ? conversationHistory.map(m => `${m.role === "user" ? "Administrador" : "Asistente"}: "${m.content}"`).join("\n")
     : "Sin historial previo";
@@ -451,7 +458,18 @@ function buildSystemRefinePrompt(
   const currentDirective = variationDirectives[Math.abs(variationIndex) % variationDirectives.length];
 
   return `
-Eres el Asistente de Inteligencia Artificial y Lead Copywriter Creativo Supremo de Travelgrin (actúas con total libertad, inteligencia y flexibilidad, exactamente como ChatGPT Plus o Gemini Advanced).
+Eres el Asistente de Inteligencia Artificial y Lead Copywriter Creativo Supremo de Travelgrin (actúas con total libertad, inteligencia y flexibilidad).
+
+======================================================================
+📅 CONTEXTO TEMPORAL OBLIGATORIO:
+FECHA ACTUAL DE REFERENCIA: ${formattedCurrentDate}
+REGLA DE VIGENCIA Y PLAZOS:
+Toda fecha, plazo, convocatoria, arancel o vigencia debe ser validada respecto a la FECHA ACTUAL (${formattedCurrentDate}). Cualquier trámite o plazo anterior a ${formattedCurrentDate} (por ejemplo fechas de 2024, 2025 o meses pasados) está VENCIDO y NO debe presentarse como vigente.
+
+🚫 REGLAS DE ORO PROMPTS V2 (ANTI-ALUCINACIÓN):
+- CERO ALUCINACIONES: PROHIBIDO inventar o citar leyes, decretos, números de artículos, normativas, años de antigüedad, precios o trámites que no correspondan con la información verificada de la entidad.
+- REDACCIÓN EN TERCERA PERSONA: Redactar siempre en tono institucional y profesional en TERCERA PERSONA.
+======================================================================
 
 🔄 DIRECTIVA OBLIGATORIA DE VARIACIÓN Y ROTACIÓN (VERSIÓN #${variationIndex + 1}):
 - ¡ES IMPERATIVO QUE ESTA RESPUESTA SEA COMPLETAMENTE DIFERENTE A CUALQUIER PROPUESTA PREVIA!
@@ -1734,21 +1752,12 @@ function generateSemanticAiFallback(
       const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (isLegalEntity ? 10 : 6);
 
       const faqPoolLegal = [
-        { q: "¿Qué tipo de trámites migratorios y de extranjería gestionan?", a: "Brindamos asesoramiento integral en residencias temporarias y permanentes en Argentina (MERCOSUR y No MERCOSUR), cambios de categoría, radicaciones, prórrogas y visas consulares especiales." },
-        { q: "¿Cómo tramitar la ciudadanía argentina o doble nacionalidad?", a: "Asesoramos en cartas de ciudadanía por naturalización o por opción, acompañando todo el proceso judicial y administrativo ante los juzgados federales competentes con total respaldo." },
-        { q: "¿Realizan gestiones para ciudadanía italiana y nacionalidad española?", a: "Sí, gestionamos carpetas consulares para ciudadanía italiana por reconstrucción (Iure Sanguinis) o vía judicial en Italia (materna 1948), así como nacionalidad española por Ley de Memoria Democrática (Ley de Nietos)." },
-        { q: "¿Se puede realizar la consulta y el trámite de manera 100% remota u online?", a: "Sí, atendemos a clientes de todo el país y el exterior a través de videoconsultas programadas, coordinando el envío, revisión digital y validación documental sin necesidad de traslados innecesarios." },
-        { q: "¿Cómo solicitar una primera consulta o diagnóstico de mi caso?", a: "Podés coordinar una consulta inicial personalizada a través de nuestros canales oficiales directos para analizar viabilidad, plazos, costos y requisitos específicos de tu expediente." },
-        { q: "¿Qué documentación y legalizaciones previas se necesitan?", a: "Partidas de nacimiento, matrimonio o defunción legalizadas con Apostilla de La Haya y traducciones públicas matriculadas según corresponda a las exigencias de cada país." },
-        { q: "¿Ayudan con la búsqueda de partidas en el exterior (Italia, España u otros países)?", a: "Sí, disponemos de servicio de búsqueda genealógica y obtención de actas comunales o eclesiásticas en Italia y registros civiles en España." },
-        { q: "¿Cuáles son los plazos estimados de resolución de los trámites migratorios?", a: "Los plazos varían según el tipo de trámite y el organismo interviniente; en la consulta inicial brindamos un cronograma estimado realista y transparente para tu tranquilidad." },
-        { q: "¿Cómo se estructuran los honorarios profesionales y formas de pago?", a: "Ofrecemos presupuestos cerrados y transparentes sin costos ocultos, con facilidades de pago en cuotas y múltiples medios de pago locales e internacionales." },
-        { q: "¿Cómo se realiza el seguimiento del estado de mi expediente?", a: "Mantenemos comunicación directa y periódica informando cada avance, presentación y notificación oficial hasta la resolución final satisfactoria." },
-        { q: "¿Qué sucede si tengo un rechazo previo o situación irregular?", a: "Analizamos el expediente denegado para evaluar recursos administrativos, reconsideraciones judiciales o vías alternativas de regularización migratoria." },
-        { q: "¿Gestionan permisos de ingreso, visas de trabajo y trámites corporativos?", a: "Sí, asesoramos tanto a particulares y familias como a empresas que requieren radicar o trasladar directivos y colaboradores al país." },
-        { q: "¿Qué validez tienen los poderes notariales para trámites a distancia?", a: "Orientamos en la redacción de poderes especiales consulares o notariales para que podamos representarte legalmente con plena validez ante organismos oficiales." },
-        { q: "¿Brindan soporte para inscripción ante organismos fiscales (AFIP/ARCA, DNI, CUIL)?", a: "Acompañamos a los extranjeros en la obtención de su DNI argentino, CUIL y habilitación de trámites impositivos y bancarios esenciales." },
-        { q: "¿Por qué elegir un abogado matriculado especialista en migración?", a: "Garantiza seguridad jurídica, respaldo ético profesional, confidencialidad absoluta y máxima celeridad evitando errores costosos en tus gestiones." },
+        { q: "¿Cómo solicitar una primera consulta o asesoramiento?", a: "A través de nuestros canales oficiales de contacto directo para coordinar una evaluación personalizada de tu caso." },
+        { q: "¿Se puede realizar la atención y consultas de manera remota?", a: "Sí, disponemos de canales de atención digital y videoconsultas para resolver gestiones a distancia." },
+        { q: "¿Cómo se estructuran los honorarios profesionales y presupuestos?", a: "Ofrecemos presupuestos transparentes e informados con anterioridad según la complejidad del servicio solicitado." },
+        { q: "¿Cómo se realiza el seguimiento de cada trámite o gestión?", a: "Mantenemos comunicación periódica informando los avances y novedades de cada solicitud por vías directas." },
+        { q: "¿Qué documentación previa es necesaria para iniciar?", a: "Documento de identidad vigente y la documentación respaldatoria correspondiente informada por el profesional." },
+        { q: "¿Cuáles son los plazos estimados de resolución?", a: "Los plazos varían según la naturaleza del trámite y los organismos intervinientes, informándose un cronograma estimado desde el inicio." },
       ];
 
       const faqPoolEdu = [
