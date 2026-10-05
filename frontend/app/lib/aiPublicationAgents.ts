@@ -56,6 +56,7 @@ export interface CleanScrapedContext {
   provider?: "auto" | "gemini" | "openai";
   variationIndex?: number;
   autoTranslate?: boolean;
+  currentText?: string;
 }
 
 export interface AgentResult<T> {
@@ -234,7 +235,7 @@ async function executeModelCall(
           },
         ],
         generationConfig: {
-          temperature: 0.75,
+          temperature: 0.85,
           responseMimeType: "application/json",
         },
       };
@@ -428,9 +429,15 @@ export async function runTitleAgent(
   const prompt = (adminTitlePrompt || "").trim();
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
-  const locationText = [context.city, context.country].filter(Boolean).join(", ");
-  const variationDirective = context.variationIndex && context.variationIndex > 1
-    ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa a las anteriores (otra redacción, sinónimos y enfoque fresco), manteniendo rigurosamente la directiva editorial del administrador.`
+  const isReformulation = Boolean(context.variationIndex && context.variationIndex >= 1);
+  const currentTitleToReplace = cleanTitleString(context.rawPageTitle || context.currentText || "");
+  const variationDirective = isReformulation
+    ? `\n\n=== DIRECTIVA OBLIGATORIA DE REFORMULACIÓN (VARIACIÓN #${context.variationIndex}) ===
+El administrador pulsó "Reformular con IA" para obtener una versión NUEVA, DIFERENTE y FRESCA.
+${currentTitleToReplace ? `- TÍTULO ANTERIOR A REEMPLAZAR (NO REPETIR): "${currentTitleToReplace}"` : ""}
+REGLAS MANDATORIAS DE REFORMULACIÓN:
+1. NO devuelvas el mismo título ni una copia casi idéntica.
+2. Utiliza otra estructura sintáctica, otro orden de palabras o destaca otro beneficio/aspecto relevante del establecimiento cumpliendo las reglas del administrador.`
     : "";
 
   const systemPrompt = `Eres un redactor profesional de títulos para Travelgrin.
@@ -555,9 +562,16 @@ export async function runDescriptionAgent(
   const prompt = (adminDescriptionPrompt || "").trim();
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
-  const locationText = [context.city, context.country].filter(Boolean).join(", ");
-  const variationDirective = context.variationIndex && context.variationIndex > 1
-    ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa a las anteriores (otra redacción, sinónimos y enfoque fresco), manteniendo rigurosamente la directiva editorial del administrador.`
+  const isReformulation = Boolean(context.variationIndex && context.variationIndex >= 1);
+  const currentTextToReplace = (context.currentText || "").trim();
+  const variationDirective = isReformulation
+    ? `\n\n=== DIRECTIVA OBLIGATORIA DE REFORMULACIÓN (VARIACIÓN #${context.variationIndex}) ===
+El administrador ha solicitado REFORMULAR la descripción para presentar una propuesta FRESCA, NUEVA y de ALTO IMPACTO.
+${currentTextToReplace ? `\n--- TEXTO ANTERIOR A REEMPLAZAR (NO REPETIR) ---\n"${currentTextToReplace.replace(/<[^>]+>/g, " ").slice(0, 1000)}"\n------------------------------------------------\n` : ""}
+REGLAS MANDATORIAS DE REFORMULACIÓN:
+1. NO devuelvas el mismo texto ni repitas la misma estructura de párrafos.
+2. Utiliza una redacción fresca y novedosa, cambiando la apertura, los títulos y los conectores.
+3. Extrae y destaca otros servicios, carreras, propuestas o beneficios reales de la información de la web provista para enriquecer la publicación.`
     : "";
 
   const systemPrompt = `Eres un redactor profesional de descripciones para Travelgrin.
