@@ -3353,6 +3353,41 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setActiveScraperDraftIndex(typeof index === "number" ? index : 0);
     setActiveScraperDraftUrl(draft.url || null);
     setEditingId(null);
+
+    // Complete form state clean reset before injecting fresh draft data
+    setPTitle("");
+    setPTitleI18n({ es: "", en: "", pt: "", it: "" });
+    setPPublisherName("");
+    setPDescription("");
+    setPDescriptionI18n({ es: "", en: "", pt: "", it: "" });
+    setPExtraDescriptions([]);
+    setPProviderInfoI18n({ es: "" });
+    setPProviderStartYear("");
+    setPProviderRating("5.0");
+    setPProviderReviewCount("0");
+    setPProviderCommentsUrl("");
+    setPProviderLogo("");
+    setPImageUrls("");
+    setPCountry("Argentina");
+    setPCity("");
+    setPHeadquarterCountry("Argentina");
+    setPHeadquarterCity("");
+    setPHeadquarterMapUrl("");
+    setPLocationAddress("");
+    setPHeadquarterExtras([]);
+    setPPrestacionDestinationCountries([]);
+    setPCurrency("USD");
+    setPPrice("");
+    setPPricePeriod("");
+    setPLanguages("Español");
+    setPWebsite("");
+    setPSocialLinksDetailed([]);
+    setPCategorySelections([]);
+    setPSubcategorySelections([]);
+    setPProviderActivities([]);
+    setPProviderTypes([]);
+    setPProviderModalities([]);
+
     const cleanTitleStr = (s: string) => {
       if (!s) return "";
       let res = s
@@ -3389,16 +3424,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     };
 
     let descEs = unescapeHtml((draft.description || draft.descriptionI18n?.es || "").trim());
-    if (!descEs || !descEs.includes("<p>")) {
-      const cityText = [draft.city, draft.country].filter(Boolean).join(", ");
-      const site = draft.website || draft.url || "";
-      const entityName = draft.publisherName || draft.title || "la entidad";
-      descEs = [
-        `<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> ${draft.price && draft.price !== "A consultar" ? draft.price : "A consultar / Según aranceles o tarifas del oferente."}</p>`,
-        `<p>💡 <strong>Propuesta de valor:</strong> Servicios y prestaciones oficiales brindadas por ${entityName}${cityText ? ` con sede en ${cityText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`,
-        `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ${draft.languages || "Español, Inglés"}. <em>Experiencia y soporte:</em> Información tomada directamente del portal oficial. <em>Diferencial vs. alternativas:</em> Contacto directo con el oferente y respaldo institucional.</p>`,
-        `<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${site} antes de contratar o postular.</p>`,
-      ].join("\n");
+    if (descEs && !descEs.includes("<p>")) {
+      descEs = `<p>${descEs}</p>`;
     }
 
     const descI18nInit: I18nRecord = {
