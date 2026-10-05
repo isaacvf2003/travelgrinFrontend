@@ -4552,12 +4552,12 @@ async function processUrlWithAI(
 
   const providersUsed = new Set<string>();
 
-  // 2. Run Title Agent independently
-  const titleAgentRes = await runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt);
+  // 2 & 3. Run Title and Description Agents in parallel for 2x faster scraping
+  const [titleAgentRes, descAgentRes] = await Promise.all([
+    runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt),
+    runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt),
+  ]);
   if (titleAgentRes.providerUsed !== "none") providersUsed.add(titleAgentRes.providerUsed);
-
-  // 3. Run Description Agent independently
-  const descAgentRes = await runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt);
   if (descAgentRes.providerUsed !== "none") providersUsed.add(descAgentRes.providerUsed);
 
   // 4. Run Custom Block Agents independently

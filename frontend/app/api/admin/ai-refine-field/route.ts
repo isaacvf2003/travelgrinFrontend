@@ -41,7 +41,7 @@ async function quickInvestigateUrl(url: string): Promise<{ headings: string[]; p
   try {
     const formattedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
+    const timer = setTimeout(() => controller.abort(), 2500);
     const res = await fetch(formattedUrl, {
       signal: controller.signal,
       headers: {
@@ -150,6 +150,7 @@ export async function POST(req: Request) {
       apiKey,
       provider,
       variationIndex,
+      autoTranslate: Boolean(autoTranslate),
     };
 
     // Construct the admin's effective prompt including conversation history if applicable
