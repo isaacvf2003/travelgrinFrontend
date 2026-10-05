@@ -11,6 +11,10 @@ export interface ExtraDescriptionBlock {
   body: string;
   bodyI18n: I18nRecord;
   visibleInCard: boolean;
+  estado?: "ok" | "parcial" | "sin_datos";
+  contenido?: string;
+  evidencias?: string[];
+  prompt?: string;
 }
 
 export interface SocialLinkDetail {
@@ -430,7 +434,7 @@ export default function AiScraperModal({
       );
 
       setDraftsQueue((prev) => {
-        const updated = [...prev, ...generatedDrafts];
+        const updated = [...generatedDrafts, ...prev];
         try {
           if (typeof window !== "undefined") {
             window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
@@ -440,7 +444,9 @@ export default function AiScraperModal({
       });
 
       if (tab === "single" && generatedDrafts.length === 1) {
-        setSuccessNotice("Publicación generada exitosamente.");
+        setExpandedDraftIndex(0);
+        setDraftForm(generatedDrafts[0]);
+        setSuccessNotice("Publicación generada exitosamente. Se ha añadido al inicio de la cola.");
       } else {
         setSuccessNotice(`Se generaron ${generatedDrafts.length} borrador(es) en la cola de revisión.`);
       }
@@ -1224,8 +1230,41 @@ export default function AiScraperModal({
 
               {/* Form to Add New Custom Block */}
               <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 space-y-2">
-                <div className="text-[11px] font-bold text-slate-700">
-                  + Añadir nuevo bloque opcional de descripción para futuros scrapings:
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <span className="text-[11px] font-bold text-slate-700">
+                    + Añadir nuevo bloque opcional de descripción para futuros scrapings:
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 pb-1">
+                  <span className="text-[10px] text-slate-500 font-semibold">Plantillas Prompts v2:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleAddCustomScraperBlock("Requisitos", "Extraer requisitos de admisión, documentación necesaria, perfil del postulante o condiciones de ingreso presentes en el texto del sitio. Si no hay datos, marcar sin_datos.")}
+                    className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-800 hover:bg-purple-100 transition cursor-pointer"
+                  >
+                    + Requisitos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddCustomScraperBlock("Proceso y costos", "Detallar pasos del proceso o trámite, etapas, aranceles o modalidades de pago informadas en el sitio web. Si no hay datos, marcar sin_datos.")}
+                    className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-800 hover:bg-purple-100 transition cursor-pointer"
+                  >
+                    + Proceso y costos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddCustomScraperBlock("Logística", "Informar modalidad (presencial/online), sedes, horarios de atención, plataformas o canales de soporte del sitio web. Si no hay datos, marcar sin_datos.")}
+                    className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-800 hover:bg-purple-100 transition cursor-pointer"
+                  >
+                    + Logística
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddCustomScraperBlock("FAQs", "Extraer las preguntas frecuentes y respuestas oficiales directamente de la sección de dudas o información del sitio web. Si el sitio no contiene preguntas frecuentes, marcar sin_datos.")}
+                    className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-800 hover:bg-purple-100 transition cursor-pointer"
+                  >
+                    + FAQs (Preguntas Frecuentes)
+                  </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
@@ -1292,7 +1331,7 @@ export default function AiScraperModal({
               type="button"
               onClick={handleGenerate}
               disabled={isProcessing}
-              className="h-10 rounded-xl bg-[#00A9C6] px-5 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50 transition shadow-sm"
+              className="h-10 rounded-xl bg-[#00A9C6] px-5 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50 transition shadow-sm cursor-pointer"
             >
               {isProcessing ? "Extrayendo y generando..." : "Generar con IA"}
             </button>
@@ -1340,6 +1379,26 @@ export default function AiScraperModal({
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftsQueue([]);
+                    setExpandedDraftIndex(null);
+                    setDraftForm(null);
+                    try {
+                      if (typeof window !== "undefined") {
+                        window.sessionStorage.removeItem("tgn_ai_drafts_queue");
+                      }
+                    } catch {}
+                    setSuccessNotice("Cola de borradores vaciada.");
+                  }}
+                  className="h-9 rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Vaciar todos los borradores de la cola de revisión"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Limpiar cola</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleTranslateAllDrafts}
@@ -1569,6 +1628,55 @@ export default function AiScraperModal({
                       {draft.images?.length || 0} imagen(es)
                     </div>
                   </div>
+
+                  {/* Extra Description Blocks Status Pills */}
+                  {draft.extraDescriptions && draft.extraDescriptions.length > 0 && (
+                    <div className="rounded-xl border border-purple-100 bg-purple-50/40 p-2.5 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-purple-950 text-[11px]">
+                          Bloques de Información ({draft.extraDescriptions.length}):
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {draft.extraDescriptions.map((blk, blkIdx) => {
+                          const isSinDatos = blk.estado === "sin_datos" || (!blk.body && !blk.contenido);
+                          const isParcial = blk.estado === "parcial";
+                          return (
+                            <div
+                              key={blkIdx}
+                              className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium border shadow-2xs ${
+                                isSinDatos
+                                  ? "bg-slate-100/90 text-slate-600 border-slate-200"
+                                  : isParcial
+                                  ? "bg-amber-50 text-amber-900 border-amber-200"
+                                  : "bg-white text-purple-900 border-purple-200"
+                              }`}
+                              title={
+                                isSinDatos
+                                  ? "Sin datos explícitos en la web (bloque vacío)"
+                                  : isParcial
+                                  ? "Información parcial extraída"
+                                  : "Información completa extraída"
+                              }
+                            >
+                              <span className="font-semibold">{blk.title}</span>
+                              <span
+                                className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider ${
+                                  isSinDatos
+                                    ? "bg-slate-200 text-slate-700"
+                                    : isParcial
+                                    ? "bg-amber-200 text-amber-900"
+                                    : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                }`}
+                              >
+                                {blk.estado || (isSinDatos ? "sin_datos" : "ok")}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
