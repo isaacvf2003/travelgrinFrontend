@@ -1724,6 +1724,55 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     });
   };
 
+  const handleOpenAiRefineModal = (
+    fieldType: RefineFieldType,
+    blockIndex?: number
+  ) => {
+    const sourceLang = pLang || "es";
+    let currentValue = "";
+    let currentTitleValue = "";
+    let initialPrompt = "";
+
+    if (fieldType === "title") {
+      currentValue = (pTitleI18n[sourceLang] || (sourceLang === "es" ? pTitle : "") || pTitleI18n.es || "").trim();
+      initialPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_title_prompt") : null) || "";
+    } else if (fieldType === "description") {
+      currentValue = (pDescriptionI18n[sourceLang] || (sourceLang === "es" ? pDescription : "") || pDescriptionI18n.es || "").trim();
+      initialPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) || "";
+    } else if (fieldType === "provider_info") {
+      currentValue = (pProviderInfoI18n[sourceLang] || pProviderInfoI18n.es || "").trim();
+      initialPrompt = "Mejorar la descripción institucional y trayectoria del oferente en 1 o 2 párrafos claros";
+    } else if (fieldType === "extra_block" && typeof blockIndex === "number") {
+      const block = pExtraDescriptions[blockIndex];
+      currentTitleValue = (block?.titleI18n?.[sourceLang] || block?.titleI18n?.es || block?.title || "").trim();
+      currentValue = (block?.bodyI18n?.[sourceLang] || block?.bodyI18n?.es || block?.body || "").trim();
+      initialPrompt = (block as any)?.prompt || "";
+      if (!initialPrompt && typeof window !== "undefined") {
+        try {
+          const rawBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
+          if (rawBlocks) {
+            const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawBlocks);
+            const found = list.find((b) => b.title?.toLowerCase() === currentTitleValue.toLowerCase());
+            if (found?.prompt) initialPrompt = found.prompt;
+          }
+        } catch {}
+      }
+    } else if (fieldType === "new_extra_block") {
+      currentValue = "";
+      currentTitleValue = "";
+      initialPrompt = "";
+    }
+
+    setAiRefineState({
+      isOpen: true,
+      fieldType,
+      currentValue,
+      currentTitleValue,
+      initialPrompt,
+      blockIndex,
+    });
+  };
+
   const handleDirectReformulateField = async (
     target: "title" | "description" | "provider_info" | { type: "extra_block"; index: number }
   ) => {
@@ -9430,22 +9479,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    disabled={directRefiningField === "provider_info"}
-                    onClick={() => handleDirectReformulateField("provider_info")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
+                    onClick={() => handleOpenAiRefineModal("provider_info")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
                     title="Reformular información del oferente con IA"
                   >
-                    {directRefiningField === "provider_info" ? (
-                      <>
-                        <RotateCw className="h-3.5 w-3.5 animate-spin text-purple-600" />
-                        <span>Reformulando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                        <span>Reformular con IA</span>
-                      </>
-                    )}
+                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span>Reformular con IA</span>
                   </button>
                   <button
                     type="button"
@@ -9725,22 +9764,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      disabled={directRefiningField === "title"}
-                      onClick={() => handleDirectReformulateField("title")}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
+                      onClick={() => handleOpenAiRefineModal("title")}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
                       title="Reformular título con IA"
                     >
-                      {directRefiningField === "title" ? (
-                        <>
-                          <RotateCw className="h-3.5 w-3.5 animate-spin text-purple-600" />
-                          <span>Reformulando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                          <span>Reformular con IA</span>
-                        </>
-                      )}
+                      <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                      <span>Reformular con IA</span>
                     </button>
                     <button
                       type="button"
@@ -9812,22 +9841,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    disabled={directRefiningField === "description"}
-                    onClick={() => handleDirectReformulateField("description")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
+                    onClick={() => handleOpenAiRefineModal("description")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
                     title="Reformular descripción con IA"
                   >
-                    {directRefiningField === "description" ? (
-                      <>
-                        <RotateCw className="h-3.5 w-3.5 animate-spin text-purple-600" />
-                        <span>Reformulando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                        <span>Reformular con IA</span>
-                      </>
-                    )}
+                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span>Reformular con IA</span>
                   </button>
                   {renderLangTabs(pLang, (l) => {
                     setPLang(l);
@@ -9975,22 +9994,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            disabled={directRefiningField === `extra-${idx}`}
-                            onClick={() => handleDirectReformulateField({ type: "extra_block", index: idx })}
-                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
+                            onClick={() => handleOpenAiRefineModal("extra_block", idx)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
                             title="Reformular este bloque con IA"
                           >
-                            {directRefiningField === `extra-${idx}` ? (
-                              <>
-                                <RotateCw className="h-3 w-3 animate-spin text-purple-600" />
-                                <span>Reformulando...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="h-3 w-3 text-purple-600" />
-                                <span>Reformular con IA</span>
-                              </>
-                            )}
+                            <Sparkles className="h-3 w-3 text-purple-600" />
+                            <span>Reformular con IA</span>
                           </button>
                           <button
                             type="button"
