@@ -20,6 +20,10 @@ export interface AiFieldRefineModalProps {
     city?: string;
     country?: string;
     url?: string;
+    scrapedHeadings?: string[];
+    scrapedParagraphs?: string[];
+    scrapedTextContent?: string;
+    rawPageTitle?: string;
   };
   onApply: (data: {
     resultText: string;
@@ -229,6 +233,10 @@ export default function AiFieldRefineModal({
           provider: (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_scraper_provider") : null) || "auto",
           conversationHistory: updatedHistory,
           variationIndex: nextVariationIndex,
+          scrapedHeadings: metadata.scrapedHeadings,
+          scrapedParagraphs: metadata.scrapedParagraphs,
+          scrapedTextContent: metadata.scrapedTextContent,
+          rawPageTitle: metadata.rawPageTitle,
         }),
       });
 
