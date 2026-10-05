@@ -221,19 +221,56 @@ async function executeModelCall(
 
   const executeGemini = async (): Promise<string> => {
     if (!geminiKey) throw new Error("GEMINI_API_KEY no disponible.");
-    const candidateEndpoints = [
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
-      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
+
+    // 1. Intentar descubrir dinámicamente qué modelos soporta esta API Key
+    let dynamicModels: string[] = [];
+    let listErrorDetail = "";
+    try {
+      const listRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
+        { method: "GET" }
+      );
+      if (listRes.ok) {
+        const listJson = await listRes.json();
+        const available = (listJson.models || [])
+          .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
+          .map((m: any) => m.name.replace(/^models\//, ""));
+
+        const preferred = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-pro"];
+        dynamicModels = available.sort((a: string, b: string) => {
+          const idxA = preferred.findIndex((p) => a.includes(p));
+          const idxB = preferred.findIndex((p) => b.includes(p));
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return 0;
+        });
+      } else {
+        listErrorDetail = await listRes.text();
+      }
+    } catch (e: any) {
+      listErrorDetail = e.message;
+    }
+
+    if (dynamicModels.length === 0 && listErrorDetail) {
+      console.warn(`[Gemini ListModels] ${listErrorDetail}`);
+    }
+
+    const candidateModels = dynamicModels.length > 0 ? dynamicModels : [
+      "gemini-1.5-flash",
+      "gemini-1.5-flash-latest",
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-exp",
+      "gemini-1.5-pro",
     ];
+
     let lastErr: any = null;
-    for (const url of candidateEndpoints) {
+    const errorsList: string[] = [];
+
+    for (const model of candidateModels) {
       try {
         const res = await fetch(
-          `${url}?key=${geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -257,14 +294,15 @@ async function executeModelCall(
           if (raw) return raw;
         } else {
           const errDetail = await res.text().catch(() => "");
-          const modelName = url.split("/models/")[1]?.split(":")[0] || url;
-          lastErr = new Error(`Gemini ${modelName} (HTTP ${res.status}): ${errDetail || res.statusText}`);
+          errorsList.push(`${model} (HTTP ${res.status}): ${errDetail.slice(0, 160)}`);
+          lastErr = new Error(`Gemini ${model} (HTTP ${res.status}): ${errDetail || res.statusText}`);
         }
       } catch (e: any) {
+        errorsList.push(`${model} (Error de red): ${e.message}`);
         lastErr = e;
       }
     }
-    throw lastErr || new Error("Gemini falló en todos los endpoints disponibles.");
+    throw lastErr || new Error(`Gemini falló: ${errorsList.join(" | ")}`);
   };
 
   const executeOpenAI = async (): Promise<string> => {
