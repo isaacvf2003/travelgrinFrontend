@@ -210,6 +210,10 @@ async function executeModelCall(
     process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
     "";
 
+  if (!geminiKey && !openaiKey) {
+    throw new Error("No hay ninguna API Key de IA configurada. Ingresá tu clave de Gemini (AIza...) u OpenAI (sk-...) en el modal o en la configuración para continuar.");
+  }
+
   const executeGemini = async (): Promise<string> => {
     if (!geminiKey) throw new Error("GEMINI_API_KEY no disponible.");
     const models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
@@ -315,6 +319,9 @@ export async function runTitleAgent(
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
+  const variationDirective = context.variationIndex && context.variationIndex > 1
+    ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa a las anteriores (otra redacción, sinónimos y enfoque fresco), manteniendo rigurosamente la directiva editorial del administrador.`
+    : "";
 
   const systemPrompt = `Eres un redactor profesional de títulos para Travelgrin.
 Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
@@ -331,7 +338,7 @@ REGLAS DE MÁXIMA PRIORIDAD:
 3. Formato estricto: Devuelve únicamente el objeto JSON sin texto adicional fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
-"${prompt || "Crear un título claro, comercial y profesional que mencione el nombre del establecimiento y su propuesta principal."}"
+"${prompt || "Crear un título claro, comercial y profesional que mencione el nombre del establecimiento y su propuesta principal."}"${variationDirective}
 
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
@@ -409,6 +416,9 @@ export async function runDescriptionAgent(
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
+  const variationDirective = context.variationIndex && context.variationIndex > 1
+    ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa a las anteriores (otra redacción, sinónimos y enfoque fresco), manteniendo rigurosamente la directiva editorial del administrador.`
+    : "";
 
   const systemPrompt = `Eres un redactor profesional de descripciones para Travelgrin.
 Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
@@ -426,7 +436,7 @@ REGLAS DE MÁXIMA PRIORIDAD:
 4. Formato estricto: Devuelve únicamente el objeto JSON sin texto adicional fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
-"${prompt || "Escribir una descripción profesional en párrafos HTML <p> en tercera persona explicando qué ofrece, su alcance y vías oficiales."}"
+"${prompt || "Escribir una descripción profesional en párrafos HTML <p> en tercera persona explicando qué ofrece, su alcance y vías oficiales."}"${variationDirective}
 
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
@@ -516,6 +526,9 @@ export async function runCustomBlockAgent(
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
+  const variationDirective = context.variationIndex && context.variationIndex > 1
+    ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa a las anteriores (otra redacción y estructura), manteniendo rigurosamente la directiva editorial del administrador.`
+    : "";
 
   const isFaq =
     /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(bTitle) ||
@@ -542,7 +555,7 @@ REGLAS DE MÁXIMA PRIORIDAD:
   const userPrompt = `TÍTULO DEL BLOQUE: "${bTitle}"
 
 === DIRECTIVA EDITORIAL DEL ADMINISTRADOR PARA ESTE BLOQUE (MÁXIMA PRIORIDAD) ===
-"${bPrompt || (isFaq ? `Generar ${requestedCount || 10} preguntas frecuentes con sus respuestas pertinentes basadas en los servicios, turnos, atención y datos del sitio.` : "Redactar información estructurada y útil para este bloque.")}"
+"${bPrompt || (isFaq ? `Generar ${requestedCount || 10} preguntas frecuentes con sus respuestas pertinentes basadas en los servicios, turnos, atención y datos del sitio.` : "Redactar información estructurada y útil para este bloque.")}"${variationDirective}
 
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
@@ -630,6 +643,9 @@ export async function runProviderInfoAgent(
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
+  const variationDirective = context.variationIndex && context.variationIndex > 1
+    ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa (otra redacción concisa), manteniendo rigurosamente la directiva editorial del administrador.`
+    : "";
 
   const systemPrompt = `Eres un redactor profesional para Travelgrin.
 Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
@@ -646,7 +662,7 @@ REGLAS DE MÁXIMA PRIORIDAD:
 3. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
-"${prompt || `Describir brevemente en 1 o 2 oraciones a ${entityName} y su alcance institucional.`}"
+"${prompt || `Describir brevemente en 1 o 2 oraciones a ${entityName} y su alcance institucional.`}"${variationDirective}
 
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
