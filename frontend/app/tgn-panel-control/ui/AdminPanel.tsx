@@ -1687,6 +1687,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const [directRefiningField, setDirectRefiningField] = useState<string | null>(null);
   const reformulateCountersRef = useRef<Record<string, number>>({});
+  const activeScrapedFactsRef = useRef<{
+    headings?: string[];
+    paragraphs?: string[];
+    rawText?: string;
+    rawPageTitle?: string;
+    publisherName?: string;
+    url?: string;
+  }>({});
 
   const getDefaultCustomBlocks = (): ExtraDescription[] => {
     try {
@@ -1862,12 +1870,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           category: pCategorySelections.join(", ") || pCategory || "",
           city: pCity || pHeadquarterCity || "",
           country: pCountry || pHeadquarterCountry || "",
-          url: pWebsite || activeScraperDraftUrl || "",
+          url: pWebsite || activeScraperDraftUrl || activeScrapedFactsRef.current.url || "",
           sourceLang,
           autoTranslate: false,
           apiKey: customKey,
           provider: (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_scraper_provider") : null) || "auto",
           variationIndex,
+          scrapedHeadings: activeScrapedFactsRef.current.headings || [],
+          scrapedParagraphs: activeScrapedFactsRef.current.paragraphs || [],
+          scrapedTextContent: activeScrapedFactsRef.current.rawText || "",
+          rawPageTitle: activeScrapedFactsRef.current.rawPageTitle || "",
         }),
       });
 
@@ -3428,6 +3440,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setActiveScraperDraftIndex(typeof index === "number" ? index : 0);
     setActiveScraperDraftUrl(draft.url || null);
     setEditingId(null);
+
+    // Guardar hechos y contenido real extraído del scraping para las reformulaciones con IA
+    activeScrapedFactsRef.current = {
+      headings: draft.scrapedHeadings || [],
+      paragraphs: draft.scrapedParagraphs || [],
+      rawText: draft.scrapedTextContent || "",
+      rawPageTitle: draft.rawPageTitle || draft.title || "",
+      publisherName: draft.publisherName || "",
+      url: draft.url || "",
+    };
 
     // Complete form state clean reset before injecting fresh draft data
     setPTitle("");
@@ -11786,7 +11808,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           category: pCategory || "",
           city: pCity || "",
           country: pCountry || "",
-          url: pWebsite || "",
+          url: pWebsite || activeScrapedFactsRef.current.url || "",
+          scrapedHeadings: activeScrapedFactsRef.current.headings || [],
+          scrapedParagraphs: activeScrapedFactsRef.current.paragraphs || [],
+          scrapedTextContent: activeScrapedFactsRef.current.rawText || "",
+          rawPageTitle: activeScrapedFactsRef.current.rawPageTitle || "",
         }}
         onApply={handleApplyAiRefinement}
       />
