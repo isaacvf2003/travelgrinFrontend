@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import { getBackendApiUrl } from "@/app/api/admin/auth/_lib/backend";
 import {
   type CleanScrapedContext,
   runTitleAgent,
@@ -582,21 +583,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy+Buenos+Aires",
     additionalCities: [],
   },
-  "21.edu.ar": {
-    name: "Universidad Siglo 21",
-    startYear: "1995",
-    primaryCity: "Córdoba",
-    primaryCountry: "Argentina",
-    activity: "Educación y formación",
-    category: "Educación y centros de estudios",
-    subcategory: "Universidad y posgrado",
-    type: "Institución privada",
-    rating: "4.5",
-    reviewCount: "1350",
-    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21+Cordoba",
-    additionalCities: ["Buenos Aires", "Rosario", "Mendoza", "Salta", "Neuquén"],
-  },
-  "siglo21.edu.ar": {
+    "siglo21.edu.ar": {
     name: "Universidad Siglo 21",
     startYear: "1995",
     primaryCity: "Córdoba",
@@ -3534,14 +3521,7 @@ async function createFallbackPublication(
     providerModalities: classified.providerModalities,
   };
 
-  return enforceStrictTaxonomyGuardrails(
-    fallbackResult,
-    extractedData,
-    taxonomies,
-    customAdminPrompt,
-    customTitlePrompt,
-    customDescriptionPrompt
-  );
+  return enforceStrictTaxonomyGuardrails(fallbackResult, extractedData, taxonomies);
 }
 
 function extractJsonFromModelResponse(text: string): any {
@@ -4406,17 +4386,10 @@ async function formatPublicationResult(
     providerModalities: matchedModalities.length ? matchedModalities : ["Atención presencial", "Atención online"],
   };
 
-  return enforceStrictTaxonomyGuardrails(
-    draftResult,
-    extractedData,
-    taxonomies,
-    customAdminPrompt,
-    customTitlePrompt,
-    customDescriptionPrompt
-  );
+  return enforceStrictTaxonomyGuardrails(draftResult, extractedData, taxonomies);
 }
 
-export function enforceStrictTaxonomyGuardrails(
+function enforceStrictTaxonomyGuardrails(
   publication: ScrapedPublication,
   extractedData: any,
   taxonomies?: any
@@ -4525,7 +4498,7 @@ async function processUrlWithAI(
 
   // Extract clean structured lists and paragraphs
   const paragraphs = (extracted.textContent || "").split(/\n\s*\n+/).map((p: string) => p.trim()).filter((p: string) => p.length > 25);
-  const headings = Array.isArray(extracted.headings) ? extracted.headings : [];
+  const headings = Array.isArray((extracted as any).headings) ? (extracted as any).headings : [];
 
   const cleanContext: CleanScrapedContext = {
     url,
@@ -4537,11 +4510,11 @@ async function processUrlWithAI(
     mainText: extracted.textContent,
     city: locInfo.primaryCity,
     country: locInfo.primaryCountry,
-    address: extracted.detectedAddress,
-    foundingYear: extracted.detectedFoundingYear,
-    rating: extracted.detectedRating,
-    reviewCount: extracted.detectedReviewCount,
-    commentsUrl: extracted.detectedCommentsUrl,
+    address: (extracted as any).detectedAddress || undefined,
+    foundingYear: extracted.detectedFoundingYear || undefined,
+    rating: (extracted as any).detectedRating || undefined,
+    reviewCount: (extracted as any).detectedReviewCount || undefined,
+    commentsUrl: (extracted as any).detectedCommentsUrl || undefined,
     logo: extracted.detectedLogo,
     images: extracted.images,
     socialLinks: extracted.socialLinksExtracted,
@@ -4745,6 +4718,25 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
       "";
 
+    // If frontend does not have AI API keys in environment, forward to backend where keys are set in Vercel
+    if (!geminiKey && !openaiKey) {
+      const backendUrl = getBackendApiUrl();
+      if (backendUrl) {
+        console.log(`[ai-scrape-publications] Frontend has no local keys. Forwarding to backend: ${backendUrl}/api/admin/ai-scrape-publications`);
+        try {
+          const fwdRes = await fetch(`${backendUrl}/api/admin/ai-scrape-publications`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const fwdData = await fwdRes.json().catch(() => ({}));
+          return NextResponse.json(fwdData, { status: fwdRes.status });
+        } catch (fwdErr: any) {
+          console.error(`[ai-scrape-publications] Failed forwarding to backend:`, fwdErr);
+        }
+      }
+    }
+
     const envProvider = (process.env.AI_SCRAPER_PROVIDER || "auto").toLowerCase();
     const effectiveProvider =
       requestedProvider !== "auto"
@@ -4761,7 +4753,7 @@ export async function POST(req: Request) {
       const { publication, providerUsed } = await processUrlWithAI(
         url,
         taxonomies,
-        effectiveProvider,
+        effectiveProvider as "auto" | "gemini" | "openai",
         geminiKey,
         openaiKey,
         customBlocks,
