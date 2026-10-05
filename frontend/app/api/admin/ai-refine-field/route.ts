@@ -466,23 +466,24 @@ FECHA ACTUAL DE REFERENCIA: ${formattedCurrentDate}
 REGLA DE VIGENCIA Y PLAZOS:
 Toda fecha, plazo, convocatoria, arancel o vigencia debe ser validada respecto a la FECHA ACTUAL (${formattedCurrentDate}). Cualquier trámite o plazo anterior a ${formattedCurrentDate} (por ejemplo fechas de 2024, 2025 o meses pasados) está VENCIDO y NO debe presentarse como vigente.
 
-🚫 REGLAS DE ORO PROMPTS V2 (ANTI-ALUCINACIÓN):
+🚫 REGLAS DE ORO PROMPTS V2 (ANTI-ALUCINACIÓN Y CERO PLANTILLAS):
 - CERO ALUCINACIONES: PROHIBIDO inventar o citar leyes, decretos, números de artículos, normativas, años de antigüedad, precios o trámites que no correspondan con la información verificada de la entidad.
+- CERO PLANTILLAS / CERO TEXTOS ENLATADOS: PROHIBIDO usar textos prefabricados o plantillas fijas. Debes generar el contenido de forma 100% dinámica y orgánica en función exclusiva de la instrucción del administrador y los datos reales de la entidad.
 - REDACCIÓN EN TERCERA PERSONA: Redactar siempre en tono institucional y profesional en TERCERA PERSONA.
 ======================================================================
 
 🔄 DIRECTIVA OBLIGATORIA DE VARIACIÓN Y ROTACIÓN (VERSIÓN #${variationIndex + 1}):
 - ¡ES IMPERATIVO QUE ESTA RESPUESTA SEA COMPLETAMENTE DIFERENTE A CUALQUIER PROPUESTA PREVIA!
-- Si el texto actual ya tiene un enfoque, redacción o estructura, CAMBIA TOTALMENTE el ángulo, el gancho inicial, el vocabulario y la disposición de ideas.
+- Si el texto actual ya tiene un enfoque, redacción o estructura, CAMBIA TOTALMENTE el ángulo, el gancho inicial, el vocabulario, las preguntas y la disposición de ideas.
 - En esta iteración debes adoptar preferentemente el enfoque: "${currentDirective}".
-- En títulos: prueba un formato totalmente distinto (ej: si antes fue "Nombre | Especialista...", ahora prueba una frase de impacto con beneficio directo, o una pregunta potente, o un gancho comercial enfocado en soluciones).
-- En descripciones: cambia los títulos de las secciones, el orden de los argumentos, los conectores y la forma de presentar los servicios o trayectoria.
+- En títulos: prueba un formato totalmente distinto (ej: frase de impacto con beneficio directo, pregunta potente, o gancho comercial enfocado en soluciones).
+- En descripciones y bloques: cambia los títulos de las secciones, el orden de los argumentos, los conectores y las preguntas planteadas.
 
 🎯 TU MISIÓN FUNDAMENTAL:
-Comprender a la perfección la idea, tono y visión que el administrador pide en su instrucción, sin importar qué tan loca, creativa, resumida, extensa, con errores ortográficos (ej. 'pregunats', 'iciono', 'descipcion', 'haslo', 'kiero', 'preecios') o informal ('broh', 'ponele', 'hacelo', 'sacale', 'dejame') sea su solicitud. Debes alinearte siempre a lo que él busque transmitir.
+Comprender a la perfección la idea, tono, cantidad de items y visión que el administrador pide en su instrucción, sin importar qué tan concisa, extensa, con errores ortográficos (ej. 'pregunats', 'iciono', 'descipcion', 'haslo', 'kiero', 'preecios') o informal ('broh', 'ponele', 'hacelo', 'sacale', 'dejame') sea su solicitud. Debes alinearte 100% a lo que él busque transmitir.
 
-💡 LIBERTAD TOTAL, EJEMPLOS Y CERO LIMITACIONES:
-- NO estás atado a moldes rígidos. Tienes total autonomía para redactar títulos y descripciones con el estilo que mejor cumpla la visión del administrador.
+💡 LIBERTAD TOTAL, GENERACIÓN DINÁMICA Y CERO LIMITACIONES:
+- NO estás atado a moldes ni plantillas fijas. Tienes total autonomía para redactar con el estilo que mejor cumpla la visión del administrador.
 - Si el administrador te pide algo "bien trabajado, llamativo, de impacto o centrado en lo esencial", genera contenido potente, atractivo, profesional y sin textos de relleno.
 - Tienes libertad para usar emojis elegantes o no usarlos según el estilo solicitado (o si expresamente te pide sin emojis).
 
@@ -531,9 +532,9 @@ EJEMPLOS DE ORIENTACIÓN PARA DESCRIPCIONES:
    - NUNCA uses etiquetas burocráticas como "¿Para quién?:", "Documentación requerida:", "Permanencia:" salvo que el usuario expresamente lo solicite.
 
 6. BLOQUES EXTRA Y FAQ CON CANTIDADES SOLICITADAS:
-   - Si se trata de un bloque (extra_block o new_extra_block) y el usuario pide una cantidad específica (ej. "haz que sean 10 preguntas", "agregá 5 items"):
-     GENERA EXACTAMENTE la cantidad de items o preguntas solicitadas completas (ej. 10 preguntas y respuestas completas en HTML).
-     MANTÉN el título correspondiente (ej. "Preguntas Frecuentes (FAQ)", "Metodología y Proceso de Trabajo") y NUNCA uses el nombre de la institución como título del bloque.
+   - Si se trata de un bloque (extra_block o new_extra_block) y el usuario pide una cantidad específica (ej. "haz que sean 10 preguntas", "agregá 5 items", "máximo 10 preguntas con sus respuestas"):
+     GENERA EXACTAMENTE la cantidad de items o preguntas solicitadas completas (ej. 10 preguntas y respuestas completas en HTML con <p><strong>¿...?</strong><br/>...</p>).
+     MANTÉN el título correspondiente (ej. "Preguntas Frecuentes (FAQ)", "Metodología y Proceso de Trabajo", etc.) y NUNCA uses el nombre de la institución como título del bloque.
 
 7. AJUSTES Y SEGUIMIENTO:
    - Si el historial indica un ajuste o refinamiento a la propuesta previa:
@@ -1244,8 +1245,23 @@ function generateSemanticAiFallback(
     // Extract real proposition from scraping / web and clean out news / press-release boilerplate
     let rawValueProp = facts.valueProp || investigatedWeb?.description || "";
     if (!rawValueProp && currentText) {
-      const cleanSentences = currentText.replace(/<[^>]+>/g, " ").replace(/&[a-z0-9#]+;/gi, " ").replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/);
-      rawValueProp = cleanSentences.filter(s => s.length > 25 && !/(?:Vigencia|Precio|Para quién|Diferencial):/i.test(s))[0] || "";
+      let cleanText = currentText
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&[a-z0-9#]+;/gi, " ")
+        .replace(/^[\s\S]*?(?:Soluciones integrales de alto impacto|Una experiencia diseñada para superar tus expectativas|Propuesta de valor de excelencia|Liderá tu futuro|Liderazgo e innovación|Aspectos fundamentales)[:\s-]*/i, "")
+        .replace(/^[\s\p{Emoji}\u200d\uFE0F•–—|:]+/gu, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const cleanSentences = cleanText.split(/(?<=[.!?])\s+/);
+      rawValueProp = cleanSentences.filter(s => s.length > 25 && !/(?:Vigencia|Precio|Para quién|Diferencial|Informes y Consultas|Contacto):/i.test(s))[0] || cleanText.slice(0, 180);
+    }
+
+    if (rawValueProp) {
+      rawValueProp = rawValueProp
+        .replace(/^[\s\S]*?(?:Soluciones integrales de alto impacto|Una experiencia diseñada para superar tus expectativas|Propuesta de valor de excelencia|Liderá tu futuro|Liderazgo e innovación|Aspectos fundamentales)[:\s-]*/i, "")
+        .replace(/^[\s\p{Emoji}\u200d\uFE0F•–—|:]+/gu, "")
+        .replace(/\s+/g, " ")
+        .trim();
     }
 
     // Strip news / event / press-release fragments from scraped sentences
@@ -1743,89 +1759,77 @@ function generateSemanticAiFallback(
     }
 
     if (/faq|pregunt|pregunat|duda|consulta|q&a|cuestion/i.test(blockUserCorpus)) {
-      const isLegalEntity = isJudicial || /abogad|migrat|jur[ií]dic|legal|ciudadan|residencia|notari/i.test(`${cleanName} ${prompt} ${meta.title || ''} ${blockUserCorpus}`);
-
-      // Determine requested count (e.g. "hazme o generame 10 preguntas con respuestas", "10 preguntas", etc.)
+      // Determine requested count (e.g. "10 preguntas con sus respuestas", "10 maximo", etc.)
       const countMatch = prompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) ||
         prompt.match(/\b(1\d|[2-9])\b/) ||
         userPrompts.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?)/i);
-      const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (isLegalEntity ? 10 : 6);
+      const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : 10;
 
-      const faqPoolLegal = [
-        { q: "¿Cómo solicitar una primera consulta o asesoramiento?", a: "A través de nuestros canales oficiales de contacto directo para coordinar una evaluación personalizada de tu caso." },
-        { q: "¿Se puede realizar la atención y consultas de manera remota?", a: "Sí, disponemos de canales de atención digital y videoconsultas para resolver gestiones a distancia." },
-        { q: "¿Cómo se estructuran los honorarios profesionales y presupuestos?", a: "Ofrecemos presupuestos transparentes e informados con anterioridad según la complejidad del servicio solicitado." },
-        { q: "¿Cómo se realiza el seguimiento de cada trámite o gestión?", a: "Mantenemos comunicación periódica informando los avances y novedades de cada solicitud por vías directas." },
-        { q: "¿Qué documentación previa es necesaria para iniciar?", a: "Documento de identidad vigente y la documentación respaldatoria correspondiente informada por el profesional." },
-        { q: "¿Cuáles son los plazos estimados de resolución?", a: "Los plazos varían según la naturaleza del trámite y los organismos intervinientes, informándose un cronograma estimado desde el inicio." },
+      // Extract real keywords and headings from web investigation
+      const webHeadings = investigatedWeb?.headings || [];
+      const webSnippet = investigatedWeb?.snippet || investigatedWeb?.description || "";
+      const locText = cityStr ? ` en ${cityStr}` : "";
+
+      // Dynamic question generator topics tailored to the entity's sector and real data
+      const dynamicTopics = [
+        {
+          q: (name: string) => `¿Cómo contactar o solicitar información en ${name}?`,
+          a: (name: string) => `Podés comunicarte a través de los canales oficiales habilitados (sitio web, líneas telefónicas o atención presencial${locText}) para recibir asesoramiento personalizado.`,
+        },
+        {
+          q: (name: string) => `¿Cuáles son los servicios y especialidades principales que brinda ${name}?`,
+          a: (name: string) => `${name} cuenta con una amplia cartera de prestaciones${webHeadings.length ? ` que incluye ${webHeadings.slice(0, 3).join(", ")}` : ""}, brindadas por profesionales con sólida trayectoria y equipamiento de calidad.`,
+        },
+        {
+          q: (name: string) => `¿Se requiere turno o coordinación previa para la atención?`,
+          a: (name: string) => `Se recomienda gestionar turno o coordinación previa por vías oficiales para garantizar disponibilidad y una atención ágil y sin demoras.`,
+        },
+        {
+          q: (name: string) => `¿Qué modalidades de atención o consulta ofrece ${name}?`,
+          a: (name: string) => `Ofrece atención presencial en sus sedes oficiales${locText} y soporte a través de canales digitales y de consulta directa.`,
+        },
+        {
+          q: (name: string) => `¿Cuáles son los requisitos y documentación necesaria para iniciar gestiones?`,
+          a: (name: string) => `Se requiere documento de identidad vigente y la documentación respaldatoria correspondiente informada por el área de admisión según la gestión a realizar.`,
+        },
+        {
+          q: (name: string) => `¿Cómo se gestionan los pagos, aranceles o coberturas en ${name}?`,
+          a: (name: string) => `Dispone de múltiples medios de pago y facturación oficial, además de convenios y planes informados directamente al momento de la consulta.`,
+        },
+        {
+          q: (name: string) => `¿Dónde se encuentran ubicadas las instalaciones de ${name}?`,
+          a: (name: string) => `Las sedes principales y puntos de atención se encuentran informados con ubicación verificada y datos de contacto en su plataforma oficial.`,
+        },
+        {
+          q: (name: string) => `¿Cómo recibir seguimiento o resultados de trámites y solicitudes?`,
+          a: (name: string) => `A través de las plataformas digitales oficiales o comunicándote con el área de atención al usuario con tu número de gestión o datos personales.`,
+        },
+        {
+          q: (name: string) => `¿Qué días y horarios de atención tiene ${name}?`,
+          a: (name: string) => `La atención se brinda en días hábiles en horarios comerciales y administrativos, complementados por canales de consulta digital activos.`,
+        },
+        {
+          q: (name: string) => `¿Qué respaldo y trayectoria ofrece ${name} a sus usuarios?`,
+          a: (name: string) => `${name} se destaca por su sólida presencia institucional, estándares de calidad certificados y un equipo interdisciplinario enfocado en la satisfacción de cada necesidad.`,
+        },
+        {
+          q: (name: string) => `¿Tienen programas de atención personalizada o asesoramiento continuo?`,
+          a: (name: string) => `Sí, cada solicitud es evaluada de manera individual para brindar soluciones ajustadas a cada caso particular con seguimiento integral.`,
+        },
+        {
+          q: (name: string) => `¿Cómo verificar novedades, convocatorias o información actualizada de ${name}?`,
+          a: (name: string) => `Toda la información y actualizaciones se publican periódicamente en sus vías oficiales de comunicación y portales autorizados.`,
+        },
       ];
 
-      const faqPoolEdu = [
-        { q: "¿Cómo realizar la inscripción o reserva de vacante?", a: "A través de nuestros canales oficiales presenciales o vía plataforma web con asesoramiento personalizado y validación de requisitos." },
-        { q: "¿Cuáles son los medios de pago y financiación habilitados?", a: "Tarjetas de débito/crédito, transferencias bancarias directas y planes de financiación en cuotas con aranceles preferenciales." },
-        { q: "¿Los títulos y programas cuentan con validez oficial?", a: "Sí, todos los planes de estudio y carreras poseen acreditación y reconocimiento oficial ministerial." },
-        { q: "¿Se puede cursar de manera 100% online o virtual?", a: "Sí, disponemos de campus virtual activo las 24 horas con clases sincrónicas, asincrónicas y soporte tutorial continuo." },
-        { q: "¿Cuáles son los requisitos de ingreso?", a: "Presentación de Documento de Identidad (DNI/Pasaporte), certificado de estudios previos y formulario de admisión completo." },
-        { q: "¿Existen programas de becas o convenios de descuento?", a: "Sí, contamos con convenios corporativos e institucionales, y programas de becas al mérito y por pronta matriculación." },
-        { q: "¿Cómo se rinden los exámenes finales y parciales?", a: "Los exámenes se coordinan a través de la plataforma académica o en sedes habilitadas según la modalidad del programa." },
-        { q: "¿Puedo solicitar equivalencias o reconocimiento de materias?", a: "Sí, podés presentar tu plan de estudios previo para evaluación del comité académico sin cargo inicial." },
-        { q: "¿Se realizan prácticas profesionales o pasantías laborales?", a: "Sí, articulamos convenios con empresas y organizaciones líderes para inserción laboral y pasantías rentadas." },
-        { q: "¿Cómo me contacto para recibir asesoramiento personalizado?", a: "Podés comunicarte directamente a través de nuestros canales de WhatsApp, formulario web o en nuestras sedes de admisión." },
-        { q: "¿Cuándo inician las clases y cursos del ciclo 2026?", a: "Las convocatorias se abren periódicamente con ingresos en el primer y segundo semestre." },
-        { q: "¿Qué soporte técnico o tutorial tienen los estudiantes?", a: "Disponés de tutores académicos dedicados y mesa de ayuda técnica 24/7 para resolver cualquier inquietud." },
-      ];
+      // Rotate and vary based on variationIndex
+      const rotOffset = (Math.abs(variationIndex) * 2) % dynamicTopics.length;
+      const rotated = [...dynamicTopics.slice(rotOffset), ...dynamicTopics.slice(0, rotOffset)];
+      const itemsToTake = rotated.slice(0, requestedCount);
 
-      const faqPoolHealth = [
-        { q: "¿Cómo solicitar un turno médico o consulta de especialidad?", a: "A través de nuestra plataforma de turnos online 24/7 o mediante la central telefónica y WhatsApp oficial." },
-        { q: "¿Qué coberturas médicas, obras sociales y prepagas se aceptan?", a: "Atendemos con las principales obras sociales, prepagas de primer nivel y opciones para pacientes particulares." },
-        { q: "¿Cuentan con servicio de guardia médica de urgencias 24 horas?", a: "Sí, disponemos de guardia activa permanente con especialistas en clínica médica, pediatría y emergencias." },
-        { q: "¿Cómo recibir los resultados de estudios diagnósticos y análisis?", a: "Podés descargarlos directamente desde el portal web del paciente o recibirlos vía correo electrónico seguro." },
-        { q: "¿Se atienden consultas médicas virtuales o por telemedicina?", a: "Sí, ofrecemos servicio de videoconsultas programadas con receta digital oficial." },
-        { q: "¿Qué documentación debo presentar en la primera consulta?", a: "DNI vigente, credencial de cobertura médica y orden de derivación médica en caso de corresponder." },
-        { q: "¿Se realizan chequeos preventivos integrales?", a: "Sí, disponemos de circuitos de chequeo preventivo en un solo día con informes consolidados." },
-        { q: "¿Cuáles son los medios de pago para copagos y consultas particulares?", a: "Tarjetas de débito/crédito, transferencias bancarias y efectivo en recepción." },
-        { q: "¿Cuentan con internación y quirófanos de alta complejidad?", a: "Sí, nuestras instalaciones están equipadas con tecnología médica avanzada y unidades de cuidados intensivos." },
-        { q: "¿Cómo acceder a la atención domiciliaria o traslados?", a: "Coordinando con la central de emergencias habilitada para afiliados y convenios vigentes." },
-      ];
-
-      const faqPoolSports = [
-        { q: "¿Cómo asociarse o adquirir un pase de entrenamiento?", a: "Podés inscribirte online o presencialmente en administración con DNI y certificado de aptitud física." },
-        { q: "¿Qué actividades y disciplinas deportivas están incluidas?", a: "Gimnasio de musculación, clases grupales guiadas, canchas, pileta y entrenamientos personalizados." },
-        { q: "¿Cuáles son los horarios de apertura y entrenamiento?", a: "Lunes a viernes de 07:00 a 22:00 hs y sábados de 08:00 a 18:00 hs." },
-        { q: "¿Se requiere apto médico para iniciar actividades?", a: "Sí, es obligatorio presentar certificado médico de aptitud física para garantizar la seguridad de todos los socios." },
-        { q: "¿Cuáles son los medios de pago y planes de membresía?", a: "Pases mensuales, semestrales o anuales con débito automático, tarjetas y descuentos por grupo familiar." },
-        { q: "¿Tienen vestuarios, lockers y estacionamiento?", a: "Sí, contamos con vestuarios climatizados completos, lockers con seguridad y área de estacionamiento vigilado." },
-        { q: "¿Se puede tomar una clase de prueba antes de inscribirse?", a: "Sí, coordinando previamente una clase de cortesía para conocer nuestras instalaciones." },
-        { q: "¿Hay profesores o entrenadores disponibles en sala?", a: "Contamos permanentemente con profesores de educación física para guiar tu rutina." },
-        { q: "¿Organizan torneos internos y eventos deportivos?", a: "Sí, realizamos ligas internas, clínicas de entrenamiento y competencias recreativas todo el año." },
-        { q: "¿Cómo reservar canchas o espacios de entrenamiento?", a: "A través de la aplicación oficial del club o en recepción con confirmación inmediata." },
-      ];
-
-      const faqPoolGeneral = [
-        { q: "¿Cómo contratar o solicitar información del servicio?", a: "A través de nuestros canales oficiales presenciales o vía plataforma web con asesoramiento personalizado." },
-        { q: "¿Cuáles son los medios de pago y facturación habilitados?", a: "Tarjetas de débito/crédito, transferencias bancarias directas y planes de financiación vigentes con factura oficial." },
-        { q: "¿Se requiere coordinación o turno previo?", a: "Recomendamos contactar con anticipación para asegurar disponibilidad y atención preferencial." },
-        { q: "¿Qué documentación o requisitos son necesarios?", a: "Documento de identidad vigente y datos de contacto oficiales para la formalización del servicio." },
-        { q: "¿Ofrecen atención o soporte de manera remota?", a: "Sí, contamos con canales digitales y soporte técnico continuo para resolver todas tus gestiones." },
-        { q: "¿Cuál es el tiempo de respuesta o entrega del servicio?", a: "Atendemos las solicitudes de manera prioritaria con tiempos ágiles informados desde el primer contacto." },
-        { q: "¿Cuentan con promociones o beneficios exclusivos?", a: "Sí, disponemos de planes especiales por suscripción anticipada y beneficios para clientes frecuentes." },
-        { q: "¿Qué garantías y respaldo ofrecen en cada prestación?", a: "Todos nuestros procesos cumplen con estrictos estándares de calidad y respaldo verificado Travelgrin." },
-        { q: "¿Cuáles son las políticas de cancelación o reprogramación?", a: "Podés solicitar cambios o cancelaciones con previo aviso según los términos y condiciones del servicio." },
-        { q: "¿Dónde se encuentran ubicadas las sedes oficiales?", a: "Podés consultar nuestras direcciones oficiales, teléfonos y horarios de atención en el portal." },
-        { q: "¿Tienen atención para empresas o grupos corporativos?", a: "Sí, contamos con un área corporativa dedicada a presupuestos y propuestas a medida." },
-        { q: "¿Cómo realizar el seguimiento de una solicitud o reclamo?", a: "Con tu número de gestión asignado podés consultar el estado en tiempo real por nuestros canales directos." },
-      ];
-
-      const selectedPool = isLegalEntity ? faqPoolLegal
-        : isEduEntity || isEducation ? faqPoolEdu
-        : isHealthEntity || isHealth ? faqPoolHealth
-        : isSportsEntity || isSports ? faqPoolSports
-        : faqPoolGeneral;
-
-      const itemsToTake = selectedPool.slice(0, requestedCount);
       const bodyHtml = itemsToTake
-        .map((item) => `<p><strong>${item.q}</strong><br/>${item.a}</p>`)
-        .join("");
+        .map((item) => `<p><strong>${item.q(cleanName)}</strong><br/>${item.a(cleanName)}</p>`)
+        .join("\n");
 
       const blockTitle = explicitNewTitle || (meta.title && /faq|pregunt/i.test(meta.title) ? meta.title : "Preguntas Frecuentes (FAQ)");
 
@@ -1838,27 +1842,12 @@ function generateSemanticAiFallback(
     // 1. Cómo trabajan / Metodología / Procedimientos / Procesos
     if (/c[oó]mo\s+trabajan|c[oó]mo\s+funciona|metodolog|procedimiento|proceso|modalidad\s+de\s+trabajo|forma\s+de\s+trabajo|c[oó]mo\s+se\s+atiende|pasos|protocolo/i.test(blockUserCorpus)) {
       const blockTitle = explicitNewTitle || "Metodología y Proceso de Trabajo";
-      const bodyHtml = isHealthEntity || isHealth ? [
-        "<p><strong>1. Admisión y Evaluación Inicial:</strong> Recepción del paciente, registro administrativo y categorización médica según el nivel de complejidad o urgencia.</p>",
-        "<p><strong>2. Diagnóstico y Plan Terapéutico:</strong> Realización de estudios de alta complejidad y diseño de tratamientos interdisciplinarios a cargo de especialistas referentes.</p>",
-        "<p><strong>3. Seguimiento y Atención Continua:</strong> Monitoreo constante de la evolución médica, asignación de turnos de control y comunicación fluida con el paciente y su familia.</p>",
-        "<p><strong>Canales habilitados:</strong> Asistencia permanente y coordinación de consultas a través de nuestros canales oficiales.</p>"
-      ].join("") : isEduEntity || isEducation ? [
-        "<p><strong>1. Asesoramiento Vocacional y Admisión:</strong> Orientación personalizada para la elección del programa académico y gestión de la matrícula oficial.</p>",
-        "<p><strong>2. Cursado y Prácticas Profesionales:</strong> Clases dinámicas con docentes referentes, proyectos reales y acceso continuo al campus digital 24/7.</p>",
-        "<p><strong>3. Evaluación y Titulación:</strong> Exámenes programados, tutorías continuas y tramitación oficial de diplomas de validez nacional.</p>",
-        "<p><strong>Canales habilitados:</strong> Soporte académico y mesa de ayuda permanente en canales oficiales.</p>"
-      ] : isSportsEntity || isSports ? [
-        "<p><strong>1. Evaluación Física y Registro:</strong> Apto médico, entrevista de objetivos y diseño de rutina de entrenamiento personalizada.</p>",
-        "<p><strong>2. Entrenamientos y Clases Guiadas:</strong> Uso de instalaciones modernas, acompañamiento de profesores certificados y variedad de actividades grupales.</p>",
-        "<p><strong>3. Monitoreo de Progreso y Membresías:</strong> Evaluaciones periódicas de rendimiento y gestión de pases flexibles.</p>",
-        "<p><strong>Canales habilitados:</strong> Recepción y app del club activas para reservas y consultas.</p>"
-      ] : [
-        "<p><strong>1. Diagnóstico y Asesoramiento Inicial:</strong> Relevamiento exhaustivo de requerimientos y elaboración de presupuestos transparentes a medida.</p>",
-        "<p><strong>2. Ejecución y Control de Calidad:</strong> Prestación del servicio bajo rigurosos estándares técnicos y profesionales certificados.</p>",
-        "<p><strong>3. Soporte y Entrega:</strong> Cumplimiento estricto de plazos acordados y garantía de satisfacción continua.</p>",
-        "<p><strong>Canales habilitados:</strong> Atención directa y seguimiento personalizado a través de vías oficiales.</p>"
-      ].join("");
+      const bodyHtml = [
+        `<p><strong>1. Recepción y Diagnóstico Inicial:</strong> Relevamiento de necesidades, registro administrativo y orientación personalizada para canalizar cada requerimiento.</p>`,
+        `<p><strong>2. Ejecución y Desarrollo:</strong> Prestación del servicio bajo estándares de calidad, protocolos rigurosos y coordinación a cargo de profesionales calificados.</p>`,
+        `<p><strong>3. Seguimiento y Soporte Continuo:</strong> Monitoreo de resultados, atención de consultas y comunicación permanente por canales oficiales.</p>`,
+        `<p><strong>Coordinación:</strong> Asistencia directa y asesoramiento disponible en vías oficiales de ${cleanName}.</p>`
+      ].join("\n");
 
       return {
         title: blockTitle,
@@ -1871,16 +1860,16 @@ function generateSemanticAiFallback(
       const blockTitle = explicitNewTitle || "Equipo Profesional y Especialistas";
       return {
         title: blockTitle,
-        body: "<p><strong>Cuerpo de profesionales certificados:</strong> Contamos con un equipo interdisciplinario de amplia trayectoria, sólida formación y estricto compromiso ético.</p><p><strong>Atención humana y personalizada:</strong> Cada servicio es abordado con rigor técnico y calidez humana adaptada a las necesidades de cada usuario.</p><p><strong>Actualización constante:</strong> Capacitación y formación continua en las últimas tecnologías e innovaciones del sector.</p><p><strong>Consultas:</strong> Consultá la nómina de profesionales e informes en nuestros canales oficiales habilitados.</p>",
+        body: `<p><strong>Cuerpo interdisciplinario:</strong> ${cleanName} cuenta con un equipo calificado de sólida formación técnica y compromiso profesional.</p><p><strong>Atención personalizada:</strong> Cada requerimiento es abordado con rigor y cercanía para ofrecer respuestas integrales.</p><p><strong>Consultas:</strong> Consultá información institucional y vías de contacto en los canales oficiales.</p>`,
       };
     }
 
     // 3. Coberturas / Obras Sociales / Prepagas / Seguros / Convenios
     if (/cobertura|obra\s+social|prepaga|seguro|convenio|afiliad/i.test(blockUserCorpus)) {
-      const blockTitle = explicitNewTitle || "Coberturas y Obras Sociales Habilitadas";
+      const blockTitle = explicitNewTitle || "Coberturas y Convenios Habilitados";
       return {
         title: blockTitle,
-        body: "<p><strong>Convenios institucionales:</strong> Atención integral a través de las principales obras sociales, prepagas y convenios corporativos vigentes.</p><p><strong>Planes particulares y reintegros:</strong> Aranceles preferenciales para consultas particulares con emisión de facturación oficial para reintegros.</p><p><strong>Gestión administrativa ágil:</strong> Asesoramiento previo para autorizaciones y verificación de cobertura en tiempo real.</p><p><strong>Consultas de padrón:</strong> Podés verificar tu cobertura comunicándote con nuestros canales de admisión habilitados.</p>",
+        body: `<p><strong>Convenios institucionales:</strong> Atención coordinada con entidades, coberturas y modalidades vigentes para facilitar el acceso a las prestaciones.</p><p><strong>Consultas particulares:</strong> Opciones para usuarios particulares con emisión de comprobantes oficiales.</p><p><strong>Verificación:</strong> Confirmá convenios y requisitos vigentes a través de los canales de admisión de ${cleanName}.</p>`,
       };
     }
 
@@ -1889,7 +1878,7 @@ function generateSemanticAiFallback(
       const blockTitle = explicitNewTitle || "Gestión de Turnos y Consultas";
       return {
         title: blockTitle,
-        body: "<p><strong>Plataforma online 24/7:</strong> Gestión inmediata de turnos y reservas a través de nuestra web oficial o WhatsApp institucional.</p><p><strong>Atención presencial y telefónica:</strong> Recepción y orientación personalizada de lunes a viernes en horario corrido.</p><p><strong>Reprogramación ágil:</strong> Sistema de avisos automáticos y facilidad para confirmar, cancelar o reprogramar citas.</p><p><strong>Canales oficiales:</strong> Comunicate directamente con nuestra central de atención para asegurar tu disponibilidad.</p>",
+        body: `<p><strong>Canales digitales y telefónicos:</strong> Gestión ágil de consultas y citas a través de las vías oficiales de ${cleanName}.</p><p><strong>Atención coordinada:</strong> Orientación personalizada para seleccionar el horario y modalidad más conveniente.</p><p><strong>Contacto directo:</strong> Comunicate con la central habilitada para asegurar tu reserva.</p>`,
       };
     }
 
@@ -1897,7 +1886,7 @@ function generateSemanticAiFallback(
       const blockTitle = explicitNewTitle || "Requisitos de Admisión e Inscripción";
       return {
         title: blockTitle,
-        body: "<p><strong>Documentación requerida:</strong> Documento de identidad vigente (DNI o Pasaporte), comprobante de domicilio y antecedentes pertinentes según la actividad.</p><p><strong>Modalidad de presentación:</strong> Gestión presencial en sede oficial o carga digital a través de la plataforma web habilitada.</p><p><strong>Validación y plazos:</strong> Proceso de verificación ágil en 24 a 48 hs hábiles con confirmación por canales oficiales.</p>",
+        body: `<p><strong>Documentación general:</strong> Presentación de documento de identidad vigente y antecedentes correspondientes a la gestión solicitada.</p><p><strong>Canales de presentación:</strong> Trámite presencial o digital según la vía habilitada por ${cleanName}.</p><p><strong>Confirmación:</strong> Validación de requisitos y comunicación de avances por vías oficiales.</p>`,
       };
     }
 
@@ -1905,7 +1894,7 @@ function generateSemanticAiFallback(
       const blockTitle = explicitNewTitle || "Medios de Pago y Financiación";
       return {
         title: blockTitle,
-        body: "<p><strong>Opciones disponibles:</strong> Transferencia bancaria, tarjetas de débito/crédito y planes de pago en cuotas según convenios vigentes.</p><p><strong>Beneficios:</strong> Bonificaciones por pago anticipado y convenios institucionales aplicables.</p><p><strong>Facturación:</strong> Emisión automática de comprobantes oficiales y recibos electrónicos de pago.</p>",
+        body: `<p><strong>Opciones habilitadas:</strong> Múltiples medios de pago oficiales y planes informados al momento de coordinar el servicio.</p><p><strong>Comprobantes:</strong> Emisión de facturación electrónica y recibos oficiales para respaldo administrativo.</p>`,
       };
     }
 
@@ -1913,7 +1902,7 @@ function generateSemanticAiFallback(
       const blockTitle = explicitNewTitle || "Especialidades y Servicios Destacados";
       return {
         title: blockTitle,
-        body: "<p><strong>Áreas de atención:</strong> Consultoría especializada, atención programada y soporte integral continuo.</p><p><strong>Metodología de trabajo:</strong> Enfoque interdisciplinario con equipamiento avanzado y profesionales de amplia trayectoria.</p><p><strong>Cobertura:</strong> Servicios disponibles tanto en sede central como mediante canales digitales habilitados.</p>",
+        body: `<p><strong>Áreas de cobertura:</strong> Prestaciones integrales y soporte especializado a cargo de ${cleanName}.</p><p><strong>Calidad operativa:</strong> Procesos certificados y enfoque adaptado a cada necesidad.</p><p><strong>Información:</strong> Consultá el detalle completo de prestaciones en sus canales oficiales.</p>`,
       };
     }
 
@@ -1921,15 +1910,15 @@ function generateSemanticAiFallback(
       const blockTitle = explicitNewTitle || "Horarios y Canales de Atención";
       return {
         title: blockTitle,
-        body: "<p><strong>Atención presencial:</strong> Lunes a Viernes de 08:00 a 20:00 hs / Sábados de 09:00 a 13:00 hs.</p><p><strong>Canales digitales y guardias:</strong> Asistencia y recepción de consultas a través de canales oficiales 24/7.</p>",
+        body: `<p><strong>Horarios habilitados:</strong> Atención presencial en días y horarios administrativos informados en la sede oficial de ${cleanName}.</p><p><strong>Canales digitales:</strong> Recepción continua de consultas a través de su plataforma web y vías directas.</p>`,
       };
     }
 
     if (/instalacion|instalación|sede|equipamiento|infraestructura|tecnolog/i.test(blockUserCorpus)) {
-      const blockTitle = explicitNewTitle || "Instalaciones y Equipamiento Moderno";
+      const blockTitle = explicitNewTitle || "Instalaciones y Equipamiento";
       return {
         title: blockTitle,
-        body: "<p><strong>Infraestructura moderna:</strong> Espacios climatizados, áreas adaptadas y equipamiento de última generación.</p><p><strong>Seguridad y confort:</strong> Instalaciones diseñadas bajo rigurosos estándares de seguridad, bioseguridad y comodidad.</p><p><strong>Capacidad operativa:</strong> Áreas especializadas preparadas para resolver requerimientos de diversas complejidades.</p>",
+        body: `<p><strong>Infraestructura:</strong> Espacios acondicionados y equipamiento adecuado para el desarrollo de las actividades de ${cleanName}.</p><p><strong>Seguridad y confort:</strong> Instalaciones preparadas para brindar atención de calidad y cumplimiento normativo.</p>`,
       };
     }
 
@@ -1948,15 +1937,14 @@ function generateSemanticAiFallback(
       }
     }
 
-    // Build rich, structured body using investigated web facts or smart sector template
+    // Build rich, structured body using investigated web facts
     const webSnippet = investigatedWeb?.description || investigatedWeb?.snippet || "";
-    const cleanTopicDesc = prompt.replace(/^(?:creame|crear|armar|generar|hacer|pone|escribe)\s+(?:un\s+bloque\s+de\s+|un\s+bloque\s+|bloque\s+de\s+|bloque\s+)?/i, "");
 
     const richCustomBody = [
-      `<p><strong>Alcance y propuesta:</strong> ${webSnippet ? webSnippet.slice(0, 200) + "." : `Servicios y prestaciones de excelencia con sólida trayectoria y respaldo institucional verificado.`}</p>`,
-      `<p><strong>Aspectos destacados:</strong> Procesos certificados, atención a cargo de personal idóneo y cumplimiento de los más rigurosos estándares de calidad.</p>`,
-      `<p><strong>Canales y coordinación:</strong> Asesoramiento personalizado disponible a través de nuestras vías oficiales de comunicación.</p>`
-    ].join("");
+      `<p><strong>Alcance y propuesta:</strong> ${webSnippet ? webSnippet.slice(0, 200) + "." : `Servicios y prestaciones brindadas por ${cleanName} con respaldo institucional verificado.`}</p>`,
+      `<p><strong>Aspectos destacados:</strong> Atención a cargo de personal idóneo y cumplimiento de estándares de calidad.</p>`,
+      `<p><strong>Canales y coordinación:</strong> Asesoramiento personalizado disponible a través de las vías oficiales de ${cleanName}.</p>`
+    ].join("\n");
 
     return {
       title: customTitle,
