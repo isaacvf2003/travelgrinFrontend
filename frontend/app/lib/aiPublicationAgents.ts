@@ -1,10 +1,17 @@
 /**
- * Architecture of Multi-Agent AI Subsystems for Travelgrin Publications:
- * - TitleAgent: Specialized agent for headline generation, search intent, and tone.
- * - DescriptionAgent: Specialized agent for value proposition and structured HTML body.
- * - CustomBlockAgent: Dedicated agent for each individual custom block / FAQ with assigned prompt.
- * - TaxonomyAndAuditAgent: Dedicated agent for classification, geocoding, and Score Scout audit.
- * - ScraperOrchestratorAgent: Master coordinator executing all specialized mini-agents in harmony.
+ * Travelgrin AI Publication Agents Architecture
+ * 
+ * Hierarchy of Authority:
+ * 1. Admin Custom Prompt (Primary Editorial Authority)
+ * 2. Real Scraped Web Facts
+ * 3. Technical System Rules (Valid JSON schema, safety)
+ * 4. Internal Travelgrin Rules (Only when they DO NOT contradict the Admin prompt)
+ * 
+ * Rules:
+ * - Pure technical SYSTEM prompts.
+ * - Admin prompts are never altered, hidden or diluted.
+ * - Provider chain: Gemini -> OpenAI -> Controlled Error (Zero invented filler content).
+ * - Full debug logs tracing input -> prompt -> raw output -> normalized validation.
  */
 
 export type I18nRecord = Record<string, string>;
@@ -26,23 +33,25 @@ export interface CustomScraperBlock {
   prompt?: string;
 }
 
-export interface SocialLinkDetail {
-  kind: string;
-  label: string;
+export interface CleanScrapedContext {
   url: string;
-}
-
-export interface AgentExecutionContext {
-  url?: string;
-  publisherName?: string;
-  rawTitle?: string;
+  publisherName: string;
+  rawPageTitle?: string;
+  metaDescription?: string;
   headings?: string[];
-  textContent?: string;
-  description?: string;
+  servicesList?: string[];
+  paragraphs?: string[];
+  mainText?: string;
   city?: string;
   country?: string;
-  sector?: string;
-  category?: string;
+  address?: string;
+  foundingYear?: string;
+  rating?: string;
+  reviewCount?: string;
+  commentsUrl?: string;
+  logo?: string;
+  images?: string[];
+  socialLinks?: Array<{ kind: string; label: string; url: string }>;
   apiKey?: string;
   provider?: "auto" | "gemini" | "openai";
   variationIndex?: number;
@@ -50,10 +59,11 @@ export interface AgentExecutionContext {
 
 export interface AgentResult<T> {
   success: boolean;
-  data: T;
+  data: T | null;
   estado: "ok" | "parcial" | "sin_datos";
   evidencias: string[];
   providerUsed: string;
+  error?: string;
 }
 
 function escapeHtml(str: string): string {
@@ -65,7 +75,7 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
-function cleanTitleString(title: string): string {
+export function cleanTitleString(title: string): string {
   if (!title) return "";
   return title
     .replace(/<[^>]+>/g, " ")
@@ -75,7 +85,7 @@ function cleanTitleString(title: string): string {
     .trim();
 }
 
-async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms: number = 3500): Promise<Response> {
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms: number = 4000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
   try {
@@ -176,406 +186,576 @@ function extractJson(text: string): any {
   return null;
 }
 
+// ----------------------------------------------------------------------------
+// Provider Dispatcher (Gemini -> OpenAI -> Controlled Error)
+// ----------------------------------------------------------------------------
+async function executeModelCall(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKeyParam?: string,
+  preferredProvider: "auto" | "gemini" | "openai" = "auto"
+): Promise<{ rawText: string; providerUsed: string }> {
+  const customKey = String(apiKeyParam || "").trim();
+  const geminiKey =
+    (customKey && (customKey.startsWith("AIza") || !customKey.startsWith("sk-")) ? customKey : "") ||
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+    "";
+
+  const openaiKey =
+    (customKey && customKey.startsWith("sk-") ? customKey : "") ||
+    process.env.OPENAI_API_KEY ||
+    process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
+    "";
+
+  const executeGemini = async (): Promise<string> => {
+    if (!geminiKey) throw new Error("GEMINI_API_KEY no disponible.");
+    const models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+    let lastErr: any = null;
+    for (const model of models) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: "user",
+                  parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+                },
+              ],
+              generationConfig: {
+                temperature: 0.2,
+                responseMimeType: "application/json",
+              },
+            }),
+          }
+        );
+        if (res.ok) {
+          const json = await res.json();
+          const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (raw) return raw;
+        } else {
+          lastErr = new Error(`Gemini ${model}: HTTP ${res.status}`);
+        }
+      } catch (e: any) {
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error("Gemini falló.");
+  };
+
+  const executeOpenAI = async (): Promise<string> => {
+    if (!openaiKey) throw new Error("OPENAI_API_KEY no disponible.");
+    const models = ["gpt-4o-mini", "gpt-4o"];
+    let lastErr: any = null;
+    for (const model of models) {
+      try {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openaiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.2,
+          }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const raw = json.choices?.[0]?.message?.content || "";
+          if (raw) return raw;
+        } else {
+          lastErr = new Error(`OpenAI ${model}: HTTP ${res.status}`);
+        }
+      } catch (e: any) {
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error("OpenAI falló.");
+  };
+
+  if (preferredProvider === "openai") {
+    try {
+      const raw = await executeOpenAI();
+      return { rawText: raw, providerUsed: "openai" };
+    } catch {
+      const raw = await executeGemini();
+      return { rawText: raw, providerUsed: "gemini" };
+    }
+  } else {
+    try {
+      const raw = await executeGemini();
+      return { rawText: raw, providerUsed: "gemini" };
+    } catch {
+      const raw = await executeOpenAI();
+      return { rawText: raw, providerUsed: "openai" };
+    }
+  }
+}
+
 // ============================================================================
 // 1. MINI-AGENTE DE TÍTULO (TitleAgent)
 // ============================================================================
 export async function runTitleAgent(
-  prompt: string,
-  context: AgentExecutionContext
+  context: CleanScrapedContext,
+  adminTitlePrompt?: string
 ): Promise<AgentResult<{ title: string; titleI18n: I18nRecord }>> {
-  const cleanName = cleanTitleString(context.publisherName || context.rawTitle || "Institución");
+  const prompt = (adminTitlePrompt || "").trim();
+  const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
-  const customPrompt = (prompt || "").trim();
 
-  // Try LLM call if key is available
-  const apiKey = context.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
-  if (apiKey) {
-    try {
-      const llmPrompt = `
-Eres el Lead AI Copywriter y Especialista en Títulos de Travelgrin.
-Tu objetivo es redactar un TÍTULO PROFESIONAL, ATRACTIVO Y REPRESENTATIVO en Español para la publicación.
-
-DATOS DE LA ENTIDAD:
-- Nombre oficial: "${entityName}"
-- Ubicación: "${locationText}"
-- Contexto web / Encabezados: ${(context.headings || []).slice(0, 5).join(", ") || (context.textContent || "").slice(0, 300)}
-- DIRECTIVA DEL ADMINISTRADOR PARA EL TÍTULO: "${customPrompt || "Título profesional y representativo en tercera persona"}"
-
-REGLAS ESTRICTAS:
-1. Redacta en tercera persona, sin slogans genéricos ("El mejor lugar"), sin alucinaciones.
-2. Formato de salida JSON estricto:
+  const systemPrompt = `Eres un redactor profesional de títulos para Travelgrin.
+Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
   "contenido": "Título redactado aquí",
-  "evidencias": ["${entityName}"]
+  "evidencias": ["frase breve de la web"]
 }
-Responde ÚNICAMENTE con JSON sin markdown fences ni texto adicional.
-`;
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: llmPrompt }] }],
-            generationConfig: { temperature: 0.3, responseMimeType: "application/json" },
-          }),
-        }
-      );
+REGLAS TÉCNICAS:
+- No agregues texto fuera del JSON.
+- Respeta estrictamente la directiva editorial del administrador.
+- No inventes datos que contradigan la web.`;
 
-      if (res.ok) {
-        const json = await res.json();
-        const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        const parsed = extractJson(raw);
-        const candidateTitle = cleanTitleString(parsed?.contenido || parsed?.title || "");
-        if (candidateTitle) {
-          const [tEn, tPt, tIt] = await Promise.all([
-            translateText(candidateTitle, "es", "en"),
-            translateText(candidateTitle, "es", "pt"),
-            translateText(candidateTitle, "es", "it"),
-          ]);
-          return {
-            success: true,
-            data: {
-              title: candidateTitle,
-              titleI18n: { es: candidateTitle, en: tEn, pt: tPt, it: tIt },
-            },
-            estado: "ok",
-            evidencias: parsed?.evidencias || [entityName],
-            providerUsed: "gemini",
-          };
-        }
-      }
-    } catch {}
+  const userPrompt = `DATOS REALES DEL SITIO WEB:
+- Nombre oficial: "${entityName}"
+- Ubicación: "${locationText || "No informada"}"
+- Encabezados principales: ${(context.headings || []).slice(0, 6).join(" | ") || "N/A"}
+- Servicios detectados: ${(context.servicesList || []).slice(0, 5).join(" | ") || "N/A"}
+- Resumen web: "${(context.metaDescription || context.paragraphs?.[0] || "").slice(0, 500)}"
+
+DIRECTIVA EDITORIAL DEL ADMINISTRADOR (AUTORIDAD MÁXIMA PARA EL TÍTULO):
+"${prompt || "Crear un título claro, representativo y profesional en tercera persona que mencione el nombre del establecimiento."}"
+
+GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON.`;
+
+  console.log(`\n[AI-AGENT-DEBUG: TitleAgent]`);
+  console.log(`1. URL: ${context.url}`);
+  console.log(`2. Admin Title Prompt: "${prompt || "(Sin prompt personalizado, usando instrucción básica)"}"`);
+  console.log(`3. Final User Prompt:\n${userPrompt}`);
+
+  try {
+    const { rawText, providerUsed } = await executeModelCall(
+      systemPrompt,
+      userPrompt,
+      context.apiKey,
+      context.provider || "auto"
+    );
+
+    console.log(`4. Provider Used: ${providerUsed}`);
+    console.log(`5. Raw Model Response: ${rawText}`);
+
+    const parsed = extractJson(rawText);
+    const rawTitle = String(parsed?.contenido || parsed?.title || "").trim();
+
+    if (!rawTitle || rawTitle.length < 3) {
+      throw new Error("El modelo devolvió un título vacío o no estructurado.");
+    }
+
+    const cleanTitle = cleanTitleString(rawTitle);
+    console.log(`6. Normalized Title Output: "${cleanTitle}"`);
+    console.log(`7. Validation: OK (Cumple JSON y contenido no vacío)`);
+
+    const [tEn, tPt, tIt] = await Promise.all([
+      translateText(cleanTitle, "es", "en"),
+      translateText(cleanTitle, "es", "pt"),
+      translateText(cleanTitle, "es", "it"),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        title: cleanTitle,
+        titleI18n: { es: cleanTitle, en: tEn, pt: tPt, it: tIt },
+      },
+      estado: "ok",
+      evidencias: parsed?.evidencias || [entityName],
+      providerUsed,
+    };
+  } catch (err: any) {
+    console.warn(`[AI-AGENT-DEBUG: TitleAgent] ERROR: ${err.message}`);
+    return {
+      success: false,
+      data: null,
+      estado: "sin_datos",
+      evidencias: [],
+      providerUsed: "none",
+      error: `Error al generar el título: ${err.message}`,
+    };
   }
-
-  // Dynamic semantic generation (zero static template layout)
-  const isHealth = /salud|hospital|cl[ií]nica|sanatorio|m[eé]dic/i.test(`${entityName} ${context.sector || ""} ${customPrompt}`);
-  const isEdu = /educaci|universidad|colegio|instituto|facultad|carrera/i.test(`${entityName} ${context.sector || ""} ${customPrompt}`);
-  const isLegal = /abogad|jur[ií]dic|legal|notar|residencia|visa/i.test(`${entityName} ${context.sector || ""} ${customPrompt}`);
-  const isGastro = /restaurante|gastronom|bar|cocina/i.test(`${entityName} ${context.sector || ""} ${customPrompt}`);
-  const isTourism = /hotel|hostel|turismo|hospedaje|alojam/i.test(`${entityName} ${context.sector || ""} ${customPrompt}`);
-  const isTech = /software|tecnolog|it|digital|desarrollo/i.test(`${entityName} ${context.sector || ""} ${customPrompt}`);
-
-  let dynamicTitle = "";
-  if (isHealth) {
-    dynamicTitle = `${entityName} | Atención Médica de Alta Complejidad, Guardia y Especialidades${locationText ? ` en ${context.city}` : ""}`;
-  } else if (isEdu) {
-    dynamicTitle = `${entityName} | Carreras Universitarias, Títulos Oficiales y Modalidades Flexibles`;
-  } else if (isLegal) {
-    dynamicTitle = `${entityName} | Asesoría Legal Especializada, Trámites y Gestión Integral`;
-  } else if (isGastro) {
-    dynamicTitle = `${entityName} | Gastronomía de Autor y Experiencias Culinarias`;
-  } else if (isTourism) {
-    dynamicTitle = `${entityName} | Hospedaje de Primer Nivel y Experiencias Exclusivas${locationText ? ` en ${context.city}` : ""}`;
-  } else if (isTech) {
-    dynamicTitle = `${entityName} | Soluciones Tecnológicas, Software e Innovación Digital`;
-  } else {
-    dynamicTitle = `${entityName} | Servicios Profesionales y Atención Especializada`;
-  }
-
-  const [tEn, tPt, tIt] = await Promise.all([
-    translateText(dynamicTitle, "es", "en"),
-    translateText(dynamicTitle, "es", "pt"),
-    translateText(dynamicTitle, "es", "it"),
-  ]);
-
-  return {
-    success: true,
-    data: {
-      title: dynamicTitle,
-      titleI18n: { es: dynamicTitle, en: tEn, pt: tPt, it: tIt },
-    },
-    estado: "ok",
-    evidencias: [entityName, context.city || ""].filter(Boolean),
-    providerUsed: "semantic_engine",
-  };
 }
 
 // ============================================================================
 // 2. MINI-AGENTE DE DESCRIPCIÓN (DescriptionAgent)
 // ============================================================================
 export async function runDescriptionAgent(
-  prompt: string,
-  context: AgentExecutionContext
+  context: CleanScrapedContext,
+  adminDescriptionPrompt?: string
 ): Promise<AgentResult<{ description: string; descriptionI18n: I18nRecord }>> {
-  const cleanName = cleanTitleString(context.publisherName || context.rawTitle || "Institución");
+  const prompt = (adminDescriptionPrompt || "").trim();
+  const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
-  const customPrompt = (prompt || "").trim();
-  const headings = (context.headings || []).filter((h) => h && h.length > 3 && h.length < 80).slice(0, 6);
-  const headingsStr = headings.length ? headings.join(", ") : "Servicios y atención institucional especializada";
 
-  // Try LLM call
-  const apiKey = context.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
-  if (apiKey) {
-    try {
-      const llmPrompt = `
-Eres el Lead AI Editor de Contenido de Travelgrin especializado en descripciones institucionales.
-Tu objetivo es redactar la DESCRIPCIÓN PRINCIPAL en párrafos HTML <p>...</p> en Español.
-
-DATOS:
-- Entidad: "${entityName}"
-- Ubicación: "${locationText}"
-- Servicios detectados: "${headingsStr}"
-- Resumen del sitio web: "${(context.description || context.textContent || "").slice(0, 800)}"
-- DIRECTIVA DEL ADMINISTRADOR PARA LA DESCRIPCIÓN: "${customPrompt || "Redactar descripción estructurada en 3 o 4 párrafos <p> en tercera persona con datos reales del sitio"}"
-
-REGLAS ESTRICTAS:
-1. Formato de salida: Párrafos HTML <p> con <strong>Título de sección:</strong> y contenido.
-2. Tono neutral, formal e institucional en tercera persona. CERO plantillas rígidas, CERO alucinaciones.
-3. Formato de salida JSON estricto:
+  const systemPrompt = `Eres un redactor profesional de descripciones para Travelgrin.
+Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
-  "contenido": "<p><strong>${entityName}</strong> es una institución de referencia...</p><p><strong>Servicios y Especialidades:</strong> ...</p><p><strong>Canales Oficiales:</strong> ...</p>",
-  "evidencias": ["${entityName}"]
+  "contenido": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>",
+  "evidencias": ["frase breve de la web"]
 }
-Responde ÚNICAMENTE con JSON sin markdown fences.
-`;
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: llmPrompt }] }],
-            generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
-          }),
-        }
-      );
+REGLAS TÉCNICAS:
+- Formato de redacción: Párrafos HTML <p>...</p>.
+- No agregues texto fuera del JSON.
+- Respeta estrictamente la directiva editorial del administrador (tono, cantidad de párrafos, exclusiones, etc.).
+- Utiliza únicamente información comprobable de los datos provistos.`;
 
-      if (res.ok) {
-        const json = await res.json();
-        const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        const parsed = extractJson(raw);
-        const descHtml = parsed?.contenido || "";
-        if (descHtml && descHtml.includes("<p>")) {
-          const [dEn, dPt, dIt] = await Promise.all([
-            translateHtmlParagraphs(descHtml, "en"),
-            translateHtmlParagraphs(descHtml, "pt"),
-            translateHtmlParagraphs(descHtml, "it"),
-          ]);
-          return {
-            success: true,
-            data: {
-              description: descHtml,
-              descriptionI18n: { es: descHtml, en: dEn, pt: dPt, it: dIt },
-            },
-            estado: "ok",
-            evidencias: parsed?.evidencias || [entityName],
-            providerUsed: "gemini",
-          };
-        }
-      }
-    } catch {}
+  const userPrompt = `DATOS REALES DEL SITIO WEB:
+- Nombre oficial: "${entityName}"
+- Ubicación: "${locationText || "No informada"}"
+- Encabezados principales: ${(context.headings || []).slice(0, 10).join(" | ") || "N/A"}
+- Servicios detectados: ${(context.servicesList || []).slice(0, 8).join(" | ") || "N/A"}
+- Párrafos destacados: ${(context.paragraphs || []).slice(0, 6).join("\n") || (context.metaDescription || "")}
+- Contacto y canales: ${(context.socialLinks || []).map((s) => `${s.label}: ${s.url}`).join(" | ") || "N/A"}
+
+DIRECTIVA EDITORIAL DEL ADMINISTRADOR (AUTORIDAD MÁXIMA PARA LA DESCRIPCIÓN):
+"${prompt || "Escribir una descripción profesional en párrafos HTML <p> en tercera persona explicando qué ofrece, su alcance y vías oficiales."}"
+
+GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON.`;
+
+  console.log(`\n[AI-AGENT-DEBUG: DescriptionAgent]`);
+  console.log(`1. URL: ${context.url}`);
+  console.log(`2. Admin Description Prompt: "${prompt || "(Sin prompt personalizado, usando instrucción básica)"}"`);
+  console.log(`3. Final User Prompt:\n${userPrompt}`);
+
+  try {
+    const { rawText, providerUsed } = await executeModelCall(
+      systemPrompt,
+      userPrompt,
+      context.apiKey,
+      context.provider || "auto"
+    );
+
+    console.log(`4. Provider Used: ${providerUsed}`);
+    console.log(`5. Raw Model Response: ${rawText}`);
+
+    const parsed = extractJson(rawText);
+    let descHtml = String(parsed?.contenido || parsed?.description || "").trim();
+
+    if (!descHtml || descHtml.length < 10) {
+      throw new Error("El modelo devolvió una descripción vacía o no estructurada.");
+    }
+
+    // Ensure valid <p> tags
+    if (!descHtml.includes("<p>")) {
+      descHtml = descHtml
+        .split(/\n\s*\n+/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .map((p) => `<p>${p}</p>`)
+        .join("\n");
+    }
+
+    console.log(`6. Normalized Description Output:\n${descHtml}`);
+    console.log(`7. Validation: OK (Cumple JSON y contenido estructurado)`);
+
+    const [dEn, dPt, dIt] = await Promise.all([
+      translateHtmlParagraphs(descHtml, "en"),
+      translateHtmlParagraphs(descHtml, "pt"),
+      translateHtmlParagraphs(descHtml, "it"),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        description: descHtml,
+        descriptionI18n: { es: descHtml, en: dEn, pt: dPt, it: dIt },
+      },
+      estado: "ok",
+      evidencias: parsed?.evidencias || [entityName],
+      providerUsed,
+    };
+  } catch (err: any) {
+    console.warn(`[AI-AGENT-DEBUG: DescriptionAgent] ERROR: ${err.message}`);
+    return {
+      success: false,
+      data: null,
+      estado: "sin_datos",
+      evidencias: [],
+      providerUsed: "none",
+      error: `Error al generar la descripción: ${err.message}`,
+    };
   }
-
-  // Fallback dynamic generation based on verified facts (100% sector appropriate)
-  const isHealth = /salud|hospital|cl[ií]nica|sanatorio|m[eé]dic/i.test(`${entityName} ${context.sector || ""} ${customPrompt}`);
-  const isEdu = /educaci|universidad|colegio|instituto|facultad|carrera/i.test(`${entityName} ${context.sector || ""} ${customPrompt}`);
-
-  const pList: string[] = [];
-  if (isHealth) {
-    pList.push(
-      `<p><strong>${entityName}</strong> es un centro de salud de alta complejidad${locationText ? ` ubicado en ${locationText}` : ""}, comprometido con la atención integral de pacientes y altos estándares médicos.</p>`,
-      `<p><strong>Especialidades y Guardia:</strong> Cuenta con una amplia cobertura médica que incluye ${headingsStr}, equipamiento de diagnóstico de última generación y profesionales altamente calificados.</p>`,
-      `<p><strong>Atención y Turnos:</strong> Orientación personalizada para turnos, consultas ambulatorias y coberturas médicas a través de sus canales oficiales.</p>`
-    );
-  } else if (isEdu) {
-    pList.push(
-      `<p><strong>${entityName}</strong> es una institución educativa de sólida trayectoria${locationText ? ` con sede en ${locationText}` : ""}, orientada a la excelencia académica y la formación integral.</p>`,
-      `<p><strong>Oferta Académica y Programas:</strong> Brinda programas oficiales con modalidades flexibles, que abarcan ${headingsStr}.</p>`,
-      `<p><strong>Admisiones y Consultas:</strong> Información detallada sobre planes de estudio, inscripciones y soporte académico disponible en su plataforma oficial.</p>`
-    );
-  } else {
-    pList.push(
-      `<p><strong>${entityName}</strong> es una entidad de referencia${locationText ? ` en ${locationText}` : ""}, orientada a brindar soluciones y servicios profesionales de máxima calidad.</p>`,
-      `<p><strong>Servicios y Prestaciones:</strong> Desarrolla una cartera completa que incluye ${headingsStr}.</p>`,
-      `<p><strong>Información y Canales Oficiales:</strong> Asesoramiento directo y consultas a través de sus vías institucionales autorizadas.</p>`
-    );
-  }
-
-  const descEs = pList.join("\n");
-  const [dEn, dPt, dIt] = await Promise.all([
-    translateHtmlParagraphs(descEs, "en"),
-    translateHtmlParagraphs(descEs, "pt"),
-    translateHtmlParagraphs(descEs, "it"),
-  ]);
-
-  return {
-    success: true,
-    data: {
-      description: descEs,
-      descriptionI18n: { es: descEs, en: dEn, pt: dPt, it: dIt },
-    },
-    estado: "ok",
-    evidencias: [entityName, headingsStr].filter(Boolean),
-    providerUsed: "semantic_engine",
-  };
 }
 
 // ============================================================================
 // 3. MINI-AGENTE DE BLOQUES PERSONALIZADOS Y FAQS (CustomBlockAgent)
 // ============================================================================
 export async function runCustomBlockAgent(
-  block: CustomScraperBlock,
-  context: AgentExecutionContext
+  context: CleanScrapedContext,
+  blockTitle: string,
+  blockPrompt?: string
 ): Promise<ExtraDescriptionBlock> {
-  const blockTitle = (block.title || "Información adicional").trim();
-  const blockPrompt = (block.prompt || "").trim();
-  const cleanName = cleanTitleString(context.publisherName || context.rawTitle || "Institución");
+  const bTitle = (blockTitle || "Información Adicional").trim();
+  const bPrompt = (blockPrompt || "").trim();
+  const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
-  const locationText = context.city ? ` en ${context.city}` : "";
+  const locationText = [context.city, context.country].filter(Boolean).join(", ");
 
   const isFaq =
-    /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(blockTitle) ||
-    /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(blockPrompt);
+    /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(bTitle) ||
+    /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(bPrompt);
 
-  const countMatch = blockPrompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) || blockPrompt.match(/\b(1\d|[2-9])\b/);
+  const countMatch = bPrompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) || bPrompt.match(/\b(1\d|[2-9])\b/);
   const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (isFaq ? 10 : 0);
 
-  // Try LLM for dynamic bespoke generation
-  const apiKey = context.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
-  if (apiKey) {
-    try {
-      const llmPrompt = `
-Eres el Lead AI Specialist de Travelgrin para bloques y preguntas frecuentes.
-Genera el contenido estructurado en formato HTML para el siguiente bloque:
-
-DATOS:
-- Entidad: "${entityName}"
-- Título del Bloque: "${blockTitle}"
-- Directiva específica: "${blockPrompt || (isFaq ? "Generar 10 preguntas y respuestas relevantes" : "Redactar información estructurada del bloque")}"
-- Ubicación: "${context.city || ""}, ${context.country || ""}"
-- Contexto: ${(context.textContent || "").slice(0, 1000)}
-
-REGLAS ESTRICTAS:
-${isFaq ? `1. Genera exactamente ${requestedCount || 10} preguntas y respuestas en formato: <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>` : `1. Redacta párrafos estructurados <p><strong>Subtítulo:</strong> ...</p> adaptados al tema.`}
-2. JSON de salida estricto:
+  const systemPrompt = `Eres un redactor profesional de bloques de información para Travelgrin.
+Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
+  "titulo": "${bTitle}",
   "contenido": "...",
-  "evidencias": ["${entityName}"]
+  "evidencias": ["frase breve de la web"]
 }
-Responde ÚNICAMENTE con JSON sin markdown fences.
-`;
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: llmPrompt }] }],
-            generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
-          }),
-        }
-      );
+REGLAS TÉCNICAS:
+- Si el bloque es de preguntas frecuentes o pide preguntas y respuestas: Formatea en HTML <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>.
+- Si es otro tipo de bloque: Redacta párrafos estructurados en HTML <p>...</p>.
+- Respeta estrictamente la directiva editorial del administrador sin agregar texto fuera del JSON.`;
 
-      if (res.ok) {
-        const json = await res.json();
-        const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        const parsed = extractJson(raw);
-        const bodyContent = parsed?.contenido || "";
-        if (bodyContent && bodyContent.length > 20) {
-          const [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
-            translateText(blockTitle, "es", "en"),
-            translateText(blockTitle, "es", "pt"),
-            translateText(blockTitle, "es", "it"),
-            translateHtmlParagraphs(bodyContent, "en"),
-            translateHtmlParagraphs(bodyContent, "pt"),
-            translateHtmlParagraphs(bodyContent, "it"),
-          ]);
-          return {
-            title: blockTitle,
-            titleI18n: { es: blockTitle, en: tEn, pt: tPt, it: tIt },
-            body: bodyContent,
-            bodyI18n: { es: bodyContent, en: bEn, pt: bPt, it: bIt },
-            visibleInCard: false,
-            estado: "ok",
-            contenido: bodyContent,
-            evidencias: parsed?.evidencias || [entityName],
-            prompt: block.prompt,
-          };
-        }
-      }
-    } catch {}
+  const userPrompt = `DATOS REALES DEL SITIO WEB:
+- Nombre oficial: "${entityName}"
+- Ubicación: "${locationText || "No informada"}"
+- Encabezados principales: ${(context.headings || []).slice(0, 10).join(" | ") || "N/A"}
+- Servicios detectados: ${(context.servicesList || []).slice(0, 8).join(" | ") || "N/A"}
+- Párrafos destacados: ${(context.paragraphs || []).slice(0, 6).join("\n") || (context.metaDescription || "")}
+
+TÍTULO DEL BLOQUE: "${bTitle}"
+DIRECTIVA EDITORIAL DEL ADMINISTRADOR PARA ESTE BLOQUE:
+"${bPrompt || (isFaq ? `Generar ${requestedCount || 10} preguntas frecuentes con sus respuestas pertinentes basadas en los servicios, turnos, atención y datos del sitio.` : "Redactar información estructurada y útil para este bloque.")}"
+
+GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON.`;
+
+  console.log(`\n[AI-AGENT-DEBUG: CustomBlockAgent - ${bTitle}]`);
+  console.log(`1. Block Prompt: "${bPrompt || "(Sin prompt específico)"}"`);
+
+  try {
+    const { rawText, providerUsed } = await executeModelCall(
+      systemPrompt,
+      userPrompt,
+      context.apiKey,
+      context.provider || "auto"
+    );
+
+    console.log(`2. Provider Used: ${providerUsed}`);
+    console.log(`3. Raw Response: ${rawText}`);
+
+    const parsed = extractJson(rawText);
+    let bodyContent = String(parsed?.contenido || parsed?.body || "").trim();
+
+    if (!bodyContent || bodyContent.length < 15) {
+      throw new Error("El modelo devolvió un bloque vacío.");
+    }
+
+    if (!bodyContent.includes("<p>")) {
+      bodyContent = bodyContent
+        .split(/\n\s*\n+/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .map((p) => `<p>${p}</p>`)
+        .join("\n");
+    }
+
+    const [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
+      translateText(bTitle, "es", "en"),
+      translateText(bTitle, "es", "pt"),
+      translateText(bTitle, "es", "it"),
+      translateHtmlParagraphs(bodyContent, "en"),
+      translateHtmlParagraphs(bodyContent, "pt"),
+      translateHtmlParagraphs(bodyContent, "it"),
+    ]);
+
+    return {
+      title: bTitle,
+      titleI18n: { es: bTitle, en: tEn, pt: tPt, it: tIt },
+      body: bodyContent,
+      bodyI18n: { es: bodyContent, en: bEn, pt: bPt, it: bIt },
+      visibleInCard: false,
+      estado: "ok",
+      contenido: bodyContent,
+      evidencias: parsed?.evidencias || [entityName],
+      prompt: blockPrompt,
+    };
+  } catch (err: any) {
+    console.warn(`[AI-AGENT-DEBUG: CustomBlockAgent - ${bTitle}] ERROR: ${err.message}`);
+    return {
+      title: bTitle,
+      titleI18n: { es: bTitle, en: bTitle, pt: bTitle, it: bTitle },
+      body: "",
+      bodyI18n: { es: "", en: "", pt: "", it: "" },
+      visibleInCard: false,
+      estado: "sin_datos",
+      contenido: "",
+      evidencias: [],
+      prompt: blockPrompt,
+    };
+  }
+}
+
+// ============================================================================
+// 4. MINI-AGENTE DE INFORMACIÓN DEL PROVEEDOR (ProviderInfoAgent)
+// ============================================================================
+export async function runProviderInfoAgent(
+  context: CleanScrapedContext,
+  adminPrompt?: string
+): Promise<AgentResult<{ providerInfo: string; providerInfoI18n: I18nRecord }>> {
+  const prompt = (adminPrompt || "").trim();
+  const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
+  const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
+  const locationText = [context.city, context.country].filter(Boolean).join(", ");
+
+  const systemPrompt = `Eres un redactor profesional para Travelgrin.
+Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
+{
+  "estado": "ok",
+  "contenido": "Breve descripción del oferente o institución aquí",
+  "evidencias": ["frase breve de la web"]
+}
+REGLAS TÉCNICAS:
+- Redacta 1 o 2 oraciones concisas y profesionales en tercera persona.
+- No agregues texto fuera del JSON.
+- Respeta estrictamente la directiva editorial del administrador.
+- No inventes datos que contradigan la web.`;
+
+  const userPrompt = `DATOS REALES DEL SITIO WEB:
+- Nombre oficial: "${entityName}"
+- Ubicación: "${locationText || "No informada"}"
+- Resumen o servicios: "${(context.metaDescription || context.paragraphs?.[0] || "").slice(0, 400)}"
+
+DIRECTIVA EDITORIAL DEL ADMINISTRADOR PARA ESTE CAMPO:
+"${prompt || `Describir brevemente en 1 o 2 oraciones a ${entityName} y su alcance institucional.`}"
+
+GENERA ÚNICAMENTE LA INFORMACIÓN EN ESPAÑOL DENTRO DEL JSON.`;
+
+  console.log(`\n[AI-AGENT-DEBUG: ProviderInfoAgent]`);
+  console.log(`1. Admin Prompt: "${prompt || "(Sin prompt específico)"}"`);
+
+  try {
+    const { rawText, providerUsed } = await executeModelCall(
+      systemPrompt,
+      userPrompt,
+      context.apiKey,
+      context.provider || "auto"
+    );
+
+    const parsed = extractJson(rawText);
+    const pInfo = String(parsed?.contenido || parsed?.providerInfo || "").trim();
+
+    if (!pInfo || pInfo.length < 5) {
+      throw new Error("El modelo devolvió información de proveedor vacía.");
+    }
+
+    const [pEn, pPt, pIt] = await Promise.all([
+      translateText(pInfo, "es", "en"),
+      translateText(pInfo, "es", "pt"),
+      translateText(pInfo, "es", "it"),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        providerInfo: pInfo,
+        providerInfoI18n: { es: pInfo, en: pEn, pt: pPt, it: pIt },
+      },
+      estado: "ok",
+      evidencias: parsed?.evidencias || [entityName],
+      providerUsed,
+    };
+  } catch (err: any) {
+    console.warn(`[AI-AGENT-DEBUG: ProviderInfoAgent] ERROR: ${err.message}`);
+    return {
+      success: false,
+      data: null,
+      estado: "sin_datos",
+      evidencias: [],
+      providerUsed: "none",
+      error: `Error al generar información del oferente: ${err.message}`,
+    };
+  }
+}
+
+// ============================================================================
+// 5. HELPER PARA LIMPIEZA DE CONTENIDO SCRAPEADO
+// ============================================================================
+export function cleanScrapedHtmlText(html: string): {
+  headings: string[];
+  paragraphs: string[];
+  mainText: string;
+} {
+  if (!html) return { headings: [], paragraphs: [], mainText: "" };
+
+  function decodeEntities(str: string): string {
+    return str
+      .replace(/&#8211;/g, "–")
+      .replace(/&#8212;/g, "—")
+      .replace(/&#8216;/g, "‘")
+      .replace(/&#8217;/g, "’")
+      .replace(/&#8220;/g, "“")
+      .replace(/&#8221;/g, "”")
+      .replace(/&#039;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&nbsp;/g, " ")
+      .trim();
   }
 
-  // Grounded dynamic synthesis
-  let bodyEs = "";
-  if (isFaq) {
-    const dynamicTopics = [
-      {
-        q: `¿Cómo contactar o solicitar información en ${entityName}?`,
-        a: `Podés comunicarte a través de los canales oficiales habilitados (sitio web, líneas telefónicas o atención presencial${locationText}) para recibir asesoramiento personalizado.`,
-      },
-      {
-        q: `¿Cuáles son los servicios y especialidades principales que brinda ${entityName}?`,
-        a: `${entityName} cuenta con una amplia cartera de prestaciones brindadas por profesionales con sólida trayectoria y equipamiento de calidad.`,
-      },
-      {
-        q: `¿Se requiere turno o coordinación previa para la atención?`,
-        a: `Se recomienda gestionar turno o coordinación previa por vías oficiales para garantizar disponibilidad y una atención ágil y sin demoras.`,
-      },
-      {
-        q: `¿Qué modalidades de atención o consulta ofrece ${entityName}?`,
-        a: `Ofrece atención presencial en sus sedes oficiales${locationText} y soporte a través de canales digitales y de consulta directa.`,
-      },
-      {
-        q: `¿Cuáles son los requisitos y documentación necesaria para iniciar gestiones?`,
-        a: `Se requiere documento de identidad vigente y la documentación respaldatoria correspondiente informada por el área de admisión según la gestión a realizar.`,
-      },
-      {
-        q: `¿Cómo se gestionan los pagos, aranceles o coberturas en ${entityName}?`,
-        a: `Dispone de múltiples medios de pago y facturación oficial, además de convenios y planes informados directamente al momento de la consulta.`,
-      },
-      {
-        q: `¿Dónde se encuentran ubicadas las instalaciones de ${entityName}?`,
-        a: `Las sedes principales y puntos de atención se encuentran informados con ubicación verificada y datos de contacto en su plataforma oficial.`,
-      },
-      {
-        q: `¿Cómo recibir seguimiento o resultados de trámites y solicitudes?`,
-        a: `A través de las plataformas digitales oficiales o comunicándote con el área de atención al usuario con tu número de gestión o datos personales.`,
-      },
-      {
-        q: `¿Qué días y horarios de atención tiene ${entityName}?`,
-        a: `La atención se brinda en días hábiles en horarios comerciales y administrativos, complementados por canales de consulta digital activos.`,
-      },
-      {
-        q: `¿Qué respaldo y trayectoria ofrece ${entityName} a sus usuarios?`,
-        a: `${entityName} se destaca por su sólida presencia institucional, estándares de calidad certificados y un equipo interdisciplinario enfocado en la satisfacción de cada necesidad.`,
-      },
-    ];
+  // Strip scripts, styles, iframes, nav, footer, headers, cookies notices, etc.
+  let cleaned = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ")
+    .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, " ")
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, " ")
+    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, " ")
+    .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, " ")
+    .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ");
 
-    const selected = dynamicTopics.slice(0, requestedCount || 10);
-    bodyEs = selected.map((item) => `<p><strong>${item.q}</strong><br/>${item.a}</p>`).join("\n");
-  } else {
-    bodyEs = [
-      `<p><strong>Alcance y propuesta:</strong> Servicios y prestaciones brindadas por ${entityName} con respaldo institucional verificado.</p>`,
-      `<p><strong>Aspectos destacados:</strong> Atención a cargo de personal idóneo y cumplimiento de estándares de calidad.</p>`,
-      `<p><strong>Canales y coordinación:</strong> Asesoramiento personalizado disponible a través de las vías oficiales de ${entityName}.</p>`
-    ].join("\n");
+  // Extract headings h1, h2, h3
+  const headings: string[] = [];
+  const hMatches = cleaned.matchAll(/<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/gi);
+  for (const match of hMatches) {
+    const text = decodeEntities(match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+    if (text.length > 3 && text.length < 120 && !/cookies|men[uú]|login|iniciar|buscar|search/i.test(text)) {
+      headings.push(text);
+    }
   }
 
-  const [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
-    translateText(blockTitle, "es", "en"),
-    translateText(blockTitle, "es", "pt"),
-    translateText(blockTitle, "es", "it"),
-    translateHtmlParagraphs(bodyEs, "en"),
-    translateHtmlParagraphs(bodyEs, "pt"),
-    translateHtmlParagraphs(bodyEs, "it"),
-  ]);
+  // Extract paragraphs
+  const paragraphs: string[] = [];
+  const pMatches = cleaned.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi);
+  for (const match of pMatches) {
+    const text = decodeEntities(match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+    if (text.length > 25 && !/cookies|pol[ií]tica de privacidad|todos los derechos reservados|copyright/i.test(text)) {
+      paragraphs.push(text);
+    }
+  }
+
+  const plainText = decodeEntities(cleaned.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
 
   return {
-    title: blockTitle,
-    titleI18n: { es: blockTitle, en: tEn, pt: tPt, it: tIt },
-    body: bodyEs,
-    bodyI18n: { es: bodyEs, en: bEn, pt: bPt, it: bIt },
-    visibleInCard: false,
-    estado: "ok",
-    contenido: bodyEs,
-    evidencias: [entityName],
-    prompt: block.prompt,
+    headings: Array.from(new Set(headings)).slice(0, 15),
+    paragraphs: Array.from(new Set(paragraphs)).slice(0, 15),
+    mainText: plainText.slice(0, 4000),
   };
 }
