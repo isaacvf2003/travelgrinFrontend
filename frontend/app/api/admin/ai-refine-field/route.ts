@@ -79,7 +79,7 @@ export async function POST(req: Request) {
       city = "",
       country = "",
       url = "",
-      autoTranslate = false,
+      autoTranslate = true,
       apiKey,
       provider = "auto",
       conversationHistory = [],
@@ -94,30 +94,33 @@ export async function POST(req: Request) {
     }
 
     const customKey = String(apiKey || "").trim();
-    const hasLocalKey =
-      Boolean(customKey) ||
-      Boolean(process.env.GEMINI_API_KEY) ||
-      Boolean(process.env.GEMINI_KEY) ||
-      Boolean(process.env.GOOGLE_API_KEY) ||
-      Boolean(process.env.GOOGLE_GEMINI_API_KEY) ||
-      Boolean(process.env.OPENAI_API_KEY);
+    const hasLocalKey = Boolean(
+      customKey ||
+      process.env.GEMINI_API_KEY ||
+      process.env.GEMINI_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.GOOGLE_GEMINI_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.OPENAI_KEY
+    );
 
-    // If frontend does not have AI API keys in environment, forward to backend where keys are set in Vercel
     if (!hasLocalKey) {
       const backendUrl = getBackendApiUrl();
-      if (backendUrl) {
-        console.log(`[ai-refine-field] Frontend has no local keys. Forwarding to backend: ${backendUrl}/api/admin/ai-refine-field`);
-        try {
-          const fwdRes = await fetch(`${backendUrl}/api/admin/ai-refine-field`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          const fwdData = await fwdRes.json().catch(() => ({}));
-          return NextResponse.json(fwdData, { status: fwdRes.status });
-        } catch (fwdErr: any) {
-          console.error(`[ai-refine-field] Failed forwarding to backend:`, fwdErr);
-        }
+      console.log(`[AI Refine Field Frontend] Sin claves locales. Reenviando al backend: ${backendUrl}/api/admin/ai-refine-field`);
+      try {
+        const backendRes = await fetch(`${backendUrl}/api/admin/ai-refine-field`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(req.headers.get("cookie") ? { cookie: req.headers.get("cookie")! } : {}),
+            ...(req.headers.get("authorization") ? { authorization: req.headers.get("authorization")! } : {}),
+          },
+          body: JSON.stringify(body),
+        });
+        const backendData = await backendRes.json();
+        return NextResponse.json(backendData, { status: backendRes.status });
+      } catch (fwdErr: any) {
+        console.error("[AI Refine Field Frontend] Error al reenviar al backend:", fwdErr);
       }
     }
 
@@ -147,7 +150,6 @@ export async function POST(req: Request) {
       apiKey,
       provider,
       variationIndex,
-      currentText,
     };
 
     // Construct the admin's effective prompt including conversation history if applicable
@@ -159,18 +161,16 @@ export async function POST(req: Request) {
       effectivePrompt = `${priorHistory}\nNueva instrucción del administrador: ${prompt.trim()}`;
     }
 
-    console.log(`\n[FRONTEND AI-REFINE-FIELD: ${fieldType.toUpperCase()}]`);
+    console.log(`\n[AI-REFINE-FIELD: ${fieldType.toUpperCase()}]`);
     console.log(`- Publisher: ${cleanPubName}`);
     console.log(`- Prompt: "${prompt}"`);
-    console.log(`- CurrentText: "${currentText.slice(0, 80)}..."`);
-    console.log(`- VariationIndex: ${variationIndex}`);
 
     // 2. Dispatch to the dedicated Mini-Agent based on fieldType
     if (fieldType === "title") {
-      const agentRes = await runTitleAgent(context, effectivePrompt, currentText);
+      const agentRes = await runTitleAgent(context, effectivePrompt);
       if (!agentRes.success || !agentRes.data) {
         return NextResponse.json(
-          { error: agentRes.error || "No se pudo reformular el título con IA. Verifique su clave o intente nuevamente." },
+          { error: agentRes.error || "No se pudo generar el título con IA. Verifique su clave o intente nuevamente." },
           { status: 500 }
         );
       }
@@ -185,10 +185,10 @@ export async function POST(req: Request) {
     }
 
     if (fieldType === "description") {
-      const agentRes = await runDescriptionAgent(context, effectivePrompt, currentText);
+      const agentRes = await runDescriptionAgent(context, effectivePrompt);
       if (!agentRes.success || !agentRes.data) {
         return NextResponse.json(
-          { error: agentRes.error || "No se pudo reformular la descripción con IA. Verifique su clave o intente nuevamente." },
+          { error: agentRes.error || "No se pudo generar la descripción con IA. Verifique su clave o intente nuevamente." },
           { status: 500 }
         );
       }
@@ -203,10 +203,10 @@ export async function POST(req: Request) {
     }
 
     if (fieldType === "provider_info") {
-      const agentRes = await runProviderInfoAgent(context, effectivePrompt, currentText);
+      const agentRes = await runProviderInfoAgent(context, effectivePrompt);
       if (!agentRes.success || !agentRes.data) {
         return NextResponse.json(
-          { error: agentRes.error || "No se pudo reformular la información del oferente con IA. Verifique su clave o intente nuevamente." },
+          { error: agentRes.error || "No se pudo generar la información del oferente con IA. Verifique su clave o intente nuevamente." },
           { status: 500 }
         );
       }
@@ -222,7 +222,7 @@ export async function POST(req: Request) {
 
     if (fieldType === "extra_block" || fieldType === "new_extra_block") {
       const blockTitle = currentTitle || "Información Adicional";
-      const blockRes = await runCustomBlockAgent(context, blockTitle, effectivePrompt, currentText);
+      const blockRes = await runCustomBlockAgent(context, blockTitle, effectivePrompt);
       if (blockRes.estado === "sin_datos" || !blockRes.body) {
         return NextResponse.json(
           { error: "No se pudo generar el bloque con IA. Verifique su clave o intente nuevamente." },
@@ -244,7 +244,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ error: `Tipo de campo no soportado: ${fieldType}` }, { status: 400 });
   } catch (error: any) {
-    console.error("Frontend AI Refine Field Route Error:", error);
+    console.error("AI Refine Field Route Error:", error);
     return NextResponse.json(
       { error: error?.message || "Error al procesar el prompt con IA." },
       { status: 500 }
