@@ -1602,8 +1602,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       bodyI18n?: Record<string, string>;
     };
     blockIndex?: number;
+    promptUsed?: string;
   }) => {
-    const { resultText, resultTitle, translations, blockIndex } = data;
+    const { resultText, resultTitle, translations, blockIndex, promptUsed } = data;
     const sourceLang = pLang || "es";
 
     if (aiRefineState.fieldType === "title") {
@@ -1661,6 +1662,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             body: sourceLang === "es" ? resultText : (d.body || nextBodyI18n.es || resultText),
             titleI18n: nextTitleI18n,
             bodyI18n: nextBodyI18n,
+            prompt: promptUsed || d.prompt,
           };
         })
       );
@@ -1677,6 +1679,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           bodyI18n: bMap,
           lang: "es",
           visibleInCard: false,
+          prompt: promptUsed,
         },
       ]);
     }
@@ -1703,6 +1706,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   bodyI18n: { es: "", en: "", pt: "", it: "" },
                   lang: "es" as Lang,
                   visibleInCard: false,
+                  prompt: b.prompt,
                 };
               });
           }
@@ -1844,6 +1848,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           sourceLang,
           autoTranslate: false,
           apiKey: customKey,
+          provider: (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_scraper_provider") : null) || "auto",
           variationIndex,
         }),
       });
@@ -1902,6 +1907,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 body: sourceLang === "es" ? resultText : (d.body || nextBodyI18n.es || resultText),
                 titleI18n: nextTitleI18n,
                 bodyI18n: nextBodyI18n,
+                prompt: promptToUse || d.prompt,
               };
             })
           );
@@ -1964,6 +1970,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     bodyI18n: I18nRecord;
     lang: Lang;
     visibleInCard?: boolean;
+    prompt?: string;
   };
   const [pExtraDescriptions, setPExtraDescriptions] = useState<ExtraDescription[]>([]);
   const [pProviderInfoLang, setPProviderInfoLang] = useState<Lang>("es");
@@ -3277,6 +3284,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               titleI18n: { ...d.titleI18n, es: firstNonEmpty(d.titleI18n.es, title) },
               bodyI18n: { ...d.bodyI18n, es: firstNonEmpty(d.bodyI18n.es, body) },
               visibleInCard: booleanLike(d.visibleInCard),
+              prompt: d.prompt,
             };
           })
           .filter((d) => d.title || d.body),
@@ -3506,6 +3514,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         },
         lang: (d.lang || "es") as Lang,
         visibleInCard: d.visibleInCard !== false,
+        prompt: d.prompt,
       };
     });
 
@@ -3948,6 +3957,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         body: d.bodyI18n?.[pLang] || d.bodyI18n?.es || d.body,
         bodyI18n: d.bodyI18n || { es: d.body },
         visibleInCard: d.visibleInCard !== false,
+        prompt: d.prompt,
       })),
       publisherName: pPublisherName || "",
       providerInfoI18n: pProviderInfoI18n,
@@ -4068,6 +4078,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             titleI18n: d.titleI18n || { es: d.title },
             bodyI18n: d.bodyI18n || { es: d.body },
             visibleInCard: d.visibleInCard !== false,
+            prompt: d.prompt,
           })),
           socialLinksDetailed: draft.socialLinksDetailed || [],
           providerLogo: draft.providerLogo || null,
@@ -4604,6 +4615,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               bodyI18n: bodyI18n ?? { es: fallbackBody },
               lang: "es" as Lang,
               visibleInCard: booleanLike(d?.visibleInCard),
+              prompt: typeof d?.prompt === "string" ? d.prompt : undefined,
             };
           })
         : []
