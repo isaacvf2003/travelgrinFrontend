@@ -35,6 +35,10 @@ interface RefineFieldRequest {
   provider?: "auto" | "gemini" | "openai";
   conversationHistory?: ConversationMessage[];
   variationIndex?: number;
+  scrapedHeadings?: string[];
+  scrapedParagraphs?: string[];
+  scrapedTextContent?: string;
+  rawPageTitle?: string;
 }
 
 async function quickInvestigateUrl(url: string): Promise<{ headings: string[]; paragraphs: string[]; mainText: string; pageTitle?: string }> {
@@ -113,6 +117,10 @@ export async function POST(req: Request) {
       provider = "auto",
       conversationHistory = [],
       variationIndex = 0,
+      scrapedHeadings = [],
+      scrapedParagraphs = [],
+      scrapedTextContent = "",
+      rawPageTitle = "",
     } = body;
 
     if (!prompt || !prompt.trim()) {
@@ -153,30 +161,45 @@ export async function POST(req: Request) {
       }
     }
 
-    // 1. Live web investigation if URL is present
+    // 1. Verificar si ya tenemos los datos originales del scraping disponibles
+    const hasClientScrapedFacts = Boolean(
+      (scrapedParagraphs && scrapedParagraphs.length > 0) ||
+      (scrapedHeadings && scrapedHeadings.length > 0) ||
+      (scrapedTextContent && scrapedTextContent.length > 50)
+    );
+
+    // Live web investigation solo si la URL está presente y no recibimos datos scrapeados previos
     let webContext: { headings: string[]; paragraphs: string[]; mainText: string; pageTitle?: string } | null = null;
-    if (url && url.trim()) {
+    if (!hasClientScrapedFacts && url && url.trim()) {
       webContext = await quickInvestigateUrl(url.trim());
     }
 
     const cleanPubName = cleanTitleString(
-      publisherName || currentTitle || webContext?.pageTitle || "Establecimiento"
+      publisherName || currentTitle || rawPageTitle || webContext?.pageTitle || "Establecimiento"
     );
 
-    const webParagraphs = webContext?.paragraphs || [];
-    const contextParagraphs = webParagraphs.length > 0
-      ? webParagraphs
-      : (currentText ? [currentText] : []);
+    const resolvedHeadings = (scrapedHeadings && scrapedHeadings.length > 0)
+      ? scrapedHeadings
+      : (webContext?.headings || []);
 
-    // Build unified CleanScrapedContext
+    const resolvedParagraphs = (scrapedParagraphs && scrapedParagraphs.length > 0)
+      ? scrapedParagraphs
+      : (webContext?.paragraphs && webContext.paragraphs.length > 0
+          ? webContext.paragraphs
+          : (currentText ? [currentText] : []));
+
+    const resolvedMainText = scrapedTextContent || webContext?.mainText || currentText || "";
+    const resolvedRawTitle = rawPageTitle || currentTitle || webContext?.pageTitle || cleanPubName;
+
+    // Build unified CleanScrapedContext con los datos reales del scraping
     const context: CleanScrapedContext = {
       url: url || "",
       publisherName: cleanPubName,
-      rawPageTitle: currentTitle || webContext?.pageTitle || cleanPubName,
+      rawPageTitle: resolvedRawTitle,
       metaDescription: currentText.slice(0, 300) || "",
-      headings: webContext?.headings || [],
-      paragraphs: contextParagraphs,
-      mainText: webContext?.mainText || currentText || "",
+      headings: resolvedHeadings,
+      paragraphs: resolvedParagraphs,
+      mainText: resolvedMainText,
       city,
       country,
       apiKey,
