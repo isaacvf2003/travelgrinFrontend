@@ -31,6 +31,7 @@ interface RefineFieldRequest {
   sourceLang?: string;
   autoTranslate?: boolean;
   apiKey?: string;
+  provider?: "auto" | "gemini" | "openai";
   conversationHistory?: ConversationMessage[];
   variationIndex?: number;
 }
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
       url = "",
       autoTranslate = true,
       apiKey,
+      provider = "auto",
       conversationHistory = [],
       variationIndex = 0,
     } = body;
@@ -110,10 +112,11 @@ export async function POST(req: Request) {
       paragraphs: currentText
         ? [currentText, ...(webContext?.paragraphs || [])]
         : webContext?.paragraphs || [],
-      mainText: currentText || webContext?.mainText || "",
+      mainText: [currentText, webContext?.mainText].filter(Boolean).join("\n\n"),
       city,
       country,
       apiKey,
+      provider,
       variationIndex,
     };
 
