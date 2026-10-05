@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/app/lib/prisma";
+import {
+  type CleanScrapedContext,
+  runTitleAgent,
+  runDescriptionAgent,
+  runCustomBlockAgent,
+} from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
 
@@ -4410,92 +4416,14 @@ async function formatPublicationResult(
   );
 }
 
-function enforceStrictTaxonomyGuardrails(
+export function enforceStrictTaxonomyGuardrails(
   publication: ScrapedPublication,
   extractedData: any,
-  taxonomies?: any,
-  customAdminPrompt?: string,
-  customTitlePrompt?: string,
-  customDescriptionPrompt?: string
+  taxonomies?: any
 ): ScrapedPublication {
-  const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
-  const effectiveDescPrompt = (customDescriptionPrompt || "").trim() || (customAdminPrompt || "").trim();
-
   const allText = `${publication.url} ${publication.title} ${publication.description} ${extractedData.textContent}`.toLowerCase();
-  let titleClean = cleanTitleString(publication.title);
-  publication.title = titleClean;
+  const titleClean = cleanTitleString(publication.title);
   publication.publisherName = cleanTitleString(publication.publisherName || titleClean.split(/\s*[-–—|]\s*/)[0].trim());
-  if (publication.titleI18n?.es) {
-    publication.titleI18n.es = publication.title;
-  }
-
-  let descEs = publication.description || publication.descriptionI18n?.es || "";
-  if (!descEs || descEs.length < 25 || !descEs.includes("<p>")) {
-    const locText = [publication.city, publication.country].filter(Boolean).join(", ");
-    const siteUrl = escapeHtml(publication.website || publication.url);
-    const summaryClean = escapeHtml(decodeHtmlEntities((extractedData.description || extractedData.textContent || publication.title).slice(0, 380))).trim();
-    if (effectiveDescPrompt && effectiveDescPrompt.trim().length > 0) {
-      const baseEntity = publication.publisherName || publication.title;
-      descEs = [
-        `<p><strong>${baseEntity}</strong> se destaca como una institución de referencia${locText ? ` con sede en ${locText}` : ""}, ofreciendo soluciones y servicios de primer nivel orientados a la excelencia y la innovación.</p>`,
-        `<p><strong>Propuesta y Servicios:</strong> ${summaryClean}</p>`,
-        `<p><strong>Presencia y Contacto:</strong> Información y canales habilitados directamente en su portal oficial ${siteUrl}.</p>`
-      ].join("\n");
-    } else {
-      descEs = [
-        `<p><strong>Vigencia:</strong> Activo; sitio oficial actualizado. <strong>Precio:</strong> ${publication.price && publication.price !== "A consultar" ? escapeHtml(publication.price) : "A consultar / Según aranceles o tarifas del oferente."}</p>`,
-        `<p>💡 <strong>Propuesta de valor:</strong> ${summaryClean}${locText ? ` con sede en ${locText}` : ""}. <strong>¿Para quién?:</strong> Personas interesadas, clientes, familias, estudiantes o profesionales según el rubro. <strong>Documentación requerida:</strong> DNI o pasaporte y documentación informada por el oferente. <strong>Permanencia:</strong> Según la modalidad o servicio contratado.</p>`,
-        `<p>⭐ <strong>Diferencial:</strong> <em>Idiomas de atención:</em> ${publication.languages || "Español, Inglés"}. <em>Experiencia y soporte:</em> Información tomada directamente del portal oficial. <em>Diferencial vs. alternativas:</em> Contacto directo con el oferente y respaldo institucional.</p>`,
-        `<p>⚠️ <strong>Exclusiones:</strong> Confirmar disponibilidad, tarifas vigentes, requisitos y condiciones particulares directamente en ${siteUrl} antes de contratar o postular.</p>`,
-      ].join("\n");
-    }
-  } else {
-    descEs = normalizeToSpanishDescriptionHeaders(descEs);
-  }
-
-  if (effectiveDescPrompt) {
-    const wantsIcons = /con\s+emojis?|usar\s+emojis?|incluir\s+emojis?/i.test(effectiveDescPrompt);
-    if (checkPromptOmitIcons(effectiveDescPrompt) || !wantsIcons) {
-      descEs = stripEmojisAndIcons(descEs);
-    }
-    if (checkPromptOmitPrice(effectiveDescPrompt) || checkPromptIsEssential(effectiveDescPrompt)) {
-      descEs = descEs
-        .replace(/<p>\s*<strong>\s*Precio:[\s\S]*?<\/p>/gi, "")
-        .replace(/<strong>\s*Precio:[\s\S]*?(?=<strong>|<\/p>|$)/gi, "")
-        .replace(/<p>\s*<strong>\s*Vigencia:[\s\S]*?Precio:[\s\S]*?<\/p>/gi, (m) => {
-          return m.replace(/<strong>\s*Precio:[\s\S]*?(?=<\/p>|$)/gi, "");
-        });
-    }
-  }
-
-  publication.description = descEs;
-  const hasSpanishMarkers = (str: string) => /<strong>\s*(?:Vigencia|Propuesta de valor|¿?Para qui[eé]n|Documentaci[oó]n requerida|Permanencia|Diferencial|Exclusiones):/i.test(str);
-
-  if (!publication.descriptionI18n) {
-    publication.descriptionI18n = {
-      es: descEs,
-      en: translateStructuredDescription(descEs, "en"),
-      pt: translateStructuredDescription(descEs, "pt"),
-      it: translateStructuredDescription(descEs, "it"),
-    };
-  } else {
-    publication.descriptionI18n.es = descEs;
-    if (!publication.descriptionI18n.en || publication.descriptionI18n.en === descEs || hasSpanishMarkers(publication.descriptionI18n.en) || !publication.descriptionI18n.en.includes("<p>")) {
-      publication.descriptionI18n.en = translateStructuredDescription(descEs, "en");
-    } else {
-      publication.descriptionI18n.en = normalizeToEnglishDescriptionHeaders(publication.descriptionI18n.en);
-    }
-    if (!publication.descriptionI18n.pt || publication.descriptionI18n.pt === descEs || hasSpanishMarkers(publication.descriptionI18n.pt) || !publication.descriptionI18n.pt.includes("<p>")) {
-      publication.descriptionI18n.pt = translateStructuredDescription(descEs, "pt");
-    } else {
-      publication.descriptionI18n.pt = normalizeToPortugueseDescriptionHeaders(publication.descriptionI18n.pt);
-    }
-    if (!publication.descriptionI18n.it || publication.descriptionI18n.it === descEs || hasSpanishMarkers(publication.descriptionI18n.it) || !publication.descriptionI18n.it.includes("<p>")) {
-      publication.descriptionI18n.it = translateStructuredDescription(descEs, "it");
-    } else {
-      publication.descriptionI18n.it = normalizeToItalianDescriptionHeaders(publication.descriptionI18n.it);
-    }
-  }
 
   // Merge any extracted phone, whatsapp, email, web links
   if (extractedData?.socialLinksExtracted && Array.isArray(extractedData.socialLinksExtracted)) {
@@ -4505,49 +4433,7 @@ function enforceStrictTaxonomyGuardrails(
   const locInfo = detectAllLocationsAndHeadquarters(allText, publication.url, titleClean);
   const classified = classifySectorAndTaxonomy(publication.url, titleClean, allText, taxonomies);
 
-  // 1. Check known institutions map for guaranteed accuracy
-  try {
-    const hostname = new URL(publication.url).hostname.replace(/^www\./, "").toLowerCase();
-    for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
-      if (hostname.includes(domainKey) || publication.url.toLowerCase().includes(domainKey)) {
-        if (!effectiveTitlePrompt || !publication.title.includes("|")) {
-          publication.title = cleanTitleString(publication.title || info.name);
-        }
-        publication.publisherName = cleanTitleString(info.name);
-        publication.providerStartYear = info.startYear;
-        if (info.rating) publication.providerRating = info.rating;
-        if (info.reviewCount) publication.providerReviewCount = info.reviewCount;
-        if (info.commentsUrl) publication.providerCommentsUrl = info.commentsUrl;
-        if (info.socialLinks && info.socialLinks.length) {
-          publication.socialLinksDetailed = mergeSocialLinks(publication.socialLinksDetailed, info.socialLinks);
-        }
-        publication.city = info.primaryCity;
-        publication.headquarterCity = info.primaryCity;
-        publication.headquarterCountry = info.primaryCountry;
-        publication.country = info.primaryCountry;
-        publication.providerActivities = [info.activity];
-        publication.category = info.category;
-        publication.subcategory = info.subcategory;
-        publication.categorySelections = [info.category];
-        publication.subcategorySelections = [info.subcategory];
-        publication.providerTypes = [info.type];
-        publication.destinationCountries = [info.primaryCountry];
-        publication.headquarterLocations = resolveHeadquarterLocations(
-          publication.headquarterLocations,
-          titleClean,
-          publication.publisherName,
-          info.primaryCity,
-          info.primaryCountry,
-          extractedData.detectedMapsUrl,
-          allText,
-          info.additionalCities || []
-        );
-        return publication;
-      }
-    }
-  } catch {}
-
-  // 2. Strict sector guardrails ONLY if AI categories/activities are unassigned or empty
+  // 1. Strict sector guardrails ONLY for taxonomy classification
   if (!publication.categorySelections || publication.categorySelections.length === 0 || publication.categorySelections[0] === "General") {
     publication.category = classified.category;
     publication.subcategory = classified.subcategory;
@@ -4558,7 +4444,7 @@ function enforceStrictTaxonomyGuardrails(
     publication.providerModalities = classified.providerModalities;
   }
 
-  // 3. Guarantee valid founding year (never arbitrary 2015 or accidental footer copyright years like 2010/2024/2025/2026)
+  // 2. Guarantee valid founding year
   if (extractedData.detectedFoundingYear && (!publication.providerStartYear || publication.providerStartYear === "2015" || publication.providerStartYear === "2010" || publication.providerStartYear === "2024" || publication.providerStartYear === "2025" || publication.providerStartYear === "2026")) {
     publication.providerStartYear = extractedData.detectedFoundingYear;
   }
@@ -4571,7 +4457,7 @@ function enforceStrictTaxonomyGuardrails(
     }
   }
 
-  // 4. Guarantee accurate rating and review count
+  // 3. Guarantee accurate rating and review count
   if (extractedData.detectedRating && (!publication.providerRating || publication.providerRating === "0" || publication.providerRating === "4.5")) {
     publication.providerRating = extractedData.detectedRating;
   }
@@ -4581,7 +4467,7 @@ function enforceStrictTaxonomyGuardrails(
     publication.providerReviewCount = "0";
   }
 
-  // 5. Build clean, precise Google Maps comments URL if empty or not matching exact entity
+  // 4. Build clean, precise Google Maps comments URL
   if (extractedData.detectedCommentsUrl && (!publication.providerCommentsUrl || publication.providerCommentsUrl === publication.url || !publication.providerCommentsUrl.includes("maps"))) {
     publication.providerCommentsUrl = extractedData.detectedCommentsUrl;
   } else if (!publication.providerCommentsUrl || !/^https?:\/\//i.test(publication.providerCommentsUrl) || publication.providerCommentsUrl === publication.url) {
@@ -4594,7 +4480,7 @@ function enforceStrictTaxonomyGuardrails(
     publication.providerCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
   }
 
-  // 6. Ensure headquarter locations has additional branches if multiple were detected
+  // 5. Ensure headquarter locations has additional branches if multiple were detected
   if (locInfo.additionalCities.length > 0 && (!publication.headquarterLocations || publication.headquarterLocations.length <= 1)) {
     publication.headquarterLocations = resolveHeadquarterLocations(
       publication.headquarterLocations,
@@ -4608,7 +4494,7 @@ function enforceStrictTaxonomyGuardrails(
     );
   }
 
-  // 7. Ensure destination countries is populated
+  // 6. Ensure destination countries is populated
   if (!publication.destinationCountries || publication.destinationCountries.length === 0) {
     publication.destinationCountries = locInfo.detectedCountries.length > 0
       ? locInfo.detectedCountries
@@ -4621,7 +4507,7 @@ function enforceStrictTaxonomyGuardrails(
 async function processUrlWithAI(
   url: string,
   taxonomies: any,
-  preferredProvider: string,
+  preferredProvider: "auto" | "gemini" | "openai",
   geminiKey: string,
   openaiKey: string,
   customBlocks?: CustomScraperBlock[],
@@ -4630,105 +4516,149 @@ async function processUrlWithAI(
   customDescriptionPrompt?: string,
   includeScoreScout: boolean = true
 ): Promise<{ publication: ScrapedPublication; providerUsed: string }> {
+  // 1. Scrape web page & enrich with Google Maps/Places
   const extracted = await fetchPageContent(url);
-  // Real-time Google Maps & Live Search enrichment
   await enrichWithLiveGoogleMapsAndSearch(extracted);
-  const prompt = buildPrompt(
-    extracted,
-    taxonomies,
-    customBlocks,
-    customAdminPrompt,
-    customTitlePrompt,
-    customDescriptionPrompt,
-    includeScoreScout
-  );
 
-  const canUseGemini = Boolean(geminiKey);
-  const canUseOpenAI = Boolean(openaiKey);
+  const cleanPublisher = cleanPublisherName(extracted.title, extracted.url, extracted.title);
+  const locInfo = detectAllLocationsAndHeadquarters(extracted.textContent, extracted.url, extracted.title);
 
-  const executeGemini = async () => {
-    if (!canUseGemini) throw new Error("No hay GEMINI_API_KEY configurada.");
-    const parsed = await callGeminiApi(prompt, geminiKey);
-    return await formatPublicationResult(
-      parsed,
-      extracted,
-      taxonomies,
-      customBlocks,
-      customAdminPrompt,
-      customTitlePrompt,
-      customDescriptionPrompt,
-      includeScoreScout
-    );
+  // Extract clean structured lists and paragraphs
+  const paragraphs = (extracted.textContent || "").split(/\n\s*\n+/).map((p: string) => p.trim()).filter((p: string) => p.length > 25);
+  const headings = Array.isArray(extracted.headings) ? extracted.headings : [];
+
+  const cleanContext: CleanScrapedContext = {
+    url,
+    publisherName: cleanPublisher,
+    rawPageTitle: extracted.title,
+    metaDescription: extracted.description,
+    headings,
+    paragraphs,
+    mainText: extracted.textContent,
+    city: locInfo.primaryCity,
+    country: locInfo.primaryCountry,
+    address: extracted.detectedAddress,
+    foundingYear: extracted.detectedFoundingYear,
+    rating: extracted.detectedRating,
+    reviewCount: extracted.detectedReviewCount,
+    commentsUrl: extracted.detectedCommentsUrl,
+    logo: extracted.detectedLogo,
+    images: extracted.images,
+    socialLinks: extracted.socialLinksExtracted,
+    apiKey: geminiKey || openaiKey,
+    provider: preferredProvider,
   };
 
-  const executeOpenAI = async () => {
-    if (!canUseOpenAI) throw new Error("No hay OPENAI_API_KEY configurada.");
-    const parsed = await callOpenAIApi(prompt, openaiKey);
-    return await formatPublicationResult(
-      parsed,
-      extracted,
-      taxonomies,
-      customBlocks,
-      customAdminPrompt,
-      customTitlePrompt,
-      customDescriptionPrompt,
-      includeScoreScout
+  const providersUsed = new Set<string>();
+
+  // 2. Run Title Agent independently
+  const titleAgentRes = await runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt);
+  if (titleAgentRes.providerUsed !== "none") providersUsed.add(titleAgentRes.providerUsed);
+
+  // 3. Run Description Agent independently
+  const descAgentRes = await runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt);
+  if (descAgentRes.providerUsed !== "none") providersUsed.add(descAgentRes.providerUsed);
+
+  // 4. Run Custom Block Agents independently
+  const extraDescriptions: ExtraDescriptionBlock[] = [];
+
+  // Score Scout Block (if enabled)
+  if (includeScoreScout !== false) {
+    const scoreBlock = buildScoreScoutBlock(
+      cleanPublisher,
+      cleanContext.foundingYear || "",
+      cleanContext.rating || "5.0",
+      extracted.textContent,
+      undefined,
+      url,
+      cleanContext.reviewCount || "0"
     );
-  };
+    extraDescriptions.push(scoreBlock);
+  }
 
-  let publication: ScrapedPublication;
-  let engineUsed = "fallback";
-
-  if (preferredProvider === "openai") {
-    try {
-      publication = await executeOpenAI();
-      engineUsed = "openai";
-    } catch (openAiErr: any) {
-      console.warn(`OpenAI failed for ${url}, trying Gemini fallback:`, openAiErr.message);
-      try {
-        publication = await executeGemini();
-        engineUsed = "gemini";
-      } catch (geminiErr: any) {
-        console.error(`Gemini fallback also failed for ${url}:`, geminiErr.message);
-        publication = await createFallbackPublication(
-          extracted,
-          taxonomies,
-          customBlocks,
-          customAdminPrompt,
-          customTitlePrompt,
-          customDescriptionPrompt,
-          includeScoreScout
-        );
-        engineUsed = "fallback";
-      }
-    }
-  } else {
-    // Default or explicitly "gemini"
-    try {
-      publication = await executeGemini();
-      engineUsed = "gemini";
-    } catch (geminiErr: any) {
-      console.warn(`Gemini failed for ${url}, trying OpenAI fallback:`, geminiErr.message);
-      try {
-        publication = await executeOpenAI();
-        engineUsed = "openai";
-      } catch (openAiErr: any) {
-        console.error(`OpenAI fallback also failed for ${url}:`, openAiErr.message);
-        publication = await createFallbackPublication(
-          extracted,
-          taxonomies,
-          customBlocks,
-          customAdminPrompt,
-          customTitlePrompt,
-          customDescriptionPrompt,
-          includeScoreScout
-        );
-        engineUsed = "fallback";
-      }
+  // Custom Blocks requested by admin
+  if (Array.isArray(customBlocks) && customBlocks.length > 0) {
+    for (const cb of customBlocks) {
+      if (!cb.title || !cb.title.trim()) continue;
+      const blockRes = await runCustomBlockAgent(cleanContext, cb.title, cb.prompt);
+      extraDescriptions.push(blockRes);
     }
   }
 
-  return { publication, providerUsed: engineUsed };
+  // 5. Taxonomy & Location mapping
+  const titleVal = titleAgentRes.data?.title || extracted.title || cleanPublisher;
+  const titleI18nVal = titleAgentRes.data?.titleI18n || { es: titleVal, en: titleVal, pt: titleVal, it: titleVal };
+  const descVal = descAgentRes.data?.description || extracted.description || "";
+  const descI18nVal = descAgentRes.data?.descriptionI18n || { es: descVal, en: "", pt: "", it: "" };
+
+  const headquarterLocations = resolveHeadquarterLocations(
+    undefined,
+    titleVal,
+    cleanPublisher,
+    locInfo.primaryCity,
+    locInfo.primaryCountry,
+    extracted.detectedMapsUrl,
+    extracted.textContent,
+    locInfo.additionalCities
+  );
+
+  const primaryHq = headquarterLocations[0] || {
+    country: locInfo.primaryCountry,
+    city: locInfo.primaryCity,
+    mapUrl: buildGoogleMapsUrl(`${cleanPublisher}, ${locInfo.primaryCity}, ${locInfo.primaryCountry}`),
+  };
+
+  const classified = classifySectorAndTaxonomy(url, titleVal, extracted.textContent, taxonomies);
+
+  const publication: ScrapedPublication = {
+    url,
+    title: titleVal,
+    titleI18n: titleI18nVal,
+    description: descVal,
+    descriptionI18n: descI18nVal,
+    extraDescriptions,
+    publisherName: cleanPublisher,
+    providerInfoI18n: {
+      es: `Institución y prestador de servicios en ${primaryHq.city}.`,
+      en: `Institution and service provider in ${primaryHq.city}.`,
+      pt: `Instituição e provedor de servicios em ${primaryHq.city}.`,
+      it: `Istituzione e fornitore di servicios a ${primaryHq.city}.`,
+    },
+    providerStartYear: cleanContext.foundingYear || "",
+    providerRating: cleanContext.rating || "5.0",
+    providerReviewCount: cleanContext.reviewCount || "0",
+    providerCommentsUrl: cleanContext.commentsUrl || primaryHq.mapUrl,
+    providerLogo: cleanContext.logo || "",
+    country: primaryHq.country,
+    city: primaryHq.city,
+    headquarterCountry: primaryHq.country,
+    headquarterCity: primaryHq.city,
+    locationAddress: primaryHq.mapUrl,
+    destinationCountries: locInfo.detectedCountries.length ? locInfo.detectedCountries : [primaryHq.country],
+    headquarterLocations,
+    currency: "USD",
+    price: "A consultar",
+    pricePeriod: "",
+    languages: "Español, Inglés",
+    website: url,
+    socialLinksDetailed: extracted.socialLinksExtracted || [{ kind: "web", label: "Sitio Oficial", url }],
+    images: extracted.images || [],
+    category: classified.category,
+    subcategory: classified.subcategory,
+    categorySelections: classified.categorySelections,
+    subcategorySelections: classified.subcategorySelections,
+    providerActivities: classified.providerActivities,
+    providerTypes: classified.providerTypes,
+    providerModalities: classified.providerModalities,
+  };
+
+  // Enforce taxonomy structure only (without altering title/description text!)
+  const finalPub = enforceStrictTaxonomyGuardrails(publication, extracted, taxonomies);
+
+  return {
+    publication: finalPub,
+    providerUsed: Array.from(providersUsed).join(", ") || "gemini",
+  };
 }
 
 /**
@@ -4828,36 +4758,20 @@ export async function POST(req: Request) {
 
     // Process up to 10 URLs concurrently in mini-batches of 3
     const batchResults = await processBatchWithConcurrency(targetUrls, 3, async (url) => {
-      try {
-        const { publication, providerUsed } = await processUrlWithAI(
-          url,
-          taxonomies,
-          effectiveProvider,
-          geminiKey,
-          openaiKey,
-          customBlocks,
-          customAdminPrompt,
-          customTitlePrompt,
-          customDescriptionPrompt,
-          includeScoreScout
-        );
-        providersUsed.add(providerUsed);
-        return publication;
-      } catch (err: any) {
-        console.error(`Error processing URL ${url}:`, err);
-        let host = "";
-        try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
-        const fallbackExtracted = { url, title: host, textContent: host, htmlContent: "", images: [], metaTags: {} };
-        return await createFallbackPublication(
-          fallbackExtracted,
-          taxonomies,
-          customBlocks,
-          customAdminPrompt,
-          customTitlePrompt,
-          customDescriptionPrompt,
-          includeScoreScout
-        );
-      }
+      const { publication, providerUsed } = await processUrlWithAI(
+        url,
+        taxonomies,
+        effectiveProvider,
+        geminiKey,
+        openaiKey,
+        customBlocks,
+        customAdminPrompt,
+        customTitlePrompt,
+        customDescriptionPrompt,
+        includeScoreScout
+      );
+      providersUsed.add(providerUsed);
+      return publication;
     });
 
     return NextResponse.json({
