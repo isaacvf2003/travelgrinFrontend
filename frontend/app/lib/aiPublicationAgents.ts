@@ -2,7 +2,7 @@
  * Travelgrin AI Publication Agents Architecture
  * 
  * Hierarchy of Authority:
- * 1. Admin Custom Prompt (Primary Editorial Authority)
+ * 1. Admin Custom Prompt (Primary Editorial Authority - 100% absolute precedence)
  * 2. Real Scraped Web Facts
  * 3. Technical System Rules (Valid JSON schema, safety)
  * 4. Internal Travelgrin Rules (Only when they DO NOT contradict the Admin prompt)
@@ -11,7 +11,7 @@
  * - Pure technical SYSTEM prompts.
  * - Admin prompts are never altered, hidden or diluted.
  * - Provider chain: Gemini -> OpenAI -> Controlled Error (Zero invented filler content).
- * - Full debug logs tracing input -> prompt -> raw output -> normalized validation.
+ * - Full support for reformulating with fresh variations respecting past prompts.
  */
 
 export type I18nRecord = Record<string, string>;
@@ -55,6 +55,7 @@ export interface CleanScrapedContext {
   apiKey?: string;
   provider?: "auto" | "gemini" | "openai";
   variationIndex?: number;
+  currentText?: string;
 }
 
 export interface AgentResult<T> {
@@ -187,7 +188,6 @@ function extractJson(text: string): any {
 }
 
 // ----------------------------------------------------------------------------
-// ----------------------------------------------------------------------------
 // Provider Dispatcher (Gemini -> OpenAI -> Controlled Error)
 // ----------------------------------------------------------------------------
 async function executeModelCall(
@@ -200,23 +200,28 @@ async function executeModelCall(
   const geminiKey =
     (customKey && (customKey.startsWith("AIza") || !customKey.startsWith("sk-")) ? customKey : "") ||
     process.env.GEMINI_API_KEY ||
+    process.env.GEMINI_KEY ||
     process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GEMINI_API_KEY ||
     process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
     "";
 
   const openaiKey =
     (customKey && customKey.startsWith("sk-") ? customKey : "") ||
     process.env.OPENAI_API_KEY ||
+    process.env.OPENAI_KEY ||
     process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
     "";
 
   if (!geminiKey && !openaiKey) {
-    throw new Error("No hay ninguna API Key de IA configurada. Ingresá tu clave de Gemini (AIza...) u OpenAI (sk-...) en el modal o en la configuración para continuar.");
+    throw new Error(
+      "No hay ninguna API Key de IA configurada en el servidor (GEMINI_API_KEY ni OPENAI_API_KEY). Por favor verifica el entorno de Vercel o ingresa tu API Key en la configuración."
+    );
   }
 
   const executeGemini = async (): Promise<string> => {
     if (!geminiKey) throw new Error("GEMINI_API_KEY no disponible.");
-    const models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+    const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
     let lastErr: any = null;
     for (const model of models) {
       try {
@@ -233,7 +238,7 @@ async function executeModelCall(
                 },
               ],
               generationConfig: {
-                temperature: 0.7,
+                temperature: 0.75,
                 responseMimeType: "application/json",
               },
             }),
@@ -244,13 +249,14 @@ async function executeModelCall(
           const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
           if (raw) return raw;
         } else {
-          lastErr = new Error(`Gemini ${model}: HTTP ${res.status}`);
+          const errText = await res.text().catch(() => "");
+          lastErr = new Error(`Gemini ${model}: HTTP ${res.status} - ${errText}`);
         }
       } catch (e: any) {
         lastErr = e;
       }
     }
-    throw lastErr || new Error("Gemini falló.");
+    throw lastErr || new Error("Gemini falló en todos los modelos.");
   };
 
   const executeOpenAI = async (): Promise<string> => {
@@ -272,7 +278,7 @@ async function executeModelCall(
               { role: "user", content: userPrompt },
             ],
             response_format: { type: "json_object" },
-            temperature: 0.7,
+            temperature: 0.75,
           }),
         });
         if (res.ok) {
@@ -313,46 +319,55 @@ async function executeModelCall(
 // ============================================================================
 export async function runTitleAgent(
   context: CleanScrapedContext,
-  adminTitlePrompt?: string
+  adminTitlePrompt?: string,
+  currentTitle?: string
 ): Promise<AgentResult<{ title: string; titleI18n: I18nRecord }>> {
   const prompt = (adminTitlePrompt || "").trim();
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
-  const variationDirective = context.variationIndex && context.variationIndex > 1
-    ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa a las anteriores (otra redacción, sinónimos y enfoque fresco), manteniendo rigurosamente la directiva editorial del administrador.`
+  const activeCurrent = (currentTitle || context.currentText || "").trim();
+
+  const variationDirective = (context.variationIndex && context.variationIndex >= 1) || activeCurrent
+    ? `\n\n=== REGLA OBLIGATORIA DE REFORMULACIÓN (VARIACIÓN #${context.variationIndex || 1}) ===\nEl título actual que tiene el usuario es: "${activeCurrent || "Título previo"}".\nDEBES generar una versión ALTERNATIVA, FRESCA Y DIFERENTE a la actual (usando sinónimos o un enfoque alternativo), y que CUMPLA RIGUROSAMENTE todas las condiciones de la directiva del administrador. ¡ESTÁ TERMINANTEMENTE PROHIBIDO devolver exactamente el mismo título o una repetición trivial!`
     : "";
 
-  const systemPrompt = `Eres un redactor profesional de títulos para Travelgrin.
-Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
-Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
+  const systemPrompt = `Eres un redactor profesional de títulos para la plataforma Travelgrin.
+Tu objetivo primordial es cumplir FIELMENTE y de forma MILIMÉTRICA la directiva editorial del administrador.
+Tu respuesta debe ser EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
   "contenido": "Título redactado aquí",
   "evidencias": ["frase o dato de la web"]
 }
 
-REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL: La directiva del administrador es la regla SUPREMA. Si el administrador solicita un estilo específico, tono, longitud exacta (ej: cantidad de palabras o caracteres), palabras obligatorias o exclusiones, DEBES CUMPLIRLO AL 100%.
-2. Fidelidad factual: Usa los datos reales del sitio web (nombre, ubicación, especialidad) sin inventar hechos que contradigan la realidad.
-3. Formato estricto: Devuelve únicamente el objeto JSON sin texto adicional fuera del JSON.`;
+REGLAS DE MÁXIMA PRIORIDAD (ORDEN SUPREMO):
+1. AUTORIDAD EDITORIAL ABSOLUTA: La directiva del administrador es la regla SUPREMA.
+   - Si el administrador exige una cantidad exacta de palabras (ej: "exactamente 4 palabras"), tu título en 'contenido' DEBE TENER EXACTAMENTE ese número de palabras. Cuéntalas antes de responder.
+   - Si el administrador prohíbe mencionar la ciudad ("No mencionar la ciudad"), NO menciones ciudades (ej: Mendoza, Buenos Aires, etc.) en el título, incluso si el nombre de la institución la contiene (ej: si es "Hospital Italiano Mendoza", cámbialo a "Hospital Italiano" o utiliza otra redacción para excluir la ciudad).
+   - Si prohíbe emojis ("No usar emojis"), NO uses ningún emoji.
+   - Si prohíbe signos de exclamación ("No usar signos de exclamación"), NO uses '!' ni '¡'.
+   - Si solicita un tono o palabras específicas, acátalo con precisión del 100%.
+2. REFORMULACIÓN: Si se solicita reformular respecto a un título actual, genera una propuesta diferente y renovada sin repetir el texto previo.
+3. Fidelidad factual: No inventes hechos falsos sobre la entidad real.
+4. Formato estricto: Devuelve ÚNICAMENTE el objeto JSON sin ningún texto explicativo fuera de las llaves.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
 "${prompt || "Crear un título claro, comercial y profesional que mencione el nombre del establecimiento y su propuesta principal."}"${variationDirective}
 
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
-- Nombre oficial: "${entityName}"
+- Nombre oficial detectado: "${entityName}"
 - Ubicación: "${locationText || "No informada"}"
 - Encabezados principales: ${(context.headings || []).slice(0, 6).join(" | ") || "N/A"}
 - Servicios detectados: ${(context.servicesList || []).slice(0, 5).join(" | ") || "N/A"}
 - Resumen web: "${(context.metaDescription || context.paragraphs?.[0] || "").slice(0, 500)}"
 
-GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
+GENERA ÚNICAMENTE EL OBJETO JSON CON EL TÍTULO EN ESPAÑOL DENTRO DE "contenido" CUMPLIENDO ESTRICTAMENTE CADA REGLA DE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
-  console.log(`\n[AI-AGENT-DEBUG: TitleAgent]`);
-  console.log(`1. URL: ${context.url}`);
-  console.log(`2. Admin Title Prompt: "${prompt || "(Sin prompt personalizado, usando instrucción básica)"}"`);
-  console.log(`3. Final User Prompt:\n${userPrompt}`);
+  console.log(`\n[AI-AGENT: TitleAgent]`);
+  console.log(`- URL: ${context.url}`);
+  console.log(`- Admin Title Prompt: "${prompt || "(Sin prompt personalizado)"}"`);
+  console.log(`- Current Title to reformulate: "${activeCurrent || "(Ninguno)"}"`);
 
   try {
     const { rawText, providerUsed } = await executeModelCall(
@@ -362,9 +377,6 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
       context.provider || "auto"
     );
 
-    console.log(`4. Provider Used: ${providerUsed}`);
-    console.log(`5. Raw Model Response: ${rawText}`);
-
     const parsed = extractJson(rawText);
     const rawTitle = String(parsed?.contenido || parsed?.title || "").trim();
 
@@ -373,8 +385,7 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
     }
 
     const cleanTitle = cleanTitleString(rawTitle);
-    console.log(`6. Normalized Title Output: "${cleanTitle}"`);
-    console.log(`7. Validation: OK (Cumple JSON y contenido no vacío)`);
+    console.log(`- Generated Title Output: "${cleanTitle}" (Provider: ${providerUsed})`);
 
     const [tEn, tPt, tIt] = await Promise.all([
       translateText(cleanTitle, "es", "en"),
@@ -393,7 +404,7 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
       providerUsed,
     };
   } catch (err: any) {
-    console.warn(`[AI-AGENT-DEBUG: TitleAgent] ERROR: ${err.message}`);
+    console.warn(`[AI-AGENT: TitleAgent] ERROR: ${err.message}`);
     return {
       success: false,
       data: null,
@@ -410,33 +421,40 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
 // ============================================================================
 export async function runDescriptionAgent(
   context: CleanScrapedContext,
-  adminDescriptionPrompt?: string
+  adminDescriptionPrompt?: string,
+  currentDescription?: string
 ): Promise<AgentResult<{ description: string; descriptionI18n: I18nRecord }>> {
   const prompt = (adminDescriptionPrompt || "").trim();
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
-  const variationDirective = context.variationIndex && context.variationIndex > 1
-    ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa a las anteriores (otra redacción, sinónimos y enfoque fresco), manteniendo rigurosamente la directiva editorial del administrador.`
+  const activeCurrent = (currentDescription || context.currentText || "").trim();
+
+  const variationDirective = (context.variationIndex && context.variationIndex >= 1) || activeCurrent
+    ? `\n\n=== REGLA OBLIGATORIA DE REFORMULACIÓN (VARIACIÓN #${context.variationIndex || 1}) ===\nLa descripción actual que tiene el usuario es:\n"${activeCurrent.slice(0, 500)}..."\nDEBES generar una redacción ALTERNATIVA, FRESCA Y DIFERENTE a la actual (estructura y vocabulario renovados), y que CUMPLA RIGUROSAMENTE todas las condiciones de la directiva del administrador. ¡ESTÁ TERMINANTEMENTE PROHIBIDO devolver exactamente las mismas frases o contenido idéntico!`
     : "";
 
-  const systemPrompt = `Eres un redactor profesional de descripciones para Travelgrin.
-Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
-Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
+  const systemPrompt = `Eres un redactor profesional de descripciones para la plataforma Travelgrin.
+Tu objetivo primordial es cumplir FIELMENTE y de forma EXACTA la directiva editorial del administrador.
+Tu respuesta debe ser EXCLUSIVAMENTE un objeto JSON válido con este formato:
 {
   "estado": "ok",
-  "contenido": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>",
+  "contenido": "<p>Párrafo de descripción aquí...</p>",
   "evidencias": ["frase o dato de la web"]
 }
 
-REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL: La directiva del administrador es la regla SUPREMA. Si el administrador pide una cantidad exacta de párrafos, longitud máxima, enfoque comercial o informativo, exclusión de precios o inclusión de servicios específicos, DEBES CUMPLIRLO EXACTAMENTE.
-2. Formato HTML: Escribe el contenido estructurado en etiquetas de párrafos HTML <p>...</p>.
-3. Fidelidad factual: No inventes datos que contradigan la información provista.
-4. Formato estricto: Devuelve únicamente el objeto JSON sin texto adicional fuera del JSON.`;
+REGLAS DE MÁXIMA PRIORIDAD (ORDEN SUPREMO):
+1. AUTORIDAD EDITORIAL ABSOLUTA: La directiva del administrador es la regla SUPREMA.
+   - Si el administrador pide "exactamente un único párrafo", genera EXACTAMENTE UN SOLO bloque <p>...</p>. No agregues múltiples párrafos.
+   - Si pide una longitud máxima (ej: "máximo 1000 caracteres"), ajusta el texto para NO superar esa cantidad de caracteres.
+   - Si pide exclusiones estrictas (ej: "No mencionar precios, horarios ni teléfonos", o "sin emojis"), NO los menciones bajo ninguna circunstancia.
+   - Si solicita un enfoque específico (ej: comercial, servicios detallados, historia, formal), aplícalo plenamente.
+2. REFORMULACIÓN: Si se solicita reformular respecto a una descripción previa, genera una redacción alternativa y fresca sin repetir el texto anterior.
+3. Formato HTML: Escribe el texto envuelto en etiquetas <p>...</p>.
+4. Formato estricto: Devuelve ÚNICAMENTE el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
-"${prompt || "Escribir una descripción profesional en párrafos HTML <p> en tercera persona explicando qué ofrece, su alcance y vías oficiales."}"${variationDirective}
+"${prompt || "Escribir una descripción profesional en párrafos HTML <p> en tercera persona explicando qué ofrece, su alcance y propuesta de valor."}"${variationDirective}
 
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
@@ -446,12 +464,11 @@ REGLAS DE MÁXIMA PRIORIDAD:
 - Párrafos destacados: ${(context.paragraphs || []).slice(0, 6).join("\n") || (context.metaDescription || "")}
 - Contacto y canales: ${(context.socialLinks || []).map((s) => `${s.label}: ${s.url}`).join(" | ") || "N/A"}
 
-GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
+GENERA ÚNICAMENTE EL OBJETO JSON CON LA DESCRIPCIÓN EN ESPAÑOL DENTRO DE "contenido" CUMPLIENDO ESTRICTAMENTE CADA REGLA DE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
-  console.log(`\n[AI-AGENT-DEBUG: DescriptionAgent]`);
-  console.log(`1. URL: ${context.url}`);
-  console.log(`2. Admin Description Prompt: "${prompt || "(Sin prompt personalizado, usando instrucción básica)"}"`);
-  console.log(`3. Final User Prompt:\n${userPrompt}`);
+  console.log(`\n[AI-AGENT: DescriptionAgent]`);
+  console.log(`- URL: ${context.url}`);
+  console.log(`- Admin Description Prompt: "${prompt || "(Sin prompt personalizado)"}"`);
 
   try {
     const { rawText, providerUsed } = await executeModelCall(
@@ -460,9 +477,6 @@ GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
       context.apiKey,
       context.provider || "auto"
     );
-
-    console.log(`4. Provider Used: ${providerUsed}`);
-    console.log(`5. Raw Model Response: ${rawText}`);
 
     const parsed = extractJson(rawText);
     let descHtml = String(parsed?.contenido || parsed?.description || "").trim();
@@ -481,8 +495,7 @@ GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
         .join("\n");
     }
 
-    console.log(`6. Normalized Description Output:\n${descHtml}`);
-    console.log(`7. Validation: OK (Cumple JSON y contenido estructurado)`);
+    console.log(`- Generated Description Output (Provider: ${providerUsed})`);
 
     const [dEn, dPt, dIt] = await Promise.all([
       translateHtmlParagraphs(descHtml, "en"),
@@ -501,7 +514,7 @@ GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
       providerUsed,
     };
   } catch (err: any) {
-    console.warn(`[AI-AGENT-DEBUG: DescriptionAgent] ERROR: ${err.message}`);
+    console.warn(`[AI-AGENT: DescriptionAgent] ERROR: ${err.message}`);
     return {
       success: false,
       data: null,
@@ -519,15 +532,18 @@ GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
 export async function runCustomBlockAgent(
   context: CleanScrapedContext,
   blockTitle: string,
-  blockPrompt?: string
+  blockPrompt?: string,
+  currentBody?: string
 ): Promise<ExtraDescriptionBlock> {
   const bTitle = (blockTitle || "Información Adicional").trim();
   const bPrompt = (blockPrompt || "").trim();
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
-  const variationDirective = context.variationIndex && context.variationIndex > 1
-    ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa a las anteriores (otra redacción y estructura), manteniendo rigurosamente la directiva editorial del administrador.`
+  const activeCurrent = (currentBody || context.currentText || "").trim();
+
+  const variationDirective = (context.variationIndex && context.variationIndex >= 1) || activeCurrent
+    ? `\n\n=== REGLA OBLIGATORIA DE REFORMULACIÓN (VARIACIÓN #${context.variationIndex || 1}) ===\nEl contenido actual de este bloque es:\n"${activeCurrent.slice(0, 400)}..."\nDEBES generar una redacción ALTERNATIVA, FRESCA Y DIFERENTE a la actual, cumpliendo rigurosamente la directiva del administrador para este bloque. ¡No repitas el texto anterior!`
     : "";
 
   const isFaq =
@@ -537,20 +553,25 @@ export async function runCustomBlockAgent(
   const countMatch = bPrompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) || bPrompt.match(/\b(1\d|[2-9])\b/);
   const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (isFaq ? 10 : 0);
 
-  const systemPrompt = `Eres un redactor profesional de bloques de información para Travelgrin.
-Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
-Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
+  const systemPrompt = `Eres un redactor profesional de bloques de información especializada para Travelgrin.
+Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador para este bloque.
+Tu respuesta debe ser EXCLUSIVAMENTE un objeto JSON válido con este formato:
 {
   "estado": "ok",
   "titulo": "${bTitle}",
-  "contenido": "...",
+  "contenido": "<p>Contenido del bloque...</p>",
   "evidencias": ["frase o dato de la web"]
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL: Cumple fielmente las instrucciones del administrador para este bloque. Si es de preguntas frecuentes o pide preguntas y respuestas, formatea cada una en HTML <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>. Si es otro tipo de bloque, redacta párrafos estructurados en HTML <p>...</p>.
-2. Fidelidad factual: Usa los datos reales del sitio web.
-3. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+1. AUTORIDAD EDITORIAL: Cumple fielmente las instrucciones del administrador para este bloque.
+   - Si es un bloque de Preguntas Frecuentes (FAQ) o pide preguntas y respuestas, formatea cada ítem estrictamente como:
+     <p><strong>¿Pregunta aquí...?</strong><br/>Respuesta clara y precisa en tercera persona...</p>
+   - Si pide una cantidad específica de ítems o preguntas (ej: ${requestedCount || 10}), genera exactamente esa cantidad.
+   - Si es otro tipo de bloque (ej: Requisitos, Formas de pago, Servicios), redacta párrafos estructurados en etiquetas HTML <p>...</p>.
+2. REFORMULACIÓN: Si se te indica reformular respecto a un texto previo, genera una propuesta diferente y fresca sin repetir el texto previo.
+3. Fidelidad factual: Usa los datos reales del sitio web.
+4. Formato estricto: Devuelve ÚNICAMENTE el objeto JSON sin texto adicional fuera del JSON.`;
 
   const userPrompt = `TÍTULO DEL BLOQUE: "${bTitle}"
 
@@ -566,8 +587,8 @@ REGLAS DE MÁXIMA PRIORIDAD:
 
 GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
-  console.log(`\n[AI-AGENT-DEBUG: CustomBlockAgent - ${bTitle}]`);
-  console.log(`1. Block Prompt: "${bPrompt || "(Sin prompt específico)"}"`);
+  console.log(`\n[AI-AGENT: CustomBlockAgent - "${bTitle}"]`);
+  console.log(`- Block Prompt: "${bPrompt || "(Sin prompt específico)"}"`);
 
   try {
     const { rawText, providerUsed } = await executeModelCall(
@@ -576,9 +597,6 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
       context.apiKey,
       context.provider || "auto"
     );
-
-    console.log(`2. Provider Used: ${providerUsed}`);
-    console.log(`3. Raw Response: ${rawText}`);
 
     const parsed = extractJson(rawText);
     let bodyContent = String(parsed?.contenido || parsed?.body || "").trim();
@@ -617,7 +635,7 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
       prompt: blockPrompt,
     };
   } catch (err: any) {
-    console.warn(`[AI-AGENT-DEBUG: CustomBlockAgent - ${bTitle}] ERROR: ${err.message}`);
+    console.warn(`[AI-AGENT: CustomBlockAgent - "${bTitle}"] ERROR: ${err.message}`);
     return {
       title: bTitle,
       titleI18n: { es: bTitle, en: bTitle, pt: bTitle, it: bTitle },
@@ -637,27 +655,30 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
 // ============================================================================
 export async function runProviderInfoAgent(
   context: CleanScrapedContext,
-  adminPrompt?: string
+  adminPrompt?: string,
+  currentInfo?: string
 ): Promise<AgentResult<{ providerInfo: string; providerInfoI18n: I18nRecord }>> {
   const prompt = (adminPrompt || "").trim();
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
-  const variationDirective = context.variationIndex && context.variationIndex > 1
-    ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa (otra redacción concisa), manteniendo rigurosamente la directiva editorial del administrador.`
+  const activeCurrent = (currentInfo || context.currentText || "").trim();
+
+  const variationDirective = (context.variationIndex && context.variationIndex >= 1) || activeCurrent
+    ? `\n\n=== REGLA OBLIGATORIA DE REFORMULACIÓN (VARIACIÓN #${context.variationIndex || 1}) ===\nEl texto actual es: "${activeCurrent}".\nDEBES generar una redacción ALTERNATIVA y concisa cumpliendo la directiva del administrador sin repetir el texto previo.`
     : "";
 
   const systemPrompt = `Eres un redactor profesional para Travelgrin.
 Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
-Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
+Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato:
 {
   "estado": "ok",
-  "contenido": "Breve descripción del oferente o institución aquí",
+  "contenido": "Breve descripción institucional del oferente aquí...",
   "evidencias": ["frase o dato de la web"]
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL: Cumple estrictamente la directiva del administrador (estilo, tono, longitud y datos requeridos).
+1. AUTORIDAD EDITORIAL: Cumple estrictamente la directiva del administrador.
 2. Concisión: Redacta 1 o 2 oraciones concisas y profesionales en tercera persona.
 3. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
@@ -671,8 +692,8 @@ REGLAS DE MÁXIMA PRIORIDAD:
 
 GENERA ÚNICAMENTE LA INFORMACIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
-  console.log(`\n[AI-AGENT-DEBUG: ProviderInfoAgent]`);
-  console.log(`1. Admin Prompt: "${prompt || "(Sin prompt específico)"}"`);
+  console.log(`\n[AI-AGENT: ProviderInfoAgent]`);
+  console.log(`- Admin Prompt: "${prompt || "(Sin prompt específico)"}"`);
 
   try {
     const { rawText, providerUsed } = await executeModelCall(
@@ -706,7 +727,7 @@ GENERA ÚNICAMENTE LA INFORMACIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
       providerUsed,
     };
   } catch (err: any) {
-    console.warn(`[AI-AGENT-DEBUG: ProviderInfoAgent] ERROR: ${err.message}`);
+    console.warn(`[AI-AGENT: ProviderInfoAgent] ERROR: ${err.message}`);
     return {
       success: false,
       data: null,
