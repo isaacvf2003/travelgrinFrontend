@@ -686,7 +686,8 @@ GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
 export async function runCustomBlockAgent(
   context: CleanScrapedContext,
   blockTitle: string,
-  blockPrompt?: string
+  blockPrompt?: string,
+  currentBody?: string
 ): Promise<ExtraDescriptionBlock> {
   const bTitle = (blockTitle || "Información Adicional").trim();
   const bPrompt = (blockPrompt || "").trim();
@@ -704,23 +705,35 @@ export async function runCustomBlockAgent(
   const countMatch = bPrompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) || bPrompt.match(/\b(1\d|[2-9])\b/);
   const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (isFaq ? 10 : 0);
 
+  const currentBlockSection = currentBody && currentBody.trim()
+    ? `\n=== PROPUESTA ACTUAL DEL BLOQUE QUE EL ADMINISTRADOR DESEA AJUSTAR ===
+- Título actual: "${bTitle}"
+- Contenido actual a modificar o complementar:
+${currentBody.slice(0, 3000)}
+
+INSTRUCCIONES CLAVE PARA EL AJUSTE:
+- Si el administrador solicita cambiar el título (ej. "Cambiá el título a Requisitos"), actualiza el campo "titulo" con el nuevo título solicitado.
+- Si el administrador solicita agregar o modificar datos (ej. "agrega más opciones de pago y horarios"), realiza el ajuste sobre el contenido manteniendo la coherencia factual.\n`
+    : "";
+
   const systemPrompt = `Eres un redactor profesional de bloques de información para Travelgrin.
 Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
-  "titulo": "${bTitle}",
-  "contenido": "...",
+  "titulo": "Título representativo del bloque aquí (si el administrador pide cambiar el título, usa el nuevo; si no, mantén '${bTitle}')",
+  "contenido": "<p>...</p>",
   "evidencias": ["frase o dato de la web"]
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL: Cumple fielmente las instrucciones del administrador para este bloque. Si es de preguntas frecuentes o pide preguntas y respuestas, formatea cada una en HTML <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>. Si es otro tipo de bloque, redacta párrafos estructurados en HTML <p>...</p>.
-2. Fidelidad factual: Usa los datos reales del sitio web.
-3. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+1. AUTORIDAD EDITORIAL: Cumple fielmente las instrucciones o ajustes del administrador para este bloque. Si pide cambiar el título, define el nuevo título en "titulo". Si pide agregar opciones, preguntas/respuestas, horarios o modificar redacción, aplica las modificaciones en "contenido" formateado en HTML <p>...</p>.
+2. Si es de preguntas frecuentes o pide preguntas y respuestas, formatea cada una en HTML <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>. Si es otro tipo de bloque, redacta párrafos estructurados en HTML <p>...</p>.
+3. Fidelidad factual: Usa los datos reales del sitio web provistos.
+4. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `TÍTULO DEL BLOQUE: "${bTitle}"
-
+${currentBlockSection}
 === DIRECTIVA EDITORIAL DEL ADMINISTRADOR PARA ESTE BLOQUE (MÁXIMA PRIORIDAD) ===
 "${bPrompt || (isFaq ? `Generar ${requestedCount || 10} preguntas frecuentes con sus respuestas pertinentes basadas en los servicios, turnos, atención y datos del sitio.` : "Redactar información estructurada y útil para este bloque.")}"${variationDirective}
 
@@ -779,9 +792,18 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
         .join("\n");
     }
 
-    let tEn = bTitle;
-    let tPt = bTitle;
-    let tIt = bTitle;
+    const genTitle = cleanTitleString(
+      String(
+        parsed?.titulo ||
+        parsed?.title ||
+        parsed?.nombre ||
+        bTitle
+      ).trim()
+    ) || bTitle;
+
+    let tEn = genTitle;
+    let tPt = genTitle;
+    let tIt = genTitle;
     let bEn = bodyContent;
     let bPt = bodyContent;
     let bIt = bodyContent;
@@ -789,21 +811,21 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
     if (context.autoTranslate !== false) {
       try {
         [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
-          translateText(bTitle, "es", "en"),
-          translateText(bTitle, "es", "pt"),
-          translateText(bTitle, "es", "it"),
+          translateText(genTitle, "es", "en"),
+          translateText(genTitle, "es", "pt"),
+          translateText(genTitle, "es", "it"),
           translateHtmlParagraphs(bodyContent, "en"),
           translateHtmlParagraphs(bodyContent, "pt"),
           translateHtmlParagraphs(bodyContent, "it"),
         ]);
       } catch (transErr) {
-        console.warn(`[AI-AGENT-DEBUG: CustomBlockAgent - ${bTitle}] Error no fatal en traducción:`, transErr);
+        console.warn(`[AI-AGENT-DEBUG: CustomBlockAgent - ${genTitle}] Error no fatal en traducción:`, transErr);
       }
     }
 
     return {
-      title: bTitle,
-      titleI18n: { es: bTitle, en: tEn || bTitle, pt: tPt || bTitle, it: tIt || bTitle },
+      title: genTitle,
+      titleI18n: { es: genTitle, en: tEn || genTitle, pt: tPt || genTitle, it: tIt || genTitle },
       body: bodyContent,
       bodyI18n: { es: bodyContent, en: bEn || bodyContent, pt: bPt || bodyContent, it: bIt || bodyContent },
       visibleInCard: false,
