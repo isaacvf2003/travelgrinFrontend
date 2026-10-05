@@ -55,6 +55,7 @@ export interface CleanScrapedContext {
   apiKey?: string;
   provider?: "auto" | "gemini" | "openai";
   variationIndex?: number;
+  autoTranslate?: boolean;
 }
 
 export interface AgentResult<T> {
@@ -187,6 +188,8 @@ function extractJson(text: string): any {
 }
 
 // ----------------------------------------------------------------------------
+let cachedWorkingGeminiModel: string | null = "gemini-1.5-flash";
+
 // ----------------------------------------------------------------------------
 // Provider Dispatcher (Gemini -> OpenAI -> Controlled Error)
 // ----------------------------------------------------------------------------
@@ -222,46 +225,73 @@ async function executeModelCall(
   const executeGemini = async (): Promise<string> => {
     if (!geminiKey) throw new Error("GEMINI_API_KEY no disponible.");
 
-    // 1. Intentar descubrir dinámicamente qué modelos soporta esta API Key
-    let dynamicModels: string[] = [];
-    let listErrorDetail = "";
-    try {
-      const listRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
-        { method: "GET" }
+    const callModel = async (model: string): Promise<string | null> => {
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.75,
+          responseMimeType: "application/json",
+        },
+      };
+
+      const res = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        9000
       );
-      if (listRes.ok) {
-        const listJson = await listRes.json();
-        const available = (listJson.models || [])
-          .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
-          .map((m: any) => m.name.replace(/^models\//, ""));
 
-        const preferred = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-pro"];
-        dynamicModels = available.sort((a: string, b: string) => {
-          const idxA = preferred.findIndex((p) => a.includes(p));
-          const idxB = preferred.findIndex((p) => b.includes(p));
-          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-          if (idxA !== -1) return -1;
-          if (idxB !== -1) return 1;
-          return 0;
-        });
-      } else {
-        listErrorDetail = await listRes.text();
+      if (res.ok) {
+        const json = await res.json();
+        const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (raw) return raw;
+      } else if (res.status === 429) {
+        // Breve espera de 600ms y reintento por rate-limit
+        await new Promise((r) => setTimeout(r, 600));
+        const retryRes = await fetchWithTimeout(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+          9000
+        );
+        if (retryRes.ok) {
+          const json = await retryRes.json();
+          const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (raw) return raw;
+        }
       }
-    } catch (e: any) {
-      listErrorDetail = e.message;
+      return null;
+    };
+
+    // 1. Fast-path: Usar modelo en caché (o predeterminado gemini-1.5-flash) directamente en <1s
+    if (cachedWorkingGeminiModel) {
+      try {
+        const result = await callModel(cachedWorkingGeminiModel);
+        if (result) return result;
+        cachedWorkingGeminiModel = null;
+      } catch {
+        cachedWorkingGeminiModel = null;
+      }
     }
 
-    if (dynamicModels.length === 0 && listErrorDetail) {
-      console.warn(`[Gemini ListModels] ${listErrorDetail}`);
-    }
-
-    const candidateModels = dynamicModels.length > 0 ? dynamicModels : [
+    // 2. Probar candidatos conocidos oficiales
+    const candidateModels = [
       "gemini-1.5-flash",
-      "gemini-1.5-flash-latest",
       "gemini-2.0-flash",
-      "gemini-2.0-flash-exp",
+      "gemini-1.5-flash-8b",
       "gemini-1.5-pro",
+      "gemini-1.5-flash-latest",
     ];
 
     let lastErr: any = null;
@@ -269,40 +299,45 @@ async function executeModelCall(
 
     for (const model of candidateModels) {
       try {
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: "user",
-                  parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
-                },
-              ],
-              generationConfig: {
-                temperature: 0.75,
-                responseMimeType: "application/json",
-              },
-            }),
-          }
-        );
-        if (res.ok) {
-          const json = await res.json();
-          const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          if (raw) return raw;
-        } else {
-          const errDetail = await res.text().catch(() => "");
-          errorsList.push(`${model} (HTTP ${res.status}): ${errDetail.slice(0, 160)}`);
-          lastErr = new Error(`Gemini ${model} (HTTP ${res.status}): ${errDetail || res.statusText}`);
+        const result = await callModel(model);
+        if (result) {
+          cachedWorkingGeminiModel = model;
+          return result;
         }
+        errorsList.push(`${model} (falló generación)`);
       } catch (e: any) {
-        errorsList.push(`${model} (Error de red): ${e.message}`);
+        errorsList.push(`${model} (${e.message})`);
         lastErr = e;
       }
     }
-    throw lastErr || new Error(`Gemini falló: ${errorsList.join(" | ")}`);
+
+    // 3. Si ninguno de los candidatos estándar funcionó, consultar ModelService.ListModels como último recurso
+    try {
+      const listRes = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
+        { method: "GET" },
+        5000
+      );
+      if (listRes.ok) {
+        const listJson = await listRes.json();
+        const available = (listJson.models || [])
+          .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
+          .map((m: any) => m.name.replace(/^models\//, ""))
+          .filter((m: string) => !candidateModels.includes(m));
+
+        for (const model of available) {
+          try {
+            const result = await callModel(model);
+            if (result) {
+              cachedWorkingGeminiModel = model;
+              return result;
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+
+    throw lastErr || new Error(`Gemini no pudo responder: ${errorsList.join(" | ")}`);
   };
 
   const executeOpenAI = async (): Promise<string> => {
@@ -441,7 +476,28 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
     console.log(`5. Raw Model Response: ${rawText}`);
 
     const parsed = extractJson(rawText);
-    const rawTitle = String(parsed?.contenido || parsed?.title || "").trim();
+    let rawTitle = String(
+      parsed?.contenido ||
+      parsed?.title ||
+      parsed?.titulo ||
+      parsed?.nombre ||
+      parsed?.text ||
+      parsed?.resultado ||
+      ""
+    ).trim();
+
+    if (!rawTitle) {
+      // Fallback: Si el modelo devolvió texto plano o markdown
+      const cleanedRaw = rawText
+        .replace(/```(?:json)?/gi, "")
+        .replace(/```/g, "")
+        .replace(/^["'{}\s]+|["'{}\s]+$/g, "")
+        .trim();
+      const firstLine = cleanedRaw.split("\n")[0].trim();
+      if (firstLine && firstLine.length >= 2 && firstLine.length <= 160) {
+        rawTitle = firstLine;
+      }
+    }
 
     if (!rawTitle || rawTitle.length < 2) {
       throw new Error("El modelo devolvió un título vacío o no estructurado.");
@@ -451,17 +507,26 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
     console.log(`6. Normalized Title Output: "${cleanTitle}"`);
     console.log(`7. Validation: OK (Cumple JSON y contenido no vacío)`);
 
-    const [tEn, tPt, tIt] = await Promise.all([
-      translateText(cleanTitle, "es", "en"),
-      translateText(cleanTitle, "es", "pt"),
-      translateText(cleanTitle, "es", "it"),
-    ]);
+    let tEn = cleanTitle;
+    let tPt = cleanTitle;
+    let tIt = cleanTitle;
+    if (context.autoTranslate !== false) {
+      try {
+        [tEn, tPt, tIt] = await Promise.all([
+          translateText(cleanTitle, "es", "en"),
+          translateText(cleanTitle, "es", "pt"),
+          translateText(cleanTitle, "es", "it"),
+        ]);
+      } catch (transErr) {
+        console.warn(`[AI-AGENT-DEBUG: TitleAgent] Error no fatal en traducción:`, transErr);
+      }
+    }
 
     return {
       success: true,
       data: {
         title: cleanTitle,
-        titleI18n: { es: cleanTitle, en: tEn, pt: tPt, it: tIt },
+        titleI18n: { es: cleanTitle, en: tEn || cleanTitle, pt: tPt || cleanTitle, it: tIt || cleanTitle },
       },
       estado: "ok",
       evidencias: parsed?.evidencias || [entityName],
@@ -540,7 +605,25 @@ GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
     console.log(`5. Raw Model Response: ${rawText}`);
 
     const parsed = extractJson(rawText);
-    let descHtml = String(parsed?.contenido || parsed?.description || "").trim();
+    let descHtml = String(
+      parsed?.contenido ||
+      parsed?.description ||
+      parsed?.descripcion ||
+      parsed?.texto ||
+      parsed?.body ||
+      ""
+    ).trim();
+
+    if (!descHtml) {
+      // Fallback: Si el modelo devolvió párrafos HTML directamente sin envolver en JSON
+      const cleanedRaw = rawText
+        .replace(/```(?:json|html)?/gi, "")
+        .replace(/```/g, "")
+        .trim();
+      if (cleanedRaw.length >= 5 && !cleanedRaw.startsWith("{")) {
+        descHtml = cleanedRaw;
+      }
+    }
 
     if (!descHtml || descHtml.length < 5) {
       throw new Error("El modelo devolvió una descripción vacía o no estructurada.");
@@ -559,17 +642,26 @@ GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
     console.log(`6. Normalized Description Output:\n${descHtml}`);
     console.log(`7. Validation: OK (Cumple JSON y contenido estructurado)`);
 
-    const [dEn, dPt, dIt] = await Promise.all([
-      translateHtmlParagraphs(descHtml, "en"),
-      translateHtmlParagraphs(descHtml, "pt"),
-      translateHtmlParagraphs(descHtml, "it"),
-    ]);
+    let dEn = descHtml;
+    let dPt = descHtml;
+    let dIt = descHtml;
+    if (context.autoTranslate !== false) {
+      try {
+        [dEn, dPt, dIt] = await Promise.all([
+          translateHtmlParagraphs(descHtml, "en"),
+          translateHtmlParagraphs(descHtml, "pt"),
+          translateHtmlParagraphs(descHtml, "it"),
+        ]);
+      } catch (transErr) {
+        console.warn(`[AI-AGENT-DEBUG: DescriptionAgent] Error no fatal en traducción:`, transErr);
+      }
+    }
 
     return {
       success: true,
       data: {
         description: descHtml,
-        descriptionI18n: { es: descHtml, en: dEn, pt: dPt, it: dIt },
+        descriptionI18n: { es: descHtml, en: dEn || descHtml, pt: dPt || descHtml, it: dIt || descHtml },
       },
       estado: "ok",
       evidencias: parsed?.evidencias || [entityName],
@@ -656,7 +748,23 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
     console.log(`3. Raw Response: ${rawText}`);
 
     const parsed = extractJson(rawText);
-    let bodyContent = String(parsed?.contenido || parsed?.body || "").trim();
+    let bodyContent = String(
+      parsed?.contenido ||
+      parsed?.body ||
+      parsed?.texto ||
+      parsed?.description ||
+      ""
+    ).trim();
+
+    if (!bodyContent) {
+      const cleanedRaw = rawText
+        .replace(/```(?:json|html)?/gi, "")
+        .replace(/```/g, "")
+        .trim();
+      if (cleanedRaw.length >= 5 && !cleanedRaw.startsWith("{")) {
+        bodyContent = cleanedRaw;
+      }
+    }
 
     if (!bodyContent || bodyContent.length < 5) {
       throw new Error("El modelo devolvió un bloque vacío.");
@@ -671,20 +779,33 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
         .join("\n");
     }
 
-    const [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
-      translateText(bTitle, "es", "en"),
-      translateText(bTitle, "es", "pt"),
-      translateText(bTitle, "es", "it"),
-      translateHtmlParagraphs(bodyContent, "en"),
-      translateHtmlParagraphs(bodyContent, "pt"),
-      translateHtmlParagraphs(bodyContent, "it"),
-    ]);
+    let tEn = bTitle;
+    let tPt = bTitle;
+    let tIt = bTitle;
+    let bEn = bodyContent;
+    let bPt = bodyContent;
+    let bIt = bodyContent;
+
+    if (context.autoTranslate !== false) {
+      try {
+        [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
+          translateText(bTitle, "es", "en"),
+          translateText(bTitle, "es", "pt"),
+          translateText(bTitle, "es", "it"),
+          translateHtmlParagraphs(bodyContent, "en"),
+          translateHtmlParagraphs(bodyContent, "pt"),
+          translateHtmlParagraphs(bodyContent, "it"),
+        ]);
+      } catch (transErr) {
+        console.warn(`[AI-AGENT-DEBUG: CustomBlockAgent - ${bTitle}] Error no fatal en traducción:`, transErr);
+      }
+    }
 
     return {
       title: bTitle,
-      titleI18n: { es: bTitle, en: tEn, pt: tPt, it: tIt },
+      titleI18n: { es: bTitle, en: tEn || bTitle, pt: tPt || bTitle, it: tIt || bTitle },
       body: bodyContent,
-      bodyI18n: { es: bodyContent, en: bEn, pt: bPt, it: bIt },
+      bodyI18n: { es: bodyContent, en: bEn || bodyContent, pt: bPt || bodyContent, it: bIt || bodyContent },
       visibleInCard: false,
       estado: "ok",
       contenido: bodyContent,
@@ -758,23 +879,48 @@ GENERA ÚNICAMENTE LA INFORMACIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
     );
 
     const parsed = extractJson(rawText);
-    const pInfo = String(parsed?.contenido || parsed?.providerInfo || "").trim();
+    let pInfo = String(
+      parsed?.contenido ||
+      parsed?.providerInfo ||
+      parsed?.informacion ||
+      parsed?.texto ||
+      ""
+    ).trim();
+
+    if (!pInfo) {
+      const cleanedRaw = rawText
+        .replace(/```(?:json)?/gi, "")
+        .replace(/```/g, "")
+        .trim();
+      if (cleanedRaw.length >= 5 && !cleanedRaw.startsWith("{")) {
+        pInfo = cleanedRaw;
+      }
+    }
 
     if (!pInfo || pInfo.length < 5) {
       throw new Error("El modelo devolvió información de proveedor vacía.");
     }
 
-    const [pEn, pPt, pIt] = await Promise.all([
-      translateText(pInfo, "es", "en"),
-      translateText(pInfo, "es", "pt"),
-      translateText(pInfo, "es", "it"),
-    ]);
+    let pEn = pInfo;
+    let pPt = pInfo;
+    let pIt = pInfo;
+    if (context.autoTranslate !== false) {
+      try {
+        [pEn, pPt, pIt] = await Promise.all([
+          translateText(pInfo, "es", "en"),
+          translateText(pInfo, "es", "pt"),
+          translateText(pInfo, "es", "it"),
+        ]);
+      } catch (transErr) {
+        console.warn(`[AI-AGENT-DEBUG: ProviderInfoAgent] Error no fatal en traducción:`, transErr);
+      }
+    }
 
     return {
       success: true,
       data: {
         providerInfo: pInfo,
-        providerInfoI18n: { es: pInfo, en: pEn, pt: pPt, it: pIt },
+        providerInfoI18n: { es: pInfo, en: pEn || pInfo, pt: pPt || pInfo, it: pIt || pInfo },
       },
       estado: "ok",
       evidencias: parsed?.evidencias || [entityName],
