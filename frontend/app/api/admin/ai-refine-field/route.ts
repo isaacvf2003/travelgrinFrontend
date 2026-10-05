@@ -1529,153 +1529,64 @@ function generateSemanticAiFallback(
       return { description: formalOutput };
     }
 
-    // 3. EIGHT DIVERSE DYNAMIC ROTATING LAYOUTS
-    const layoutIdx = variationIndex % 8;
-    const icons = {
-      rocket: omitIcons ? "" : "🚀 ",
-      grad: omitIcons ? "" : "🎓 ",
-      star: omitIcons ? "" : "⭐ ",
-      sparkles: omitIcons ? "" : "✨ ",
-      trophy: omitIcons ? "" : "🏆 ",
-      diamond: omitIcons ? "" : "💎 ",
-      target: omitIcons ? "" : "🎯 ",
-      lightbulb: omitIcons ? "" : "💡 ",
-      pin: omitIcons ? "" : "📍 ",
-      shield: omitIcons ? "" : "🛡️ ",
-      users: omitIcons ? "" : "👥 ",
-      phone: omitIcons ? "" : "📞 ",
-      calendar: omitIcons ? "" : "📅 ",
-      bullet: "• ",
-    };
+    // Dynamic, organic description generator based strictly on entity facts and investigated web context
+    const webHeadings = investigatedWeb?.headings || [];
+    const webSnippet = investigatedWeb?.snippet || investigatedWeb?.description || "";
+    const cleanEntityTitle = cleanName || "La entidad";
 
-    let resHtml = "";
+    const headingsStr = webHeadings.length > 0 ? webHeadings.slice(0, 4).join(", ") : "";
 
-    if (layoutIdx === 0) {
-      // Layout 0: Executive Value Pitch
-      const hook = isEducation
-        ? `${icons.rocket}<strong>Liderá tu futuro con formación universitaria oficial:</strong> ${rawValueProp}. Una propuesta pensada para potenciar tus competencias y acelerar tu inserción profesional en el mercado laboral.`
-        : `${icons.rocket}<strong>Propuesta de valor de excelencia:</strong> ${rawValueProp}. Compromiso, trayectoria y servicios diseñados para ofrecer los más altos estándares de calidad.`;
+    const dynamicParagraphs: string[] = [];
 
-      const reasonsTitle = isEducation ? `${icons.grad}<strong>¿Por qué elegir esta propuesta académica?</strong>` : `${icons.diamond}<strong>Aspectos destacados de la propuesta:</strong>`;
-      const b1 = isEducation ? "<strong>Inscripciones ciclo 2026 abiertas:</strong> Oferta integral en carreras de grado, posgrados y diplomaturas oficiales." : "<strong>Calidad certificada:</strong> Procesos verificados y estándares rigurosos en cada prestación.";
-      const b2 = isEducation ? (isVirtual ? "<strong>Modalidad virtual interactiva:</strong> Cursado 100% online con campus digital 24/7." : "<strong>Flexibilidad y tecnología:</strong> Cursado presencial y virtual adaptado a tus tiempos.") : "<strong>Atención personalizada:</strong> Asesoramiento continuo por canales oficiales.";
-      const b3 = isEducation ? (hasScholarships ? "<strong>Planes de becas y convenios:</strong> Facilidades de pago y aranceles preferenciales." : "<strong>Títulos oficiales de validez nacional:</strong> Articulación directa con empresas e instituciones líderes.") : "<strong>Respaldo verificado:</strong> Seguridad, confianza y auditoría Travelgrin.";
-
-      resHtml = [
-        priceLine ? `<p>${priceLine}</p>` : "",
-        `<p>${hook}</p>`,
-        `<p>${reasonsTitle}<br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
-        facts.diff && !omitDiferencial ? `<p>${icons.star}<strong>Diferencial:</strong> ${facts.diff}</p>` : "",
-        `<p>${icons.pin}<strong>Informes y Consultas:</strong> Sede${locStr} y canales oficiales habilitados.</p>`,
-      ].filter(Boolean).join("\n");
-    } else if (layoutIdx === 1) {
-      // Layout 1: The Transformative Experience
-      const hook = isEducation
-        ? `${icons.sparkles}<strong>Descubrí una experiencia universitaria transformadora:</strong> ${rawValueProp}. Diseñada para conectar tu vocación con oportunidades concretas y prepararte para destacar en un entorno competitivo.`
-        : `${icons.sparkles}<strong>Una experiencia diseñada para superar tus expectativas:</strong> ${rawValueProp}. Calidad, agilidad y soluciones a medida con respaldo profesional.`;
-
-      const b1 = isEducation ? "<strong>Planes de estudio actualizados:</strong> Diseñados junto a referentes del sector." : "<strong>Trayectoria sólida:</strong> Años de experiencia y prestigio en el rubro.";
-      const b2 = isEducation ? "<strong>Campus interactivo 24/7:</strong> Recursos digitales de última generación para potenciar tu cursado." : "<strong>Canales directos:</strong> Comunicación fluida y resolución ágil de solicitudes.";
-      const b3 = isEducation ? "<strong>Acompañamiento y orientación:</strong> Tutorías personalizadas durante toda tu carrera." : "<strong>Atención de excelencia:</strong> Soluciones pensadas para tu comodidad.";
-
-      resHtml = [
-        priceLine ? `<p>${priceLine}</p>` : "",
-        `<p>${hook}</p>`,
-        `<p>${icons.trophy}<strong>Ventajas competitivas clave:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
-        `<p>${icons.users}<strong>Dirigido a:</strong> ${facts.who || "Quienes buscan formación y servicios de nivel superior con respaldo garantizado."}</p>`,
-        `<p>${icons.phone}<strong>Canales habilitados:</strong> Asesoramiento personalizado disponible a través de vías oficiales.</p>`,
-      ].filter(Boolean).join("\n");
-    } else if (layoutIdx === 2) {
-      // Layout 2: Advantage Matrix & Action Focus
-      const hook = isEducation
-        ? `${icons.target}<strong>Impulsá tu crecimiento profesional con educación superior de élite:</strong> ${rawValueProp}. Formación práctica orientada a resultados reales.`
-        : `${icons.target}<strong>Soluciones integrales de alto impacto:</strong> ${rawValueProp}. Eficiencia, transparencia y respaldo garantizado.`;
-
-      const b1 = isEducation ? "<strong>Variedad académica:</strong> Programas de grado, especializaciones y diplomaturas." : "<strong>Servicios integrales:</strong> Cobertura completa de necesidades.";
-      const b2 = isEducation ? "<strong>Modalidad híbrida y online:</strong> Estudiá a tu ritmo desde cualquier punto del país." : "<strong>Tecnología aplicada:</strong> Procesos modernos y seguros.";
-      const b3 = isEducation ? "<strong>Inserción laboral:</strong> Vinculación activa y programas de pasantías profesionales." : "<strong>Garantía de satisfacción:</strong> Transparencia en aranceles y condiciones.";
-
-      resHtml = [
-        priceLine ? `<p>${priceLine}</p>` : "",
-        `<p>${hook}</p>`,
-        `<p>${icons.shield}<strong>Garantías y Pilares:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
-        `<p>${icons.pin}<strong>Sede y Alcance:</strong> ${cityStr ? `Presencia en ${cityStr}` : "Cobertura regional y nacional"} con gestión digital centralizada.</p>`,
-      ].filter(Boolean).join("\n");
-    } else if (layoutIdx === 3) {
-      // Layout 3: Direct Punchy Overview
-      const hook = `${icons.rocket}<strong>${rawValueProp}.</strong> Formación y servicios oficiales con sólida reputación${locStr}.`;
-      const b1 = isEducation ? "Títulos oficiales con validez nacional y programas actualizados." : "Atención profesional certificada y personalizada.";
-      const b2 = isEducation ? "Cursado flexible y campus interactivo." : "Respuesta inmediata y seguimiento continuo.";
-      const b3 = isEducation ? "Inscripciones abiertas y asesoramiento vocacional." : "Aranceles transparentes y canales directos.";
-
-      resHtml = [
-        priceLine ? `<p>${priceLine}</p>` : "",
-        `<p>${hook}</p>`,
-        `<p><strong>Aspectos fundamentales:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
-        `<p>${icons.phone}<strong>Contacto:</strong> Canales oficiales abiertos para consultas e inscripciones.</p>`,
-      ].filter(Boolean).join("\n");
-    } else if (layoutIdx === 4) {
-      // Layout 4: Innovation & Leadership
-      const hook = isEducation
-        ? `${icons.diamond}<strong>Liderazgo académico e innovación constante:</strong> ${rawValueProp}. Un modelo educativo que combina rigor conceptual con experiencia práctica aplicada.`
-        : `${icons.diamond}<strong>Liderazgo e innovación en servicios:</strong> ${rawValueProp}. Experiencia comprobada y estándares superiores de atención.`;
-
-      const b1 = isEducation ? "<strong>Modelo pedagógico innovador:</strong> Clases dinámicas y casos de estudio aplicados." : "<strong>Metodología comprobada:</strong> Soluciones probadas y adaptadas al cliente.";
-      const b2 = isEducation ? "<strong>Claustro docente destacado:</strong> Profesionales referentes en su disciplina." : "<strong>Equipo de especialistas:</strong> Trayectoria y solvencia técnica.";
-      const b3 = isEducation ? "<strong>Comunidad y networking:</strong> Intercambio enriquecedor entre estudiantes y egresados." : "<strong>Compromiso y cercanía:</strong> Vínculo de confianza a largo plazo.";
-
-      resHtml = [
-        priceLine ? `<p>${priceLine}</p>` : "",
-        `<p>${hook}</p>`,
-        `<p>${icons.lightbulb}<strong>Diferenciales destacados:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
-        `<p>${icons.pin}<strong>Ubicación y Canales:</strong> Información institucional disponible en canales oficiales${locStr}.</p>`,
-      ].filter(Boolean).join("\n");
-    } else if (layoutIdx === 5) {
-      // Layout 5: Editorial Review & Decision Guide
-      const hook = isEducation
-        ? `${icons.trophy}<strong>Excelencia académica reconocida y trayectoria comprobada:</strong> ${rawValueProp}. Elegir esta institución significa asegurar una formación sólida, respetada y con proyección.`
-        : `${icons.trophy}<strong>Reconocimiento institucional y prestigio:</strong> ${rawValueProp}. Respaldado por años de experiencia y satisfacción de usuarios.`;
-
-      const b1 = isEducation ? "<strong>Acreditación oficial:</strong> Carreras y posgrados reconocidos por autoridades ministeriales." : "<strong>Habilitaciones oficiales:</strong> Cumplimiento riguroso de normativas vigentes.";
-      const b2 = isEducation ? "<strong>Infraestructura y campus:</strong> Espacios de aprendizaje modernos y equipados." : "<strong>Instalaciones y plataformas:</strong> Infraestructura óptima para un servicio seguro.";
-      const b3 = isEducation ? "<strong>Planes accesibles:</strong> Opciones de becas y convenios de pago." : "<strong>Condiciones claras:</strong> Transparencia total en aranceles y modalidades.";
-
-      resHtml = [
-        priceLine ? `<p>${priceLine}</p>` : "",
-        `<p>${hook}</p>`,
-        `<p>${icons.target}<strong>Claves para tu elección:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
-        `<p>${icons.calendar}<strong>Próximos inicios e inscripciones:</strong> Consultá vacantes y cronogramas en las vías de admisión oficial.</p>`,
-      ].filter(Boolean).join("\n");
-    } else if (layoutIdx === 6) {
-      // Layout 6: Key Features & Quick Access FAQ
-      const hook = `${icons.rocket}<strong>Todo lo que necesitás saber sobre esta propuesta:</strong> ${rawValueProp}. Información clara y actualizada para tu decisión.`;
-      const b1 = isEducation ? "<strong>¿Qué títulos se otorgan?:</strong> Carreras de grado, posgrados y diplomaturas oficiales." : "<strong>¿Qué alcance tiene?:</strong> Servicios personalizados presenciales y remotos.";
-      const b2 = isEducation ? "<strong>¿Cómo se cursa?:</strong> Opciones presenciales, semipresenciales y 100% a distancia." : "<strong>¿Cómo se contrata?:</strong> Asesoramiento directo y presupuestos sin compromiso.";
-      const b3 = isEducation ? "<strong>¿Cuáles son los requisitos?:</strong> DNI/Pasaporte y certificado de estudios secundarios." : "<strong>¿Qué respaldo ofrece?:</strong> Registro oficial y verificación Travelgrin.";
-
-      resHtml = [
-        priceLine ? `<p>${priceLine}</p>` : "",
-        `<p>${hook}</p>`,
-        `<p>${icons.lightbulb}<strong>Preguntas y Claves Frecuentes:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
-        `<p>${icons.phone}<strong>Más información:</strong> Atención disponible a través de canales oficiales${locStr}.</p>`,
-      ].filter(Boolean).join("\n");
+    // Paragraph 1: Main identity & proposition
+    if (isHealth) {
+      dynamicParagraphs.push(
+        `<p><strong>${cleanEntityTitle}</strong> es un centro médico y asistencial de referencia${locStr}, enfocado en brindar atención médica de calidad, consultorios de especialidad y guardia médica activa.</p>`
+      );
+    } else if (isEducation) {
+      dynamicParagraphs.push(
+        `<p><strong>${cleanEntityTitle}</strong> es una institución educativa de nivel superior${locStr}, comprometida con la excelencia académica, la formación profesional y el desarrollo integral de sus estudiantes.</p>`
+      );
+    } else if (isJudicial) {
+      dynamicParagraphs.push(
+        `<p><strong>${cleanEntityTitle}</strong> es un estudio profesional especializado en asesoramiento jurídico, consultoría legal y representación técnica${locStr}.</p>`
+      );
+    } else if (isSports) {
+      dynamicParagraphs.push(
+        `<p><strong>${cleanEntityTitle}</strong> es un centro deportivo y de entrenamiento${locStr}, dedicado a promover la actividad física, la salud y la formación atlética.</p>`
+      );
     } else {
-      // Layout 7: High-Conversion Benefit Story
-      const hook = isEducation
-        ? `${icons.sparkles}<strong>Tu futuro profesional empieza hoy:</strong> ${rawValueProp}. Da el paso hacia una formación de calidad que te abrirá puertas en el ámbito nacional e internacional.`
-        : `${icons.sparkles}<strong>La decisión acertada para tus proyectos:</strong> ${rawValueProp}. Calidad, respaldo y atención personalizada garantizada.`;
-
-      const b1 = isEducation ? "<strong>Convocatoria activa:</strong> Vacantes disponibles para el próximo ciclo lectivo." : "<strong>Disponibilidad inmediata:</strong> Atención y turnos programados ágiles.";
-      const b2 = isEducation ? "<strong>Flexibilidad horaria:</strong> Diseñado para compatibilizar estudio, trabajo y vida personal." : "<strong>Flexibilidad y convenios:</strong> Planes adaptados a tus necesidades.";
-      const b3 = isEducation ? "<strong>Red de egresados y convenios:</strong> Oportunidades directas de crecimiento y vinculación." : "<strong>Seguridad y confianza:</strong> Atención humana y profesionalismo constante.";
-
-      resHtml = [
-        priceLine ? `<p>${priceLine}</p>` : "",
-        `<p>${hook}</p>`,
-        `<p>${icons.diamond}<strong>Beneficios destacados:</strong><br/>${icons.bullet}${b1}<br/>${icons.bullet}${b2}<br/>${icons.bullet}${b3}</p>`,
-        `<p>${icons.pin}<strong>Sede y contacto:</strong> Información oficial y vías de comunicación abiertas para consultas e informes${locStr}.</p>`,
-      ].filter(Boolean).join("\n");
+      dynamicParagraphs.push(
+        `<p><strong>${cleanEntityTitle}</strong> es una organización con sólida trayectoria${locStr}, orientada a brindar servicios y soluciones integrales de alta calidad en su rubro.</p>`
+      );
     }
+
+    // Paragraph 2: Real extracted proposal & services
+    if (headingsStr) {
+      dynamicParagraphs.push(
+        `<p><strong>Servicios y Especialidades:</strong> Su oferta integral abarca ${headingsStr}, brindados por profesionales idóneos con equipamiento adecuado.</p>`
+      );
+    } else if (webSnippet) {
+      dynamicParagraphs.push(
+        `<p><strong>Propuesta y Alcance:</strong> ${escapeHtml(webSnippet.slice(0, 240))}.</p>`
+      );
+    } else {
+      dynamicParagraphs.push(
+        `<p><strong>Prestaciones Destacadas:</strong> Asistencia personalizada, procesos coordinados y estándares rigurosos de atención para satisfacer los requerimientos de sus usuarios.</p>`
+      );
+    }
+
+    // Paragraph 3: Price / Vigencia if applicable
+    if (priceLine) {
+      dynamicParagraphs.push(`<p>${priceLine}</p>`);
+    }
+
+    // Paragraph 4: Official channels & contact
+    dynamicParagraphs.push(
+      `<p><strong>Información y Canales Oficiales:</strong> Consultas, turnos y asesoramiento coordinados a través de su plataforma oficial y vías habilitadas de comunicación.</p>`
+    );
+
+    let resHtml = dynamicParagraphs.join("\n");
 
     if (omitIcons) {
       resHtml = stripEmojisAndIcons(resHtml);
