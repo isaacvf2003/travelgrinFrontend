@@ -429,15 +429,16 @@ export async function runTitleAgent(
   const prompt = (adminTitlePrompt || "").trim();
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
+  const locationText = [context.city, context.country].filter(Boolean).join(", ");
   const isReformulation = Boolean(context.variationIndex && context.variationIndex >= 1);
   const currentTitleToReplace = cleanTitleString(context.rawPageTitle || context.currentText || "");
   const variationDirective = isReformulation
-    ? `\n\n=== DIRECTIVA OBLIGATORIA DE REFORMULACIÓN (VARIACIÓN #${context.variationIndex}) ===
+    ? `\n\n=== DIRECTIVA OBLIGATORIA DE REFORMULACIÓN (NUEVA VARIACIÓN #${context.variationIndex}) ===
 El administrador pulsó "Reformular con IA" para obtener una versión NUEVA, DIFERENTE y FRESCA.
-${currentTitleToReplace ? `- TÍTULO ANTERIOR A REEMPLAZAR (NO REPETIR): "${currentTitleToReplace}"` : ""}
+${currentTitleToReplace ? `- TÍTULO ANTERIOR A REEMPLAZAR (PROHIBIDO REPETIR EXACTAMENTE): "${currentTitleToReplace}"` : ""}
 REGLAS MANDATORIAS DE REFORMULACIÓN:
-1. NO devuelvas el mismo título ni una copia casi idéntica.
-2. Utiliza otra estructura sintáctica, otro orden de palabras o destaca otro beneficio/aspecto relevante del establecimiento cumpliendo las reglas del administrador.`
+1. NO devuelvas el mismo título ni una copia casi idéntica. Debe ser una alternativa claramente diferente.
+2. Basándote SIEMPRE en la directiva del administrador y en los datos reales del establecimiento, utiliza otra estructura sintáctica, otro orden de palabras o destaca otro beneficio/aspecto relevante de la web.`
     : "";
 
   const systemPrompt = `Eres un redactor profesional de títulos para Travelgrin.
@@ -460,9 +461,9 @@ REGLAS DE MÁXIMA PRIORIDAD:
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
 - Ubicación: "${locationText || "No informada"}"
-- Encabezados principales: ${(context.headings || []).slice(0, 6).join(" | ") || "N/A"}
-- Servicios detectados: ${(context.servicesList || []).slice(0, 5).join(" | ") || "N/A"}
-- Resumen web: "${(context.metaDescription || context.paragraphs?.[0] || "").slice(0, 500)}"
+- Encabezados principales: ${(context.headings || []).slice(0, 8).join(" | ") || "N/A"}
+- Servicios detectados: ${(context.servicesList || []).slice(0, 6).join(" | ") || "N/A"}
+- Resumen y párrafos de la web: "${(context.metaDescription || context.paragraphs?.slice(0, 3).join(" ") || context.mainText?.slice(0, 500) || "").slice(0, 600)}"
 
 GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
@@ -562,16 +563,18 @@ export async function runDescriptionAgent(
   const prompt = (adminDescriptionPrompt || "").trim();
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
+  const locationText = [context.city, context.country].filter(Boolean).join(", ");
   const isReformulation = Boolean(context.variationIndex && context.variationIndex >= 1);
   const currentTextToReplace = (context.currentText || "").trim();
   const variationDirective = isReformulation
-    ? `\n\n=== DIRECTIVA OBLIGATORIA DE REFORMULACIÓN (VARIACIÓN #${context.variationIndex}) ===
-El administrador ha solicitado REFORMULAR la descripción para presentar una propuesta FRESCA, NUEVA y de ALTO IMPACTO.
-${currentTextToReplace ? `\n--- TEXTO ANTERIOR A REEMPLAZAR (NO REPETIR) ---\n"${currentTextToReplace.replace(/<[^>]+>/g, " ").slice(0, 1000)}"\n------------------------------------------------\n` : ""}
+    ? `\n\n=== DIRECTIVA OBLIGATORIA DE REFORMULACIÓN (NUEVA VARIACIÓN #${context.variationIndex}) ===
+El administrador ha solicitado REFORMULAR la descripción para presentar una propuesta NUEVA, DIFERENTE y FRESCA, pero SIEMPRE CUMPLIENDO RIGUROSAMENTE EL PROMPT Y DIRECTIVAS DEL ADMINISTRADOR.
+${currentTextToReplace ? `\n--- DESCRIPCIÓN ANTERIOR A REEMPLAZAR (PROHIBIDO REPETIR EXACTAMENTE) ---\n"${currentTextToReplace.replace(/<[^>]+>/g, " ").slice(0, 1000)}"\n----------------------------------------------------------\n` : ""}
 REGLAS MANDATORIAS DE REFORMULACIÓN:
-1. NO devuelvas el mismo texto ni repitas la misma estructura de párrafos.
-2. Utiliza una redacción fresca y novedosa, cambiando la apertura, los títulos y los conectores.
-3. Extrae y destaca otros servicios, carreras, propuestas o beneficios reales de la información de la web provista para enriquecer la publicación.`
+1. NO devuelvas el mismo texto ni repitas la misma apertura o la misma estructura idéntica de párrafos.
+2. Utiliza una redacción fresca y alternativa, cambiando los inicios de párrafos, el enfoque y los conectores.
+3. Extrae y destaca otros servicios, propuestas, detalles o beneficios reales del contenido de la web provisto.
+4. Cumple rigurosamente con todas las directivas de formato, cantidad de párrafos, estilo y exclusiones pedidas por el administrador.`
     : "";
 
   const systemPrompt = `Eres un redactor profesional de descripciones para Travelgrin.
@@ -595,9 +598,10 @@ REGLAS DE MÁXIMA PRIORIDAD:
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
 - Ubicación: "${locationText || "No informada"}"
-- Encabezados principales: ${(context.headings || []).slice(0, 10).join(" | ") || "N/A"}
-- Servicios detectados: ${(context.servicesList || []).slice(0, 8).join(" | ") || "N/A"}
-- Párrafos destacados: ${(context.paragraphs || []).slice(0, 6).join("\n") || (context.metaDescription || "")}
+- Encabezados principales: ${(context.headings || []).slice(0, 12).join(" | ") || "N/A"}
+- Servicios detectados: ${(context.servicesList || []).slice(0, 10).join(" | ") || "N/A"}
+- Párrafos de información extraídos de la web:
+${(context.paragraphs || []).slice(0, 8).join("\n\n") || (context.mainText?.slice(0, 2000) || context.metaDescription || "N/A")}
 - Contacto y canales: ${(context.socialLinks || []).map((s) => `${s.label}: ${s.url}`).join(" | ") || "N/A"}
 
 GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
