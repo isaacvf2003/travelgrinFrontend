@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "npm --prefix frontend install",
-  "buildCommand": "npm run build:frontend"
+  "buildCommand": "npm run build:frontend",
+  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_AUTHOR_LOGIN\" = \"dependabot[bot]\" ]; then exit 0; else exit 1; fi"
 }
