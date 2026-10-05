@@ -187,6 +187,7 @@ function extractJson(text: string): any {
 }
 
 // ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 // Provider Dispatcher (Gemini -> OpenAI -> Controlled Error)
 // ----------------------------------------------------------------------------
 async function executeModelCall(
@@ -211,7 +212,7 @@ async function executeModelCall(
 
   const executeGemini = async (): Promise<string> => {
     if (!geminiKey) throw new Error("GEMINI_API_KEY no disponible.");
-    const models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+    const models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
     let lastErr: any = null;
     for (const model of models) {
       try {
@@ -228,7 +229,7 @@ async function executeModelCall(
                 },
               ],
               generationConfig: {
-                temperature: 0.2,
+                temperature: 0.7,
                 responseMimeType: "application/json",
               },
             }),
@@ -267,7 +268,7 @@ async function executeModelCall(
               { role: "user", content: userPrompt },
             ],
             response_format: { type: "json_object" },
-            temperature: 0.2,
+            temperature: 0.7,
           }),
         });
         if (res.ok) {
@@ -316,28 +317,30 @@ export async function runTitleAgent(
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
 
   const systemPrompt = `Eres un redactor profesional de títulos para Travelgrin.
+Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
   "contenido": "Título redactado aquí",
-  "evidencias": ["frase breve de la web"]
+  "evidencias": ["frase o dato de la web"]
 }
-REGLAS TÉCNICAS:
-- No agregues texto fuera del JSON.
-- Respeta estrictamente la directiva editorial del administrador.
-- No inventes datos que contradigan la web.`;
 
-  const userPrompt = `DATOS REALES DEL SITIO WEB:
+REGLAS DE MÁXIMA PRIORIDAD:
+1. AUTORIDAD EDITORIAL: La directiva del administrador es la regla SUPREMA. Si el administrador solicita un estilo específico, tono, longitud exacta (ej: cantidad de palabras o caracteres), palabras obligatorias o exclusiones, DEBES CUMPLIRLO AL 100%.
+2. Fidelidad factual: Usa los datos reales del sitio web (nombre, ubicación, especialidad) sin inventar hechos que contradigan la realidad.
+3. Formato estricto: Devuelve únicamente el objeto JSON sin texto adicional fuera del JSON.`;
+
+  const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
+"${prompt || "Crear un título claro, comercial y profesional que mencione el nombre del establecimiento y su propuesta principal."}"
+
+=== DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
 - Ubicación: "${locationText || "No informada"}"
 - Encabezados principales: ${(context.headings || []).slice(0, 6).join(" | ") || "N/A"}
 - Servicios detectados: ${(context.servicesList || []).slice(0, 5).join(" | ") || "N/A"}
 - Resumen web: "${(context.metaDescription || context.paragraphs?.[0] || "").slice(0, 500)}"
 
-DIRECTIVA EDITORIAL DEL ADMINISTRADOR (AUTORIDAD MÁXIMA PARA EL TÍTULO):
-"${prompt || "Crear un título claro, representativo y profesional en tercera persona que mencione el nombre del establecimiento."}"
-
-GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON.`;
+GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
   console.log(`\n[AI-AGENT-DEBUG: TitleAgent]`);
   console.log(`1. URL: ${context.url}`);
@@ -358,7 +361,7 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON.`;
     const parsed = extractJson(rawText);
     const rawTitle = String(parsed?.contenido || parsed?.title || "").trim();
 
-    if (!rawTitle || rawTitle.length < 3) {
+    if (!rawTitle || rawTitle.length < 2) {
       throw new Error("El modelo devolvió un título vacío o no estructurado.");
     }
 
@@ -408,19 +411,24 @@ export async function runDescriptionAgent(
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
 
   const systemPrompt = `Eres un redactor profesional de descripciones para Travelgrin.
+Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
   "contenido": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>",
-  "evidencias": ["frase breve de la web"]
+  "evidencias": ["frase o dato de la web"]
 }
-REGLAS TÉCNICAS:
-- Formato de redacción: Párrafos HTML <p>...</p>.
-- No agregues texto fuera del JSON.
-- Respeta estrictamente la directiva editorial del administrador (tono, cantidad de párrafos, exclusiones, etc.).
-- Utiliza únicamente información comprobable de los datos provistos.`;
 
-  const userPrompt = `DATOS REALES DEL SITIO WEB:
+REGLAS DE MÁXIMA PRIORIDAD:
+1. AUTORIDAD EDITORIAL: La directiva del administrador es la regla SUPREMA. Si el administrador pide una cantidad exacta de párrafos, longitud máxima, enfoque comercial o informativo, exclusión de precios o inclusión de servicios específicos, DEBES CUMPLIRLO EXACTAMENTE.
+2. Formato HTML: Escribe el contenido estructurado en etiquetas de párrafos HTML <p>...</p>.
+3. Fidelidad factual: No inventes datos que contradigan la información provista.
+4. Formato estricto: Devuelve únicamente el objeto JSON sin texto adicional fuera del JSON.`;
+
+  const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
+"${prompt || "Escribir una descripción profesional en párrafos HTML <p> en tercera persona explicando qué ofrece, su alcance y vías oficiales."}"
+
+=== DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
 - Ubicación: "${locationText || "No informada"}"
 - Encabezados principales: ${(context.headings || []).slice(0, 10).join(" | ") || "N/A"}
@@ -428,10 +436,7 @@ REGLAS TÉCNICAS:
 - Párrafos destacados: ${(context.paragraphs || []).slice(0, 6).join("\n") || (context.metaDescription || "")}
 - Contacto y canales: ${(context.socialLinks || []).map((s) => `${s.label}: ${s.url}`).join(" | ") || "N/A"}
 
-DIRECTIVA EDITORIAL DEL ADMINISTRADOR (AUTORIDAD MÁXIMA PARA LA DESCRIPCIÓN):
-"${prompt || "Escribir una descripción profesional en párrafos HTML <p> en tercera persona explicando qué ofrece, su alcance y vías oficiales."}"
-
-GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON.`;
+GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
   console.log(`\n[AI-AGENT-DEBUG: DescriptionAgent]`);
   console.log(`1. URL: ${context.url}`);
@@ -452,7 +457,7 @@ GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON.`;
     const parsed = extractJson(rawText);
     let descHtml = String(parsed?.contenido || parsed?.description || "").trim();
 
-    if (!descHtml || descHtml.length < 10) {
+    if (!descHtml || descHtml.length < 5) {
       throw new Error("El modelo devolvió una descripción vacía o no estructurada.");
     }
 
@@ -520,30 +525,33 @@ export async function runCustomBlockAgent(
   const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (isFaq ? 10 : 0);
 
   const systemPrompt = `Eres un redactor profesional de bloques de información para Travelgrin.
+Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
   "titulo": "${bTitle}",
   "contenido": "...",
-  "evidencias": ["frase breve de la web"]
+  "evidencias": ["frase o dato de la web"]
 }
-REGLAS TÉCNICAS:
-- Si el bloque es de preguntas frecuentes o pide preguntas y respuestas: Formatea en HTML <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>.
-- Si es otro tipo de bloque: Redacta párrafos estructurados en HTML <p>...</p>.
-- Respeta estrictamente la directiva editorial del administrador sin agregar texto fuera del JSON.`;
 
-  const userPrompt = `DATOS REALES DEL SITIO WEB:
+REGLAS DE MÁXIMA PRIORIDAD:
+1. AUTORIDAD EDITORIAL: Cumple fielmente las instrucciones del administrador para este bloque. Si es de preguntas frecuentes o pide preguntas y respuestas, formatea cada una en HTML <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>. Si es otro tipo de bloque, redacta párrafos estructurados en HTML <p>...</p>.
+2. Fidelidad factual: Usa los datos reales del sitio web.
+3. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+
+  const userPrompt = `TÍTULO DEL BLOQUE: "${bTitle}"
+
+=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR PARA ESTE BLOQUE (MÁXIMA PRIORIDAD) ===
+"${bPrompt || (isFaq ? `Generar ${requestedCount || 10} preguntas frecuentes con sus respuestas pertinentes basadas en los servicios, turnos, atención y datos del sitio.` : "Redactar información estructurada y útil para este bloque.")}"
+
+=== DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
 - Ubicación: "${locationText || "No informada"}"
 - Encabezados principales: ${(context.headings || []).slice(0, 10).join(" | ") || "N/A"}
 - Servicios detectados: ${(context.servicesList || []).slice(0, 8).join(" | ") || "N/A"}
 - Párrafos destacados: ${(context.paragraphs || []).slice(0, 6).join("\n") || (context.metaDescription || "")}
 
-TÍTULO DEL BLOQUE: "${bTitle}"
-DIRECTIVA EDITORIAL DEL ADMINISTRADOR PARA ESTE BLOQUE:
-"${bPrompt || (isFaq ? `Generar ${requestedCount || 10} preguntas frecuentes con sus respuestas pertinentes basadas en los servicios, turnos, atención y datos del sitio.` : "Redactar información estructurada y útil para este bloque.")}"
-
-GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON.`;
+GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
   console.log(`\n[AI-AGENT-DEBUG: CustomBlockAgent - ${bTitle}]`);
   console.log(`1. Block Prompt: "${bPrompt || "(Sin prompt específico)"}"`);
@@ -562,7 +570,7 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON.`;
     const parsed = extractJson(rawText);
     let bodyContent = String(parsed?.contenido || parsed?.body || "").trim();
 
-    if (!bodyContent || bodyContent.length < 15) {
+    if (!bodyContent || bodyContent.length < 5) {
       throw new Error("El modelo devolvió un bloque vacío.");
     }
 
@@ -624,27 +632,28 @@ export async function runProviderInfoAgent(
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
 
   const systemPrompt = `Eres un redactor profesional para Travelgrin.
+Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
   "contenido": "Breve descripción del oferente o institución aquí",
-  "evidencias": ["frase breve de la web"]
+  "evidencias": ["frase o dato de la web"]
 }
-REGLAS TÉCNICAS:
-- Redacta 1 o 2 oraciones concisas y profesionales en tercera persona.
-- No agregues texto fuera del JSON.
-- Respeta estrictamente la directiva editorial del administrador.
-- No inventes datos que contradigan la web.`;
 
-  const userPrompt = `DATOS REALES DEL SITIO WEB:
+REGLAS DE MÁXIMA PRIORIDAD:
+1. AUTORIDAD EDITORIAL: Cumple estrictamente la directiva del administrador (estilo, tono, longitud y datos requeridos).
+2. Concisión: Redacta 1 o 2 oraciones concisas y profesionales en tercera persona.
+3. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+
+  const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
+"${prompt || `Describir brevemente en 1 o 2 oraciones a ${entityName} y su alcance institucional.`}"
+
+=== DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
 - Ubicación: "${locationText || "No informada"}"
 - Resumen o servicios: "${(context.metaDescription || context.paragraphs?.[0] || "").slice(0, 400)}"
 
-DIRECTIVA EDITORIAL DEL ADMINISTRADOR PARA ESTE CAMPO:
-"${prompt || `Describir brevemente en 1 o 2 oraciones a ${entityName} y su alcance institucional.`}"
-
-GENERA ÚNICAMENTE LA INFORMACIÓN EN ESPAÑOL DENTRO DEL JSON.`;
+GENERA ÚNICAMENTE LA INFORMACIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
   console.log(`\n[AI-AGENT-DEBUG: ProviderInfoAgent]`);
   console.log(`1. Admin Prompt: "${prompt || "(Sin prompt específico)"}"`);
