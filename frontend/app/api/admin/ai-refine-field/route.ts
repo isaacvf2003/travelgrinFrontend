@@ -38,32 +38,61 @@ interface RefineFieldRequest {
 }
 
 async function quickInvestigateUrl(url: string): Promise<{ headings: string[]; paragraphs: string[]; mainText: string; pageTitle?: string }> {
+  const formattedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
+  // 1. Fetch directo con headers completos y timeout de 7 segundos
   try {
-    const formattedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
     const res = await fetch(formattedUrl, {
-      signal: controller.signal,
+      signal: AbortSignal.timeout(7000),
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
       },
     });
-    clearTimeout(timer);
-    if (!res.ok) return { headings: [], paragraphs: [], mainText: "" };
-    const html = await res.text();
-    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const pageTitle = titleMatch ? cleanTitleString(titleMatch[1]) : undefined;
-    const cleanedData = cleanScrapedHtmlText(html);
-    return {
-      pageTitle,
-      headings: cleanedData.headings,
-      paragraphs: cleanedData.paragraphs,
-      mainText: cleanedData.mainText,
-    };
-  } catch {
-    return { headings: [], paragraphs: [], mainText: "" };
+    if (res.ok) {
+      const html = await res.text();
+      if (html && html.length > 200) {
+        const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        const pageTitle = titleMatch ? cleanTitleString(titleMatch[1]) : undefined;
+        const cleanedData = cleanScrapedHtmlText(html);
+        if (cleanedData.paragraphs.length > 0 || cleanedData.headings.length > 0) {
+          return {
+            pageTitle,
+            headings: cleanedData.headings,
+            paragraphs: cleanedData.paragraphs,
+            mainText: cleanedData.mainText,
+          };
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[quickInvestigateUrl] Direct fetch failed for ${formattedUrl}:`, err.message);
   }
+
+  // 2. Fallback: Jina AI Web Reader para sitios protegidos
+  try {
+    const jinaRes = await fetch(`https://r.jina.ai/${formattedUrl}`, {
+      signal: AbortSignal.timeout(6000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        Accept: "text/plain, text/html",
+      },
+    });
+    if (jinaRes.ok) {
+      const jinaText = await jinaRes.text();
+      if (jinaText && jinaText.length > 100) {
+        const cleanedData = cleanScrapedHtmlText(jinaText);
+        return {
+          headings: cleanedData.headings,
+          paragraphs: cleanedData.paragraphs,
+          mainText: cleanedData.mainText,
+        };
+      }
+    }
+  } catch {}
+
+  return { headings: [], paragraphs: [], mainText: "" };
 }
 
 export async function POST(req: Request) {
@@ -134,6 +163,11 @@ export async function POST(req: Request) {
       publisherName || currentTitle || webContext?.pageTitle || "Establecimiento"
     );
 
+    const webParagraphs = webContext?.paragraphs || [];
+    const contextParagraphs = webParagraphs.length > 0
+      ? webParagraphs
+      : (currentText ? [currentText] : []);
+
     // Build unified CleanScrapedContext
     const context: CleanScrapedContext = {
       url: url || "",
@@ -141,16 +175,15 @@ export async function POST(req: Request) {
       rawPageTitle: currentTitle || webContext?.pageTitle || cleanPubName,
       metaDescription: currentText.slice(0, 300) || "",
       headings: webContext?.headings || [],
-      paragraphs: currentText
-        ? [currentText, ...(webContext?.paragraphs || [])]
-        : webContext?.paragraphs || [],
-      mainText: [currentText, webContext?.mainText].filter(Boolean).join("\n\n"),
+      paragraphs: contextParagraphs,
+      mainText: webContext?.mainText || currentText || "",
       city,
       country,
       apiKey,
       provider,
       variationIndex,
       autoTranslate: Boolean(autoTranslate),
+      currentText,
     };
 
     // Construct the admin's effective prompt including conversation history if applicable
