@@ -33,6 +33,7 @@ export interface AiFieldRefineModalProps {
       bodyI18n?: Record<string, string>;
     };
     blockIndex?: number;
+    promptUsed?: string;
   }) => void;
 }
 
@@ -225,6 +226,7 @@ export default function AiFieldRefineModal({
           url: metadata.url,
           autoTranslate,
           apiKey: activeKey || undefined,
+          provider: (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_scraper_provider") : null) || "auto",
           conversationHistory: updatedHistory,
           variationIndex: nextVariationIndex,
         }),
@@ -296,6 +298,7 @@ export default function AiFieldRefineModal({
       resultTitle,
       translations: previewResult.translations,
       blockIndex,
+      promptUsed: prompt.trim(),
     });
 
     onClose();
@@ -381,6 +384,30 @@ export default function AiFieldRefineModal({
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {/* API Key Banner if no custom key configured */}
+          {!customKey && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-xs text-amber-950 space-y-2.5 shadow-sm">
+              <div className="flex items-center justify-between font-semibold">
+                <span className="flex items-center gap-1.5 text-amber-900 font-bold">
+                  <Key className="h-4 w-4 text-amber-600" />
+                  Ingresá tu API Key de Gemini o OpenAI para generar:
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={customKey}
+                  onChange={(e) => handleSaveKey(e.target.value)}
+                  placeholder="Pegá tu clave AIzaSy... (Gemini) o sk-... (OpenAI)"
+                  className="flex-1 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                />
+              </div>
+              <p className="text-[11px] text-amber-800 leading-normal">
+                Tu clave se guarda localmente en tu navegador y se usa para generar y reformular publicaciones con IA.
+              </p>
+            </div>
+          )}
+
           {/* Current Text Snippet (if modifying) */}
           {currentValue && fieldType !== "new_extra_block" ? (
             <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3.5 text-xs text-slate-600">

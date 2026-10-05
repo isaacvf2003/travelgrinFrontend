@@ -115,6 +115,11 @@ export default function AiScraperModal({
       const savedKey = window.localStorage.getItem("tgn_ai_custom_api_key");
       if (savedKey) setCustomApiKey(savedKey);
 
+      const savedProvider = window.localStorage.getItem("tgn_ai_scraper_provider");
+      if (savedProvider === "auto" || savedProvider === "gemini" || savedProvider === "openai") {
+        setAiProvider(savedProvider);
+      }
+
       const savedTitlePrompt = window.localStorage.getItem("tgn_custom_title_prompt");
       if (savedTitlePrompt) setCustomTitlePrompt(savedTitlePrompt);
 
@@ -161,6 +166,15 @@ export default function AiScraperModal({
         } else {
           window.localStorage.removeItem("tgn_ai_custom_api_key");
         }
+      }
+    } catch {}
+  };
+
+  const handleSaveAiProvider = (provider: "auto" | "gemini" | "openai") => {
+    setAiProvider(provider);
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("tgn_ai_scraper_provider", provider);
       }
     } catch {}
   };
@@ -1309,7 +1323,7 @@ export default function AiScraperModal({
               <label className="text-xs font-semibold text-slate-700">Motor de IA:</label>
               <select
                 value={aiProvider}
-                onChange={(e) => setAiProvider(e.target.value as any)}
+                onChange={(e) => handleSaveAiProvider(e.target.value as "auto" | "gemini" | "openai")}
                 disabled={isProcessing}
                 className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 cursor-pointer"
               >
