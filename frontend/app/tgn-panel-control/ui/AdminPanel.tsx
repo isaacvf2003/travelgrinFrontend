@@ -1797,20 +1797,35 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       let promptToUse = "";
       let blockIdx: number | undefined = undefined;
 
+      // Extract any permanent general rules configured in the scraper modal
+      let generalRules = "";
+      try {
+        const rawRules = typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_scraper_prompts") : null;
+        if (rawRules) {
+          const parsed = JSON.parse(rawRules);
+          if (Array.isArray(parsed) && parsed.length) {
+            generalRules = parsed.filter(Boolean).join(". ");
+          }
+        }
+      } catch {}
+
       if (target === "title") {
         fieldType = "title";
         currentVal = (pTitleI18n[sourceLang] || (sourceLang === "es" ? pTitle : "") || pTitleI18n.es || "").trim();
-        promptToUse = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_title_prompt") : null) ||
+        currentTitleVal = currentVal;
+        const savedTitlePrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_title_prompt") : null) || "";
+        promptToUse = [savedTitlePrompt, generalRules].filter(Boolean).join(". ") ||
           "Generar un título atractivo, vendedor y representativo de la oferta real del oferente";
       } else if (target === "description") {
         fieldType = "description";
         currentVal = (pDescriptionI18n[sourceLang] || (sourceLang === "es" ? pDescription : "") || pDescriptionI18n.es || "").trim();
-        promptToUse = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) ||
+        const savedDescPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) || "";
+        promptToUse = [savedDescPrompt, generalRules].filter(Boolean).join(". ") ||
           "Redactar una descripción profesional, completa y estructurada en párrafos HTML <p> destacando propuesta de valor y servicios";
       } else if (target === "provider_info") {
         fieldType = "provider_info";
         currentVal = (pProviderInfoI18n[sourceLang] || pProviderInfoI18n.es || "").trim();
-        promptToUse = "Mejorar la descripción institucional y trayectoria del oferente en 1 o 2 párrafos claros";
+        promptToUse = [generalRules, "Mejorar la descripción institucional y trayectoria del oferente en 1 o 2 párrafos claros"].filter(Boolean).join(". ");
       } else if (isExtra) {
         fieldType = "extra_block";
         blockIdx = target.index;
@@ -1818,17 +1833,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         currentTitleVal = (block?.titleI18n?.[sourceLang] || block?.titleI18n?.es || block?.title || "").trim();
         currentVal = (block?.bodyI18n?.[sourceLang] || block?.bodyI18n?.es || block?.body || "").trim();
 
-        let savedBlockPrompt = "";
-        try {
-          const rawBlocks = typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_scraper_blocks") : null;
-          if (rawBlocks) {
-            const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawBlocks);
-            const found = list.find((b) => b.title?.toLowerCase() === currentTitleVal.toLowerCase());
-            if (found?.prompt) savedBlockPrompt = found.prompt;
-          }
-        } catch {}
+        let savedBlockPrompt = (block as any)?.prompt || "";
+        if (!savedBlockPrompt) {
+          try {
+            const rawBlocks = typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_scraper_blocks") : null;
+            if (rawBlocks) {
+              const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawBlocks);
+              const found = list.find((b) => b.title?.toLowerCase() === currentTitleVal.toLowerCase());
+              if (found?.prompt) savedBlockPrompt = found.prompt;
+            }
+          } catch {}
+        }
 
-        promptToUse = (block as any)?.prompt || savedBlockPrompt || (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) ||
+        const savedDescPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) || "";
+        promptToUse = savedBlockPrompt || savedDescPrompt || generalRules ||
           `Generar contenido estructurado y relevante para el bloque '${currentTitleVal || "Información adicional"}' en párrafos HTML <p>`;
       }
 
@@ -1844,7 +1862,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           category: pCategorySelections.join(", ") || pCategory || "",
           city: pCity || pHeadquarterCity || "",
           country: pCountry || pHeadquarterCountry || "",
-          url: pWebsite || "",
+          url: pWebsite || activeScraperDraftUrl || "",
           sourceLang,
           autoTranslate: false,
           apiKey: customKey,
