@@ -9479,12 +9479,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => handleOpenAiRefineModal("provider_info")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
+                    disabled={directRefiningField === "provider_info"}
+                    onClick={() => handleDirectReformulateField("provider_info")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
                     title="Reformular información del oferente con IA"
                   >
-                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                    <span>Reformular con IA</span>
+                    {directRefiningField === "provider_info" ? (
+                      <>
+                        <RotateCw className="h-3.5 w-3.5 animate-spin text-purple-600" />
+                        <span>Reformulando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                        <span>Reformular con IA</span>
+                      </>
+                    )}
                   </button>
                   <button
                     type="button"
@@ -9764,12 +9774,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => handleOpenAiRefineModal("title")}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
+                      disabled={directRefiningField === "title"}
+                      onClick={() => handleDirectReformulateField("title")}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
                       title="Reformular título con IA"
                     >
-                      <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                      <span>Reformular con IA</span>
+                      {directRefiningField === "title" ? (
+                        <>
+                          <RotateCw className="h-3.5 w-3.5 animate-spin text-purple-600" />
+                          <span>Reformulando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                          <span>Reformular con IA</span>
+                        </>
+                      )}
                     </button>
                     <button
                       type="button"
@@ -9841,12 +9861,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => handleOpenAiRefineModal("description")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
+                    disabled={directRefiningField === "description"}
+                    onClick={() => handleDirectReformulateField("description")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
                     title="Reformular descripción con IA"
                   >
-                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                    <span>Reformular con IA</span>
+                    {directRefiningField === "description" ? (
+                      <>
+                        <RotateCw className="h-3.5 w-3.5 animate-spin text-purple-600" />
+                        <span>Reformulando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                        <span>Reformular con IA</span>
+                      </>
+                    )}
                   </button>
                   {renderLangTabs(pLang, (l) => {
                     setPLang(l);
@@ -9994,12 +10024,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleOpenAiRefineModal("extra_block", idx)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
+                            disabled={directRefiningField === `extra-${idx}`}
+                            onClick={() => handleDirectReformulateField({ type: "extra_block", index: idx })}
+                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
                             title="Reformular este bloque con IA"
                           >
-                            <Sparkles className="h-3 w-3 text-purple-600" />
-                            <span>Reformular con IA</span>
+                            {directRefiningField === `extra-${idx}` ? (
+                              <>
+                                <RotateCw className="h-3 w-3 animate-spin text-purple-600" />
+                                <span>Reformulando...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-3 w-3 text-purple-600" />
+                                <span>Reformular con IA</span>
+                              </>
+                            )}
                           </button>
                           <button
                             type="button"
