@@ -57,6 +57,10 @@ export interface ScrapedPublicationDraft {
   providerActivities?: string[];
   providerTypes?: string[];
   providerModalities?: string[];
+  scrapedHeadings?: string[];
+  scrapedParagraphs?: string[];
+  scrapedTextContent?: string;
+  rawPageTitle?: string;
   status?: "active" | "draft" | "paused";
 }
 
@@ -90,7 +94,7 @@ export default function AiScraperModal({
   const [successNotice, setSuccessNotice] = useState("");
   const [customTitlePrompt, setCustomTitlePrompt] = useState("");
   const [customDescPrompt, setCustomDescPrompt] = useState("");
-  const [includeScoreScout, setIncludeScoreScout] = useState(true);
+  const [includeScoreScout, setIncludeScoreScout] = useState(false);
   const [customScraperBlocks, setCustomScraperBlocks] = useState<Array<{ title: string; prompt?: string }>>([]);
   const [newBlockTitleInput, setNewBlockTitleInput] = useState("");
   const [newBlockPromptInput, setNewBlockPromptInput] = useState("");
@@ -128,7 +132,7 @@ export default function AiScraperModal({
 
       const savedScoreScout = window.localStorage.getItem("tgn_include_score_scout");
       if (savedScoreScout !== null) {
-        setIncludeScoreScout(savedScoreScout !== "false");
+        setIncludeScoreScout(savedScoreScout === "true");
       }
 
       const savedBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
