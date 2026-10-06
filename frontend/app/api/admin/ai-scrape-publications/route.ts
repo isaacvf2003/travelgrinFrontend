@@ -83,6 +83,10 @@ export interface ScrapedPublication {
   providerActivities: string[];
   providerTypes: string[];
   providerModalities: string[];
+  scrapedHeadings?: string[];
+  scrapedParagraphs?: string[];
+  scrapedTextContent?: string;
+  rawPageTitle?: string;
 }
 
 function decodeHtmlEntities(str: string): string {
@@ -4651,6 +4655,10 @@ async function processUrlWithAI(
     providerActivities: classified.providerActivities,
     providerTypes: classified.providerTypes,
     providerModalities: classified.providerModalities,
+    scrapedHeadings: headings.slice(0, 20),
+    scrapedParagraphs: paragraphs.slice(0, 15),
+    scrapedTextContent: (extracted.textContent || "").slice(0, 5000),
+    rawPageTitle: extracted.title || "",
   };
 
   // Enforce taxonomy structure only (without altering title/description text!)
@@ -4724,7 +4732,7 @@ export async function POST(req: Request) {
 
     const customTitlePrompt = typeof body.customTitlePrompt === "string" ? body.customTitlePrompt.trim() : undefined;
     const customDescriptionPrompt = typeof body.customDescriptionPrompt === "string" ? body.customDescriptionPrompt.trim() : undefined;
-    const includeScoreScout = body.includeScoreScout !== false;
+    const includeScoreScout = body.includeScoreScout === true;
 
     const customKey = String(body.apiKey || "").trim();
     const requestedProvider = String(body.provider || "auto").toLowerCase();
