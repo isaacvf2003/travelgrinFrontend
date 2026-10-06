@@ -3558,20 +3558,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       };
     });
 
-    // Merge any saved custom blocks from localStorage so no configured block is ever missing
-    try {
-      const defaultBlocks = getDefaultCustomBlocks();
-      defaultBlocks.forEach((db) => {
-        const exists = extraDescInit.some(
-          (eb) => eb.title.toLowerCase() === db.title.toLowerCase()
-        );
-        if (!exists) {
-          extraDescInit.push(db);
-        }
-      });
-    } catch {}
-
-    setPExtraDescriptions(extraDescInit);
+    // Establecer exclusivamente los bloques generados en este borrador de scraping (sin inyectar bloques residuales ni score scout)
+    const filteredExtraDesc = extraDescInit.filter(
+      (eb) => !/score\s*scout/i.test(eb.title || eb.titleI18n?.es || "")
+    );
+    setPExtraDescriptions(filteredExtraDesc);
 
     const providerInfoInit = draft.providerInfoI18n || { es: "" };
     setPProviderInfoI18n(providerInfoInit);
@@ -4758,7 +4749,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPReceivingCountries([]);
     setPReceivingCountriesMode("all");
     setPTourismType("receptivo");
-    setPExtraDescriptions(getDefaultCustomBlocks());
+    setPExtraDescriptions([]);
     setPProviderInfoLang("es");
     setPProviderInfoI18n({ es: "" });
     setPProviderRating("4");
@@ -10153,22 +10144,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           <button
                             type="button"
                             onClick={() => {
-                              const blockToDelete = pExtraDescriptions[idx];
-                              const blockTitle = (blockToDelete?.title || blockToDelete?.titleI18n?.es || "").trim();
+                              // Eliminar el bloque únicamente de la publicación en edición,
+                              // sin alterar jamás la configuración global de bloques del scraper en localStorage
                               setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx));
-                              if (typeof window !== "undefined") {
-                                try {
-                                  if (/score\s*scout/i.test(blockTitle)) {
-                                    window.localStorage.setItem("tgn_include_score_scout", "false");
-                                  }
-                                  const savedRaw = window.localStorage.getItem("tgn_custom_scraper_blocks");
-                                  if (savedRaw) {
-                                    const list: Array<{ title: string; prompt?: string }> = JSON.parse(savedRaw);
-                                    const filtered = list.filter((b) => b.title?.toLowerCase() !== blockTitle.toLowerCase());
-                                    window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(filtered));
-                                  }
-                                } catch {}
-                              }
                             }}
                             className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                           >
