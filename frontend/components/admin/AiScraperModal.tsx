@@ -139,7 +139,20 @@ export default function AiScraperModal({
       if (savedBlocks) {
         const parsed = JSON.parse(savedBlocks);
         if (Array.isArray(parsed)) {
-          setCustomScraperBlocks(parsed);
+          // Clean legacy contaminated block titles (e.g. removing " - Universidad ...")
+          const sanitized = parsed.map((b: any) => {
+            let t = (b?.title || "").trim();
+            t = t.replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "").trim();
+            return { ...b, title: t || b?.title };
+          }).filter((b: any) => Boolean(b && b.title));
+          const uniqueList: Array<{ title: string; prompt?: string }> = [];
+          sanitized.forEach((b: any) => {
+            if (!uniqueList.some((u) => u.title.toLowerCase() === b.title.toLowerCase())) {
+              uniqueList.push(b);
+            }
+          });
+          setCustomScraperBlocks(uniqueList);
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(uniqueList));
         }
       }
 
@@ -219,7 +232,8 @@ export default function AiScraperModal({
   };
 
   const handleAddCustomScraperBlock = (title: string, promptText?: string) => {
-    const trimmedTitle = title.trim();
+    let trimmedTitle = title.trim();
+    trimmedTitle = trimmedTitle.replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "").trim();
     if (!trimmedTitle) return;
     setCustomScraperBlocks((prev) => {
       const filtered = prev.filter((b) => b.title.toLowerCase() !== trimmedTitle.toLowerCase());
@@ -278,7 +292,8 @@ export default function AiScraperModal({
 
   const handleSaveEditBlock = () => {
     if (editingBlockIndex === null) return;
-    const cleanTitle = editingBlockTitle.trim();
+    let cleanTitle = editingBlockTitle.trim();
+    cleanTitle = cleanTitle.replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "").trim();
     if (!cleanTitle) return;
     setCustomScraperBlocks((prev) => {
       const copy = [...prev];
@@ -308,7 +323,14 @@ export default function AiScraperModal({
     const existing = [...(draft.extraDescriptions || [])];
     customScraperBlocks.forEach((b) => {
       const cleanTitle = b.title.trim();
-      const existingIdx = existing.findIndex((eb) => eb.title.toLowerCase() === cleanTitle.toLowerCase());
+      const lowerTarget = cleanTitle.toLowerCase();
+      const existingIdx = existing.findIndex((eb) => {
+        const ebTitle = eb.title.toLowerCase().trim();
+        return ebTitle === lowerTarget ||
+               ebTitle.startsWith(lowerTarget) ||
+               lowerTarget.startsWith(ebTitle) ||
+               (Boolean(b.prompt && eb.prompt) && b.prompt!.trim().toLowerCase() === eb.prompt!.trim().toLowerCase());
+      });
       if (existingIdx === -1) {
         existing.push({
           title: cleanTitle,
@@ -1262,46 +1284,18 @@ export default function AiScraperModal({
               <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 space-y-2">
                 <div className="flex items-center justify-between flex-wrap gap-1">
                   <span className="text-[11px] font-bold text-slate-700">
-                    + Añadir nuevo bloque opcional de descripción para futuros scrapings:
+                    + Añadir nuevo bloque opcional para futuros scrapings:
                   </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 pb-1">
-                  <span className="text-[10px] text-slate-500 font-semibold">Plantillas Prompts v2:</span>
-                  <button
-                    type="button"
-                    onClick={() => handleAddCustomScraperBlock("Requisitos", "Extraer requisitos de admisión, documentación necesaria, perfil del postulante o condiciones de ingreso presentes en el texto del sitio. Si no hay datos, marcar sin_datos.")}
-                    className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-800 hover:bg-purple-100 transition cursor-pointer"
-                  >
-                    + Requisitos
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddCustomScraperBlock("Proceso y costos", "Detallar pasos del proceso o trámite, etapas, aranceles o modalidades de pago informadas en el sitio web. Si no hay datos, marcar sin_datos.")}
-                    className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-800 hover:bg-purple-100 transition cursor-pointer"
-                  >
-                    + Proceso y costos
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddCustomScraperBlock("Logística", "Informar modalidad (presencial/online), sedes, horarios de atención, plataformas o canales de soporte del sitio web. Si no hay datos, marcar sin_datos.")}
-                    className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-800 hover:bg-purple-100 transition cursor-pointer"
-                  >
-                    + Logística
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddCustomScraperBlock("FAQs", "Extraer las preguntas frecuentes y respuestas oficiales directamente de la sección de dudas o información del sitio web. Si el sitio no contiene preguntas frecuentes, marcar sin_datos.")}
-                    className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-800 hover:bg-purple-100 transition cursor-pointer"
-                  >
-                    + FAQs (Preguntas Frecuentes)
-                  </button>
+                  <span className="text-[10px] text-slate-500">
+                    Definí el título y la instrucción para que la IA extraiga o genere ese contenido
+                  </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
                     type="text"
                     value={newBlockTitleInput}
                     onChange={(e) => setNewBlockTitleInput(e.target.value)}
-                    placeholder="Título del bloque (ej: Requisitos, Formas de Pago, FAQ...)"
+                    placeholder="Título del bloque (ej: Preguntas Frecuentes, Requisitos...)"
                     className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-[#00A9C6]"
                     disabled={isProcessing}
                   />
@@ -1310,7 +1304,7 @@ export default function AiScraperModal({
                       type="text"
                       value={newBlockPromptInput}
                       onChange={(e) => setNewBlockPromptInput(e.target.value)}
-                      placeholder="Prompt de descripción para la IA (opcional)"
+                      placeholder="Prompt o instrucción para la IA (ej: extraer 10 preguntas con respuestas)"
                       className="flex-1 h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-[#00A9C6]"
                       disabled={isProcessing}
                       onKeyDown={(e) => {
@@ -1326,7 +1320,7 @@ export default function AiScraperModal({
                       disabled={isProcessing || !newBlockTitleInput.trim()}
                       className="h-8 px-3 rounded-lg bg-[#00A9C6] text-xs font-bold text-white hover:bg-[#0095AE] disabled:opacity-50 transition cursor-pointer shrink-0"
                     >
-                      Agregar
+                      + Añadir bloque
                     </button>
                   </div>
                 </div>

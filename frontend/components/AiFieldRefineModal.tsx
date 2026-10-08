@@ -92,16 +92,10 @@ const FIELD_LABELS: Record<RefineFieldType, { title: string; subtitle: string; p
     ],
   },
   new_extra_block: {
-    title: "Asistente IA para Crear Nuevo Bloque",
-    subtitle: "Explicále qué sección o bloque querés crear y la IA generará el título y contenido enriquecido.",
-    placeholder: "Ej: Creame un bloque de Preguntas Frecuentes (FAQ), o uno de Medios de Pago y Financiación en cuotas...",
-    suggestions: [
-      "Bloque de Requisitos de Inscripción",
-      "Bloque de Formas de Pago y Financiación",
-      "Bloque de Preguntas Frecuentes (FAQ)",
-      "Bloque de Especialidades y Servicios",
-      "Bloque de Horarios de Atención y Guardia",
-    ],
+    title: "Crear Bloque con IA",
+    subtitle: "Ingresá el título y la instrucción de lo que querés para este bloque. La IA generará el contenido basándose en tus indicaciones.",
+    placeholder: "Ej: Generá las 10 preguntas frecuentes más importantes con sus respuestas claras basadas en la web...",
+    suggestions: [],
   },
 };
 
@@ -117,6 +111,7 @@ export default function AiFieldRefineModal({
   onApply,
 }: AiFieldRefineModalProps) {
   const [prompt, setPrompt] = useState("");
+  const [blockTitle, setBlockTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [autoTranslate, setAutoTranslate] = useState(true);
@@ -155,6 +150,7 @@ export default function AiFieldRefineModal({
         } catch {}
       }
 
+      setBlockTitle(currentTitleValue || "");
       setPrompt(defaultPrompt);
       setPreviewResult(null);
       setErrorMsg("");
@@ -187,7 +183,7 @@ export default function AiFieldRefineModal({
     ).trim();
 
     if (!textPrompt) {
-      setErrorMsg("Escribí o seleccioná una instrucción para que la IA sepa qué hacer.");
+      setErrorMsg("Escribí una instrucción para que la IA sepa qué generar en este bloque.");
       return;
     }
 
@@ -196,7 +192,7 @@ export default function AiFieldRefineModal({
 
     // If refining existing preview, send the previewed content as base
     let baseText = currentValue;
-    let baseTitle = currentTitleValue;
+    let baseTitle = (blockTitle.trim() || currentTitleValue || "").trim();
 
     if (isRefinement && previewResult) {
       if (fieldType === "title") baseText = previewResult.result?.title || currentValue;
@@ -204,7 +200,7 @@ export default function AiFieldRefineModal({
       else if (fieldType === "provider_info") baseText = previewResult.result?.providerInfo || currentValue;
       else if (fieldType === "extra_block" || fieldType === "new_extra_block") {
         baseText = previewResult.result?.body || previewResult.result?.description || previewResult.result?.text || currentValue;
-        baseTitle = previewResult.result?.title || currentTitleValue;
+        baseTitle = (blockTitle.trim() || previewResult.result?.title || currentTitleValue || "").trim();
       }
     }
 
@@ -221,7 +217,7 @@ export default function AiFieldRefineModal({
         body: JSON.stringify({
           fieldType,
           currentText: baseText,
-          currentTitle: baseTitle || metadata.title,
+          currentTitle: baseTitle || (fieldType === "new_extra_block" ? (blockTitle.trim() || "Información adicional") : metadata.title),
           prompt: textPrompt,
           publisherName: metadata.publisherName,
           category: metadata.category,
@@ -243,6 +239,12 @@ export default function AiFieldRefineModal({
       const data = await res.json();
       if (!res.ok || data.error) {
         throw new Error(data.error || "No se pudo procesar la solicitud con IA.");
+      }
+
+      if (fieldType === "extra_block" || fieldType === "new_extra_block") {
+        if (blockTitle.trim()) {
+          data.result.title = blockTitle.trim();
+        }
       }
 
       setPreviewResult(data);
@@ -291,18 +293,38 @@ export default function AiFieldRefineModal({
       resultText = previewResult.result?.providerInfo || currentValue;
     } else if (fieldType === "extra_block" || fieldType === "new_extra_block") {
       resultText = previewResult.result?.body || previewResult.result?.description || currentValue;
-      resultTitle = previewResult.result?.title || currentTitleValue || "Información adicional";
+      resultTitle = (blockTitle.trim() || previewResult.result?.title || currentTitleValue || "Información adicional").trim();
     }
 
     // Persist new block schema in localStorage so future AI Scraping will automatically extract and populate it
-    if (fieldType === "new_extra_block" && typeof window !== "undefined") {
+    if ((fieldType === "new_extra_block" || fieldType === "extra_block") && typeof window !== "undefined") {
       try {
         const savedRaw = window.localStorage.getItem("tgn_custom_scraper_blocks");
-        const list: Array<{ title: string; prompt?: string }> = savedRaw ? JSON.parse(savedRaw) : [];
-        const finalTitle = resultTitle || previewResult.result?.title || "Información adicional";
-        const exists = list.some((b) => b.title?.toLowerCase() === finalTitle.toLowerCase());
-        if (!exists && finalTitle) {
-          list.push({ title: finalTitle, prompt: prompt.trim() || finalTitle });
+        let list: Array<{ title: string; prompt?: string }> = savedRaw ? JSON.parse(savedRaw) : [];
+        if (!Array.isArray(list)) list = [];
+
+        // Clean any entity suffix like " - Universidad ..." or " | ..."
+        let cleanSaveTitle = (blockTitle.trim() || resultTitle || "").trim();
+        cleanSaveTitle = cleanSaveTitle
+          .replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "")
+          .trim();
+        if (metadata?.publisherName) {
+          cleanSaveTitle = cleanSaveTitle
+            .replace(new RegExp(`\\s*[-–—|]\\s*${metadata.publisherName}.*$`, "i"), "")
+            .trim();
+        }
+
+        if (cleanSaveTitle) {
+          const existingIdx = list.findIndex(
+            (b) => (b.title || "").trim().toLowerCase() === cleanSaveTitle.toLowerCase()
+          );
+          if (existingIdx >= 0) {
+            if (prompt.trim()) {
+              list[existingIdx] = { ...list[existingIdx], prompt: prompt.trim() };
+            }
+          } else {
+            list.push({ title: cleanSaveTitle, prompt: prompt.trim() || undefined });
+          }
           window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(list));
         }
       } catch {}
@@ -436,10 +458,42 @@ export default function AiFieldRefineModal({
             </div>
           ) : null}
 
+          {/* Block Title input (for new or existing extra block) */}
+          {(fieldType === "new_extra_block" || fieldType === "extra_block") && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
+                <span>Título del bloque</span>
+                <span className="text-[11px] font-normal text-slate-400">
+                  Podés escribir el título que quieras (ej: Preguntas Frecuentes, Requisitos, etc.)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={blockTitle}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setBlockTitle(val);
+                  if (previewResult) {
+                    setPreviewResult((prev: any) => ({
+                      ...prev,
+                      result: { ...(prev?.result || {}), title: val },
+                    }));
+                  }
+                }}
+                placeholder="Ej: Preguntas Frecuentes, Requisitos, Modalidades de Cursada..."
+                className="w-full rounded-2xl border border-slate-200 p-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#00A9C6] focus:ring-4 focus:ring-[#00A9C6]/15"
+              />
+            </div>
+          )}
+
           {/* Prompt input */}
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
-              <span>¿Qué le querés pedir a tu asistente?</span>
+              <span>
+                {fieldType === "new_extra_block"
+                  ? "¿Qué querés que contenga este bloque? (Prompt / Instrucción)"
+                  : "¿Qué le querés pedir a tu asistente?"}
+              </span>
               <span className="text-[11px] font-normal text-slate-400">
                 Explicálo libremente como en ChatGPT o Gemini
               </span>
@@ -461,7 +515,9 @@ export default function AiFieldRefineModal({
             </div>
             <div className="flex items-center justify-between gap-2 pt-1">
               <span className="text-[11px] text-slate-400">
-                Podés escribir tu instrucción libremente o elegir una sugerencia rápida
+                {fieldType === "new_extra_block"
+                  ? "La IA generará el contenido basándose en el título y tu instrucción"
+                  : "Podés escribir tu instrucción libremente o elegir una sugerencia rápida"}
               </span>
               <button
                 type="button"
@@ -479,28 +535,30 @@ export default function AiFieldRefineModal({
             </div>
           </div>
 
-          {/* Quick suggestions pills */}
-          <div className="space-y-1.5">
-            <div className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
-              <Sparkles className="h-3 w-3 text-cyan-600" />
-              Sugerencias rápidas (hacé clic para pedirle a la IA):
+          {/* Quick suggestions pills (only if configured) */}
+          {config.suggestions.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-cyan-600" />
+                Sugerencias rápidas (hacé clic para pedirle a la IA):
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {config.suggestions.map((sug) => (
+                  <button
+                    key={sug}
+                    type="button"
+                    onClick={() => {
+                      setPrompt(sug);
+                      handleGenerate(sug);
+                    }}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 transition hover:border-[#00A9C6] hover:bg-cyan-50/50 hover:text-[#007D92] active:scale-95"
+                  >
+                    {sug}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {config.suggestions.map((sug) => (
-                <button
-                  key={sug}
-                  type="button"
-                  onClick={() => {
-                    setPrompt(sug);
-                    handleGenerate(sug);
-                  }}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 transition hover:border-[#00A9C6] hover:bg-cyan-50/50 hover:text-[#007D92] active:scale-95"
-                >
-                  {sug}
-                </button>
-              ))}
-            </div>
-          </div>
+          )}
 
           {/* Auto-translate Checkbox */}
           <div className="flex items-center gap-2 rounded-xl border border-cyan-100 bg-cyan-50/50 p-3 text-xs text-cyan-950">
