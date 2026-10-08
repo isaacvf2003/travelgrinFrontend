@@ -87,6 +87,23 @@ export function cleanTitleString(title: string): string {
     .trim();
 }
 
+export function cleanGenericBlockTitle(title: string, prompt?: string): string {
+  let t = cleanTitleString(title || "").trim();
+  const isFaq =
+    /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(t) ||
+    /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(prompt || "");
+
+  if (isFaq) {
+    return "Preguntas Frecuentes";
+  }
+
+  t = t
+    .replace(/\s*(?:[-–—|]|(?:\b(?:en|de|del|para|sobre|con)\s+(?:la|el|los|las)?))\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex|Kennedy).*$/i, "")
+    .trim();
+
+  return t || "Información Adicional";
+}
+
 async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms: number = 4000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
@@ -705,18 +722,15 @@ export async function runCustomBlockAgent(
   blockPrompt?: string,
   currentBody?: string
 ): Promise<ExtraDescriptionBlock> {
-  let bTitle = (blockTitle || "Información Adicional").trim();
+  const bPrompt = (blockPrompt || "").trim();
+  let bTitle = cleanGenericBlockTitle(blockTitle || "Información Adicional", bPrompt);
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
 
-  // Clean any legacy or accidental entity suffix from bTitle
-  bTitle = bTitle.replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "").trim();
   if (entityName && bTitle.toLowerCase().includes(entityName.toLowerCase())) {
-    bTitle = bTitle.replace(new RegExp(`\\s*[-–—|]\\s*${entityName}.*$`, "i"), "").trim();
+    bTitle = bTitle.replace(new RegExp(`\\s*(?:[-–—|]|(?:\\b(?:en|de|del|para|sobre|con)\\s+(?:la|el|los|las)?))\\s*${entityName}.*$`, "i"), "").trim();
   }
   if (!bTitle) bTitle = "Información Adicional";
-
-  const bPrompt = (blockPrompt || "").trim();
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
   const variationDirective = context.variationIndex && context.variationIndex > 1
     ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa a las anteriores (otra redacción y estructura), manteniendo rigurosamente la directiva editorial del administrador.`
@@ -822,10 +836,9 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
       ? bTitle
       : cleanTitleString(String(parsed?.titulo || parsed?.title || parsed?.nombre || bTitle).trim()) || bTitle;
 
-    // Sanitize any entity name accidentally added by the model
-    genTitle = genTitle.replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "").trim();
+    genTitle = cleanGenericBlockTitle(genTitle, bPrompt);
     if (entityName && genTitle.toLowerCase().includes(entityName.toLowerCase())) {
-      genTitle = genTitle.replace(new RegExp(`\\s*[-–—|]\\s*${entityName}.*$`, "i"), "").trim();
+      genTitle = genTitle.replace(new RegExp(`\\s*(?:[-–—|]|(?:\\b(?:en|de|del|para|sobre|con)\\s+(?:la|el|los|las)?))\\s*${entityName}.*$`, "i"), "").trim();
     }
     if (!genTitle) genTitle = bTitle || "Información Adicional";
 
