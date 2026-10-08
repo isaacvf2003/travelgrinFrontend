@@ -433,7 +433,19 @@ export default function AiScraperModal({
         }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        if (res.status === 504 || rawText.includes("504") || /gateway timeout|FUNCTION_INVOCATION_TIMEOUT/i.test(rawText)) {
+          throw new Error("El proceso de scraping tardó más del tiempo límite de Vercel (Timeout). Por favor intentalo nuevamente o con menos URLs.");
+        }
+        if (rawText.startsWith("An error occurred") || rawText.includes("<!DOCTYPE")) {
+          throw new Error(`Error en el servidor de IA (${res.status}). Por favor verificá que la URL sea pública o reintentá en unos momentos.`);
+        }
+        throw new Error(rawText.slice(0, 150) || "Error al procesar el scraping web con IA.");
+      }
 
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Error al procesar el scraping web con IA.");
