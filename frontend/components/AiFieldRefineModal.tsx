@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Bot, Sparkles, X, Check, RefreshCw, Languages, Key, SendHorizontal, MessageSquarePlus, ChevronRight } from "lucide-react";
+import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
 
 export type RefineFieldType = "title" | "description" | "provider_info" | "extra_block" | "new_extra_block";
 
@@ -303,16 +304,15 @@ export default function AiFieldRefineModal({
         let list: Array<{ title: string; prompt?: string }> = savedRaw ? JSON.parse(savedRaw) : [];
         if (!Array.isArray(list)) list = [];
 
-        // Clean any entity suffix like " - Universidad ..." or " | ..."
-        let cleanSaveTitle = (blockTitle.trim() || resultTitle || "").trim();
-        cleanSaveTitle = cleanSaveTitle
-          .replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "")
-          .trim();
+        // Clean any entity suffix like " - Universidad ..." or " en la Universidad Kennedy"
+        const effectivePrompt = prompt.trim();
+        let cleanSaveTitle = cleanGenericBlockTitle(blockTitle.trim() || resultTitle || "", effectivePrompt);
         if (metadata?.publisherName) {
           cleanSaveTitle = cleanSaveTitle
-            .replace(new RegExp(`\\s*[-–—|]\\s*${metadata.publisherName}.*$`, "i"), "")
+            .replace(new RegExp(`\\s*(?:[-–—|]|(?:\\b(?:en|de|del|para|sobre|con)\\s+(?:la|el|los|las)?))\\s*${metadata.publisherName}.*$`, "i"), "")
             .trim();
         }
+        cleanSaveTitle = cleanGenericBlockTitle(cleanSaveTitle, effectivePrompt);
 
         if (cleanSaveTitle) {
           const existingIdx = list.findIndex(

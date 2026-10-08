@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Bot, Sparkles, X, Trash2, Plus, Info, RefreshCw, FileText, Check, Settings2, ArrowUp, ArrowDown, Pencil } from "lucide-react";
+import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
 
 export type I18nRecord = Record<string, string>;
 
@@ -139,11 +140,11 @@ export default function AiScraperModal({
       if (savedBlocks) {
         const parsed = JSON.parse(savedBlocks);
         if (Array.isArray(parsed)) {
-          // Clean legacy contaminated block titles (e.g. removing " - Universidad ...")
+          // Clean legacy contaminated block titles (e.g. removing " - Universidad ..." or " en la Universidad Kennedy")
           const sanitized = parsed.map((b: any) => {
-            let t = (b?.title || "").trim();
-            t = t.replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "").trim();
-            return { ...b, title: t || b?.title };
+            const rawTitle = (b?.title || "").trim();
+            const cleanTitle = cleanGenericBlockTitle(rawTitle, b?.prompt);
+            return { ...b, title: cleanTitle || rawTitle };
           }).filter((b: any) => Boolean(b && b.title));
           const uniqueList: Array<{ title: string; prompt?: string }> = [];
           sanitized.forEach((b: any) => {
@@ -232,8 +233,7 @@ export default function AiScraperModal({
   };
 
   const handleAddCustomScraperBlock = (title: string, promptText?: string) => {
-    let trimmedTitle = title.trim();
-    trimmedTitle = trimmedTitle.replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "").trim();
+    const trimmedTitle = cleanGenericBlockTitle(title.trim(), promptText?.trim());
     if (!trimmedTitle) return;
     setCustomScraperBlocks((prev) => {
       const filtered = prev.filter((b) => b.title.toLowerCase() !== trimmedTitle.toLowerCase());
@@ -292,8 +292,7 @@ export default function AiScraperModal({
 
   const handleSaveEditBlock = () => {
     if (editingBlockIndex === null) return;
-    let cleanTitle = editingBlockTitle.trim();
-    cleanTitle = cleanTitle.replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "").trim();
+    const cleanTitle = cleanGenericBlockTitle(editingBlockTitle.trim(), editingBlockPrompt.trim());
     if (!cleanTitle) return;
     setCustomScraperBlocks((prev) => {
       const copy = [...prev];

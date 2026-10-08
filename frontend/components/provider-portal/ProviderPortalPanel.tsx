@@ -196,15 +196,15 @@ function normalizeBrokenLatinText(value: string) {
 }
 
 function decodeLikelyMojibake(value: string) {
-  if (!/[ÃÂâðï¿½]/.test(value)) return value;
+  if (!/(?:Ã[\x80-\xBF\xA0-\xFF]|Â[\xA0-\xFF]|â€[\x80-\xBF\xA0-\xFF]|ï¿½)/.test(value)) return value;
   let current = value;
   for (let index = 0; index < 3; index += 1) {
     try {
       const bytes = Uint8Array.from(current, (char) => char.charCodeAt(0));
-      const decoded = new TextDecoder("utf-8").decode(bytes);
-      if (!decoded || decoded === current) break;
+      const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      if (!decoded || decoded === current || decoded.includes("\uFFFD")) break;
       current = decoded;
-      if (!/[ÃÂâðï¿½]/.test(current)) break;
+      if (!/(?:Ã[\x80-\xBF\xA0-\xFF]|Â[\xA0-\xFF]|â€[\x80-\xBF\xA0-\xFF]|ï¿½)/.test(current)) break;
     } catch {
       break;
     }
