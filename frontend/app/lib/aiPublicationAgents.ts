@@ -705,10 +705,18 @@ export async function runCustomBlockAgent(
   blockPrompt?: string,
   currentBody?: string
 ): Promise<ExtraDescriptionBlock> {
-  const bTitle = (blockTitle || "Información Adicional").trim();
-  const bPrompt = (blockPrompt || "").trim();
+  let bTitle = (blockTitle || "Información Adicional").trim();
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
+
+  // Clean any legacy or accidental entity suffix from bTitle
+  bTitle = bTitle.replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "").trim();
+  if (entityName && bTitle.toLowerCase().includes(entityName.toLowerCase())) {
+    bTitle = bTitle.replace(new RegExp(`\\s*[-–—|]\\s*${entityName}.*$`, "i"), "").trim();
+  }
+  if (!bTitle) bTitle = "Información Adicional";
+
+  const bPrompt = (blockPrompt || "").trim();
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
   const variationDirective = context.variationIndex && context.variationIndex > 1
     ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa a las anteriores (otra redacción y estructura), manteniendo rigurosamente la directiva editorial del administrador.`
@@ -737,16 +745,17 @@ Tu objetivo primordial es cumplir fielmente la directiva editorial del administr
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
-  "titulo": "Título representativo del bloque aquí (si el administrador pide cambiar el título, usa el nuevo; si no, mantén '${bTitle}')",
+  "titulo": "${bTitle}",
   "contenido": "<p>...</p>",
   "evidencias": ["frase o dato de la web"]
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL: Cumple fielmente las instrucciones o ajustes del administrador para este bloque. Si pide cambiar el título, define el nuevo título en "titulo". Si pide agregar opciones, preguntas/respuestas, horarios o modificar redacción, aplica las modificaciones en "contenido" formateado en HTML <p>...</p>.
-2. Si es de preguntas frecuentes o pide preguntas y respuestas, formatea cada una en HTML <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>. Si es otro tipo de bloque, redacta párrafos estructurados en HTML <p>...</p>.
-3. Fidelidad factual: Usa los datos reales del sitio web provistos.
-4. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+2. TÍTULO LIMPIO: Mantén el título conceptual del bloque ('${bTitle}'). NUNCA agregues el nombre de la institución o empresa ni guiones en el título del bloque.
+3. Si es de preguntas frecuentes o pide preguntas y respuestas, formatea cada una en HTML <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>. Si es otro tipo de bloque, redacta párrafos estructurados en HTML <p>...</p>.
+4. Fidelidad factual: Usa los datos reales del sitio web provistos.
+5. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `TÍTULO DEL BLOQUE: "${bTitle}"
 ${currentBlockSection}
@@ -808,14 +817,17 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
         .join("\n");
     }
 
-    const genTitle = cleanTitleString(
-      String(
-        parsed?.titulo ||
-        parsed?.title ||
-        parsed?.nombre ||
-        bTitle
-      ).trim()
-    ) || bTitle;
+    // Prioritize clean bTitle unless explicitly adjusted
+    let genTitle = (bTitle && bTitle.toLowerCase() !== "información adicional")
+      ? bTitle
+      : cleanTitleString(String(parsed?.titulo || parsed?.title || parsed?.nombre || bTitle).trim()) || bTitle;
+
+    // Sanitize any entity name accidentally added by the model
+    genTitle = genTitle.replace(/\s*[-–—|]\s*(?:Universidad|Colegio|Instituto|Hospital|Clínica|Fundación|Empresa|Incutex).*$/i, "").trim();
+    if (entityName && genTitle.toLowerCase().includes(entityName.toLowerCase())) {
+      genTitle = genTitle.replace(new RegExp(`\\s*[-–—|]\\s*${entityName}.*$`, "i"), "").trim();
+    }
+    if (!genTitle) genTitle = bTitle || "Información Adicional";
 
     let tEn = genTitle;
     let tPt = genTitle;
