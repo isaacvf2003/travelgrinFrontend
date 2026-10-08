@@ -6,6 +6,7 @@ import {
   runTitleAgent,
   runDescriptionAgent,
   runCustomBlockAgent,
+  runProviderInfoAgent,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
@@ -628,9 +629,37 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     reviewCount: "8",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Adriana+Serra+Mansilla+Abogada+Migratoria+Cordoba",
   },
+  "incutex.com.ar": {
+    name: "Incutex",
+    startYear: "2012",
+    primaryCity: "Córdoba",
+    primaryCountry: "Argentina",
+    activity: "Servicios empresariales e inversión",
+    category: "Negocios y finanzas",
+    subcategory: "Inversión y capital",
+    type: "Company Builder / Aceleradora",
+    rating: "4.9",
+    reviewCount: "68",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Incutex+Cordoba",
+    additionalCities: ["Buenos Aires"],
+  },
+  "incutex.com": {
+    name: "Incutex",
+    startYear: "2012",
+    primaryCity: "Córdoba",
+    primaryCountry: "Argentina",
+    activity: "Servicios empresariales e inversión",
+    category: "Negocios y finanzas",
+    subcategory: "Inversión y capital",
+    type: "Company Builder / Aceleradora",
+    rating: "4.9",
+    reviewCount: "68",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Incutex+Cordoba",
+    additionalCities: ["Buenos Aires"],
+  },
 };
 
-function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: string): string {
+function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: string, explicitSiteName?: string): string {
   // 1. Check known institutions dictionary first
   if (sourceUrl) {
     try {
@@ -641,6 +670,15 @@ function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: stri
         }
       }
     } catch {}
+  }
+
+  // 2. High-confidence explicit site name (og:site_name or Schema.org Organization)
+  if (explicitSiteName && typeof explicitSiteName === "string") {
+    const cleanSite = explicitSiteName.replace(/<[^>]+>/g, "").trim();
+    const GENERIC_NAMES = /^(?:Home|Inicio|Portada|Bienvenidos?|Principal|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Login|Acceso|Portal|Contacto|Novedades|Art[ií]culo)\b/i;
+    if (cleanSite.length >= 2 && cleanSite.length < 55 && !GENERIC_NAMES.test(cleanSite)) {
+      return cleanSite;
+    }
   }
 
   let text = decodeHtmlEntities(rawName || rawTitle || "");
@@ -654,24 +692,64 @@ function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: stri
     .trim();
 
   text = text
-    .replace(/^https?:\/\/(?:www\.)?/i, "")
+    .replace(/^https?:\/\//i, "")
     .replace(/^(?:www\.)/i, "")
     .trim();
 
+  // Extract domain brand token to prioritize company name in multi-segment titles (e.g., "Córdoba GovTech | Incutex" with domain incutex.com)
+  let domainBrand = "";
+  if (sourceUrl) {
+    try {
+      const host = new URL(sourceUrl).hostname.replace(/^www\./, "").toLowerCase();
+      domainBrand = host.split(".")[0];
+    } catch {}
+  }
+
   const segments = text.split(/\s*[-–—|/]\s*/).map((s) => s.trim()).filter(Boolean);
   if (segments.length > 1) {
-    const institutionKeywordRegex = /\b(?:Universidad|Facultad|Instituto|Colegio|Hospital|Cl[ií]nica|Sanatorio|Centro|Club|Asociaci[oó]n|Fundaci[oó]n|Federaci[oó]n|Gobierno|Ministerio|Secretar[ií]a|Municipalidad|Organismo|C[aá]mara|Empresa|Sociedad|OSEP|PAMI|IOMA|OSDE|Swiss Medical|Galeno|Toyota|Ford|Renault|Chevrolet|Volkswagen|Banco|Santander|Galicia|BBVA|Macro|Despegar|Booking|Aerol[ií]neas|Kennedy|Siglo 21)\b/i;
-    
-    const matchingSegment = segments.find((seg) => institutionKeywordRegex.test(seg));
-    if (matchingSegment && matchingSegment.length < 60) {
-      text = matchingSegment;
-    } else {
-      const nonGeneric = segments.find((seg) => !/^(?:Home|Inicio|Portada|Bienvenidos?|Principal|Carreras|Servicios|Cursos|Atenci[oó]n|Educaci[oó]n\s+que)/i.test(seg));
-      if (nonGeneric) {
-        text = nonGeneric;
-      } else {
-        text = segments[0];
+    let resolvedSegment = "";
+
+    // A) If a segment matches or contains the domain brand (and isn't generic), that is the company brand
+    if (domainBrand && domainBrand.length >= 3) {
+      const domainMatch = segments.find(
+        (seg) => seg.toLowerCase().replace(/[^a-z0-9]/g, "").includes(domainBrand) && seg.length < 40
+      );
+      if (domainMatch) {
+        resolvedSegment = domainMatch;
       }
+    }
+
+    // B) Check known high-authority institution keywords
+    if (!resolvedSegment) {
+      const institutionKeywordRegex = /\b(?:Universidad|Facultad|Instituto|Colegio|Hospital|Cl[ií]nica|Sanatorio|Centro M[eé]dico|Club|Asociaci[oó]n|Fundaci[oó]n|Federaci[oó]n|Gobierno|Ministerio|Secretar[ií]a|Municipalidad|Organismo|C[aá]mara|Empresa|Sociedad|OSEP|PAMI|IOMA|OSDE|Swiss Medical|Galeno|Toyota|Ford|Renault|Chevrolet|Volkswagen|Banco|Santander|Galicia|BBVA|Macro|Despegar|Booking|Aerol[ií]neas|Kennedy|Siglo 21|Incutex)\b/i;
+      const matchingSegment = segments.find((seg) => institutionKeywordRegex.test(seg));
+      if (matchingSegment && matchingSegment.length < 60) {
+        resolvedSegment = matchingSegment;
+      }
+    }
+
+    // C) Reject article/headline/program phrases and choose the brand segment
+    if (!resolvedSegment) {
+      const articlePhraseRegex = /^(?:Home|Inicio|Portada|Bienvenidos?|Principal|Carreras|Servicios|Cursos|Atenci[oó]n|Educaci[oó]n\s+que|Trabaj[aá]\s+y|Conoc[eé]|C[oó]mo\s+llegar|Noticias|Novedades|Informaci[oó]n|Novedad|Evento|Programa|Nota|Blog|GovTech|Bootcamp|Incubaci[oó]n|Aceleraci[oó]n)\b/i;
+      const brandSegment = segments.find((seg) => !articlePhraseRegex.test(seg) && seg.length < 45);
+      if (brandSegment) {
+        resolvedSegment = brandSegment;
+      } else {
+        resolvedSegment = segments[segments.length - 1] || segments[0];
+      }
+    }
+
+    if (resolvedSegment) {
+      text = resolvedSegment;
+    }
+  }
+
+  // D) If single segment looks like a program, initiative, or generic event title, but the domain provides a recognizable company brand:
+  const PROGRAM_OR_CAMPAIGN = /\b(?:govtech|programa|iniciativa|convocatoria|bootcamp|incubaci[oó]n|aceleraci[oó]n|becas|curso|carrera|diplomatura|taller|webinar|edici[oó]n|inscripciones|trabaj[aá]\s+y\s+estudi[aá]|novedad|noticia)\b/i;
+  if (PROGRAM_OR_CAMPAIGN.test(text) && domainBrand && domainBrand.length >= 3) {
+    if (!/^(?:gob|gov|edu|org|com|net|ar|cl|uy|br)$/i.test(domainBrand)) {
+      const prettyBrand = domainBrand.charAt(0).toUpperCase() + domainBrand.slice(1);
+      return prettyBrand;
     }
   }
 
@@ -903,115 +981,92 @@ async function enrichWithLiveGoogleMapsAndSearch(extracted: any): Promise<void> 
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
   ];
 
-  const searchQueries = [
-    `"${cleanName}" ${city} "Google Maps"`,
-    `"${cleanName}" ${city} opiniones reseñas estrellas rating`,
-    `"${cleanName}" ${city} matricula OR fundacion OR trayectoria OR "inicio de actividades" OR "desde"`,
-    domainHost ? `"${domainHost}" ${city} "Google Maps" OR opiniones OR reseñas` : `"${cleanName}" ${city} "maps.google.com"`,
-  ];
+  const q = `"${cleanName}" ${city} "Google Maps" OR opiniones`;
+  try {
+    const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`;
+    const res = await fetchWithTimeout(
+      searchUrl,
+      {
+        headers: {
+          "User-Agent": userAgents[0],
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+        },
+      },
+      2200
+    );
 
-  const searchEndpoints = [
-    (q: string) => `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`,
-    (q: string) => `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`,
-  ];
+    if (res.ok) {
+      const html = await res.text();
 
-  for (const q of searchQueries) {
-    if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedFoundingYear && extracted.detectedCommentsUrl) {
-      break;
-    }
-
-    for (const buildUrl of searchEndpoints) {
-      if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedFoundingYear && extracted.detectedCommentsUrl) {
-        break;
+      // 1. Google Maps URL detection (place URL or direct query)
+      if (!extracted.detectedCommentsUrl) {
+        const gmapsMatch = html.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/place\/[^\s"'<>]+|maps\.app\.goo\.gl\/[^\s"'<>]+|goo\.gl\/maps\/[^\s"'<>]+)/i);
+        if (gmapsMatch && gmapsMatch[0]) {
+          extracted.detectedCommentsUrl = decodeURIComponent(gmapsMatch[0].replace(/&amp;/g, "&"));
+          if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+        }
       }
 
-      try {
-        const searchUrl = buildUrl(q);
-        const res = await fetchWithTimeout(
-          searchUrl,
-          {
-            headers: {
-              "User-Agent": userAgents[Math.floor(Math.random() * userAgents.length)],
-              Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-              "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-            },
-          },
-          3500
-        );
-
-        if (res.ok) {
-          const html = await res.text();
-
-          // 1. Google Maps URL detection (place URL or direct query)
-          if (!extracted.detectedCommentsUrl) {
-            const gmapsMatch = html.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/place\/[^\s"'<>]+|maps\.app\.goo\.gl\/[^\s"'<>]+|goo\.gl\/maps\/[^\s"'<>]+)/i);
-            if (gmapsMatch && gmapsMatch[0]) {
-              extracted.detectedCommentsUrl = decodeURIComponent(gmapsMatch[0].replace(/&amp;/g, "&"));
-              if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
-            }
+      // 2. Rating extraction: "5.0 ★", "5,0 (12)", "Calificación: 5.0", "Rating: 4.8", "5.0 de 5 estrellas", "4,9 / 5"
+      if (!extracted.detectedRating) {
+        const ratingMatch =
+          html.match(/(?:calificaci[oó]n|valoraci[oó]n|puntuaci[oó]n|rating|nota|evaluaci[oó]n)\s*:?\s*([1-5][.,]\d)\s*(?:\/|de)?\s*5?\s*(?:estrellas?|⭐|★|&#9733;)?/i) ||
+          html.match(/([1-5][.,]\d)\s*(?:estrellas?|⭐|★|&#9733;)/i) ||
+          html.match(/(?:calificaci[oó]n|rating|puntuaci[oó]n):\s*([1-5][.,]\d)/i) ||
+          html.match(/([1-5][.,]\d)\s*(?:de\s*5|\/\s*5|\/5\.0)/i) ||
+          html.match(/([1-5][.,]\d)\s*\(\s*\d+\s*(?:reseñas|opiniones|reviews|votos|calificaciones)/i) ||
+          html.match(/(?:promedio\s+de\s+|con\s+)([1-5][.,]\d)\s*(?:puntos|estrellas)/i);
+        if (ratingMatch && ratingMatch[1]) {
+          const num = parseFloat(ratingMatch[1].replace(",", "."));
+          if (!isNaN(num) && num >= 1 && num <= 5) {
+            extracted.detectedRating = num.toFixed(1);
           }
+        }
+      }
 
-          // 2. Rating extraction: "5.0 ★", "5,0 (12)", "Calificación: 5.0", "Rating: 4.8", "5.0 de 5 estrellas", "4,9 / 5"
-          if (!extracted.detectedRating) {
-            const ratingMatch =
-              html.match(/(?:calificaci[oó]n|valoraci[oó]n|puntuaci[oó]n|rating|nota|evaluaci[oó]n)\s*:?\s*([1-5][.,]\d)\s*(?:\/|de)?\s*5?\s*(?:estrellas?|⭐|★|&#9733;)?/i) ||
-              html.match(/([1-5][.,]\d)\s*(?:estrellas?|⭐|★|&#9733;)/i) ||
-              html.match(/(?:calificaci[oó]n|rating|puntuaci[oó]n):\s*([1-5][.,]\d)/i) ||
-              html.match(/([1-5][.,]\d)\s*(?:de\s*5|\/\s*5|\/5\.0)/i) ||
-              html.match(/([1-5][.,]\d)\s*\(\s*\d+\s*(?:reseñas|opiniones|reviews|votos|calificaciones)/i) ||
-              html.match(/(?:promedio\s+de\s+|con\s+)([1-5][.,]\d)\s*(?:puntos|estrellas)/i);
-            if (ratingMatch && ratingMatch[1]) {
-              const num = parseFloat(ratingMatch[1].replace(",", "."));
-              if (!isNaN(num) && num >= 1 && num <= 5) {
-                extracted.detectedRating = num.toFixed(1);
-              }
-            }
+      // 3. Review count extraction: "12 reseñas", "(45 opiniones)", "15 reviews", "8 votos", "1.5k opiniones", "1,200 reseñas"
+      if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
+        const countMatch =
+          html.match(/(?:[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews|calificaciones)\b/i) ||
+          html.match(/(?:basad[oa]\s+en\s+)([0-9.,]+)\s*(?:k|mil)?\s*(?:opiniones|reseñas|reviews|votos)/i) ||
+          html.match(/(?:m[aá]s\s+de\s+)([0-9.,]+)\s*(?:opiniones|reseñas|clientes\s+satisfechos)/i);
+        if (countMatch && countMatch[1]) {
+          let countRaw = countMatch[1].replace(/,/g, ".");
+          let isThousand = /k|mil/i.test(countMatch[0]);
+          let numCount = parseFloat(countRaw);
+          if (isThousand) numCount = numCount * 1000;
+          const parsedCount = Math.round(numCount);
+          if (!isNaN(parsedCount) && parsedCount > 0) {
+            extracted.detectedReviewCount = String(parsedCount);
           }
+        }
+      }
 
-          // 3. Review count extraction: "12 reseñas", "(45 opiniones)", "15 reviews", "8 votos", "1.5k opiniones", "1,200 reseñas"
-          if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
-            const countMatch =
-              html.match(/(?:[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews|calificaciones)\b/i) ||
-              html.match(/(?:basad[oa]\s+en\s+)([0-9.,]+)\s*(?:k|mil)?\s*(?:opiniones|reseñas|reviews|votos)/i) ||
-              html.match(/(?:m[aá]s\s+de\s+)([0-9.,]+)\s*(?:opiniones|reseñas|clientes\s+satisfechos)/i);
-            if (countMatch && countMatch[1]) {
-              let countRaw = countMatch[1].replace(/,/g, ".");
-              let isThousand = /k|mil/i.test(countMatch[0]);
-              let numCount = parseFloat(countRaw);
-              if (isThousand) numCount = numCount * 1000;
-              const parsedCount = Math.round(numCount);
-              if (!isNaN(parsedCount) && parsedCount > 0) {
-                extracted.detectedReviewCount = String(parsedCount);
-              }
-            }
+      // 4. Start year / founding year extraction
+      if (!extracted.detectedFoundingYear) {
+        const currentYear = new Date().getFullYear();
+        const startYearMatch =
+          html.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|creaci[oó]n|inici[oó]\s+actividades|inicio\s+de\s+actividades|egresad[oa]|graduad[oa]|matriculad[oa]|colegiad[oa]|abogad[oa]\s+desde|m[eé]dic[oa]\s+desde|ejerce\s+desde|desde el a[nñ]o|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i) ||
+          html.match(/(?:matr[ií]cula\s+profesional|colegiatura|registro\s+profesional)[\s\S]{0,30}\b([12]\d{3})\b/i) ||
+          html.match(/\b([12]\d{3})\s*[-–—]\s*(?:presente|actualidad|hoy)\b/i);
+        if (startYearMatch && startYearMatch[1]) {
+          const numYr = parseInt(startYearMatch[1], 10);
+          if (!isNaN(numYr) && numYr >= 1800 && numYr <= currentYear) {
+            extracted.detectedFoundingYear = String(numYr);
           }
-
-          // 4. Start year / founding year extraction (expanded for professionals, companies, clinics, institutions)
-          if (!extracted.detectedFoundingYear) {
-            const currentYear = new Date().getFullYear();
-            const startYearMatch =
-              html.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|creaci[oó]n|inici[oó]\s+actividades|inicio\s+de\s+actividades|egresad[oa]|graduad[oa]|matriculad[oa]|colegiad[oa]|abogad[oa]\s+desde|m[eé]dic[oa]\s+desde|ejerce\s+desde|desde el a[nñ]o|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i) ||
-              html.match(/(?:matr[ií]cula\s+profesional|colegiatura|registro\s+profesional)[\s\S]{0,30}\b([12]\d{3})\b/i) ||
-              html.match(/\b([12]\d{3})\s*[-–—]\s*(?:presente|actualidad|hoy)\b/i);
-            if (startYearMatch && startYearMatch[1]) {
-              const numYr = parseInt(startYearMatch[1], 10);
-              if (!isNaN(numYr) && numYr >= 1800 && numYr <= currentYear) {
-                extracted.detectedFoundingYear = String(numYr);
-              }
-            } else {
-              const expMatch = html.match(/(?:hace|con m[aá]s de|m[aá]s de|\+)\s*(\d{1,2})\s*a[nñ]os\s*(?:de\s+)?(?:trayectoria|experiencia|ejercicio|actividad|presencia|atenci[oó]n)/i);
-              if (expMatch && expMatch[1]) {
-                const years = parseInt(expMatch[1], 10);
-                if (!isNaN(years) && years >= 1 && years <= 90) {
-                  extracted.detectedFoundingYear = String(currentYear - years);
-                }
-              }
+        } else {
+          const expMatch = html.match(/(?:hace|con m[aá]s de|m[aá]s de|\+)\s*(\d{1,2})\s*a[nñ]os\s*(?:de\s+)?(?:trayectoria|experiencia|ejercicio|actividad|presencia|atenci[oó]n)/i);
+          if (expMatch && expMatch[1]) {
+            const years = parseInt(expMatch[1], 10);
+            if (!isNaN(years) && years >= 1 && years <= 90) {
+              extracted.detectedFoundingYear = String(currentYear - years);
             }
           }
         }
-      } catch {}
+      }
     }
-  }
+  } catch {}
 
   // Fallback to official Google Maps query link if no direct Place link was discovered
   if (!extracted.detectedCommentsUrl) {
@@ -1618,6 +1673,49 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
   const titleMatch = cleanHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
   const rawPageTitle = getMetaTag("og:title") || (titleMatch ? titleMatch[1].trim() : "");
   const pageTitle = cleanTitleString(rawPageTitle);
+  const rawSiteName = getMetaTag("og:site_name") || getMetaTag("application-name") || getMetaTag("author");
+
+  let jsonLdOrgName = "";
+  try {
+    const jsonLdMatches = html.match(/<script[^>]*?type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    if (jsonLdMatches) {
+      for (const block of jsonLdMatches) {
+        const raw = block.replace(/<\/?script[^>]*>/gi, "").trim();
+        const parsed = JSON.parse(raw);
+        const findOrg = (obj: any): string | null => {
+          if (!obj || typeof obj !== "object") return null;
+          if (obj["@type"] && /Organization|Corporation|EducationalOrganization|MedicalOrganization|LocalBusiness|School|University/i.test(String(obj["@type"])) && obj.name) {
+            return String(obj.name);
+          }
+          if (Array.isArray(obj)) {
+            for (const item of obj) {
+              const res = findOrg(item);
+              if (res) return res;
+            }
+          } else {
+            for (const k of Object.keys(obj)) {
+              const res = findOrg(obj[k]);
+              if (res) return res;
+            }
+          }
+          return null;
+        };
+        const found = findOrg(parsed);
+        if (found) { jsonLdOrgName = found; break; }
+      }
+    }
+  } catch {}
+
+  let copyrightEntity = "";
+  try {
+    const copyMatch = html.match(/(?:copyright|©|\(c\))\s*(?:\d{4})?\s*[-–—|]?\s*([A-Za-z0-9\s.,&'-]{3,40})(?:\.|\n|<|$|todos los derechos|all rights)/i);
+    if (copyMatch && copyMatch[1]) {
+      const cand = cleanTitleString(copyMatch[1].trim());
+      if (cand.length >= 3 && cand.length < 40 && !/^(?:todos|all rights|reservados|derechos|web|sitio|pagina)\b/i.test(cand)) {
+        copyrightEntity = cand;
+      }
+    }
+  } catch {}
 
   // Content extraction: strip navbars, header bars, footers, aside, modals, dialogs, cookie notices
   let contentHtml = cleanHtml
@@ -1791,6 +1889,7 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
     detectedReviewCount: ratingInfo.reviewCount,
     detectedCommentsUrl: ratingInfo.commentsUrl,
     detectedLogo: logo,
+    detectedSiteName: cleanTitleString(jsonLdOrgName || rawSiteName || copyrightEntity || ""),
     images,
     socialLinksExtracted,
   };
@@ -1880,6 +1979,7 @@ async function fetchPageContent(url: string) {
           detectedFoundingYear: null,
           detectedMapsUrl: "",
           detectedLogo: logo,
+          detectedSiteName: title || hostname,
           images: Array.from(new Set(jinaImages)).slice(0, 8),
           socialLinksExtracted: [{ kind: "web", label: "Página Oficial", url: formattedUrl }],
         };
@@ -1904,6 +2004,7 @@ async function fetchPageContent(url: string) {
     detectedFoundingYear: null,
     detectedMapsUrl: "",
     detectedLogo: fallbackLogo,
+    detectedSiteName: host,
     images: [],
     socialLinksExtracted: [{ kind: "web", label: "Página Oficial", url: formattedUrl }],
   };
@@ -3504,12 +3605,12 @@ async function createFallbackPublication(
     description: descriptions.es,
     descriptionI18n: descriptions,
     extraDescriptions: fallbackExtraDescriptions,
-    publisherName: cleanPublisherName(extractedData.title, extractedData.url, titleClean),
+    publisherName: cleanPublisherName(extractedData.title, extractedData.url, titleClean, extractedData.detectedSiteName),
     providerInfoI18n: {
-      es: `Institución y prestador de servicios en ${primaryHq.city}.`,
-      en: `Institution and service provider in ${primaryHq.city}.`,
-      pt: `Instituição e provedor de serviços em ${primaryHq.city}.`,
-      it: `Istituzione e fornitore di servicios a ${primaryHq.city}.`,
+      es: `${cleanPublisherName(extractedData.title, extractedData.url, titleClean, extractedData.detectedSiteName)} es un establecimiento y prestador de servicios en ${primaryHq.city}, ${primaryHq.country}.`,
+      en: `${cleanPublisherName(extractedData.title, extractedData.url, titleClean, extractedData.detectedSiteName)} is an institution and service provider in ${primaryHq.city}, ${primaryHq.country}.`,
+      pt: `${cleanPublisherName(extractedData.title, extractedData.url, titleClean, extractedData.detectedSiteName)} é um estabelecimento e provedor de serviços em ${primaryHq.city}, ${primaryHq.country}.`,
+      it: `${cleanPublisherName(extractedData.title, extractedData.url, titleClean, extractedData.detectedSiteName)} è un'istituzione e fornitore di servizi a ${primaryHq.city}, ${primaryHq.country}.`,
     },
     providerStartYear: startYear,
     providerRating: finalRating,
@@ -4333,18 +4434,23 @@ async function formatPublicationResult(
       }
     : { es: title, en: title, pt: title, it: title };
 
+  const defaultProvInfoEs = `${publisherName || title} es un establecimiento y prestador de servicios en ${primaryHq.city}, ${primaryHq.country}.`;
+  const defaultProvInfoEn = `${publisherName || title} is an institution and service provider in ${primaryHq.city}, ${primaryHq.country}.`;
+  const defaultProvInfoPt = `${publisherName || title} é um estabelecimento e provedor de serviços em ${primaryHq.city}, ${primaryHq.country}.`;
+  const defaultProvInfoIt = `${publisherName || title} è un'istituzione e fornitore di servizi a ${primaryHq.city}, ${primaryHq.country}.`;
+
   const providerInfoI18n = parsed.providerInfoI18n
     ? {
-        es: String(parsed.providerInfoI18n.es || `Institución y prestador de servicios en ${primaryHq.city}.`),
-        en: String(parsed.providerInfoI18n.en || `Institution and service provider in ${primaryHq.city}.`),
-        pt: String(parsed.providerInfoI18n.pt || `Instituição e provedor de serviços em ${primaryHq.city}.`),
-        it: String(parsed.providerInfoI18n.it || `Istituzione e fornitore di servicios a ${primaryHq.city}.`),
+        es: String(parsed.providerInfoI18n.es || defaultProvInfoEs),
+        en: String(parsed.providerInfoI18n.en || defaultProvInfoEn),
+        pt: String(parsed.providerInfoI18n.pt || defaultProvInfoPt),
+        it: String(parsed.providerInfoI18n.it || defaultProvInfoIt),
       }
     : {
-        es: `Institución y prestador de servicios en ${primaryHq.city}.`,
-        en: `Institution and service provider in ${primaryHq.city}.`,
-        pt: `Instituição e provedor de servicios em ${primaryHq.city}.`,
-        it: `Istituzione e fornitore di servicios a ${primaryHq.city}.`,
+        es: defaultProvInfoEs,
+        en: defaultProvInfoEn,
+        pt: defaultProvInfoPt,
+        it: defaultProvInfoIt,
       };
 
   // Comments URL: if Google Maps link is provided, use it. Otherwise build Google Maps search query URL
@@ -4525,7 +4631,7 @@ async function processUrlWithAI(
   const extracted = await fetchPageContent(url);
   await enrichWithLiveGoogleMapsAndSearch(extracted);
 
-  const cleanPublisher = cleanPublisherName(extracted.title, extracted.url, extracted.title);
+  let cleanPublisher = cleanPublisherName(extracted.title, extracted.url, extracted.title, extracted.detectedSiteName);
   const locInfo = detectAllLocationsAndHeadquarters(extracted.textContent, extracted.url, extracted.title);
 
   // Extract clean structured lists and paragraphs
@@ -4556,15 +4662,29 @@ async function processUrlWithAI(
 
   const providersUsed = new Set<string>();
 
-  // 2 & 3. Run Title and Description Agents in parallel for 2x faster scraping
-  const [titleAgentRes, descAgentRes] = await Promise.all([
+  // 2, 3 & 4. Run Title, Description, and Provider Info Agents in parallel for 3x faster scraping
+  const [titleAgentRes, descAgentRes, providerInfoRes] = await Promise.all([
     runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt),
     runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt),
+    runProviderInfoAgent(cleanContext),
   ]);
   if (titleAgentRes.providerUsed !== "none") providersUsed.add(titleAgentRes.providerUsed);
   if (descAgentRes.providerUsed !== "none") providersUsed.add(descAgentRes.providerUsed);
+  if (providerInfoRes.providerUsed !== "none") providersUsed.add(providerInfoRes.providerUsed);
 
-  // 4. Run Custom Block Agents independently
+  // Carefully refine publisher name if provider info agent detected the true company/organization
+  if (
+    providerInfoRes.data?.detectedPublisherName &&
+    providerInfoRes.data.detectedPublisherName.length >= 2 &&
+    !/^(?:oferente|establecimiento|instituci[oó]n|empresa)$/i.test(providerInfoRes.data.detectedPublisherName)
+  ) {
+    const isProgramOrHeadline = /govtech|programa|iniciativa|evento|noticia|art[ií]culo|trabaj[aá]|aprend[eé]|carrera|curso|taller|edici[oó]n|becas/i.test(cleanPublisher);
+    if (isProgramOrHeadline || cleanPublisher.length > 35) {
+      cleanPublisher = providerInfoRes.data.detectedPublisherName;
+    }
+  }
+
+  // 4. Run Custom Block Agents in parallel
   const extraDescriptions: ExtraDescriptionBlock[] = [];
 
   // Score Scout Block (if enabled)
@@ -4581,13 +4701,13 @@ async function processUrlWithAI(
     extraDescriptions.push(scoreBlock);
   }
 
-  // Custom Blocks requested by admin
+  // Custom Blocks requested by admin (executed in parallel)
   if (Array.isArray(customBlocks) && customBlocks.length > 0) {
-    for (const cb of customBlocks) {
-      if (!cb.title || !cb.title.trim()) continue;
-      const blockRes = await runCustomBlockAgent(cleanContext, cb.title, cb.prompt);
-      extraDescriptions.push(blockRes);
-    }
+    const validCustomBlocks = customBlocks.filter((cb) => cb && cb.title && cb.title.trim());
+    const customBlockResults = await Promise.all(
+      validCustomBlocks.map((cb) => runCustomBlockAgent(cleanContext, cb.title, cb.prompt))
+    );
+    extraDescriptions.push(...customBlockResults);
   }
 
   // 5. Taxonomy & Location mapping
@@ -4615,6 +4735,22 @@ async function processUrlWithAI(
 
   const classified = classifySectorAndTaxonomy(url, titleVal, extracted.textContent, taxonomies);
 
+  const aiProviderInfo = providerInfoRes.data?.providerInfoI18n;
+  const pInfoEs = aiProviderInfo?.es || providerInfoRes.data?.providerInfo || "";
+  const providerInfoI18nVal = pInfoEs
+    ? {
+        es: pInfoEs,
+        en: aiProviderInfo?.en || pInfoEs,
+        pt: aiProviderInfo?.pt || pInfoEs,
+        it: aiProviderInfo?.it || pInfoEs,
+      }
+    : {
+        es: `${cleanPublisher} es un establecimiento y prestador de servicios en ${primaryHq.city}, ${primaryHq.country}.`,
+        en: `${cleanPublisher} is an institution and service provider in ${primaryHq.city}, ${primaryHq.country}.`,
+        pt: `${cleanPublisher} é um estabelecimento e provedor de serviços em ${primaryHq.city}, ${primaryHq.country}.`,
+        it: `${cleanPublisher} è un'istituzione e fornitore di servizi a ${primaryHq.city}, ${primaryHq.country}.`,
+      };
+
   const publication: ScrapedPublication = {
     url,
     title: titleVal,
@@ -4623,12 +4759,7 @@ async function processUrlWithAI(
     descriptionI18n: descI18nVal,
     extraDescriptions,
     publisherName: cleanPublisher,
-    providerInfoI18n: {
-      es: `Institución y prestador de servicios en ${primaryHq.city}.`,
-      en: `Institution and service provider in ${primaryHq.city}.`,
-      pt: `Instituição e provedor de servicios em ${primaryHq.city}.`,
-      it: `Istituzione e fornitore di servicios a ${primaryHq.city}.`,
-    },
+    providerInfoI18n: providerInfoI18nVal,
     providerStartYear: cleanContext.foundingYear || "",
     providerRating: cleanContext.rating || "5.0",
     providerReviewCount: cleanContext.reviewCount || "0",
@@ -4758,7 +4889,7 @@ export async function POST(req: Request) {
     // reenviamos la solicitud de scraping directamente al backend para que la procese con sus variables de entorno
     if (!geminiKey && !openaiKey) {
       const backendUrl = getBackendApiUrl();
-      console.log(`[AI Scraper Frontend] Sin claves locales. Reenviando al backend: ${backendUrl}/api/admin/ai-scrape-publications`);
+      console.log(`[AI Scraper Frontend] Sin claves locales. Intentando consultar backend: ${backendUrl}/api/admin/ai-scrape-publications`);
       try {
         const backendRes = await fetch(`${backendUrl}/api/admin/ai-scrape-publications`, {
           method: "POST",
@@ -4768,11 +4899,17 @@ export async function POST(req: Request) {
             ...(req.headers.get("authorization") ? { authorization: req.headers.get("authorization")! } : {}),
           },
           body: JSON.stringify(body),
+          signal: AbortSignal.timeout(6000),
         });
-        const backendData = await backendRes.json();
-        return NextResponse.json(backendData, { status: backendRes.status });
+        if (backendRes.ok) {
+          const rawText = await backendRes.text();
+          try {
+            const backendData = JSON.parse(rawText);
+            return NextResponse.json(backendData, { status: 200 });
+          } catch {}
+        }
       } catch (fwdErr: any) {
-        console.error("[AI Scraper Frontend] Error al reenviar al backend:", fwdErr);
+        console.warn("[AI Scraper Frontend] Backend forwarding no disponible:", fwdErr?.message);
       }
     }
 
