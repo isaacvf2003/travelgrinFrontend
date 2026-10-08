@@ -247,7 +247,7 @@ async function executeModelCall(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         },
-        9000
+        4500
       );
 
       if (res.ok) {
@@ -255,8 +255,8 @@ async function executeModelCall(
         const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
         if (raw) return raw;
       } else if (res.status === 429) {
-        // Breve espera de 600ms y reintento por rate-limit
-        await new Promise((r) => setTimeout(r, 600));
+        // Breve espera de 300ms y reintento por rate-limit
+        await new Promise((r) => setTimeout(r, 300));
         const retryRes = await fetchWithTimeout(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
           {
@@ -264,7 +264,7 @@ async function executeModelCall(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           },
-          9000
+          4500
         );
         if (retryRes.ok) {
           const json = await retryRes.json();
@@ -286,13 +286,11 @@ async function executeModelCall(
       }
     }
 
-    // 2. Probar candidatos conocidos oficiales
+    // 2. Probar candidatos conocidos oficiales (ultra rápidos)
     const candidateModels = [
       "gemini-1.5-flash",
       "gemini-2.0-flash",
       "gemini-1.5-flash-8b",
-      "gemini-1.5-pro",
-      "gemini-1.5-flash-latest",
     ];
 
     let lastErr: any = null;
@@ -871,10 +869,16 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
 // ============================================================================
 // 4. MINI-AGENTE DE INFORMACIÓN DEL PROVEEDOR (ProviderInfoAgent)
 // ============================================================================
+export interface ProviderInfoResult {
+  providerInfo: string;
+  providerInfoI18n: I18nRecord;
+  detectedPublisherName?: string;
+}
+
 export async function runProviderInfoAgent(
   context: CleanScrapedContext,
   adminPrompt?: string
-): Promise<AgentResult<{ providerInfo: string; providerInfoI18n: I18nRecord }>> {
+): Promise<AgentResult<ProviderInfoResult>> {
   const prompt = (adminPrompt || "").trim();
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
@@ -883,29 +887,34 @@ export async function runProviderInfoAgent(
     ? `\n\nVARIACIÓN ALTERNATIVA #${context.variationIndex}:\nGenerar una propuesta diferente y alternativa (otra redacción concisa), manteniendo rigurosamente la directiva editorial del administrador.`
     : "";
 
-  const systemPrompt = `Eres un redactor profesional para Travelgrin.
-Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
+  const systemPrompt = `Eres un redactor e investigador institucional experto para Travelgrin.
+Tu objetivo primordial es identificar con rigurosa precisión al oferente / institución / empresa real y redactar un perfil informativo verídico y conciso basado en la web provista.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
-  "contenido": "Breve descripción del oferente o institución aquí",
+  "nombreOferente": "Nombre oficial y verdadero de la empresa, institución u organización oferente (sé muy cuidadoso para distinguir el nombre de la empresa de títulos de programas, iniciativas, convocatorias o artículos)",
+  "contenido": "Breve descripción del oferente o institución aquí (1 o 2 oraciones profesionales basadas en datos reales de la web)",
   "evidencias": ["frase o dato de la web"]
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL: Cumple estrictamente la directiva del administrador (estilo, tono, longitud y datos requeridos).
-2. Concisión: Redacta 1 o 2 oraciones concisas y profesionales en tercera persona.
-3. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+1. IDENTIFICACIÓN PRECISA DEL OFERENTE: Determina con total precisión el nombre oficial y verdadero de la entidad, empresa u organización responsable. Si el título de la página es un programa, evento, convocatoria o curso (por ejemplo: "Córdoba GovTech", "Programa Talento", "Becas 2024", etc.), identifica cuál es la institución o empresa responsable (por ejemplo: Incutex, Municipalidad de Córdoba, Universidad Siglo 21, etc.) y coloca ese nombre en "nombreOferente".
+2. CERO PLANTILLAS GENÉRICAS: Prohibido terminantemente usar frases clichés vacías como "Institución y prestador de servicios en Córdoba". Describe la actividad concreta, trayectoria o propósito real del oferente.
+3. Concisión: Redacta 1 o 2 oraciones concisas y profesionales en tercera persona.
+4. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
-  const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
-"${prompt || `Describir brevemente en 1 o 2 oraciones a ${entityName} y su alcance institucional.`}"${variationDirective}
-
-=== DATOS REALES DE REFERENCIA DEL SITIO WEB ===
-- Nombre oficial: "${entityName}"
+  const userPrompt = `=== DATOS REALES DE REFERENCIA DEL SITIO WEB ===
+- URL: "${context.url}"
+- Nombre preliminar detectado: "${entityName}"
+- Título original de la página: "${context.rawPageTitle || entityName}"
 - Ubicación: "${locationText || "No informada"}"
-- Resumen o servicios: "${(context.metaDescription || context.paragraphs?.[0] || "").slice(0, 400)}"
+- Resumen y párrafos de la web:
+"${(context.metaDescription || context.paragraphs?.slice(0, 4).join(" ") || context.mainText?.slice(0, 1000) || "").slice(0, 1200)}"
 
-GENERA ÚNICAMENTE LA INFORMACIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
+=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (SI APLICA) ===
+"${prompt || `Describir con precisión factual y profesional a ${entityName} y su alcance real.`}"${variationDirective}
+
+GENERA EL OBJETO JSON IDENTIFICANDO EL NOMBRE OFICIAL DEL OFERENTE Y SU DESCRIPCIÓN FACTUAL.`;
 
   console.log(`\n[AI-AGENT-DEBUG: ProviderInfoAgent]`);
   console.log(`1. Admin Prompt: "${prompt || "(Sin prompt específico)"}"`);
@@ -926,6 +935,10 @@ GENERA ÚNICAMENTE LA INFORMACIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
       parsed?.texto ||
       ""
     ).trim();
+
+    const detectedPubName = cleanTitleString(
+      String(parsed?.nombreOferente || parsed?.nombre || parsed?.oferente || "").trim()
+    );
 
     if (!pInfo) {
       const cleanedRaw = rawText
@@ -961,6 +974,7 @@ GENERA ÚNICAMENTE LA INFORMACIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
       data: {
         providerInfo: pInfo,
         providerInfoI18n: { es: pInfo, en: pEn || pInfo, pt: pPt || pInfo, it: pIt || pInfo },
+        detectedPublisherName: detectedPubName || undefined,
       },
       estado: "ok",
       evidencias: parsed?.evidencias || [entityName],
