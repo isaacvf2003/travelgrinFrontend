@@ -10,6 +10,7 @@ import CountryMultiSelect from "@/components/CountryMultiSelect";
 import RichTextEditor from "@/components/RichTextEditor";
 import AiScraperModal, { type ScrapedPublicationDraft } from "@/components/admin/AiScraperModal";
 import AiFieldRefineModal, { type RefineFieldType } from "@/components/AiFieldRefineModal";
+import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
 import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
@@ -1706,7 +1707,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             return list
               .filter((b) => b && b.title && b.title.trim())
               .map((b) => {
-                const cleanTitle = b.title.trim();
+                const cleanTitle = cleanGenericBlockTitle(b.title, b.prompt);
                 return {
                   title: cleanTitle,
                   body: "",
@@ -1723,6 +1724,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     } catch {}
     return [];
   };
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const raw = window.localStorage.getItem("tgn_custom_scraper_blocks");
+        if (raw) {
+          const list: Array<{ title: string; prompt?: string }> = JSON.parse(raw);
+          if (Array.isArray(list) && list.length > 0) {
+            let changed = false;
+            const sanitized = list.map((b) => {
+              const rawTitle = (b?.title || "").trim();
+              const clean = cleanGenericBlockTitle(rawTitle, b?.prompt);
+              if (clean !== rawTitle) changed = true;
+              return { ...b, title: clean || rawTitle };
+            }).filter((b) => Boolean(b && b.title));
+            if (changed) {
+              window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(sanitized));
+            }
+          }
+        }
+      }
+    } catch {}
+  }, []);
 
   const handleMoveExtraBlock = (index: number, direction: "up" | "down") => {
     setPExtraDescriptions((prev) => {
@@ -10162,7 +10186,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           const rawSaved = typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_scraper_blocks") : null;
                           if (rawSaved) {
                             const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawSaved);
-                            const found = list.find((b) => b.title?.toLowerCase() === currentTitleVal.toLowerCase());
+                            const found = list.find((b) =>
+                              (b.title && b.title.toLowerCase() === currentTitleVal.toLowerCase()) ||
+                              (b.prompt && desc.prompt && b.prompt === desc.prompt) ||
+                              (cleanGenericBlockTitle(b.title, b.prompt).toLowerCase() === cleanGenericBlockTitle(currentTitleVal).toLowerCase())
+                            );
                             if (found?.prompt) savedPrompt = found.prompt;
                           }
                         } catch {}
@@ -10190,27 +10218,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             )
                           )
                         }
-                        onBlur={(e) => {
-                          const newTitle = e.target.value.trim();
-                          if (!newTitle || typeof window === "undefined") return;
-                          try {
-                            const rawBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
-                            if (rawBlocks) {
-                              const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawBlocks);
-                              if (Array.isArray(list)) {
-                                const foundIdx = list.findIndex(
-                                  (b) =>
-                                    (desc.prompt && b.prompt === desc.prompt) ||
-                                    b.title.toLowerCase() === (desc.title || "").toLowerCase()
-                                );
-                                if (foundIdx >= 0 && list[foundIdx].title !== newTitle) {
-                                  list[foundIdx] = { ...list[foundIdx], title: newTitle };
-                                  window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(list));
-                                }
-                              }
-                            }
-                          } catch {}
-                        }}
                         className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
                         placeholder="Título del bloque"
                       />
