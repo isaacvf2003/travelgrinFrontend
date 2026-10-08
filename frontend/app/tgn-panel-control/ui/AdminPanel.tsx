@@ -10190,6 +10190,27 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             )
                           )
                         }
+                        onBlur={(e) => {
+                          const newTitle = e.target.value.trim();
+                          if (!newTitle || typeof window === "undefined") return;
+                          try {
+                            const rawBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
+                            if (rawBlocks) {
+                              const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawBlocks);
+                              if (Array.isArray(list)) {
+                                const foundIdx = list.findIndex(
+                                  (b) =>
+                                    (desc.prompt && b.prompt === desc.prompt) ||
+                                    b.title.toLowerCase() === (desc.title || "").toLowerCase()
+                                );
+                                if (foundIdx >= 0 && list[foundIdx].title !== newTitle) {
+                                  list[foundIdx] = { ...list[foundIdx], title: newTitle };
+                                  window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(list));
+                                }
+                              }
+                            }
+                          } catch {}
+                        }}
                         className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
                         placeholder="Título del bloque"
                       />
