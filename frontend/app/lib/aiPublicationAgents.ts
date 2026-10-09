@@ -1019,7 +1019,253 @@ GENERA EL OBJETO JSON IDENTIFICANDO EL NOMBRE OFICIAL DEL OFERENTE Y SU DESCRIPC
 }
 
 // ============================================================================
-// 5. HELPER PARA LIMPIEZA DE CONTENIDO SCRAPEADO
+// 5. TAXONOMY AGENT (ESTRICTO CATÁLOGO CERRADO - CERO ALUCINACIONES)
+// ============================================================================
+export interface TaxonomyAgentData {
+  category: string;
+  subcategory: string;
+  categorySelections: string[];
+  subcategorySelections: string[];
+  providerActivities: string[];
+  providerTypes: string[];
+  providerModalities: string[];
+  prestaciones?: string[];
+  languages: string[];
+}
+
+function matchToCatalogPool(items: string[], pool: string[]): string[] {
+  if (!pool || pool.length === 0) return items.filter(Boolean);
+  const poolWithNorm = pool.map((p) => ({
+    original: p,
+    norm: p.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
+  }));
+  const matched = new Set<string>();
+  for (const item of items) {
+    const itemNorm = String(item || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (!itemNorm) continue;
+    const exact = poolWithNorm.find((p) => p.norm === itemNorm);
+    if (exact) {
+      matched.add(exact.original);
+      continue;
+    }
+    const substring = poolWithNorm.find((p) => p.norm.includes(itemNorm) || itemNorm.includes(p.norm));
+    if (substring) {
+      matched.add(substring.original);
+      continue;
+    }
+    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length > 3);
+    const tokenMatch = poolWithNorm.find((p) => itemTokens.some((t) => p.norm.includes(t)));
+    if (tokenMatch) {
+      matched.add(tokenMatch.original);
+    }
+  }
+  return Array.from(matched);
+}
+
+export async function runTaxonomyAgent(
+  context: CleanScrapedContext,
+  taxonomies: {
+    categoryTree?: Array<{ blockName: string; parentCategories: Array<{ name: string; subcategories: string[] }> }>;
+    categories?: string[];
+    subcategories?: string[];
+    activities?: string[];
+    types?: string[];
+    modalities?: string[];
+    prestaciones?: string[];
+    languages?: string[];
+  }
+): Promise<AgentResult<TaxonomyAgentData>> {
+  const categoriesPool = taxonomies?.categories || [];
+  const subcategoriesPool = taxonomies?.subcategories || [];
+  const activitiesPool = taxonomies?.activities || [];
+  const typesPool = taxonomies?.types || [];
+  const modalitiesPool = taxonomies?.modalities || [];
+  const prestacionesPool = taxonomies?.prestaciones || [];
+  const languagesPool = (taxonomies?.languages && taxonomies.languages.length > 0)
+    ? taxonomies.languages
+    : ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"];
+
+  const categoryTreeFormat = (taxonomies?.categoryTree || []).length
+    ? taxonomies.categoryTree!
+        .map(
+          (block: any) =>
+            `=== BLOQUE: ${block.blockName} ===\n` +
+            block.parentCategories
+              .map(
+                (cat: any) =>
+                  `  - Categoría Padre: "${cat.name}"\n` +
+                  (cat.subcategories && cat.subcategories.length
+                    ? `    Subcategorías válidas: ${cat.subcategories.map((s: string) => `"${s}"`).join(", ")}`
+                    : `    Subcategorías: (ninguna)`)
+              )
+              .join("\n")
+        )
+        .join("\n\n")
+    : categoriesPool.map((c) => `- "${c}"`).join("\n");
+
+  const systemPrompt = `Eres el Lead AI Auditor y Clasificador de Taxonomías de Travelgrin.
+Tu objetivo es clasificar con máxima precisión el contenido de un sitio web dentro del CATÁLOGO OFICIAL Y CERRADO de categorías y taxonomías del sistema.
+
+REGLAS CRÍTICAS Y OBLIGATORIAS:
+1. CATÁLOGO ESTRICTAMENTE CERRADO (CERO ALUCINACIONES):
+   - Está TERMINANTEMENTE PROHIBIDO crear, inventar, traducir o proponer nombres de categorías, subcategorías, actividades, tipos de perfil o modalidades que NO figuren explícitamente en el catálogo suministrado.
+   - Debes elegir ÚNICAMENTE elementos existentes en las listas provistas a continuación.
+2. JERARQUÍA CATEGORÍA + SUBCATEGORÍA:
+   - 'category': Selecciona 1 categoría padre existente del catálogo.
+   - 'subcategory': Selecciona 1 subcategoría que sea hija válida de la categoría padre elegida.
+   - 'categorySelections': Array conteniendo la categoría padre elegida.
+   - 'subcategorySelections': Array conteniendo la subcategoría elegida.
+3. SECTOR / ACTIVIDAD ('providerActivities'):
+   - Selecciona 1 o 2 actividades de la lista 'ACTIVIDADES DISPONIBLES' que mejor representen el sector real del oferente.
+4. QUIÉN LO OFRECE ('providerTypes'):
+   - Selecciona de la lista 'TIPOS DE PERFIL DISPONIBLES' (por ejemplo "Organismo público" para hospitales públicos, universidades nacionales, ministerios o entes de gobierno, o "Institución privada", "Empresa", etc.).
+5. MODALIDADES DE ATENCIÓN ('providerModalities'):
+   - Selecciona de la lista 'MODALIDADES DISPONIBLES' (ej: "Atención presencial", "Atención online") según lo que ofrezca el sitio.
+6. PRESTACIONES ('prestaciones'):
+   - Si aplican opciones de la lista 'PRESTACIONES DISPONIBLES', selecciónalas; de lo contrario devuelve un array vacío [].
+7. IDIOMAS REALES DEL SERVICIO ('languages'):
+   - Analiza el texto del sitio web para detectar los idiomas reales que se hablan, ofrecen o en los que se atiende (ej. atención bilingüe, we speak english, atención en portugués, español).
+   - Elige ÚNICAMENTE de la lista 'IDIOMAS DISPONIBLES'. Si no hay mención expresa de otros idiomas, incluye al menos ["Español"].
+
+CATÁLOGO DE BLOQUES, CATEGORÍAS Y SUBCATEGORÍAS DISPONIBLES EN BD:
+${categoryTreeFormat}
+
+ACTIVIDADES DISPONIBLES EN BD:
+${activitiesPool.map((a) => `"${a}"`).join(", ")}
+
+TIPOS DE PERFIL DISPONIBLES EN BD:
+${typesPool.map((t) => `"${t}"`).join(", ")}
+
+MODALIDADES DISPONIBLES EN BD:
+${modalitiesPool.map((m) => `"${m}"`).join(", ")}
+
+PRESTACIONES DISPONIBLES EN BD:
+${prestacionesPool.map((p) => `"${p}"`).join(", ")}
+
+IDIOMAS DISPONIBLES EN BD:
+${languagesPool.map((l) => `"${l}"`).join(", ")}
+
+Responde ÚNICAMENTE con un JSON con esta estructura exacta:
+{
+  "category": "...",
+  "subcategory": "...",
+  "categorySelections": ["..."],
+  "subcategorySelections": ["..."],
+  "providerActivities": ["..."],
+  "providerTypes": ["..."],
+  "providerModalities": ["..."],
+  "prestaciones": ["..."],
+  "languages": ["..."]
+}`;
+
+  const snippet = [
+    (context.headings || []).slice(0, 10).join(" | "),
+    (context.paragraphs || []).slice(0, 8).join("\n"),
+    (context.mainText || "").slice(0, 5000),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const userPrompt = `Analiza los siguientes datos y clasifica la publicación dentro del catálogo cerrado:
+- URL: ${context.url}
+- Nombre Oferente / Organización: ${context.publisherName}
+- Título Detectado: ${context.rawPageTitle || ""}
+- Meta Descripción: ${context.metaDescription || ""}
+- Contenido relevante:
+${snippet}
+
+Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo.`;
+
+  try {
+    const { rawText, providerUsed } = await executeModelCall(
+      systemPrompt,
+      userPrompt,
+      context.apiKey,
+      context.provider || "auto"
+    );
+
+    const parsed = extractJson(rawText);
+    if (!parsed) {
+      throw new Error("Respuesta JSON inválida de IA al clasificar taxonomía.");
+    }
+
+    // Strict validation against DB pool
+    const rawCat = String(parsed.category || (Array.isArray(parsed.categorySelections) ? parsed.categorySelections[0] : "") || "").trim();
+    const rawSub = String(parsed.subcategory || (Array.isArray(parsed.subcategorySelections) ? parsed.subcategorySelections[0] : "") || "").trim();
+
+    const matchedCats = matchToCatalogPool([rawCat], categoriesPool);
+    const finalCat = matchedCats[0] || (categoriesPool[0] || "");
+
+    // Verify subcategory is a child if tree is available
+    let validSubcatPool = subcategoriesPool;
+    if (taxonomies?.categoryTree?.length) {
+      const allParentNodes = taxonomies.categoryTree.flatMap((b) => b.parentCategories);
+      const matchedNode = allParentNodes.find((p) => p.name.toLowerCase() === finalCat.toLowerCase());
+      if (matchedNode && matchedNode.subcategories && matchedNode.subcategories.length > 0) {
+        validSubcatPool = matchedNode.subcategories;
+      }
+    }
+
+    const matchedSubs = matchToCatalogPool([rawSub], validSubcatPool);
+    const finalSub = matchedSubs[0] || (validSubcatPool[0] || "");
+
+    const matchedActivities = matchToCatalogPool(
+      Array.isArray(parsed.providerActivities) ? parsed.providerActivities : [parsed.providerActivities],
+      activitiesPool
+    );
+
+    const matchedTypes = matchToCatalogPool(
+      Array.isArray(parsed.providerTypes) ? parsed.providerTypes : [parsed.providerTypes],
+      typesPool
+    );
+
+    const matchedModalities = matchToCatalogPool(
+      Array.isArray(parsed.providerModalities) ? parsed.providerModalities : [parsed.providerModalities],
+      modalitiesPool
+    );
+
+    const matchedPrestaciones = matchToCatalogPool(
+      Array.isArray(parsed.prestaciones) ? parsed.prestaciones : [parsed.prestaciones],
+      prestacionesPool
+    );
+
+    const matchedLanguages = matchToCatalogPool(
+      Array.isArray(parsed.languages) ? parsed.languages : [parsed.languages],
+      languagesPool
+    );
+
+    return {
+      success: true,
+      data: {
+        category: finalCat,
+        subcategory: finalSub,
+        categorySelections: finalCat ? [finalCat] : [],
+        subcategorySelections: finalSub ? [finalSub] : [],
+        providerActivities: matchedActivities.length ? matchedActivities : (activitiesPool.slice(0, 1)),
+        providerTypes: matchedTypes.length ? matchedTypes : (typesPool.slice(0, 1)),
+        providerModalities: matchedModalities.length ? matchedModalities : (modalitiesPool.slice(0, 2)),
+        prestaciones: matchedPrestaciones,
+        languages: matchedLanguages.length ? matchedLanguages : ["Español"],
+      },
+      estado: "ok",
+      evidencias: [context.url, context.publisherName],
+      providerUsed,
+    };
+  } catch (err: any) {
+    console.warn(`[AI-AGENT-DEBUG: TaxonomyAgent] ERROR: ${err.message}`);
+    return {
+      success: false,
+      data: null,
+      estado: "sin_datos",
+      evidencias: [],
+      providerUsed: "none",
+      error: `Error al clasificar taxonomía con IA: ${err.message}`,
+    };
+  }
+}
+
+// ============================================================================
+// 6. HELPER PARA LIMPIEZA DE CONTENIDO SCRAPEADO
 // ============================================================================
 export function cleanScrapedHtmlText(html: string): {
   headings: string[];
