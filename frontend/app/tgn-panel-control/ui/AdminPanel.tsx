@@ -3776,13 +3776,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     // 1. Dynamic category scoring fallback if direct match didn't yield a root
     if (resolvedCategoryRoots.size === 0 && publicationCategoryRoots.length > 0) {
-      let bestRoot = publicationCategoryRoots[0];
-      let bestScore = -1;
       const titleContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""}`
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
 
+      const scoredRoots: { root: Category; score: number }[] = [];
       for (const root of publicationCategoryRoots) {
         const rNorm = root.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const rTokens = rNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
@@ -3800,20 +3799,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             if (titleContextNorm.includes(tok)) score += 10;
           }
         }
-        if (score > bestScore) {
-          bestScore = score;
-          bestRoot = root;
-        }
+        scoredRoots.push({ root, score });
       }
 
-      if (bestRoot) {
-        resolvedCategoryRoots.add(bestRoot.description);
+      scoredRoots.sort((a, b) => b.score - a.score);
+      const topScore = scoredRoots[0]?.score ?? 0;
+      if (topScore > 0) {
+        for (const sr of scoredRoots) {
+          if (sr.score >= 25 && sr.score >= topScore * 0.5) {
+            resolvedCategoryRoots.add(sr.root.description);
+          }
+        }
+      }
+      if (resolvedCategoryRoots.size === 0 && scoredRoots[0]) {
+        resolvedCategoryRoots.add(scoredRoots[0].root.description);
       }
     }
 
-    // Automatically pick matching children from resolved roots
-    if (resolvedSubcategories.size === 0 && resolvedCategoryRoots.size > 0) {
-      const titleContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""}`
+    // Multi-selection of subcategories for all resolved roots
+    if (resolvedCategoryRoots.size > 0) {
+      const fullContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""} ${(draft.scrapedParagraphs || []).join(" ")}`
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
@@ -3824,6 +3829,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         const children = childrenBy.get(rootObj.id) || [];
         if (children.length === 0) continue;
 
+        let rootHasChild = children.some((c) => resolvedSubcategories.has(c.description));
         let bestChild = children[0];
         let bestChildScore = -1;
 
@@ -3831,20 +3837,40 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           const cTokens = childNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
           let cScore = 0;
-          if (rawInputSubcategories.some((s) => s.toLowerCase().includes(childNorm) || childNorm.includes(s.toLowerCase()))) {
+
+          const isDirectInput = rawInputSubcategories.some((s) => {
+            const sNorm = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            return sNorm === childNorm || sNorm.includes(childNorm) || childNorm.includes(sNorm);
+          });
+
+          if (isDirectInput) {
             cScore += 100;
           }
-          if (titleContextNorm.includes(childNorm)) cScore += 30;
-          for (const tok of cTokens) {
-            if (titleContextNorm.includes(tok)) cScore += 10;
+
+          if (fullContextNorm.includes(childNorm)) {
+            cScore += 35;
           }
+
+          for (const tok of cTokens) {
+            if (fullContextNorm.includes(tok)) {
+              cScore += 15;
+            }
+          }
+
           if (cScore > bestChildScore) {
             bestChildScore = cScore;
             bestChild = child;
           }
+
+          // If the child was directly requested or matches context well, add it to resolvedSubcategories
+          if (isDirectInput || cScore >= 25) {
+            resolvedSubcategories.add(child.description);
+            rootHasChild = true;
+          }
         }
 
-        if (bestChild) {
+        // If no child has been selected for this root yet, select the best scoring one (fallback)
+        if (!rootHasChild && bestChild) {
           resolvedSubcategories.add(bestChild.description);
         }
       }
@@ -3859,13 +3885,35 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (draft.subcategorySelections || []));
     setPSubcategory(finalSubcatSel[0] || draft.subcategory || "");
 
-    // 2. Resolve Provider Activities directly against DB actividadRoots (dynamic scoring fallback)
+    // 2. Resolve Provider Activities directly against DB actividadRoots (strictly separate from providerTypes)
     const resolvedActivities = new Set<string>();
     const rawActivities = Array.isArray(draft.providerActivities) && draft.providerActivities.length > 0
       ? draft.providerActivities
       : ((draft as any).providerActivity ? [(draft as any).providerActivity] : []);
 
+    const rawTypes = Array.isArray(draft.providerTypes) && draft.providerTypes.length > 0
+      ? draft.providerTypes
+      : ((draft as any).providerType ? [(draft as any).providerType] : []);
+
+    // Filter out any type names that mistakenly leaked into rawActivities (e.g., "Empresa", "Institución privada")
+    const tipoDescriptionsNorm = new Set(
+      tipoRoots.map((r) => r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim())
+    );
+
+    const filteredRawActivities: string[] = [];
     for (const rawAct of rawActivities) {
+      const actNorm = String(rawAct).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!actNorm) continue;
+      if (tipoDescriptionsNorm.has(actNorm)) {
+        if (!rawTypes.some((t) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() === actNorm)) {
+          rawTypes.push(rawAct);
+        }
+        continue;
+      }
+      filteredRawActivities.push(rawAct);
+    }
+
+    for (const rawAct of filteredRawActivities) {
       const actNorm = rawAct.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const match = actividadRoots.find((r) => {
         const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -3875,6 +3923,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         resolvedActivities.add(match.description);
       } else if (rawAct.trim()) {
         const subMatch = categories.find((c) => {
+          const cTax = resolveCategoryTaxonomyType(c);
+          if (cTax !== "actividad") return false;
           const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           return cNorm === actNorm || cNorm.includes(actNorm) || actNorm.includes(cNorm);
         });
@@ -3883,27 +3933,35 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
 
     if (resolvedActivities.size === 0 && actividadRoots.length > 0) {
-      const titleContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""}`
+      const fullContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""} ${(draft.scrapedParagraphs || []).join(" ")}`
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
 
-      let bestAct = actividadRoots[0];
-      let bestActScore = -1;
+      const scoredActs: { act: Category; score: number }[] = [];
       for (const act of actividadRoots) {
         const aNorm = act.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
         let aScore = 0;
-        if (titleContextNorm.includes(aNorm)) aScore += 40;
+        if (fullContextNorm.includes(aNorm)) aScore += 40;
         for (const tok of aTokens) {
-          if (titleContextNorm.includes(tok)) aScore += 15;
+          if (fullContextNorm.includes(tok)) aScore += 15;
         }
-        if (aScore > bestActScore) {
-          bestActScore = aScore;
-          bestAct = act;
+        scoredActs.push({ act, score: aScore });
+      }
+
+      scoredActs.sort((a, b) => b.score - a.score);
+      const topActScore = scoredActs[0]?.score ?? 0;
+      if (topActScore > 0) {
+        for (const sa of scoredActs) {
+          if (sa.score >= 20 && sa.score >= topActScore * 0.6) {
+            resolvedActivities.add(sa.act.description);
+          }
         }
       }
-      if (bestAct) resolvedActivities.add(bestAct.description);
+      if (resolvedActivities.size === 0 && scoredActs[0]) {
+        resolvedActivities.add(scoredActs[0].act.description);
+      }
     }
 
     const actSel = Array.from(resolvedActivities);
@@ -3912,9 +3970,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     // 3. Resolve Provider Types against DB tipoRoots
     const resolvedTypes = new Set<string>();
-    const rawTypes = Array.isArray(draft.providerTypes) && draft.providerTypes.length > 0
-      ? draft.providerTypes
-      : ((draft as any).providerType ? [(draft as any).providerType] : []);
 
     for (const rawType of rawTypes) {
       const typeNorm = rawType.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -3926,6 +3981,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         resolvedTypes.add(match.description);
       } else if (rawType.trim()) {
         const subMatch = categories.find((c) => {
+          const cTax = resolveCategoryTaxonomyType(c);
+          if (!["tipo", "tipos"].includes(cTax || "")) return false;
           const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           return cNorm === typeNorm || cNorm.includes(typeNorm) || typeNorm.includes(cNorm);
         });
