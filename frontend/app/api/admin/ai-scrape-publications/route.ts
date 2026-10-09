@@ -2070,7 +2070,7 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       if (seen.has(category.id)) return "categoria";
       seen.add(category.id);
       const ownType = normalizeType(category.taxonomyType);
-      if (ownType) return ownType;
+      if (ownType && !["", "default", "predeterminado", "inherit"].includes(ownType)) return ownType;
       if (category.parentId) {
         const parent = categoryById.get(category.parentId);
         if (parent) return resolveCategoryTaxonomyType(parent, seen);
@@ -2079,7 +2079,15 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       if (blockId) {
         const block = filterGroupById.get(blockId);
         const blockType = normalizeType(block?.taxonomyType);
-        if (blockType) return blockType;
+        if (blockType && !["", "default", "predeterminado", "inherit"].includes(blockType)) return blockType;
+
+        const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) return "categoria";
+        if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) return "actividad";
+        if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) return "tipo";
+        if (blockLabelNorm.includes("modalidad")) return "modalidad";
+        if (blockLabelNorm.includes("prestacion")) return "prestacion";
+        if (blockLabelNorm.includes("idioma")) return "idiomas";
       }
       return "categoria";
     };
@@ -2137,15 +2145,31 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
 
     dbFilterGroups.forEach((group) => {
       const gType = normalizeType(group.taxonomyType);
-      if (gType === "actividad") {
+      const gLabelNorm = String(group.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const resolvedGType =
+        (gType && !["", "default", "predeterminado", "inherit"].includes(gType))
+          ? gType
+          : gLabelNorm.includes("actividad") || gLabelNorm.includes("sector")
+          ? "actividad"
+          : gLabelNorm.includes("tipo") || gLabelNorm.includes("perfil")
+          ? "tipo"
+          : gLabelNorm.includes("modalidad")
+          ? "modalidad"
+          : gLabelNorm.includes("prestacion")
+          ? "prestacion"
+          : gLabelNorm.includes("idioma")
+          ? "idiomas"
+          : "";
+
+      if (resolvedGType === "actividad") {
         group.options?.forEach((opt: any) => activities.push(opt.label || opt.value));
-      } else if (gType === "tipo") {
+      } else if (resolvedGType === "tipo") {
         group.options?.forEach((opt: any) => types.push(opt.label || opt.value));
-      } else if (gType === "modalidad") {
+      } else if (resolvedGType === "modalidad") {
         group.options?.forEach((opt: any) => modalities.push(opt.label || opt.value));
-      } else if (gType === "prestacion") {
+      } else if (resolvedGType === "prestacion") {
         group.options?.forEach((opt: any) => prestaciones.push(opt.label || opt.value));
-      } else if (gType === "idiomas" || gType === "idioma") {
+      } else if (resolvedGType === "idiomas" || resolvedGType === "idioma") {
         group.options?.forEach((opt: any) => languages.push(opt.label || opt.value));
       }
     });
@@ -2161,12 +2185,16 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       ? languages
       : ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"];
 
+    const cleanTypes = Array.from(new Set(types.filter(Boolean)));
+    // Strict mutual exclusion: No type (e.g. Empresa, Institución privada) may ever appear in activities!
+    const cleanActivities = Array.from(new Set(activities.filter(Boolean))).filter((a) => !cleanTypes.includes(a));
+
     return {
       categoryTree,
       categories: Array.from(new Set(allMainCatNames.filter(Boolean))),
       subcategories: Array.from(new Set(allSubCatNames.filter(Boolean))),
-      activities: Array.from(new Set(activities.filter(Boolean))),
-      types: Array.from(new Set(types.filter(Boolean))),
+      activities: cleanActivities,
+      types: cleanTypes,
       modalities: Array.from(new Set(modalities.filter(Boolean))),
       prestaciones: Array.from(new Set(prestaciones.filter(Boolean))),
       languages: Array.from(new Set(canonicalLanguages.filter(Boolean))),
@@ -3373,6 +3401,7 @@ function classifySectorAndTaxonomy(
   let bestParent = validCats[0] || "";
   let bestSub = validSubcats[0] || "";
   let highestParentScore = -1;
+  const scoredParents: Array<{ name: string; score: number; bestSub: string; matchingSubs: string[] }> = [];
 
   for (const parent of parentCategoriesList) {
     const pNorm = parent.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -3417,17 +3446,62 @@ function classifySectorAndTaxonomy(
 
     const totalParentScore = parentScore + (highestSubScore > 0 ? highestSubScore * 1.5 : 0);
 
+    const matchingSubsForParent = parent.subcategories.filter((sub) => {
+      const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
+      return titleNorm.includes(sNorm) || urlNorm.includes(sNorm.replace(/\s+/g, "")) || sTokens.some((tok) => titleNorm.includes(tok) || lowerCorpus.includes(tok));
+    });
+
     if (totalParentScore > highestParentScore) {
       highestParentScore = totalParentScore;
       bestParent = parent.name;
       bestSub = bestSubForThisParent || parent.subcategories[0] || validSubcats[0] || "";
     }
+
+    if (totalParentScore > 0) {
+      scoredParents.push({
+        name: parent.name,
+        score: totalParentScore,
+        bestSub: bestSubForThisParent || parent.subcategories[0] || "",
+        matchingSubs: matchingSubsForParent.length ? matchingSubsForParent : (bestSubForThisParent ? [bestSubForThisParent] : []),
+      });
+    }
   }
 
-  // 4. Dynamic Activity Scoring across validActs
-  let bestAct = validActs[0] || "Servicios profesionales y técnicos";
+  scoredParents.sort((a, b) => b.score - a.score);
+
+  const selectedCategories: string[] = [];
+  const selectedSubcategories: string[] = [];
+
+  if (scoredParents.length > 0) {
+    const topScore = scoredParents[0].score;
+    for (const p of scoredParents) {
+      if (selectedCategories.length === 0 || (p.score >= 40 && p.score >= topScore * 0.6 && selectedCategories.length < 3)) {
+        selectedCategories.push(p.name);
+        p.matchingSubs.forEach((s) => {
+          if (!selectedSubcategories.includes(s)) selectedSubcategories.push(s);
+        });
+      }
+    }
+  }
+
+  if (selectedCategories.length === 0) {
+    if (bestParent) selectedCategories.push(bestParent);
+    else if (validCats.length) selectedCategories.push(validCats[0]);
+  }
+  if (selectedSubcategories.length === 0) {
+    if (bestSub) selectedSubcategories.push(bestSub);
+    else if (validSubcats.length) selectedSubcategories.push(validSubcats[0]);
+  }
+
+  // 4. Dynamic Activity Scoring across validActs (strictly excluding any types like "Empresa")
+  const sanitizedActs = validActs.filter((a) => !validTypes.includes(a));
+  const actsToEvaluate = sanitizedActs.length > 0 ? sanitizedActs : validActs;
+  let bestAct = actsToEvaluate[0] || "Servicios profesionales y técnicos";
   let highestActScore = -1;
-  for (const act of validActs) {
+  const scoredActs: Array<{ name: string; score: number }> = [];
+
+  for (const act of actsToEvaluate) {
     const aNorm = act.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
     let actScore = 0;
@@ -3438,10 +3512,22 @@ function classifySectorAndTaxonomy(
       const matches = lowerCorpus.match(regex);
       if (matches) actScore += Math.min(matches.length * 2, 20);
     }
+    scoredActs.push({ name: act, score: actScore });
     if (actScore > highestActScore) {
       highestActScore = actScore;
       bestAct = act;
     }
+  }
+
+  scoredActs.sort((a, b) => b.score - a.score);
+  const selectedActivities: string[] = [];
+  if (scoredActs.length > 0 && scoredActs[0].score > 0) {
+    selectedActivities.push(scoredActs[0].name);
+    if (scoredActs[1] && scoredActs[1].score >= 30 && scoredActs[1].score >= scoredActs[0].score * 0.7) {
+      selectedActivities.push(scoredActs[1].name);
+    }
+  } else {
+    selectedActivities.push(bestAct);
   }
 
   // 5. Dynamic Type Resolution across validTypes
@@ -3473,11 +3559,11 @@ function classifySectorAndTaxonomy(
 
   return {
     sector: /salud|hospital|m[eé]dic/i.test(bestAct) ? "health" : /educaci/i.test(bestAct) ? "education" : "general",
-    category: bestParent || validCats[0] || "General",
-    subcategory: bestSub || validSubcats[0] || "General",
-    categorySelections: bestParent ? [bestParent] : (validCats.length ? [validCats[0]] : []),
-    subcategorySelections: bestSub ? [bestSub] : (validSubcats.length ? [validSubcats[0]] : []),
-    providerActivities: [bestAct],
+    category: selectedCategories[0] || validCats[0] || "General",
+    subcategory: selectedSubcategories[0] || validSubcats[0] || "General",
+    categorySelections: selectedCategories,
+    subcategorySelections: selectedSubcategories,
+    providerActivities: selectedActivities,
     providerTypes: [bestType],
     providerModalities: finalMods,
   };
@@ -4521,6 +4607,14 @@ export function enforceStrictTaxonomyGuardrails(
     publication.providerActivities = classified.providerActivities;
     publication.providerTypes = classified.providerTypes;
     publication.providerModalities = classified.providerModalities;
+  }
+
+  // Strict sanitization: Ensure providerActivities NEVER contains any option from providerTypes
+  if (Array.isArray(publication.providerActivities) && taxonomies?.types?.length) {
+    publication.providerActivities = publication.providerActivities.filter((a: string) => !taxonomies.types.includes(a));
+    if (publication.providerActivities.length === 0 && taxonomies?.activities?.length) {
+      publication.providerActivities = [taxonomies.activities[0]];
+    }
   }
 
   // 2. Guarantee valid founding year
