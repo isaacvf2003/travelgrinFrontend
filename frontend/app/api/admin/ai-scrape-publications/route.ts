@@ -7,6 +7,7 @@ import {
   runDescriptionAgent,
   runCustomBlockAgent,
   runProviderInfoAgent,
+  runTaxonomyAgent,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
@@ -2010,9 +2011,11 @@ async function fetchPageContent(url: string) {
   };
 }
 
-async function getAvailableSystemTaxonomies() {
+async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilterGroups?: any[]) {
+  let dbCategories: any[] = [];
+  let dbFilterGroups: any[] = [];
   try {
-    const [dbCategories, dbFilterGroups] = await Promise.all([
+    const [fetchedCats, fetchedGroups] = await Promise.all([
       prisma.category.findMany({
         select: { id: true, description: true, taxonomyType: true, blockId: true, parentId: true, isPublicVisible: true },
         orderBy: [{ blockId: "asc" }, { parentId: "asc" }, { description: "asc" }],
@@ -2021,7 +2024,21 @@ async function getAvailableSystemTaxonomies() {
         include: { options: true },
       }),
     ]);
+    dbCategories = fetchedCats || [];
+    dbFilterGroups = fetchedGroups || [];
+  } catch (e) {
+    console.warn("[AI Scraper] Error al obtener taxonomías de Prisma, usando respaldo del cliente:", e);
+  }
 
+  // Fallback to client payloads if DB returned empty or errored
+  if ((!dbCategories || dbCategories.length === 0) && Array.isArray(clientCategories) && clientCategories.length > 0) {
+    dbCategories = clientCategories;
+  }
+  if ((!dbFilterGroups || dbFilterGroups.length === 0) && Array.isArray(clientFilterGroups) && clientFilterGroups.length > 0) {
+    dbFilterGroups = clientFilterGroups;
+  }
+
+  try {
     const filterGroupById = new Map<string, any>(dbFilterGroups.map((g) => [g.id, g]));
     const categoryById = new Map<string, any>(dbCategories.map((c) => [c.id, c]));
 
@@ -2110,14 +2127,26 @@ async function getAvailableSystemTaxonomies() {
       .filter((c) => c.resolvedTaxonomyType === "modalidad")
       .map((c) => c.description);
 
+    const prestaciones = categoryMapWithTaxonomy
+      .filter((c) => c.resolvedTaxonomyType === "prestacion")
+      .map((c) => c.description);
+
+    const languages = categoryMapWithTaxonomy
+      .filter((c) => c.resolvedTaxonomyType === "idiomas" || c.resolvedTaxonomyType === "idioma")
+      .map((c) => c.description);
+
     dbFilterGroups.forEach((group) => {
       const gType = normalizeType(group.taxonomyType);
       if (gType === "actividad") {
-        group.options?.forEach((opt) => activities.push(opt.label || opt.value));
+        group.options?.forEach((opt: any) => activities.push(opt.label || opt.value));
       } else if (gType === "tipo") {
-        group.options?.forEach((opt) => types.push(opt.label || opt.value));
+        group.options?.forEach((opt: any) => types.push(opt.label || opt.value));
       } else if (gType === "modalidad") {
-        group.options?.forEach((opt) => modalities.push(opt.label || opt.value));
+        group.options?.forEach((opt: any) => modalities.push(opt.label || opt.value));
+      } else if (gType === "prestacion") {
+        group.options?.forEach((opt: any) => prestaciones.push(opt.label || opt.value));
+      } else if (gType === "idiomas" || gType === "idioma") {
+        group.options?.forEach((opt: any) => languages.push(opt.label || opt.value));
       }
     });
 
@@ -2128,6 +2157,10 @@ async function getAvailableSystemTaxonomies() {
       .filter((c) => c.parentId && c.resolvedTaxonomyType === "categoria")
       .map((c) => c.description);
 
+    const canonicalLanguages = languages.length > 0
+      ? languages
+      : ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"];
+
     return {
       categoryTree,
       categories: Array.from(new Set(allMainCatNames.filter(Boolean))),
@@ -2135,6 +2168,8 @@ async function getAvailableSystemTaxonomies() {
       activities: Array.from(new Set(activities.filter(Boolean))),
       types: Array.from(new Set(types.filter(Boolean))),
       modalities: Array.from(new Set(modalities.filter(Boolean))),
+      prestaciones: Array.from(new Set(prestaciones.filter(Boolean))),
+      languages: Array.from(new Set(canonicalLanguages.filter(Boolean))),
     };
   } catch (e) {
     console.error("Error fetching system taxonomies from DB:", e);
@@ -2145,17 +2180,19 @@ async function getAvailableSystemTaxonomies() {
       activities: [],
       types: [],
       modalities: [],
+      prestaciones: [],
+      languages: ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"],
     };
   }
 }
 
 /**
- * Maps input string or list of keywords to canonical DB options using exact, substring, or token match.
+ * Maps input string or list of keywords strictly to canonical DB options using exact, substring, or token match.
+ * Never invents options outside dbPool.
  */
 function mapToCanonicalTaxonomy(selectedItems: any[], dbPool: string[], fallbackKeywords: string[] = []): string[] {
   if (!dbPool || !dbPool.length) {
-    if (Array.isArray(selectedItems) && selectedItems.length) return selectedItems.map(String).filter(Boolean);
-    return fallbackKeywords.filter(Boolean);
+    return [];
   }
 
   const cleanItems = (Array.isArray(selectedItems) ? selectedItems : [selectedItems])
@@ -2207,6 +2244,70 @@ function mapToCanonicalTaxonomy(selectedItems: any[], dbPool: string[], fallback
   }
 
   return Array.from(matched);
+}
+
+/**
+ * Detects real languages offered or spoken on the website from textual evidence and canonical list.
+ */
+function detectLanguagesFromText(allText: string, canonicalPool: string[] = []): string[] {
+  const lower = String(allText || "").toLowerCase();
+  const pool = canonicalPool.length > 0
+    ? canonicalPool
+    : ["Español", "Inglés", "Portugués", "Italiano", "Francés", "Alemán"];
+
+  const poolWithNorm = pool.map((p) => ({
+    original: p,
+    norm: p.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
+  }));
+
+  const detected = new Set<string>();
+
+  // Spanish by default in LATAM/Spain platform
+  const esp = poolWithNorm.find((p) => p.norm.includes("espanol") || p.norm === "es");
+  if (esp) detected.add(esp.original);
+
+  // English detection
+  if (
+    /\b(english|ingl[eé]s|bilingual|biling[uü]e|we speak english|english spoken|international|foreign|languages?:\s*.*english)\b/i.test(lower) ||
+    /\b(contact us|about us|apply now|all rights reserved|overview|schedule a tour|admissions)\b/i.test(lower)
+  ) {
+    const eng = poolWithNorm.find((p) => p.norm.includes("ingles") || p.norm === "en");
+    if (eng) detected.add(eng.original);
+  }
+
+  // Portuguese detection
+  if (
+    /\b(portugu[eêé]s|falamos portugu[eêé]s|atendimento em portugu[eêé]s|fale conosco|bem-vindo|sobre n[oó]s|institui[cç][aã]o)\b/i.test(lower)
+  ) {
+    const pt = poolWithNorm.find((p) => p.norm.includes("portugues") || p.norm === "pt");
+    if (pt) detected.add(pt.original);
+  }
+
+  // Italian detection
+  if (
+    /\b(italiano|parliamo italiano|contattaci|chi siamo|benvenuti)\b/i.test(lower)
+  ) {
+    const it = poolWithNorm.find((p) => p.norm.includes("italiano") || p.norm === "it");
+    if (it) detected.add(it.original);
+  }
+
+  // German detection
+  if (
+    /\b(alem[aá]n|deutsch|german|kontakt)\b/i.test(lower)
+  ) {
+    const de = poolWithNorm.find((p) => p.norm.includes("aleman") || p.norm === "de");
+    if (de) detected.add(de.original);
+  }
+
+  // French detection
+  if (
+    /\b(franc[eéè]s|fran[cç]ais|french|nous contacter|bienvenue)\b/i.test(lower)
+  ) {
+    const fr = poolWithNorm.find((p) => p.norm.includes("frances") || p.norm === "fr");
+    if (fr) detected.add(fr.original);
+  }
+
+  return detected.size > 0 ? Array.from(detected) : (esp ? [esp.original] : ["Español"]);
 }
 
 function escapeHtml(input: string): string {
@@ -3215,22 +3316,27 @@ function classifySectorAndTaxonomy(
   providerTypes: string[];
   providerModalities: string[];
 } {
-  const lower = `${url} ${title} ${allText}`.toLowerCase();
+  const lowerCorpus = `${url} ${title} ${allText}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const titleNorm = title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const urlNorm = url.toLowerCase();
+
   const validCats: string[] = taxonomies?.categories || [];
   const validSubcats: string[] = taxonomies?.subcategories || [];
   const validActs: string[] = taxonomies?.activities || [];
   const validTypes: string[] = taxonomies?.types || [];
   const validMods: string[] = taxonomies?.modalities || [];
+  const categoryTree: Array<{ blockName: string; parentCategories: Array<{ name: string; subcategories: string[] }> }> =
+    taxonomies?.categoryTree || [];
 
-  // 1. Check known institutions dictionary first
+  // 1. Check known institutions dictionary first if present
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
     for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
       if (hostname.includes(domainKey) || url.toLowerCase().includes(domainKey)) {
-        const cat = validCats.find((c) => new RegExp(info.category.slice(0, 10), "i").test(c)) || info.category;
-        const sub = validSubcats.find((s) => new RegExp(info.subcategory.slice(0, 10), "i").test(s)) || info.subcategory;
-        const act = validActs.find((a) => new RegExp(info.activity.slice(0, 8), "i").test(a)) || info.activity;
-        const typ = validTypes.find((t) => new RegExp(info.type.slice(0, 8), "i").test(t)) || info.type;
+        const cat = validCats.find((c) => new RegExp(info.category.slice(0, 10), "i").test(c)) || validCats[0] || info.category;
+        const sub = validSubcats.find((s) => new RegExp(info.subcategory.slice(0, 10), "i").test(s)) || validSubcats[0] || info.subcategory;
+        const act = validActs.find((a) => new RegExp(info.activity.slice(0, 8), "i").test(a)) || validActs[0] || info.activity;
+        const typ = validTypes.find((t) => new RegExp(info.type.slice(0, 8), "i").test(t)) || validTypes[0] || info.type;
         return {
           sector: /salud|hospital|m[eé]dic/i.test(info.activity) ? "health" : "education",
           category: cat,
@@ -3247,271 +3353,133 @@ function classifySectorAndTaxonomy(
 
   // 2. Public vs Private entity detection
   const isGovDomain = /\.gov(?:\.[a-z]{2})?|\.gob(?:\.[a-z]{2})?|\.mil(?:\.[a-z]{2})?/i.test(url);
-  const isGovText = /\b(organismo p[uú]blico|hospital p[uú]blico|hospital nacional|hospital de pediatr[ií]a s\.a\.m\.i\.c|universidad nacional|ente aut[aá]rquico|ministerio|secretar[ií]a|gobierno de|municipalidad|poder judicial)\b/i.test(lower);
+  const isGovText = /\b(organismo publico|hospital publico|hospital nacional|hospital de pediatria samic|universidad nacional|ente autarquico|ministerio|secretaria|gobierno de|municipalidad|poder judicial)\b/i.test(lowerCorpus);
   const isPublicEntity = isGovDomain || isGovText;
 
-  // 3. Sector Detection Triggers (Domain + Title + Content)
-  // Health
-  const isHospitalTitle = /\b(hospital|sanatorio|cl[ií]nica|centro m[eé]dico|policl[ií]nic[oa]|maternidad|instituto m[eé]dico|centro asistencial|guardia m[eé]dica|pediatr[ií]a)\b/i.test(title);
-  const isHospitalUrl = /\b(hospital|sanatorio|clinica|garrahan|centromedico)\b/i.test(url);
-  const isExplicitHospital = isHospitalTitle || isHospitalUrl;
-
-  // Education
-  const isEduDomain = (/\.edu(?:\.[a-z]{2})?|\.ac(?:\.[a-z]{2})?/i.test(url) || /^uba\.ar|unc\.edu\.ar|utn\.edu\.ar|siglo21\.edu\.ar/i.test(url)) && !isHospitalTitle;
-  const isEduTitle = /\b(universidad|facultad|instituto universitario|colegio|instituto superior|escuela superior|conservatorio|academia|escuela secundaria|centro educativo)\b/i.test(title);
-  const isExplicitEdu = (isEduTitle || isEduDomain) && !isHospitalTitle;
-
-  // Automotive
-  const isAutoTitle = /\b(automotriz|concesionari[ao]|taller mec[aá]nico|autopartes|repuestos automotor|chapa y pintura|neum[aá]ticos|gomer[ií]a|rent a car|alquiler de autos?|concesionario oficial|motos? y autos?)\b/i.test(title);
-  const isAutoUrl = /\b(auto|concesionaria|taller|repuestos|motos|rentacar|motors)\b/i.test(url);
-  const isExplicitAuto = isAutoTitle || isAutoUrl;
-
-  // Mining, Energy & Industry
-  const isMiningTitle = /\b(miner[ií]a|minera|yacimiento|petr[oó]leo|gas|energ[ií]a|litio|siderurgia|metal[uú]rgica|construcci[oó]n|obras viales|ingenier[ií]a civil|manufactura|industria)\b/i.test(title);
-  const isMiningUrl = /\b(mineria|minera|petroleo|gas|energia|litio|siderurgia|metalurgica|construccion)\b/i.test(url);
-  const isExplicitMining = isMiningTitle || isMiningUrl;
-
-  // Entertainment & Culture
-  const isEntertainmentTitle = /\b(teatro\b|cine\b|cines\b|sala de conciertos|productora de espect[aá]culos|parque de diversiones|parque tem[aá]tico|centro cultural|discoteca|boliche|recitales|eventos y shows)\b/i.test(title);
-  const isEntertainmentUrl = /\b(teatro|cine|espectaculos|productora|eventos|show|conciertos)\b/i.test(url);
-  const isExplicitEntertainment = isEntertainmentTitle || isEntertainmentUrl;
-
-  // Sports & Fitness
-  const isSportsTitle = /\b(gimnasio|fitness|crossfit|club deportivo|canchas?|nataci[oó]n|artes marciales|f[uú]tbol|p[aá]del|tenis|rugby|entrenamiento deportivo)\b/i.test(title);
-  const isSportsUrl = /\b(gym|fitness|crossfit|club|deportes|canchas|padel|futbol)\b/i.test(url);
-  const isExplicitSports = isSportsTitle || isSportsUrl;
-
-  // Gastronomy
-  const isGastroTitle = /\b(restaurante|parrilla\b|pizzer[ií]a|cafeter[ií]a|caf[eé]\b|bar\b|cervecer[ií]a|bodega\b|vinoteca|bistr[oó]|catering|gastronom[ií]a)\b/i.test(title);
-  const isGastroUrl = /\b(restaurante|parrilla|pizzeria|cafeteria|bar|cerveceria|bodega|vinoteca|gastro)\b/i.test(url);
-  const isExplicitGastro = isGastroTitle || isGastroUrl;
-
-  // Tech & Software
-  const isTechTitle = /\b(software|desarrollo web|app m[oó]vil|agencia de marketing|marketing digital|consultor[ií]a it|ciberseguridad|ecommerce|tecnolog[ií]a|sistemas)\b/i.test(title);
-  const isTechUrl = /\b(software|tech|marketing|digital|systems|sistemas|dev)\b/i.test(url);
-  const isExplicitTech = isTechTitle || isTechUrl;
-
-  // Real Estate & Coworking
-  const isRealEstateTitle = /\b(inmobiliaria|bienes ra[ií]ces|propiedades|alquileres|desarrollos inmobiliarios|coworking|oficinas compartidas)\b/i.test(title);
-  const isRealEstateUrl = /\b(inmobiliaria|propiedades|inmuebles|bienesraices|coworking)\b/i.test(url);
-  const isExplicitRealEstate = isRealEstateTitle || isRealEstateUrl;
-
-  // Legal
-  const isLegalTitle = /\b(abogad[oa]s?|estudio jur[ií]dico|law firm|escriban[ií]a|notar[ií]a|asesor[ií]a legal|gestor[ií]a migratoria|visas? migratori[ao]s?)\b/i.test(title);
-  const isLegalUrl = /\b(abogad|estudiojuridico|notaria|asesorialegal)\b/i.test(url);
-  const isExplicitLegal = (isLegalTitle || isLegalUrl) && !isExplicitHospital && !isExplicitEdu;
-
-  // Tourism
-  const isTourismTitle = /\b(hotel\b|hostel\b|resort\b|cabañas?\b|apart hotel\b|posada\b|hospedaje\b|hostal\b|hoster[ií]a\b|agencia de viajes|turismo)\b/i.test(title);
-  const isTourismUrl = /\b(hotel|hostel|resort|cabana|posada|hospedaje|turismo|viajes)\b/i.test(url);
-  const isExplicitTourism = (isTourismTitle || isTourismUrl) && !isExplicitHospital && !isExplicitEdu && !isExplicitLegal;
-
-  // 4. Resolve exact taxonomy fields based on sector
-  if (isExplicitHospital) {
-    const cat = validCats.find((c) => /centros m[eé]dicos|salud|bienestar/i.test(c)) || "Centros médicos, salud y bienestar";
-    const sub = validSubcats.find((s) => /especialidades m[eé]dicas|m[eé]dicas|especialistas/i.test(s)) || "Especialidades médicas";
-    const act = validActs.find((a) => /salud|asistencia/i.test(a)) || "Salud y asistencia social";
-    const typ = isPublicEntity
-      ? (validTypes.find((t) => /p[uú]blico/i.test(t)) || "Organismo público")
-      : (validTypes.find((t) => /privada/i.test(t)) || "Institución privada");
-    return {
-      sector: "health",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
-    };
+  // 3. Dynamic Category & Subcategory Scoring across loaded DB catalog (Zero hardcoded sectors)
+  const parentCategoriesList: Array<{ name: string; subcategories: string[] }> = [];
+  if (categoryTree.length > 0) {
+    categoryTree.forEach((block) => {
+      block.parentCategories.forEach((p) => {
+        parentCategoriesList.push({ name: p.name, subcategories: p.subcategories || [] });
+      });
+    });
+  } else {
+    validCats.forEach((c) => {
+      parentCategoriesList.push({ name: c, subcategories: [] });
+    });
   }
 
-  if (isExplicitEdu) {
-    const cat = validCats.find((c) => /educaci|centros de estudio/i.test(c)) || "Educación y centros de estudios";
-    const sub = validSubcats.find((s) => /universidad|posgrado|carrera/i.test(s)) || "Universidad y posgrado";
-    const act = validActs.find((a) => /educaci|formaci/i.test(a)) || "Educación y formación";
-    const typ = (isPublicEntity || /nacional|p[uú]blic/i.test(title))
-      ? (validTypes.find((t) => /p[uú]blico/i.test(t)) || "Organismo público")
-      : (validTypes.find((t) => /privada/i.test(t)) || "Institución privada");
-    return {
-      sector: "education",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
-    };
+  let bestParent = validCats[0] || "";
+  let bestSub = validSubcats[0] || "";
+  let highestParentScore = -1;
+
+  for (const parent of parentCategoriesList) {
+    const pNorm = parent.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const pTokens = pNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
+
+    let parentScore = 0;
+    if (titleNorm.includes(pNorm)) parentScore += 40;
+    if (urlNorm.includes(pNorm.replace(/\s+/g, ""))) parentScore += 30;
+
+    for (const tok of pTokens) {
+      if (titleNorm.includes(tok)) parentScore += 15;
+      if (urlNorm.includes(tok)) parentScore += 10;
+      const regex = new RegExp(`\\b${tok}`, "g");
+      const matches = lowerCorpus.match(regex);
+      if (matches) parentScore += Math.min(matches.length * 2, 20);
+    }
+
+    let bestSubForThisParent = parent.subcategories[0] || "";
+    let highestSubScore = -1;
+
+    for (const sub of parent.subcategories) {
+      const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
+
+      let subScore = 0;
+      if (titleNorm.includes(sNorm)) subScore += 50;
+      if (urlNorm.includes(sNorm.replace(/\s+/g, ""))) subScore += 35;
+
+      for (const tok of sTokens) {
+        if (titleNorm.includes(tok)) subScore += 20;
+        if (urlNorm.includes(tok)) subScore += 15;
+        const regex = new RegExp(`\\b${tok}`, "g");
+        const matches = lowerCorpus.match(regex);
+        if (matches) subScore += Math.min(matches.length * 3, 30);
+      }
+
+      if (subScore > highestSubScore) {
+        highestSubScore = subScore;
+        bestSubForThisParent = sub;
+      }
+    }
+
+    const totalParentScore = parentScore + (highestSubScore > 0 ? highestSubScore * 1.5 : 0);
+
+    if (totalParentScore > highestParentScore) {
+      highestParentScore = totalParentScore;
+      bestParent = parent.name;
+      bestSub = bestSubForThisParent || parent.subcategories[0] || validSubcats[0] || "";
+    }
   }
 
-  if (isExplicitAuto) {
-    const cat = validCats.find((c) => /automotriz|veh[ií]culos|transporte/i.test(c)) || validCats.find((c) => /comercio|servicios/i.test(c)) || validCats[0] || "Automotriz y vehículos";
-    const sub = validSubcats.find((s) => /concesionari|taller|repuesto|automotor/i.test(s)) || validSubcats[0] || "Concesionarias y talleres";
-    const act = validActs.find((a) => /automotriz|reparaci|mantenimiento|transporte|comercio/i.test(a)) || validActs.find((a) => /profesional|t[eé]cnico/i.test(a)) || "Comercio y automotriz";
-    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Institución privada";
-    return {
-      sector: "automotive",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial"],
-    };
+  // 4. Dynamic Activity Scoring across validActs
+  let bestAct = validActs[0] || "Servicios profesionales y técnicos";
+  let highestActScore = -1;
+  for (const act of validActs) {
+    const aNorm = act.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
+    let actScore = 0;
+    if (titleNorm.includes(aNorm)) actScore += 40;
+    for (const tok of aTokens) {
+      if (titleNorm.includes(tok)) actScore += 15;
+      const regex = new RegExp(`\\b${tok}`, "g");
+      const matches = lowerCorpus.match(regex);
+      if (matches) actScore += Math.min(matches.length * 2, 20);
+    }
+    if (actScore > highestActScore) {
+      highestActScore = actScore;
+      bestAct = act;
+    }
   }
 
-  if (isExplicitMining) {
-    const cat = validCats.find((c) => /industria|miner[ií]a|energ[ií]a|construcci/i.test(c)) || validCats[0] || "Industria y minería";
-    const sub = validSubcats.find((s) => /miner|energ|petrol|industrial/i.test(s)) || validSubcats[0] || "Minería y energía";
-    const act = validActs.find((a) => /miner|industria|construcci|energ/i.test(a)) || validActs[0] || "Industria, minería y construcción";
-    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Institución privada";
-    return {
-      sector: "mining",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial"],
-    };
+  // 5. Dynamic Type Resolution across validTypes
+  let bestType = validTypes[0] || "Institución privada";
+  if (isPublicEntity) {
+    const pub = validTypes.find((t) => /p[uú]blico|estatal/i.test(t));
+    if (pub) bestType = pub;
+    else bestType = "Organismo público";
+  } else {
+    const priv = validTypes.find((t) => /privada|empresa/i.test(t));
+    if (priv) bestType = priv;
   }
 
-  if (isExplicitEntertainment) {
-    const cat = validCats.find((c) => /entretenimiento|cultura|arte|espect[aá]culo/i.test(c)) || validCats[0] || "Entretenimiento y cultura";
-    const sub = validSubcats.find((s) => /teatro|cine|show|evento|espect[aá]culo/i.test(s)) || validSubcats[0] || "Espectáculos y eventos";
-    const act = validActs.find((a) => /arte|cultura|entretenimiento|recreaci/i.test(a)) || validActs[0] || "Arte, cultura y entretenimiento";
-    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Institución privada";
-    return {
-      sector: "entertainment",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial"],
-    };
-  }
+  // 6. Dynamic Modalities across validMods
+  const chosenMods: string[] = [];
+  const presencialMod = validMods.find((m) => /presencial/i.test(m));
+  const onlineMod = validMods.find((m) => /online|virtual|remoto|distancia/i.test(m));
 
-  if (isExplicitSports) {
-    const cat = validCats.find((c) => /deporte|fitness|gimnasio|bienestar/i.test(c)) || validCats[0] || "Deportes y fitness";
-    const sub = validSubcats.find((s) => /gimnasio|fitness|club|cancha/i.test(s)) || validSubcats[0] || "Gimnasios y centros deportivos";
-    const act = validActs.find((a) => /deporte|fitness|bienestar/i.test(a)) || validActs[0] || "Deportes, fitness y bienestar";
-    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Institución privada";
-    return {
-      sector: "sports",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial"],
-    };
-  }
+  const hasOnlineMention = /online|virtual|remoto|a distancia|zoom|meet|plataforma/i.test(lowerCorpus);
+  const hasPresencialMention = /sede|sucursal|consultorio|campus|ubicacion|direccion|atencion presencial|visitanos/i.test(lowerCorpus);
 
-  if (isExplicitGastro) {
-    const cat = validCats.find((c) => /gastronom|restaurante|alimento/i.test(c)) || validCats[0] || "Gastronomía";
-    const sub = validSubcats.find((s) => /restaurante|bar|caf|bodega|parrilla/i.test(s)) || validSubcats[0] || "Restaurantes y bares";
-    const act = validActs.find((a) => /gastronom|restauraci|hosteler/i.test(a)) || validActs[0] || "Gastronomía y restauración";
-    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Institución privada";
-    return {
-      sector: "gastronomy",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial"],
-    };
+  if (hasPresencialMention && presencialMod) chosenMods.push(presencialMod);
+  if (hasOnlineMention && onlineMod) chosenMods.push(onlineMod);
+  if (chosenMods.length === 0) {
+    if (presencialMod) chosenMods.push(presencialMod);
+    if (onlineMod) chosenMods.push(onlineMod);
   }
+  const finalMods = chosenMods.length > 0 ? chosenMods : (validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"]);
 
-  if (isExplicitTech) {
-    const cat = validCats.find((c) => /tecnolog|software|inform[aá]tica|digital/i.test(c)) || validCats[0] || "Tecnología y software";
-    const sub = validSubcats.find((s) => /software|desarrollo|marketing|it|sistemas/i.test(s)) || validSubcats[0] || "Desarrollo y consultoría IT";
-    const act = validActs.find((a) => /tecnolog|software|informaci|profesional/i.test(a)) || validActs[0] || "Tecnología, software e información";
-    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Institución privada";
-    return {
-      sector: "tech",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
-    };
-  }
-
-  if (isExplicitRealEstate) {
-    const cat = validCats.find((c) => /inmobiliaria|propiedades|bienes ra[ií]ces|coworking/i.test(c)) || validCats[0] || "Inmobiliarias y propiedades";
-    const sub = validSubcats.find((s) => /alquiler|venta|propiedad|coworking|oficina/i.test(s)) || validSubcats[0] || "Alquileres y venta";
-    const act = validActs.find((a) => /inmobiliari|bienes ra[ií]ces|profesional/i.test(a)) || validActs[0] || "Servicios inmobiliarios y bienes raíces";
-    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Institución privada";
-    return {
-      sector: "real_estate",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
-    };
-  }
-
-  if (isExplicitLegal) {
-    const cat = validCats.find((c) => /residencia|ciudadan|visa|migra|legal/i.test(c)) || "Residencia y ciudadanía";
-    const sub = validSubcats.find((s) => /legal|asesor|migratori/i.test(s)) || "Asesoría legal migratoria";
-    const act = validActs.find((a) => /profesional|t[eé]cnico/i.test(a)) || "Servicios profesionales y técnicos";
-    const typ = validTypes.find((t) => /profesional|privada/i.test(t)) || "Profesional independiente";
-    return {
-      sector: "legal",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
-    };
-  }
-
-  if (isExplicitTourism) {
-    const cat = validCats.find((c) => /alojamiento|hotel|turismo/i.test(c)) || "Alojamiento";
-    const sub = validSubcats.find((s) => /hotel|hostel|hospedaje/i.test(s)) || "Hoteles y hostels";
-    const act = validActs.find((a) => /hosteler|turismo/i.test(a)) || "Hostelería, alojamiento y turismo";
-    const typ = validTypes.find((t) => /empresa|privada/i.test(t)) || "Institución privada";
-    return {
-      sector: "tourism",
-      category: cat,
-      subcategory: sub,
-      categorySelections: [cat],
-      subcategorySelections: [sub],
-      providerActivities: [act],
-      providerTypes: [typ],
-      providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial"],
-    };
-  }
-
-  // General default fallback
-  const cat = validCats.find((c) => /negocios|servicios/i.test(c)) || validCats[0] || "General";
-  const sub = validSubcats[0] || "General";
-  const act = validActs.find((a) => /profesionales|t[eé]cnicos/i.test(a)) || validActs[0] || "Servicios profesionales y técnicos";
-  const typ = isPublicEntity ? (validTypes.find((t) => /p[uú]blico/i.test(t)) || "Organismo público") : "Institución privada";
   return {
-    sector: "general",
-    category: cat,
-    subcategory: sub,
-    categorySelections: [cat],
-    subcategorySelections: [sub],
-    providerActivities: [act],
-    providerTypes: [typ],
-    providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
+    sector: /salud|hospital|m[eé]dic/i.test(bestAct) ? "health" : /educaci/i.test(bestAct) ? "education" : "general",
+    category: bestParent || validCats[0] || "General",
+    subcategory: bestSub || validSubcats[0] || "General",
+    categorySelections: bestParent ? [bestParent] : (validCats.length ? [validCats[0]] : []),
+    subcategorySelections: bestSub ? [bestSub] : (validSubcats.length ? [validSubcats[0]] : []),
+    providerActivities: [bestAct],
+    providerTypes: [bestType],
+    providerModalities: finalMods,
   };
 }
 
@@ -3627,17 +3595,17 @@ async function createFallbackPublication(
     currency: "USD",
     price: "A consultar",
     pricePeriod: "",
-    languages: "Español, Inglés",
+    languages: Array.isArray(detectedLanguages) && detectedLanguages.length ? detectedLanguages.join(", ") : "Español",
     website: extractedData.url,
     socialLinksDetailed: extractedData.socialLinksExtracted || [{ kind: "web", label: "Sitio Oficial", url: extractedData.url }],
     images: extractedData.images || [],
-    category: classified.category,
-    subcategory: classified.subcategory,
-    categorySelections: classified.categorySelections,
-    subcategorySelections: classified.subcategorySelections,
-    providerActivities: classified.providerActivities,
-    providerTypes: classified.providerTypes,
-    providerModalities: classified.providerModalities,
+    category: finalTaxonomyData.category,
+    subcategory: finalTaxonomyData.subcategory,
+    categorySelections: finalTaxonomyData.categorySelections?.length ? finalTaxonomyData.categorySelections : [finalTaxonomyData.category].filter(Boolean),
+    subcategorySelections: finalTaxonomyData.subcategorySelections?.length ? finalTaxonomyData.subcategorySelections : [finalTaxonomyData.subcategory].filter(Boolean),
+    providerActivities: finalTaxonomyData.providerActivities?.length ? finalTaxonomyData.providerActivities : dynamicFallbackClassified.providerActivities,
+    providerTypes: finalTaxonomyData.providerTypes?.length ? finalTaxonomyData.providerTypes : dynamicFallbackClassified.providerTypes,
+    providerModalities: finalTaxonomyData.providerModalities?.length ? finalTaxonomyData.providerModalities : dynamicFallbackClassified.providerModalities,
   };
 
   return enforceStrictTaxonomyGuardrails(
@@ -4658,19 +4626,22 @@ async function processUrlWithAI(
     socialLinks: extracted.socialLinksExtracted,
     apiKey: geminiKey || openaiKey,
     provider: preferredProvider,
+    autoTranslate: false,
   };
 
   const providersUsed = new Set<string>();
 
-  // 2, 3 & 4. Run Title, Description, and Provider Info Agents in parallel for 3x faster scraping
-  const [titleAgentRes, descAgentRes, providerInfoRes] = await Promise.all([
+  // 2, 3 & 4. Run Title, Description, Provider Info, and Closed-Catalog Taxonomy Agents in parallel
+  const [titleAgentRes, descAgentRes, providerInfoRes, taxonomyRes] = await Promise.all([
     runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt),
     runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt),
     runProviderInfoAgent(cleanContext),
+    runTaxonomyAgent(cleanContext, taxonomies),
   ]);
   if (titleAgentRes.providerUsed !== "none") providersUsed.add(titleAgentRes.providerUsed);
   if (descAgentRes.providerUsed !== "none") providersUsed.add(descAgentRes.providerUsed);
   if (providerInfoRes.providerUsed !== "none") providersUsed.add(providerInfoRes.providerUsed);
+  if (taxonomyRes.providerUsed !== "none") providersUsed.add(taxonomyRes.providerUsed);
 
   // Carefully refine publisher name if provider info agent detected the true company/organization
   if (
@@ -4733,7 +4704,15 @@ async function processUrlWithAI(
     mapUrl: buildGoogleMapsUrl(`${cleanPublisher}, ${locInfo.primaryCity}, ${locInfo.primaryCountry}`),
   };
 
-  const classified = classifySectorAndTaxonomy(url, titleVal, extracted.textContent, taxonomies);
+  const dynamicFallbackClassified = classifySectorAndTaxonomy(url, titleVal, extracted.textContent, taxonomies);
+
+  const finalTaxonomyData = (taxonomyRes.success && taxonomyRes.data)
+    ? taxonomyRes.data
+    : dynamicFallbackClassified;
+
+  const detectedLanguages = (taxonomyRes.success && taxonomyRes.data?.languages?.length)
+    ? taxonomyRes.data.languages
+    : detectLanguagesFromText(extracted.textContent, taxonomies.languages);
 
   const aiProviderInfo = providerInfoRes.data?.providerInfoI18n;
   const pInfoEs = aiProviderInfo?.es || providerInfoRes.data?.providerInfo || "";
@@ -4790,7 +4769,8 @@ async function processUrlWithAI(
     scrapedParagraphs: paragraphs.slice(0, 15),
     scrapedTextContent: (extracted.textContent || "").slice(0, 5000),
     rawPageTitle: extracted.title || "",
-  };
+    prestaciones: finalTaxonomyData.prestaciones || [],
+  } as any;
 
   // Enforce taxonomy structure only (without altering title/description text!)
   const finalPub = enforceStrictTaxonomyGuardrails(publication, extracted, taxonomies);
@@ -4840,7 +4820,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const taxonomies = await getAvailableSystemTaxonomies();
+    const taxonomies = await getAvailableSystemTaxonomies(body.categoriesPayload, body.filterGroupsPayload);
 
     const rawCustomBlocks = Array.isArray(body.customBlocks) ? body.customBlocks : [];
     const customBlocks: CustomScraperBlock[] = rawCustomBlocks
