@@ -3645,8 +3645,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }))
     );
 
-    if (Array.isArray(draft.destinationCountries) && draft.destinationCountries.length > 0) {
-      setPPrestacionDestinationCountries(draft.destinationCountries);
+    if (Array.isArray((draft as any).destinationCountries) && (draft as any).destinationCountries.length > 0) {
+      setPPrestacionDestinationCountries((draft as any).destinationCountries);
     }
 
     setPCurrency(draft.currency || "USD");
@@ -3774,62 +3774,78 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    // 1. Resolve Category Roots and Subcategories
-    if (resolvedCategoryRoots.size === 0) {
-      const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
-      if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
-        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
-        if (eduRoot) resolvedCategoryRoots.add(eduRoot.original);
-      } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|policl[ií]nico|maternidad/i.test(titleContext)) {
-        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
-        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
-      } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
-        const autoRoot = allRootsWithNorm.find((r) => /auto|veh[ií]cul|transporte|comercio/i.test(r.norm));
-        if (autoRoot) resolvedCategoryRoots.add(autoRoot.original);
-      } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
-        const miningRoot = allRootsWithNorm.find((r) => /industria|miner|energ|construcci/i.test(r.norm));
-        if (miningRoot) resolvedCategoryRoots.add(miningRoot.original);
-      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
-        const entRoot = allRootsWithNorm.find((r) => /entretenimiento|cultura|arte|espect[aá]culo/i.test(r.norm));
-        if (entRoot) resolvedCategoryRoots.add(entRoot.original);
-      } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
-        const sportsRoot = allRootsWithNorm.find((r) => /deporte|fitness|gimnasio/i.test(r.norm));
-        if (sportsRoot) resolvedCategoryRoots.add(sportsRoot.original);
-      } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
-        const gastroRoot = allRootsWithNorm.find((r) => /gastronom|restaurante/i.test(r.norm));
-        if (gastroRoot) resolvedCategoryRoots.add(gastroRoot.original);
-      } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
-        const techRoot = allRootsWithNorm.find((r) => /tecnolog|software|digital/i.test(r.norm));
-        if (techRoot) resolvedCategoryRoots.add(techRoot.original);
-      } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
-        const realRoot = allRootsWithNorm.find((r) => /inmobiliari|propiedad|bienes/i.test(r.norm));
-        if (realRoot) resolvedCategoryRoots.add(realRoot.original);
-      } else if (/hotel|hostel|alojamiento|posada|cabaña|resort|hospedaje/i.test(titleContext)) {
-        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
-        if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
-      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra/i.test(titleContext)) {
-        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
-        if (legalRoot) resolvedCategoryRoots.add(legalRoot.original);
+    // 1. Dynamic category scoring fallback if direct match didn't yield a root
+    if (resolvedCategoryRoots.size === 0 && publicationCategoryRoots.length > 0) {
+      let bestRoot = publicationCategoryRoots[0];
+      let bestScore = -1;
+      const titleContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""}`
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+      for (const root of publicationCategoryRoots) {
+        const rNorm = root.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const rTokens = rNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
+        let score = 0;
+        if (titleContextNorm.includes(rNorm)) score += 40;
+        for (const tok of rTokens) {
+          if (titleContextNorm.includes(tok)) score += 15;
+        }
+        const children = childrenBy.get(root.id) || [];
+        for (const child of children) {
+          const cNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
+          if (titleContextNorm.includes(cNorm)) score += 30;
+          for (const tok of cTokens) {
+            if (titleContextNorm.includes(tok)) score += 10;
+          }
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestRoot = root;
+        }
+      }
+
+      if (bestRoot) {
+        resolvedCategoryRoots.add(bestRoot.description);
       }
     }
 
-    // If subcategories were not resolved yet, automatically pick matching children from resolved roots
+    // Automatically pick matching children from resolved roots
     if (resolvedSubcategories.size === 0 && resolvedCategoryRoots.size > 0) {
+      const titleContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""}`
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
       for (const rootName of resolvedCategoryRoots) {
         const rootObj = publicationCategoryRoots.find((r) => r.description === rootName);
         if (!rootObj) continue;
         const children = childrenBy.get(rootObj.id) || [];
+        if (children.length === 0) continue;
+
+        let bestChild = children[0];
+        let bestChildScore = -1;
+
         for (const child of children) {
           const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          const cTokens = childNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
+          let cScore = 0;
           if (rawInputSubcategories.some((s) => s.toLowerCase().includes(childNorm) || childNorm.includes(s.toLowerCase()))) {
-            resolvedSubcategories.add(child.description);
-          } else if (/educaci|estudio/i.test(rootName) && /universidad/i.test(childNorm)) {
-            resolvedSubcategories.add(child.description);
-          } else if (/salud|m[eé]dic/i.test(rootName) && /especialidad|m[eé]dic/i.test(childNorm)) {
-            resolvedSubcategories.add(child.description);
-          } else if (/alojamiento/i.test(rootName) && /hotel|hostel/i.test(childNorm)) {
-            resolvedSubcategories.add(child.description);
+            cScore += 100;
           }
+          if (titleContextNorm.includes(childNorm)) cScore += 30;
+          for (const tok of cTokens) {
+            if (titleContextNorm.includes(tok)) cScore += 10;
+          }
+          if (cScore > bestChildScore) {
+            bestChildScore = cScore;
+            bestChild = child;
+          }
+        }
+
+        if (bestChild) {
+          resolvedSubcategories.add(bestChild.description);
         }
       }
     }
@@ -3843,11 +3859,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (draft.subcategorySelections || []));
     setPSubcategory(finalSubcatSel[0] || draft.subcategory || "");
 
-    // 2. Resolve Provider Activities directly against DB actividadRoots
+    // 2. Resolve Provider Activities directly against DB actividadRoots (dynamic scoring fallback)
     const resolvedActivities = new Set<string>();
     const rawActivities = Array.isArray(draft.providerActivities) && draft.providerActivities.length > 0
       ? draft.providerActivities
-      : (draft.providerActivity ? [draft.providerActivity] : []);
+      : ((draft as any).providerActivity ? [(draft as any).providerActivity] : []);
 
     for (const rawAct of rawActivities) {
       const actNorm = rawAct.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -3858,50 +3874,36 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (match) {
         resolvedActivities.add(match.description);
       } else if (rawAct.trim()) {
-        resolvedActivities.add(rawAct.trim());
+        const subMatch = categories.find((c) => {
+          const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          return cNorm === actNorm || cNorm.includes(actNorm) || actNorm.includes(cNorm);
+        });
+        if (subMatch) resolvedActivities.add(subMatch.description);
       }
     }
 
-    // Only fallback if draft provided NO activities at all
-    if (resolvedActivities.size === 0) {
-      const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
-      if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
-        const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(eduAct ? eduAct.description : "Educación y formación");
-      } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|pediatr[ií]a|m[eé]dic/i.test(titleContext)) {
-        const healthAct = actividadRoots.find((r) => /salud|asistencia/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(healthAct ? healthAct.description : "Salud y asistencia social");
-      } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
-        const autoAct = actividadRoots.find((r) => /automotriz|reparaci|mantenimiento|transporte|comercio/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(autoAct ? autoAct.description : "Comercio y automotriz");
-      } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
-        const miningAct = actividadRoots.find((r) => /miner|industria|construcci|energ/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(miningAct ? miningAct.description : "Industria, minería y construcción");
-      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
-        const entAct = actividadRoots.find((r) => /arte|cultura|entretenimiento|recreaci/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(entAct ? entAct.description : "Arte, cultura y entretenimiento");
-      } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
-        const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(sportsAct ? sportsAct.description : "Deportes, fitness y bienestar");
-      } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
-        const gastroAct = actividadRoots.find((r) => /gastronom|restauraci|hosteler/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(gastroAct ? gastroAct.description : "Gastronomía y restauración");
-      } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
-        const techAct = actividadRoots.find((r) => /tecnolog|software|informaci/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(techAct ? techAct.description : "Tecnología, software e información");
-      } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
-        const realAct = actividadRoots.find((r) => /inmobiliari|bienes ra[ií]ces/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(realAct ? realAct.description : "Servicios inmobiliarios y bienes raíces");
-      } else if (/hotel|hostel|alojamiento|turismo|posada|resort/i.test(titleContext)) {
-        const tourAct = actividadRoots.find((r) => /hosteler|turismo|alojamiento/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(tourAct ? tourAct.description : "Hostelería, alojamiento y turismo");
-      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra/i.test(titleContext)) {
-        const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
-      } else {
-        const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
+    if (resolvedActivities.size === 0 && actividadRoots.length > 0) {
+      const titleContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""}`
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+      let bestAct = actividadRoots[0];
+      let bestActScore = -1;
+      for (const act of actividadRoots) {
+        const aNorm = act.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
+        let aScore = 0;
+        if (titleContextNorm.includes(aNorm)) aScore += 40;
+        for (const tok of aTokens) {
+          if (titleContextNorm.includes(tok)) aScore += 15;
+        }
+        if (aScore > bestActScore) {
+          bestActScore = aScore;
+          bestAct = act;
+        }
       }
+      if (bestAct) resolvedActivities.add(bestAct.description);
     }
 
     const actSel = Array.from(resolvedActivities);
@@ -3912,7 +3914,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const resolvedTypes = new Set<string>();
     const rawTypes = Array.isArray(draft.providerTypes) && draft.providerTypes.length > 0
       ? draft.providerTypes
-      : (draft.providerType ? [draft.providerType] : []);
+      : ((draft as any).providerType ? [(draft as any).providerType] : []);
 
     for (const rawType of rawTypes) {
       const typeNorm = rawType.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -3923,7 +3925,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (match) {
         resolvedTypes.add(match.description);
       } else if (rawType.trim()) {
-        resolvedTypes.add(rawType.trim());
+        const subMatch = categories.find((c) => {
+          const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          return cNorm === typeNorm || cNorm.includes(typeNorm) || typeNorm.includes(cNorm);
+        });
+        if (subMatch) resolvedTypes.add(subMatch.description);
       }
     }
 
@@ -3937,19 +3943,102 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       resolvedTypes.delete("Profesional independiente");
       const pubType = tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description.toLowerCase()));
       if (pubType) resolvedTypes.add(pubType.description);
-      else resolvedTypes.add("Organismo público");
+      else if (tipoRoots.length) resolvedTypes.add(tipoRoots[0].description);
     }
 
-    if (resolvedTypes.size === 0) {
-      resolvedTypes.add(isPublicGov ? "Organismo público" : "Institución privada");
+    if (resolvedTypes.size === 0 && tipoRoots.length > 0) {
+      const defaultType = isPublicGov
+        ? tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description))
+        : tipoRoots.find((r) => /privad|empresa/i.test(r.description));
+      resolvedTypes.add(defaultType ? defaultType.description : tipoRoots[0].description);
     }
 
     const typeSel = Array.from(resolvedTypes);
     setPProviderTypes(typeSel);
     setPProviderType(typeSel[0] || "");
 
-    const modSel = draft.providerModalities?.length ? draft.providerModalities : [];
-    setPProviderModalities(modSel);
+    // 4. Resolve Provider Modalities against DB modalidadRoots
+    const resolvedModalities = new Set<string>();
+    const rawModalities = Array.isArray(draft.providerModalities) && draft.providerModalities.length > 0
+      ? draft.providerModalities
+      : [];
+
+    for (const rawMod of rawModalities) {
+      const modNorm = String(rawMod).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!modNorm) continue;
+      const match = modalidadRoots.find((r) => {
+        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return rNorm === modNorm || rNorm.includes(modNorm) || modNorm.includes(rNorm);
+      });
+      if (match) {
+        resolvedModalities.add(match.description);
+      } else {
+        const subMatch = categories.find((c) => {
+          const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          return cNorm === modNorm || cNorm.includes(modNorm) || modNorm.includes(cNorm);
+        });
+        if (subMatch) resolvedModalities.add(subMatch.description);
+      }
+    }
+
+    if (resolvedModalities.size === 0 && modalidadRoots.length > 0) {
+      const presencial = modalidadRoots.find((r) => /presencial/i.test(r.description));
+      const online = modalidadRoots.find((r) => /online|virtual|remot/i.test(r.description));
+      if (presencial) resolvedModalities.add(presencial.description);
+      if (online) resolvedModalities.add(online.description);
+      if (resolvedModalities.size === 0) resolvedModalities.add(modalidadRoots[0].description);
+    }
+    setPProviderModalities(Array.from(resolvedModalities));
+
+    // 5. Resolve Prestaciones against DB prestacionRoots
+    const resolvedPrestaciones = new Set<string>();
+    const rawPrestaciones = Array.isArray((draft as any).prestaciones)
+      ? (draft as any).prestaciones
+      : (draft as any).prestacion ? [(draft as any).prestacion] : [];
+
+    for (const rawPrest of rawPrestaciones) {
+      const pNorm = String(rawPrest).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!pNorm) continue;
+      const match = prestacionRoots.find((r) => {
+        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return rNorm === pNorm || rNorm.includes(pNorm) || pNorm.includes(rNorm);
+      });
+      if (match) {
+        resolvedPrestaciones.add(match.description);
+      } else {
+        const subMatch = categories.find((c) => {
+          const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          return cNorm === pNorm || cNorm.includes(pNorm) || pNorm.includes(cNorm);
+        });
+        if (subMatch) resolvedPrestaciones.add(subMatch.description);
+      }
+    }
+    setPPrestaciones(Array.from(resolvedPrestaciones));
+
+    // 6. Resolve Languages against DB idiomaRoots
+    const rawLangStr = draft.languages || "Español";
+    const rawLangs = rawLangStr.split(/[,;\/|]+/).map((s) => s.trim()).filter(Boolean);
+    const resolvedLangs = new Set<string>();
+
+    for (const l of rawLangs) {
+      const lNorm = l.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!lNorm) continue;
+      const match = idiomaRoots.find((r) => {
+        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return rNorm === lNorm || rNorm.includes(lNorm) || lNorm.includes(rNorm);
+      });
+      if (match) {
+        resolvedLangs.add(match.description);
+      } else {
+        const subMatch = categories.find((c) => {
+          const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          return cNorm === lNorm || cNorm.includes(lNorm) || lNorm.includes(cNorm);
+        });
+        if (subMatch) resolvedLangs.add(subMatch.description);
+        else resolvedLangs.add(l);
+      }
+    }
+    setPLanguages(resolvedLangs.size > 0 ? Array.from(resolvedLangs).join(", ") : (draft.languages || "Español"));
 
     if (draft.images && draft.images.length) {
       setPImageUrls(draft.images.join("\n"));
@@ -11799,6 +11888,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         onClose={() => setAiModalOpen(false)}
         onSelectDraftToEdit={applyAiDraftToForm}
         onApproveDirectly={handleApproveAiDraftDirectly}
+        categories={categories}
+        filterGroups={filterGroups}
       />
       <AiFieldRefineModal
         isOpen={aiRefineState.isOpen}
