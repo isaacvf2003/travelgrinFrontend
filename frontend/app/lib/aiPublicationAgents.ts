@@ -1110,15 +1110,16 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
 1. CATÁLOGO ESTRICTAMENTE CERRADO (CERO ALUCINACIONES):
    - Está TERMINANTEMENTE PROHIBIDO crear, inventar, traducir o proponer nombres de categorías, subcategorías, actividades, tipos de perfil o modalidades que NO figuren explícitamente en el catálogo suministrado.
    - Debes elegir ÚNICAMENTE elementos existentes en las listas provistas a continuación.
-2. JERARQUÍA CATEGORÍA + SUBCATEGORÍA:
-   - 'category': Selecciona 1 categoría padre existente del catálogo.
-   - 'subcategory': Selecciona 1 subcategoría que sea hija válida de la categoría padre elegida.
-   - 'categorySelections': Array conteniendo la categoría padre elegida.
-   - 'subcategorySelections': Array conteniendo la subcategoría elegida.
-3. SECTOR / ACTIVIDAD ('providerActivities'):
-   - Selecciona 1 o 2 actividades de la lista 'ACTIVIDADES DISPONIBLES' que mejor representen el sector real del oferente.
-4. QUIÉN LO OFRECE ('providerTypes'):
-   - Selecciona de la lista 'TIPOS DE PERFIL DISPONIBLES' (por ejemplo "Organismo público" para hospitales públicos, universidades nacionales, ministerios o entes de gobierno, o "Institución privada", "Empresa", etc.).
+2. CATEGORÍAS Y SUBCATEGORÍAS PERTINENTES (SELECCIÓN MÚLTIPLE):
+   - 'categorySelections': Array con 1 o más categorías padre del catálogo oficial cerrado que correspondan genuinamente al oferente y a lo que ofrece. Puedes seleccionar MÁS DE UNA si el oferente abarca múltiples categorías del catálogo.
+   - 'subcategorySelections': Array con TODAS las subcategorías válidas (hijas de las categorías padre seleccionadas) que correspondan a sus servicios o actividad. NO te limites a una sola: selecciona todas las subcategorías del catálogo que correspondan al oferente (selección múltiple de subcategorías).
+   - 'category': La categoría principal (primer elemento de 'categorySelections').
+   - 'subcategory': La subcategoría principal (primer elemento de 'subcategorySelections').
+3. SECTOR DE QUIEN OFRECE / ACTIVIDAD ('providerActivities'):
+   - Selecciona 1 o más actividades ÚNICAMENTE de la lista 'ACTIVIDADES DISPONIBLES EN BD' (correspondiente al sector económico o industria, ej. tecnología, servicios, finanzas, etc.).
+   - PROHIBIDO TERMINANTEMENTE colocar tipos de oferente como "Empresa", "Institución privada" u "Organismo público" en actividades. "Empresa" NO es una actividad; es un tipo de perfil.
+4. QUIÉN LO OFRECE / TIPO DE OFERENTE ('providerTypes'):
+   - Selecciona de la lista 'TIPOS DE PERFIL DISPONIBLES EN BD' (ej: "Empresa", "Institución privada", "Organismo público", etc.).
 5. MODALIDADES DE ATENCIÓN ('providerModalities'):
    - Selecciona de la lista 'MODALIDADES DISPONIBLES' (ej: "Atención presencial", "Atención online") según lo que ofrezca el sitio.
 6. PRESTACIONES ('prestaciones'):
@@ -1174,7 +1175,7 @@ Responde ÚNICAMENTE con un JSON con esta estructura exacta:
 - Contenido relevante:
 ${snippet}
 
-Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo.`;
+Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes seleccionar más de una categoría y más de una subcategoría si corresponden al oferente.`;
 
   try {
     const { rawText, providerUsed } = await executeModelCall(
@@ -1189,30 +1190,93 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo.`;
       throw new Error("Respuesta JSON inválida de IA al clasificar taxonomía.");
     }
 
-    // Strict validation against DB pool
-    const rawCat = String(parsed.category || (Array.isArray(parsed.categorySelections) ? parsed.categorySelections[0] : "") || "").trim();
-    const rawSub = String(parsed.subcategory || (Array.isArray(parsed.subcategorySelections) ? parsed.subcategorySelections[0] : "") || "").trim();
+    // Strict multi-select category validation against DB pool
+    const rawCategories: string[] = [
+      ...(Array.isArray(parsed.categorySelections) ? parsed.categorySelections : []),
+      parsed.category,
+    ]
+      .map((c) => String(c || "").trim())
+      .filter(Boolean);
 
-    const matchedCats = matchToCatalogPool([rawCat], categoriesPool);
-    const finalCat = matchedCats[0] || (categoriesPool[0] || "");
+    const matchedCats = matchToCatalogPool(rawCategories, categoriesPool);
+    const finalCategories = matchedCats.length ? matchedCats : (categoriesPool.slice(0, 1));
+    const finalCat = finalCategories[0] || (categoriesPool[0] || "");
 
-    // Verify subcategory is a child if tree is available
-    let validSubcatPool = subcategoriesPool;
+    // Collect all valid subcategories belonging to any of the selected categories
+    let validSubcatPool: string[] = [];
     if (taxonomies?.categoryTree?.length) {
       const allParentNodes = taxonomies.categoryTree.flatMap((b) => b.parentCategories);
-      const matchedNode = allParentNodes.find((p) => p.name.toLowerCase() === finalCat.toLowerCase());
-      if (matchedNode && matchedNode.subcategories && matchedNode.subcategories.length > 0) {
-        validSubcatPool = matchedNode.subcategories;
+      finalCategories.forEach((catName) => {
+        const matchedNode = allParentNodes.find((p) => p.name.toLowerCase() === catName.toLowerCase());
+        if (matchedNode && Array.isArray(matchedNode.subcategories) && matchedNode.subcategories.length > 0) {
+          validSubcatPool.push(...matchedNode.subcategories);
+        }
+      });
+    }
+    if (validSubcatPool.length === 0) {
+      validSubcatPool = subcategoriesPool;
+    }
+    validSubcatPool = Array.from(new Set(validSubcatPool.filter(Boolean)));
+
+    // Strict multi-select subcategory validation
+    const rawSubcategories: string[] = [
+      ...(Array.isArray(parsed.subcategorySelections) ? parsed.subcategorySelections : []),
+      parsed.subcategory,
+    ]
+      .map((s) => String(s || "").trim())
+      .filter(Boolean);
+
+    let matchedSubs = matchToCatalogPool(rawSubcategories, validSubcatPool);
+
+    // Also score against extracted text to include any additional relevant subcategories that fit the entity
+    if (validSubcatPool.length > 0) {
+      const textCorpus = `${context.rawPageTitle || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.mainText || ""}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      for (const sub of validSubcatPool) {
+        if (matchedSubs.includes(sub)) continue;
+        const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
+        let matchScore = 0;
+        if (textCorpus.includes(sNorm)) matchScore += 30;
+        for (const tok of sTokens) {
+          if (textCorpus.includes(tok)) matchScore += 10;
+        }
+        if (matchScore >= 20) {
+          matchedSubs.push(sub);
+        }
       }
     }
 
-    const matchedSubs = matchToCatalogPool([rawSub], validSubcatPool);
-    const finalSub = matchedSubs[0] || (validSubcatPool[0] || "");
+    if (matchedSubs.length === 0 && validSubcatPool.length > 0) {
+      matchedSubs = [validSubcatPool[0]];
+    }
+    const finalSub = matchedSubs[0] || "";
 
-    const matchedActivities = matchToCatalogPool(
-      Array.isArray(parsed.providerActivities) ? parsed.providerActivities : [parsed.providerActivities],
-      activitiesPool
-    );
+    // Activities: strictly match against activitiesPool and NEVER allow items from typesPool (e.g. Empresa)
+    const rawActivities = Array.isArray(parsed.providerActivities) ? parsed.providerActivities : [parsed.providerActivities];
+    const matchedActivities = matchToCatalogPool(rawActivities, activitiesPool);
+    const cleanActivities = matchedActivities.filter((a) => !typesPool.includes(a));
+
+    if (cleanActivities.length === 0 && activitiesPool.length > 0) {
+      const sanitizedPool = activitiesPool.filter((a) => !typesPool.includes(a));
+      const poolToUse = sanitizedPool.length > 0 ? sanitizedPool : activitiesPool;
+      const textCorpus = `${context.rawPageTitle || ""} ${context.publisherName || ""} ${context.mainText || ""}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      let bestA = poolToUse[0];
+      let bestAScore = -1;
+      for (const act of poolToUse) {
+        const aNorm = act.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
+        let score = 0;
+        if (textCorpus.includes(aNorm)) score += 40;
+        for (const tok of aTokens) {
+          if (textCorpus.includes(tok)) score += 15;
+        }
+        if (score > bestAScore) {
+          bestAScore = score;
+          bestA = act;
+        }
+      }
+      if (bestA) cleanActivities.push(bestA);
+    }
 
     const matchedTypes = matchToCatalogPool(
       Array.isArray(parsed.providerTypes) ? parsed.providerTypes : [parsed.providerTypes],
@@ -1239,9 +1303,9 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo.`;
       data: {
         category: finalCat,
         subcategory: finalSub,
-        categorySelections: finalCat ? [finalCat] : [],
-        subcategorySelections: finalSub ? [finalSub] : [],
-        providerActivities: matchedActivities.length ? matchedActivities : (activitiesPool.slice(0, 1)),
+        categorySelections: finalCategories,
+        subcategorySelections: matchedSubs,
+        providerActivities: cleanActivities.length ? cleanActivities : (activitiesPool.filter((a) => !typesPool.includes(a)).slice(0, 1)),
         providerTypes: matchedTypes.length ? matchedTypes : (typesPool.slice(0, 1)),
         providerModalities: matchedModalities.length ? matchedModalities : (modalitiesPool.slice(0, 2)),
         prestaciones: matchedPrestaciones,
