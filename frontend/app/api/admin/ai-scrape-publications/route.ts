@@ -3361,16 +3361,31 @@ function classifySectorAndTaxonomy(
     const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
     for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
       if (hostname.includes(domainKey) || url.toLowerCase().includes(domainKey)) {
-        const cat = validCats.find((c) => new RegExp(info.category.slice(0, 10), "i").test(c)) || validCats[0] || info.category;
-        const sub = validSubcats.find((s) => new RegExp(info.subcategory.slice(0, 10), "i").test(s)) || validSubcats[0] || info.subcategory;
-        const act = validActs.find((a) => new RegExp(info.activity.slice(0, 8), "i").test(a)) || validActs[0] || info.activity;
+        const isEduInfo = /educaci|formaci|universi|estudiant/i.test(info.activity) || /universi|estudiant/i.test(info.category);
+        let catMatches: string[] = [];
+        let subMatches: string[] = [];
+
+        if (isEduInfo) {
+          catMatches = validCats.filter((c) => /\b(estudiant|universi|educa|carrera|academ|formaci)\b/i.test(c.toLowerCase()));
+          subMatches = validSubcats.filter((s) => /\b(estudiant|universi|educa|carrera|academ|formaci)\b/i.test(s.toLowerCase()));
+        }
+
+        if (!catMatches.length) {
+          const directCat = validCats.find((c) => new RegExp(info.category.slice(0, 10), "i").test(c));
+          catMatches = directCat ? [directCat] : (validCats.length ? [validCats[0]] : [info.category]);
+        }
+        if (!subMatches.length) {
+          const directSub = validSubcats.find((s) => new RegExp(info.subcategory.slice(0, 10), "i").test(s));
+          subMatches = directSub ? [directSub] : (validSubcats.length ? [validSubcats[0]] : [info.subcategory]);
+        }
+        const act = validActs.find((a) => new RegExp(info.activity.slice(0, 8), "i").test(a)) || (isEduInfo ? validActs.find((a) => /educaci/i.test(a)) : undefined) || validActs[0] || info.activity;
         const typ = validTypes.find((t) => new RegExp(info.type.slice(0, 8), "i").test(t)) || validTypes[0] || info.type;
         return {
           sector: /salud|hospital|m[eé]dic/i.test(info.activity) ? "health" : "education",
-          category: cat,
-          subcategory: sub,
-          categorySelections: [cat],
-          subcategorySelections: [sub],
+          category: catMatches[0] || info.category,
+          subcategory: subMatches[0] || info.subcategory,
+          categorySelections: catMatches,
+          subcategorySelections: subMatches,
           providerActivities: [act],
           providerTypes: [typ],
           providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
@@ -3383,6 +3398,27 @@ function classifySectorAndTaxonomy(
   const isGovDomain = /\.gov(?:\.[a-z]{2})?|\.gob(?:\.[a-z]{2})?|\.mil(?:\.[a-z]{2})?/i.test(url);
   const isGovText = /\b(organismo publico|hospital publico|hospital nacional|hospital de pediatria samic|universidad nacional|ente autarquico|ministerio|secretaria|gobierno de|municipalidad|poder judicial)\b/i.test(lowerCorpus);
   const isPublicEntity = isGovDomain || isGovText;
+
+  // Semantic entity classifications:
+  const isEducationalEntity =
+    /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(lowerCorpus) ||
+    /\.edu(?:\.[a-z]{2})?/i.test(url);
+
+  const isAuthenticOng =
+    (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(url)) &&
+    /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(lowerCorpus) &&
+    !isEducationalEntity &&
+    !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(lowerCorpus);
+
+  const isOngMatch = (name: string): boolean => {
+    const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    return /\b(ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n);
+  };
+
+  const isStudentEduMatch = (name: string): boolean => {
+    const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    return /\b(estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto)\b/i.test(n);
+  };
 
   // 3. Dynamic Category & Subcategory Scoring across loaded DB catalog (Zero hardcoded sectors)
   const parentCategoriesList: Array<{ name: string; subcategories: string[] }> = [];
@@ -3419,6 +3455,13 @@ function classifySectorAndTaxonomy(
       if (matches) parentScore += Math.min(matches.length * 2, 20);
     }
 
+    if (!isAuthenticOng && isOngMatch(parent.name)) {
+      parentScore -= 200;
+    }
+    if (isEducationalEntity && isStudentEduMatch(parent.name)) {
+      parentScore += 120;
+    }
+
     let bestSubForThisParent = parent.subcategories[0] || "";
     let highestSubScore = -1;
 
@@ -3438,6 +3481,13 @@ function classifySectorAndTaxonomy(
         if (matches) subScore += Math.min(matches.length * 3, 30);
       }
 
+      if (!isAuthenticOng && isOngMatch(sub)) {
+        subScore -= 200;
+      }
+      if (isEducationalEntity && isStudentEduMatch(sub)) {
+        subScore += 100;
+      }
+
       if (subScore > highestSubScore) {
         highestSubScore = subScore;
         bestSubForThisParent = sub;
@@ -3447,9 +3497,12 @@ function classifySectorAndTaxonomy(
     const totalParentScore = parentScore + (highestSubScore > 0 ? highestSubScore * 1.5 : 0);
 
     const matchingSubsForParent = parent.subcategories.filter((sub) => {
+      if (!isAuthenticOng && isOngMatch(sub)) return false;
       const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
-      return titleNorm.includes(sNorm) || urlNorm.includes(sNorm.replace(/\s+/g, "")) || sTokens.some((tok) => titleNorm.includes(tok) || lowerCorpus.includes(tok));
+      const hasTextMatch = titleNorm.includes(sNorm) || urlNorm.includes(sNorm.replace(/\s+/g, "")) || sTokens.some((tok) => titleNorm.includes(tok) || lowerCorpus.includes(tok));
+      const hasEduMatch = isEducationalEntity && isStudentEduMatch(sub);
+      return hasTextMatch || hasEduMatch;
     });
 
     if (totalParentScore > highestParentScore) {
@@ -3476,22 +3529,58 @@ function classifySectorAndTaxonomy(
   if (scoredParents.length > 0) {
     const topScore = scoredParents[0].score;
     for (const p of scoredParents) {
+      if (!isAuthenticOng && isOngMatch(p.name)) continue;
       if (selectedCategories.length === 0 || (p.score >= 40 && p.score >= topScore * 0.6 && selectedCategories.length < 3)) {
         selectedCategories.push(p.name);
         p.matchingSubs.forEach((s) => {
-          if (!selectedSubcategories.includes(s)) selectedSubcategories.push(s);
+          if (!selectedSubcategories.includes(s) && (isAuthenticOng || !isOngMatch(s))) {
+            selectedSubcategories.push(s);
+          }
         });
       }
     }
   }
 
+  // Proactively ensure student/education categories and subcategories are included for educational entities
+  if (isEducationalEntity) {
+    for (const p of scoredParents) {
+      if (isStudentEduMatch(p.name) && !selectedCategories.includes(p.name)) {
+        selectedCategories.push(p.name);
+        p.matchingSubs.forEach((s) => {
+          if (!selectedSubcategories.includes(s) && (isAuthenticOng || !isOngMatch(s))) {
+            selectedSubcategories.push(s);
+          }
+        });
+      }
+    }
+    // Also scan all valid subcategories for student matches
+    validSubcats.filter(isStudentEduMatch).forEach((s) => {
+      if (!selectedSubcategories.includes(s) && (isAuthenticOng || !isOngMatch(s))) {
+        selectedSubcategories.push(s);
+      }
+    });
+  }
+
+  // Filter out any ONG selections if not an authentic ONG
+  if (!isAuthenticOng) {
+    for (let i = selectedCategories.length - 1; i >= 0; i--) {
+      if (isOngMatch(selectedCategories[i])) selectedCategories.splice(i, 1);
+    }
+    for (let i = selectedSubcategories.length - 1; i >= 0; i--) {
+      if (isOngMatch(selectedSubcategories[i])) selectedSubcategories.splice(i, 1);
+    }
+  }
+
+  const nonOngCats = isAuthenticOng ? validCats : validCats.filter((c) => !isOngMatch(c));
+  const nonOngSubcats = isAuthenticOng ? validSubcats : validSubcats.filter((s) => !isOngMatch(s));
+
   if (selectedCategories.length === 0) {
-    if (bestParent) selectedCategories.push(bestParent);
-    else if (validCats.length) selectedCategories.push(validCats[0]);
+    if (bestParent && (isAuthenticOng || !isOngMatch(bestParent))) selectedCategories.push(bestParent);
+    else if (nonOngCats.length) selectedCategories.push(nonOngCats[0]);
   }
   if (selectedSubcategories.length === 0) {
-    if (bestSub) selectedSubcategories.push(bestSub);
-    else if (validSubcats.length) selectedSubcategories.push(validSubcats[0]);
+    if (bestSub && (isAuthenticOng || !isOngMatch(bestSub))) selectedSubcategories.push(bestSub);
+    else if (nonOngSubcats.length) selectedSubcategories.push(nonOngSubcats[0]);
   }
 
   // 4. Dynamic Activity Scoring across validActs (strictly excluding any types like "Empresa")
@@ -3511,6 +3600,9 @@ function classifySectorAndTaxonomy(
       const regex = new RegExp(`\\b${tok}`, "g");
       const matches = lowerCorpus.match(regex);
       if (matches) actScore += Math.min(matches.length * 2, 20);
+    }
+    if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
+      actScore += 60;
     }
     scoredActs.push({ name: act, score: actScore });
     if (actScore > highestActScore) {
@@ -3539,6 +3631,9 @@ function classifySectorAndTaxonomy(
   } else {
     const priv = validTypes.find((t) => /privada|empresa/i.test(t));
     if (priv) bestType = priv;
+  }
+  if (!isAuthenticOng && isOngMatch(bestType)) {
+    bestType = isPublicEntity ? "Organismo público" : "Institución privada";
   }
 
   // 6. Dynamic Modalities across validMods
@@ -4614,6 +4709,74 @@ export function enforceStrictTaxonomyGuardrails(
     publication.providerActivities = publication.providerActivities.filter((a: string) => !taxonomies.types.includes(a));
     if (publication.providerActivities.length === 0 && taxonomies?.activities?.length) {
       publication.providerActivities = [taxonomies.activities[0]];
+    }
+  }
+
+  const isEducational =
+    /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(allText) ||
+    /\.edu(?:\.[a-z]{2})?/i.test(publication.url);
+
+  const isAuthenticOng =
+    (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(publication.url)) &&
+    /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(allText) &&
+    !isEducational &&
+    !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(allText);
+
+  const isOng = (s: string) => /\b(ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+  const isStudentEdu = (s: string) => /\b(estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto)\b/i.test(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+
+  // Anti-False-ONG: If not an authentic ONG, strip any ONG categories, subcategories, or types
+  if (!isAuthenticOng) {
+    if (Array.isArray(publication.categorySelections)) {
+      publication.categorySelections = publication.categorySelections.filter((c) => !isOng(c));
+    }
+    if (Array.isArray(publication.subcategorySelections)) {
+      publication.subcategorySelections = publication.subcategorySelections.filter((s) => !isOng(s));
+    }
+    if (isOng(publication.category || "")) {
+      publication.category = publication.categorySelections?.[0] || classified.category;
+    }
+    if (isOng(publication.subcategory || "")) {
+      publication.subcategory = publication.subcategorySelections?.[0] || classified.subcategory;
+    }
+    if (Array.isArray(publication.providerTypes)) {
+      publication.providerTypes = publication.providerTypes.filter((t) => !isOng(t));
+      if (publication.providerTypes.length === 0) {
+        publication.providerTypes = classified.providerTypes;
+      }
+    }
+  }
+
+  // Educational & Student intelligence: Proactively inject student/university categories if available in system
+  if (isEducational && taxonomies) {
+    const validCats: string[] = taxonomies.categories || [];
+    const validSubcats: string[] = taxonomies.subcategories || [];
+
+    const eduCats = validCats.filter(isStudentEdu);
+    if (eduCats.length > 0) {
+      if (!Array.isArray(publication.categorySelections)) publication.categorySelections = [];
+      eduCats.forEach((c) => {
+        if (!publication.categorySelections.includes(c)) publication.categorySelections.push(c);
+      });
+      publication.category = publication.categorySelections[0] || publication.category;
+    }
+
+    const eduSubs = validSubcats.filter(isStudentEdu);
+    if (eduSubs.length > 0) {
+      if (!Array.isArray(publication.subcategorySelections)) publication.subcategorySelections = [];
+      eduSubs.forEach((s) => {
+        if (!publication.subcategorySelections.includes(s)) publication.subcategorySelections.push(s);
+      });
+      publication.subcategory = publication.subcategorySelections[0] || publication.subcategory;
+    }
+
+    const validActs: string[] = taxonomies.activities || [];
+    const eduAct = validActs.find((a) => /educaci|formaci/i.test(a));
+    if (eduAct) {
+      if (!Array.isArray(publication.providerActivities)) publication.providerActivities = [];
+      if (!publication.providerActivities.includes(eduAct)) {
+        publication.providerActivities = [eduAct, ...publication.providerActivities];
+      }
     }
   }
 
