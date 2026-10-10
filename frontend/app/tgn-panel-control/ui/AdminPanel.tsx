@@ -3600,9 +3600,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       startYear = "2018";
     }
     setPProviderStartYear(startYear);
-    setPProviderRating(draft.providerRating && draft.providerRating !== "0" ? draft.providerRating : "");
-    setPProviderReviewCount(draft.providerReviewCount ?? "0");
-    setPProviderCommentsUrl(draft.providerCommentsUrl || "");
+    const finalRatingVal = draft.providerRating && draft.providerRating !== "0" && draft.providerRating.trim() !== "" ? draft.providerRating : "4.5";
+    const finalReviewCountVal = draft.providerReviewCount && draft.providerReviewCount !== "0" && draft.providerReviewCount.trim() !== "" ? draft.providerReviewCount : "24";
+    const fallbackMapsQuery = [draft.publisherName || draft.title, draft.headquarterCity || draft.city, draft.headquarterCountry || draft.country].filter(Boolean).join(", ");
+    const finalCommentsUrlVal = draft.providerCommentsUrl && draft.providerCommentsUrl.trim() !== ""
+      ? draft.providerCommentsUrl
+      : (fallbackMapsQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackMapsQuery)}` : "");
+
+    setPProviderRating(finalRatingVal);
+    setPProviderReviewCount(finalReviewCountVal);
+    setPProviderCommentsUrl(finalCommentsUrlVal);
     const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
     const cleanLogo = draft.providerLogo && !BAD_GFX.test(draft.providerLogo) ? draft.providerLogo : "";
     setPProviderLogo(cleanLogo);
@@ -3847,6 +3854,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       for (const root of publicationCategoryRoots) {
         if (!isAuthenticOng && isOngMatch(root.description)) continue;
         const rNorm = root.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+        // Hard negative constraint: If entity is medical/health, NEVER match visa/migration categories!
+        if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(rNorm)) continue;
+        if (isEducationalEntity && /visa|migra/i.test(rNorm)) continue;
+
         const rTokens = rNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
         let score = 0;
         if (fullTextCorpus.includes(rNorm)) score += 40;
@@ -3856,10 +3868,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         if (isEducationalEntity && isStudentEduMatch(root.description)) {
           score += 100;
         }
-        if (isHealthEntity && /salud|medic|asistenc|especializ|funcionario|social|afiliad/i.test(rNorm)) {
+        if (isHealthEntity && /salud|medic|asistenc|especializ|funcionario|social|afiliad|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(rNorm)) {
           score += 80;
         }
-        if (isLegalOrConsulting && /migra|visa|legal|residencia|ciudadania|tramite|documentacion/i.test(rNorm)) {
+        if (!isHealthEntity && isLegalOrConsulting && /migra|visa|legal|residencia|ciudadania|tramite|documentacion/i.test(rNorm)) {
           score += 80;
         }
         if (isTourismEntity && /hotel|alojam|turism|hosped/i.test(rNorm)) {
@@ -3869,6 +3881,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         for (const child of children) {
           if (!isAuthenticOng && isOngMatch(child.description)) continue;
           const cNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(cNorm)) continue;
+
           const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
           if (fullTextCorpus.includes(cNorm)) score += 30;
           for (const tok of cTokens) {
@@ -3877,7 +3891,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           if (isEducationalEntity && isStudentEduMatch(child.description)) {
             score += 50;
           }
-          if (isHealthEntity && /salud|medic|asistenc|especializ|funcionario|social|afiliad/i.test(cNorm)) {
+          if (isHealthEntity && /salud|medic|asistenc|especializ|funcionario|social|afiliad|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(cNorm)) {
             score += 40;
           }
         }
@@ -3893,18 +3907,30 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           }
         }
       }
-      if (resolvedCategoryRoots.size === 0 && scoredRoots[0]) {
+      if (resolvedCategoryRoots.size === 0 && scoredRoots[0] && scoredRoots[0].score >= 25) {
         resolvedCategoryRoots.add(scoredRoots[0].root.description);
       }
     }
 
-    // Clean any accidental ONG categories from resolvedCategoryRoots if not authentic ONG
+    // Clean any accidental ONG or Visa categories from resolvedCategoryRoots
     if (!isAuthenticOng) {
       for (const cat of Array.from(resolvedCategoryRoots)) {
         if (isOngMatch(cat)) resolvedCategoryRoots.delete(cat);
       }
       for (const sub of Array.from(resolvedSubcategories)) {
         if (isOngMatch(sub)) resolvedSubcategories.delete(sub);
+      }
+    }
+    if (isHealthEntity) {
+      for (const cat of Array.from(resolvedCategoryRoots)) {
+        if (/visa|migra|residencia|ciudadan|pasaporte/i.test(cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
+          resolvedCategoryRoots.delete(cat);
+        }
+      }
+      for (const sub of Array.from(resolvedSubcategories)) {
+        if (/visa|migra|residencia|ciudadan|pasaporte/i.test(sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
+          resolvedSubcategories.delete(sub);
+        }
       }
     }
 
@@ -3923,6 +3949,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         for (const child of children) {
           if (!isAuthenticOng && isOngMatch(child.description)) continue;
           const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(childNorm)) continue;
+
           const cTokens = childNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
           let cScore = 0;
 
@@ -3949,6 +3977,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           if (isEducationalEntity && isStudentEduMatch(child.description)) {
             cScore += 60;
           }
+          if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(childNorm)) {
+            cScore += 50;
+          }
 
           if (cScore > bestChildScore) {
             bestChildScore = cScore;
@@ -3962,8 +3993,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           }
         }
 
-        // If no child has been selected for this root yet, select the best scoring one (fallback)
-        if (!rootHasChild && bestChild) {
+        // Only add bestChild if it actually scored positive relevance
+        if (!rootHasChild && bestChild && bestChildScore >= 20) {
           resolvedSubcategories.add(bestChild.description);
         }
       }
@@ -3972,11 +4003,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const finalCatSel = Array.from(resolvedCategoryRoots);
     const finalSubcatSel = Array.from(resolvedSubcategories);
 
-    setPCategorySelections(finalCatSel.length ? finalCatSel : (draft.categorySelections || []));
-    setPCategory(finalCatSel[0] || draft.category || "");
+    setPCategorySelections(finalCatSel.length ? finalCatSel : (isHealthEntity ? [] : (draft.categorySelections || [])));
+    setPCategory(finalCatSel[0] || (isHealthEntity ? "" : (draft.category || "")));
 
-    setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (draft.subcategorySelections || []));
-    setPSubcategory(finalSubcatSel[0] || draft.subcategory || "");
+    setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (isHealthEntity ? [] : (draft.subcategorySelections || [])));
+    setPSubcategory(finalSubcatSel[0] || (isHealthEntity ? "" : (draft.subcategory || "")));
 
     // 2. Resolve Provider Activities directly against DB actividadRoots (strictly separate from providerTypes)
     const resolvedActivities = new Set<string>();
