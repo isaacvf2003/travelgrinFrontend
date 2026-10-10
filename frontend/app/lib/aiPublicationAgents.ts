@@ -1212,12 +1212,14 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
 
     const isOngMatch = (name: string): boolean => {
       const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      return /\b(ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n);
+      return /\b(?:ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n) ||
+        /sin fines de lucro|organismo no gubernamental|asociacion civil/i.test(n);
     };
 
     const isStudentEduMatch = (name: string): boolean => {
       const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      return /\b(estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto)\b/i.test(n);
+      return /\b(?:estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto|facultad|intercambio|convocatoria|programa)\w*/i.test(n) ||
+        /estudiante|universidad|educacion|carrera|formacion|posgrado|grado|beca|colegio|instituto|programa|intercambio|convocatoria/i.test(n);
     };
 
     // Strict multi-select category validation against DB pool
@@ -1331,8 +1333,7 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
     if (cleanActivities.length === 0 && activitiesPool.length > 0) {
       const sanitizedPool = activitiesPool.filter((a) => !typesPool.includes(a));
       const poolToUse = sanitizedPool.length > 0 ? sanitizedPool : activitiesPool;
-      let bestA = poolToUse[0];
-      let bestAScore = -1;
+      const scoredActsList: { act: string; score: number }[] = [];
       for (const act of poolToUse) {
         const aNorm = act.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
@@ -1344,12 +1345,17 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
         if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
           score += 50;
         }
-        if (score > bestAScore) {
-          bestAScore = score;
-          bestA = act;
-        }
+        if (score > 0) scoredActsList.push({ act, score });
       }
-      if (bestA) cleanActivities.push(bestA);
+      scoredActsList.sort((a, b) => b.score - a.score);
+      if (scoredActsList.length > 0) {
+        cleanActivities.push(scoredActsList[0].act);
+        if (scoredActsList[1] && scoredActsList[1].score >= 35 && scoredActsList[1].score >= scoredActsList[0].score * 0.7) {
+          cleanActivities.push(scoredActsList[1].act);
+        }
+      } else if (poolToUse[0]) {
+        cleanActivities.push(poolToUse[0]);
+      }
     }
 
     let matchedTypes = matchToCatalogPool(
