@@ -1133,6 +1133,16 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
      c) Su actividad económica debe ser de educación (ej. "Educación y formación", "Educación").
      d) Su tipo de oferente debe ser "Institución privada" (para universidades privadas como Siglo 21) u "Organismo público" (para universidades estatales/nacionales). NUNCA ONG.
 
+10. INTELIGENCIA SEMÁNTICA PARA SALUD, OBRAS SOCIALES Y HOSPITALES (MANDATORIA):
+   - Si la entidad analizada es una OBRA SOCIAL, HOSPITAL, CLÍNICA, SANATORIO, PREPAGA O CENTRO MÉDICO (por ejemplo, "OSEP Mendoza", hospitales, sanatorios, centros de diagnóstico o salud):
+     a) Su actividad económica ('providerActivities') DEBE ser 'Salud y asistencia social' (o la opción de salud disponible en BD).
+     b) Si es obra social de empleados públicos u hospital público (ej: OSEP): su tipo de oferente ('providerTypes') DEBE ser 'Organismo público'. Si es clínica privada: 'Institución privada'. NUNCA ONG.
+     c) En categorías ('categorySelections') y subcategorías: selecciona todas las opciones del catálogo que mejor definan lo que ofrece (ej: 'Servicio especializado', 'Funcionario público' si es obra social pública, 'Profesional', y cualquier categoría o subcategoría de salud, medicina o trámites que el administrador haya creado en el catálogo).
+
+11. COMPRENSIÓN DINÁMICA DE NUEVAS TAXONOMÍAS CREADAS POR EL ADMINISTRADOR:
+   - El catálogo es completamente dinámico y el administrador puede crear nuevas categorías, subcategorías o actividades en cualquier momento.
+   - Analiza semánticamente el concepto de CADA opción disponible en las listas abajo y selecciona todas las que coincidan genuinamente con el sitio analizado. NUNCA uses plantillas fijas.
+
 CATÁLOGO DE BLOQUES, CATEGORÍAS Y SUBCATEGORÍAS DISPONIBLES EN BD:
 ${categoryTreeFormat}
 
@@ -1200,14 +1210,28 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
 
+    const isHealthEntity =
+      /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextCorpus) ||
+      /osep|hospital|clinica|sanatorio|salud/i.test(context.url || "");
+
     const isEducationalEntity =
       /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
       /\.edu(?:\.[a-z]{2})?/i.test(context.url || "");
+
+    const isLegalOrConsulting =
+      /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica)\b/i.test(fullTextCorpus);
+
+    const isTourismEntity =
+      /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(fullTextCorpus);
+
+    const isTechEntity =
+      /\b(software|tecnologia|tecnologias|app|aplicacion|sistemas|desarrollo web|programacion|informatica|it|ciberseguridad|telecomunicaciones|saas|plataforma digital)\b/i.test(fullTextCorpus);
 
     const isAuthenticOng =
       (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(context.url || "")) &&
       /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(fullTextCorpus) &&
       !isEducationalEntity &&
+      !isHealthEntity &&
       !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(fullTextCorpus);
 
     const isOngMatch = (name: string): boolean => {
@@ -1330,6 +1354,13 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       }
     }
 
+    if (isHealthEntity) {
+      const healthAct = activitiesPool.find((a) => /salud|asistencia|social|medic/i.test(a));
+      if (healthAct && !cleanActivities.includes(healthAct)) {
+        cleanActivities = [healthAct, ...cleanActivities];
+      }
+    }
+
     if (cleanActivities.length === 0 && activitiesPool.length > 0) {
       const sanitizedPool = activitiesPool.filter((a) => !typesPool.includes(a));
       const poolToUse = sanitizedPool.length > 0 ? sanitizedPool : activitiesPool;
@@ -1342,7 +1373,19 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
         for (const tok of aTokens) {
           if (fullTextCorpus.includes(tok)) score += 15;
         }
+        if (isHealthEntity && /salud|asistencia|social|medic/i.test(aNorm)) {
+          score += 60;
+        }
         if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
+          score += 60;
+        }
+        if (isLegalOrConsulting && /profesional|tecnico|legal|consult/i.test(aNorm)) {
+          score += 50;
+        }
+        if (isTechEntity && /tecnolog|informaci|comunicaci/i.test(aNorm)) {
+          score += 50;
+        }
+        if (isTourismEntity && /hosteler|alojam|turism/i.test(aNorm)) {
           score += 50;
         }
         if (score > 0) scoredActsList.push({ act, score });
@@ -1350,7 +1393,7 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       scoredActsList.sort((a, b) => b.score - a.score);
       if (scoredActsList.length > 0) {
         cleanActivities.push(scoredActsList[0].act);
-        if (scoredActsList[1] && scoredActsList[1].score >= 35 && scoredActsList[1].score >= scoredActsList[0].score * 0.7) {
+        if (scoredActsList[1] && scoredActsList[1].score >= 25 && scoredActsList[1].score >= scoredActsList[0].score * 0.6) {
           cleanActivities.push(scoredActsList[1].act);
         }
       } else if (poolToUse[0]) {
