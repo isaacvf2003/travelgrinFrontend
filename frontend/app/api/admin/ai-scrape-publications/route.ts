@@ -842,18 +842,11 @@ function extractRatingAndReviewsFromHtml(
   let reviewCount: string | null = null;
   let commentsUrl: string | null = null;
 
-  // 1. Check known institutions dictionary first
-  try {
-    const hostname = new URL(sourceUrl).hostname.replace(/^www\./, "").toLowerCase();
-    for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
-      if (hostname.includes(domainKey) || sourceUrl.toLowerCase().includes(domainKey)) {
-        if (info.rating) rating = info.rating;
-        if (info.reviewCount) reviewCount = info.reviewCount;
-        if (info.commentsUrl) commentsUrl = info.commentsUrl;
-        if (rating && reviewCount) return { rating, reviewCount, commentsUrl };
-      }
-    }
-  } catch {}
+  // 1. Comments URL fallback from title/address
+  if (title) {
+    const parts = [cleanTitleString(title), address, city || "Buenos Aires", country || "Argentina"].filter(Boolean);
+    commentsUrl = buildGoogleMapsUrl(parts.join(", "));
+  }
 
   // 2. Parse JSON-LD scripts for aggregateRating / reviews
   const scriptRegex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
@@ -949,18 +942,15 @@ function extractRatingAndReviewsFromHtml(
 }
 
 async function enrichWithLiveGoogleMapsAndSearch(extracted: any): Promise<void> {
-  // 1. Check known institutions dictionary first (instant verified fast-path)
+  // 1. Fallback location/founding metadata if present in catalog (without hardcoding fake ratings)
   try {
     const hostname = new URL(extracted.url).hostname.replace(/^www\./, "").toLowerCase();
     for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
       if (hostname === domainKey || hostname.endsWith(`.${domainKey}`) || extracted.url.toLowerCase().includes(domainKey)) {
-        if (info.rating && !extracted.detectedRating) extracted.detectedRating = info.rating;
-        if (info.reviewCount && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0")) extracted.detectedReviewCount = info.reviewCount;
-        if (info.commentsUrl && !extracted.detectedCommentsUrl) extracted.detectedCommentsUrl = info.commentsUrl;
         if (info.startYear && !extracted.detectedFoundingYear) extracted.detectedFoundingYear = info.startYear;
         if (info.primaryCity && !extracted.detectedCity) extracted.detectedCity = info.primaryCity;
         if (info.primaryCountry && !extracted.detectedCountry) extracted.detectedCountry = info.primaryCountry;
-        return;
+        break;
       }
     }
   } catch {}
@@ -3368,60 +3358,35 @@ function classifySectorAndTaxonomy(
       /estudiante|universidad|educacion|carrera|formacion|posgrado|grado|beca|colegio|instituto|programa|intercambio|convocatoria/i.test(n);
   };
 
-  // 1. Check known institutions dictionary first if present
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-    for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
-      if (hostname.includes(domainKey) || url.toLowerCase().includes(domainKey)) {
-        const isEduInfo = /educaci|formaci|universi|estudiant/i.test(info.activity) || /universi|estudiant/i.test(info.category);
-        let catMatches: string[] = [];
-        let subMatches: string[] = [];
-
-        if (isEduInfo) {
-          catMatches = validCats.filter((c) => isStudentEduMatch(c));
-          subMatches = validSubcats.filter((s) => isStudentEduMatch(s));
-        }
-
-        if (!catMatches.length) {
-          const directCat = validCats.find((c) => new RegExp(info.category.slice(0, 8), "i").test(c));
-          catMatches = directCat ? [directCat] : (validCats.length ? [validCats[0]] : [info.category]);
-        }
-        if (!subMatches.length) {
-          const directSub = validSubcats.find((s) => new RegExp(info.subcategory.slice(0, 8), "i").test(s));
-          subMatches = directSub ? [directSub] : (validSubcats.length ? [validSubcats[0]] : [info.subcategory]);
-        }
-        const matchedActs = validActs.filter((a) => (isEduInfo && /educaci|formaci/i.test(a)) || new RegExp(info.activity.slice(0, 8), "i").test(a));
-        const finalActs = matchedActs.length ? matchedActs : (validActs.length ? [validActs[0]] : [info.activity]);
-        const typ = validTypes.find((t) => new RegExp(info.type.slice(0, 8), "i").test(t)) || validTypes[0] || info.type;
-        return {
-          sector: /salud|hospital|m[eé]dic/i.test(info.activity) ? "health" : "education",
-          category: catMatches[0] || info.category,
-          subcategory: subMatches[0] || info.subcategory,
-          categorySelections: catMatches,
-          subcategorySelections: subMatches,
-          providerActivities: finalActs,
-          providerTypes: [typ],
-          providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
-        };
-      }
-    }
-  } catch {}
-
-  // 2. Public vs Private entity detection
+  // 1. Public vs Private entity detection
   const isGovDomain = /\.gov(?:\.[a-z]{2})?|\.gob(?:\.[a-z]{2})?|\.mil(?:\.[a-z]{2})?/i.test(url);
-  const isGovText = /\b(organismo publico|hospital publico|hospital nacional|hospital de pediatria samic|universidad nacional|ente autarquico|ministerio|secretaria|gobierno de|municipalidad|poder judicial)\b/i.test(lowerCorpus);
+  const isGovText = /\b(organismo publico|hospital publico|hospital nacional|hospital de pediatria samic|universidad nacional|ente autarquico|ministerio|secretaria|gobierno de|municipalidad|poder judicial|obra social de empleados publicos|osep)\b/i.test(lowerCorpus);
   const isPublicEntity = isGovDomain || isGovText;
 
   // Semantic entity classifications:
+  const isHealthEntity =
+    /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(lowerCorpus) ||
+    /osep|hospital|clinica|sanatorio|salud/i.test(url);
+
   const isEducationalEntity =
     /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(lowerCorpus) ||
     /\.edu(?:\.[a-z]{2})?/i.test(url) ||
     /uncuyo|uba\.ar|utn\.edu|austral\.edu|siglo21|uesiglo21/i.test(url);
 
+  const isLegalOrConsulting =
+    /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica)\b/i.test(lowerCorpus);
+
+  const isTourismEntity =
+    /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(lowerCorpus);
+
+  const isTechEntity =
+    /\b(software|tecnologia|tecnologias|app|aplicacion|sistemas|desarrollo web|programacion|informatica|it|ciberseguridad|telecomunicaciones|saas|plataforma digital)\b/i.test(lowerCorpus);
+
   const isAuthenticOng =
     (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(url)) &&
     /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(lowerCorpus) &&
     !isEducationalEntity &&
+    !isHealthEntity &&
     !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(lowerCorpus);
 
   // 3. Dynamic Category & Subcategory Scoring across loaded DB catalog (Zero hardcoded sectors)
@@ -3605,8 +3570,20 @@ function classifySectorAndTaxonomy(
       const matches = lowerCorpus.match(regex);
       if (matches) actScore += Math.min(matches.length * 2, 20);
     }
+    if (isHealthEntity && /salud|asistencia|social|medic/i.test(aNorm)) {
+      actScore += 120;
+    }
     if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
-      actScore += 60;
+      actScore += 120;
+    }
+    if (isLegalOrConsulting && /profesional|tecnico|legal|consult/i.test(aNorm)) {
+      actScore += 100;
+    }
+    if (isTechEntity && /tecnolog|informaci|comunicaci/i.test(aNorm)) {
+      actScore += 100;
+    }
+    if (isTourismEntity && /hosteler|alojam|turism/i.test(aNorm)) {
+      actScore += 100;
     }
     scoredActs.push({ name: act, score: actScore });
     if (actScore > highestActScore) {
@@ -3619,11 +3596,11 @@ function classifySectorAndTaxonomy(
   const selectedActivities: string[] = [];
   if (scoredActs.length > 0 && scoredActs[0].score > 0) {
     selectedActivities.push(scoredActs[0].name);
-    if (scoredActs[1] && scoredActs[1].score >= 30 && scoredActs[1].score >= scoredActs[0].score * 0.7) {
+    if (scoredActs[1] && scoredActs[1].score >= 30 && scoredActs[1].score >= scoredActs[0].score * 0.6) {
       selectedActivities.push(scoredActs[1].name);
     }
-  } else {
-    selectedActivities.push(bestAct);
+  } else if (actsToEvaluate.length > 0) {
+    selectedActivities.push(actsToEvaluate[0]);
   }
 
   // 5. Dynamic Type Resolution across validTypes
@@ -3644,12 +3621,15 @@ function classifySectorAndTaxonomy(
   const chosenMods: string[] = [];
   const presencialMod = validMods.find((m) => /presencial/i.test(m));
   const onlineMod = validMods.find((m) => /online|virtual|remoto|distancia/i.test(m));
+  const tramitesMod = validMods.find((m) => /gesti[oó]n|tr[aá]mite/i.test(m));
 
-  const hasOnlineMention = /online|virtual|remoto|a distancia|zoom|meet|plataforma/i.test(lowerCorpus);
-  const hasPresencialMention = /sede|sucursal|consultorio|campus|ubicacion|direccion|atencion presencial|visitanos/i.test(lowerCorpus);
+  const hasOnlineMention = /online|virtual|remoto|a distancia|zoom|meet|plataforma|app|web|portal|turnos/i.test(lowerCorpus);
+  const hasPresencialMention = /sede|sedes|sucursal|sucursales|consultorio|consultorios|campus|ubicacion|direccion|atencion presencial|visitanos|delegacion|delegaciones/i.test(lowerCorpus);
+  const hasTramitesMention = /tr[aá]mite|tr[aá]mites|gesti[oó]n|afiliaci[oó]n|afiliaciones|coseguro|coseguros|autorizaci[oó]n|autorizaciones/i.test(lowerCorpus);
 
   if (hasPresencialMention && presencialMod) chosenMods.push(presencialMod);
   if (hasOnlineMention && onlineMod) chosenMods.push(onlineMod);
+  if (hasTramitesMention && tramitesMod) chosenMods.push(tramitesMod);
   if (chosenMods.length === 0) {
     if (presencialMod) chosenMods.push(presencialMod);
     if (onlineMod) chosenMods.push(onlineMod);
@@ -4792,6 +4772,33 @@ export function enforceStrictTaxonomyGuardrails(
     }
   }
 
+  // Health & Healthcare intelligence: Proactively inject health activity and relevant categories if available in system
+  const isHealth =
+    /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(allText) ||
+    /osep|hospital|clinica|sanatorio|salud/i.test(publication.url);
+
+  if (isHealth && taxonomies) {
+    const validActs: string[] = taxonomies.activities || [];
+    const healthAct = validActs.find((a) => /salud|asistencia|social|medic/i.test(a));
+    if (healthAct) {
+      if (!Array.isArray(publication.providerActivities)) publication.providerActivities = [];
+      if (!publication.providerActivities.includes(healthAct)) {
+        publication.providerActivities = [healthAct, ...publication.providerActivities];
+      }
+    }
+  }
+
+  // Ensure providerActivities and providerModalities are never empty if available in classified
+  if (!publication.providerActivities || publication.providerActivities.length === 0) {
+    publication.providerActivities = classified.providerActivities;
+  }
+  if (!publication.providerModalities || publication.providerModalities.length === 0) {
+    publication.providerModalities = classified.providerModalities;
+  }
+  if (!publication.providerTypes || publication.providerTypes.length === 0) {
+    publication.providerTypes = classified.providerTypes;
+  }
+
   // 2. Guarantee valid founding year
   if (extractedData.detectedFoundingYear && (!publication.providerStartYear || publication.providerStartYear === "2015" || publication.providerStartYear === "2010" || publication.providerStartYear === "2024" || publication.providerStartYear === "2025" || publication.providerStartYear === "2026")) {
     publication.providerStartYear = extractedData.detectedFoundingYear;
@@ -4805,14 +4812,15 @@ export function enforceStrictTaxonomyGuardrails(
     }
   }
 
-  // 3. Guarantee accurate rating and review count
-  if (extractedData.detectedRating && (!publication.providerRating || publication.providerRating === "0" || publication.providerRating === "4.5")) {
+  // 3. Guarantee accurate rating and review count from real scraping / Google Maps
+  if (extractedData.detectedRating && (!publication.providerRating || publication.providerRating === "0" || publication.providerRating === "4.5" || publication.providerRating === "5.0")) {
     publication.providerRating = extractedData.detectedRating;
   }
   if (extractedData.detectedReviewCount && extractedData.detectedReviewCount !== "0") {
     publication.providerReviewCount = extractedData.detectedReviewCount;
-  } else if (!publication.providerReviewCount || publication.providerReviewCount === "" || publication.providerReviewCount === "120") {
-    publication.providerReviewCount = "0";
+  }
+  if (extractedData.detectedCommentsUrl) {
+    publication.providerCommentsUrl = extractedData.detectedCommentsUrl;
   }
 
   // 4. Build clean, precise Google Maps comments URL
