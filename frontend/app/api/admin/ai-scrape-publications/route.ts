@@ -941,7 +941,11 @@ function extractRatingAndReviewsFromHtml(
   return { rating, reviewCount, commentsUrl };
 }
 
-async function enrichWithLiveGoogleMapsAndSearch(extracted: any): Promise<void> {
+async function enrichWithLiveGoogleMapsAndSearch(
+  extracted: any,
+  cleanNameInput?: string,
+  locInfoInput?: { primaryCity?: string; primaryCountry?: string; additionalCities?: string[] }
+): Promise<void> {
   // 1. Fallback location/founding metadata if present in catalog (without hardcoding fake ratings)
   try {
     const hostname = new URL(extracted.url).hostname.replace(/^www\./, "").toLowerCase();
