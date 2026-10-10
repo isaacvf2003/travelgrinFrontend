@@ -3600,7 +3600,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       startYear = "2018";
     }
     setPProviderStartYear(startYear);
-    setPProviderRating(draft.providerRating && draft.providerRating !== "0" ? draft.providerRating : "5.0");
+    setPProviderRating(draft.providerRating && draft.providerRating !== "0" ? draft.providerRating : "");
     setPProviderReviewCount(draft.providerReviewCount ?? "0");
     setPProviderCommentsUrl(draft.providerCommentsUrl || "");
     const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
