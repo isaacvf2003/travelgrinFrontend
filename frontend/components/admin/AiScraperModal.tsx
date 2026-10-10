@@ -70,6 +70,8 @@ interface AiScraperModalProps {
   onClose: () => void;
   onSelectDraftToEdit: (draft: ScrapedPublicationDraft, index?: number) => void;
   onApproveDirectly?: (draft: ScrapedPublicationDraft) => Promise<boolean>;
+  categories?: any[];
+  filterGroups?: any[];
 }
 
 export default function AiScraperModal({
@@ -77,6 +79,8 @@ export default function AiScraperModal({
   onClose,
   onSelectDraftToEdit,
   onApproveDirectly,
+  categories,
+  filterGroups,
 }: AiScraperModalProps) {
   const [tab, setTab] = useState<"single" | "bulk">("single");
   const [aiProvider, setAiProvider] = useState<"auto" | "gemini" | "openai">("auto");
@@ -451,6 +455,19 @@ export default function AiScraperModal({
           includeScoreScout,
           customBlocks: customScraperBlocks,
           customPrompts: effectivePrompts,
+          categoriesPayload: categories && categories.length ? categories.map((c: any) => ({
+            id: c.id,
+            description: c.description,
+            taxonomyType: c.taxonomyType,
+            parentId: c.parentId,
+            blockId: c.blockId,
+          })) : undefined,
+          filterGroupsPayload: filterGroups && filterGroups.length ? filterGroups.map((g: any) => ({
+            id: g.id,
+            label: g.label,
+            taxonomyType: g.taxonomyType,
+            options: g.options,
+          })) : undefined,
         }),
       });
 
@@ -476,12 +493,46 @@ export default function AiScraperModal({
       const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
 
       const generatedDrafts: ScrapedPublicationDraft[] = (data.publications || []).map(
-        (pub: ScrapedPublicationDraft) => ({
-          ...pub,
-          providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
-          images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
-          status: pub.status || "active",
-        })
+        (pub: ScrapedPublicationDraft) => {
+          let catSelections = Array.isArray(pub.categorySelections) && pub.categorySelections.length > 0 && pub.categorySelections[0] !== "General"
+            ? pub.categorySelections
+            : (pub.category && pub.category !== "General" ? [pub.category] : []);
+          let subSelections = Array.isArray(pub.subcategorySelections) && pub.subcategorySelections.length > 0 && pub.subcategorySelections[0] !== "General"
+            ? pub.subcategorySelections
+            : (pub.subcategory && pub.subcategory !== "General" ? [pub.subcategory] : []);
+
+          // Fallback to local categories catalog if backend returned General
+          if (catSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
+            const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
+            const catRoots = categories.filter((c: any) => !c.parentId && (c.taxonomyType === "categoria" || !c.taxonomyType));
+            const scored = catRoots.map((r: any) => {
+              const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+              const tokens = rNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|servicios|general/i.test(t));
+              let s = 0;
+              if (fullCorpus.includes(rNorm)) s += 40;
+              for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
+              return { name: r.description, score: s };
+            }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
+
+            if (scored.length > 0) {
+              catSelections = scored.slice(0, 3).map((x: any) => x.name);
+            }
+          }
+
+          const resolvedCat = catSelections[0] || pub.category || "General";
+          const resolvedSub = subSelections[0] || pub.subcategory || "General";
+
+          return {
+            ...pub,
+            category: resolvedCat,
+            subcategory: resolvedSub,
+            categorySelections: catSelections.length > 0 ? catSelections : [resolvedCat],
+            subcategorySelections: subSelections.length > 0 ? subSelections : [resolvedSub],
+            providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
+            images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
+            status: pub.status || "active",
+          };
+        }
       );
 
       setDraftsQueue((prev) => {
@@ -1492,7 +1543,12 @@ export default function AiScraperModal({
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-bold text-[#00A9C6] uppercase tracking-wider">
-                            {draft.category || "General"} {draft.subcategory ? `· ${draft.subcategory}` : ""}
+                            {Array.isArray(draft.categorySelections) && draft.categorySelections.length > 0 && draft.categorySelections[0] !== "General"
+                              ? draft.categorySelections.join(", ")
+                              : draft.category || "General"}
+                            {Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0 && draft.subcategorySelections[0] !== "General"
+                              ? ` · ${draft.subcategorySelections.join(", ")}`
+                              : draft.subcategory && draft.subcategory !== "General" ? ` · ${draft.subcategory}` : ""}
                           </span>
                           {(() => {
                             const scoreBlock = (draft.extraDescriptions || []).find((d) => /score scout/i.test(d.title || d.titleI18n?.es || ""));
@@ -1636,15 +1692,21 @@ export default function AiScraperModal({
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600">
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Categoría</span>
-                      {draft.category || "General"}
+                      {Array.isArray(draft.categorySelections) && draft.categorySelections.length > 0 && draft.categorySelections[0] !== "General"
+                        ? draft.categorySelections.join(", ")
+                        : draft.category || "General"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Subcategoría</span>
-                      {draft.subcategory || "General"}
+                      {Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0 && draft.subcategorySelections[0] !== "General"
+                        ? draft.subcategorySelections.join(", ")
+                        : draft.subcategory || "General"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Tipo de Perfil / Sector</span>
-                      {draft.providerActivities?.[0] || draft.providerTypes?.[0] || "Institución"}
+                      {Array.isArray(draft.providerActivities) && draft.providerActivities.length > 0
+                        ? draft.providerActivities.join(", ")
+                        : draft.providerTypes?.[0] || "Institución"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Imágenes</span>
