@@ -1193,16 +1193,36 @@ ${snippet}
 Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes seleccionar más de una categoría y más de una subcategoría si corresponden al oferente.`;
 
   try {
-    const { rawText, providerUsed } = await executeModelCall(
-      systemPrompt,
-      userPrompt,
-      context.apiKey,
-      context.provider || "auto"
-    );
+    let parsed: any = null;
+    let providerUsed = "semantic-catalog-engine";
 
-    const parsed = extractJson(rawText);
+    if (context.apiKey) {
+      try {
+        const res = await executeModelCall(
+          systemPrompt,
+          userPrompt,
+          context.apiKey,
+          context.provider || "auto"
+        );
+        providerUsed = res.providerUsed;
+        parsed = extractJson(res.rawText);
+      } catch (errCall: any) {
+        console.warn(`[AI-AGENT-DEBUG: TaxonomyAgent] LLM call failed or unavailable, falling back to dynamic catalog evaluation: ${errCall.message}`);
+      }
+    }
+
     if (!parsed) {
-      throw new Error("Respuesta JSON inválida de IA al clasificar taxonomía.");
+      parsed = {
+        categorySelections: [],
+        subcategorySelections: [],
+        category: "",
+        subcategory: "",
+        providerActivities: [],
+        providerTypes: [],
+        providerModalities: [],
+        prestaciones: [],
+        languages: ["Español"],
+      };
     }
 
     const fullTextCorpus = `${context.rawPageTitle || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.mainText || ""} ${context.url} ${context.publisherName || ""}`
@@ -1273,8 +1293,69 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
     }
 
     const nonOngPool = isAuthenticOng ? categoriesPool : categoriesPool.filter((c) => !isOngMatch(c));
-    const finalCategories = matchedCats.length ? matchedCats : (nonOngPool.slice(0, 1));
-    const finalCat = finalCategories[0] || (nonOngPool[0] || "");
+
+    // Dynamic semantic matching across all available DB categories if AI did not return a valid exact match
+    if (matchedCats.length === 0 && nonOngPool.length > 0) {
+      const scoredCats: { cat: string; score: number }[] = [];
+      for (const catName of nonOngPool) {
+        const cNorm = catName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
+        let score = 0;
+
+        // Hard negative constraint: If entity is medical/health, NEVER match visa/migration categories!
+        if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(cNorm)) {
+          continue;
+        }
+        // If entity is university/education, NEVER match visa/migration categories
+        if (isEducationalEntity && /visa|migra/i.test(cNorm)) {
+          continue;
+        }
+
+        if (fullTextCorpus.includes(cNorm)) score += 50;
+        for (const tok of cTokens) {
+          if (fullTextCorpus.includes(tok)) score += 15;
+        }
+
+        // Check child subcategories belonging to this category in the categoryTree
+        if (taxonomies?.categoryTree?.length) {
+          const allParentNodes = taxonomies.categoryTree.flatMap((b) => b.parentCategories);
+          const matchedNode = allParentNodes.find((p) => p.name.toLowerCase() === catName.toLowerCase());
+          if (matchedNode && Array.isArray(matchedNode.subcategories)) {
+            for (const sub of matchedNode.subcategories) {
+              const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+              const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
+              if (fullTextCorpus.includes(sNorm)) score += 35;
+              for (const tok of sTokens) {
+                if (fullTextCorpus.includes(tok)) score += 10;
+              }
+            }
+          }
+        }
+
+        if (isEducationalEntity && isStudentEduMatch(catName)) score += 60;
+        if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga/i.test(cNorm)) score += 80;
+
+        if (score >= 25) {
+          scoredCats.push({ cat: catName, score });
+        }
+      }
+
+      scoredCats.sort((a, b) => b.score - a.score);
+      if (scoredCats.length > 0) {
+        matchedCats = [scoredCats[0].cat];
+        if (scoredCats[1] && scoredCats[1].score >= 35 && scoredCats[1].score >= scoredCats[0].score * 0.7) {
+          matchedCats.push(scoredCats[1].cat);
+        }
+      }
+    }
+
+    // Safety guardrail: Medical entities must NEVER contain visa or immigration categories
+    if (isHealthEntity) {
+      matchedCats = matchedCats.filter((c) => !/visa|migra|residencia|ciudadan|pasaporte/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+    }
+
+    const finalCategories = matchedCats;
+    const finalCat = finalCategories[0] || "";
 
     // Collect all valid subcategories belonging to any of the selected categories
     let validSubcatPool: string[] = [];
@@ -1287,7 +1368,7 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
         }
       });
     }
-    if (validSubcatPool.length === 0) {
+    if (validSubcatPool.length === 0 && finalCategories.length === 0) {
       validSubcatPool = subcategoriesPool;
     }
     validSubcatPool = Array.from(new Set(validSubcatPool.filter(Boolean)));
@@ -1313,6 +1394,10 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
         if (!isAuthenticOng && isOngMatch(sub)) continue;
 
         const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        // Negative guardrail: If entity is health, NEVER match visa subcategories!
+        if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(sNorm)) continue;
+        if (isEducationalEntity && /visa|migra/i.test(sNorm)) continue;
+
         const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
         let matchScore = 0;
 
@@ -1325,6 +1410,9 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
         if (isEducationalEntity && isStudentEduMatch(sub)) {
           matchScore += 40;
         }
+        if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga/i.test(sNorm)) {
+          matchScore += 50;
+        }
 
         if (matchScore >= 20) {
           matchedSubs.push(sub);
@@ -1335,11 +1423,11 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
     if (!isAuthenticOng) {
       matchedSubs = matchedSubs.filter((s) => !isOngMatch(s));
     }
-
-    if (matchedSubs.length === 0 && validSubcatPool.length > 0) {
-      const nonOngSubPool = isAuthenticOng ? validSubcatPool : validSubcatPool.filter((s) => !isOngMatch(s));
-      matchedSubs = [nonOngSubPool[0] || validSubcatPool[0]];
+    if (isHealthEntity) {
+      matchedSubs = matchedSubs.filter((s) => !/visa|migra|residencia|ciudadan|pasaporte/i.test(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
     }
+
+    // Completely remove blind fallback to validSubcatPool[0]: If no subcategory legitimately matches, leave empty
     const finalSub = matchedSubs[0] || "";
 
     // Activities: strictly match against activitiesPool and NEVER allow items from typesPool (e.g. Empresa)
