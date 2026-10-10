@@ -3356,6 +3356,18 @@ function classifySectorAndTaxonomy(
   const categoryTree: Array<{ blockName: string; parentCategories: Array<{ name: string; subcategories: string[] }> }> =
     taxonomies?.categoryTree || [];
 
+  const isOngMatch = (name: string): boolean => {
+    const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    return /\b(?:ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n) ||
+      /sin fines de lucro|organismo no gubernamental|asociacion civil/i.test(n);
+  };
+
+  const isStudentEduMatch = (name: string): boolean => {
+    const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    return /\b(?:estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto|facultad|intercambio|convocatoria|programa)\w*/i.test(n) ||
+      /estudiante|universidad|educacion|carrera|formacion|posgrado|grado|beca|colegio|instituto|programa|intercambio|convocatoria/i.test(n);
+  };
+
   // 1. Check known institutions dictionary first if present
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
@@ -3366,19 +3378,20 @@ function classifySectorAndTaxonomy(
         let subMatches: string[] = [];
 
         if (isEduInfo) {
-          catMatches = validCats.filter((c) => /\b(estudiant|universi|educa|carrera|academ|formaci)\b/i.test(c.toLowerCase()));
-          subMatches = validSubcats.filter((s) => /\b(estudiant|universi|educa|carrera|academ|formaci)\b/i.test(s.toLowerCase()));
+          catMatches = validCats.filter((c) => isStudentEduMatch(c));
+          subMatches = validSubcats.filter((s) => isStudentEduMatch(s));
         }
 
         if (!catMatches.length) {
-          const directCat = validCats.find((c) => new RegExp(info.category.slice(0, 10), "i").test(c));
+          const directCat = validCats.find((c) => new RegExp(info.category.slice(0, 8), "i").test(c));
           catMatches = directCat ? [directCat] : (validCats.length ? [validCats[0]] : [info.category]);
         }
         if (!subMatches.length) {
-          const directSub = validSubcats.find((s) => new RegExp(info.subcategory.slice(0, 10), "i").test(s));
+          const directSub = validSubcats.find((s) => new RegExp(info.subcategory.slice(0, 8), "i").test(s));
           subMatches = directSub ? [directSub] : (validSubcats.length ? [validSubcats[0]] : [info.subcategory]);
         }
-        const act = validActs.find((a) => new RegExp(info.activity.slice(0, 8), "i").test(a)) || (isEduInfo ? validActs.find((a) => /educaci/i.test(a)) : undefined) || validActs[0] || info.activity;
+        const matchedActs = validActs.filter((a) => (isEduInfo && /educaci|formaci/i.test(a)) || new RegExp(info.activity.slice(0, 8), "i").test(a));
+        const finalActs = matchedActs.length ? matchedActs : (validActs.length ? [validActs[0]] : [info.activity]);
         const typ = validTypes.find((t) => new RegExp(info.type.slice(0, 8), "i").test(t)) || validTypes[0] || info.type;
         return {
           sector: /salud|hospital|m[eé]dic/i.test(info.activity) ? "health" : "education",
@@ -3386,7 +3399,7 @@ function classifySectorAndTaxonomy(
           subcategory: subMatches[0] || info.subcategory,
           categorySelections: catMatches,
           subcategorySelections: subMatches,
-          providerActivities: [act],
+          providerActivities: finalActs,
           providerTypes: [typ],
           providerModalities: validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"],
         };
@@ -3402,23 +3415,14 @@ function classifySectorAndTaxonomy(
   // Semantic entity classifications:
   const isEducationalEntity =
     /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(lowerCorpus) ||
-    /\.edu(?:\.[a-z]{2})?/i.test(url);
+    /\.edu(?:\.[a-z]{2})?/i.test(url) ||
+    /uncuyo|uba\.ar|utn\.edu|austral\.edu|siglo21|uesiglo21/i.test(url);
 
   const isAuthenticOng =
     (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(url)) &&
     /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(lowerCorpus) &&
     !isEducationalEntity &&
     !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(lowerCorpus);
-
-  const isOngMatch = (name: string): boolean => {
-    const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    return /\b(ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n);
-  };
-
-  const isStudentEduMatch = (name: string): boolean => {
-    const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    return /\b(estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto)\b/i.test(n);
-  };
 
   // 3. Dynamic Category & Subcategory Scoring across loaded DB catalog (Zero hardcoded sectors)
   const parentCategoriesList: Array<{ name: string; subcategories: string[] }> = [];
@@ -4722,8 +4726,16 @@ export function enforceStrictTaxonomyGuardrails(
     !isEducational &&
     !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(allText);
 
-  const isOng = (s: string) => /\b(ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-  const isStudentEdu = (s: string) => /\b(estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto)\b/i.test(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+  const isOng = (s: string) => {
+    const n = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    return /\b(?:ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n) ||
+      /sin fines de lucro|organismo no gubernamental|asociacion civil/i.test(n);
+  };
+  const isStudentEdu = (s: string) => {
+    const n = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    return /\b(?:estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto|facultad|intercambio|convocatoria|programa)\w*/i.test(n) ||
+      /estudiante|universidad|educacion|carrera|formacion|posgrado|grado|beca|colegio|instituto|programa|intercambio|convocatoria/i.test(n);
+  };
 
   // Anti-False-ONG: If not an authentic ONG, strip any ONG categories, subcategories, or types
   if (!isAuthenticOng) {
