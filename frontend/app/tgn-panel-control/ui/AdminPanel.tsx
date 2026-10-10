@@ -3833,10 +3833,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     // 1. Dynamic category scoring across loaded catalog to ensure all legitimate defining categories are present
     if (publicationCategoryRoots.length > 0) {
-      const titleContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""}`
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
+      const isHealthEntity =
+        /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextCorpus) ||
+        /osep|hospital|clinica|sanatorio|salud/i.test(draft.url || "");
+
+      const isLegalOrConsulting =
+        /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica)\b/i.test(fullTextCorpus);
+
+      const isTourismEntity =
+        /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(fullTextCorpus);
 
       const scoredRoots: { root: Category; score: number }[] = [];
       for (const root of publicationCategoryRoots) {
@@ -3844,34 +3849,46 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         const rNorm = root.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const rTokens = rNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
         let score = 0;
-        if (titleContextNorm.includes(rNorm)) score += 40;
+        if (fullTextCorpus.includes(rNorm)) score += 40;
         for (const tok of rTokens) {
-          if (titleContextNorm.includes(tok)) score += 15;
+          if (fullTextCorpus.includes(tok)) score += 15;
         }
         if (isEducationalEntity && isStudentEduMatch(root.description)) {
           score += 100;
+        }
+        if (isHealthEntity && /salud|medic|asistenc|especializ|funcionario|social|afiliad/i.test(rNorm)) {
+          score += 80;
+        }
+        if (isLegalOrConsulting && /migra|visa|legal|residencia|ciudadania|tramite|documentacion/i.test(rNorm)) {
+          score += 80;
+        }
+        if (isTourismEntity && /hotel|alojam|turism|hosped/i.test(rNorm)) {
+          score += 80;
         }
         const children = childrenBy.get(root.id) || [];
         for (const child of children) {
           if (!isAuthenticOng && isOngMatch(child.description)) continue;
           const cNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
-          if (titleContextNorm.includes(cNorm)) score += 30;
+          if (fullTextCorpus.includes(cNorm)) score += 30;
           for (const tok of cTokens) {
-            if (titleContextNorm.includes(tok)) score += 10;
+            if (fullTextCorpus.includes(tok)) score += 10;
           }
           if (isEducationalEntity && isStudentEduMatch(child.description)) {
             score += 50;
           }
+          if (isHealthEntity && /salud|medic|asistenc|especializ|funcionario|social|afiliad/i.test(cNorm)) {
+            score += 40;
+          }
         }
-        scoredRoots.push({ root, score });
+        if (score > 0) scoredRoots.push({ root, score });
       }
 
       scoredRoots.sort((a, b) => b.score - a.score);
       const topScore = scoredRoots[0]?.score ?? 0;
       if (topScore > 0) {
         for (const sr of scoredRoots) {
-          if (resolvedCategoryRoots.size < 4 && sr.score >= 35 && sr.score >= topScore * 0.5) {
+          if (resolvedCategoryRoots.size < 4 && sr.score >= 25 && sr.score >= topScore * 0.5) {
             resolvedCategoryRoots.add(sr.root.description);
           }
         }
@@ -4009,10 +4026,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
 
     if (actividadRoots.length > 0) {
-      const fullContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""} ${(draft.scrapedParagraphs || []).join(" ")}`
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
+      const isHealthEntity =
+        /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextCorpus) ||
+        /osep|hospital|clinica|sanatorio|salud/i.test(draft.url || "");
+
+      const isLegalOrConsulting =
+        /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica)\b/i.test(fullTextCorpus);
+
+      const isTourismEntity =
+        /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(fullTextCorpus);
+
+      const isTechEntity =
+        /\b(software|tecnologia|tecnologias|app|aplicacion|sistemas|desarrollo web|programacion|informatica|it|ciberseguridad|telecomunicaciones|saas|plataforma digital)\b/i.test(fullTextCorpus);
 
       const scoredActs: { act: Category; score: number }[] = [];
       for (const act of actividadRoots) {
@@ -4020,14 +4045,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         const aNorm = act.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
         let aScore = 0;
-        if (fullContextNorm.includes(aNorm)) aScore += 40;
+        if (fullTextCorpus.includes(aNorm)) aScore += 40;
         for (const tok of aTokens) {
-          if (fullContextNorm.includes(tok)) aScore += 15;
+          if (fullTextCorpus.includes(tok)) aScore += 15;
+        }
+        if (isHealthEntity && /salud|asistencia|social|medic/i.test(aNorm)) {
+          aScore += 120;
         }
         if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
-          aScore += 50;
+          aScore += 120;
         }
-        if (aScore >= 35) {
+        if (isLegalOrConsulting && /profesional|tecnico|legal|consult/i.test(aNorm)) {
+          aScore += 100;
+        }
+        if (isTechEntity && /tecnolog|informaci|comunicaci/i.test(aNorm)) {
+          aScore += 100;
+        }
+        if (isTourismEntity && /hosteler|alojam|turism/i.test(aNorm)) {
+          aScore += 100;
+        }
+        if (aScore > 0) {
           scoredActs.push({ act, score: aScore });
         }
       }
@@ -4036,13 +4073,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const topActScore = scoredActs[0]?.score ?? 0;
       if (topActScore > 0) {
         for (const sa of scoredActs) {
-          if (resolvedActivities.size < 3 && sa.score >= 35 && sa.score >= topActScore * 0.6) {
+          if (resolvedActivities.size < 3 && sa.score >= 20 && sa.score >= topActScore * 0.6) {
             resolvedActivities.add(sa.act.description);
           }
         }
       }
       if (resolvedActivities.size === 0 && scoredActs[0]) {
         resolvedActivities.add(scoredActs[0].act.description);
+      }
+      if (resolvedActivities.size === 0 && actividadRoots.length > 0) {
+        resolvedActivities.add(actividadRoots[0].description);
       }
     }
 
@@ -4148,18 +4188,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    if (isEducationalEntity) {
-      const presencial = modalidadRoots.find((r) => /presencial/i.test(r.description));
-      const online = modalidadRoots.find((r) => /online|virtual|remot/i.test(r.description));
-      if (presencial) resolvedModalities.add(presencial.description);
-      if (online && (fullTextCorpus.includes("online") || fullTextCorpus.includes("virtual") || fullTextCorpus.includes("distancia") || fullTextCorpus.includes("campus virtual") || fullTextCorpus.includes("plataforma") || fullTextCorpus.includes("web") || fullTextCorpus.includes("uncuyo virtual"))) {
-        resolvedModalities.add(online.description);
-      }
-    }
+    const hasOnlineMention = /online|virtual|remoto|a distancia|zoom|meet|plataforma|app|web|portal|turnos/i.test(fullTextCorpus);
+    const hasPresencialMention = /sede|sedes|sucursal|sucursales|consultorio|consultorios|campus|ubicacion|direccion|atencion presencial|visitanos|delegacion|delegaciones/i.test(fullTextCorpus);
+    const hasTramitesMention = /tr[aá]mite|tr[aá]mites|gesti[oó]n|afiliaci[oó]n|afiliaciones|coseguro|coseguros|autorizaci[oó]n|autorizaciones/i.test(fullTextCorpus);
+
+    const presencial = modalidadRoots.find((r) => /presencial/i.test(r.description));
+    const online = modalidadRoots.find((r) => /online|virtual|remot/i.test(r.description));
+    const tramites = modalidadRoots.find((r) => /gesti[oó]n|tr[aá]mite/i.test(r.description));
+
+    if (hasPresencialMention && presencial) resolvedModalities.add(presencial.description);
+    if (hasOnlineMention && online) resolvedModalities.add(online.description);
+    if (hasTramitesMention && tramites) resolvedModalities.add(tramites.description);
 
     if (resolvedModalities.size === 0 && modalidadRoots.length > 0) {
-      const presencial = modalidadRoots.find((r) => /presencial/i.test(r.description));
-      const online = modalidadRoots.find((r) => /online|virtual|remot/i.test(r.description));
       if (presencial) resolvedModalities.add(presencial.description);
       if (online) resolvedModalities.add(online.description);
       if (resolvedModalities.size === 0) resolvedModalities.add(modalidadRoots[0].description);
