@@ -955,113 +955,171 @@ async function enrichWithLiveGoogleMapsAndSearch(extracted: any): Promise<void> 
     }
   } catch {}
 
-  // 2. Dynamic Real-Time Google Maps & Web Search for ANY arbitrary future website
-  const rawTitle = cleanTitleString(extracted.title || "");
-  const cleanName = cleanPublisherName(rawTitle, extracted.url, rawTitle);
+  // 2. Dynamic Real-Time Google Maps & Web Search targeting the main headquarters (Sede Principal)
+  const cleanName = cleanNameInput || cleanPublisherName(cleanTitleString(extracted.title || ""), extracted.url, extracted.title, extracted.detectedSiteName);
   if (!cleanName || cleanName.length < 2 || cleanName.toLowerCase() === "oferente") return;
 
-  let domainHost = "";
-  try {
-    domainHost = new URL(extracted.url).hostname.replace(/^www\./, "");
-  } catch {}
+  const hqLoc = extracted.headquarterLocations?.[0];
+  const mainAddress = hqLoc?.address || extracted.detectedAddress || "";
+  const city = locInfoInput?.primaryCity || hqLoc?.city || extracted.detectedCity || "Argentina";
+  const country = locInfoInput?.primaryCountry || hqLoc?.country || extracted.detectedCountry || "Argentina";
 
-  const city = extracted.detectedCity || "Argentina";
-  const userAgents = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-  ];
+  const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-  const q = `"${cleanName}" ${city} "Google Maps" OR opiniones`;
-  try {
-    const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`;
-    const res = await fetchWithTimeout(
-      searchUrl,
-      {
-        headers: {
-          "User-Agent": userAgents[0],
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+  // A. Google Maps Official Search endpoint (Ultra-fast, returns real live ratings and reviews of main headquarters)
+  const mapsQueries = [
+    mainAddress ? `${cleanName} ${mainAddress} ${city}` : null,
+    `${cleanName} ${city} ${country}`,
+    `${cleanName} sede central ${city}`,
+    cleanName,
+  ].filter(Boolean) as string[];
+
+  for (const q of mapsQueries) {
+    if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") break;
+    try {
+      const gmapsUrl = "https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=" + encodeURIComponent(q.trim());
+      const gmapsRes = await fetchWithTimeout(
+        gmapsUrl,
+        {
+          headers: {
+            "User-Agent": userAgent,
+            "Accept-Language": "es-ES,es;q=0.9",
+          },
         },
-      },
-      2200
-    );
+        3500
+      );
 
-    if (res.ok) {
-      const html = await res.text();
+      if (gmapsRes.ok) {
+        const text = await gmapsRes.text();
 
-      // 1. Google Maps URL detection (place URL or direct query)
-      if (!extracted.detectedCommentsUrl) {
-        const gmapsMatch = html.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/place\/[^\s"'<>]+|maps\.app\.goo\.gl\/[^\s"'<>]+|goo\.gl\/maps\/[^\s"'<>]+)/i);
-        if (gmapsMatch && gmapsMatch[0]) {
-          extracted.detectedCommentsUrl = decodeURIComponent(gmapsMatch[0].replace(/&amp;/g, "&"));
-          if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+        // 1. Direct place match: null,null,null,rating,reviewCount] or ,rating,reviewCount]
+        const mDirect = text.match(/null,null,null,([1-5]\.\d+),(\d+)\]/) || text.match(/,([1-5]\.\d+),(\d+)\]/);
+        if (mDirect) {
+          const numRating = parseFloat(mDirect[1]);
+          const numReviews = parseInt(mDirect[2], 10);
+          if (!isNaN(numRating) && numRating >= 1 && numRating <= 5) {
+            extracted.detectedRating = numRating.toFixed(1);
+          }
+          if (!isNaN(numReviews) && numReviews > 0) {
+            extracted.detectedReviewCount = String(numReviews);
+          }
+          const coordMatch = text.match(/\[null,null,(-?\d+\.\d+),(-?\d+\.\d+)\]/);
+          if (coordMatch && !extracted.detectedCommentsUrl) {
+            extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${coordMatch[1]},${coordMatch[2]}`;
+            if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+          }
+          if (extracted.detectedRating && extracted.detectedReviewCount) break;
+        }
+
+        // 2. List place match: [rating, starDistribution, reviewCount]
+        const patternList = /\[([1-5]\.\d+),\[(?:\d+,?)+\],(\d+)\]/g;
+        const listMatches = [...text.matchAll(patternList)];
+        if (listMatches.length > 0 && !extracted.detectedRating) {
+          let best = listMatches[0];
+          for (const m of listMatches) {
+            if (parseInt(m[2], 10) > parseInt(best[2], 10)) {
+              best = m;
+            }
+          }
+          const numRating = parseFloat(best[1]);
+          const numReviews = parseInt(best[2], 10);
+          if (!isNaN(numRating) && numRating >= 1 && numRating <= 5) {
+            extracted.detectedRating = numRating.toFixed(1);
+          }
+          if (!isNaN(numReviews) && numReviews > 0) {
+            extracted.detectedReviewCount = String(numReviews);
+          }
+          if (extracted.detectedRating && extracted.detectedReviewCount) break;
         }
       }
+    } catch {}
+  }
 
-      // 2. Rating extraction: "5.0 ★", "5,0 (12)", "Calificación: 5.0", "Rating: 4.8", "5.0 de 5 estrellas", "4,9 / 5"
-      if (!extracted.detectedRating) {
-        const ratingMatch =
-          html.match(/(?:calificaci[oó]n|valoraci[oó]n|puntuaci[oó]n|rating|nota|evaluaci[oó]n)\s*:?\s*([1-5][.,]\d)\s*(?:\/|de)?\s*5?\s*(?:estrellas?|⭐|★|&#9733;)?/i) ||
-          html.match(/([1-5][.,]\d)\s*(?:estrellas?|⭐|★|&#9733;)/i) ||
-          html.match(/(?:calificaci[oó]n|rating|puntuaci[oó]n):\s*([1-5][.,]\d)/i) ||
-          html.match(/([1-5][.,]\d)\s*(?:de\s*5|\/\s*5|\/5\.0)/i) ||
-          html.match(/([1-5][.,]\d)\s*\(\s*\d+\s*(?:reseñas|opiniones|reviews|votos|calificaciones)/i) ||
-          html.match(/(?:promedio\s+de\s+|con\s+)([1-5][.,]\d)\s*(?:puntos|estrellas)/i);
-        if (ratingMatch && ratingMatch[1]) {
-          const num = parseFloat(ratingMatch[1].replace(",", "."));
-          if (!isNaN(num) && num >= 1 && num <= 5) {
-            extracted.detectedRating = num.toFixed(1);
-          }
-        }
-      }
+  // B. DuckDuckGo / Web search fallback if Google Maps direct didn't yield both rating and reviews
+  if (!extracted.detectedRating || !extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
+    const webQueries = [
+      mainAddress ? `"${cleanName}" "${mainAddress}" "Google Maps" reseñas` : null,
+      `"${cleanName}" "sede central" ${city} "Google Maps" reseñas`,
+      `"${cleanName}" ${city} "Google Maps" reseñas`,
+    ].filter(Boolean) as string[];
 
-      // 3. Review count extraction: "12 reseñas", "(45 opiniones)", "15 reviews", "8 votos", "1.5k opiniones", "1,200 reseñas"
-      if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
-        const countMatch =
-          html.match(/(?:[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews|calificaciones)\b/i) ||
-          html.match(/(?:basad[oa]\s+en\s+)([0-9.,]+)\s*(?:k|mil)?\s*(?:opiniones|reseñas|reviews|votos)/i) ||
-          html.match(/(?:m[aá]s\s+de\s+)([0-9.,]+)\s*(?:opiniones|reseñas|clientes\s+satisfechos)/i);
-        if (countMatch && countMatch[1]) {
-          let countRaw = countMatch[1].replace(/,/g, ".");
-          let isThousand = /k|mil/i.test(countMatch[0]);
-          let numCount = parseFloat(countRaw);
-          if (isThousand) numCount = numCount * 1000;
-          const parsedCount = Math.round(numCount);
-          if (!isNaN(parsedCount) && parsedCount > 0) {
-            extracted.detectedReviewCount = String(parsedCount);
-          }
-        }
-      }
+    for (const wq of webQueries) {
+      if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") break;
+      try {
+        const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(wq)}`;
+        const res = await fetchWithTimeout(
+          searchUrl,
+          {
+            headers: {
+              "User-Agent": userAgent,
+              Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              "Accept-Language": "es-ES,es;q=0.9",
+            },
+          },
+          3000
+        );
 
-      // 4. Start year / founding year extraction
-      if (!extracted.detectedFoundingYear) {
-        const currentYear = new Date().getFullYear();
-        const startYearMatch =
-          html.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|creaci[oó]n|inici[oó]\s+actividades|inicio\s+de\s+actividades|egresad[oa]|graduad[oa]|matriculad[oa]|colegiad[oa]|abogad[oa]\s+desde|m[eé]dic[oa]\s+desde|ejerce\s+desde|desde el a[nñ]o|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i) ||
-          html.match(/(?:matr[ií]cula\s+profesional|colegiatura|registro\s+profesional)[\s\S]{0,30}\b([12]\d{3})\b/i) ||
-          html.match(/\b([12]\d{3})\s*[-–—]\s*(?:presente|actualidad|hoy)\b/i);
-        if (startYearMatch && startYearMatch[1]) {
-          const numYr = parseInt(startYearMatch[1], 10);
-          if (!isNaN(numYr) && numYr >= 1800 && numYr <= currentYear) {
-            extracted.detectedFoundingYear = String(numYr);
+        if (res.ok) {
+          const rawHtml = await res.text();
+          // Strip HTML tags to plain text to match across highlight tags like <b>...</b>
+          const plainText = rawHtml.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
+
+          if (!extracted.detectedCommentsUrl) {
+            const gmapsMatch = rawHtml.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/place\/[^\s"'<>]+|maps\.app\.goo\.gl\/[^\s"'<>]+|goo\.gl\/maps\/[^\s"'<>]+)/i);
+            if (gmapsMatch && gmapsMatch[0]) {
+              extracted.detectedCommentsUrl = decodeURIComponent(gmapsMatch[0].replace(/&amp;/g, "&"));
+              if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+            }
           }
-        } else {
-          const expMatch = html.match(/(?:hace|con m[aá]s de|m[aá]s de|\+)\s*(\d{1,2})\s*a[nñ]os\s*(?:de\s+)?(?:trayectoria|experiencia|ejercicio|actividad|presencia|atenci[oó]n)/i);
-          if (expMatch && expMatch[1]) {
-            const years = parseInt(expMatch[1], 10);
-            if (!isNaN(years) && years >= 1 && years <= 90) {
-              extracted.detectedFoundingYear = String(currentYear - years);
+
+          if (!extracted.detectedRating) {
+            const rMatch =
+              plainText.match(/(?:calificaci[oó]n|valoraci[oó]n|puntuaci[oó]n|rating|nota|evaluaci[oó]n)\s*:?\s*([1-5][.,]\d)\s*(?:\/|de)?\s*5?\s*(?:estrellas?|⭐|★)?/i) ||
+              plainText.match(/([1-5][.,]\d)\s*(?:[★⭐☆*]+|estrellas?|puntos|\/5)/i) ||
+              plainText.match(/([1-5][.,]\d)\s*\(\s*\d+\s*(?:reseñas|opiniones|reviews|votos)/i);
+            if (rMatch && rMatch[1]) {
+              const num = parseFloat(rMatch[1].replace(",", "."));
+              if (!isNaN(num) && num >= 1 && num <= 5) {
+                extracted.detectedRating = num.toFixed(1);
+              }
+            }
+          }
+
+          if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
+            const cMatch =
+              plainText.match(/(?:\(\s*|[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews|calificaciones)\b/i) ||
+              plainText.match(/(?:basad[oa]\s+en\s+)([0-9.,]+)\s*(?:k|mil)?\s*(?:opiniones|reseñas|reviews|votos)/i);
+            if (cMatch && cMatch[1]) {
+              let countRaw = cMatch[1].replace(/,/g, ".");
+              let isThousand = /k|mil/i.test(cMatch[0]);
+              let numCount = parseFloat(countRaw);
+              if (isThousand) numCount = numCount * 1000;
+              const parsedCount = Math.round(numCount);
+              if (!isNaN(parsedCount) && parsedCount > 0) {
+                extracted.detectedReviewCount = String(parsedCount);
+              }
+            }
+          }
+
+          if (!extracted.detectedFoundingYear) {
+            const currentYear = new Date().getFullYear();
+            const startYearMatch =
+              plainText.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|creaci[oó]n|inici[oó]\s+actividades|inicio\s+de\s+actividades|desde el a[nñ]o|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i);
+            if (startYearMatch && startYearMatch[1]) {
+              const numYr = parseInt(startYearMatch[1], 10);
+              if (!isNaN(numYr) && numYr >= 1800 && numYr <= currentYear) {
+                extracted.detectedFoundingYear = String(numYr);
+              }
             }
           }
         }
-      }
+      } catch {}
     }
-  } catch {}
+  }
 
   // Fallback to official Google Maps query link if no direct Place link was discovered
   if (!extracted.detectedCommentsUrl) {
-    const parts = [cleanName, extracted.detectedAddress, city, extracted.detectedCountry || "Argentina"].filter(Boolean);
+    const parts = [cleanName, mainAddress, city, country].filter(Boolean);
     extracted.detectedCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
   }
 }
@@ -4872,12 +4930,25 @@ async function processUrlWithAI(
   customDescriptionPrompt?: string,
   includeScoreScout: boolean = true
 ): Promise<{ publication: ScrapedPublication; providerUsed: string }> {
-  // 1. Scrape web page & enrich with Google Maps/Places
+  // 1. Scrape web page & enrich with Google Maps/Places targeting headquarters
   const extracted = await fetchPageContent(url);
-  await enrichWithLiveGoogleMapsAndSearch(extracted);
-
-  let cleanPublisher = cleanPublisherName(extracted.title, extracted.url, extracted.title, extracted.detectedSiteName);
   const locInfo = detectAllLocationsAndHeadquarters(extracted.textContent, extracted.url, extracted.title);
+  let cleanPublisher = cleanPublisherName(extracted.title, extracted.url, extracted.title, extracted.detectedSiteName);
+  if (locInfo.primaryCity && !extracted.detectedCity) extracted.detectedCity = locInfo.primaryCity;
+  if (locInfo.primaryCountry && !extracted.detectedCountry) extracted.detectedCountry = locInfo.primaryCountry;
+
+  extracted.headquarterLocations = resolveHeadquarterLocations(
+    undefined,
+    extracted.title,
+    cleanPublisher,
+    locInfo.primaryCity,
+    locInfo.primaryCountry,
+    extracted.detectedMapsUrl,
+    extracted.textContent,
+    locInfo.additionalCities
+  );
+
+  await enrichWithLiveGoogleMapsAndSearch(extracted, cleanPublisher, locInfo);
 
   // Extract clean structured lists and paragraphs
   const paragraphs = (extracted.textContent || "").split(/\n\s*\n+/).map((p: string) => p.trim()).filter((p: string) => p.length > 25);
@@ -5016,10 +5087,10 @@ async function processUrlWithAI(
     extraDescriptions,
     publisherName: cleanPublisher,
     providerInfoI18n: providerInfoI18nVal,
-    providerStartYear: cleanContext.foundingYear || "",
-    providerRating: cleanContext.rating || "5.0",
-    providerReviewCount: cleanContext.reviewCount || "0",
-    providerCommentsUrl: cleanContext.commentsUrl || primaryHq.mapUrl,
+    providerStartYear: cleanContext.foundingYear || extracted.detectedFoundingYear || "",
+    providerRating: cleanContext.rating || extracted.detectedRating || "",
+    providerReviewCount: cleanContext.reviewCount || extracted.detectedReviewCount || "0",
+    providerCommentsUrl: extracted.detectedCommentsUrl || cleanContext.commentsUrl || primaryHq.mapUrl,
     providerLogo: cleanContext.logo || "",
     country: primaryHq.country,
     city: primaryHq.city,
