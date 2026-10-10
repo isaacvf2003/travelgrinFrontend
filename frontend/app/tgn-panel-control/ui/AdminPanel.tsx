@@ -3709,17 +3709,54 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       draft.subcategory || "",
     ].filter(Boolean);
 
+    const fullTextCorpus = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""} ${(draft.scrapedParagraphs || []).join(" ")} ${(draft.scrapedHeadings || []).join(" ")}`
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    const isEducationalEntity =
+      /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
+      /\.edu(?:\.[a-z]{2})?/i.test(draft.url || "");
+
+    const isAuthenticOng =
+      (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(draft.url || "")) &&
+      /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(fullTextCorpus) &&
+      !isEducationalEntity &&
+      !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(fullTextCorpus);
+
+    const isOngMatch = (name: string): boolean => {
+      const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      return /\b(ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n);
+    };
+
+    const isStudentEduMatch = (name: string): boolean => {
+      const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      return /\b(estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto)\b/i.test(n);
+    };
+
     const resolvedCategoryRoots = new Set<string>();
     const resolvedSubcategories = new Set<string>();
 
+    // Proactively resolve student and university categories when entity is educational
+    if (isEducationalEntity) {
+      publicationCategoryRoots.forEach((r) => {
+        if (isStudentEduMatch(r.description)) {
+          resolvedCategoryRoots.add(r.description);
+        }
+      });
+    }
+
     for (const inputCat of rawInputCategories) {
+      if (!isAuthenticOng && isOngMatch(inputCat)) continue;
       const inputNorm = inputCat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       if (!inputNorm) continue;
 
       // 1. Direct root match
       const exactRoot = allRootsWithNorm.find((r) => r.original === inputCat || r.norm === inputNorm);
       if (exactRoot) {
-        resolvedCategoryRoots.add(exactRoot.original);
+        if (isAuthenticOng || !isOngMatch(exactRoot.original)) {
+          resolvedCategoryRoots.add(exactRoot.original);
+        }
         continue;
       }
 
@@ -3731,9 +3768,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (matchedCatInDb) {
         const root = resolveRoot(matchedCatInDb);
         if (validRootsSet.has(root.description)) {
-          resolvedCategoryRoots.add(root.description);
-          if (matchedCatInDb.parentId) {
-            resolvedSubcategories.add(matchedCatInDb.description);
+          if (isAuthenticOng || (!isOngMatch(root.description) && !isOngMatch(matchedCatInDb.description))) {
+            resolvedCategoryRoots.add(root.description);
+            if (matchedCatInDb.parentId) {
+              resolvedSubcategories.add(matchedCatInDb.description);
+            }
           }
           continue;
         }
@@ -3742,7 +3781,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       // 3. Substring match
       const substringRoot = allRootsWithNorm.find((r) => r.norm.includes(inputNorm) || inputNorm.includes(r.norm));
       if (substringRoot) {
-        resolvedCategoryRoots.add(substringRoot.original);
+        if (isAuthenticOng || !isOngMatch(substringRoot.original)) {
+          resolvedCategoryRoots.add(substringRoot.original);
+        }
         continue;
       }
 
@@ -3750,12 +3791,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3);
       const tokenRoot = allRootsWithNorm.find((r) => tokens.some((tok) => r.norm.includes(tok)));
       if (tokenRoot) {
-        resolvedCategoryRoots.add(tokenRoot.original);
+        if (isAuthenticOng || !isOngMatch(tokenRoot.original)) {
+          resolvedCategoryRoots.add(tokenRoot.original);
+        }
         continue;
       }
     }
 
     for (const inputSub of rawInputSubcategories) {
+      if (!isAuthenticOng && isOngMatch(inputSub)) continue;
       const subNorm = inputSub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       if (!subNorm) continue;
 
@@ -3768,8 +3812,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (matchedSubInDb) {
         const root = resolveRoot(matchedSubInDb);
         if (validRootsSet.has(root.description)) {
-          resolvedCategoryRoots.add(root.description);
-          resolvedSubcategories.add(matchedSubInDb.description);
+          if (isAuthenticOng || (!isOngMatch(root.description) && !isOngMatch(matchedSubInDb.description))) {
+            resolvedCategoryRoots.add(root.description);
+            resolvedSubcategories.add(matchedSubInDb.description);
+          }
         }
       }
     }
@@ -3783,6 +3829,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
       const scoredRoots: { root: Category; score: number }[] = [];
       for (const root of publicationCategoryRoots) {
+        if (!isAuthenticOng && isOngMatch(root.description)) continue;
         const rNorm = root.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const rTokens = rNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
         let score = 0;
@@ -3790,13 +3837,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         for (const tok of rTokens) {
           if (titleContextNorm.includes(tok)) score += 15;
         }
+        if (isEducationalEntity && isStudentEduMatch(root.description)) {
+          score += 100;
+        }
         const children = childrenBy.get(root.id) || [];
         for (const child of children) {
+          if (!isAuthenticOng && isOngMatch(child.description)) continue;
           const cNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
           if (titleContextNorm.includes(cNorm)) score += 30;
           for (const tok of cTokens) {
             if (titleContextNorm.includes(tok)) score += 10;
+          }
+          if (isEducationalEntity && isStudentEduMatch(child.description)) {
+            score += 50;
           }
         }
         scoredRoots.push({ root, score });
@@ -3816,13 +3870,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
+    // Clean any accidental ONG categories from resolvedCategoryRoots if not authentic ONG
+    if (!isAuthenticOng) {
+      for (const cat of Array.from(resolvedCategoryRoots)) {
+        if (isOngMatch(cat)) resolvedCategoryRoots.delete(cat);
+      }
+      for (const sub of Array.from(resolvedSubcategories)) {
+        if (isOngMatch(sub)) resolvedSubcategories.delete(sub);
+      }
+    }
+
     // Multi-selection of subcategories for all resolved roots
     if (resolvedCategoryRoots.size > 0) {
-      const fullContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""} ${(draft.scrapedParagraphs || []).join(" ")}`
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-
       for (const rootName of resolvedCategoryRoots) {
         const rootObj = publicationCategoryRoots.find((r) => r.description === rootName);
         if (!rootObj) continue;
@@ -3834,6 +3893,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         let bestChildScore = -1;
 
         for (const child of children) {
+          if (!isAuthenticOng && isOngMatch(child.description)) continue;
           const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           const cTokens = childNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
           let cScore = 0;
@@ -3847,14 +3907,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             cScore += 100;
           }
 
-          if (fullContextNorm.includes(childNorm)) {
+          if (fullTextCorpus.includes(childNorm)) {
             cScore += 35;
           }
 
           for (const tok of cTokens) {
-            if (fullContextNorm.includes(tok)) {
+            if (fullTextCorpus.includes(tok)) {
               cScore += 15;
             }
+          }
+
+          // Semantic boost for student/university subcategories
+          if (isEducationalEntity && isStudentEduMatch(child.description)) {
+            cScore += 60;
           }
 
           if (cScore > bestChildScore) {
@@ -3964,6 +4029,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
+    if (isEducationalEntity) {
+      const eduAct = actividadRoots.find((a) => /educaci|formaci|ensenan/i.test(a.description));
+      if (eduAct) resolvedActivities.add(eduAct.description);
+    }
+
     const actSel = Array.from(resolvedActivities);
     setPProviderActivities(actSel);
     setPProviderActivity(actSel[0] || "");
@@ -3972,13 +4042,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const resolvedTypes = new Set<string>();
 
     for (const rawType of rawTypes) {
+      if (!isAuthenticOng && isOngMatch(rawType)) continue;
       const typeNorm = rawType.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const match = tipoRoots.find((r) => {
         const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         return rNorm === typeNorm || rNorm.includes(typeNorm) || typeNorm.includes(rNorm);
       });
       if (match) {
-        resolvedTypes.add(match.description);
+        if (isAuthenticOng || !isOngMatch(match.description)) {
+          resolvedTypes.add(match.description);
+        }
       } else if (rawType.trim()) {
         const subMatch = categories.find((c) => {
           const cTax = resolveCategoryTaxonomyType(c);
@@ -3986,7 +4059,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           return cNorm === typeNorm || cNorm.includes(typeNorm) || typeNorm.includes(cNorm);
         });
-        if (subMatch) resolvedTypes.add(subMatch.description);
+        if (subMatch && (isAuthenticOng || !isOngMatch(subMatch.description))) {
+          resolvedTypes.add(subMatch.description);
+        }
       }
     }
 
@@ -4001,6 +4076,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const pubType = tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description.toLowerCase()));
       if (pubType) resolvedTypes.add(pubType.description);
       else if (tipoRoots.length) resolvedTypes.add(tipoRoots[0].description);
+    }
+
+    if (!isAuthenticOng) {
+      for (const t of Array.from(resolvedTypes)) {
+        if (isOngMatch(t)) resolvedTypes.delete(t);
+      }
+    }
+
+    if (isEducationalEntity) {
+      for (const t of Array.from(resolvedTypes)) {
+        if (isOngMatch(t)) resolvedTypes.delete(t);
+      }
+      if (resolvedTypes.size === 0 && tipoRoots.length > 0) {
+        const eduType = isPublicGov
+          ? (tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description)) || tipoRoots[0])
+          : (tipoRoots.find((r) => /privad/i.test(r.description)) || tipoRoots[0]);
+        if (eduType) resolvedTypes.add(eduType.description);
+      }
     }
 
     if (resolvedTypes.size === 0 && tipoRoots.length > 0) {
