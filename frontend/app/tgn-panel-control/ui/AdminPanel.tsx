@@ -3726,12 +3726,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     const isOngMatch = (name: string): boolean => {
       const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      return /\b(ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n);
+      return /\b(?:ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n) ||
+        /sin fines de lucro|organismo no gubernamental|asociacion civil/i.test(n);
     };
 
     const isStudentEduMatch = (name: string): boolean => {
       const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      return /\b(estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto)\b/i.test(n);
+      return /\b(?:estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto|facultad|intercambio|convocatoria|programa)\w*/i.test(n) ||
+        /estudiante|universidad|educacion|carrera|formacion|posgrado|grado|beca|colegio|instituto|programa|intercambio|convocatoria/i.test(n);
     };
 
     const resolvedCategoryRoots = new Set<string>();
@@ -3741,7 +3743,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (isEducationalEntity) {
       publicationCategoryRoots.forEach((r) => {
         if (isStudentEduMatch(r.description)) {
-          resolvedCategoryRoots.add(r.description);
+          const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          if (/estudiant|formaci|curso|programa/i.test(rNorm)) {
+            resolvedCategoryRoots.add(r.description);
+          } else if (/intercambio/i.test(rNorm) && (fullTextCorpus.includes("intercambio") || fullTextCorpus.includes("movilidad") || fullTextCorpus.includes("internacional") || fullTextCorpus.includes("convenio"))) {
+            resolvedCategoryRoots.add(r.description);
+          } else if (/convocatoria/i.test(rNorm) && (fullTextCorpus.includes("convocatoria") || fullTextCorpus.includes("ingreso") || fullTextCorpus.includes("beca") || fullTextCorpus.includes("admision"))) {
+            resolvedCategoryRoots.add(r.description);
+          } else if (/universi|educa|academ|carrera/i.test(rNorm)) {
+            resolvedCategoryRoots.add(r.description);
+          }
         }
       });
     }
@@ -3820,8 +3831,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    // 1. Dynamic category scoring fallback if direct match didn't yield a root
-    if (resolvedCategoryRoots.size === 0 && publicationCategoryRoots.length > 0) {
+    // 1. Dynamic category scoring across loaded catalog to ensure all legitimate defining categories are present
+    if (publicationCategoryRoots.length > 0) {
       const titleContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""}`
         .toLowerCase()
         .normalize("NFD")
@@ -3860,7 +3871,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const topScore = scoredRoots[0]?.score ?? 0;
       if (topScore > 0) {
         for (const sr of scoredRoots) {
-          if (sr.score >= 25 && sr.score >= topScore * 0.5) {
+          if (resolvedCategoryRoots.size < 4 && sr.score >= 35 && sr.score >= topScore * 0.5) {
             resolvedCategoryRoots.add(sr.root.description);
           }
         }
@@ -3997,7 +4008,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    if (resolvedActivities.size === 0 && actividadRoots.length > 0) {
+    if (actividadRoots.length > 0) {
       const fullContextNorm = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""} ${(draft.scrapedParagraphs || []).join(" ")}`
         .toLowerCase()
         .normalize("NFD")
@@ -4005,6 +4016,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
       const scoredActs: { act: Category; score: number }[] = [];
       for (const act of actividadRoots) {
+        if (resolvedActivities.has(act.description)) continue;
         const aNorm = act.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
         let aScore = 0;
@@ -4012,14 +4024,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         for (const tok of aTokens) {
           if (fullContextNorm.includes(tok)) aScore += 15;
         }
-        scoredActs.push({ act, score: aScore });
+        if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
+          aScore += 50;
+        }
+        if (aScore >= 35) {
+          scoredActs.push({ act, score: aScore });
+        }
       }
 
       scoredActs.sort((a, b) => b.score - a.score);
       const topActScore = scoredActs[0]?.score ?? 0;
       if (topActScore > 0) {
         for (const sa of scoredActs) {
-          if (sa.score >= 20 && sa.score >= topActScore * 0.6) {
+          if (resolvedActivities.size < 3 && sa.score >= 35 && sa.score >= topActScore * 0.6) {
             resolvedActivities.add(sa.act.description);
           }
         }
@@ -4128,6 +4145,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           return cNorm === modNorm || cNorm.includes(modNorm) || modNorm.includes(cNorm);
         });
         if (subMatch) resolvedModalities.add(subMatch.description);
+      }
+    }
+
+    if (isEducationalEntity) {
+      const presencial = modalidadRoots.find((r) => /presencial/i.test(r.description));
+      const online = modalidadRoots.find((r) => /online|virtual|remot/i.test(r.description));
+      if (presencial) resolvedModalities.add(presencial.description);
+      if (online && (fullTextCorpus.includes("online") || fullTextCorpus.includes("virtual") || fullTextCorpus.includes("distancia") || fullTextCorpus.includes("campus virtual") || fullTextCorpus.includes("plataforma") || fullTextCorpus.includes("web") || fullTextCorpus.includes("uncuyo virtual"))) {
+        resolvedModalities.add(online.description);
       }
     }
 
@@ -5269,8 +5295,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const isHealth = !isEdu && /hospital|cl[ií]nica|sanatorio|m[eé]dic|odontol|psicol|obra social|salud/i.test(sectorContext);
 
       if (isEdu) {
-        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
-        if (eduRoot) mappedCategories.push(eduRoot.original);
+        const eduRoots = allRootsWithNorm.filter((r) => /educaci|estudio|formaci|estudiant/i.test(r.norm) || isStudentEduMatch(r.norm));
+        eduRoots.forEach((er) => {
+          if (!mappedCategories.includes(er.original)) mappedCategories.push(er.original);
+        });
       } else if (isLegal) {
         const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
         if (legalRoot) mappedCategories.push(legalRoot.original);
