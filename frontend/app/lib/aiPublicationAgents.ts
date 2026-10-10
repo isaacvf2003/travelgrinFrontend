@@ -1122,11 +1122,16 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
    - Selecciona de la lista 'TIPOS DE PERFIL DISPONIBLES EN BD' (ej: "Empresa", "Institución privada", "Organismo público", etc.).
 5. MODALIDADES DE ATENCIÓN ('providerModalities'):
    - Selecciona de la lista 'MODALIDADES DISPONIBLES' (ej: "Atención presencial", "Atención online") según lo que ofrezca el sitio.
-6. PRESTACIONES ('prestaciones'):
-   - Si aplican opciones de la lista 'PRESTACIONES DISPONIBLES', selecciónalas; de lo contrario devuelve un array vacío [].
-7. IDIOMAS REALES DEL SERVICIO ('languages'):
-   - Analiza el texto del sitio web para detectar los idiomas reales que se hablan, ofrecen o en los que se atiende (ej. atención bilingüe, we speak english, atención en portugués, español).
-   - Elige ÚNICAMENTE de la lista 'IDIOMAS DISPONIBLES'. Si no hay mención expresa de otros idiomas, incluye al menos ["Español"].
+8. PREVENCIÓN ESTRICTA DE FALSAS ONGs (REGLA MANDATORIA):
+   - NUNCA clasifiques un sitio web como "ONG", "Fundación", "Organización sin fines de lucro" o tipo "ONG" a menos que demuestre explícitamente personería jurídica y condición estatutaria de entidad sin fines de lucro (ej. dominio .org no comercial con misión social comprobada).
+   - Las universidades (como Universidad Siglo 21, UBA, etc.), empresas comerciales, startups, plataformas digitales, comercios, clínicas y academias privadas NO SON ONGs. Está TERMINANTEMENTE PROHIBIDO asignarles categorías, subcategorías o tipos de perfil de ONG.
+
+9. INTELIGENCIA SEMÁNTICA PARA UNIVERSIDADES, EDUCACIÓN Y ESTUDIANTES (MANDATORIA):
+   - Si la entidad analizada es una UNIVERSIDAD, FACULTAD, INSTITUTO SUPERIOR O COLEGIO (por ejemplo, "Universidad Siglo 21", universidades nacionales o privadas, campus, facultades, carreras universitarias):
+     a) Es una institución de educación orientada a ESTUDIANTES y carreras profesionales.
+     b) Si en el catálogo existen categorías o subcategorías que mencionen "Estudiantes", "Para estudiantes", "Universidades", "Educación", "Cursos", "Carreras", "Formación", "Vida universitaria", "Posgrados" o afines, DEBES seleccionarlas en 'categorySelections' y 'subcategorySelections'.
+     c) Su actividad económica debe ser de educación (ej. "Educación y formación", "Educación").
+     d) Su tipo de oferente debe ser "Institución privada" (para universidades privadas como Siglo 21) u "Organismo público" (para universidades estatales/nacionales). NUNCA ONG.
 
 CATÁLOGO DE BLOQUES, CATEGORÍAS Y SUBCATEGORÍAS DISPONIBLES EN BD:
 ${categoryTreeFormat}
@@ -1190,17 +1195,60 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       throw new Error("Respuesta JSON inválida de IA al clasificar taxonomía.");
     }
 
+    const fullTextCorpus = `${context.rawPageTitle || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.mainText || ""} ${context.url} ${context.publisherName || ""}`
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    const isEducationalEntity =
+      /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
+      /\.edu(?:\.[a-z]{2})?/i.test(context.url || "");
+
+    const isAuthenticOng =
+      (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(context.url || "")) &&
+      /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(fullTextCorpus) &&
+      !isEducationalEntity &&
+      !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(fullTextCorpus);
+
+    const isOngMatch = (name: string): boolean => {
+      const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      return /\b(ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n);
+    };
+
+    const isStudentEduMatch = (name: string): boolean => {
+      const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      return /\b(estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto)\b/i.test(n);
+    };
+
     // Strict multi-select category validation against DB pool
     const rawCategories: string[] = [
       ...(Array.isArray(parsed.categorySelections) ? parsed.categorySelections : []),
       parsed.category,
     ]
       .map((c) => String(c || "").trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((c) => isAuthenticOng || !isOngMatch(c));
 
-    const matchedCats = matchToCatalogPool(rawCategories, categoriesPool);
-    const finalCategories = matchedCats.length ? matchedCats : (categoriesPool.slice(0, 1));
-    const finalCat = finalCategories[0] || (categoriesPool[0] || "");
+    let matchedCats = matchToCatalogPool(rawCategories, categoriesPool);
+
+    // If educational entity, proactively ensure student/education categories from pool are included
+    if (isEducationalEntity) {
+      const eduPoolCategories = categoriesPool.filter(isStudentEduMatch);
+      for (const eduCat of eduPoolCategories) {
+        if (!matchedCats.includes(eduCat)) {
+          matchedCats.push(eduCat);
+        }
+      }
+    }
+
+    // Filter out ONG categories if not an authentic ONG
+    if (!isAuthenticOng) {
+      matchedCats = matchedCats.filter((c) => !isOngMatch(c));
+    }
+
+    const nonOngPool = isAuthenticOng ? categoriesPool : categoriesPool.filter((c) => !isOngMatch(c));
+    const finalCategories = matchedCats.length ? matchedCats : (nonOngPool.slice(0, 1));
+    const finalCat = finalCategories[0] || (nonOngPool[0] || "");
 
     // Collect all valid subcategories belonging to any of the selected categories
     let validSubcatPool: string[] = [];
@@ -1217,6 +1265,9 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       validSubcatPool = subcategoriesPool;
     }
     validSubcatPool = Array.from(new Set(validSubcatPool.filter(Boolean)));
+    if (!isAuthenticOng) {
+      validSubcatPool = validSubcatPool.filter((s) => !isOngMatch(s));
+    }
 
     // Strict multi-select subcategory validation
     const rawSubcategories: string[] = [
@@ -1224,51 +1275,74 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       parsed.subcategory,
     ]
       .map((s) => String(s || "").trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((s) => isAuthenticOng || !isOngMatch(s));
 
     let matchedSubs = matchToCatalogPool(rawSubcategories, validSubcatPool);
 
     // Also score against extracted text to include any additional relevant subcategories that fit the entity
     if (validSubcatPool.length > 0) {
-      const textCorpus = `${context.rawPageTitle || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.mainText || ""}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       for (const sub of validSubcatPool) {
         if (matchedSubs.includes(sub)) continue;
+        if (!isAuthenticOng && isOngMatch(sub)) continue;
+
         const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
         let matchScore = 0;
-        if (textCorpus.includes(sNorm)) matchScore += 30;
+
+        if (fullTextCorpus.includes(sNorm)) matchScore += 30;
         for (const tok of sTokens) {
-          if (textCorpus.includes(tok)) matchScore += 10;
+          if (fullTextCorpus.includes(tok)) matchScore += 10;
         }
+
+        // Semantic boost for student/university subcategories when analyzing educational institutions
+        if (isEducationalEntity && isStudentEduMatch(sub)) {
+          matchScore += 40;
+        }
+
         if (matchScore >= 20) {
           matchedSubs.push(sub);
         }
       }
     }
 
+    if (!isAuthenticOng) {
+      matchedSubs = matchedSubs.filter((s) => !isOngMatch(s));
+    }
+
     if (matchedSubs.length === 0 && validSubcatPool.length > 0) {
-      matchedSubs = [validSubcatPool[0]];
+      const nonOngSubPool = isAuthenticOng ? validSubcatPool : validSubcatPool.filter((s) => !isOngMatch(s));
+      matchedSubs = [nonOngSubPool[0] || validSubcatPool[0]];
     }
     const finalSub = matchedSubs[0] || "";
 
     // Activities: strictly match against activitiesPool and NEVER allow items from typesPool (e.g. Empresa)
     const rawActivities = Array.isArray(parsed.providerActivities) ? parsed.providerActivities : [parsed.providerActivities];
     const matchedActivities = matchToCatalogPool(rawActivities, activitiesPool);
-    const cleanActivities = matchedActivities.filter((a) => !typesPool.includes(a));
+    let cleanActivities = matchedActivities.filter((a) => !typesPool.includes(a));
+
+    if (isEducationalEntity) {
+      const eduAct = activitiesPool.find((a) => /educaci|formaci|ensenan/i.test(a));
+      if (eduAct && !cleanActivities.includes(eduAct)) {
+        cleanActivities = [eduAct, ...cleanActivities];
+      }
+    }
 
     if (cleanActivities.length === 0 && activitiesPool.length > 0) {
       const sanitizedPool = activitiesPool.filter((a) => !typesPool.includes(a));
       const poolToUse = sanitizedPool.length > 0 ? sanitizedPool : activitiesPool;
-      const textCorpus = `${context.rawPageTitle || ""} ${context.publisherName || ""} ${context.mainText || ""}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       let bestA = poolToUse[0];
       let bestAScore = -1;
       for (const act of poolToUse) {
         const aNorm = act.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
         let score = 0;
-        if (textCorpus.includes(aNorm)) score += 40;
+        if (fullTextCorpus.includes(aNorm)) score += 40;
         for (const tok of aTokens) {
-          if (textCorpus.includes(tok)) score += 15;
+          if (fullTextCorpus.includes(tok)) score += 15;
+        }
+        if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
+          score += 50;
         }
         if (score > bestAScore) {
           bestAScore = score;
@@ -1278,10 +1352,24 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       if (bestA) cleanActivities.push(bestA);
     }
 
-    const matchedTypes = matchToCatalogPool(
+    let matchedTypes = matchToCatalogPool(
       Array.isArray(parsed.providerTypes) ? parsed.providerTypes : [parsed.providerTypes],
       typesPool
     );
+
+    if (!isAuthenticOng) {
+      matchedTypes = matchedTypes.filter((t) => !isOngMatch(t));
+    }
+
+    if (isEducationalEntity && matchedTypes.length === 0) {
+      const isPublicGov =
+        /\b(\.gov|\.gob|\.mil)\b/i.test(context.url || "") ||
+        /\b(universidad nacional|hospital publico|organismo publico|ministerio|gobierno)\b/i.test(fullTextCorpus);
+      const chosenType = isPublicGov
+        ? typesPool.find((t) => /p[uú]blico|estatal/i.test(t))
+        : typesPool.find((t) => /privada|empresa/i.test(t));
+      if (chosenType) matchedTypes.push(chosenType);
+    }
 
     const matchedModalities = matchToCatalogPool(
       Array.isArray(parsed.providerModalities) ? parsed.providerModalities : [parsed.providerModalities],
