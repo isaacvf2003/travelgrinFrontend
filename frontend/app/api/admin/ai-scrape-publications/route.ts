@@ -2095,6 +2095,23 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
     console.warn("[AI Scraper] Error al obtener taxonomías de Prisma, usando respaldo del cliente:", e);
   }
 
+  // If Prisma was empty/offline and client didn't supply them, query backend API
+  if (dbCategories.length === 0 && (!clientCategories || clientCategories.length === 0)) {
+    try {
+      const backendUrl = getBackendApiUrl();
+      const [resCats, resGroups] = await Promise.all([
+        fetch(`${backendUrl}/api/categories?t=${Date.now()}`).then((r) => (r.ok ? r.json() : null)),
+        fetch(`${backendUrl}/api/admin/filters?t=${Date.now()}`).then((r) => (r.ok ? r.json() : null)),
+      ]);
+      const catsList = Array.isArray(resCats?.items) ? resCats.items : Array.isArray(resCats) ? resCats : [];
+      const groupsList = Array.isArray(resGroups?.groups) ? resGroups.groups : Array.isArray(resGroups) ? resGroups : [];
+      if (catsList.length > 0) dbCategories = catsList;
+      if (groupsList.length > 0) dbFilterGroups = groupsList;
+    } catch (fErr) {
+      console.warn("[AI Scraper] Backend API fallback no disponible:", fErr);
+    }
+  }
+
   // Seamlessly merge client payloads so newly created categories and blocks from the admin are always available
   if (Array.isArray(clientCategories) && clientCategories.length > 0) {
     if (!dbCategories || dbCategories.length === 0) {
@@ -2125,8 +2142,8 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
   }
 
   try {
-    const filterGroupById = new Map<string, any>(dbFilterGroups.map((g) => [g.id, g]));
-    const categoryById = new Map<string, any>(dbCategories.map((c) => [c.id, c]));
+    const filterGroupById = new Map<string, any>(dbFilterGroups.map((g) => [String(g.id), g]));
+    const categoryById = new Map<string, any>(dbCategories.map((c) => [String(c.id), c]));
 
     const normalizeType = (input: string | null | undefined) => {
       const raw = String(input ?? "").trim().toLowerCase();
@@ -2141,11 +2158,13 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
     };
 
     const resolveCategoryBlockId = (category: any, seen = new Set<string>()): string | null => {
-      if (seen.has(category.id)) return null;
-      seen.add(category.id);
-      if (category.blockId && filterGroupById.has(category.blockId)) return category.blockId;
-      if (category.parentId) {
-        const parent = categoryById.get(category.parentId);
+      const catId = String(category?.id ?? "");
+      if (!catId || seen.has(catId)) return null;
+      seen.add(catId);
+      const bId = category?.blockId != null ? String(category.blockId) : null;
+      if (bId && filterGroupById.has(bId)) return bId;
+      if (category?.parentId) {
+        const parent = categoryById.get(String(category.parentId));
         if (!parent) return null;
         return resolveCategoryBlockId(parent, seen);
       }
@@ -2153,12 +2172,13 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
     };
 
     const resolveCategoryTaxonomyType = (category: any, seen = new Set<string>()): string => {
-      if (seen.has(category.id)) return "categoria";
-      seen.add(category.id);
-      const ownType = normalizeType(category.taxonomyType);
+      const catId = String(category?.id ?? "");
+      if (!catId || seen.has(catId)) return "categoria";
+      seen.add(catId);
+      const ownType = normalizeType(category?.taxonomyType);
       if (ownType && !["", "default", "predeterminado", "inherit"].includes(ownType)) return ownType;
-      if (category.parentId) {
-        const parent = categoryById.get(category.parentId);
+      if (category?.parentId) {
+        const parent = categoryById.get(String(category.parentId));
         if (parent) return resolveCategoryTaxonomyType(parent, seen);
       }
       const blockId = resolveCategoryBlockId(category);
@@ -2199,10 +2219,11 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
           blocksMap.set(blockKey, { blockName: blockKey, parentCategories: [] });
         }
         const children = categoryMapWithTaxonomy
-          .filter((sub) => sub.parentId === c.id)
-          .map((sub) => sub.description);
+          .filter((sub) => String(sub.parentId) === String(c.id))
+          .map((sub) => String(sub.description || "").trim())
+          .filter(Boolean);
         blocksMap.get(blockKey)!.parentCategories.push({
-          name: c.description,
+          name: String(c.description || "").trim(),
           subcategories: children,
         });
       });
@@ -2211,23 +2232,23 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
 
     const activities = categoryMapWithTaxonomy
       .filter((c) => c.resolvedTaxonomyType === "actividad")
-      .map((c) => c.description);
+      .map((c) => String(c.description || "").trim());
 
     const types = categoryMapWithTaxonomy
       .filter((c) => c.resolvedTaxonomyType === "tipo")
-      .map((c) => c.description);
+      .map((c) => String(c.description || "").trim());
 
     const modalities = categoryMapWithTaxonomy
       .filter((c) => c.resolvedTaxonomyType === "modalidad")
-      .map((c) => c.description);
+      .map((c) => String(c.description || "").trim());
 
     const prestaciones = categoryMapWithTaxonomy
       .filter((c) => c.resolvedTaxonomyType === "prestacion")
-      .map((c) => c.description);
+      .map((c) => String(c.description || "").trim());
 
     const languages = categoryMapWithTaxonomy
       .filter((c) => c.resolvedTaxonomyType === "idiomas" || c.resolvedTaxonomyType === "idioma")
-      .map((c) => c.description);
+      .map((c) => String(c.description || "").trim());
 
     dbFilterGroups.forEach((group) => {
       const gType = normalizeType(group.taxonomyType);
@@ -2262,26 +2283,61 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
 
     const allMainCatNames = categoryMapWithTaxonomy
       .filter((c) => !c.parentId && c.resolvedTaxonomyType === "categoria")
-      .map((c) => c.description);
+      .map((c) => String(c.description || "").trim())
+      .filter(Boolean);
+
     const allSubCatNames = categoryMapWithTaxonomy
       .filter((c) => c.parentId && c.resolvedTaxonomyType === "categoria")
-      .map((c) => c.description);
+      .map((c) => String(c.description || "").trim())
+      .filter(Boolean);
 
     const canonicalLanguages = languages.length > 0
       ? languages
       : ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"];
 
+    const defaultActivities = [
+      "Servicios profesionales y técnicos",
+      "Salud y asistencia social",
+      "Educación y formación",
+      "Hostelería, alojamiento y turismo",
+      "Gastronomía y restauración",
+      "Tecnología, software e información",
+      "Comercio y automotriz",
+      "Arte, cultura y entretenimiento",
+      "Deportes, fitness y bienestar",
+      "Servicios inmobiliarios y bienes raíces"
+    ];
+
+    const defaultTypes = [
+      "Institución privada",
+      "Organismo público",
+      "Profesional independiente",
+      "Empresa"
+    ];
+
+    const defaultModalities = [
+      "Atención presencial",
+      "Atención online",
+      "Gestión y trámites"
+    ];
+
     const cleanTypes = Array.from(new Set(types.filter(Boolean)));
+    const finalTypes = cleanTypes.length > 0 ? cleanTypes : defaultTypes;
+
     // Strict mutual exclusion: No type (e.g. Empresa, Institución privada) may ever appear in activities!
-    const cleanActivities = Array.from(new Set(activities.filter(Boolean))).filter((a) => !cleanTypes.includes(a));
+    const cleanActivities = Array.from(new Set(activities.filter(Boolean))).filter((a) => !finalTypes.includes(a));
+    const finalActivities = cleanActivities.length > 0 ? cleanActivities : defaultActivities;
+
+    const cleanModalities = Array.from(new Set(modalities.filter(Boolean)));
+    const finalModalities = cleanModalities.length > 0 ? cleanModalities : defaultModalities;
 
     return {
       categoryTree,
       categories: Array.from(new Set(allMainCatNames.filter(Boolean))),
       subcategories: Array.from(new Set(allSubCatNames.filter(Boolean))),
-      activities: cleanActivities,
-      types: cleanTypes,
-      modalities: Array.from(new Set(modalities.filter(Boolean))),
+      activities: finalActivities,
+      types: finalTypes,
+      modalities: finalModalities,
       prestaciones: Array.from(new Set(prestaciones.filter(Boolean))),
       languages: Array.from(new Set(canonicalLanguages.filter(Boolean))),
     };
@@ -2291,9 +2347,16 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       categoryTree: [],
       categories: [],
       subcategories: [],
-      activities: [],
-      types: [],
-      modalities: [],
+      activities: [
+        "Servicios profesionales y técnicos",
+        "Salud y asistencia social",
+        "Educación y formación",
+        "Hostelería, alojamiento y turismo",
+        "Gastronomía y restauración",
+        "Tecnología, software e información"
+      ],
+      types: ["Institución privada", "Organismo público", "Profesional independiente", "Empresa"],
+      modalities: ["Atención presencial", "Atención online", "Gestión y trámites"],
       prestaciones: [],
       languages: ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"],
     };
@@ -5044,6 +5107,35 @@ export function enforceStrictTaxonomyGuardrails(
     publication.destinationCountries = locInfo.detectedCountries.length > 0
       ? locInfo.detectedCountries
       : [publication.country || "Argentina"];
+  }
+
+  // 7. Non-empty guarantee for all taxonomy selections
+  if (!publication.providerActivities || publication.providerActivities.length === 0) {
+    if (taxonomies?.activities?.length) {
+      publication.providerActivities = [taxonomies.activities[0]];
+    } else {
+      publication.providerActivities = ["Servicios profesionales y técnicos"];
+    }
+  }
+  if (!publication.providerTypes || publication.providerTypes.length === 0) {
+    if (taxonomies?.types?.length) {
+      publication.providerTypes = [taxonomies.types[0]];
+    } else {
+      publication.providerTypes = ["Institución privada"];
+    }
+  }
+  if (!publication.providerModalities || publication.providerModalities.length === 0) {
+    if (taxonomies?.modalities?.length) {
+      publication.providerModalities = taxonomies.modalities.slice(0, 2);
+    } else {
+      publication.providerModalities = ["Atención presencial", "Atención online"];
+    }
+  }
+  if (!publication.categorySelections || publication.categorySelections.length === 0) {
+    if (taxonomies?.categories?.length) {
+      publication.categorySelections = [taxonomies.categories[0]];
+      publication.category = taxonomies.categories[0];
+    }
   }
 
   return publication;
