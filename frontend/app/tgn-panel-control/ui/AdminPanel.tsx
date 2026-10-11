@@ -4402,6 +4402,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (draft.images?.length) setPImageUrls(draft.images.join("\n"));
       if (draft.country) setPCountry(draft.country);
       if (draft.city) setPCity(draft.city);
+      if (draft.locationAddress) setPLocationAddress(draft.locationAddress);
+      if (draft.providerCommentsUrl) setPProviderCommentsUrl(draft.providerCommentsUrl);
+      if (draft.languages) setPLanguages(draft.languages);
+      if (draft.categorySelections?.length) setPCategorySelections(draft.categorySelections);
+      else if (draft.category) setPCategorySelections([draft.category]);
+      if (draft.subcategorySelections?.length) setPSubcategorySelections(draft.subcategorySelections);
+      else if (draft.subcategory) setPSubcategorySelections([draft.subcategory]);
+      if (draft.providerActivities?.length) setPProviderActivities(draft.providerActivities);
+      else if (actividadRoots.length) setPProviderActivities([actividadRoots[0].description]);
+      if (draft.providerTypes?.length) setPProviderTypes(draft.providerTypes);
+      else if (tipoRoots.length) setPProviderTypes([tipoRoots[0].description]);
+      if (draft.providerModalities?.length) setPProviderModalities(draft.providerModalities);
+      else if (modalidadRoots.length) setPProviderModalities([modalidadRoots[0].description]);
     } finally {
       if (!isPublicationsSection) {
         router.push(`${basePath}?section=publicaciones`);
