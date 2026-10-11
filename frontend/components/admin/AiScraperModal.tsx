@@ -529,6 +529,8 @@ export default function AiScraperModal({
             if (scored.length > 0) {
               catSelections = scored.slice(0, 3).map((x: any) => x.name);
             }
+          }
+
           // Fallback to local subcategories catalog if empty
           if (subSelections.length === 0 && Array.isArray(categories) && categories.length > 0 && catSelections.length > 0) {
             const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
