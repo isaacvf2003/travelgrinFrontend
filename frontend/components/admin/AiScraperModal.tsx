@@ -529,17 +529,36 @@ export default function AiScraperModal({
             if (scored.length > 0) {
               catSelections = scored.slice(0, 3).map((x: any) => x.name);
             }
+          // Fallback to local subcategories catalog if empty
+          if (subSelections.length === 0 && Array.isArray(categories) && categories.length > 0 && catSelections.length > 0) {
+            const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
+            const matchedParentCats = categories.filter((c: any) => !c.parentId && catSelections.includes(c.description));
+            const childCandidates = categories.filter((c: any) => c.parentId && matchedParentCats.some((p: any) => p.id === c.parentId));
+            if (childCandidates.length > 0) {
+              const scoredSubs = childCandidates.map((sub: any) => {
+                const sNorm = sub.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                const tokens = sNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|general/i.test(t));
+                let s = 0;
+                if (fullCorpus.includes(sNorm)) s += 40;
+                for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
+                return { name: sub.description, score: s };
+              }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
+
+              if (scoredSubs.length > 0) {
+                subSelections = scoredSubs.slice(0, 3).map((x: any) => x.name);
+              }
+            }
           }
 
-          const resolvedCat = catSelections[0] || pub.category || "General";
-          const resolvedSub = subSelections[0] || pub.subcategory || "General";
+          const resolvedCat = catSelections[0] || (pub.category && pub.category !== "General" ? pub.category : "");
+          const resolvedSub = subSelections[0] || (pub.subcategory && pub.subcategory !== "General" ? pub.subcategory : "");
 
           return {
             ...pub,
             category: resolvedCat,
             subcategory: resolvedSub,
-            categorySelections: catSelections.length > 0 ? catSelections : [resolvedCat],
-            subcategorySelections: subSelections.length > 0 ? subSelections : [resolvedSub],
+            categorySelections: catSelections.length > 0 ? catSelections : (resolvedCat ? [resolvedCat] : []),
+            subcategorySelections: subSelections.length > 0 ? subSelections : (resolvedSub ? [resolvedSub] : []),
             providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
             images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
             status: pub.status || "active",
