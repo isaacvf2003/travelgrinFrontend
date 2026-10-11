@@ -323,37 +323,49 @@ export default function AiScraperModal({
   };
 
   const ensureCustomBlocksInDraft = (draft: ScrapedPublicationDraft): ScrapedPublicationDraft => {
-    const existing = [...(draft.extraDescriptions || [])];
-    customScraperBlocks.forEach((b) => {
-      const cleanTitle = b.title.trim();
-      const lowerTarget = cleanTitle.toLowerCase();
-      const existingIdx = existing.findIndex((eb) => {
-        const ebTitle = eb.title.toLowerCase().trim();
-        return ebTitle === lowerTarget ||
-               ebTitle.startsWith(lowerTarget) ||
-               lowerTarget.startsWith(ebTitle) ||
-               (Boolean(b.prompt && eb.prompt) && b.prompt!.trim().toLowerCase() === eb.prompt!.trim().toLowerCase());
-      });
-      if (existingIdx === -1) {
-        existing.push({
-          title: cleanTitle,
-          titleI18n: { es: cleanTitle, en: cleanTitle, pt: cleanTitle, it: cleanTitle },
-          body: "",
-          bodyI18n: { es: "", en: "", pt: "", it: "" },
-          visibleInCard: false,
-          prompt: b.prompt,
+    if (!draft) return draft;
+    try {
+      const existing = [...(draft.extraDescriptions || [])];
+      (customScraperBlocks || []).forEach((b) => {
+        if (!b || !b.title) return;
+        const cleanTitle = String(b.title).trim();
+        if (!cleanTitle) return;
+        const lowerTarget = cleanTitle.toLowerCase();
+        const existingIdx = existing.findIndex((eb) => {
+          if (!eb) return false;
+          const ebTitle = String(eb.title || eb.titleI18n?.es || "").toLowerCase().trim();
+          return (
+            ebTitle === lowerTarget ||
+            ebTitle.startsWith(lowerTarget) ||
+            lowerTarget.startsWith(ebTitle) ||
+            (Boolean(b.prompt && eb.prompt) &&
+              String(b.prompt).trim().toLowerCase() === String(eb.prompt).trim().toLowerCase())
+          );
         });
-      } else if (b.prompt && !existing[existingIdx].prompt) {
-        existing[existingIdx] = {
-          ...existing[existingIdx],
-          prompt: b.prompt,
-        };
-      }
-    });
-    return {
-      ...draft,
-      extraDescriptions: existing,
-    };
+        if (existingIdx === -1) {
+          existing.push({
+            title: cleanTitle,
+            titleI18n: { es: cleanTitle, en: cleanTitle, pt: cleanTitle, it: cleanTitle },
+            body: "",
+            bodyI18n: { es: "", en: "", pt: "", it: "" },
+            visibleInCard: false,
+            prompt: b.prompt ? String(b.prompt).trim() : undefined,
+          });
+        } else if (b.prompt && !existing[existingIdx]?.prompt) {
+          existing[existingIdx] = {
+            ...existing[existingIdx],
+            prompt: String(b.prompt).trim(),
+          };
+        }
+      });
+      return {
+        ...draft,
+        extraDescriptions: existing,
+      };
+    } catch (err) {
+      console.error("[AiScraperModal] ensureCustomBlocksInDraft error:", err);
+      return draft;
+    }
   };
 
   const handleAddPromptRule = (promptText: string) => {
@@ -1605,8 +1617,19 @@ export default function AiScraperModal({
                       <button
                         type="button"
                         onClick={() => {
-                          onSelectDraftToEdit(ensureCustomBlocksInDraft(draft), index);
-                          onClose();
+                          try {
+                            const preparedDraft = ensureCustomBlocksInDraft(draft);
+                            onSelectDraftToEdit(preparedDraft, index);
+                          } catch (err) {
+                            console.error("[AiScraperModal] Error pasando borrador al formulario:", err);
+                            try {
+                              onSelectDraftToEdit(draft, index);
+                            } catch (innerErr) {
+                              console.error("[AiScraperModal] Error en fallback onSelectDraftToEdit:", innerErr);
+                            }
+                          } finally {
+                            onClose();
+                          }
                         }}
                         className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-xs cursor-pointer"
                       >
