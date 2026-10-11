@@ -552,6 +552,69 @@ export default function AiScraperModal({
             }
           }
 
+          // Fallback to local activities catalog if empty
+          let actSelections = Array.isArray(pub.providerActivities) && pub.providerActivities.length > 0
+            ? pub.providerActivities
+            : [];
+          if (actSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
+            const actRoots = categories.filter((c: any) => !c.parentId && c.taxonomyType === "actividad");
+            if (actRoots.length > 0) {
+              const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
+              const scored = actRoots.map((r: any) => {
+                const rNorm = String(r.description || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                const tokens = rNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|servicios|general/i.test(t));
+                let s = 0;
+                if (fullCorpus.includes(rNorm)) s += 40;
+                for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
+                return { name: r.description, score: s };
+              }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
+              if (scored.length > 0) {
+                actSelections = [scored[0].name];
+                if (scored[1] && scored[1].score >= 25) actSelections.push(scored[1].name);
+              } else {
+                actSelections = [actRoots[0].description];
+              }
+            }
+          }
+
+          // Fallback to local types catalog if empty
+          let typeSelections = Array.isArray(pub.providerTypes) && pub.providerTypes.length > 0
+            ? pub.providerTypes
+            : [];
+          if (typeSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
+            const typeRoots = categories.filter((c: any) => !c.parentId && ["tipo", "tipos"].includes(c.taxonomyType));
+            if (typeRoots.length > 0) {
+              const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""}`.toLowerCase();
+              const isGov = /\b(\.gov|\.gob|\.mil)\b/i.test(pub.url || "") || /public|gobierno|ministerio|nacional/i.test(fullCorpus);
+              if (isGov) {
+                const pubMatch = typeRoots.find((r: any) => /public|estatal/i.test(String(r.description || "")));
+                typeSelections = [pubMatch ? pubMatch.description : typeRoots[0].description];
+              } else {
+                const profMatch = typeRoots.find((r: any) => /profesional|independiente|particular/i.test(String(r.description || "")));
+                const privMatch = typeRoots.find((r: any) => /privad|empresa|instituci/i.test(String(r.description || "")));
+                typeSelections = [profMatch ? profMatch.description : privMatch ? privMatch.description : typeRoots[0].description];
+              }
+            }
+          }
+
+          // Fallback to local modalities catalog if empty
+          let modSelections = Array.isArray(pub.providerModalities) && pub.providerModalities.length > 0
+            ? pub.providerModalities
+            : [];
+          if (modSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
+            const modRoots = categories.filter((c: any) => !c.parentId && c.taxonomyType === "modalidad");
+            if (modRoots.length > 0) {
+              const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
+              const presencial = modRoots.find((r: any) => /presencial|sede|sucursal/i.test(String(r.description || "")));
+              const online = modRoots.find((r: any) => /online|virtual|remoto|distancia/i.test(String(r.description || "")));
+              const picked: string[] = [];
+              if (presencial && (pub.locationAddress || /sede|sucursal|consultorio|direccion/i.test(fullCorpus))) picked.push(presencial.description);
+              if (online && /online|virtual|remoto|distancia|zoom|meet|web|portal/i.test(fullCorpus)) picked.push(online.description);
+              if (picked.length === 0) picked.push(presencial ? presencial.description : modRoots[0].description);
+              modSelections = picked;
+            }
+          }
+
           const resolvedCat = catSelections[0] || (pub.category && pub.category !== "General" ? pub.category : "");
           const resolvedSub = subSelections[0] || (pub.subcategory && pub.subcategory !== "General" ? pub.subcategory : "");
 
@@ -561,6 +624,9 @@ export default function AiScraperModal({
             subcategory: resolvedSub,
             categorySelections: catSelections.length > 0 ? catSelections : (resolvedCat ? [resolvedCat] : []),
             subcategorySelections: subSelections.length > 0 ? subSelections : (resolvedSub ? [resolvedSub] : []),
+            providerActivities: actSelections.length > 0 ? actSelections : (pub.providerActivities || []),
+            providerTypes: typeSelections.length > 0 ? typeSelections : (pub.providerTypes || []),
+            providerModalities: modSelections.length > 0 ? modSelections : (pub.providerModalities || []),
             providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
             images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
             status: pub.status || "active",
