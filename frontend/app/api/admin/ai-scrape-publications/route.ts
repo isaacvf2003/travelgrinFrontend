@@ -2095,12 +2095,33 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
     console.warn("[AI Scraper] Error al obtener taxonomías de Prisma, usando respaldo del cliente:", e);
   }
 
-  // Fallback to client payloads if DB returned empty or errored
-  if ((!dbCategories || dbCategories.length === 0) && Array.isArray(clientCategories) && clientCategories.length > 0) {
-    dbCategories = clientCategories;
+  // Seamlessly merge client payloads so newly created categories and blocks from the admin are always available
+  if (Array.isArray(clientCategories) && clientCategories.length > 0) {
+    if (!dbCategories || dbCategories.length === 0) {
+      dbCategories = clientCategories;
+    } else {
+      const existingIds = new Set(dbCategories.map((c) => String(c.id)));
+      for (const cat of clientCategories) {
+        if (!existingIds.has(String(cat.id))) {
+          dbCategories.push(cat);
+          existingIds.add(String(cat.id));
+        }
+      }
+    }
   }
-  if ((!dbFilterGroups || dbFilterGroups.length === 0) && Array.isArray(clientFilterGroups) && clientFilterGroups.length > 0) {
-    dbFilterGroups = clientFilterGroups;
+
+  if (Array.isArray(clientFilterGroups) && clientFilterGroups.length > 0) {
+    if (!dbFilterGroups || dbFilterGroups.length === 0) {
+      dbFilterGroups = clientFilterGroups;
+    } else {
+      const existingGroupIds = new Set(dbFilterGroups.map((g) => String(g.id)));
+      for (const grp of clientFilterGroups) {
+        if (!existingGroupIds.has(String(grp.id))) {
+          dbFilterGroups.push(grp);
+          existingGroupIds.add(String(grp.id));
+        }
+      }
+    }
   }
 
   try {
@@ -4796,6 +4817,16 @@ export function enforceStrictTaxonomyGuardrails(
     publication.subcategorySelections = classified.subcategorySelections;
     publication.providerActivities = classified.providerActivities;
     publication.providerTypes = classified.providerTypes;
+    publication.providerModalities = classified.providerModalities;
+  }
+
+  if (!publication.providerActivities || publication.providerActivities.length === 0) {
+    publication.providerActivities = classified.providerActivities;
+  }
+  if (!publication.providerTypes || publication.providerTypes.length === 0) {
+    publication.providerTypes = classified.providerTypes;
+  }
+  if (!publication.providerModalities || publication.providerModalities.length === 0) {
     publication.providerModalities = classified.providerModalities;
   }
 
