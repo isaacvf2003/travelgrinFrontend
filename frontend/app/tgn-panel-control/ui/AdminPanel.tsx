@@ -2383,6 +2383,66 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       : trimmedLabel;
   };
 
+  const categoryById = useMemo(() => {
+    const map = new Map<string, Category>();
+    categories.forEach((category) => map.set(category.id, category));
+    return map;
+  }, [categories]);
+
+  const resolveCategoryBlockId = (category: Category, seen = new Set<string>()): string | null => {
+    if (seen.has(category.id)) return null;
+    seen.add(category.id);
+    if (category.blockId) return filterGroupById.has(category.blockId) ? category.blockId : null;
+    if (category.parentId) {
+      const parent = categoryById.get(category.parentId);
+      if (!parent) return null;
+      return resolveCategoryBlockId(parent, seen);
+    }
+    return null;
+  };
+
+  const resolveCategoryTaxonomyType = (category: Category, seen = new Set<string>()): string | null => {
+    if (seen.has(category.id)) return "categoria";
+    seen.add(category.id);
+    const ownTaxonomyType = normalizeTaxonomyTypeAlias(category.taxonomyType || "predeterminado");
+    if (ownTaxonomyType && !["", "default", "inherit", "predeterminado"].includes(ownTaxonomyType)) return ownTaxonomyType;
+    if (category.parentId) {
+      const parent = categoryById.get(category.parentId);
+      if (parent) return resolveCategoryTaxonomyType(parent, seen);
+    }
+    const effectiveBlockId = resolveCategoryBlockId(category);
+    if (effectiveBlockId) {
+      const block = filterGroupById.get(effectiveBlockId);
+      const blockTaxonomyType = normalizeTaxonomyTypeAlias(block?.taxonomyType || "predeterminado");
+      if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
+
+      const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) {
+        return "categoria";
+      }
+      if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) {
+        return "actividad";
+      }
+      if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) {
+        return "tipo";
+      }
+      if (blockLabelNorm.includes("modalidad")) {
+        return "modalidad";
+      }
+      if (blockLabelNorm.includes("prestacion")) {
+        return "prestacion";
+      }
+      if (blockLabelNorm.includes("idioma")) {
+        return "idiomas";
+      }
+      const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
+      if (!hasChildren) {
+        return "filtro";
+      }
+    }
+    return "categoria";
+  };
+
   const priceSymbolByCurrency: Record<string, string> = {
     ARS: "$",
     USD: "US$",
@@ -3461,9 +3521,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   const applyAiDraftToForm = (draft: ScrapedPublicationDraft, index?: number) => {
-    setActiveScraperDraftIndex(typeof index === "number" ? index : 0);
-    setActiveScraperDraftUrl(draft.url || null);
-    setEditingId(null);
+    try {
+      setActiveScraperDraftIndex(typeof index === "number" ? index : 0);
+      setActiveScraperDraftUrl(draft.url || null);
+      setEditingId(null);
 
     // Guardar hechos y contenido real extraído del scraping para las reformulaciones con IA
     activeScrapedFactsRef.current = {
@@ -4291,10 +4352,27 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (draft.images && draft.images.length) {
       setPImageUrls(draft.images.join("\n"));
     }
-    setShowPublicationEditor(true);
-    window.setTimeout(() => {
-      publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
+    } catch (err) {
+      console.error("[applyAiDraftToForm error]:", err);
+      if (draft.title) setPTitle(draft.title);
+      if (draft.description) setPDescription(draft.description);
+      if (draft.publisherName) setPPublisherName(draft.publisherName);
+      if (draft.images?.length) setPImageUrls(draft.images.join("\n"));
+      if (draft.country) setPCountry(draft.country);
+      if (draft.city) setPCity(draft.city);
+    } finally {
+      if (!isPublicationsSection) {
+        router.push(`${basePath}?section=publicaciones`);
+      }
+      setShowPublicationEditor(true);
+      window.setTimeout(() => {
+        if (publicationsTopRef.current) {
+          const detailsElem = publicationsTopRef.current.querySelector("details");
+          if (detailsElem) detailsElem.open = true;
+          publicationsTopRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 60);
+    }
   };
 
   const handleCancelScraperDraftEdit = () => {
@@ -5134,65 +5212,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   const adminFilterGroups = useMemo(() => filterGroups, [filterGroups]);
-  const categoryById = useMemo(() => {
-    const map = new Map<string, Category>();
-    categories.forEach((category) => map.set(category.id, category));
-    return map;
-  }, [categories]);
 
-  const resolveCategoryBlockId = (category: Category, seen = new Set<string>()): string | null => {
-    if (seen.has(category.id)) return null;
-    seen.add(category.id);
-    if (category.blockId) return filterGroupById.has(category.blockId) ? category.blockId : null;
-    if (category.parentId) {
-      const parent = categoryById.get(category.parentId);
-      if (!parent) return null;
-      return resolveCategoryBlockId(parent, seen);
-    }
-    return null;
-  };
-
-  const resolveCategoryTaxonomyType = (category: Category, seen = new Set<string>()): string | null => {
-    if (seen.has(category.id)) return "categoria";
-    seen.add(category.id);
-    const ownTaxonomyType = normalizeTaxonomyTypeAlias(category.taxonomyType || "predeterminado");
-    if (ownTaxonomyType && !["", "default", "inherit", "predeterminado"].includes(ownTaxonomyType)) return ownTaxonomyType;
-    if (category.parentId) {
-      const parent = categoryById.get(category.parentId);
-      if (parent) return resolveCategoryTaxonomyType(parent, seen);
-    }
-    const effectiveBlockId = resolveCategoryBlockId(category);
-    if (effectiveBlockId) {
-      const block = filterGroupById.get(effectiveBlockId);
-      const blockTaxonomyType = normalizeTaxonomyTypeAlias(block?.taxonomyType || "predeterminado");
-      if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
-
-      const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) {
-        return "categoria";
-      }
-      if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) {
-        return "actividad";
-      }
-      if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) {
-        return "tipo";
-      }
-      if (blockLabelNorm.includes("modalidad")) {
-        return "modalidad";
-      }
-      if (blockLabelNorm.includes("prestacion")) {
-        return "prestacion";
-      }
-      if (blockLabelNorm.includes("idioma")) {
-        return "idiomas";
-      }
-      const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
-      if (!hasChildren) {
-        return "filtro";
-      }
-    }
-    return "categoria";
-  };
   const resolveInheritedCategoryTaxonomyType = (category: Category): string | null => {
     if (category.parentId) {
       const parent = categoryById.get(category.parentId);
