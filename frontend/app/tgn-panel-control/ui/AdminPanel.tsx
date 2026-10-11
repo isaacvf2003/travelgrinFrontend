@@ -2443,6 +2443,48 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     return "categoria";
   };
 
+  const isCategoryRenderable = (category: Category): boolean => {
+    if (category.parentId && !categoryById.has(category.parentId)) return false;
+    const resolvedTaxonomyType = resolveCategoryTaxonomyType(category);
+    if (!resolvedTaxonomyType) return false;
+    return true;
+  };
+
+  const validRoots = useMemo(
+    () => roots.filter((root) => isCategoryRenderable(root)),
+    [roots, categories, filterGroups]
+  );
+
+  const modalidadRoots = useMemo(
+    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "modalidad"),
+    [validRoots, categories, filterGroups]
+  );
+  const idiomaRoots = useMemo(
+    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "idiomas"),
+    [validRoots, categories, filterGroups]
+  );
+  const actividadRoots = useMemo(
+    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "actividad"),
+    [validRoots, categories, filterGroups]
+  );
+  const tipoRoots = useMemo(
+    () => validRoots.filter((root) => ["tipo", "tipos"].includes(resolveCategoryTaxonomyType(root) || "")),
+    [validRoots, categories, filterGroups]
+  );
+  const prestacionRoots = useMemo(
+    () => validRoots.filter((root) => ["prestacion", "prestaciones"].includes(resolveCategoryTaxonomyType(root) || "")),
+    [validRoots, categories, filterGroups]
+  );
+
+  const publicationCategoryRoots = useMemo(
+    () =>
+      validRoots.filter((root) => {
+        const resolvedTaxonomyType = resolveCategoryTaxonomyType(root);
+        return resolvedTaxonomyType === "categoria";
+      }),
+    [validRoots, categories, filterGroups]
+  );
+
   const priceSymbolByCurrency: Record<string, string> = {
     ARS: "$",
     USD: "US$",
@@ -5242,48 +5284,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (resolved === inherited) return null;
     return `Tipo de filtro propio: ${resolved} (no hereda el tipo de filtro del bloque)`;
   };
-
-  const isCategoryRenderable = (category: Category): boolean => {
-    if (category.parentId && !categoryById.has(category.parentId)) return false;
-    const resolvedTaxonomyType = resolveCategoryTaxonomyType(category);
-    if (!resolvedTaxonomyType) return false;
-    return true;
-  };
-
-  const validRoots = useMemo(
-    () => roots.filter((root) => isCategoryRenderable(root)),
-    [roots, categories, filterGroups]
-  );
-
-  const modalidadRoots = useMemo(
-    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "modalidad"),
-    [validRoots, categories, filterGroups]
-  );
-  const idiomaRoots = useMemo(
-    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "idiomas"),
-    [validRoots, categories, filterGroups]
-  );
-  const actividadRoots = useMemo(
-    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "actividad"),
-    [validRoots, categories, filterGroups]
-  );
-  const tipoRoots = useMemo(
-    () => validRoots.filter((root) => ["tipo", "tipos"].includes(resolveCategoryTaxonomyType(root) || "")),
-    [validRoots, categories, filterGroups]
-  );
-  const prestacionRoots = useMemo(
-    () => validRoots.filter((root) => ["prestacion", "prestaciones"].includes(resolveCategoryTaxonomyType(root) || "")),
-    [validRoots, categories, filterGroups]
-  );
-
-  const publicationCategoryRoots = useMemo(
-    () =>
-      validRoots.filter((root) => {
-        const resolvedTaxonomyType = resolveCategoryTaxonomyType(root);
-        return resolvedTaxonomyType === "categoria";
-      }),
-    [validRoots, categories, filterGroups]
-  );
 
   const groupCategoriesForPublicationPicker = (items: Category[]) => {
     const groups = new Map<string, { label: string; items: Category[] }>();
