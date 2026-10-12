@@ -168,8 +168,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
   category: string;
   subcategory: string;
   type: string;
-  rating?: string;
-  reviewCount?: string;
   commentsUrl?: string;
   additionalCities?: string[];
   socialLinks?: SocialLinkDetail[];
@@ -183,8 +181,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Residencia y ciudadanía",
     subcategory: "Traducciones públicas y legalizaciones",
     type: "Colegio profesional",
-    rating: "4.5",
-    reviewCount: "154",
     commentsUrl: "https://www.google.com/maps/place/Colegio+de+Traductores+P%C3%BAblicos+de+la+Ciudad+de+Buenos+Aires/@-34.6047248,-58.3941405,17z",
     additionalCities: [],
   },
@@ -197,8 +193,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Organismo público",
-    rating: "4.7",
-    reviewCount: "2800",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+de+Buenos+Aires",
     additionalCities: [],
   },
@@ -211,8 +205,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "2.7",
-    reviewCount: "702",
     commentsUrl: "https://www.google.com/maps/place/Hospital+Italiano+de+Mendoza/@-32.8965929,-68.8238401,17z",
     additionalCities: [],
     socialLinks: [
@@ -233,8 +225,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "2.7",
-    reviewCount: "702",
     commentsUrl: "https://www.google.com/maps/place/Hospital+Italiano+de+Mendoza/@-32.8965929,-68.8238401,17z",
     additionalCities: [],
     socialLinks: [
@@ -255,8 +245,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Salud y Centros Médicos",
     subcategory: "Obras sociales y prepagas",
     type: "Organismo público",
-    rating: "4.3",
-    reviewCount: "1200",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=OSEP+Mendoza",
     additionalCities: ["San Rafael", "Godoy Cruz", "Guaymallén", "General Alvear", "Luján de Cuyo", "Maipú", "Rivadavia", "Tunuyán", "Tupungato", "Malargüe", "San Martín"],
     socialLinks: [
@@ -276,8 +264,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Organismo público",
-    rating: "4.7",
-    reviewCount: "1400",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Nacional+de+Cuyo+Mendoza",
     additionalCities: ["San Rafael", "General Alvear", "Rivadavia"],
   },
@@ -290,8 +276,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "3.4",
-    reviewCount: "1600",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Espa%C3%B1ol+de+Mendoza+Godoy+Cruz",
     additionalCities: [],
   },
@@ -304,8 +288,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "3.5",
-    reviewCount: "1100",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Italiano+de+Cordoba",
     additionalCities: [],
   },
@@ -318,8 +300,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "3.5",
-    reviewCount: "1100",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Italiano+de+Cordoba",
     additionalCities: [],
   },
@@ -332,8 +312,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "3.7",
-    reviewCount: "1800",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Italiano+de+La+Plata",
     additionalCities: [],
   },
@@ -346,8 +324,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "3.8",
-    reviewCount: "2200",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Privado+Universitario+de+Cordoba",
     additionalCities: ["Villa Allende"],
   },
@@ -360,8 +336,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Organismo público",
-    rating: "4.6",
-    reviewCount: "1450",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Garrahan+Buenos+Aires",
     additionalCities: [],
     socialLinks: [
@@ -383,8 +357,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "4.2",
-    reviewCount: "5200",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Italiano+de+Buenos+Aires",
     additionalCities: ["San Justo"],
     socialLinks: [
@@ -405,8 +377,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "4.1",
-    reviewCount: "3400",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Britanico+Buenos+Aires",
     additionalCities: [],
   },
@@ -419,8 +389,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "4.1",
-    reviewCount: "3400",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Britanico+Buenos+Aires",
     additionalCities: [],
   },
@@ -433,8 +401,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "4.3",
-    reviewCount: "2100",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=FLENI+Buenos+Aires",
     additionalCities: ["Belgrano", "Escobar"],
   },
@@ -447,8 +413,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "4.2",
-    reviewCount: "3100",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Aleman+Buenos+Aires",
     additionalCities: [],
   },
@@ -461,8 +425,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Centros médicos, salud y bienestar",
     subcategory: "Especialidades médicas",
     type: "Institución privada",
-    rating: "3.6",
-    reviewCount: "2100",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Hospital+Espa%C3%B1ol+de+Buenos+Aires",
     additionalCities: [],
   },
@@ -475,8 +437,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    rating: "4.0",
-    reviewCount: "1200",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21+Cordoba",
     additionalCities: ["Río Cuarto", "Buenos Aires", "Villa María", "Rosario", "Mendoza", "San Miguel de Tucumán", "Salta"],
   },
@@ -489,8 +449,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Organismo público",
-    rating: "4.7",
-    reviewCount: "1800",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+de+Buenos+Aires",
     additionalCities: [],
   },
@@ -503,8 +461,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Organismo público",
-    rating: "4.7",
-    reviewCount: "1600",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Nacional+de+Cordoba",
     additionalCities: [],
   },
@@ -517,8 +473,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Organismo público",
-    rating: "4.7",
-    reviewCount: "1500",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Nacional+de+La+Plata",
     additionalCities: [],
   },
@@ -531,8 +485,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Organismo público",
-    rating: "4.6",
-    reviewCount: "1200",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Nacional+de+Rosario",
     additionalCities: [],
   },
@@ -545,8 +497,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Organismo público",
-    rating: "4.6",
-    reviewCount: "1100",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Tecnologica+Nacional+Buenos+Aires",
     additionalCities: ["Córdoba", "Rosario", "Mendoza", "La Plata", "Santa Fe"],
   },
@@ -559,8 +509,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    rating: "4.5",
-    reviewCount: "680",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Austral+Pilar",
     additionalCities: ["Buenos Aires", "Rosario"],
   },
@@ -573,8 +521,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    rating: "4.6",
-    reviewCount: "490",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+de+San+Andres+Victoria",
     additionalCities: ["Buenos Aires"],
   },
@@ -587,8 +533,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    rating: "4.5",
-    reviewCount: "520",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Instituto+Tecnologico+de+Buenos+Aires",
   },
   "uca.edu.ar": {
@@ -600,8 +544,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    rating: "4.4",
-    reviewCount: "890",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Pontificia+Universidad+Catolica+Argentina+Buenos+Aires",
     additionalCities: ["Mendoza", "Rosario", "Paraná"],
   },
@@ -614,8 +556,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    rating: "4.3",
-    reviewCount: "580",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy+Buenos+Aires",
     additionalCities: [],
   },
@@ -628,8 +568,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    rating: "4.5",
-    reviewCount: "1350",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21+Cordoba",
     additionalCities: ["Buenos Aires", "Rosario", "Mendoza", "Salta", "Neuquén"],
   },
@@ -642,8 +580,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    rating: "4.5",
-    reviewCount: "1350",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21+Cordoba",
     additionalCities: ["Buenos Aires", "Rosario", "Mendoza", "Salta", "Neuquén"],
   },
@@ -656,8 +592,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Residencia y ciudadanía",
     subcategory: "Ciudadanía y migración",
     type: "Estudio profesional",
-    rating: "5.0",
-    reviewCount: "8",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Adriana+Serra+Mansilla+Abogada+Migratoria+Cordoba",
   },
   "incutex.com.ar": {
@@ -669,8 +603,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Negocios y finanzas",
     subcategory: "Inversión y capital",
     type: "Company Builder / Aceleradora",
-    rating: "4.9",
-    reviewCount: "68",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Incutex+Cordoba",
     additionalCities: ["Buenos Aires"],
   },
@@ -683,8 +615,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Negocios y finanzas",
     subcategory: "Inversión y capital",
     type: "Company Builder / Aceleradora",
-    rating: "4.9",
-    reviewCount: "68",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Incutex+Cordoba",
     additionalCities: ["Buenos Aires"],
   },
@@ -869,11 +799,18 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
 
 function cleanAddressForSearch(addr?: string | null): string {
   if (!addr) return "";
-  return addr
+  let clean = addr
     .replace(/\s+(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja|timbre|bloque)[^,.\n]*/gi, "")
+    .replace(/,\s*(?:barrio|b°|bº|b\.|zona|localidad|partido|depto|dto|provincia|c\.?p\.?)[^,.\n]*/gi, "")
+    .replace(/\s+(?:barrio|b°|bº|b\.|zona)[^,.\n]*/gi, "")
     .replace(/[°º#"']/g, "")
     .replace(/\s+/g, " ")
     .trim();
+  const commaParts = clean.split(",");
+  if (commaParts.length > 1 && /\d+/.test(commaParts[0])) {
+    clean = commaParts[0].trim();
+  }
+  return clean;
 }
 
 function findOfficialOrganizationName(html: string, cleanTitle: string, rawSiteName?: string): string {
@@ -1083,7 +1020,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
   cleanNameInput?: string,
   locInfoInput?: { primaryCity?: string; primaryCountry?: string; additionalCities?: string[] }
 ): Promise<void> {
-  // 1. Fallback location/founding metadata if present in catalog (without hardcoding fake ratings)
+  // 1. Fallback location/founding metadata if present in catalog (NEVER hardcode ratings or reviews)
   try {
     const hostname = new URL(extracted.url).hostname.replace(/^www\./, "").toLowerCase();
     for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
@@ -1091,8 +1028,6 @@ async function enrichWithLiveGoogleMapsAndSearch(
         if (info.startYear && !extracted.detectedFoundingYear) extracted.detectedFoundingYear = info.startYear;
         if (info.primaryCity && !extracted.detectedCity) extracted.detectedCity = info.primaryCity;
         if (info.primaryCountry && !extracted.detectedCountry) extracted.detectedCountry = info.primaryCountry;
-        if (info.rating && !extracted.detectedRating) extracted.detectedRating = info.rating;
-        if (info.reviewCount && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0")) extracted.detectedReviewCount = info.reviewCount;
         if (info.commentsUrl && !extracted.detectedCommentsUrl) extracted.detectedCommentsUrl = info.commentsUrl;
         break;
       }
@@ -1117,23 +1052,18 @@ async function enrichWithLiveGoogleMapsAndSearch(
 
   const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-  // If already found rating, reviews, and founding year, no external network requests needed!
-  if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0" && extracted.detectedFoundingYear) {
-    if (!extracted.detectedCommentsUrl) {
-      extracted.detectedCommentsUrl = buildGoogleMapsUrl(`${officialFullName || cleanName}, ${city}, ${country}`);
-    }
-    return;
-  }
-
-  // Fast targeted queries executed in parallel
+  // Fast targeted queries executed in parallel (including clean address for exact Place Card match)
   const candidateQueries = [
+    mainAddress ? `${officialFullName || cleanName} ${mainAddress} ${city}` : null,
+    mainAddress ? `${officialFullName || cleanName} ${mainAddress}` : null,
     officialFullName && officialFullName !== city ? `${officialFullName} ${city}` : null,
     officialFullName && officialFullName !== cleanName ? officialFullName : null,
     mainAddress ? `${cleanName} ${mainAddress} ${city}` : null,
     `${cleanName} ${city}`,
+    officialFullName || cleanName,
   ].filter(Boolean) as string[];
 
-  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 3);
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 4);
 
   const searchPromises = uniqueQueries.map(async (q) => {
     try {
@@ -1146,7 +1076,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        2000
+        2200
       );
       if (!gmapsRes.ok) return null;
       return await gmapsRes.text();
@@ -1161,7 +1091,11 @@ async function enrichWithLiveGoogleMapsAndSearch(
     const text = res.value;
 
     // Check for direct place rating/review match
-    const mDirect = text.match(/(?:null,){1,3}([1-5]\.\d+),(\d+)\]/) || text.match(/,([1-5]\.\d+),(\d+)\]/);
+    const m1 = text.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null,null,\["https?:/);
+    const m2 = text.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{2,7})\]/);
+    const m3 = text.match(/(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/);
+    const mDirect = m1 || m2 || m3;
+
     if (mDirect) {
       const numRating = parseFloat(mDirect[1]);
       const numReviews = parseInt(mDirect[2], 10);
@@ -1171,7 +1105,6 @@ async function enrichWithLiveGoogleMapsAndSearch(
       if (!isNaN(numReviews) && numReviews > 0 && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0")) {
         extracted.detectedReviewCount = String(numReviews);
       }
-      const coordMatch = text.match(/\[null,null,(-?\d+\.\d+),(-?\d+\.\d+)\]/);
       if (!extracted.detectedCommentsUrl) {
         const placeQuery = (officialFullName || cleanName) + (city ? `, ${city}` : "");
         extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
@@ -2791,7 +2724,6 @@ function buildScoreScoutBlock(
   allText: string,
   aiScoutData?: any,
   url?: string,
-  reviewCount?: string
 ): ExtraDescriptionBlock {
   const detectedRating = extractRatingFromText(allText);
   const ratingNum = parseFloat(rating || detectedRating || "0");
