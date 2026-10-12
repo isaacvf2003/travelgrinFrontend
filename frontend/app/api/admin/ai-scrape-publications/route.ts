@@ -1040,23 +1040,10 @@ async function enrichWithLiveGoogleMapsAndSearch(
   // If already found rating, reviews, and founding year, no external network requests needed!
   if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0" && extracted.detectedFoundingYear) {
     if (!extracted.detectedCommentsUrl) {
-      const cleanName = cleanNameInput || cleanPublisherName(cleanTitleString(extracted.title || ""), extracted.url, extracted.title, extracted.detectedSiteName);
-      const city = locInfoInput?.primaryCity || extracted.detectedCity || "Argentina";
-      const country = locInfoInput?.primaryCountry || extracted.detectedCountry || "Argentina";
       extracted.detectedCommentsUrl = buildGoogleMapsUrl(`${cleanName}, ${city}, ${country}`);
     }
     return;
   }
-
-  const cleanName = cleanNameInput || cleanPublisherName(cleanTitleString(extracted.title || ""), extracted.url, extracted.title, extracted.detectedSiteName);
-  if (!cleanName || cleanName.length < 2 || cleanName.toLowerCase() === "oferente") return;
-
-  const hqLoc = extracted.headquarterLocations?.[0];
-  const mainAddress = hqLoc?.address || extracted.detectedAddress || "";
-  const city = locInfoInput?.primaryCity || hqLoc?.city || extracted.detectedCity || "Argentina";
-  const country = locInfoInput?.primaryCountry || hqLoc?.country || extracted.detectedCountry || "Argentina";
-
-  const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
   // Fast targeted queries executed in parallel (max 2 queries, max 2000ms timeout)
   const candidateQueries = [
