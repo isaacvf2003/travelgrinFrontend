@@ -1052,18 +1052,22 @@ async function enrichWithLiveGoogleMapsAndSearch(
 
   const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-  // Fast targeted queries executed in parallel (including clean address for exact Place Card match)
+  // Fast targeted queries executed in parallel (including clean address for exact Sede Principal match)
   const candidateQueries = [
     mainAddress ? `${officialFullName || cleanName} ${mainAddress} ${city}` : null,
     mainAddress ? `${officialFullName || cleanName} ${mainAddress}` : null,
+    mainAddress ? `${cleanName} ${mainAddress} ${city}` : null,
+    mainAddress ? `${cleanName} ${mainAddress}` : null,
+    `${officialFullName || cleanName} sede central ${city}`,
+    `${officialFullName || cleanName} casa central ${city}`,
+    `${officialFullName || cleanName} campus ${city}`,
     officialFullName && officialFullName !== city ? `${officialFullName} ${city}` : null,
     officialFullName && officialFullName !== cleanName ? officialFullName : null,
-    mainAddress ? `${cleanName} ${mainAddress} ${city}` : null,
     `${cleanName} ${city}`,
     officialFullName || cleanName,
   ].filter(Boolean) as string[];
 
-  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 4);
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 5);
 
   const searchPromises = uniqueQueries.map(async (q) => {
     try {
@@ -1106,9 +1110,30 @@ async function enrichWithLiveGoogleMapsAndSearch(
         extracted.detectedReviewCount = String(numReviews);
       }
       if (!extracted.detectedCommentsUrl) {
-        const placeQuery = (officialFullName || cleanName) + (city ? `, ${city}` : "");
+        const placeQuery = (officialFullName || cleanName) + (mainAddress ? `, ${mainAddress}` : "") + (city ? `, ${city}` : "");
         extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
         if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+      }
+    }
+
+    // Secondary text extraction if direct array pattern was not present
+    if (!extracted.detectedRating) {
+      const rMatch = text.match(/([1-5]\.\d)\s*(?:estrellas?|stars?|⭐|★)/i) ||
+                     text.match(/aria-label=["']([1-5][.,]\d)\s*(?:estrellas?|stars?)/i);
+      if (rMatch && rMatch[1]) {
+        const num = parseFloat(rMatch[1].replace(",", "."));
+        if (!isNaN(num) && num >= 1 && num <= 5) extracted.detectedRating = num.toFixed(1);
+      }
+    }
+    if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
+      const cMatch = text.match(/(?:\(\s*|[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews)\b/i);
+      if (cMatch && cMatch[1]) {
+        let countRaw = cMatch[1].replace(/,/g, ".");
+        let isThousand = /k|mil/i.test(cMatch[0]);
+        let numCount = parseFloat(countRaw);
+        if (isThousand) numCount = numCount * 1000;
+        const parsedCount = Math.round(numCount);
+        if (!isNaN(parsedCount) && parsedCount > 0) extracted.detectedReviewCount = String(parsedCount);
       }
     }
 
@@ -1931,7 +1956,7 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
   }
 
   const detectedFoundingYear = extractFoundingYear(cleanHtml, textContent, sourceUrl, pageTitle);
-  const detectedAddress = extractAddressFromHtml(cleanHtml, textContent);
+  const detectedAddress = extractAddressFromHtml(html, textContent);
   const locInfo = detectAllLocationsAndHeadquarters(textContent, sourceUrl, pageTitle);
   const ratingInfo = extractRatingAndReviewsFromHtml(
     html,
@@ -5329,8 +5354,9 @@ export function enforceStrictTaxonomyGuardrails(
   if (extractedData.detectedCommentsUrl && (!publication.providerCommentsUrl || publication.providerCommentsUrl === publication.url || !publication.providerCommentsUrl.includes("maps"))) {
     publication.providerCommentsUrl = extractedData.detectedCommentsUrl;
   } else if (!publication.providerCommentsUrl || !/^https?:\/\//i.test(publication.providerCommentsUrl) || publication.providerCommentsUrl === publication.url) {
+    const cleanEntity = cleanTitleString(publication.publisherName || publication.title).split(/\s*[-–—|]\s*/)[0].trim() || publication.publisherName || publication.title;
     const parts = [
-      publication.publisherName || publication.title,
+      cleanEntity,
       extractedData.detectedAddress || (publication.headquarterLocations?.[0]?.address),
       publication.headquarterCity || publication.city,
       publication.headquarterCountry || publication.country
