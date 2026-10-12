@@ -823,13 +823,21 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
   const combined = `${title} ${textContent.slice(0, 15000)}`.toLowerCase();
   const currentYear = new Date().getFullYear();
 
-  // 2. Specific founding / creation patterns (strictly avoid website copyright dates)
+  // 2. Specific founding / creation / legislative patterns (strictly avoid website copyright dates)
   const explicitPatterns = [
+    // Legislative creation (Ley / Sanción / Promulgación / Boletín Oficial)
+    /(?:ley\s*(?:n[°oº]?\s*[0-9.]+)?[\s\S]{0,60}?(?:sanci[oó]n|sancionada|promulgada|publicaci[oó]n|fecha)\s*:?\s*(?:el\s+)?(?:\d{1,2}[./-]\d{1,2}[./-])?)\b([12]\d{3})\b/i,
+    /(?:fecha\s+de\s+sanci[oó]n|sancionada(?:\s+en|\s+el)?|promulgada(?:\s+en|\s+el)?|publicaci[oó]n\s+b\.?o\.?)\s*:?\s*(?:\d{1,2}[./-]\d{1,2}[./-])?([12]\d{3})\b/i,
+    /(?:cread[oa]\s+(?:mediante|por|seg[uú]n)\s+ley\s*(?:n[°oº]?\s*[0-9.]+)?(?:\s+(?:de|del|en|sancionada\s+en))?)\s*([12]\d{3})\b/i,
     /(?:cread[oa]\s+por\s+ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:del?\s+a[nñ]o|en|de)?)\s*([12]\d{3})/i,
     /(?:ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:de|del a[nñ]o|sancionada en|promulgada en))\s*([12]\d{3})/i,
-    /(?:fundad[oa]|inaugurad[oa]|cread[oa]|establecid[oa]|fundaci[oó]n|origen|nacimiento|inicios?|abrió sus puertas|inici[oó] sus actividades|comenzó a funcionar)\s*(?:en|de|el|hacia|en el año)?\s*([12]\d{3})/i,
+    /(?:ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:del?\s+a[nñ]o|de|en)\s*)\b(1[89]\d{2}|20[0-2]\d)\b/i,
+    /(?:personer[ií]a\s+jur[ií]dica(?:\s+n[°oº]?\s*[0-9.]+)?(?:\s+(?:del?\s+a[nñ]o|de|en))?)\s*([12]\d{3})\b/i,
+
+    // Foundation / Initiation / Historical opening
+    /(?:fundad[oa]|inaugurad[oa]|cread[oa]|establecid[oa]|fundaci[oó]n|origen|nacimiento|inicios?|abrió sus puertas|inici[oó] sus actividades|comenzó a funcionar|constituci[oó]n|constitu[ií]d[oa])\s*(?:en|de|el|hacia|en el año)?\s*([12]\d{3})/i,
     /(?:fundad[oa]|cread[oa]|inaugurad[oa]|abrió sus puertas)\s+el\s+\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+([12]\d{3})/i,
-    /(?:en el año|desde el año|año de fundaci[oó]n:?|año de inauguraci[oó]n:?|año de creaci[oó]n:?)\s*([12]\d{3})/i,
+    /(?:en el año|desde el año|año de fundaci[oó]n:?|año de inauguraci[oó]n:?|año de creaci[oó]n:?|año de inicio:?)\s*([12]\d{3})/i,
     /(?:desde|since|est\.|establ\.)\s*([12]\d{3})/i,
     /(?:se\s+remonta\s+(?:a|al año))\s*([12]\d{3})/i,
   ];
@@ -1174,22 +1182,34 @@ async function enrichWithLiveGoogleMapsAndSearch(
     // Check for founding year in Google Maps place info / knowledge snippet
     if (!extracted.detectedFoundingYear) {
       const currentYear = new Date().getFullYear();
-      const mFound = text.match(/(?:fundaci[oó]n|fundad[oa]|inaugurad[oa]|inauguraci[oó]n|abierto desde|desde el a[nñ]o|apertura)\s*:?\s*(?:en|el|del)?\s*(1[6-9]\d{2}|20[0-2]\d)\b/i);
+      const mFound = text.match(/(?:fundaci[oó]n|fundad[oa]|inaugurad[oa]|inauguraci[oó]n|abierto desde|desde el a[nñ]o|apertura|inici[oó]|cread[oa]|sancionad[oa]|personer[ií]a)\s*:?\s*(?:en|el|del)?\s*(1[6-9]\d{2}|20[0-2]\d)\b/i) ||
+                     text.match(/(?:desde|since|est\.|establ\.)\s*(1[6-9]\d{2}|20[0-2]\d)\b/i);
       if (mFound && mFound[1]) {
         const numYr = parseInt(mFound[1], 10);
         if (!isNaN(numYr) && numYr >= 1600 && numYr <= currentYear) {
           extracted.detectedFoundingYear = String(numYr);
         }
       }
+
+      // Check for years in business pattern in Google Maps place listing (e.g. "X años en el sector", "hace X años")
+      const mYearsInBiz = text.match(/(?:hace|m[aá]s de|\+)?\s*(\d{1,3})\s*a[nñ]os\s*(?:en el sector|de experiencia|de trayectoria|abierto)/i);
+      if (!extracted.detectedFoundingYear && mYearsInBiz && mYearsInBiz[1]) {
+        const yrs = parseInt(mYearsInBiz[1], 10);
+        if (!isNaN(yrs) && yrs >= 1 && yrs <= 150) {
+          extracted.detectedFoundingYear = String(currentYear - yrs);
+        }
+      }
     }
 
-    if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") break;
+    if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0" && extracted.detectedFoundingYear) break;
   }
 
-  // Fast single Web Search fallback (timeout 1800ms) only if founding year or ratings are still completely missing
+  // Fast targeted Search fallback (timeout 1800ms) only if founding year or ratings are still completely missing
   if ((!extracted.detectedRating || !extracted.detectedFoundingYear) && cleanName) {
     try {
-      const webQuery = `"${officialFullName || cleanName}" ("sede central" OR "${city}") "Google Maps"`;
+      const webQuery = !extracted.detectedFoundingYear
+        ? `"${officialFullName || cleanName}" ("fundación" OR "fundado en" OR "inicio de actividades" OR "creada por ley" OR "historia" OR "Google Maps")`
+        : `"${officialFullName || cleanName}" ("sede central" OR "${city}") "Google Maps"`;
       const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(webQuery)}`;
       const res = await fetchWithTimeout(
         searchUrl,
@@ -1619,23 +1639,11 @@ function makeUrlAbsolute(urlStr: string, sourceUrl: string): string {
   if (clean.startsWith("//")) {
     return "https:" + clean;
   }
-  if (clean.startsWith("/")) {
-    try {
-      const parsed = new URL(sourceUrl);
-      return parsed.origin + clean;
-    } catch {
-      return clean;
-    }
+  try {
+    return new URL(clean, sourceUrl).href;
+  } catch {
+    return clean;
   }
-  if (!/^https?:\/\//i.test(clean)) {
-    try {
-      const parsed = new URL(sourceUrl);
-      return new URL(clean, parsed.origin).href;
-    } catch {
-      return clean;
-    }
-  }
-  return clean;
 }
 
 function isValidLogoUrl(urlStr: string): boolean {
@@ -2152,11 +2160,113 @@ async function fetchPageContent(url: string) {
     });
 
     if (res.ok) {
-      const html = await res.text();
+      let html = await res.text();
+      let activeUrl = res.url || formattedUrl;
+
+      // Handle client-side redirects (e.g. location.href="nuevo/index.php" or <meta http-equiv="refresh" ...>)
+      const clientRedirect = html.match(/(?:window\.)?location(?:\.href)?\s*=\s*['"]([^'"]+)['"]/i) ||
+                             html.match(/<meta[^>]*http-equiv=['"]?refresh['"]?[^>]*content=['"]?[^'";]*url=([^'" >]+)/i);
+      if (clientRedirect && clientRedirect[1]) {
+        try {
+          const resolvedTarget = makeUrlAbsolute(clientRedirect[1].trim(), activeUrl);
+          if (resolvedTarget && resolvedTarget !== activeUrl) {
+            const redirectRes = await fetch(resolvedTarget, {
+              headers: {
+                "User-Agent": userAgents[0],
+                Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+              },
+              redirect: "follow",
+              signal: AbortSignal.timeout(4500),
+            });
+            if (redirectRes.ok) {
+              const redirectHtml = await redirectRes.text();
+              if (redirectHtml && redirectHtml.length > 200) {
+                html = redirectHtml;
+                activeUrl = redirectRes.url || resolvedTarget;
+              }
+            }
+          }
+        } catch {}
+      }
+
       if (html && html.length > 200) {
-        const extracted = extractTextAndMetaFromHtml(html, formattedUrl);
+        const extracted = extractTextAndMetaFromHtml(html, activeUrl);
         if (extracted.textContent && extracted.textContent.length > 80) {
-          return { url: formattedUrl, ...extracted };
+          // If founding year or address wasn't detected on landing page, inspect candidate institutional subpages
+          if (!extracted.detectedFoundingYear || !extracted.detectedAddress) {
+            const subpageCandidates: string[] = [];
+            const linkRegex = /<a\b[^>]*href=["']([^"'#\s]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+            let lm;
+            while ((lm = linkRegex.exec(html)) !== null) {
+              const href = lm[1].trim();
+              const anchorText = lm[2].replace(/<[^>]+>/g, "").trim();
+              const combined = `${href} ${anchorText}`.toLowerCase();
+
+              if (
+                /(?:ley[-_0-9]*|quienes[-_]?somos|acerca[-_]?de|about[-_]?us|about|nosotros|historia|history|institucional|creacion|origen|contacto|contact)\b/i.test(combined)
+              ) {
+                const absUrl = makeUrlAbsolute(href, activeUrl);
+                try {
+                  const p1 = new URL(activeUrl);
+                  const p2 = new URL(absUrl);
+                  if (p1.hostname === p2.hostname && p1.pathname !== p2.pathname && !subpageCandidates.includes(absUrl)) {
+                    subpageCandidates.push(absUrl);
+                  }
+                } catch {}
+              }
+            }
+
+            if (subpageCandidates.length > 0) {
+              subpageCandidates.sort((a, b) => {
+                const score = (u: string) => {
+                  if (/ley/i.test(u)) return 4;
+                  if (/historia|origen|creacion/i.test(u)) return 3;
+                  if (/quienes|nosotros|acerca/i.test(u)) return 2;
+                  if (/institucional/i.test(u)) return 1;
+                  return 0;
+                };
+                return score(b) - score(a);
+              });
+
+              const topCandidates = subpageCandidates.slice(0, 3);
+              const subPromises = topCandidates.map(async (subUrl) => {
+                try {
+                  const subRes = await fetch(subUrl, {
+                    headers: { "User-Agent": userAgents[0] },
+                    signal: AbortSignal.timeout(3000),
+                  });
+                  if (!subRes.ok) return null;
+                  const subHtml = await subRes.text();
+                  return { subUrl, subHtml };
+                } catch {
+                  return null;
+                }
+              });
+
+              const subResults = await Promise.allSettled(subPromises);
+              for (const item of subResults) {
+                if (item.status !== "fulfilled" || !item.value) continue;
+                const { subUrl, subHtml } = item.value;
+                const subText = subHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+
+                if (!extracted.detectedFoundingYear) {
+                  const yr = extractFoundingYear(subHtml, subText, subUrl, extracted.title);
+                  if (yr) {
+                    extracted.detectedFoundingYear = yr;
+                  }
+                }
+
+                if (!extracted.detectedAddress) {
+                  const addr = extractAddressFromHtml(subHtml, subText);
+                  if (addr) {
+                    extracted.detectedAddress = addr;
+                  }
+                }
+              }
+            }
+          }
+          return { url: activeUrl, ...extracted };
         }
       }
     }
@@ -5362,7 +5472,7 @@ async function processUrlWithAI(
   includeScoreScout: boolean = true
 ): Promise<{ publication: ScrapedPublication; providerUsed: string }> {
   // 1. Scrape web page & enrich with Google Maps/Places targeting headquarters
-  const extracted = await fetchPageContent(url);
+  const extracted: any = await fetchPageContent(url);
   const locInfo = detectAllLocationsAndHeadquarters(extracted.textContent, extracted.url, extracted.title);
   let cleanPublisher = cleanPublisherName(extracted.title, extracted.url, extracted.title, extracted.detectedSiteName);
   const officialFullName = findOfficialOrganizationName(extracted.htmlContent || "", cleanPublisher, extracted.detectedSiteName);
@@ -5726,9 +5836,9 @@ export async function POST(req: Request) {
     }
 
     const envProvider = (process.env.AI_SCRAPER_PROVIDER || "auto").toLowerCase();
-    const effectiveProvider =
+    const effectiveProvider: "auto" | "gemini" | "openai" =
       requestedProvider !== "auto"
-        ? requestedProvider
+        ? (requestedProvider as "gemini" | "openai")
         : envProvider === "openai"
         ? "openai"
         : "gemini";
