@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Bot, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, RotateCw, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpRight, Bot, Building2, ChevronDown, ChevronRight, FileText, GripVertical, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, RotateCw, Sparkles, Star, Trash2, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
@@ -3165,8 +3165,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   async function handleImageUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
     const next = await Promise.all(Array.from(files).map((file) => fileToUploadAsset(file)));
-    setPImageUploads((prev) => [...prev, ...next.map((asset) => asset.url)]);
+    const newUrls = next.map((asset) => asset.url);
+    setPImageUploads((prev) => [...prev, ...newUrls]);
     setPImageUploadAssets((prev) => [...prev, ...next]);
+    setPImageOrder((prev) => (prev.length ? [...prev, ...newUrls] : []));
   }
 
   async function handleProviderLogoUpload(file: File | null) {
@@ -3508,6 +3510,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setPLanguages("");
       setPImageUrls("");
       setPImageUploads([]);
+      setPImageOrder([]);
       setPWebsite("");
       setPLocationAddress("");
       setPExtraDescriptions([]);
@@ -3719,6 +3722,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (Array.isArray(draft.images)) {
       const cleanImages = draft.images.filter((img) => img && !BAD_GFX.test(img));
       setPImageUrls(cleanImages.join("\n"));
+      setPImageOrder(cleanImages);
     }
     if (draft.status) setPStatus(draft.status);
 
@@ -4393,13 +4397,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     if (draft.images && draft.images.length) {
       setPImageUrls(draft.images.join("\n"));
+      setPImageOrder(draft.images);
     }
     } catch (err) {
       console.error("[applyAiDraftToForm error]:", err);
       if (draft.title) setPTitle(draft.title);
       if (draft.description) setPDescription(draft.description);
       if (draft.publisherName) setPPublisherName(draft.publisherName);
-      if (draft.images?.length) setPImageUrls(draft.images.join("\n"));
+      if (draft.images?.length) {
+        setPImageUrls(draft.images.join("\n"));
+        setPImageOrder(draft.images);
+      }
       if (draft.country) setPCountry(draft.country);
       if (draft.city) setPCity(draft.city);
       if (draft.locationAddress) setPLocationAddress(draft.locationAddress);
@@ -4934,6 +4942,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPImageUrls(imageUrls.join("\n"));
     setPImageUploads(imageUploads);
     setPImageUploadAssets(imageAssets);
+    setPImageOrder(existingImageEntries);
     setPWebsite(pub.website ?? "");
     setPFieldsBase((pub.fields as Record<string, any>) ?? {});
     setPLocationAddress((pub.fields as any)?.locationAddress ?? "");
@@ -5238,6 +5247,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPLanguages("");
     setPImageUrls("");
     setPImageUploads([]);
+    setPImageOrder([]);
     setPWebsite("");
     setPLocationAddress("");
     setPReceivingCountries([]);
@@ -5516,16 +5526,69 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     });
     return result;
   };
+  const [pImageOrder, setPImageOrder] = useState<string[]>([]);
+  const [draggingImageIndex, setDraggingImageIndex] = useState<number | null>(null);
+
   const imageList = useMemo(() => {
     const urls = splitLines(pImageUrls);
     const uploads = pImageUploads.map((item) => String(item).trim()).filter(Boolean);
-    const all = [...urls, ...uploads].filter(isUsableImageUrl);
-    return Array.from(new Set(all));
-  }, [pImageUrls, pImageUploads]);
+    const set = new Set([...urls, ...uploads].filter(isUsableImageUrl));
+
+    if (pImageOrder.length > 0) {
+      const ordered: string[] = [];
+      pImageOrder.forEach((img) => {
+        if (set.has(img)) {
+          ordered.push(img);
+          set.delete(img);
+        }
+      });
+      set.forEach((img) => ordered.push(img));
+      return ordered;
+    }
+
+    return Array.from(set);
+  }, [pImageUrls, pImageUploads, pImageOrder]);
+
+  const reorderImages = (fromIndex: number, toIndex: number) => {
+    if (fromIndex < 0 || fromIndex >= imageList.length || toIndex < 0 || toIndex >= imageList.length || fromIndex === toIndex) return;
+    const nextList = [...imageList];
+    const [moved] = nextList.splice(fromIndex, 1);
+    nextList.splice(toIndex, 0, moved);
+
+    setPImageOrder(nextList);
+
+    const nextUrls = nextList.filter((item) => !String(item).startsWith("data:image"));
+    const nextUploads = nextList.filter((item) => String(item).startsWith("data:image"));
+    setPImageUrls(nextUrls.join("\n"));
+    setPImageUploads(nextUploads);
+
+    if (pImageUploadAssets.length) {
+      setPImageUploadAssets((prev) => {
+        const map = new Map(prev.map((asset) => [imageAssetToUrl(asset), asset]));
+        const reordered: ImageAsset[] = [];
+        nextUploads.forEach((u) => {
+          const a = map.get(u);
+          if (a) reordered.push(a);
+        });
+        return reordered.length ? reordered : prev;
+      });
+    }
+  };
+
+  const moveImageDirection = (index: number, direction: -1 | 1) => {
+    reorderImages(index, index + direction);
+  };
+
+  const setAsCoverImage = (index: number) => {
+    if (index === 0) return;
+    reorderImages(index, 0);
+  };
+
   const removeImage = (img: string) => {
     setPImageUploads((prev) => prev.filter((item) => item !== img));
     setPImageUrls((prev) => splitLines(prev).filter((item) => item !== img).join("\n"));
     setPImageUploadAssets((prev) => prev.filter((asset) => imageAssetToUrl(asset) !== img));
+    setPImageOrder((prev) => prev.filter((item) => item !== img));
   };
   const [draggingFilterGroupId, setDraggingFilterGroupId] = useState<string | null>(null);
   const orderedFilterGroups = useMemo(
@@ -6827,6 +6890,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPImageUploads(uploadImages);
     setPImageUploadAssets(imageAssets.filter((asset) => uploadImages.includes(imageAssetToUrl(asset))));
     setPImageUrls(remoteImages.join("\n"));
+    setPImageOrder(images);
   };
 
 
@@ -11179,23 +11243,151 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               className="w-full min-w-0 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#007D92] hover:file:bg-[#00A9C6]/20"
             />
             {imageList.length ? (
-              <div className="grid gap-3 md:grid-cols-4">
-                {imageList.map((img, idx) => (
-                  <div key={`${img}-${idx}`} className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/60">
-                    <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => removeImage(img)}
-                        className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-xs font-semibold text-slate-600 shadow"
-                        aria-label="Quitar imagen"
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-slate-500">
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <GripVertical className="h-4 w-4 text-[#00A9C6]" />
+                    Arrastrá las tarjetas o usá las flechas para ordenar. La primera (#1) es la portada.
+                  </span>
+                  <span className="rounded-full bg-slate-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
+                    {imageList.length} {imageList.length === 1 ? "imagen" : "imágenes"}
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {imageList.map((img, idx) => {
+                    const isCover = idx === 0;
+                    const isDragging = draggingImageIndex === idx;
+
+                    return (
+                      <div
+                        key={`${img}-${idx}`}
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggingImageIndex(idx);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", String(idx));
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggingImageIndex !== null && draggingImageIndex !== idx) {
+                            reorderImages(draggingImageIndex, idx);
+                          }
+                          setDraggingImageIndex(null);
+                        }}
+                        onDragEnd={() => setDraggingImageIndex(null)}
+                        className={`group relative flex flex-col rounded-xl border bg-white p-2 shadow-sm transition-all duration-150 select-none ${
+                          isDragging
+                            ? "opacity-40 scale-95 border-dashed border-[#00A9C6] ring-2 ring-[#00A9C6]/40"
+                            : isCover
+                            ? "border-emerald-300 ring-1 ring-emerald-200/60 shadow-slate-200/70"
+                            : "border-slate-200 hover:border-slate-300 shadow-slate-200/50"
+                        }`}
                       >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img} alt={`preview-${idx}`} className="h-full w-full object-cover" />
-                    </div>
-                  </div>
-                ))}
+                        {/* Image Preview Container */}
+                        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-slate-100">
+                          {/* Order / Cover Badge */}
+                          <div className="absolute left-2 top-2 z-10 flex items-center gap-1">
+                            {isCover ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600/95 px-2 py-0.5 text-[11px] font-bold text-white shadow-md backdrop-blur">
+                                <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
+                                #1 Portada
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-md bg-slate-900/80 px-1.5 py-0.5 text-[11px] font-bold text-white shadow-sm backdrop-blur">
+                                #{idx + 1}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            onClick={() => removeImage(img)}
+                            className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-slate-600 shadow-md transition hover:bg-rose-50 hover:text-rose-600"
+                            title="Quitar imagen"
+                            aria-label="Quitar imagen"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+
+                          {/* Image Thumbnail */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={img}
+                            alt={`preview-${idx}`}
+                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                            draggable={false}
+                          />
+
+                          {/* Drag Overlay Handle Indicator on Hover */}
+                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity duration-150 group-hover:bg-black/10 group-hover:opacity-100">
+                            <span className="flex items-center gap-1 rounded-full bg-slate-900/70 px-2 py-0.5 text-[11px] font-medium text-white shadow">
+                              <GripVertical className="h-3.5 w-3.5" /> Arrastrar
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Order Controls Bar */}
+                        <div className="mt-2 flex items-center justify-between gap-1 border-t border-slate-100 pt-1.5">
+                          {/* Move Left / Previous */}
+                          <button
+                            type="button"
+                            onClick={() => moveImageDirection(idx, -1)}
+                            disabled={idx === 0}
+                            className={`flex h-7 w-7 items-center justify-center rounded-lg border text-xs transition ${
+                              idx === 0
+                                ? "cursor-not-allowed border-slate-100 text-slate-300 bg-slate-50"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-[#00A9C6]/10 hover:border-[#00A9C6]/40 hover:text-[#007D92] active:scale-95"
+                            }`}
+                            title="Mover antes"
+                            aria-label="Mover antes"
+                          >
+                            <ArrowLeft className="h-3.5 w-3.5" />
+                          </button>
+
+                          {/* Make Cover Button (if not already cover) */}
+                          {!isCover ? (
+                            <button
+                              type="button"
+                              onClick={() => setAsCoverImage(idx)}
+                              className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-lg border border-amber-200 bg-amber-50/70 px-2 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100/90 active:scale-95"
+                              title="Poner como foto de portada (#1)"
+                            >
+                              <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                              Hacer Portada
+                            </button>
+                          ) : (
+                            <span className="inline-flex h-7 flex-1 items-center justify-center gap-1 text-[11px] font-semibold text-emerald-700">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              Portada actual
+                            </span>
+                          )}
+
+                          {/* Move Right / Next */}
+                          <button
+                            type="button"
+                            onClick={() => moveImageDirection(idx, 1)}
+                            disabled={idx === imageList.length - 1}
+                            className={`flex h-7 w-7 items-center justify-center rounded-lg border text-xs transition ${
+                              idx === imageList.length - 1
+                                ? "cursor-not-allowed border-slate-100 text-slate-300 bg-slate-50"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-[#00A9C6]/10 hover:border-[#00A9C6]/40 hover:text-[#007D92] active:scale-95"
+                            }`}
+                            title="Mover después"
+                            aria-label="Mover después"
+                          >
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : null}
           </div>
