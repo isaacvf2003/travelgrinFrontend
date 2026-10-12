@@ -1037,19 +1037,34 @@ async function enrichWithLiveGoogleMapsAndSearch(
 
   const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-  // A. Google Maps Official Search endpoint (Ultra-fast, returns real live ratings and reviews of main headquarters)
-  const mapsQueries = [
-    mainAddress ? `${cleanName} ${mainAddress} ${city}` : null,
-    `${cleanName} sede central ${city}`,
-    `${cleanName} casa central ${city}`,
-    `${cleanName} sede principal ${city}`,
-    `${cleanName} ${city} ${country}`,
-    `${cleanName} sede central`,
-    cleanName,
-  ].filter(Boolean) as string[];
+  // If already found rating, reviews, and founding year, no external network requests needed!
+  if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0" && extracted.detectedFoundingYear) {
+    if (!extracted.detectedCommentsUrl) {
+      const cleanName = cleanNameInput || cleanPublisherName(cleanTitleString(extracted.title || ""), extracted.url, extracted.title, extracted.detectedSiteName);
+      const city = locInfoInput?.primaryCity || extracted.detectedCity || "Argentina";
+      const country = locInfoInput?.primaryCountry || extracted.detectedCountry || "Argentina";
+      extracted.detectedCommentsUrl = buildGoogleMapsUrl(`${cleanName}, ${city}, ${country}`);
+    }
+    return;
+  }
 
-  for (const q of mapsQueries) {
-    if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") break;
+  const cleanName = cleanNameInput || cleanPublisherName(cleanTitleString(extracted.title || ""), extracted.url, extracted.title, extracted.detectedSiteName);
+  if (!cleanName || cleanName.length < 2 || cleanName.toLowerCase() === "oferente") return;
+
+  const hqLoc = extracted.headquarterLocations?.[0];
+  const mainAddress = hqLoc?.address || extracted.detectedAddress || "";
+  const city = locInfoInput?.primaryCity || hqLoc?.city || extracted.detectedCity || "Argentina";
+  const country = locInfoInput?.primaryCountry || hqLoc?.country || extracted.detectedCountry || "Argentina";
+
+  const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+  // Fast targeted queries executed in parallel (max 2 queries, max 2000ms timeout)
+  const candidateQueries = [
+    mainAddress ? `${cleanName} ${mainAddress} ${city}` : `${cleanName} sede central ${city}`,
+    `${cleanName} ${city}`,
+  ].filter(Boolean);
+
+  const searchPromises = candidateQueries.map(async (q) => {
     try {
       const gmapsUrl = "https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=" + encodeURIComponent(q.trim());
       const gmapsRes = await fetchWithTimeout(
@@ -1060,144 +1075,110 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        3500
+        2000
       );
+      if (!gmapsRes.ok) return null;
+      return await gmapsRes.text();
+    } catch {
+      return null;
+    }
+  });
 
-      if (gmapsRes.ok) {
-        const text = await gmapsRes.text();
+  const results = await Promise.allSettled(searchPromises);
+  for (const res of results) {
+    if (res.status !== "fulfilled" || !res.value) continue;
+    const text = res.value;
 
-        // 1. Direct place match: null,null,null,rating,reviewCount] or ,rating,reviewCount]
-        const mDirect = text.match(/null,null,null,([1-5]\.\d+),(\d+)\]/) || text.match(/,([1-5]\.\d+),(\d+)\]/);
-        if (mDirect) {
-          const numRating = parseFloat(mDirect[1]);
-          const numReviews = parseInt(mDirect[2], 10);
-          if (!isNaN(numRating) && numRating >= 1 && numRating <= 5) {
-            extracted.detectedRating = numRating.toFixed(1);
-          }
-          if (!isNaN(numReviews) && numReviews > 0) {
-            extracted.detectedReviewCount = String(numReviews);
-          }
-          const coordMatch = text.match(/\[null,null,(-?\d+\.\d+),(-?\d+\.\d+)\]/);
-          if (coordMatch && !extracted.detectedCommentsUrl) {
-            extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${coordMatch[1]},${coordMatch[2]}`;
+    // Check for direct place rating/review match
+    const mDirect = text.match(/null,null,null,([1-5]\.\d+),(\d+)\]/) || text.match(/,([1-5]\.\d+),(\d+)\]/);
+    if (mDirect) {
+      const numRating = parseFloat(mDirect[1]);
+      const numReviews = parseInt(mDirect[2], 10);
+      if (!isNaN(numRating) && numRating >= 1 && numRating <= 5 && !extracted.detectedRating) {
+        extracted.detectedRating = numRating.toFixed(1);
+      }
+      if (!isNaN(numReviews) && numReviews > 0 && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0")) {
+        extracted.detectedReviewCount = String(numReviews);
+      }
+      const coordMatch = text.match(/\[null,null,(-?\d+\.\d+),(-?\d+\.\d+)\]/);
+      if (coordMatch && !extracted.detectedCommentsUrl) {
+        extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${coordMatch[1]},${coordMatch[2]}`;
+        if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+      }
+    }
+
+    // Check for founding year in Google Maps place info / knowledge snippet
+    if (!extracted.detectedFoundingYear) {
+      const currentYear = new Date().getFullYear();
+      const mFound = text.match(/(?:fundaci[oó]n|fundad[oa]|inaugurad[oa]|inauguraci[oó]n|abierto desde|desde el a[nñ]o|apertura)\s*:?\s*(?:en|el|del)?\s*(1[6-9]\d{2}|20[0-2]\d)\b/i);
+      if (mFound && mFound[1]) {
+        const numYr = parseInt(mFound[1], 10);
+        if (!isNaN(numYr) && numYr >= 1600 && numYr <= currentYear) {
+          extracted.detectedFoundingYear = String(numYr);
+        }
+      }
+    }
+
+    if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") break;
+  }
+
+  // Fast single Web Search fallback (timeout 1800ms) only if founding year or ratings are still completely missing
+  if ((!extracted.detectedRating || !extracted.detectedFoundingYear) && cleanName) {
+    try {
+      const webQuery = `"${cleanName}" ("sede central" OR "${city}") "Google Maps"`;
+      const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(webQuery)}`;
+      const res = await fetchWithTimeout(
+        searchUrl,
+        {
+          headers: {
+            "User-Agent": userAgent,
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "es-ES,es;q=0.9",
+          },
+        },
+        1800
+      );
+      if (res.ok) {
+        const rawHtml = await res.text();
+        const plainText = rawHtml.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
+        if (!extracted.detectedCommentsUrl) {
+          const gmapsMatch = rawHtml.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/place\/[^\s"'<>]+|maps\.app\.goo\.gl\/[^\s"'<>]+|goo\.gl\/maps\/[^\s"'<>]+)/i);
+          if (gmapsMatch && gmapsMatch[0]) {
+            extracted.detectedCommentsUrl = decodeURIComponent(gmapsMatch[0].replace(/&amp;/g, "&"));
             if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
           }
-          if (extracted.detectedRating && extracted.detectedReviewCount) break;
         }
-
-        // 2. List place match: [rating, starDistribution, reviewCount]
-        const patternList = /\[([1-5]\.\d+),\[(?:\d+,?)+\],(\d+)\]/g;
-        const listMatches = [...text.matchAll(patternList)];
-        if (listMatches.length > 0 && !extracted.detectedRating) {
-          let best = listMatches[0];
-          for (const m of listMatches) {
-            if (parseInt(m[2], 10) > parseInt(best[2], 10)) {
-              best = m;
+        if (!extracted.detectedRating) {
+          const rMatch = plainText.match(/(?:calificaci[oó]n|valoraci[oó]n|rating)\s*:?\s*([1-5][.,]\d)\s*(?:\/|de)?\s*5?\s*(?:estrellas?|⭐|★)?/i) ||
+            plainText.match(/([1-5][.,]\d)\s*(?:[★⭐☆*]+|estrellas?|\/5)/i);
+          if (rMatch && rMatch[1]) {
+            const num = parseFloat(rMatch[1].replace(",", "."));
+            if (!isNaN(num) && num >= 1 && num <= 5) extracted.detectedRating = num.toFixed(1);
+          }
+        }
+        if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
+          const cMatch = plainText.match(/(?:\(\s*|[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews)\b/i);
+          if (cMatch && cMatch[1]) {
+            let countRaw = cMatch[1].replace(/,/g, ".");
+            let isThousand = /k|mil/i.test(cMatch[0]);
+            let numCount = parseFloat(countRaw);
+            if (isThousand) numCount = numCount * 1000;
+            const parsedCount = Math.round(numCount);
+            if (!isNaN(parsedCount) && parsedCount > 0) extracted.detectedReviewCount = String(parsedCount);
+          }
+        }
+        if (!extracted.detectedFoundingYear) {
+          const currentYear = new Date().getFullYear();
+          const startYearMatch = plainText.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|inicio\s+de\s+actividades|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i);
+          if (startYearMatch && startYearMatch[1]) {
+            const numYr = parseInt(startYearMatch[1], 10);
+            if (!isNaN(numYr) && numYr >= 1600 && numYr <= currentYear) {
+              extracted.detectedFoundingYear = String(numYr);
             }
           }
-          const numRating = parseFloat(best[1]);
-          const numReviews = parseInt(best[2], 10);
-          if (!isNaN(numRating) && numRating >= 1 && numRating <= 5) {
-            extracted.detectedRating = numRating.toFixed(1);
-          }
-          if (!isNaN(numReviews) && numReviews > 0) {
-            extracted.detectedReviewCount = String(numReviews);
-          }
-          if (extracted.detectedRating && extracted.detectedReviewCount) break;
         }
       }
     } catch {}
-  }
-
-  // B. DuckDuckGo / Web search fallback targeting the main headquarters (Sede Central / Casa Central)
-  if (!extracted.detectedRating || !extracted.detectedReviewCount || extracted.detectedReviewCount === "0" || !extracted.detectedFoundingYear) {
-    const webQueries = [
-      mainAddress ? `"${cleanName}" "${mainAddress}" "Google Maps" reseñas` : null,
-      `"${cleanName}" "sede central" ${city} "Google Maps" reseñas`,
-      `"${cleanName}" "casa central" ${city} "Google Maps" reseñas`,
-      `"${cleanName}" ${city} "Google Maps" reseñas`,
-      !extracted.detectedFoundingYear ? `"${cleanName}" ("fundada en" OR "fundado en" OR "inicio de actividades" OR "creada por ley" OR fundacion)` : null,
-    ].filter(Boolean) as string[];
-
-    for (const wq of webQueries) {
-      if (
-        extracted.detectedRating &&
-        extracted.detectedReviewCount &&
-        extracted.detectedReviewCount !== "0" &&
-        extracted.detectedFoundingYear
-      ) break;
-      try {
-        const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(wq)}`;
-        const res = await fetchWithTimeout(
-          searchUrl,
-          {
-            headers: {
-              "User-Agent": userAgent,
-              Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-              "Accept-Language": "es-ES,es;q=0.9",
-            },
-          },
-          3000
-        );
-
-        if (res.ok) {
-          const rawHtml = await res.text();
-          // Strip HTML tags to plain text to match across highlight tags like <b>...</b>
-          const plainText = rawHtml.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
-
-          if (!extracted.detectedCommentsUrl) {
-            const gmapsMatch = rawHtml.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/place\/[^\s"'<>]+|maps\.app\.goo\.gl\/[^\s"'<>]+|goo\.gl\/maps\/[^\s"'<>]+)/i);
-            if (gmapsMatch && gmapsMatch[0]) {
-              extracted.detectedCommentsUrl = decodeURIComponent(gmapsMatch[0].replace(/&amp;/g, "&"));
-              if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
-            }
-          }
-
-          if (!extracted.detectedRating) {
-            const rMatch =
-              plainText.match(/(?:calificaci[oó]n|valoraci[oó]n|puntuaci[oó]n|rating|nota|evaluaci[oó]n)\s*:?\s*([1-5][.,]\d)\s*(?:\/|de)?\s*5?\s*(?:estrellas?|⭐|★)?/i) ||
-              plainText.match(/([1-5][.,]\d)\s*(?:[★⭐☆*]+|estrellas?|puntos|\/5)/i) ||
-              plainText.match(/([1-5][.,]\d)\s*\(\s*\d+\s*(?:reseñas|opiniones|reviews|votos)/i);
-            if (rMatch && rMatch[1]) {
-              const num = parseFloat(rMatch[1].replace(",", "."));
-              if (!isNaN(num) && num >= 1 && num <= 5) {
-                extracted.detectedRating = num.toFixed(1);
-              }
-            }
-          }
-
-          if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
-            const cMatch =
-              plainText.match(/(?:\(\s*|[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews|calificaciones)\b/i) ||
-              plainText.match(/(?:basad[oa]\s+en\s+)([0-9.,]+)\s*(?:k|mil)?\s*(?:opiniones|reseñas|reviews|votos)/i);
-            if (cMatch && cMatch[1]) {
-              let countRaw = cMatch[1].replace(/,/g, ".");
-              let isThousand = /k|mil/i.test(cMatch[0]);
-              let numCount = parseFloat(countRaw);
-              if (isThousand) numCount = numCount * 1000;
-              const parsedCount = Math.round(numCount);
-              if (!isNaN(parsedCount) && parsedCount > 0) {
-                extracted.detectedReviewCount = String(parsedCount);
-              }
-            }
-          }
-
-          if (!extracted.detectedFoundingYear) {
-            const currentYear = new Date().getFullYear();
-            const startYearMatch =
-              plainText.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|creaci[oó]n|inici[oó]\s+actividades|inicio\s+de\s+actividades|desde el a[nñ]o|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i) ||
-              plainText.match(/(?:cread[oa]\s+por\s+ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:del?\s+a[nñ]o|en|de)?)\s*([12]\d{3})/i) ||
-              plainText.match(/(?:ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:de|del a[nñ]o|sancionada en|promulgada en))\s*([12]\d{3})/i);
-            if (startYearMatch && startYearMatch[1]) {
-              const numYr = parseInt(startYearMatch[1], 10);
-              if (!isNaN(numYr) && numYr >= 1600 && numYr <= currentYear) {
-                extracted.detectedFoundingYear = String(numYr);
-              }
-            }
-          }
-        }
-      } catch {}
-    }
   }
 
   // Fallback to official Google Maps query link if no direct Place link was discovered
@@ -2055,7 +2036,7 @@ async function fetchPageContent(url: string) {
         "Upgrade-Insecure-Requests": "1",
       },
       redirect: "follow",
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(4500),
     });
 
     if (res.ok) {
@@ -2076,7 +2057,7 @@ async function fetchPageContent(url: string) {
     const jinaUrl = `https://r.jina.ai/${formattedUrl}`;
     const res = await fetch(jinaUrl, {
       headers: { "User-Agent": userAgents[1], Accept: "text/plain, text/html" },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(3500),
     });
     if (res.ok) {
       const textContent = await res.text();
@@ -5296,17 +5277,58 @@ async function processUrlWithAI(
 
   const providersUsed = new Set<string>();
 
-  // 2, 3 & 4. Run Title, Description, Provider Info, and Closed-Catalog Taxonomy Agents in parallel
-  const [titleAgentRes, descAgentRes, providerInfoRes, taxonomyRes] = await Promise.all([
-    runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt),
-    runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt),
-    runProviderInfoAgent(cleanContext),
-    runTaxonomyAgent(cleanContext, taxonomies),
-  ]);
-  if (titleAgentRes.providerUsed !== "none") providersUsed.add(titleAgentRes.providerUsed);
-  if (descAgentRes.providerUsed !== "none") providersUsed.add(descAgentRes.providerUsed);
-  if (providerInfoRes.providerUsed !== "none") providersUsed.add(providerInfoRes.providerUsed);
-  if (taxonomyRes.providerUsed !== "none") providersUsed.add(taxonomyRes.providerUsed);
+  // If no AI keys are provided, seamlessly return high-precision grounded extraction
+  const canUseAI = Boolean(geminiKey || openaiKey);
+  if (!canUseAI) {
+    const fallbackPub = await createFallbackPublication(
+      extracted,
+      taxonomies,
+      customBlocks,
+      customAdminPrompt,
+      customTitlePrompt,
+      customDescriptionPrompt,
+      includeScoreScout
+    );
+    return {
+      publication: enforceStrictTaxonomyGuardrails(fallbackPub, extracted, taxonomies),
+      providerUsed: "extractor",
+    };
+  }
+
+  // 2, 3 & 4. Run Title, Description, Provider Info, and Closed-Catalog Taxonomy Agents in parallel with fallback
+  let titleAgentRes: any;
+  let descAgentRes: any;
+  let providerInfoRes: any;
+  let taxonomyRes: any;
+
+  try {
+    [titleAgentRes, descAgentRes, providerInfoRes, taxonomyRes] = await Promise.all([
+      runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt),
+      runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt),
+      runProviderInfoAgent(cleanContext),
+      runTaxonomyAgent(cleanContext, taxonomies),
+    ]);
+  } catch (agentErr: any) {
+    console.warn(`[AI Scraper] AI agent execution failed for ${url}, falling back to grounded extraction:`, agentErr?.message);
+    const fallbackPub = await createFallbackPublication(
+      extracted,
+      taxonomies,
+      customBlocks,
+      customAdminPrompt,
+      customTitlePrompt,
+      customDescriptionPrompt,
+      includeScoreScout
+    );
+    return {
+      publication: enforceStrictTaxonomyGuardrails(fallbackPub, extracted, taxonomies),
+      providerUsed: "extractor",
+    };
+  }
+
+  if (titleAgentRes?.providerUsed && titleAgentRes.providerUsed !== "none") providersUsed.add(titleAgentRes.providerUsed);
+  if (descAgentRes?.providerUsed && descAgentRes.providerUsed !== "none") providersUsed.add(descAgentRes.providerUsed);
+  if (providerInfoRes?.providerUsed && providerInfoRes.providerUsed !== "none") providersUsed.add(providerInfoRes.providerUsed);
+  if (taxonomyRes?.providerUsed && taxonomyRes.providerUsed !== "none") providersUsed.add(taxonomyRes.providerUsed);
 
   // Carefully refine publisher name if provider info agent detected the true company/organization
   if (
@@ -5543,7 +5565,7 @@ export async function POST(req: Request) {
             ...(req.headers.get("authorization") ? { authorization: req.headers.get("authorization")! } : {}),
           },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(25000),
         });
         if (backendRes.ok) {
           const rawText = await backendRes.text();
