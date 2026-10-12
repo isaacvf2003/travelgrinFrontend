@@ -174,6 +174,34 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
   additionalCities?: string[];
   socialLinks?: SocialLinkDetail[];
 }> = {
+  "traductores.org.ar": {
+    name: "Colegio de Traductores Públicos de la Ciudad de Buenos Aires",
+    startYear: "1973",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Servicios profesionales y técnicos",
+    category: "Residencia y ciudadanía",
+    subcategory: "Traducciones públicas y legalizaciones",
+    type: "Colegio profesional",
+    rating: "4.5",
+    reviewCount: "154",
+    commentsUrl: "https://www.google.com/maps/place/Colegio+de+Traductores+P%C3%BAblicos+de+la+Ciudad+de+Buenos+Aires/@-34.6047248,-58.3941405,17z",
+    additionalCities: [],
+  },
+  "uba.ar": {
+    name: "Universidad de Buenos Aires",
+    startYear: "1821",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Educación y formación",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
+    type: "Organismo público",
+    rating: "4.7",
+    reviewCount: "2800",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+de+Buenos+Aires",
+    additionalCities: [],
+  },
   "hitalianomza.com.ar": {
     name: "Hospital Italiano de Mendoza",
     startYear: "1903",
@@ -797,9 +825,13 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
 
   // 2. Specific founding / creation patterns (strictly avoid website copyright dates)
   const explicitPatterns = [
-    /(?:fundad[oa]|inaugurad[oa]|cread[oa]|establecid[oa]|fundaci[oó]n|origen|nacimiento|inicios?|abrió sus puertas|inici[oó] sus actividades)\s*(?:en|de|el|hacia|en el año)?\s*([12]\d{3})/i,
-    /(?:en el año|desde el año|año de fundaci[oó]n:?|año de inauguraci[oó]n:?)\s*([12]\d{3})/i,
+    /(?:cread[oa]\s+por\s+ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:del?\s+a[nñ]o|en|de)?)\s*([12]\d{3})/i,
+    /(?:ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:de|del a[nñ]o|sancionada en|promulgada en))\s*([12]\d{3})/i,
+    /(?:fundad[oa]|inaugurad[oa]|cread[oa]|establecid[oa]|fundaci[oó]n|origen|nacimiento|inicios?|abrió sus puertas|inici[oó] sus actividades|comenzó a funcionar)\s*(?:en|de|el|hacia|en el año)?\s*([12]\d{3})/i,
+    /(?:fundad[oa]|cread[oa]|inaugurad[oa]|abrió sus puertas)\s+el\s+\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+([12]\d{3})/i,
+    /(?:en el año|desde el año|año de fundaci[oó]n:?|año de inauguraci[oó]n:?|año de creaci[oó]n:?)\s*([12]\d{3})/i,
     /(?:desde|since|est\.|establ\.)\s*([12]\d{3})/i,
+    /(?:se\s+remonta\s+(?:a|al año))\s*([12]\d{3})/i,
   ];
 
   for (const regex of explicitPatterns) {
@@ -850,14 +882,44 @@ function extractRatingAndReviewsFromHtml(
     commentsUrl = buildGoogleMapsUrl(parts.join(", "));
   }
 
-  // 2. Parse JSON-LD scripts for aggregateRating / reviews
+  // 2. Parse JSON-LD scripts for aggregateRating / reviews (prioritizing primary headquarters)
   const scriptRegex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match;
   while ((match = scriptRegex.exec(html)) !== null) {
     try {
       const data = JSON.parse(match[1].trim());
-      const items = Array.isArray(data) ? data : [data];
-      for (const item of items) {
+      let items: any[] = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data && typeof data === "object") {
+        if (Array.isArray(data["@graph"])) {
+          items = data["@graph"];
+        } else {
+          items = [data];
+        }
+      }
+
+      // Prioritize primary headquarters (Sede Central / Casa Central / Sede Principal / matching city) if multiple exist
+      let candidateItems = items.filter(
+        (it) => it && typeof it === "object" && (it.aggregateRating || it["@type"] === "AggregateRating")
+      );
+      if (candidateItems.length > 1) {
+        const hqMatch = candidateItems.find((it) => {
+          const str = JSON.stringify(it).toLowerCase();
+          return (
+            str.includes("sede central") ||
+            str.includes("casa central") ||
+            str.includes("matriz") ||
+            str.includes("sede principal") ||
+            (city && str.includes(city.toLowerCase()))
+          );
+        });
+        if (hqMatch) {
+          candidateItems = [hqMatch, ...candidateItems.filter((x) => x !== hqMatch)];
+        }
+      }
+
+      for (const item of (candidateItems.length > 0 ? candidateItems : items)) {
         if (!item || typeof item !== "object") continue;
         const agg = item.aggregateRating || (item["@type"] === "AggregateRating" ? item : null);
         if (agg) {
@@ -978,8 +1040,11 @@ async function enrichWithLiveGoogleMapsAndSearch(
   // A. Google Maps Official Search endpoint (Ultra-fast, returns real live ratings and reviews of main headquarters)
   const mapsQueries = [
     mainAddress ? `${cleanName} ${mainAddress} ${city}` : null,
-    `${cleanName} ${city} ${country}`,
     `${cleanName} sede central ${city}`,
+    `${cleanName} casa central ${city}`,
+    `${cleanName} sede principal ${city}`,
+    `${cleanName} ${city} ${country}`,
+    `${cleanName} sede central`,
     cleanName,
   ].filter(Boolean) as string[];
 
@@ -1044,16 +1109,23 @@ async function enrichWithLiveGoogleMapsAndSearch(
     } catch {}
   }
 
-  // B. DuckDuckGo / Web search fallback if Google Maps direct didn't yield both rating and reviews
-  if (!extracted.detectedRating || !extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
+  // B. DuckDuckGo / Web search fallback targeting the main headquarters (Sede Central / Casa Central)
+  if (!extracted.detectedRating || !extracted.detectedReviewCount || extracted.detectedReviewCount === "0" || !extracted.detectedFoundingYear) {
     const webQueries = [
       mainAddress ? `"${cleanName}" "${mainAddress}" "Google Maps" reseñas` : null,
       `"${cleanName}" "sede central" ${city} "Google Maps" reseñas`,
+      `"${cleanName}" "casa central" ${city} "Google Maps" reseñas`,
       `"${cleanName}" ${city} "Google Maps" reseñas`,
+      !extracted.detectedFoundingYear ? `"${cleanName}" ("fundada en" OR "fundado en" OR "inicio de actividades" OR "creada por ley" OR fundacion)` : null,
     ].filter(Boolean) as string[];
 
     for (const wq of webQueries) {
-      if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") break;
+      if (
+        extracted.detectedRating &&
+        extracted.detectedReviewCount &&
+        extracted.detectedReviewCount !== "0" &&
+        extracted.detectedFoundingYear
+      ) break;
       try {
         const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(wq)}`;
         const res = await fetchWithTimeout(
@@ -1113,10 +1185,12 @@ async function enrichWithLiveGoogleMapsAndSearch(
           if (!extracted.detectedFoundingYear) {
             const currentYear = new Date().getFullYear();
             const startYearMatch =
-              plainText.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|creaci[oó]n|inici[oó]\s+actividades|inicio\s+de\s+actividades|desde el a[nñ]o|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i);
+              plainText.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|creaci[oó]n|inici[oó]\s+actividades|inicio\s+de\s+actividades|desde el a[nñ]o|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i) ||
+              plainText.match(/(?:cread[oa]\s+por\s+ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:del?\s+a[nñ]o|en|de)?)\s*([12]\d{3})/i) ||
+              plainText.match(/(?:ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:de|del a[nñ]o|sancionada en|promulgada en))\s*([12]\d{3})/i);
             if (startYearMatch && startYearMatch[1]) {
               const numYr = parseInt(startYearMatch[1], 10);
-              if (!isNaN(numYr) && numYr >= 1800 && numYr <= currentYear) {
+              if (!isNaN(numYr) && numYr >= 1600 && numYr <= currentYear) {
                 extracted.detectedFoundingYear = String(numYr);
               }
             }
@@ -1130,14 +1204,6 @@ async function enrichWithLiveGoogleMapsAndSearch(
   if (!extracted.detectedCommentsUrl) {
     const parts = [cleanName, mainAddress, city, country].filter(Boolean);
     extracted.detectedCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
-  }
-
-  // Realistic fallback for rating and review count: never leave empty or 0!
-  if (!extracted.detectedRating || extracted.detectedRating === "" || extracted.detectedRating === "0") {
-    extracted.detectedRating = "4.5";
-  }
-  if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "" || extracted.detectedReviewCount === "0") {
-    extracted.detectedReviewCount = "24";
   }
 }
 
@@ -3541,12 +3607,13 @@ function classifySectorAndTaxonomy(
   const isTechEntity =
     /\b(software|tecnologia|tecnologias|app|aplicacion|sistemas|desarrollo web|programacion|informatica|it|ciberseguridad|telecomunicaciones|saas|plataforma digital)\b/i.test(lowerCorpus);
 
-  const isAuthenticOng =
-    (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(url)) &&
-    /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(lowerCorpus) &&
+  const isOngEntity =
+    (/\.(?:org|ngo|ong)(?:\.[a-z]{2})?/i.test(url) ||
+      /\b(?:ong|ongs|fundaci[oó]n|asociaci[oó]n civil|sin fines de lucro|sin [aá]nimo de lucro|tercer sector|voluntariado|voluntarios|donaciones|hacer una donaci[oó]n|ayuda comunitaria|labor solidaria|entidad ben[eé]fica|acci[oó]n comunitaria|desarrollo social|ayuda humanitaria)\b/i.test(lowerCorpus) ||
+      /\b(?:fundaci[oó]n|asociaci[oó]n civil|ong)\b/i.test(titleNorm)) &&
+    !isGovDomain &&
     !isEducationalEntity &&
-    !isHealthEntity &&
-    !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(lowerCorpus);
+    !/\b(?:empresa s\.a\.|empresa s\.r\.l\.|sociedad an[oó]nima|hotel|resort|e-commerce|tienda online)\b/i.test(lowerCorpus);
 
   // 3. Dynamic Category & Subcategory Scoring across loaded DB catalog (Zero hardcoded sectors)
   const parentCategoriesList: Array<{ name: string; subcategories: string[] }> = [];
@@ -3591,8 +3658,8 @@ function classifySectorAndTaxonomy(
       if (matches) parentScore += Math.min(matches.length * 2, 20);
     }
 
-    if (!isAuthenticOng && isOngMatch(parent.name)) {
-      parentScore -= 200;
+    if (isOngEntity && isOngMatch(parent.name)) {
+      parentScore += 120;
     }
     if (isEducationalEntity && isStudentEduMatch(parent.name)) {
       parentScore += 120;
@@ -3627,8 +3694,8 @@ function classifySectorAndTaxonomy(
         if (matches) subScore += Math.min(matches.length * 3, 30);
       }
 
-      if (!isAuthenticOng && isOngMatch(sub)) {
-        subScore -= 200;
+      if (isOngEntity && isOngMatch(sub)) {
+        subScore += 100;
       }
       if (isEducationalEntity && isStudentEduMatch(sub)) {
         subScore += 100;
@@ -3646,7 +3713,6 @@ function classifySectorAndTaxonomy(
     const totalParentScore = parentScore + (highestSubScore > 0 ? highestSubScore * 1.5 : 0);
 
     const matchingSubsForParent = parent.subcategories.filter((sub) => {
-      if (!isAuthenticOng && isOngMatch(sub)) return false;
       const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(sNorm)) return false;
       if (isEducationalEntity && /visa|migra/i.test(sNorm)) return false;
@@ -3654,21 +3720,23 @@ function classifySectorAndTaxonomy(
       const hasTextMatch = titleNorm.includes(sNorm) || urlNorm.includes(sNorm.replace(/\s+/g, "")) || sTokens.some((tok) => titleNorm.includes(tok) || lowerCorpus.includes(tok));
       const hasEduMatch = isEducationalEntity && isStudentEduMatch(sub);
       const hasHealthMatch = isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(sNorm);
-      return hasTextMatch || hasEduMatch || hasHealthMatch;
+      const hasOngMatch = isOngEntity && isOngMatch(sub);
+      return hasTextMatch || hasEduMatch || hasHealthMatch || hasOngMatch;
     });
 
     if (totalParentScore > highestParentScore && totalParentScore >= 15) {
       highestParentScore = totalParentScore;
       bestParent = parent.name;
-      bestSub = bestSubForThisParent || "";
+      bestSub = bestSubForThisParent || (parent.subcategories.length ? parent.subcategories[0] : "");
     }
 
+    const fallbackSubForParent = bestSubForThisParent || (parent.subcategories.length ? parent.subcategories[0] : "");
     if (totalParentScore > 0) {
       scoredParents.push({
         name: parent.name,
         score: totalParentScore,
-        bestSub: bestSubForThisParent || "",
-        matchingSubs: matchingSubsForParent.length ? matchingSubsForParent : (bestSubForThisParent ? [bestSubForThisParent] : []),
+        bestSub: fallbackSubForParent,
+        matchingSubs: matchingSubsForParent.length ? matchingSubsForParent : (fallbackSubForParent ? [fallbackSubForParent] : []),
       });
     }
   }
@@ -3681,7 +3749,6 @@ function classifySectorAndTaxonomy(
   if (scoredParents.length > 0 && scoredParents[0].score >= 25) {
     const topScore = scoredParents[0].score;
     for (const p of scoredParents) {
-      if (!isAuthenticOng && isOngMatch(p.name)) continue;
       const pNormCheck = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(pNormCheck)) continue;
       if (p.score >= 25 && (selectedCategories.length === 0 || (p.score >= 40 && p.score >= topScore * 0.6 && selectedCategories.length < 3))) {
@@ -3689,7 +3756,7 @@ function classifySectorAndTaxonomy(
         p.matchingSubs.forEach((s) => {
           const sNormCheck = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
           if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(sNormCheck)) return;
-          if (!selectedSubcategories.includes(s) && (isAuthenticOng || !isOngMatch(s))) {
+          if (!selectedSubcategories.includes(s)) {
             selectedSubcategories.push(s);
           }
         });
@@ -3703,7 +3770,7 @@ function classifySectorAndTaxonomy(
       if (isStudentEduMatch(p.name) && !selectedCategories.includes(p.name)) {
         selectedCategories.push(p.name);
         p.matchingSubs.forEach((s) => {
-          if (!selectedSubcategories.includes(s) && (isAuthenticOng || !isOngMatch(s))) {
+          if (!selectedSubcategories.includes(s)) {
             selectedSubcategories.push(s);
           }
         });
@@ -3711,36 +3778,50 @@ function classifySectorAndTaxonomy(
     }
     // Also scan all valid subcategories for student matches
     validSubcats.filter(isStudentEduMatch).forEach((s) => {
-      if (!selectedSubcategories.includes(s) && (isAuthenticOng || !isOngMatch(s))) {
+      if (!selectedSubcategories.includes(s)) {
         selectedSubcategories.push(s);
       }
     });
   }
 
-  // Filter out any ONG selections if not an authentic ONG
-  if (!isAuthenticOng) {
-    for (let i = selectedCategories.length - 1; i >= 0; i--) {
-      if (isOngMatch(selectedCategories[i])) selectedCategories.splice(i, 1);
+  // Proactively ensure ONG categories and subcategories are included for ONG entities
+  if (isOngEntity) {
+    for (const p of scoredParents) {
+      if (isOngMatch(p.name) && !selectedCategories.includes(p.name)) {
+        selectedCategories.push(p.name);
+        p.matchingSubs.forEach((s) => {
+          if (!selectedSubcategories.includes(s)) {
+            selectedSubcategories.push(s);
+          }
+        });
+      }
     }
-    for (let i = selectedSubcategories.length - 1; i >= 0; i--) {
-      if (isOngMatch(selectedSubcategories[i])) selectedSubcategories.splice(i, 1);
-    }
+    validCats.filter(isOngMatch).forEach((c) => {
+      if (!selectedCategories.includes(c)) selectedCategories.push(c);
+    });
+    validSubcats.filter(isOngMatch).forEach((s) => {
+      if (!selectedSubcategories.includes(s)) selectedSubcategories.push(s);
+    });
   }
 
-  const nonOngCats = isAuthenticOng ? validCats : validCats.filter((c) => !isOngMatch(c));
-  const nonOngSubcats = isAuthenticOng ? validSubcats : validSubcats.filter((s) => !isOngMatch(s));
-
   if (selectedCategories.length === 0 && bestParent && highestParentScore >= 25) {
-    if (isAuthenticOng || !isOngMatch(bestParent)) {
-      if (!isHealthEntity || !/visa|migra|residencia|ciudadan|pasaporte/i.test(bestParent.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
-        selectedCategories.push(bestParent);
-      }
+    if (!isHealthEntity || !/visa|migra|residencia|ciudadan|pasaporte/i.test(bestParent.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
+      selectedCategories.push(bestParent);
     }
   }
   if (selectedSubcategories.length === 0 && bestSub && highestParentScore >= 25) {
-    if (isAuthenticOng || !isOngMatch(bestSub)) {
-      if (!isHealthEntity || !/visa|migra|residencia|ciudadan|pasaporte/i.test(bestSub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
-        selectedSubcategories.push(bestSub);
+    if (!isHealthEntity || !/visa|migra|residencia|ciudadan|pasaporte/i.test(bestSub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
+      selectedSubcategories.push(bestSub);
+    }
+  }
+
+  // Critical Guarantee: Ensure EVERY selected parent category with child subcategories has at least one subcategory selected
+  for (const catName of selectedCategories) {
+    const parentObj = parentCategoriesList.find((p) => p.name === catName);
+    if (parentObj && parentObj.subcategories.length > 0) {
+      const hasChildSelected = parentObj.subcategories.some((s) => selectedSubcategories.includes(s));
+      if (!hasChildSelected) {
+        selectedSubcategories.push(parentObj.subcategories[0]);
       }
     }
   }
@@ -3778,6 +3859,9 @@ function classifySectorAndTaxonomy(
     if (isTourismEntity && /hosteler|alojam|turism/i.test(aNorm)) {
       actScore += 100;
     }
+    if (isOngEntity && /social|comunitar|asociaci|voluntar|salud/i.test(aNorm)) {
+      actScore += 100;
+    }
     scoredActs.push({ name: act, score: actScore });
     if (actScore > highestActScore) {
       highestActScore = actScore;
@@ -3802,12 +3886,16 @@ function classifySectorAndTaxonomy(
     const pub = validTypes.find((t) => /p[uú]blico|estatal/i.test(t));
     if (pub) bestType = pub;
     else bestType = "Organismo público";
+  } else if (isOngEntity) {
+    const ongType = validTypes.find((t) => /ong|sin fines de lucro|fundaci|asociaci/i.test(t));
+    if (ongType) bestType = ongType;
+    else {
+      const priv = validTypes.find((t) => /privada|instituci/i.test(t));
+      if (priv) bestType = priv;
+    }
   } else {
     const priv = validTypes.find((t) => /privada|empresa/i.test(t));
     if (priv) bestType = priv;
-  }
-  if (!isAuthenticOng && isOngMatch(bestType)) {
-    bestType = isPublicEntity ? "Organismo público" : "Institución privada";
   }
 
   // 6. Dynamic Modalities across validMods
@@ -3890,10 +3978,10 @@ async function createFallbackPublication(
 
   const finalRating = (ratingInfo.rating && ratingInfo.rating !== "0" && ratingInfo.rating.trim() !== "")
     ? ratingInfo.rating
-    : (extractedData.detectedRating && extractedData.detectedRating !== "0" && extractedData.detectedRating.trim() !== "" ? extractedData.detectedRating : "4.5");
+    : (extractedData.detectedRating && extractedData.detectedRating !== "0" && extractedData.detectedRating.trim() !== "" ? extractedData.detectedRating : "0");
   const finalReviewCount = (ratingInfo.reviewCount && ratingInfo.reviewCount !== "0" && ratingInfo.reviewCount.trim() !== "")
     ? ratingInfo.reviewCount
-    : (extractedData.detectedReviewCount && extractedData.detectedReviewCount !== "0" && extractedData.detectedReviewCount.trim() !== "" ? extractedData.detectedReviewCount : "24");
+    : (extractedData.detectedReviewCount && extractedData.detectedReviewCount !== "0" && extractedData.detectedReviewCount.trim() !== "" ? extractedData.detectedReviewCount : "0");
   const finalCommentsUrl =
     ratingInfo.commentsUrl ||
     extractedData.detectedCommentsUrl ||
@@ -4263,11 +4351,11 @@ DATOS EXTRAÍDOS DE LA WEB:
 - Meta Descripción: ${extractedData.description}
 ${extractedData.detectedAddress ? `- DIRECCIÓN FÍSICA DETECTADA: ${extractedData.detectedAddress}` : ""}
 ${extractedData.detectedCity ? `- CIUDAD / SEDE PRINCIPAL DETECTADA: ${extractedData.detectedCity} (${extractedData.detectedCountry || "Argentina"})` : ""}
-${extractedData.detectedFoundingYear ? `- AÑO HISTÓRICO / FUNDACIÓN DETECTADO: ${extractedData.detectedFoundingYear}` : ""}
-${extractedData.detectedMapsUrl ? `- URL DE GOOGLE MAPS DETECTADA: ${extractedData.detectedMapsUrl}` : ""}
-${extractedData.detectedRating ? `- VALORACIÓN DETECTADA EN GOOGLE MAPS / WEB (0 a 5): ${extractedData.detectedRating}` : ""}
-${extractedData.detectedReviewCount ? `- CANTIDAD DE COMENTARIOS / RESEÑAS DETECTADA: ${extractedData.detectedReviewCount}` : ""}
-${extractedData.detectedCommentsUrl ? `- ENLACE DE COMENTARIOS / MAPS DETECTADO: ${extractedData.detectedCommentsUrl}` : ""}
+${extractedData.detectedFoundingYear ? `- AÑO HISTÓRICO / FUNDACIÓN REAL DETECTADO: ${extractedData.detectedFoundingYear}` : ""}
+${extractedData.detectedMapsUrl ? `- URL DE GOOGLE MAPS (SEDE PRINCIPAL): ${extractedData.detectedMapsUrl}` : ""}
+${extractedData.detectedRating ? `- VALORACIÓN REAL EN GOOGLE MAPS DE LA SEDE PRINCIPAL (0 a 5): ${extractedData.detectedRating}` : ""}
+${extractedData.detectedReviewCount ? `- CANTIDAD EXACTA DE COMENTARIOS / RESEÑAS EN GOOGLE MAPS DE LA SEDE PRINCIPAL: ${extractedData.detectedReviewCount}` : ""}
+${extractedData.detectedCommentsUrl ? `- ENLACE DE COMENTARIOS / MAPS DE LA SEDE PRINCIPAL: ${extractedData.detectedCommentsUrl}` : ""}
 - Texto Completo del Sitio:
 ${extractedData.textContent.slice(0, 30000)}
 
@@ -4285,11 +4373,14 @@ ${taxonomies.modalities.map((m: string) => `"${m}"`).join(", ")}
 
 REGLAS CRÍTICAS Y OBLIGATORIAS:
 
-0. TÍTULOS Y NOMBRE DEL OFERENTE ('publisherName'):
+0. TÍTULOS, AÑO HISTÓRICO REAL Y DATOS DE GOOGLE MAPS DE LA SEDE PRINCIPAL:
 - 'publisherName': Es ÚNICAMENTE el nombre corto, limpio y oficial de la institución, empresa u oferente (ej: "Universidad Kennedy", "OSEP Mendoza", "Universidad Siglo 21", "Hospital Garrahan", "Google").
   * NUNCA pongas aquí el título largo ni slogans publicitarios.
 - 'title': Título claro, representativo y profesional en tercera persona. Puede ser un objeto { "estado": "ok"|"parcial"|"sin_datos", "contenido": "Título", "evidencias": ["..."] } o cadena de texto.
-- 'providerStartYear': Año real de fundación/inicio según el sitio web. Si no existe año comprobable en el texto, dejar "".
+- 'providerStartYear': Año real de fundación histórica o inicio de actividades en que empezaron a operar (ej: 1821, 1903, 1973, 1987, 1995). Investiga o deduce el año de fundación real de la institución a partir del texto y tu conocimiento verificado sobre la entidad. NUNCA uses el año actual ni años de copyright web del pie de página (ej: 2010, 2024, 2025, 2026).
+- 'providerRating': Valoración real que tiene en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). En caso de tener varias sedes o sucursales, toma OBLIGATORIAMENTE la puntuación de la sede principal para evitar confusiones. Si no tiene puntuación o ficha en Google Maps, pon "0". NUNCA inventes puntuaciones arbitrarias.
+- 'providerReviewCount': Cantidad EXACTA de comentarios o reseñas que hay en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). En caso de tener varias sedes o sucursales, toma OBLIGATORIAMENTE la cantidad de la sede principal. NUNCA pongas números ficticios ni valores arbitrarios como "24" o "120". Si no tiene comentarios en Google Maps, pon estrictamente "0".
+- 'providerCommentsUrl': Enlace a la ficha o reseñas de Google Maps de la SEDE PRINCIPAL.
 
 1. DESCRIPCIÓN PRINCIPAL ('description'):
 - Objeto con { "estado": "ok"|"parcial"|"sin_datos", "contenido": "<p>...</p>", "evidencias": ["..."] } en tercera persona e idioma Español. Si no hay datos, estado "sin_datos" con contenido "".
@@ -4321,9 +4412,9 @@ Devuelve UN OBJETO JSON con las siguientes claves exactas:
   ],
   "publisherName": "...",
   "providerInfoI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
-  "providerStartYear": "...",
-  "providerRating": "5.0",
-  "providerReviewCount": "0",
+  "providerStartYear": "1973",
+  "providerRating": "4.5",
+  "providerReviewCount": "154",
   "providerCommentsUrl": "https://www.google.com/maps/search/?api=1&query=...",
   "country": "...",
   "city": "...",
@@ -4624,25 +4715,21 @@ async function formatPublicationResult(
   const detectedRating = extractedData.detectedRating || extractRatingFromText(`${extractedData.description || ""} ${extractedData.textContent || ""}`);
   const detectedReviewCount = extractedData.detectedReviewCount || extractReviewCountFromText(`${extractedData.description || ""} ${extractedData.textContent || ""}`);
 
-  // Rating: if verified detectedRating (from known map, schema, or verified HTML/Maps/Search), use it first! Else if AI provided valid rating, use it; else "4.5"
-  let finalRating = "4.5";
+  // Rating: if verified detectedRating (from known map, schema, or verified HTML/Maps/Search of primary headquarters), use it first! Else if AI provided valid rating, use it; else "0"
+  let finalRating = "0";
   if (detectedRating && !isNaN(parseFloat(detectedRating)) && parseFloat(detectedRating) > 0) {
     finalRating = Math.min(5, Math.max(1, parseFloat(detectedRating))).toFixed(1);
   } else if (parsed.providerRating && !isNaN(parseFloat(parsed.providerRating)) && parseFloat(parsed.providerRating) > 0) {
     finalRating = Math.min(5, Math.max(1, parseFloat(parsed.providerRating))).toFixed(1);
-  } else if (parsed.scoreScout?.totalScore) {
-    finalRating = Math.min(5, Math.max(1, Number(parsed.scoreScout.totalScore) / 20)).toFixed(1);
-  } else {
-    finalRating = "4.5";
   }
 
-  // Review count: if verified detectedReviewCount (from known map or verified HTML/Maps/Search), use it first! Else if AI provided review count, use it; else "24"
-  let finalReviewCount = "24";
+  // Review count: if verified detectedReviewCount (from known map or verified HTML/Maps/Search of primary headquarters), use it first! Else if AI provided review count, use it; else "0"
+  let finalReviewCount = "0";
   if (detectedReviewCount && String(detectedReviewCount).trim() !== "" && String(detectedReviewCount).trim() !== "0") {
-    finalReviewCount = String(detectedReviewCount).replace(/[^0-9]/g, "") || "24";
+    finalReviewCount = String(detectedReviewCount).replace(/[^0-9]/g, "") || "0";
   } else if (parsed.providerReviewCount !== undefined && parsed.providerReviewCount !== null && String(parsed.providerReviewCount).trim() !== "" && String(parsed.providerReviewCount).trim() !== "0") {
     const rawCount = String(parsed.providerReviewCount).replace(/[^0-9]/g, "");
-    finalReviewCount = (rawCount && rawCount !== "0") ? rawCount : "24";
+    finalReviewCount = (rawCount && rawCount !== "0") ? rawCount : "0";
   }
 
   // Score Scout Block resolution - only included if includeScoreScout is true
@@ -4905,42 +4992,58 @@ export function enforceStrictTaxonomyGuardrails(
     /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(allText) ||
     /\.edu(?:\.[a-z]{2})?/i.test(publication.url);
 
-  const isAuthenticOng =
-    (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(publication.url)) &&
-    /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(allText) &&
-    !isEducational &&
-    !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(allText);
-
+  const isGovDomainPost = /\.gov(?:\.[a-z]{2})?|\.gob(?:\.[a-z]{2})?|\.mil(?:\.[a-z]{2})?/i.test(publication.url);
   const isOng = (s: string) => {
     const n = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    return /\b(?:ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n) ||
+    return /\b(?:ong|ongs|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector|voluntariado)\b/i.test(n) ||
       /sin fines de lucro|organismo no gubernamental|asociacion civil/i.test(n);
   };
-  const isStudentEdu = (s: string) => {
-    const n = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    return /\b(?:estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto|facultad|intercambio|convocatoria|programa)\w*/i.test(n) ||
-      /estudiante|universidad|educacion|carrera|formacion|posgrado|grado|beca|colegio|instituto|programa|intercambio|convocatoria/i.test(n);
-  };
 
-  // Anti-False-ONG: If not an authentic ONG, strip any ONG categories, subcategories, or types
-  if (!isAuthenticOng) {
-    if (Array.isArray(publication.categorySelections)) {
-      publication.categorySelections = publication.categorySelections.filter((c) => !isOng(c));
+  const isOngEntity =
+    (/\.(?:org|ngo|ong)(?:\.[a-z]{2})?/i.test(publication.url) ||
+      /\b(?:ong|ongs|fundaci[oó]n|asociaci[oó]n civil|sin fines de lucro|sin [aá]nimo de lucro|tercer sector|voluntariado|voluntarios|donaciones|hacer una donaci[oó]n|ayuda comunitaria|labor solidaria|entidad ben[eé]fica|acci[oó]n comunitaria|desarrollo social|ayuda humanitaria)\b/i.test(allText) ||
+      /\b(?:fundaci[oó]n|asociaci[oó]n civil|ong)\b/i.test(publication.title || "")) &&
+    !isGovDomainPost &&
+    !isEducational &&
+    !/\b(?:empresa s\.a\.|empresa s\.r\.l\.|sociedad an[oó]nima|hotel|resort|e-commerce|tienda online)\b/i.test(allText);
+
+  // Proactively include ONG category and providerTypes if entity is an ONG
+  if (isOngEntity && taxonomies) {
+    const validCats: string[] = taxonomies.categories || [];
+    const validTypes: string[] = taxonomies.types || [];
+    const ongCats = validCats.filter(isOng);
+    if (ongCats.length > 0) {
+      if (!Array.isArray(publication.categorySelections)) publication.categorySelections = [];
+      ongCats.forEach((c) => {
+        if (!publication.categorySelections!.includes(c)) publication.categorySelections!.push(c);
+      });
+      publication.category = publication.categorySelections[0] || publication.category;
     }
-    if (Array.isArray(publication.subcategorySelections)) {
-      publication.subcategorySelections = publication.subcategorySelections.filter((s) => !isOng(s));
+    const ongTypes = validTypes.filter(isOng);
+    if (ongTypes.length > 0) {
+      if (!Array.isArray(publication.providerTypes)) publication.providerTypes = [];
+      ongTypes.forEach((t) => {
+        if (!publication.providerTypes!.includes(t)) publication.providerTypes!.push(t);
+      });
     }
-    if (isOng(publication.category || "")) {
-      publication.category = publication.categorySelections?.[0] || classified.category;
-    }
-    if (isOng(publication.subcategory || "")) {
-      publication.subcategory = publication.subcategorySelections?.[0] || classified.subcategory;
-    }
-    if (Array.isArray(publication.providerTypes)) {
-      publication.providerTypes = publication.providerTypes.filter((t) => !isOng(t));
-      if (publication.providerTypes.length === 0) {
-        publication.providerTypes = classified.providerTypes;
+  }
+
+  // Ensure child subcategories are selected for every parent category if available in system
+  if (taxonomies?.categoryTree && Array.isArray(publication.categorySelections)) {
+    if (!Array.isArray(publication.subcategorySelections)) publication.subcategorySelections = [];
+    for (const catName of publication.categorySelections) {
+      for (const block of taxonomies.categoryTree) {
+        const parentMatch = block.parentCategories.find((p) => p.name === catName);
+        if (parentMatch && Array.isArray(parentMatch.subcategories) && parentMatch.subcategories.length > 0) {
+          const hasChild = parentMatch.subcategories.some((s) => publication.subcategorySelections!.includes(s));
+          if (!hasChild) {
+            publication.subcategorySelections.push(parentMatch.subcategories[0]);
+          }
+        }
       }
+    }
+    if (publication.subcategorySelections.length > 0) {
+      publication.subcategory = publication.subcategorySelections[0];
     }
   }
 
@@ -5055,18 +5158,9 @@ export function enforceStrictTaxonomyGuardrails(
     }
   }
 
-  // 3. Guarantee accurate rating and review count from real scraping / Google Maps - NEVER leave empty or 0!
-  if (extractedData.detectedRating && (!publication.providerRating || publication.providerRating === "0" || publication.providerRating === "4.5" || publication.providerRating === "5.0")) {
+  // 3. Guarantee accurate rating and review count from real Google Maps of the primary headquarters
+  if (extractedData.detectedRating && extractedData.detectedRating !== "0") {
     publication.providerRating = extractedData.detectedRating;
-  }
-  if (!publication.providerRating || publication.providerRating === "" || publication.providerRating === "0") {
-    publication.providerRating = "4.5";
-  }
-  if (extractedData.detectedReviewCount && extractedData.detectedReviewCount !== "0") {
-    publication.providerReviewCount = extractedData.detectedReviewCount;
-  }
-  if (!publication.providerReviewCount || publication.providerReviewCount === "" || publication.providerReviewCount === "0") {
-    publication.providerReviewCount = "24";
   }
   if (extractedData.detectedReviewCount && extractedData.detectedReviewCount !== "0") {
     publication.providerReviewCount = extractedData.detectedReviewCount;
@@ -5311,8 +5405,8 @@ async function processUrlWithAI(
     publisherName: cleanPublisher,
     providerInfoI18n: providerInfoI18nVal,
     providerStartYear: cleanContext.foundingYear || extracted.detectedFoundingYear || "",
-    providerRating: cleanContext.rating || extracted.detectedRating || "4.5",
-    providerReviewCount: (cleanContext.reviewCount && cleanContext.reviewCount !== "0") ? cleanContext.reviewCount : (extracted.detectedReviewCount && extracted.detectedReviewCount !== "0" ? extracted.detectedReviewCount : "24"),
+    providerRating: cleanContext.rating || extracted.detectedRating || "0",
+    providerReviewCount: cleanContext.reviewCount || extracted.detectedReviewCount || "0",
     providerCommentsUrl: extracted.detectedCommentsUrl || cleanContext.commentsUrl || primaryHq.mapUrl,
     providerLogo: cleanContext.logo || "",
     country: primaryHq.country,
