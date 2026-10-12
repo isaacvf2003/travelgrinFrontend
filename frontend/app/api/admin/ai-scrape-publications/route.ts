@@ -859,6 +859,70 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
   return null;
 }
 
+function cleanAddressForSearch(addr?: string | null): string {
+  if (!addr) return "";
+  return addr
+    .replace(/\s+(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja|timbre|bloque)[^,.\n]*/gi, "")
+    .replace(/[°º#"']/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findOfficialOrganizationName(html: string, cleanTitle: string, rawSiteName?: string): string {
+  const isAcronym = /^[A-Z0-9]{2,8}$/.test(cleanTitle.replace(/\s+/g, ""));
+
+  const descMatch =
+    html.match(/<meta[^>]*?(?:name|property)=["'](?:description|og:description)["'][^>]*?content=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]*?content=["']([^"']+)["'][^>]*?(?:name|property)=["'](?:description|og:description)["']/i);
+  if (descMatch && descMatch[1]) {
+    const rawDesc = descMatch[1].replace(/&amp;/g, "&").replace(/<[^>]+>/g, "").trim();
+    const mName = rawDesc.match(/^([^–—\-|]+?)(?:\s*[-–—|]\s*(?:Argentina|Sitio|Oficial|Portal|Inicio|Home|Web))?$/i);
+    if (mName && mName[1] && mName[1].trim().length > 6 && !mName[1].includes(".")) {
+      const candidate = mName[1].trim();
+      if (isAcronym || candidate.toLowerCase().includes(cleanTitle.toLowerCase())) {
+        return candidate;
+      }
+    }
+  }
+
+  // Check header / navbar / logo
+  const headerMatch = html.match(/<(?:header|nav|div\b[^>]*class=["'][^"']*header[^"']*["'])[^>]*>([\s\S]*?)<\/(?:header|nav|div)>/i);
+  if (headerMatch && headerMatch[1]) {
+    const hHtml = headerMatch[1];
+    const mHeaderOrg = hHtml.match(/<(?:h[1-6]|p|div|span|strong|a)\b[^>]*>\s*([A-ZÁÉÍÓÚÑ\s]{10,80})\s*<\/(?:h[1-6]|p|div|span|strong|a)>/);
+    if (mHeaderOrg && mHeaderOrg[1]) {
+      const cand = mHeaderOrg[1].trim();
+      if (!/COPYRIGHT|DERECHOS|RESERVADOS|MENU|LINKS|CONTACTO|INICIO|HOME|ACCESO/i.test(cand)) {
+        const formatted = cand.split(" ")
+          .map((w) => w.length > 2 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase())
+          .join(" ");
+        if (isAcronym) return formatted;
+      }
+    }
+  }
+
+  const footerMatch = html.match(/<footer\b[^>]*>([\s\S]*?)<\/footer>/i);
+  if (footerMatch && footerMatch[1]) {
+    const fHtml = footerMatch[1];
+    const mFooterOrg = fHtml.match(/<(?:h[1-6]|p|div|span|strong)\b[^>]*>\s*([A-ZÁÉÍÓÚÑ\s]{10,80})\s*<\/(?:h[1-6]|p|div|span|strong)>/);
+    if (mFooterOrg && mFooterOrg[1]) {
+      const cand = mFooterOrg[1].trim();
+      if (!/COPYRIGHT|DERECHOS|RESERVADOS|MENU|LINKS|CONTACTO/i.test(cand)) {
+        const formatted = cand.split(" ")
+          .map((w) => w.length > 2 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase())
+          .join(" ");
+        if (isAcronym) return formatted;
+      }
+    }
+  }
+
+  if (rawSiteName && rawSiteName.length > cleanTitle.length) {
+    return rawSiteName;
+  }
+
+  return cleanTitle;
+}
+
 function extractRatingAndReviewsFromHtml(
   html: string,
   textContent: string,
@@ -876,10 +940,10 @@ function extractRatingAndReviewsFromHtml(
   let reviewCount: string | null = null;
   let commentsUrl: string | null = null;
 
-  // 1. Comments URL fallback from title/address
-  if (title) {
-    const parts = [cleanTitleString(title), address, city || "Buenos Aires", country || "Argentina"].filter(Boolean);
-    commentsUrl = buildGoogleMapsUrl(parts.join(", "));
+  // 1. Comments URL from explicit Google Maps link in HTML
+  const gmapsMatchInitial = html.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|maps\.app\.goo\.gl|goo\.gl\/maps)[^\s"'<>]+/i);
+  if (gmapsMatchInitial && gmapsMatchInitial[0]) {
+    commentsUrl = gmapsMatchInitial[0];
   }
 
   // 2. Parse JSON-LD scripts for aggregateRating / reviews (prioritizing primary headquarters)
@@ -997,7 +1061,8 @@ function extractRatingAndReviewsFromHtml(
     if (gmapsMatch && gmapsMatch[0]) {
       commentsUrl = gmapsMatch[0];
     } else if (title) {
-      const parts = [cleanTitleString(title), address, city || "Buenos Aires", country || "Argentina"].filter(Boolean);
+      const cleanAddr = cleanAddressForSearch(address);
+      const parts = [cleanTitleString(title), cleanAddr, city || "Buenos Aires", country || "Argentina"].filter(Boolean);
       commentsUrl = buildGoogleMapsUrl(parts.join(", "));
     }
   }
@@ -1027,11 +1092,18 @@ async function enrichWithLiveGoogleMapsAndSearch(
   } catch {}
 
   // 2. Dynamic Real-Time Google Maps & Web Search targeting the main headquarters (Sede Principal)
-  const cleanName = cleanNameInput || cleanPublisherName(cleanTitleString(extracted.title || ""), extracted.url, extracted.title, extracted.detectedSiteName);
+  let cleanName = cleanNameInput || cleanPublisherName(cleanTitleString(extracted.title || ""), extracted.url, extracted.title, extracted.detectedSiteName);
   if (!cleanName || cleanName.length < 2 || cleanName.toLowerCase() === "oferente") return;
 
+  const officialFullName = findOfficialOrganizationName(extracted.htmlContent || "", cleanName, extracted.detectedSiteName);
+  const isAcronym = /^[A-Z0-9]{2,8}$/.test(cleanName.replace(/\s+/g, ""));
+  if (officialFullName && officialFullName !== cleanName && isAcronym) {
+    cleanName = officialFullName;
+  }
+
   const hqLoc = extracted.headquarterLocations?.[0];
-  const mainAddress = hqLoc?.address || extracted.detectedAddress || "";
+  const rawAddress = hqLoc?.address || extracted.detectedAddress || "";
+  const mainAddress = cleanAddressForSearch(rawAddress);
   const city = locInfoInput?.primaryCity || hqLoc?.city || extracted.detectedCity || "Argentina";
   const country = locInfoInput?.primaryCountry || hqLoc?.country || extracted.detectedCountry || "Argentina";
 
@@ -1040,18 +1112,22 @@ async function enrichWithLiveGoogleMapsAndSearch(
   // If already found rating, reviews, and founding year, no external network requests needed!
   if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0" && extracted.detectedFoundingYear) {
     if (!extracted.detectedCommentsUrl) {
-      extracted.detectedCommentsUrl = buildGoogleMapsUrl(`${cleanName}, ${city}, ${country}`);
+      extracted.detectedCommentsUrl = buildGoogleMapsUrl(`${officialFullName || cleanName}, ${city}, ${country}`);
     }
     return;
   }
 
-  // Fast targeted queries executed in parallel (max 2 queries, max 2000ms timeout)
+  // Fast targeted queries executed in parallel
   const candidateQueries = [
-    mainAddress ? `${cleanName} ${mainAddress} ${city}` : `${cleanName} sede central ${city}`,
+    officialFullName && officialFullName !== city ? `${officialFullName} ${city}` : null,
+    officialFullName && officialFullName !== cleanName ? officialFullName : null,
+    mainAddress ? `${cleanName} ${mainAddress} ${city}` : null,
     `${cleanName} ${city}`,
-  ].filter(Boolean);
+  ].filter(Boolean) as string[];
 
-  const searchPromises = candidateQueries.map(async (q) => {
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 3);
+
+  const searchPromises = uniqueQueries.map(async (q) => {
     try {
       const gmapsUrl = "https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=" + encodeURIComponent(q.trim());
       const gmapsRes = await fetchWithTimeout(
@@ -1077,7 +1153,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     const text = res.value;
 
     // Check for direct place rating/review match
-    const mDirect = text.match(/null,null,null,([1-5]\.\d+),(\d+)\]/) || text.match(/,([1-5]\.\d+),(\d+)\]/);
+    const mDirect = text.match(/(?:null,){1,3}([1-5]\.\d+),(\d+)\]/) || text.match(/,([1-5]\.\d+),(\d+)\]/);
     if (mDirect) {
       const numRating = parseFloat(mDirect[1]);
       const numReviews = parseInt(mDirect[2], 10);
@@ -1088,8 +1164,9 @@ async function enrichWithLiveGoogleMapsAndSearch(
         extracted.detectedReviewCount = String(numReviews);
       }
       const coordMatch = text.match(/\[null,null,(-?\d+\.\d+),(-?\d+\.\d+)\]/);
-      if (coordMatch && !extracted.detectedCommentsUrl) {
-        extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${coordMatch[1]},${coordMatch[2]}`;
+      if (!extracted.detectedCommentsUrl) {
+        const placeQuery = (officialFullName || cleanName) + (city ? `, ${city}` : "");
+        extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
         if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
       }
     }
@@ -1112,7 +1189,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
   // Fast single Web Search fallback (timeout 1800ms) only if founding year or ratings are still completely missing
   if ((!extracted.detectedRating || !extracted.detectedFoundingYear) && cleanName) {
     try {
-      const webQuery = `"${cleanName}" ("sede central" OR "${city}") "Google Maps"`;
+      const webQuery = `"${officialFullName || cleanName}" ("sede central" OR "${city}") "Google Maps"`;
       const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(webQuery)}`;
       const res = await fetchWithTimeout(
         searchUrl,
@@ -1170,7 +1247,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
 
   // Fallback to official Google Maps query link if no direct Place link was discovered
   if (!extracted.detectedCommentsUrl) {
-    const parts = [cleanName, mainAddress, city, country].filter(Boolean);
+    const parts = [officialFullName || cleanName, mainAddress, city, country].filter(Boolean);
     extracted.detectedCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
   }
 }
@@ -1455,7 +1532,8 @@ function resolveHeadquarterLocations(
   country: string,
   detectedMapsUrl: string,
   allText: string,
-  additionalCities: string[] = []
+  additionalCities: string[] = [],
+  primaryAddress?: string
 ): Array<{ country: string; city: string; address?: string; mapUrl: string }> {
   const finalCity = city || "Buenos Aires";
   const finalCountry = country || "Argentina";
@@ -1482,7 +1560,8 @@ function resolveHeadquarterLocations(
 
       let mapUrl = String(loc.mapUrl || "").trim();
       if (!mapUrl) {
-        const query = [publisherName || title, locAddress, locCity, locCountry].filter(Boolean).join(", ");
+        const cleanAddr = cleanAddressForSearch(locAddress);
+        const query = [publisherName || title, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
         mapUrl = buildGoogleMapsUrl(query);
       } else {
         mapUrl = buildGoogleMapsUrl(mapUrl);
@@ -1506,7 +1585,7 @@ function resolveHeadquarterLocations(
     {
       country: finalCountry,
       city: finalCity,
-      address: undefined,
+      address: primaryAddress || undefined,
       mapUrl: primaryMapUrl,
     },
   ];
@@ -1743,9 +1822,55 @@ function extractAddressFromHtml(html: string, textContent: string): string | nul
     return itempropMatch[1].trim();
   }
 
-  // 3. Regex on raw HTML & text for physical address
-  const addressRegex = /(?:Av\.|Avenida|Calle|Bv\.|Boulevard|Pje\.|Pasaje|Ruta|Autopista|Diagonal|Lateral|Acceso)\s+(?:de\s+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9\s.,°º#-]{2,60}\b\d{1,5}\b/i;
-  const m = html.match(addressRegex) || textContent.match(addressRegex);
+  // 3. PRIORITY: Check FOOTER and CONTACT sections first!
+  // Footers and contact blocks contain the CURRENT official physical headquarters,
+  // preventing stale historical addresses mentioned in old news notes or body articles.
+  const footerAndContactBlocks: string[] = [];
+  const footerMatch = html.match(/<footer\b[^>]*>([\s\S]*?)<\/footer>/i);
+  if (footerMatch && footerMatch[1]) footerAndContactBlocks.push(footerMatch[1]);
+
+  const contactSections = html.match(/<(?:div|section|aside)\b[^>]*?(?:class|id)=["'][^"']*(?:footer|contacto|contact|ubicacion|location|direccion)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|section|aside)>/gi);
+  if (contactSections) {
+    contactSections.forEach((cs) => footerAndContactBlocks.push(cs));
+  }
+
+  const standardAddressRegex = /(?:Av\.|Avenida|Calle|Bv\.|Boulevard|Pje\.|Pasaje|Ruta|Autopista|Diagonal|Lateral|Acceso)\s+(?:de\s+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9\s.,°º#-]{2,60}\b\d{1,5}\b(?:\s+(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja)\s*[^,.\n<]{1,25})?/i;
+  // Latin American street pattern: "Nombre de Calle 123" without prefix (e.g. "Rosario de Santa Fe 231 piso 5°")
+  const latinAddressRegex = /\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+(?:de\s+|del\s+|san\s+|santa\s+|de\s+la\s+|los\s+|las\s+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9]+){1,4})\s+(\d{1,5})\b(?:\s*(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja)[^,.\n<]{0,25})?/i;
+
+  for (const block of footerAndContactBlocks) {
+    const cleanBlock = block
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ");
+
+    const mPrefix = cleanBlock.match(standardAddressRegex);
+    if (mPrefix) {
+      const res = mPrefix[0].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      if (res.length >= 8 && !/^(?:todos los derechos|copyright)/i.test(res)) return res;
+    }
+
+    const textLines = cleanBlock
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<\/li>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .split("\n")
+      .map((l) => l.replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim())
+      .filter((l) => l.length > 5 && l.length < 150);
+
+    for (const line of textLines) {
+      if (/copyright|derechos|diseño|desarrollo|powered|todos los/i.test(line)) continue;
+      if (/^(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|horario|tel|cel|whatsapp|\+?\d)/i.test(line)) continue;
+      const mLatin = line.match(latinAddressRegex);
+      if (mLatin) {
+        return mLatin[0].trim();
+      }
+    }
+  }
+
+  // 4. Fallback: Check standard prefix address in whole HTML / textContent
+  const m = html.match(standardAddressRegex) || textContent.match(standardAddressRegex);
   if (m) {
     return m[0].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
   }
@@ -3950,10 +4075,11 @@ async function createFallbackPublication(
   const finalReviewCount = (ratingInfo.reviewCount && ratingInfo.reviewCount !== "0" && ratingInfo.reviewCount.trim() !== "")
     ? ratingInfo.reviewCount
     : (extractedData.detectedReviewCount && extractedData.detectedReviewCount !== "0" && extractedData.detectedReviewCount.trim() !== "" ? extractedData.detectedReviewCount : "0");
+  const officialFullName = findOfficialOrganizationName(extractedData.htmlContent || "", titleClean, extractedData.detectedSiteName);
   const finalCommentsUrl =
-    ratingInfo.commentsUrl ||
     extractedData.detectedCommentsUrl ||
-    buildGoogleMapsUrl(`${titleClean}, ${primaryHq.city}, ${primaryHq.country}`);
+    ratingInfo.commentsUrl ||
+    buildGoogleMapsUrl(`${officialFullName || titleClean}, ${primaryHq.city}, ${primaryHq.country}`);
 
   const fallbackExtraDescriptions: ExtraDescriptionBlock[] = [];
   if (includeScoreScout !== false) {
@@ -4305,6 +4431,14 @@ Cualquier trámite, convocatoria o plazo con fecha anterior a ${formattedCurrent
    - "estado": "ok" | "parcial" | "sin_datos"
    - "contenido": "..." (HTML <p>...</p> para descripciones/bloques, o texto plano para el título; si estado === "sin_datos", DEBE SER una cadena vacía "")
    - "evidencias": ["frase textual breve copiada literalmente del sitio web"]
+5. CERO PLANTILLAS Y RESOLUCIÓN OBLIGATORIA DE SIGLAS Y ACRÓNIMOS:
+   - Prohibido terminantemente usar plantillas fijas, frases enlatadas o descripciones clichés vacías (ej: "Institución y prestador de servicios en..."). Describe la actividad concreta, funciones, alcance o propuesta real de la entidad.
+   - Si el título del sitio web o su dominio es una SIGLA o ACRÓNIMO (ej: CTPPC, UTN, UBA, CPCE, OSEP, OSDE, etc.), la IA debe IDENTIFICAR OBLIGATORIAMENTE EL NOMBRE INSTITUCIONAL COMPLETO Y FORMAL desplegado (ej: "Colegio de Traductores Públicos de la Provincia de Córdoba" en lugar de "CTPPC") tanto para 'publisherName' como para el título principal.
+6. DIRECCIÓN FÍSICA VIGENTE VS. TEXTOS O NOTICIAS HISTÓRICAS:
+   - Para identificar la dirección ('locationAddress', 'headquarterLocations') y la sede operativa, da PRIORIDAD ABSOLUTA a la dirección legal y física actual ubicada en el pie de página (footer) o en las secciones de Contacto / Sedes del sitio web.
+   - NUNCA tomes direcciones de noticias viejas, notas de prensa de hace años o artículos archivados en el cuerpo de la web.
+7. ENLACES Y VALORACIONES DE GOOGLE MAPS DE LA ENTIDAD:
+   - Para 'providerCommentsUrl', 'providerRating' y 'providerReviewCount', relaciona la ficha con el nombre oficial completo y la ciudad actual de la institución, generando una búsqueda limpia y directa sin números de piso ni oficinas ("piso 5°", "piso 8°") que confundan el motor de Google Maps.
 ======================================================================
 
 ${titlePromptSection}
@@ -4342,8 +4476,7 @@ ${taxonomies.modalities.map((m: string) => `"${m}"`).join(", ")}
 REGLAS CRÍTICAS Y OBLIGATORIAS:
 
 0. TÍTULOS, AÑO HISTÓRICO REAL Y DATOS DE GOOGLE MAPS DE LA SEDE PRINCIPAL:
-- 'publisherName': Es ÚNICAMENTE el nombre corto, limpio y oficial de la institución, empresa u oferente (ej: "Universidad Kennedy", "OSEP Mendoza", "Universidad Siglo 21", "Hospital Garrahan", "Google").
-  * NUNCA pongas aquí el título largo ni slogans publicitarios.
+- 'publisherName': Es ÚNICAMENTE el nombre limpio y oficial de la institución, empresa u oferente (ej: "Colegio de Traductores Públicos de la Provincia de Córdoba", "Universidad Siglo 21", "Hospital Garrahan"). Si la web o el dominio usa una sigla o acrónimo (ej: CTPPC, UBA, OSDE, UTN), escribe OBLIGATORIAMENTE el nombre institucional formal completo desplegado. NUNCA pongas aquí slogans publicitarios.
 - 'title': Título claro, representativo y profesional en tercera persona. Puede ser un objeto { "estado": "ok"|"parcial"|"sin_datos", "contenido": "Título", "evidencias": ["..."] } o cadena de texto.
 - 'providerStartYear': Año real de fundación histórica o inicio de actividades en que empezaron a operar (ej: 1821, 1903, 1973, 1987, 1995). Investiga o deduce el año de fundación real de la institución a partir del texto y tu conocimiento verificado sobre la entidad. NUNCA uses el año actual ni años de copyright web del pie de página (ej: 2010, 2024, 2025, 2026).
 - 'providerRating': Valoración real que tiene en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). En caso de tener varias sedes o sucursales, toma OBLIGATORIAMENTE la puntuación de la sede principal para evitar confusiones. Si no tiene puntuación o ficha en Google Maps, pon "0". NUNCA inventes puntuaciones arbitrarias.
@@ -4499,8 +4632,11 @@ async function formatPublicationResult(
   if (!rawTitle) {
     rawTitle = extractedData.title || `Publicación de ${host}`;
   }
-  let title = cleanTitleString(rawTitle);
-  const publisherName = cleanPublisherName(parsed.publisherName || extractedData.title || title, extractedData.url, rawTitle);
+  let publisherName = cleanPublisherName(parsed.publisherName || extractedData.title || title, extractedData.url, rawTitle);
+  const officialPubFullName = findOfficialOrganizationName(extractedData.htmlContent || "", publisherName, extractedData.detectedSiteName);
+  if (officialPubFullName && officialPubFullName !== publisherName && /^[A-Z0-9]{2,8}$/.test(publisherName.replace(/\s+/g, ""))) {
+    publisherName = officialPubFullName;
+  }
 
   const validCats = taxonomies?.categories || [];
   const validSubcats = taxonomies?.subcategories || [];
@@ -4836,10 +4972,15 @@ async function formatPublicationResult(
         it: defaultProvInfoIt,
       };
 
-  // Comments URL: if Google Maps link is provided, use it. Otherwise build Google Maps search query URL
-  let finalCommentsUrl = parsed.providerCommentsUrl || extractedData.detectedCommentsUrl || "";
+  // Comments URL: prioritize verified real place link from live scraping / known catalog, then valid AI link, then fallback search
+  let finalCommentsUrl =
+    extractedData.detectedCommentsUrl ||
+    (parsed.providerCommentsUrl && parsed.providerCommentsUrl !== extractedData.url && !parsed.providerCommentsUrl.includes("0") ? parsed.providerCommentsUrl : "") ||
+    "";
   if (!finalCommentsUrl || !/^https?:\/\//i.test(finalCommentsUrl) || finalCommentsUrl === extractedData.url) {
-    const parts = [publisherName || title, extractedData.detectedAddress, primaryHq.city, primaryHq.country].filter(Boolean);
+    const cleanAddr = cleanAddressForSearch(extractedData.detectedAddress);
+    const searchEntity = publisherName || title;
+    const parts = [searchEntity, cleanAddr, primaryHq.city, primaryHq.country].filter(Boolean);
     finalCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
   }
 
@@ -5224,6 +5365,10 @@ async function processUrlWithAI(
   const extracted = await fetchPageContent(url);
   const locInfo = detectAllLocationsAndHeadquarters(extracted.textContent, extracted.url, extracted.title);
   let cleanPublisher = cleanPublisherName(extracted.title, extracted.url, extracted.title, extracted.detectedSiteName);
+  const officialFullName = findOfficialOrganizationName(extracted.htmlContent || "", cleanPublisher, extracted.detectedSiteName);
+  if (officialFullName && officialFullName !== cleanPublisher && /^[A-Z0-9]{2,8}$/.test(cleanPublisher.replace(/\s+/g, ""))) {
+    cleanPublisher = officialFullName;
+  }
   if (locInfo.primaryCity && !extracted.detectedCity) extracted.detectedCity = locInfo.primaryCity;
   if (locInfo.primaryCountry && !extracted.detectedCountry) extracted.detectedCountry = locInfo.primaryCountry;
 
@@ -5235,7 +5380,8 @@ async function processUrlWithAI(
     locInfo.primaryCountry,
     extracted.detectedMapsUrl,
     extracted.textContent,
-    locInfo.additionalCities
+    locInfo.additionalCities,
+    extracted.detectedAddress
   );
 
   await enrichWithLiveGoogleMapsAndSearch(extracted, cleanPublisher, locInfo);
@@ -5323,14 +5469,20 @@ async function processUrlWithAI(
   if (taxonomyRes?.providerUsed && taxonomyRes.providerUsed !== "none") providersUsed.add(taxonomyRes.providerUsed);
 
   // Carefully refine publisher name if provider info agent detected the true company/organization
+  const isAcronymPub = /^[A-Z0-9]{2,8}$/.test(cleanPublisher.replace(/\s+/g, ""));
   if (
     providerInfoRes.data?.detectedPublisherName &&
     providerInfoRes.data.detectedPublisherName.length >= 2 &&
     !/^(?:oferente|establecimiento|instituci[oó]n|empresa)$/i.test(providerInfoRes.data.detectedPublisherName)
   ) {
     const isProgramOrHeadline = /govtech|programa|iniciativa|evento|noticia|art[ií]culo|trabaj[aá]|aprend[eé]|carrera|curso|taller|edici[oó]n|becas/i.test(cleanPublisher);
-    if (isProgramOrHeadline || cleanPublisher.length > 35) {
+    if (isProgramOrHeadline || cleanPublisher.length > 35 || isAcronymPub) {
       cleanPublisher = providerInfoRes.data.detectedPublisherName;
+    }
+  } else if (isAcronymPub) {
+    const officialFullName = findOfficialOrganizationName(extracted.htmlContent || "", cleanPublisher, extracted.detectedSiteName);
+    if (officialFullName && officialFullName !== cleanPublisher) {
+      cleanPublisher = officialFullName;
     }
   }
 
@@ -5374,12 +5526,14 @@ async function processUrlWithAI(
     locInfo.primaryCountry,
     extracted.detectedMapsUrl,
     extracted.textContent,
-    locInfo.additionalCities
+    locInfo.additionalCities,
+    extracted.detectedAddress
   );
 
   const primaryHq = headquarterLocations[0] || {
     country: locInfo.primaryCountry,
     city: locInfo.primaryCity,
+    address: extracted.detectedAddress || undefined,
     mapUrl: buildGoogleMapsUrl(`${cleanPublisher}, ${locInfo.primaryCity}, ${locInfo.primaryCountry}`),
   };
 
