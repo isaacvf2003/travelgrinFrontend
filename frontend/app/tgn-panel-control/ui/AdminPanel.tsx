@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpRight, Bot, Building2, ChevronDown, ChevronRight, FileText, GripVertical, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, RotateCw, Sparkles, Star, Trash2, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Bot, Building2, ChevronDown, ChevronRight, FileText, GripVertical, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, RotateCw, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
@@ -11247,7 +11247,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-slate-500">
                   <span className="flex items-center gap-1.5 text-slate-600">
                     <GripVertical className="h-4 w-4 text-[#00A9C6]" />
-                    Arrastrá las tarjetas o usá las flechas para ordenar. La primera (#1) es la portada.
+                    Arrastrá las tarjetas para ordenar. La primera (#1) es la portada.
                   </span>
                   <span className="rounded-full bg-slate-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
                     {imageList.length} {imageList.length === 1 ? "imagen" : "imágenes"}
@@ -11293,8 +11293,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           {/* Order / Cover Badge */}
                           <div className="absolute left-2 top-2 z-10 flex items-center gap-1">
                             {isCover ? (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600/95 px-2 py-0.5 text-[11px] font-bold text-white shadow-md backdrop-blur">
-                                <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
+                              <span className="inline-flex items-center rounded-md bg-emerald-600/95 px-2 py-0.5 text-[11px] font-bold text-white shadow-md backdrop-blur">
                                 #1 Portada
                               </span>
                             ) : (
@@ -11319,7 +11318,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={img}
-                            alt={`preview-${idx}`}
+                            alt=""
                             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                             draggable={false}
                           />
@@ -11333,56 +11332,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         </div>
 
                         {/* Order Controls Bar */}
-                        <div className="mt-2 flex items-center justify-between gap-1 border-t border-slate-100 pt-1.5">
-                          {/* Move Left / Previous */}
-                          <button
-                            type="button"
-                            onClick={() => moveImageDirection(idx, -1)}
-                            disabled={idx === 0}
-                            className={`flex h-7 w-7 items-center justify-center rounded-lg border text-xs transition ${
-                              idx === 0
-                                ? "cursor-not-allowed border-slate-100 text-slate-300 bg-slate-50"
-                                : "border-slate-200 bg-white text-slate-700 hover:bg-[#00A9C6]/10 hover:border-[#00A9C6]/40 hover:text-[#007D92] active:scale-95"
-                            }`}
-                            title="Mover antes"
-                            aria-label="Mover antes"
-                          >
-                            <ArrowLeft className="h-3.5 w-3.5" />
-                          </button>
-
-                          {/* Make Cover Button (if not already cover) */}
+                        <div className="mt-2 flex items-center justify-center border-t border-slate-100 pt-1.5">
                           {!isCover ? (
                             <button
                               type="button"
                               onClick={() => setAsCoverImage(idx)}
-                              className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-lg border border-amber-200 bg-amber-50/70 px-2 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100/90 active:scale-95"
+                              className="inline-flex h-7 w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-700 transition hover:border-[#00A9C6]/50 hover:bg-[#00A9C6]/10 hover:text-[#007D92] active:scale-95"
                               title="Poner como foto de portada (#1)"
                             >
-                              <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-                              Hacer Portada
+                              Hacer portada
                             </button>
                           ) : (
-                            <span className="inline-flex h-7 flex-1 items-center justify-center gap-1 text-[11px] font-semibold text-emerald-700">
+                            <span className="inline-flex h-7 w-full items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-700">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                               Portada actual
                             </span>
                           )}
-
-                          {/* Move Right / Next */}
-                          <button
-                            type="button"
-                            onClick={() => moveImageDirection(idx, 1)}
-                            disabled={idx === imageList.length - 1}
-                            className={`flex h-7 w-7 items-center justify-center rounded-lg border text-xs transition ${
-                              idx === imageList.length - 1
-                                ? "cursor-not-allowed border-slate-100 text-slate-300 bg-slate-50"
-                                : "border-slate-200 bg-white text-slate-700 hover:bg-[#00A9C6]/10 hover:border-[#00A9C6]/40 hover:text-[#007D92] active:scale-95"
-                            }`}
-                            title="Mover después"
-                            aria-label="Mover después"
-                          >
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </button>
                         </div>
                       </div>
                     );
