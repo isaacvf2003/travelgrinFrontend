@@ -4966,6 +4966,11 @@ export function enforceStrictTaxonomyGuardrails(
     return /\b(?:ong|ongs|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector|voluntariado)\b/i.test(n) ||
       /sin fines de lucro|organismo no gubernamental|asociacion civil/i.test(n);
   };
+  const isStudentEdu = (s: string): boolean => {
+    const n = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    return /\b(?:estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto|facultad|intercambio|convocatoria|programa)\w*/i.test(n) ||
+      /estudiante|universidad|educacion|carrera|formacion|posgrado|grado|beca|colegio|instituto|programa|intercambio|convocatoria/i.test(n);
+  };
 
   const isOngEntity =
     (/\.(?:org|ngo|ong)(?:\.[a-z]{2})?/i.test(publication.url) ||
