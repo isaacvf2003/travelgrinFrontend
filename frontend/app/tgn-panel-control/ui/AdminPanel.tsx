@@ -3706,8 +3706,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       startYear = "2018";
     }
     setPProviderStartYear(startYear);
-    const finalRatingVal = draft.providerRating && draft.providerRating !== "0" && draft.providerRating.trim() !== "" ? draft.providerRating : "4.5";
-    const finalReviewCountVal = draft.providerReviewCount && draft.providerReviewCount !== "0" && draft.providerReviewCount.trim() !== "" ? draft.providerReviewCount : "24";
+    const finalRatingVal = draft.providerRating !== undefined && draft.providerRating !== null && draft.providerRating.trim() !== "" ? draft.providerRating : "0";
+    const finalReviewCountVal = draft.providerReviewCount !== undefined && draft.providerReviewCount !== null && draft.providerReviewCount.trim() !== "" ? draft.providerReviewCount : "0";
     const fallbackMapsQuery = [draft.publisherName || draft.title, draft.headquarterCity || draft.city, draft.headquarterCountry || draft.country].filter(Boolean).join(", ");
     const finalCommentsUrlVal = draft.providerCommentsUrl && draft.providerCommentsUrl.trim() !== ""
       ? draft.providerCommentsUrl
