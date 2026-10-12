@@ -548,6 +548,19 @@ export default function AiScraperModal({
 
               if (scoredSubs.length > 0) {
                 subSelections = scoredSubs.slice(0, 3).map((x: any) => x.name);
+              } else {
+                const defaultSubs: string[] = [];
+                matchedParentCats.forEach((parent: any) => {
+                  const firstChild = childCandidates.find((c: any) => c.parentId === parent.id);
+                  if (firstChild && !defaultSubs.includes(firstChild.description)) {
+                    defaultSubs.push(firstChild.description);
+                  }
+                });
+                if (defaultSubs.length > 0) {
+                  subSelections = defaultSubs;
+                } else if (childCandidates[0]?.description) {
+                  subSelections = [childCandidates[0].description];
+                }
               }
             }
           }
@@ -1686,9 +1699,14 @@ export default function AiScraperModal({
                           <span>Oferente: <strong className="text-slate-700">{draft.publisherName}</strong></span>
                           <span>·</span>
                           <span>Ubicación: <strong className="text-slate-700">{draft.city}, {draft.country}</strong></span>
-                          {draft.providerRating ? (
+                          {draft.providerRating && draft.providerRating !== "0" ? (
                             <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
                               ⭐ {draft.providerRating} ({draft.providerReviewCount || "0"} reseñas)
+                            </span>
+                          ) : null}
+                          {draft.providerStartYear ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700 border border-sky-200">
+                              🏛️ Desde {draft.providerStartYear}
                             </span>
                           ) : null}
                           {draft.headquarterLocations && draft.headquarterLocations.length > 1 && (
@@ -1810,7 +1828,7 @@ export default function AiScraperModal({
                       <span className="font-semibold block text-slate-800">Subcategoría</span>
                       {Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0 && draft.subcategorySelections[0] !== "General"
                         ? draft.subcategorySelections.join(", ")
-                        : draft.subcategory || "General"}
+                        : (draft.subcategory && draft.subcategory !== "General" ? draft.subcategory : "(Sin subcategoría)")}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Tipo de Perfil / Sector</span>
