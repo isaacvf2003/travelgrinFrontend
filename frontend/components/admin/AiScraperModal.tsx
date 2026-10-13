@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Sparkles, Trash2, ArrowUp, ArrowDown, Pencil, Bot } from "lucide-react";
+import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
 
 export type I18nRecord = Record<string, string>;
 
@@ -63,6 +65,8 @@ interface AiScraperModalProps {
   onClose: () => void;
   onSelectDraftToEdit: (draft: ScrapedPublicationDraft) => void;
   onApproveDirectly?: (draft: ScrapedPublicationDraft) => Promise<boolean>;
+  categories?: any[];
+  filterGroups?: any[];
 }
 
 export default function AiScraperModal({
@@ -70,6 +74,8 @@ export default function AiScraperModal({
   onClose,
   onSelectDraftToEdit,
   onApproveDirectly,
+  categories,
+  filterGroups,
 }: AiScraperModalProps) {
   const [tab, setTab] = useState<"single" | "bulk">("single");
   const [aiProvider, setAiProvider] = useState<"auto" | "gemini" | "openai">("auto");
@@ -84,18 +90,56 @@ export default function AiScraperModal({
   const [savingAll, setSavingAll] = useState(false);
   const [successNotice, setSuccessNotice] = useState("");
 
+  // Custom Prompts & Blocks Configuration State
+  const [customTitlePrompt, setCustomTitlePrompt] = useState("");
+  const [customDescPrompt, setCustomDescPrompt] = useState("");
+  const [includeScoreScout, setIncludeScoreScout] = useState(false);
+  const [customScraperBlocks, setCustomScraperBlocks] = useState<Array<{ title: string; prompt?: string }>>([]);
+  const [newBlockTitleInput, setNewBlockTitleInput] = useState("");
+  const [newBlockPromptInput, setNewBlockPromptInput] = useState("");
+  const [editingBlockIndex, setEditingBlockIndex] = useState<number | null>(null);
+  const [editingBlockTitle, setEditingBlockTitle] = useState("");
+  const [editingBlockPrompt, setEditingBlockPrompt] = useState("");
+
   // Accordion Inline Form State for active draft inspection directly in the queue card
   const [expandedDraftIndex, setExpandedDraftIndex] = useState<number | null>(null);
   const [draftForm, setDraftForm] = useState<ScrapedPublicationDraft | null>(null);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [customLogoInput, setCustomLogoInput] = useState("");
 
-  // Restore queue from sessionStorage and customApiKey from localStorage on load if available (Client-side only)
+  // Restore queue from sessionStorage and customApiKey/prompts/blocks from localStorage on load if available (Client-side only)
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const savedKey = window.localStorage.getItem("tgn_ai_custom_api_key");
       if (savedKey) setCustomApiKey(savedKey);
+
+      const savedTitlePrompt = window.localStorage.getItem("tgn_custom_title_prompt");
+      if (savedTitlePrompt) setCustomTitlePrompt(savedTitlePrompt);
+
+      const savedDescPrompt = window.localStorage.getItem("tgn_custom_desc_prompt");
+      if (savedDescPrompt) setCustomDescPrompt(savedDescPrompt);
+
+      const savedScoreScout = window.localStorage.getItem("tgn_include_score_scout");
+      if (savedScoreScout !== null) {
+        setIncludeScoreScout(savedScoreScout === "true");
+      }
+
+      const savedBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
+      if (savedBlocks) {
+        try {
+          const parsed = JSON.parse(savedBlocks);
+          if (Array.isArray(parsed)) {
+            const sanitized = parsed
+              .map((b: any) => ({
+                title: cleanGenericBlockTitle(b?.title || "", b?.prompt),
+                prompt: b?.prompt ? String(b.prompt).trim() : undefined,
+              }))
+              .filter((b) => b.title);
+            setCustomScraperBlocks(sanitized);
+          }
+        } catch {}
+      }
 
       const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
       if (saved) {
@@ -118,6 +162,127 @@ export default function AiScraperModal({
         }
       }
     } catch {}
+  };
+
+  const handleSaveTitlePrompt = (val: string) => {
+    setCustomTitlePrompt(val);
+    try {
+      if (typeof window !== "undefined") {
+        if (val.trim()) {
+          window.localStorage.setItem("tgn_custom_title_prompt", val.trim());
+        } else {
+          window.localStorage.removeItem("tgn_custom_title_prompt");
+        }
+      }
+    } catch {}
+  };
+
+  const handleSaveDescPrompt = (val: string) => {
+    setCustomDescPrompt(val);
+    try {
+      if (typeof window !== "undefined") {
+        if (val.trim()) {
+          window.localStorage.setItem("tgn_custom_desc_prompt", val.trim());
+        } else {
+          window.localStorage.removeItem("tgn_custom_desc_prompt");
+        }
+      }
+    } catch {}
+  };
+
+  const handleToggleScoreScout = (enabled: boolean) => {
+    setIncludeScoreScout(enabled);
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("tgn_include_score_scout", enabled ? "true" : "false");
+      }
+    } catch {}
+  };
+
+  const handleAddCustomScraperBlock = (title: string, promptText?: string) => {
+    const trimmedTitle = cleanGenericBlockTitle(title.trim(), promptText?.trim());
+    if (!trimmedTitle) return;
+    setCustomScraperBlocks((prev) => {
+      const filtered = prev.filter((b) => b.title.toLowerCase() !== trimmedTitle.toLowerCase());
+      const updated = [...filtered, { title: trimmedTitle, prompt: promptText?.trim() || undefined }];
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(updated));
+        }
+      } catch {}
+      return updated;
+    });
+    setNewBlockTitleInput("");
+    setNewBlockPromptInput("");
+  };
+
+  const handleRemoveCustomScraperBlock = (titleToRemove: string) => {
+    setCustomScraperBlocks((prev) => {
+      const updated = prev.filter((b) => b.title.toLowerCase() !== titleToRemove.toLowerCase());
+      try {
+        if (typeof window !== "undefined") {
+          if (updated.length > 0) {
+            window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(updated));
+          } else {
+            window.localStorage.removeItem("tgn_custom_scraper_blocks");
+          }
+        }
+      } catch {}
+      return updated;
+    });
+  };
+
+  const handleMoveCustomBlock = (index: number, direction: "up" | "down") => {
+    setCustomScraperBlocks((prev) => {
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[targetIndex];
+      copy[targetIndex] = temp;
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(copy));
+        }
+      } catch {}
+      return copy;
+    });
+  };
+
+  const handleStartEditBlock = (index: number) => {
+    const block = customScraperBlocks[index];
+    if (!block) return;
+    setEditingBlockIndex(index);
+    setEditingBlockTitle(block.title);
+    setEditingBlockPrompt(block.prompt || "");
+  };
+
+  const handleSaveEditBlock = () => {
+    if (editingBlockIndex === null) return;
+    const cleanTitle = cleanGenericBlockTitle(editingBlockTitle.trim(), editingBlockPrompt.trim());
+    if (!cleanTitle) return;
+    setCustomScraperBlocks((prev) => {
+      const copy = [...prev];
+      copy[editingBlockIndex] = {
+        title: cleanTitle,
+        prompt: editingBlockPrompt.trim() || undefined,
+      };
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(copy));
+        }
+      } catch {}
+      return copy;
+    });
+    setEditingBlockIndex(null);
+    setEditingBlockTitle("");
+    setEditingBlockPrompt("");
+  };
+
+  const handleCancelEditBlock = () => {
+    setEditingBlockIndex(null);
+    setEditingBlockTitle("");
+    setEditingBlockPrompt("");
   };
 
   // Sync draftsQueue with sessionStorage on any change
@@ -168,6 +333,23 @@ export default function AiScraperModal({
           urls: urlsToProcess,
           provider: aiProvider,
           apiKey: customApiKey.trim() || undefined,
+          customTitlePrompt: customTitlePrompt.trim() || undefined,
+          customDescriptionPrompt: customDescPrompt.trim() || undefined,
+          includeScoreScout,
+          customBlocks: customScraperBlocks,
+          categoriesPayload: categories && categories.length ? categories.map((c: any) => ({
+            id: c.id,
+            description: c.description,
+            taxonomyType: c.taxonomyType,
+            parentId: c.parentId,
+            blockId: c.blockId,
+          })) : undefined,
+          filterGroupsPayload: filterGroups && filterGroups.length ? filterGroups.map((g: any) => ({
+            id: g.id,
+            label: g.label,
+            taxonomyType: g.taxonomyType,
+            options: g.options,
+          })) : undefined,
         }),
       });
 
@@ -463,6 +645,346 @@ export default function AiScraperModal({
               {successNotice}
             </div>
           )}
+
+          {/* Custom AI Options & Fixed Prompts Section */}
+          <div className="rounded-2xl border border-cyan-200 bg-gradient-to-b from-cyan-50/70 to-slate-50/70 p-4 text-xs space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-cyan-100/80 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-[#007D92] flex items-center gap-1.5 text-sm">
+                  <Sparkles className="h-4 w-4 text-[#00A9C6]" />
+                  Configuración de Prompts e Instrucciones Fijas de IA
+                </span>
+                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#006070]">
+                  Personalización Permanente
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500">
+                Se guarda en tu navegador y se aplica automáticamente en cada scraping futuro
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 1. Custom Title Prompt */}
+              <div className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                    <span>📌 Prompt para Título</span>
+                  </label>
+                  {customTitlePrompt ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSaveTitlePrompt("")}
+                      className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Restablecer
+                    </button>
+                  ) : null}
+                </div>
+                <p className="text-[11px] text-slate-500 leading-tight">
+                  Indicaciones para el estilo del título (ej: especialista de marketing, clientes extranjeros, tono empático).
+                </p>
+                <textarea
+                  rows={2}
+                  value={customTitlePrompt}
+                  onChange={(e) => handleSaveTitlePrompt(e.target.value)}
+                  placeholder="Ej: Actúa como especialista en marketing digital, orientado a clientes extranjeros, títulos llamativos y humanos..."
+                  className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                  disabled={isProcessing}
+                />
+                <div className="flex flex-wrap gap-1 pt-1 text-[10px]">
+                  {[
+                    "Especialista en marketing y conversión",
+                    "Enfoque clientes extranjeros",
+                    "Tono humano y cercano",
+                    "Nombre oficial con subtítulo destacado",
+                    "Corto, limpio y directo",
+                  ].map((sug) => (
+                    <button
+                      key={sug}
+                      type="button"
+                      onClick={() => handleSaveTitlePrompt(customTitlePrompt ? `${customTitlePrompt}. ${sug}` : sug)}
+                      className="rounded border border-cyan-100 bg-cyan-50/50 px-1.5 py-0.5 text-cyan-800 hover:bg-cyan-100 transition cursor-pointer"
+                    >
+                      + {sug}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. Custom Description Prompt */}
+              <div className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                    <span>📝 Prompt para Descripción Principal</span>
+                  </label>
+                  {customDescPrompt ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSaveDescPrompt("")}
+                      className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Restablecer
+                    </button>
+                  ) : null}
+                </div>
+                <p className="text-[11px] text-slate-500 leading-tight">
+                  Indicaciones de redacción (ej: estructura de servicios, tono empático, sin precios, sin emojis ni frases genéricas).
+                </p>
+                <textarea
+                  rows={2}
+                  value={customDescPrompt}
+                  onChange={(e) => handleSaveDescPrompt(e.target.value)}
+                  placeholder="Ej: Explicar servicio por servicio con detalle, redacción clara y profesional, sin precios ni aranceles..."
+                  className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                  disabled={isProcessing}
+                />
+                <div className="flex flex-wrap gap-1 pt-1 text-[10px]">
+                  {[
+                    "Sin precios ni aranceles",
+                    "Sin emojis ni viñetas genéricas",
+                    "Explicar cada servicio en detalle",
+                    "Resumen ejecutivo formal",
+                    "Enfocado en historia y trayectoria",
+                  ].map((sug) => (
+                    <button
+                      key={sug}
+                      type="button"
+                      onClick={() => handleSaveDescPrompt(customDescPrompt ? `${customDescPrompt}. ${sug}` : sug)}
+                      className="rounded border border-cyan-100 bg-cyan-50/50 px-1.5 py-0.5 text-cyan-800 hover:bg-cyan-100 transition cursor-pointer"
+                    >
+                      + {sug}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Bloques Opcionales de Descripción */}
+            <div className="rounded-xl border border-purple-200 bg-white p-3.5 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-purple-900 text-xs flex items-center gap-1">
+                    <Bot className="h-4 w-4 text-purple-600" />
+                    Bloques Opcionales de Descripción
+                  </span>
+                  <span className="text-[11px] text-purple-700">
+                    (Se generan automáticamente debajo de la descripción principal)
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400">
+                  Podés eliminar o agregar bloques según lo que necesites
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Score Scout Block Card */}
+                {includeScoreScout ? (
+                  <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-emerald-900 text-xs">Score Scout</span>
+                        <span className="rounded bg-emerald-200/80 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800">
+                          Auditoría
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-emerald-700 leading-tight">
+                        Puntuación y confianza institucional calculada por IA.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleScoreScout(false)}
+                      title="Eliminar bloque Score Scout (no aparecerá en futuros scrapings)"
+                      className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Eliminar bloque
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                    <div className="text-[11px] text-slate-500">
+                      <span className="line-through font-medium text-slate-400">Score Scout</span>
+                      <span className="text-[10px] block text-slate-400">Bloque eliminado de futuros scrapings</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleScoreScout(true)}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
+                    >
+                      + Restaurar Score Scout
+                    </button>
+                  </div>
+                )}
+
+                {/* Other Custom Blocks */}
+                {customScraperBlocks.map((b, bIdx) => {
+                  const isEditing = editingBlockIndex === bIdx;
+                  return (
+                    <div
+                      key={bIdx}
+                      className="rounded-xl border border-purple-200 bg-purple-50/50 p-2.5 transition space-y-2"
+                    >
+                      {isEditing ? (
+                        <div className="space-y-2 bg-white/90 p-2.5 rounded-lg border border-purple-300">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-purple-900">Editar Bloque Opcional</span>
+                            <span className="text-[10px] text-slate-500">Posición {bIdx + 1} de {customScraperBlocks.length}</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Título del bloque:</label>
+                              <input
+                                type="text"
+                                value={editingBlockTitle}
+                                onChange={(e) => setEditingBlockTitle(e.target.value)}
+                                className="w-full rounded-lg border border-purple-300 bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                placeholder="Título del bloque"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Prompt o instrucción para la IA:</label>
+                              <input
+                                type="text"
+                                value={editingBlockPrompt}
+                                onChange={(e) => setEditingBlockPrompt(e.target.value)}
+                                className="w-full rounded-lg border border-purple-300 bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                placeholder="Prompt para la IA (ej: hazme o generame 10 preguntas con respuestas)"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={handleCancelEditBlock}
+                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSaveEditBlock}
+                              className="rounded-lg bg-purple-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-purple-700 cursor-pointer shadow-xs"
+                            >
+                              Guardar Cambios
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="space-y-0.5 overflow-hidden pr-2 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-purple-900 text-xs truncate">{b.title}</span>
+                              <span className="rounded bg-purple-200/80 px-1.5 py-0.2 text-[9px] font-bold text-purple-800">
+                                Personalizado
+                              </span>
+                            </div>
+                            {b.prompt ? (
+                              <p className="text-[10px] text-purple-700 truncate" title={b.prompt}>
+                                <span className="font-semibold text-purple-900">Prompt:</span> {b.prompt}
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-slate-400">Extracción automática de contenido</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Reorder Arrows */}
+                            <div className="flex items-center border border-purple-200 rounded-lg bg-white overflow-hidden shadow-xs">
+                              <button
+                                type="button"
+                                onClick={() => handleMoveCustomBlock(bIdx, "up")}
+                                disabled={bIdx === 0}
+                                title="Subir posición de este bloque"
+                                className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition border-r border-purple-100"
+                              >
+                                <ArrowUp className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMoveCustomBlock(bIdx, "down")}
+                                disabled={bIdx === customScraperBlocks.length - 1}
+                                title="Bajar posición de este bloque"
+                                className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition"
+                              >
+                                <ArrowDown className="h-3 w-3" />
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditBlock(bIdx)}
+                              title="Editar título o prompt de este bloque"
+                              className="rounded-lg border border-purple-200 bg-white px-2 py-1 text-[11px] font-semibold text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition flex items-center gap-1 cursor-pointer shadow-xs"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Editar prompt
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCustomScraperBlock(b.title)}
+                              title="Eliminar este bloque"
+                              className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              Eliminar bloque
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add New Custom Block */}
+              <div className="border-t border-purple-100 pt-2.5">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700 text-xs">
+                      + Añadir nuevo bloque opcional para futuros scrapings:
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Definí el título y la instrucción para que la IA extraiga o genere ese contenido
+                    </span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <input
+                      type="text"
+                      value={newBlockTitleInput}
+                      onChange={(e) => setNewBlockTitleInput(e.target.value)}
+                      placeholder="Título del bloque (ej: Preguntas Frecuentes, Requisitos...)"
+                      className="w-full sm:w-1/2 h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-[#00A9C6]"
+                      disabled={isProcessing}
+                    />
+                    <input
+                      type="text"
+                      value={newBlockPromptInput}
+                      onChange={(e) => setNewBlockPromptInput(e.target.value)}
+                      placeholder="Prompt o instrucción para la IA (ej: extraer 10 preguntas y respuestas en formato...)"
+                      className="flex-1 h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-[#00A9C6]"
+                      disabled={isProcessing}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newBlockTitleInput.trim()) {
+                          e.preventDefault();
+                          handleAddCustomScraperBlock(newBlockTitleInput, newBlockPromptInput);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddCustomScraperBlock(newBlockTitleInput, newBlockPromptInput)}
+                      disabled={isProcessing || !newBlockTitleInput.trim()}
+                      className="h-8 px-3 rounded-lg bg-[#00A9C6] text-xs font-bold text-white hover:bg-[#0095AE] disabled:opacity-50 transition cursor-pointer shrink-0"
+                    >
+                      + Añadir bloque
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <div className="flex flex-wrap items-center gap-2">
