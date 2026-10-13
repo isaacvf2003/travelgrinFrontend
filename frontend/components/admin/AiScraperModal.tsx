@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Bot, Sparkles, X, Trash2, Plus, Info, RefreshCw, FileText, Check, Settings2, ArrowUp, ArrowDown, Pencil } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Bot, Sparkles, X, Trash2, Plus, Info, RefreshCw, FileText, Check, Settings2, ArrowUp, ArrowDown, Pencil, Play, Pause, StopCircle, CheckCircle2, AlertCircle, Clock, Loader2, ArrowRight, ExternalLink } from "lucide-react";
 import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
 
 export type I18nRecord = Record<string, string>;
@@ -58,11 +58,168 @@ export interface ScrapedPublicationDraft {
   providerActivities?: string[];
   providerTypes?: string[];
   providerModalities?: string[];
+  destinationCountries?: string[];
+  providerActivity?: string;
+  providerType?: string;
   scrapedHeadings?: string[];
   scrapedParagraphs?: string[];
   scrapedTextContent?: string;
   rawPageTitle?: string;
   status?: "active" | "draft" | "paused";
+}
+
+export interface BulkQueueItem {
+  id: string;
+  url: string;
+  status: "pending" | "processing" | "completed" | "error";
+  draft?: ScrapedPublicationDraft;
+  error?: string;
+}
+
+export function cleanDraftItem(pub: any, categories?: any[]): ScrapedPublicationDraft {
+  const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
+
+  let catSelections = Array.isArray(pub.categorySelections) && pub.categorySelections.length > 0 && pub.categorySelections[0] !== "General"
+    ? pub.categorySelections
+    : (pub.category && pub.category !== "General" ? [pub.category] : []);
+  let subSelections = Array.isArray(pub.subcategorySelections) && pub.subcategorySelections.length > 0 && pub.subcategorySelections[0] !== "General"
+    ? pub.subcategorySelections
+    : (pub.subcategory && pub.subcategory !== "General" ? [pub.subcategory] : []);
+
+  // Fallback to local categories catalog if backend returned General or empty
+  if (catSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
+    const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
+    const catRoots = categories.filter((c: any) => !c.parentId && (c.taxonomyType === "categoria" || !c.taxonomyType));
+    const scored = catRoots.map((r: any) => {
+      const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const tokens = rNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|servicios|general/i.test(t));
+      let s = 0;
+      if (fullCorpus.includes(rNorm)) s += 40;
+      for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
+      return { name: r.description, score: s };
+    }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
+
+    if (scored.length > 0) {
+      catSelections = scored.slice(0, 3).map((x: any) => x.name);
+    }
+  }
+
+  // Fallback to local subcategories catalog if empty
+  if (subSelections.length === 0 && Array.isArray(categories) && categories.length > 0 && catSelections.length > 0) {
+    const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
+    const matchedParentCats = categories.filter((c: any) => !c.parentId && catSelections.includes(c.description));
+    const childCandidates = categories.filter((c: any) => c.parentId && matchedParentCats.some((p: any) => p.id === c.parentId));
+    if (childCandidates.length > 0) {
+      const scoredSubs = childCandidates.map((sub: any) => {
+        const sNorm = sub.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const tokens = sNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|general/i.test(t));
+        let s = 0;
+        if (fullCorpus.includes(sNorm)) s += 40;
+        for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
+        return { name: sub.description, score: s };
+      }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
+
+      if (scoredSubs.length > 0) {
+        subSelections = scoredSubs.slice(0, 3).map((x: any) => x.name);
+      } else {
+        const defaultSubs: string[] = [];
+        matchedParentCats.forEach((parent: any) => {
+          const firstChild = childCandidates.find((c: any) => c.parentId === parent.id);
+          if (firstChild && !defaultSubs.includes(firstChild.description)) {
+            defaultSubs.push(firstChild.description);
+          }
+        });
+        if (defaultSubs.length > 0) {
+          subSelections = defaultSubs;
+        } else if (childCandidates[0]?.description) {
+          subSelections = [childCandidates[0].description];
+        }
+      }
+    }
+  }
+
+  // Fallback to local activities catalog if empty
+  let actSelections = Array.isArray(pub.providerActivities) && pub.providerActivities.length > 0
+    ? pub.providerActivities
+    : [];
+  if (actSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
+    const actRoots = categories.filter((c: any) => !c.parentId && c.taxonomyType === "actividad");
+    if (actRoots.length > 0) {
+      const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
+      const scored = actRoots.map((r: any) => {
+        const rNorm = String(r.description || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const tokens = rNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|servicios|general/i.test(t));
+        let s = 0;
+        if (fullCorpus.includes(rNorm)) s += 40;
+        for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
+        return { name: r.description, score: s };
+      }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
+      if (scored.length > 0) {
+        actSelections = [scored[0].name];
+        if (scored[1] && scored[1].score >= 25) actSelections.push(scored[1].name);
+      } else {
+        actSelections = [actRoots[0].description];
+      }
+    }
+  }
+
+  // Fallback to local types catalog if empty
+  let typeSelections = Array.isArray(pub.providerTypes) && pub.providerTypes.length > 0
+    ? pub.providerTypes
+    : [];
+  if (typeSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
+    const typeRoots = categories.filter((c: any) => !c.parentId && ["tipo", "tipos"].includes(c.taxonomyType));
+    if (typeRoots.length > 0) {
+      const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""}`.toLowerCase();
+      const isGov = /\b(\.gov|\.gob|\.mil)\b/i.test(pub.url || "") || /public|gobierno|ministerio|nacional/i.test(fullCorpus);
+      if (isGov) {
+        const pubMatch = typeRoots.find((r: any) => /public|estatal/i.test(String(r.description || "")));
+        typeSelections = [pubMatch ? pubMatch.description : typeRoots[0].description];
+      } else {
+        const profMatch = typeRoots.find((r: any) => /profesional|independiente|particular/i.test(String(r.description || "")));
+        const privMatch = typeRoots.find((r: any) => /privad|empresa|instituci/i.test(String(r.description || "")));
+        typeSelections = [profMatch ? profMatch.description : privMatch ? privMatch.description : typeRoots[0].description];
+      }
+    }
+  }
+
+  // Fallback to local modalities catalog if empty
+  let modSelections = Array.isArray(pub.providerModalities) && pub.providerModalities.length > 0
+    ? pub.providerModalities
+    : [];
+  if (modSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
+    const modRoots = categories.filter((c: any) => !c.parentId && c.taxonomyType === "modalidad");
+    if (modRoots.length > 0) {
+      const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
+      const presencial = modRoots.find((r: any) => /presencial|sede|sucursal/i.test(String(r.description || "")));
+      const online = modRoots.find((r: any) => /online|virtual|remoto|distancia/i.test(String(r.description || "")));
+      const picked: string[] = [];
+      if (presencial && (pub.locationAddress || /sede|sucursal|consultorio|direccion/i.test(fullCorpus))) picked.push(presencial.description);
+      if (online && /online|virtual|remoto|distancia|zoom|meet|web|portal/i.test(fullCorpus)) picked.push(online.description);
+      if (picked.length === 0) picked.push(presencial ? presencial.description : modRoots[0].description);
+      modSelections = picked;
+    }
+  }
+
+  const resolvedCat = catSelections[0] || (pub.category && pub.category !== "General" ? pub.category : "");
+  const resolvedSub = subSelections[0] || (pub.subcategory && pub.subcategory !== "General" ? pub.subcategory : "");
+
+  return {
+    ...pub,
+    category: resolvedCat,
+    subcategory: resolvedSub,
+    categorySelections: catSelections.length > 0 ? catSelections : (resolvedCat ? [resolvedCat] : []),
+    subcategorySelections: subSelections.length > 0 ? subSelections : (resolvedSub ? [resolvedSub] : []),
+    providerActivities: actSelections.length > 0 ? actSelections : (pub.providerActivities || []),
+    providerTypes: typeSelections.length > 0 ? typeSelections : (pub.providerTypes || []),
+    providerModalities: modSelections.length > 0 ? modSelections : (pub.providerModalities || []),
+    providerActivity: actSelections[0] || pub.providerActivity || "",
+    providerType: typeSelections[0] || pub.providerType || "",
+    destinationCountries: Array.isArray(pub.destinationCountries) ? pub.destinationCountries : undefined,
+    providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
+    images: (pub.images || []).filter((img: any) => img && !BAD_GFX.test(img)),
+    status: pub.status || "active",
+  };
 }
 
 interface AiScraperModalProps {
@@ -72,6 +229,7 @@ interface AiScraperModalProps {
   onApproveDirectly?: (draft: ScrapedPublicationDraft) => Promise<boolean>;
   categories?: any[];
   filterGroups?: any[];
+  onOpen?: () => void;
 }
 
 export default function AiScraperModal({
@@ -81,6 +239,7 @@ export default function AiScraperModal({
   onApproveDirectly,
   categories,
   filterGroups,
+  onOpen,
 }: AiScraperModalProps) {
   const [tab, setTab] = useState<"single" | "bulk">("single");
   const [aiProvider, setAiProvider] = useState<"auto" | "gemini" | "openai">("auto");
@@ -116,6 +275,13 @@ export default function AiScraperModal({
   const [draftForm, setDraftForm] = useState<ScrapedPublicationDraft | null>(null);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [customLogoInput, setCustomLogoInput] = useState("");
+
+  // Sequential Queue Worker state for URL-by-URL processing
+  const [bulkQueue, setBulkQueue] = useState<BulkQueueItem[]>([]);
+  const [isBulkRunning, setIsBulkRunning] = useState(false);
+  const [isBulkPaused, setIsBulkPaused] = useState(false);
+  const cancelBulkRef = useRef(false);
+  const isBulkPausedRef = useRef(false);
 
   // Restore queue from sessionStorage and customApiKey/prompts/blocks from localStorage on load
   useEffect(() => {
@@ -421,66 +587,48 @@ export default function AiScraperModal({
     } catch {}
   }, [draftsQueue]);
 
-  if (!isOpen) return null;
-
-  const handleGenerate = async () => {
-    setErrorMessage("");
-    setSuccessNotice("");
-    let urlsToProcess: string[] = [];
-
-    if (tab === "single") {
-      const trimmed = singleUrl.trim();
-      if (!trimmed) {
-        setErrorMessage("Por favor ingrese una URL válida.");
-        return;
-      }
-      urlsToProcess = [trimmed];
-    } else {
-      urlsToProcess = bulkUrlsText
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
-
-      if (!urlsToProcess.length) {
-        setErrorMessage("Por favor ingrese al menos una URL (una por línea).");
-        return;
-      }
+  const buildScrapePayload = (urls: string[]) => {
+    const effectivePrompts = [...customScraperPrompts];
+    if (newPromptInput.trim() && !effectivePrompts.some((p) => p.toLowerCase() === newPromptInput.trim().toLowerCase())) {
+      effectivePrompts.push(newPromptInput.trim());
     }
 
+    return {
+      urls,
+      provider: aiProvider,
+      apiKey: customApiKey.trim() || undefined,
+      customTitlePrompt: customTitlePrompt.trim() || undefined,
+      customDescriptionPrompt: customDescPrompt.trim() || undefined,
+      includeScoreScout,
+      customBlocks: customScraperBlocks,
+      customPrompts: effectivePrompts,
+      categoriesPayload: categories && categories.length ? categories.map((c: any) => ({
+        id: c.id,
+        description: c.description,
+        taxonomyType: c.taxonomyType,
+        parentId: c.parentId,
+        blockId: c.blockId,
+      })) : undefined,
+      filterGroupsPayload: filterGroups && filterGroups.length ? filterGroups.map((g: any) => ({
+        id: g.id,
+        label: g.label,
+        taxonomyType: g.taxonomyType,
+        options: g.options,
+      })) : undefined,
+    };
+  };
+
+  const handleGenerateSingle = async (targetUrl: string) => {
     setIsProcessing(true);
+    setErrorMessage("");
+    setSuccessNotice("");
 
     try {
-      const effectivePrompts = [...customScraperPrompts];
-      if (newPromptInput.trim() && !effectivePrompts.some((p) => p.toLowerCase() === newPromptInput.trim().toLowerCase())) {
-        effectivePrompts.push(newPromptInput.trim());
-      }
-
+      const payload = buildScrapePayload([targetUrl]);
       const res = await fetch("/api/admin/ai-scrape-publications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          urls: urlsToProcess,
-          provider: aiProvider,
-          apiKey: customApiKey.trim() || undefined,
-          customTitlePrompt: customTitlePrompt.trim() || undefined,
-          customDescriptionPrompt: customDescPrompt.trim() || undefined,
-          includeScoreScout,
-          customBlocks: customScraperBlocks,
-          customPrompts: effectivePrompts,
-          categoriesPayload: categories && categories.length ? categories.map((c: any) => ({
-            id: c.id,
-            description: c.description,
-            taxonomyType: c.taxonomyType,
-            parentId: c.parentId,
-            blockId: c.blockId,
-          })) : undefined,
-          filterGroupsPayload: filterGroups && filterGroups.length ? filterGroups.map((g: any) => ({
-            id: g.id,
-            label: g.label,
-            taxonomyType: g.taxonomyType,
-            options: g.options,
-          })) : undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const rawText = await res.text();
@@ -489,166 +637,19 @@ export default function AiScraperModal({
         data = JSON.parse(rawText);
       } catch {
         if (res.status === 504 || rawText.includes("504") || /gateway timeout|FUNCTION_INVOCATION_TIMEOUT/i.test(rawText)) {
-          throw new Error("El proceso de scraping tardó más del tiempo límite de Vercel (Timeout). Por favor intentalo nuevamente o con menos URLs.");
-        }
-        if (rawText.startsWith("An error occurred") || rawText.includes("<!DOCTYPE")) {
-          throw new Error(`Error en el servidor de IA (${res.status}). Por favor verificá que la URL sea pública o reintentá en unos momentos.`);
+          throw new Error("El proceso de scraping tardó más del tiempo límite de Vercel. Por favor reintentá en unos segundos.");
         }
         throw new Error(rawText.slice(0, 150) || "Error al procesar el scraping web con IA.");
       }
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Error al procesar el scraping web con IA.");
+      if (!res.ok || !data.success || !data.publications?.length) {
+        throw new Error(data.error || "No se pudo extraer la publicación.");
       }
 
-      // Strictly exclude tracking pixels, tiny spacers, generic UI widgets
-      const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
-
-      const generatedDrafts: ScrapedPublicationDraft[] = (data.publications || []).map(
-        (pub: ScrapedPublicationDraft) => {
-          let catSelections = Array.isArray(pub.categorySelections) && pub.categorySelections.length > 0 && pub.categorySelections[0] !== "General"
-            ? pub.categorySelections
-            : (pub.category && pub.category !== "General" ? [pub.category] : []);
-          let subSelections = Array.isArray(pub.subcategorySelections) && pub.subcategorySelections.length > 0 && pub.subcategorySelections[0] !== "General"
-            ? pub.subcategorySelections
-            : (pub.subcategory && pub.subcategory !== "General" ? [pub.subcategory] : []);
-
-          // Fallback to local categories catalog if backend returned General
-          if (catSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
-            const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
-            const catRoots = categories.filter((c: any) => !c.parentId && (c.taxonomyType === "categoria" || !c.taxonomyType));
-            const scored = catRoots.map((r: any) => {
-              const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-              const tokens = rNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|servicios|general/i.test(t));
-              let s = 0;
-              if (fullCorpus.includes(rNorm)) s += 40;
-              for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
-              return { name: r.description, score: s };
-            }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
-
-            if (scored.length > 0) {
-              catSelections = scored.slice(0, 3).map((x: any) => x.name);
-            }
-          }
-
-          // Fallback to local subcategories catalog if empty
-          if (subSelections.length === 0 && Array.isArray(categories) && categories.length > 0 && catSelections.length > 0) {
-            const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
-            const matchedParentCats = categories.filter((c: any) => !c.parentId && catSelections.includes(c.description));
-            const childCandidates = categories.filter((c: any) => c.parentId && matchedParentCats.some((p: any) => p.id === c.parentId));
-            if (childCandidates.length > 0) {
-              const scoredSubs = childCandidates.map((sub: any) => {
-                const sNorm = sub.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                const tokens = sNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|general/i.test(t));
-                let s = 0;
-                if (fullCorpus.includes(sNorm)) s += 40;
-                for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
-                return { name: sub.description, score: s };
-              }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
-
-              if (scoredSubs.length > 0) {
-                subSelections = scoredSubs.slice(0, 3).map((x: any) => x.name);
-              } else {
-                const defaultSubs: string[] = [];
-                matchedParentCats.forEach((parent: any) => {
-                  const firstChild = childCandidates.find((c: any) => c.parentId === parent.id);
-                  if (firstChild && !defaultSubs.includes(firstChild.description)) {
-                    defaultSubs.push(firstChild.description);
-                  }
-                });
-                if (defaultSubs.length > 0) {
-                  subSelections = defaultSubs;
-                } else if (childCandidates[0]?.description) {
-                  subSelections = [childCandidates[0].description];
-                }
-              }
-            }
-          }
-
-          // Fallback to local activities catalog if empty
-          let actSelections = Array.isArray(pub.providerActivities) && pub.providerActivities.length > 0
-            ? pub.providerActivities
-            : [];
-          if (actSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
-            const actRoots = categories.filter((c: any) => !c.parentId && c.taxonomyType === "actividad");
-            if (actRoots.length > 0) {
-              const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
-              const scored = actRoots.map((r: any) => {
-                const rNorm = String(r.description || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                const tokens = rNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|servicios|general/i.test(t));
-                let s = 0;
-                if (fullCorpus.includes(rNorm)) s += 40;
-                for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
-                return { name: r.description, score: s };
-              }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
-              if (scored.length > 0) {
-                actSelections = [scored[0].name];
-                if (scored[1] && scored[1].score >= 25) actSelections.push(scored[1].name);
-              } else {
-                actSelections = [actRoots[0].description];
-              }
-            }
-          }
-
-          // Fallback to local types catalog if empty
-          let typeSelections = Array.isArray(pub.providerTypes) && pub.providerTypes.length > 0
-            ? pub.providerTypes
-            : [];
-          if (typeSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
-            const typeRoots = categories.filter((c: any) => !c.parentId && ["tipo", "tipos"].includes(c.taxonomyType));
-            if (typeRoots.length > 0) {
-              const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""}`.toLowerCase();
-              const isGov = /\b(\.gov|\.gob|\.mil)\b/i.test(pub.url || "") || /public|gobierno|ministerio|nacional/i.test(fullCorpus);
-              if (isGov) {
-                const pubMatch = typeRoots.find((r: any) => /public|estatal/i.test(String(r.description || "")));
-                typeSelections = [pubMatch ? pubMatch.description : typeRoots[0].description];
-              } else {
-                const profMatch = typeRoots.find((r: any) => /profesional|independiente|particular/i.test(String(r.description || "")));
-                const privMatch = typeRoots.find((r: any) => /privad|empresa|instituci/i.test(String(r.description || "")));
-                typeSelections = [profMatch ? profMatch.description : privMatch ? privMatch.description : typeRoots[0].description];
-              }
-            }
-          }
-
-          // Fallback to local modalities catalog if empty
-          let modSelections = Array.isArray(pub.providerModalities) && pub.providerModalities.length > 0
-            ? pub.providerModalities
-            : [];
-          if (modSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
-            const modRoots = categories.filter((c: any) => !c.parentId && c.taxonomyType === "modalidad");
-            if (modRoots.length > 0) {
-              const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
-              const presencial = modRoots.find((r: any) => /presencial|sede|sucursal/i.test(String(r.description || "")));
-              const online = modRoots.find((r: any) => /online|virtual|remoto|distancia/i.test(String(r.description || "")));
-              const picked: string[] = [];
-              if (presencial && (pub.locationAddress || /sede|sucursal|consultorio|direccion/i.test(fullCorpus))) picked.push(presencial.description);
-              if (online && /online|virtual|remoto|distancia|zoom|meet|web|portal/i.test(fullCorpus)) picked.push(online.description);
-              if (picked.length === 0) picked.push(presencial ? presencial.description : modRoots[0].description);
-              modSelections = picked;
-            }
-          }
-
-          const resolvedCat = catSelections[0] || (pub.category && pub.category !== "General" ? pub.category : "");
-          const resolvedSub = subSelections[0] || (pub.subcategory && pub.subcategory !== "General" ? pub.subcategory : "");
-
-          return {
-            ...pub,
-            category: resolvedCat,
-            subcategory: resolvedSub,
-            categorySelections: catSelections.length > 0 ? catSelections : (resolvedCat ? [resolvedCat] : []),
-            subcategorySelections: subSelections.length > 0 ? subSelections : (resolvedSub ? [resolvedSub] : []),
-            providerActivities: actSelections.length > 0 ? actSelections : (pub.providerActivities || []),
-            providerTypes: typeSelections.length > 0 ? typeSelections : (pub.providerTypes || []),
-            providerModalities: modSelections.length > 0 ? modSelections : (pub.providerModalities || []),
-            providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
-            images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
-            status: pub.status || "active",
-          };
-        }
-      );
+      const cleanedDraft = cleanDraftItem(data.publications[0], categories);
 
       setDraftsQueue((prev) => {
-        const updated = [...generatedDrafts, ...prev];
+        const updated = [cleanedDraft, ...prev];
         try {
           if (typeof window !== "undefined") {
             window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
@@ -657,17 +658,189 @@ export default function AiScraperModal({
         return updated;
       });
 
-      if (tab === "single" && generatedDrafts.length === 1) {
-        setExpandedDraftIndex(0);
-        setDraftForm(generatedDrafts[0]);
-        setSuccessNotice("Publicación generada exitosamente. Se ha añadido al inicio de la cola.");
-      } else {
-        setSuccessNotice(`Se generaron ${generatedDrafts.length} borrador(es) en la cola de revisión.`);
-      }
+      setExpandedDraftIndex(0);
+      setDraftForm(cleanedDraft);
+      setSuccessNotice("Publicación analizada y generada exitosamente. Lista para revisar o pasar al formulario.");
     } catch (err: any) {
-      setErrorMessage(err.message || "No se pudo completar la extracción web.");
+      setErrorMessage(err?.message || "Error al procesar la URL con IA.");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const runBulkSequentialQueue = async (initialQueue: BulkQueueItem[]) => {
+    setIsBulkRunning(true);
+    setIsProcessing(true);
+    cancelBulkRef.current = false;
+    isBulkPausedRef.current = false;
+    setIsBulkPaused(false);
+    setErrorMessage("");
+    setSuccessNotice("");
+
+    for (let i = 0; i < initialQueue.length; i++) {
+      if (cancelBulkRef.current) break;
+
+      while (isBulkPausedRef.current && !cancelBulkRef.current) {
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      if (cancelBulkRef.current) break;
+
+      const item = initialQueue[i];
+      if (item.status === "completed") continue;
+
+      // Update item to processing
+      setBulkQueue((prev) =>
+        prev.map((it, idx) => (idx === i ? { ...it, status: "processing", error: undefined } : it))
+      );
+
+      try {
+        const payload = buildScrapePayload([item.url]);
+        const res = await fetch("/api/admin/ai-scrape-publications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const rawText = await res.text();
+        let data: any = null;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          throw new Error("Tiempo de respuesta excedido o error del servidor.");
+        }
+
+        if (!res.ok || !data.success || !data.publications?.length) {
+          throw new Error(data.error || "No se pudo extraer la web.");
+        }
+
+        const cleanedDraft = cleanDraftItem(data.publications[0], categories);
+
+        setBulkQueue((prev) =>
+          prev.map((it, idx) =>
+            idx === i ? { ...it, status: "completed", draft: cleanedDraft, error: undefined } : it
+          )
+        );
+
+        // Prepend directly to draftsQueue so it's instantly available in the review list
+        setDraftsQueue((prev) => {
+          const updated = [cleanedDraft, ...prev];
+          try {
+            if (typeof window !== "undefined") {
+              window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+            }
+          } catch {}
+          return updated;
+        });
+      } catch (err: any) {
+        setBulkQueue((prev) =>
+          prev.map((it, idx) =>
+            idx === i ? { ...it, status: "error", error: err?.message || "Fallo en la extracción" } : it
+          )
+        );
+      }
+    }
+
+    setIsBulkRunning(false);
+    setIsProcessing(false);
+    setSuccessNotice("Extracción secuencial masiva finalizada.");
+  };
+
+  const handleGenerate = async () => {
+    setErrorMessage("");
+    setSuccessNotice("");
+
+    if (tab === "single") {
+      const trimmed = singleUrl.trim();
+      if (!trimmed) {
+        setErrorMessage("Por favor ingrese una URL válida.");
+        return;
+      }
+      await handleGenerateSingle(trimmed);
+    } else {
+      const urls = bulkUrlsText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (!urls.length) {
+        setErrorMessage("Por favor ingrese al menos una URL (una por línea).");
+        return;
+      }
+
+      const newQueueItems: BulkQueueItem[] = urls.map((u, idx) => ({
+        id: `${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+        url: u,
+        status: "pending",
+      }));
+
+      setBulkQueue(newQueueItems);
+      await runBulkSequentialQueue(newQueueItems);
+    }
+  };
+
+  const handleTogglePauseBulk = () => {
+    const nextPaused = !isBulkPaused;
+    isBulkPausedRef.current = nextPaused;
+    setIsBulkPaused(nextPaused);
+  };
+
+  const handleCancelBulk = () => {
+    cancelBulkRef.current = true;
+    setIsBulkRunning(false);
+    setIsProcessing(false);
+    setIsBulkPaused(false);
+    setBulkQueue((prev) =>
+      prev.map((it) => (it.status === "processing" || it.status === "pending" ? { ...it, status: "pending" } : it))
+    );
+    setSuccessNotice("Proceso de scraping masivo detenido.");
+  };
+
+  const handleClearBulkQueue = () => {
+    if (isBulkRunning) handleCancelBulk();
+    setBulkQueue([]);
+  };
+
+  const handleRetryBulkItem = async (itemId: string) => {
+    const targetIdx = bulkQueue.findIndex((it) => it.id === itemId);
+    if (targetIdx === -1) return;
+    const target = bulkQueue[targetIdx];
+
+    setBulkQueue((prev) =>
+      prev.map((it, idx) => (idx === targetIdx ? { ...it, status: "processing", error: undefined } : it))
+    );
+
+    try {
+      const payload = buildScrapePayload([target.url]);
+      const res = await fetch("/api/admin/ai-scrape-publications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.publications?.length) {
+        throw new Error(data.error || "No se pudo extraer la publicación.");
+      }
+      const cleaned = cleanDraftItem(data.publications[0], categories);
+      setBulkQueue((prev) =>
+        prev.map((it, idx) => (idx === targetIdx ? { ...it, status: "completed", draft: cleaned, error: undefined } : it))
+      );
+      setDraftsQueue((prev) => [cleaned, ...prev]);
+    } catch (err: any) {
+      setBulkQueue((prev) =>
+        prev.map((it, idx) => (idx === targetIdx ? { ...it, status: "error", error: err?.message || "Error al reintentar" } : it))
+      );
+    }
+  };
+
+  const handlePassDraftToForm = (draft: ScrapedPublicationDraft) => {
+    try {
+      const preparedDraft = ensureCustomBlocksInDraft(draft);
+      onSelectDraftToEdit(preparedDraft);
+    } catch (err) {
+      console.error("[AiScraperModal] Error pasando borrador al formulario:", err);
+      onSelectDraftToEdit(draft);
+    } finally {
+      onClose();
     }
   };
 
@@ -1060,6 +1233,41 @@ export default function AiScraperModal({
     });
   };
 
+  if (!isOpen) {
+    if (isBulkRunning || bulkQueue.length > 0) {
+      const completedCount = bulkQueue.filter((q) => q.status === "completed").length;
+      return (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/95 px-4 py-3 text-white shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-300">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-3 w-3">
+              {isBulkRunning && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>}
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${isBulkRunning ? "bg-cyan-500" : "bg-emerald-500"}`}></span>
+            </span>
+            <div className="text-xs">
+              <p className="font-bold flex items-center gap-1.5">
+                <span>🤖 Scraping IA</span>
+                <span className="text-cyan-400 font-extrabold">{completedCount}/{bulkQueue.length} listos</span>
+              </p>
+              <p className="text-[10px] text-slate-400">
+                {isBulkRunning ? "Procesando en segundo plano..." : "Listos para pasar al formulario"}
+              </p>
+            </div>
+          </div>
+          {onOpen && (
+            <button
+              type="button"
+              onClick={onOpen}
+              className="rounded-lg bg-[#00A9C6] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#0095AE] transition cursor-pointer shadow-sm"
+            >
+              Ver cola
+            </button>
+          )}
+        </div>
+      );
+    }
+    return null;
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto">
       <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 my-4 sm:my-8 relative">
@@ -1125,16 +1333,237 @@ export default function AiScraperModal({
           ) : (
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                URLs a escrapear (una por línea, máx. 10)
+                URLs a escrapear (una por línea, investigación secuencial una a una)
               </label>
               <textarea
                 value={bulkUrlsText}
                 onChange={(e) => setBulkUrlsText(e.target.value)}
-                rows={5}
+                rows={4}
                 placeholder={"https://osepmendoza.com.ar/web/\nhttps://hospitalitaliano.org.ar\nhttps://estudiojuridico.com"}
-                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30 font-mono text-xs"
                 disabled={isProcessing}
               />
+              <p className="text-[11px] text-slate-500 mt-1">
+                💡 Cada URL se investiga de forma independiente y secuencial. Podés pasar cada publicación lista al formulario principal mientras la IA continúa analizando las siguientes en segundo plano.
+              </p>
+            </div>
+          )}
+
+          {/* Panel de Cola Masiva URL por URL en Tiempo Real */}
+          {bulkQueue.length > 0 && (
+            <div className="rounded-2xl border border-cyan-300/80 bg-gradient-to-b from-cyan-50/40 via-white to-slate-50/50 p-4 shadow-sm space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cyan-100 pb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>🚀 Cola de Extracción Masiva URL por URL</span>
+                    {isBulkRunning && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#006070] animate-pulse">
+                        <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-ping" />
+                        Investigando en vivo
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Podés pasar cada publicación lista al formulario principal mientras la IA continúa analizando las siguientes.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {isBulkRunning ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleTogglePauseBulk}
+                        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs cursor-pointer flex items-center gap-1"
+                      >
+                        {isBulkPaused ? "▶ Reanudar" : "⏸ Pausar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelBulk}
+                        className="rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 shadow-xs cursor-pointer flex items-center gap-1"
+                      >
+                        ⏹ Cancelar restante
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {bulkQueue.some((q) => q.status === "pending" || q.status === "error") && (
+                        <button
+                          type="button"
+                          onClick={() => runBulkSequentialQueue(bulkQueue)}
+                          className="rounded-lg bg-[#00A9C6] px-3 py-1 text-xs font-bold text-white hover:bg-[#0095AE] shadow-xs cursor-pointer flex items-center gap-1"
+                        >
+                          ▶ Reanudar pendientes
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleClearBulkQueue}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-xs cursor-pointer flex items-center gap-1"
+                      >
+                        Limpiar cola
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Métricas y Estado */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+                <div className="rounded-xl border border-slate-200 bg-white p-2">
+                  <p className="text-[10px] text-slate-500 font-semibold uppercase">Total URLs</p>
+                  <p className="text-base font-extrabold text-slate-800">{bulkQueue.length}</p>
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-2">
+                  <p className="text-[10px] text-emerald-700 font-semibold uppercase">Listas</p>
+                  <p className="text-base font-extrabold text-emerald-800">
+                    {bulkQueue.filter((q) => q.status === "completed").length}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-cyan-200 bg-cyan-50/70 p-2">
+                  <p className="text-[10px] text-cyan-700 font-semibold uppercase">En curso</p>
+                  <p className="text-base font-extrabold text-cyan-800">
+                    {bulkQueue.filter((q) => q.status === "processing").length}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
+                  <p className="text-[10px] text-slate-500 font-semibold uppercase">En espera</p>
+                  <p className="text-base font-extrabold text-slate-600">
+                    {bulkQueue.filter((q) => q.status === "pending").length}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-2">
+                  <p className="text-[10px] text-rose-700 font-semibold uppercase">Errores</p>
+                  <p className="text-base font-extrabold text-rose-800">
+                    {bulkQueue.filter((q) => q.status === "error").length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Barra de Progreso */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                  <span>
+                    Progreso: {bulkQueue.filter((q) => q.status === "completed").length} de {bulkQueue.length} analizadas
+                  </span>
+                  <span>
+                    {Math.round(
+                      (bulkQueue.filter((q) => q.status === "completed").length / (bulkQueue.length || 1)) * 100
+                    )}%
+                  </span>
+                </div>
+                <div className="h-2.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#00A9C6] to-emerald-500 transition-all duration-500"
+                    style={{
+                      width: `${Math.round(
+                        (bulkQueue.filter((q) => q.status === "completed").length / (bulkQueue.length || 1)) * 100
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Items de la Cola */}
+              <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1 pt-1">
+                {bulkQueue.map((item, qIdx) => (
+                  <div
+                    key={item.id}
+                    className={`rounded-xl border p-3 transition flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                      item.status === "completed"
+                        ? "border-emerald-200 bg-emerald-50/50 shadow-xs"
+                        : item.status === "processing"
+                        ? "border-cyan-300 bg-cyan-50/70 shadow-xs ring-1 ring-cyan-200"
+                        : item.status === "error"
+                        ? "border-rose-200 bg-rose-50/50"
+                        : "border-slate-200 bg-white"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold text-slate-400">#{qIdx + 1}</span>
+                        {item.status === "completed" && (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+                            ✓ Lista para revisar
+                          </span>
+                        )}
+                        {item.status === "processing" && (
+                          <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-cyan-800 flex items-center gap-1 animate-pulse">
+                            ⏳ Analizando con IA...
+                          </span>
+                        )}
+                        {item.status === "pending" && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                            En espera
+                          </span>
+                        )}
+                        {item.status === "error" && (
+                          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800 flex items-center gap-1">
+                            ✕ Error
+                          </span>
+                        )}
+                        <span className="text-xs font-semibold text-slate-800 truncate" title={item.url}>
+                          {item.draft?.publisherName || item.draft?.title || item.url}
+                        </span>
+                      </div>
+
+                      {item.draft && (
+                        <p className="text-[11px] text-slate-600 truncate mt-0.5">
+                          <span className="font-semibold text-cyan-800">
+                            {item.draft.categorySelections?.[0] || item.draft.category || "General"}
+                          </span>
+                          {item.draft.city ? ` · ${item.draft.city}` : ""}
+                          {item.draft.providerRating && item.draft.providerRating !== "0"
+                            ? ` · ⭐ ${item.draft.providerRating}`
+                            : ""}
+                        </p>
+                      )}
+
+                      {item.error && (
+                        <p className="text-[11px] text-rose-600 mt-0.5">{item.error}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {item.status === "completed" && item.draft && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handlePassDraftToForm(item.draft!)}
+                            className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-xs cursor-pointer flex items-center gap-1"
+                          >
+                            📝 Pasar a Formulario Principal
+                          </button>
+                          {onApproveDirectly && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const ok = await onApproveDirectly(item.draft!);
+                                if (ok) {
+                                  setSuccessNotice(`Publicación "${item.draft?.title}" aprobada directamente.`);
+                                }
+                              }}
+                              className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 shadow-xs cursor-pointer"
+                            >
+                              ⚡ Aprobar directo
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {item.status === "error" && (
+                        <button
+                          type="button"
+                          onClick={() => handleRetryBulkItem(item.id)}
+                          className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs cursor-pointer"
+                        >
+                          🔄 Reintentar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -1517,9 +1946,23 @@ export default function AiScraperModal({
               type="button"
               onClick={handleGenerate}
               disabled={isProcessing}
-              className="h-10 rounded-xl bg-[#00A9C6] px-5 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50 transition shadow-sm cursor-pointer"
+              className="h-10 rounded-xl bg-[#00A9C6] px-5 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50 transition shadow-sm cursor-pointer flex items-center gap-2"
             >
-              {isProcessing ? "Extrayendo y generando..." : "Generar con IA"}
+              {isBulkRunning ? (
+                <>
+                  <span className="inline-block animate-spin">⏳</span>
+                  <span>Extrayendo cola masiva...</span>
+                </>
+              ) : isProcessing ? (
+                <>
+                  <span className="inline-block animate-spin">⏳</span>
+                  <span>Extrayendo y analizando...</span>
+                </>
+              ) : tab === "bulk" ? (
+                "🚀 Iniciar Scraping Masivo (URL por URL)"
+              ) : (
+                "✨ Generar con IA"
+              )}
             </button>
           </div>
 
