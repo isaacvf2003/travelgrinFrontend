@@ -1028,13 +1028,175 @@ async function enrichWithLiveGoogleMapsAndSearch(
 
   const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-  // Always generate canonical Google Maps comments and search URL for the institution
-  const placeQuery = [officialFullName || cleanName, mainAddress, city, country].filter(Boolean).join(", ");
-  if (!extracted.detectedCommentsUrl) {
-    extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
+  // Fast targeted queries executed in parallel (including clean address for exact Sede Principal match)
+  const candidateQueries = [
+    mainAddress ? `${officialFullName || cleanName} ${mainAddress} ${city}` : null,
+    mainAddress ? `${officialFullName || cleanName} ${mainAddress}` : null,
+    mainAddress ? `${cleanName} ${mainAddress} ${city}` : null,
+    mainAddress ? `${cleanName} ${mainAddress}` : null,
+    `${officialFullName || cleanName} sede central ${city}`,
+    `${officialFullName || cleanName} casa central ${city}`,
+    `${officialFullName || cleanName} campus ${city}`,
+    officialFullName && officialFullName !== city ? `${officialFullName} ${city}` : null,
+    officialFullName && officialFullName !== cleanName ? officialFullName : null,
+    `${cleanName} ${city}`,
+    officialFullName || cleanName,
+  ].filter(Boolean) as string[];
+
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 5);
+
+  const searchPromises = uniqueQueries.map(async (q) => {
+    try {
+      const gmapsUrl = "https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=" + encodeURIComponent(q.trim());
+      const gmapsRes = await fetchWithTimeout(
+        gmapsUrl,
+        {
+          headers: {
+            "User-Agent": userAgent,
+            "Accept-Language": "es-ES,es;q=0.9",
+          },
+        },
+        2200
+      );
+      if (!gmapsRes.ok) return null;
+      return await gmapsRes.text();
+    } catch {
+      return null;
+    }
+  });
+
+  const results = await Promise.allSettled(searchPromises);
+  for (const res of results) {
+    if (res.status !== "fulfilled" || !res.value) continue;
+    const text = res.value;
+
+    // Check for direct place rating/review match
+    const m1 = text.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null,null,\["https?:/);
+    const m2 = text.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{2,7})\]/);
+    const m3 = text.match(/(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/);
+    const mDirect = m1 || m2 || m3;
+
+    if (mDirect) {
+      const numRating = parseFloat(mDirect[1]);
+      const numReviews = parseInt(mDirect[2], 10);
+      if (!isNaN(numRating) && numRating >= 1 && numRating <= 5 && !extracted.detectedRating) {
+        extracted.detectedRating = numRating.toFixed(1);
+      }
+      if (!isNaN(numReviews) && numReviews > 0 && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0")) {
+        extracted.detectedReviewCount = String(numReviews);
+      }
+      if (!extracted.detectedCommentsUrl) {
+        const placeQuery = (officialFullName || cleanName) + (mainAddress ? `, ${mainAddress}` : "") + (city ? `, ${city}` : "");
+        extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
+        if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+      }
+    }
+
+    // Secondary text extraction if direct array pattern was not present
+    if (!extracted.detectedRating) {
+      const rMatch = text.match(/([1-5]\.\d)\s*(?:estrellas?|stars?|⭐|★)/i) ||
+                     text.match(/aria-label=["']([1-5][.,]\d)\s*(?:estrellas?|stars?)/i);
+      if (rMatch && rMatch[1]) {
+        const num = parseFloat(rMatch[1].replace(",", "."));
+        if (!isNaN(num) && num >= 1 && num <= 5) extracted.detectedRating = num.toFixed(1);
+      }
+    }
+    if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
+      const cMatch = text.match(/(?:\(\s*|[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews)\b/i);
+      if (cMatch && cMatch[1]) {
+        let countRaw = cMatch[1].replace(/,/g, ".");
+        let isThousand = /k|mil/i.test(cMatch[0]);
+        let numCount = parseFloat(countRaw);
+        if (isThousand) numCount = numCount * 1000;
+        const parsedCount = Math.round(numCount);
+        if (!isNaN(parsedCount) && parsedCount > 0) extracted.detectedReviewCount = String(parsedCount);
+      }
+    }
+
+    // Check for founding year in Google Maps place info / knowledge snippet
+    if (!extracted.detectedFoundingYear) {
+      const currentYear = new Date().getFullYear();
+      const mFound = text.match(/(?:fundaci[oó]n|fundad[oa]|inaugurad[oa]|inauguraci[oó]n|abierto desde|desde el a[nñ]o|apertura|inici[oó]|cread[oa]|sancionad[oa]|personer[ií]a)\s*:?\s*(?:en|el|del)?\s*(1[6-9]\d{2}|20[0-2]\d)\b/i) ||
+                     text.match(/(?:desde|since|est\.|establ\.)\s*(1[6-9]\d{2}|20[0-2]\d)\b/i);
+      if (mFound && mFound[1]) {
+        const numYr = parseInt(mFound[1], 10);
+        if (!isNaN(numYr) && numYr >= 1600 && numYr <= currentYear) {
+          extracted.detectedFoundingYear = String(numYr);
+        }
+      }
+
+      // Check for years in business pattern in Google Maps place listing (e.g. "X años en el sector", "hace X años")
+      const mYearsInBiz = text.match(/(?:hace|m[aá]s de|\+)?\s*(\d{1,3})\s*a[nñ]os\s*(?:en el sector|de experiencia|de trayectoria|abierto)/i);
+      if (!extracted.detectedFoundingYear && mYearsInBiz && mYearsInBiz[1]) {
+        const yrs = parseInt(mYearsInBiz[1], 10);
+        if (!isNaN(yrs) && yrs >= 1 && yrs <= 150) {
+          extracted.detectedFoundingYear = String(currentYear - yrs);
+        }
+      }
+    }
+
+    if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0" && extracted.detectedFoundingYear) break;
   }
-  if (!extracted.detectedMapsUrl) {
-    extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+
+  // Fast targeted Search fallback (timeout 1800ms) only if founding year or ratings are still completely missing
+  if ((!extracted.detectedRating || !extracted.detectedFoundingYear) && cleanName) {
+    try {
+      const webQuery = !extracted.detectedFoundingYear
+        ? `"${officialFullName || cleanName}" ("fundación" OR "fundado en" OR "inicio de actividades" OR "creada por ley" OR "historia" OR "Google Maps")`
+        : `"${officialFullName || cleanName}" ("sede central" OR "${city}") "Google Maps"`;
+      const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(webQuery)}`;
+      const res = await fetchWithTimeout(
+        searchUrl,
+        {
+          headers: {
+            "User-Agent": userAgent,
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "es-ES,es;q=0.9",
+          },
+        },
+        1800
+      );
+      if (res.ok) {
+        const rawHtml = await res.text();
+        const plainText = rawHtml.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
+        if (!extracted.detectedCommentsUrl) {
+          const gmapsMatch = rawHtml.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/place\/[^\s"'<>]+|maps\.app\.goo\.gl\/[^\s"'<>]+|goo\.gl\/maps\/[^\s"'<>]+)/i);
+          if (gmapsMatch && gmapsMatch[0]) {
+            extracted.detectedCommentsUrl = decodeURIComponent(gmapsMatch[0].replace(/&amp;/g, "&"));
+            if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+          }
+        }
+        if (!extracted.detectedRating) {
+          const rMatch = plainText.match(/(?:calificaci[oó]n|valoraci[oó]n|rating)\s*:?\s*([1-5][.,]\d)\s*(?:\/|de)?\s*5?\s*(?:estrellas?|⭐|★)?/i) ||
+            plainText.match(/([1-5][.,]\d)\s*(?:[★⭐☆*]+|estrellas?|\/5)/i);
+          if (rMatch && rMatch[1]) {
+            const num = parseFloat(rMatch[1].replace(",", "."));
+            if (!isNaN(num) && num >= 1 && num <= 5) extracted.detectedRating = num.toFixed(1);
+          }
+        }
+        if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
+          const cMatch = plainText.match(/(?:\(\s*|[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews)\b/i);
+          if (cMatch && cMatch[1]) {
+            let countRaw = cMatch[1].replace(/,/g, ".");
+            let isThousand = /k|mil/i.test(cMatch[0]);
+            let numCount = parseFloat(countRaw);
+            if (isThousand) numCount = numCount * 1000;
+            const parsedCount = Math.round(numCount);
+            if (!isNaN(parsedCount) && parsedCount > 0) extracted.detectedReviewCount = String(parsedCount);
+          }
+        }
+        if (!extracted.detectedFoundingYear) {
+          const currentYear = new Date().getFullYear();
+          const startYearMatch = plainText.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|inicio\s+de\s+actividades|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i);
+          if (startYearMatch && startYearMatch[1]) {
+            const numYr = parseInt(startYearMatch[1], 10);
+            if (!isNaN(numYr) && numYr >= 1600 && numYr <= currentYear) {
+              extracted.detectedFoundingYear = String(numYr);
+            }
+          }
+        }
+      }
+    } catch {}
   }
 
   // Fallback to official Google Maps query link if no direct Place link was discovered
@@ -1965,8 +2127,8 @@ async function fetchPageContent(url: string) {
       if (html && html.length > 200) {
         const extracted = extractTextAndMetaFromHtml(html, activeUrl);
         if (extracted.textContent && extracted.textContent.length > 80) {
-          // If landing page text is sparse (< 250 chars) and missing founding year or address, inspect 1 candidate subpage
-          if (extracted.textContent.length < 250 && (!extracted.detectedFoundingYear || !extracted.detectedAddress)) {
+          // If founding year or address wasn't detected on landing page, inspect candidate institutional subpages
+          if (!extracted.detectedFoundingYear || !extracted.detectedAddress) {
             const subpageCandidates: string[] = [];
             const linkRegex = /<a\b[^>]*href=["']([^"'#\s]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
             let lm;
@@ -2001,12 +2163,12 @@ async function fetchPageContent(url: string) {
                 return score(b) - score(a);
               });
 
-              const topCandidates = subpageCandidates.slice(0, 1);
+              const topCandidates = subpageCandidates.slice(0, 3);
               const subPromises = topCandidates.map(async (subUrl) => {
                 try {
                   const subRes = await fetch(subUrl, {
                     headers: { "User-Agent": userAgents[0] },
-                    signal: AbortSignal.timeout(1800),
+                    signal: AbortSignal.timeout(3000),
                   });
                   if (!subRes.ok) return null;
                   const subHtml = await subRes.text();
@@ -2153,21 +2315,33 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
     }
   }
 
-  // Client payloads sent from the admin panel take primary precedence so newly created categories and blocks are 100% available
+  // Seamlessly merge client payloads so newly created categories and blocks from the admin are always available
   if (Array.isArray(clientCategories) && clientCategories.length > 0) {
-    const clientMap = new Map(clientCategories.map((c) => [String(c.id), c]));
-    dbCategories = [
-      ...clientCategories,
-      ...dbCategories.filter((c) => !clientMap.has(String(c.id)))
-    ];
+    if (!dbCategories || dbCategories.length === 0) {
+      dbCategories = clientCategories;
+    } else {
+      const existingIds = new Set(dbCategories.map((c) => String(c.id)));
+      for (const cat of clientCategories) {
+        if (!existingIds.has(String(cat.id))) {
+          dbCategories.push(cat);
+          existingIds.add(String(cat.id));
+        }
+      }
+    }
   }
 
   if (Array.isArray(clientFilterGroups) && clientFilterGroups.length > 0) {
-    const clientGroupMap = new Map(clientFilterGroups.map((g) => [String(g.id), g]));
-    dbFilterGroups = [
-      ...clientFilterGroups,
-      ...dbFilterGroups.filter((g) => !clientGroupMap.has(String(g.id)))
-    ];
+    if (!dbFilterGroups || dbFilterGroups.length === 0) {
+      dbFilterGroups = clientFilterGroups;
+    } else {
+      const existingGroupIds = new Set(dbFilterGroups.map((g) => String(g.id)));
+      for (const grp of clientFilterGroups) {
+        if (!existingGroupIds.has(String(grp.id))) {
+          dbFilterGroups.push(grp);
+          existingGroupIds.add(String(grp.id));
+        }
+      }
+    }
   }
 
   try {
@@ -3980,6 +4154,10 @@ async function createFallbackPublication(
     }
   }
 
+  const dynamicFallbackClassified = classifySectorAndTaxonomy(extractedData.url, titleClean, allText, taxonomies);
+  const finalTaxonomyData = dynamicFallbackClassified;
+  const detectedLanguages = detectLanguagesFromText(allText, taxonomies?.languages);
+
   const fallbackResult: ScrapedPublication = {
     url: extractedData.url,
     title: titleClean,
@@ -4009,17 +4187,17 @@ async function createFallbackPublication(
     currency: "USD",
     price: "A consultar",
     pricePeriod: "",
-    languages: Array.isArray(extractedData.detectedLanguages) && extractedData.detectedLanguages.length ? extractedData.detectedLanguages.join(", ") : "Español, Inglés",
+    languages: Array.isArray(detectedLanguages) && detectedLanguages.length ? detectedLanguages.join(", ") : "Español",
     website: extractedData.url,
     socialLinksDetailed: extractedData.socialLinksExtracted || [{ kind: "web", label: "Sitio Oficial", url: extractedData.url }],
     images: extractedData.images || [],
-    category: classified.category,
-    subcategory: classified.subcategory,
-    categorySelections: classified.categorySelections?.length ? classified.categorySelections : [classified.category].filter(Boolean),
-    subcategorySelections: classified.subcategorySelections?.length ? classified.subcategorySelections : [classified.subcategory].filter(Boolean),
-    providerActivities: classified.providerActivities?.length ? classified.providerActivities : ["Servicios profesionales y técnicos"],
-    providerTypes: classified.providerTypes?.length ? classified.providerTypes : ["Institución privada"],
-    providerModalities: classified.providerModalities?.length ? classified.providerModalities : ["Atención presencial", "Atención online"],
+    category: finalTaxonomyData.category,
+    subcategory: finalTaxonomyData.subcategory,
+    categorySelections: finalTaxonomyData.categorySelections?.length ? finalTaxonomyData.categorySelections : [finalTaxonomyData.category].filter(Boolean),
+    subcategorySelections: finalTaxonomyData.subcategorySelections?.length ? finalTaxonomyData.subcategorySelections : [finalTaxonomyData.subcategory].filter(Boolean),
+    providerActivities: finalTaxonomyData.providerActivities?.length ? finalTaxonomyData.providerActivities : dynamicFallbackClassified.providerActivities,
+    providerTypes: finalTaxonomyData.providerTypes?.length ? finalTaxonomyData.providerTypes : dynamicFallbackClassified.providerTypes,
+    providerModalities: finalTaxonomyData.providerModalities?.length ? finalTaxonomyData.providerModalities : dynamicFallbackClassified.providerModalities,
   };
 
   return enforceStrictTaxonomyGuardrails(
@@ -5299,30 +5477,19 @@ async function processUrlWithAI(
     };
   }
 
-  // 2, 3 & 4. Run Title, Description, Provider Info, Taxonomy and Custom Blocks all in ONE parallel Promise.all
+  // 2, 3 & 4. Run Title, Description, Provider Info, and Closed-Catalog Taxonomy Agents in parallel with fallback
   let titleAgentRes: any;
   let descAgentRes: any;
   let providerInfoRes: any;
   let taxonomyRes: any;
-  let customBlockResults: ExtraDescriptionBlock[] = [];
-
-  const validCustomBlocks = Array.isArray(customBlocks) && customBlocks.length > 0
-    ? customBlocks.filter((cb) => cb && cb.title && cb.title.trim())
-    : [];
 
   try {
-    const [tRes, dRes, pRes, taxRes, ...cbResults] = await Promise.all([
+    [titleAgentRes, descAgentRes, providerInfoRes, taxonomyRes] = await Promise.all([
       runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt),
       runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt),
       runProviderInfoAgent(cleanContext),
       runTaxonomyAgent(cleanContext, taxonomies),
-      ...validCustomBlocks.map((cb) => runCustomBlockAgent(cleanContext, cb.title, cb.prompt)),
     ]);
-    titleAgentRes = tRes;
-    descAgentRes = dRes;
-    providerInfoRes = pRes;
-    taxonomyRes = taxRes;
-    customBlockResults = cbResults;
   } catch (agentErr: any) {
     console.warn(`[AI Scraper] AI agent execution failed for ${url}, falling back to grounded extraction:`, agentErr?.message);
     const fallbackPub = await createFallbackPublication(
@@ -5363,34 +5530,6 @@ async function processUrlWithAI(
     }
   }
 
-  // Refine founding year
-  const resolvedFoundingYear =
-    providerInfoRes.data?.detectedFoundingYear ||
-    cleanContext.foundingYear ||
-    extracted.detectedFoundingYear ||
-    "";
-
-  // Score & Review count fallback: ensure it never remains "0"
-  let resolvedRating =
-    providerInfoRes.data?.detectedRating ||
-    cleanContext.rating ||
-    extracted.detectedRating;
-  if (!resolvedRating || resolvedRating === "0" || Number(resolvedRating) <= 0 || Number(resolvedRating) > 5) {
-    resolvedRating = "4.8";
-  }
-
-  let resolvedReviewCount =
-    providerInfoRes.data?.detectedReviewCount ||
-    cleanContext.reviewCount ||
-    extracted.detectedReviewCount;
-  if (!resolvedReviewCount || resolvedReviewCount === "0" || Number(resolvedReviewCount) <= 0) {
-    resolvedReviewCount = "124";
-  }
-
-  cleanContext.rating = resolvedRating;
-  cleanContext.reviewCount = resolvedReviewCount;
-  cleanContext.foundingYear = resolvedFoundingYear;
-
   // 4. Run Custom Block Agents in parallel
   const extraDescriptions: ExtraDescriptionBlock[] = [];
 
@@ -5398,18 +5537,22 @@ async function processUrlWithAI(
   if (includeScoreScout !== false) {
     const scoreBlock = buildScoreScoutBlock(
       cleanPublisher,
-      resolvedFoundingYear,
-      resolvedRating,
+      cleanContext.foundingYear || "",
+      cleanContext.rating || "5.0",
       extracted.textContent,
       undefined,
       url,
-      resolvedReviewCount
+      cleanContext.reviewCount || "0"
     );
     extraDescriptions.push(scoreBlock);
   }
 
-  // Custom Blocks already generated in the parallel roundtrip
-  if (customBlockResults.length > 0) {
+  // Custom Blocks requested by admin (executed in parallel)
+  if (Array.isArray(customBlocks) && customBlocks.length > 0) {
+    const validCustomBlocks = customBlocks.filter((cb) => cb && cb.title && cb.title.trim());
+    const customBlockResults = await Promise.all(
+      validCustomBlocks.map((cb) => runCustomBlockAgent(cleanContext, cb.title, cb.prompt))
+    );
     extraDescriptions.push(...customBlockResults);
   }
 
@@ -5473,9 +5616,9 @@ async function processUrlWithAI(
     extraDescriptions,
     publisherName: cleanPublisher,
     providerInfoI18n: providerInfoI18nVal,
-    providerStartYear: resolvedFoundingYear,
-    providerRating: resolvedRating,
-    providerReviewCount: resolvedReviewCount,
+    providerStartYear: cleanContext.foundingYear || extracted.detectedFoundingYear || "",
+    providerRating: cleanContext.rating || extracted.detectedRating || "0",
+    providerReviewCount: cleanContext.reviewCount || extracted.detectedReviewCount || "0",
     providerCommentsUrl: extracted.detectedCommentsUrl || cleanContext.commentsUrl || primaryHq.mapUrl,
     providerLogo: cleanContext.logo || "",
     country: primaryHq.country,
@@ -5597,34 +5740,6 @@ export async function POST(req: Request) {
       process.env.OPENAI_KEY ||
       process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
       "";
-
-    // Si el frontend no tiene las API keys en su entorno (porque están en el Vercel del backend),
-    // reenviamos la solicitud de scraping directamente al backend para que la procese con sus variables de entorno
-    if (!geminiKey && !openaiKey) {
-      const backendUrl = getBackendApiUrl();
-      console.log(`[AI Scraper Frontend] Sin claves locales. Intentando consultar backend: ${backendUrl}/api/admin/ai-scrape-publications`);
-      try {
-        const backendRes = await fetch(`${backendUrl}/api/admin/ai-scrape-publications`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(req.headers.get("cookie") ? { cookie: req.headers.get("cookie")! } : {}),
-            ...(req.headers.get("authorization") ? { authorization: req.headers.get("authorization")! } : {}),
-          },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(25000),
-        });
-        if (backendRes.ok) {
-          const rawText = await backendRes.text();
-          try {
-            const backendData = JSON.parse(rawText);
-            return NextResponse.json(backendData, { status: 200 });
-          } catch {}
-        }
-      } catch (fwdErr: any) {
-        console.warn("[AI Scraper Frontend] Backend forwarding no disponible:", fwdErr?.message);
-      }
-    }
 
     const envProvider = (process.env.AI_SCRAPER_PROVIDER || "auto").toLowerCase();
     const effectiveProvider: "auto" | "gemini" | "openai" =
