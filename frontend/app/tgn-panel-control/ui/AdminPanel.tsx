@@ -2436,7 +2436,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         return "idiomas";
       }
       const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
-      if (!hasChildren) {
+      const isExplicitFilterBlock = blockLabelNorm.includes("filtro") || blockLabelNorm.includes("general");
+      if (!hasChildren && isExplicitFilterBlock) {
         return "filtro";
       }
     }
@@ -3831,6 +3832,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const isEducationalEntity =
       /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
       /\.edu(?:\.[a-z]{2})?/i.test(draft.url || "");
+
+    const isHealthEntity =
+      /\b(hospital|clinica|sanatorio|centro medic|centro de salud|maternidad|pediatria|guardia medica|policlinico|obra social|prepaga|osep|osde|swiss medical|galeno)\b/i.test(fullTextCorpus);
 
     const isAuthenticOng =
       (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(draft.url || "")) &&
@@ -5410,7 +5414,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const isHealth = !isEdu && /hospital|cl[ií]nica|sanatorio|m[eé]dic|odontol|psicol|obra social|salud/i.test(sectorContext);
 
       if (isEdu) {
-        const eduRoots = allRootsWithNorm.filter((r) => /educaci|estudio|formaci|estudiant/i.test(r.norm) || isStudentEduMatch(r.norm));
+        const eduRoots = allRootsWithNorm.filter((r) => /educaci|estudio|formaci|estudiant|universi|carrera|alumno|academ|posgrado|grado|beca|colegio|instituto/i.test(r.norm));
         eduRoots.forEach((er) => {
           if (!mappedCategories.includes(er.original)) mappedCategories.push(er.original);
         });
@@ -12326,6 +12330,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       <AiScraperModal
         isOpen={aiModalOpen}
         onClose={() => setAiModalOpen(false)}
+        onOpen={() => setAiModalOpen(true)}
         onSelectDraftToEdit={applyAiDraftToForm}
         onApproveDirectly={handleApproveAiDraftDirectly}
         categories={categories}
