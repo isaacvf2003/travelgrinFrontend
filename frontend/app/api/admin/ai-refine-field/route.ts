@@ -25,7 +25,29 @@ interface RefineFieldRequest {
   rawPageTitle?: string;
 }
 
-async function callGemini(prompt: string, apiKey: string): Promise<string> {
+function extractJson(text: string): any {
+  if (!text) return null;
+  const trimmed = text.trim();
+  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenceMatch && fenceMatch[1]) {
+    try {
+      return JSON.parse(fenceMatch[1].trim());
+    } catch {}
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {}
+  const first = trimmed.indexOf("{");
+  const last = trimmed.lastIndexOf("}");
+  if (first !== -1 && last > first) {
+    try {
+      return JSON.parse(trimmed.substring(first, last + 1));
+    } catch {}
+  }
+  return null;
+}
+
+async function callGemini(prompt: string, apiKey: string, temperature = 0.85): Promise<string> {
   const candidateModels = [
     "gemini-1.5-flash",
     "gemini-2.0-flash",
@@ -38,7 +60,7 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
     const payload = {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: 0.2,
+        temperature,
         responseMimeType: "application/json",
       },
     };
@@ -120,7 +142,7 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
   throw lastError || new Error("No se pudo obtener respuesta de Gemini con tu API Key.");
 }
 
-async function callOpenAI(prompt: string, apiKey: string): Promise<string> {
+async function callOpenAI(prompt: string, apiKey: string, temperature = 0.85): Promise<string> {
   const models = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"];
   let lastError: any = null;
 
@@ -135,7 +157,7 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<string> {
         signal: AbortSignal.timeout(25000),
         body: JSON.stringify({
           model,
-          temperature: 0.2,
+          temperature,
           messages: [
             {
               role: "system",
@@ -210,28 +232,65 @@ export async function POST(req: Request) {
         ? "openai"
         : "gemini";
 
-    const callAI = async (promptStr: string): Promise<any> => {
+    const callAI = async (promptStr: string, field: FieldType): Promise<any> => {
       let rawJson = "";
       if (effectiveProvider === "openai" && openaiKey) {
         try {
-          rawJson = await callOpenAI(promptStr, openaiKey);
+          rawJson = await callOpenAI(promptStr, openaiKey, 0.85);
         } catch (e) {
-          if (geminiKey) rawJson = await callGemini(promptStr, geminiKey);
+          if (geminiKey) rawJson = await callGemini(promptStr, geminiKey, 0.85);
           else throw e;
         }
       } else if (geminiKey) {
         try {
-          rawJson = await callGemini(promptStr, geminiKey);
+          rawJson = await callGemini(promptStr, geminiKey, 0.85);
         } catch (e) {
-          if (openaiKey) rawJson = await callOpenAI(promptStr, openaiKey);
+          if (openaiKey) rawJson = await callOpenAI(promptStr, openaiKey, 0.85);
           else throw e;
         }
       } else if (openaiKey) {
-        rawJson = await callOpenAI(promptStr, openaiKey);
+        rawJson = await callOpenAI(promptStr, openaiKey, 0.85);
       } else {
         throw new Error("No hay una API Key configurada para IA. Por favor ingresá tu clave de Gemini u OpenAI.");
       }
-      return JSON.parse(rawJson);
+
+      const parsed = extractJson(rawJson);
+      if (parsed && typeof parsed === "object") {
+        return parsed;
+      }
+
+      // Robust fallback parser if model output had conversational preamble or invalid syntax
+      if (field === "title") {
+        const titleMatch = rawJson.match(/"title"\s*:\s*"([^"\r\n]+)"/i) || rawJson.match(/title:\s*([^\r\n]+)/i);
+        if (titleMatch && titleMatch[1]) {
+          return { title: titleMatch[1].trim() };
+        }
+        const cleaned = rawJson
+          .replace(/```[a-z]*|```/gi, "")
+          .replace(/^{?\s*"title"?\s*:?\s*"?/i, "")
+          .replace(/"?\s*}?$/i, "")
+          .replace(/^["'\s]+|["'\s]+$/g, "")
+          .trim();
+        return { title: cleaned || currentTitle || currentText };
+      }
+
+      if (field === "description") {
+        const descMatch = rawJson.match(/"description"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"|"\s*})/i);
+        if (descMatch && descMatch[1]) {
+          return { description: descMatch[1].replace(/\\"/g, '"').replace(/\\n/g, "\n").trim() };
+        }
+        return { description: rawJson.trim() };
+      }
+
+      if (field === "extra_block" || field === "new_extra_block") {
+        const bodyMatch = rawJson.match(/"body"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"|"\s*})/i);
+        if (bodyMatch && bodyMatch[1]) {
+          return { body: bodyMatch[1].replace(/\\"/g, '"').replace(/\\n/g, "\n").trim() };
+        }
+        return { body: rawJson.trim() };
+      }
+
+      return { text: rawJson.trim() };
     };
 
     const entityName = publisherName || currentTitle || rawPageTitle || "La entidad";
@@ -245,11 +304,21 @@ export async function POST(req: Request) {
       scrapedTextContent ? `Texto: ${scrapedTextContent.slice(0, 2000)}` : "",
     ].filter(Boolean).join("\n");
 
+    const variationDirective = `
+======================================================================
+VARIACIÓN #${variationIndex || 1} (SOLICITUD DE RESPUESTA TOTALMENTE DIFERENTE):
+- El administrador está reformulando y exige una propuesta TOTALMENTE DISTINTA a la anterior.
+- VALOR ACTUAL PREVIO A DESCARTAR / SUPERAR: "${currentText || currentTitle}"
+- NO repitas la misma estructura de frases, ni el mismo orden de ideas, ni los mismos adjetivos de la versión previa.
+- Explora un nuevo enfoque persuasivo, dinámico y atractivo respetando la veracidad de los datos de la entidad y la instrucción del administrador.
+======================================================================`;
+
     // 1. TÍTULO
     if (fieldType === "title") {
       const aiPrompt = `Eres un redactor y editor profesional de Travelgrin.
 Genera un título comercial, atractivo y representativo para la publicación de la siguiente entidad cumpliendo la instrucción del administrador.
 INSTRUCCIÓN DEL ADMINISTRADOR: "${prompt}"
+${variationDirective}
 DATOS DE LA ENTIDAD:
 ${contextFacts}
 TÍTULO ACTUAL: "${currentText || currentTitle}"
@@ -269,7 +338,7 @@ Devuelve UN JSON ESTRICTO con:
     "it": "Titolo in italiano"
   }
 }`;
-      const parsed = await callAI(aiPrompt);
+      const parsed = await callAI(aiPrompt, "title");
       const titleRes = parsed.title || parsed.titleI18n?.es || currentTitle || currentText;
       return NextResponse.json({
         success: true,
@@ -283,6 +352,7 @@ Devuelve UN JSON ESTRICTO con:
       const aiPrompt = `Eres el redactor jefe de Travelgrin.
 Tu objetivo es redactar o mejorar la descripción principal de la publicación cumpliendo con la instrucción del administrador y basándote en la información real de la entidad.
 INSTRUCCIÓN DEL ADMINISTRADOR: "${prompt}"
+${variationDirective}
 DESCRIPCIÓN ACTUAL: "${currentText}"
 DATOS DE LA ENTIDAD:
 ${contextFacts}
@@ -304,7 +374,7 @@ Devuelve UN JSON ESTRICTO con:
     "it": "Testo completo in italiano formattato in paragrafi HTML"
   }
 }`;
-      const parsed = await callAI(aiPrompt);
+      const parsed = await callAI(aiPrompt, "description");
       const descRes = parsed.description || parsed.descriptionI18n?.es || currentText;
       return NextResponse.json({
         success: true,
@@ -322,6 +392,7 @@ Devuelve UN JSON ESTRICTO con:
 Tu tarea es redactar el contenido para un bloque específico titulado "${blockTitle}" cumpliendo estrictamente la instrucción del administrador.
 TÍTULO DEL BLOQUE: "${blockTitle}"
 INSTRUCCIÓN DEL ADMINISTRADOR: "${prompt}"
+${variationDirective}
 CONTENIDO ACTUAL DEL BLOQUE: "${currentText}"
 DATOS DE REFERENCIA DE LA ENTIDAD:
 ${contextFacts}
@@ -344,7 +415,7 @@ Devuelve UN JSON ESTRICTO con:
     "it": "Contenuto in HTML in italiano"
   }
 }`;
-      const parsed = await callAI(aiPrompt);
+      const parsed = await callAI(aiPrompt, fieldType);
       const resolvedTitle = parsed.title || blockTitle;
       const resolvedBody = parsed.body || parsed.bodyI18n?.es || "";
       const tI18n = parsed.titleI18n || { es: resolvedTitle, en: resolvedTitle, pt: resolvedTitle, it: resolvedTitle };
@@ -369,6 +440,7 @@ Devuelve UN JSON ESTRICTO con:
       const aiPrompt = `Eres un redactor institucional de Travelgrin.
 Redacta 1 o 2 párrafos institucionales concisos sobre la entidad destacando su trayectoria, acreditación y presencia en ${city || country || "la región"}.
 INSTRUCCIÓN DEL ADMINISTRADOR: "${prompt}"
+${variationDirective}
 TEXTO ACTUAL: "${currentText}"
 DATOS DE LA ENTIDAD:
 ${contextFacts}
@@ -383,7 +455,7 @@ Devuelve UN JSON ESTRICTO con:
     "it": "Testo in italiano"
   }
 }`;
-      const parsed = await callAI(aiPrompt);
+      const parsed = await callAI(aiPrompt, "provider_info");
       const infoRes = parsed.providerInfo || parsed.providerInfoI18n?.es || currentText;
       return NextResponse.json({
         success: true,

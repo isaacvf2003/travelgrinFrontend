@@ -3726,14 +3726,19 @@ function classifySectorAndTaxonomy(
   const isPublicEntity = isGovDomain || isGovText;
 
   // Semantic entity classifications:
-  const isHealthEntity =
-    /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(lowerCorpus) ||
-    /osep|hospital|clinica|sanatorio|salud/i.test(url);
-
   const isEducationalEntity =
     /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(lowerCorpus) ||
     /\.edu(?:\.[a-z]{2})?/i.test(url) ||
     /uncuyo|uba\.ar|utn\.edu|austral\.edu|siglo21|uesiglo21/i.test(url);
+
+  const isHospitalOrClinic =
+    /\b(hospital|clinica|sanatorio|centro\s+medico|consultorio\s+medico|policlinico|maternidad)\b/i.test(titleNorm) ||
+    /\b(hospital|clinica|sanatorio)\b/i.test(urlNorm);
+
+  const isHealthEntity =
+    (!isEducationalEntity || isHospitalOrClinic) &&
+    (/\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(lowerCorpus) ||
+    /osep|hospital|clinica|sanatorio|salud/i.test(url));
 
   const isLegalOrConsulting =
     /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica)\b/i.test(lowerCorpus);
@@ -3886,9 +3891,11 @@ function classifySectorAndTaxonomy(
   if (scoredParents.length > 0 && scoredParents[0].score >= 25) {
     const topScore = scoredParents[0].score;
     for (const p of scoredParents) {
+      if (selectedCategories.length >= 2) break;
       const pNormCheck = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(pNormCheck)) continue;
-      if (p.score >= 25 && (selectedCategories.length === 0 || (p.score >= 40 && p.score >= topScore * 0.6 && selectedCategories.length < 3))) {
+      // Select the top-1 parent, or top-2 if its score is very close (at least 70% of the top score and >= 40)
+      if (selectedCategories.length === 0 || (p.score >= 40 && p.score >= topScore * 0.7)) {
         selectedCategories.push(p.name);
         p.matchingSubs.forEach((s) => {
           const sNormCheck = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -3899,46 +3906,6 @@ function classifySectorAndTaxonomy(
         });
       }
     }
-  }
-
-  // Proactively ensure student/education categories and subcategories are included for educational entities
-  if (isEducationalEntity) {
-    for (const p of scoredParents) {
-      if (isStudentEduMatch(p.name) && !selectedCategories.includes(p.name)) {
-        selectedCategories.push(p.name);
-        p.matchingSubs.forEach((s) => {
-          if (!selectedSubcategories.includes(s)) {
-            selectedSubcategories.push(s);
-          }
-        });
-      }
-    }
-    // Also scan all valid subcategories for student matches
-    validSubcats.filter(isStudentEduMatch).forEach((s) => {
-      if (!selectedSubcategories.includes(s)) {
-        selectedSubcategories.push(s);
-      }
-    });
-  }
-
-  // Proactively ensure ONG categories and subcategories are included for ONG entities
-  if (isOngEntity) {
-    for (const p of scoredParents) {
-      if (isOngMatch(p.name) && !selectedCategories.includes(p.name)) {
-        selectedCategories.push(p.name);
-        p.matchingSubs.forEach((s) => {
-          if (!selectedSubcategories.includes(s)) {
-            selectedSubcategories.push(s);
-          }
-        });
-      }
-    }
-    validCats.filter(isOngMatch).forEach((c) => {
-      if (!selectedCategories.includes(c)) selectedCategories.push(c);
-    });
-    validSubcats.filter(isOngMatch).forEach((s) => {
-      if (!selectedSubcategories.includes(s)) selectedSubcategories.push(s);
-    });
   }
 
   if (selectedCategories.length === 0 && bestParent && highestParentScore >= 25) {
@@ -5204,43 +5171,53 @@ function enforceStrictTaxonomyGuardrails(
     }
   }
 
-  // Educational & Student intelligence: Proactively inject student/university categories if available in system
+  const isHospitalOrClinic =
+    /\b(hospital|clinica|sanatorio|centro\s+medico|consultorio\s+medico|policlinico|maternidad)\b/i.test(titleClean) ||
+    /\b(hospital|clinica|sanatorio)\b/i.test(publication.url);
+
+  // Educational & Student intelligence: Proactively ensure correct education category if none set
   if (isEducational && taxonomies) {
     const validCats: string[] = taxonomies.categories || [];
     const validSubcats: string[] = taxonomies.subcategories || [];
 
-    const eduCats = validCats.filter(isStudentEdu);
-    if (eduCats.length > 0) {
-      if (!Array.isArray(publication.categorySelections)) publication.categorySelections = [];
-      eduCats.forEach((c) => {
-        if (!publication.categorySelections.includes(c)) publication.categorySelections.push(c);
-      });
-      publication.category = publication.categorySelections[0] || publication.category;
+    if (!Array.isArray(publication.categorySelections) || publication.categorySelections.length === 0) {
+      const eduCats = validCats.filter(isStudentEdu);
+      if (eduCats.length > 0) {
+        publication.categorySelections = [eduCats[0]];
+        publication.category = eduCats[0];
+      }
     }
 
-    const eduSubs = validSubcats.filter(isStudentEdu);
-    if (eduSubs.length > 0) {
-      if (!Array.isArray(publication.subcategorySelections)) publication.subcategorySelections = [];
-      eduSubs.forEach((s) => {
-        if (!publication.subcategorySelections.includes(s)) publication.subcategorySelections.push(s);
-      });
-      publication.subcategory = publication.subcategorySelections[0] || publication.subcategory;
+    if (!Array.isArray(publication.subcategorySelections) || publication.subcategorySelections.length === 0) {
+      const eduSubs = validSubcats.filter(isStudentEdu);
+      if (eduSubs.length > 0) {
+        publication.subcategorySelections = [eduSubs[0]];
+        publication.subcategory = eduSubs[0];
+      }
     }
 
     const validActs: string[] = taxonomies.activities || [];
     const eduAct = validActs.find((a) => /educaci|formaci/i.test(a));
     if (eduAct) {
-      if (!Array.isArray(publication.providerActivities)) publication.providerActivities = [];
-      if (!publication.providerActivities.includes(eduAct)) {
-        publication.providerActivities = [eduAct, ...publication.providerActivities];
-      }
+      publication.providerActivities = [eduAct];
     }
   }
 
-  // Health & Healthcare intelligence: Proactively inject health activity and relevant categories if available in system
+  // Health & Healthcare intelligence: strictly exclude educational entities that are not hospitals/clinics
   const isHealth =
-    /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(allText) ||
-    /osep|hospital|clinica|sanatorio|salud/i.test(publication.url);
+    (!isEducational || isHospitalOrClinic) &&
+    (/\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(allText) ||
+    /osep|hospital|clinica|sanatorio|salud/i.test(publication.url));
+
+  if (isEducational && !isHospitalOrClinic && Array.isArray(publication.providerActivities)) {
+    publication.providerActivities = publication.providerActivities.filter((a) => !/salud|asistencia\s+social|m[eé]dic/i.test(a));
+    const eduAct = taxonomies?.activities?.find((a: string) => /educaci|formaci/i.test(a));
+    if (eduAct && !publication.providerActivities.includes(eduAct)) {
+      publication.providerActivities = [eduAct];
+    } else if (publication.providerActivities.length === 0) {
+      publication.providerActivities = ["Educación y formación"];
+    }
+  }
 
   if (isHealth) {
     // Strictly strip any visa or migration categories if entity is healthcare
@@ -5264,21 +5241,19 @@ function enforceStrictTaxonomyGuardrails(
     if (taxonomies) {
       const validCats: string[] = taxonomies.categories || [];
       const validSubcats: string[] = taxonomies.subcategories || [];
-      const healthCats = validCats.filter((c) => /salud|medic|asistenc|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
-      if (healthCats.length > 0) {
-        if (!Array.isArray(publication.categorySelections)) publication.categorySelections = [];
-        healthCats.forEach((c) => {
-          if (!publication.categorySelections.includes(c)) publication.categorySelections.push(c);
-        });
-        publication.category = publication.categorySelections[0] || publication.category;
+      if (!Array.isArray(publication.categorySelections) || publication.categorySelections.length === 0) {
+        const healthCats = validCats.filter((c) => /salud|medic|asistenc|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+        if (healthCats.length > 0) {
+          publication.categorySelections = [healthCats[0]];
+          publication.category = healthCats[0];
+        }
       }
-      const healthSubs = validSubcats.filter((s) => /salud|medic|asistenc|hospital|clinica|sanatori|obra\s*social|prepaga|guardia|consultorio/i.test(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
-      if (healthSubs.length > 0) {
-        if (!Array.isArray(publication.subcategorySelections)) publication.subcategorySelections = [];
-        healthSubs.forEach((s) => {
-          if (!publication.subcategorySelections.includes(s)) publication.subcategorySelections.push(s);
-        });
-        publication.subcategory = publication.subcategorySelections[0] || publication.subcategory;
+      if (!Array.isArray(publication.subcategorySelections) || publication.subcategorySelections.length === 0) {
+        const healthSubs = validSubcats.filter((s) => /salud|medic|asistenc|hospital|clinica|sanatori|obra\s*social|prepaga|guardia|consultorio/i.test(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+        if (healthSubs.length > 0) {
+          publication.subcategorySelections = [healthSubs[0]];
+          publication.subcategory = healthSubs[0];
+        }
       }
       const validActs: string[] = taxonomies.activities || [];
       const healthAct = validActs.find((a) => /salud|asistencia|social|medic/i.test(a));
@@ -5289,6 +5264,12 @@ function enforceStrictTaxonomyGuardrails(
         }
       }
     }
+  }
+
+  // Strict capping: never allow more than 2 categories per publication
+  if (Array.isArray(publication.categorySelections) && publication.categorySelections.length > 2) {
+    publication.categorySelections = publication.categorySelections.slice(0, 2);
+    publication.category = publication.categorySelections[0] || publication.category;
   }
 
   // Ensure providerActivities and providerModalities are never empty if available in classified
