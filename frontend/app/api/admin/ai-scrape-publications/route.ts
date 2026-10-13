@@ -5558,7 +5558,7 @@ async function processUrlWithAI(
 
   // 5. Taxonomy & Location mapping
   const titleVal = titleAgentRes.data?.title || extracted.title || cleanPublisher;
-  const titleI18nVal = titleAgentRes.data?.titleI18n || { es: titleVal, en: titleVal, pt: titleVal, it: titleVal };
+  const titleI18nVal = titleAgentRes.data?.titleI18n || { es: titleVal, en: "", pt: "", it: "" };
   const descVal = descAgentRes.data?.description || extracted.description || "";
   const descI18nVal = descAgentRes.data?.descriptionI18n || { es: descVal, en: "", pt: "", it: "" };
 
@@ -5596,15 +5596,15 @@ async function processUrlWithAI(
   const providerInfoI18nVal = pInfoEs
     ? {
         es: pInfoEs,
-        en: aiProviderInfo?.en || pInfoEs,
-        pt: aiProviderInfo?.pt || pInfoEs,
-        it: aiProviderInfo?.it || pInfoEs,
+        en: aiProviderInfo?.en || "",
+        pt: aiProviderInfo?.pt || "",
+        it: aiProviderInfo?.it || "",
       }
     : {
         es: `${cleanPublisher} es un establecimiento y prestador de servicios en ${primaryHq.city}, ${primaryHq.country}.`,
-        en: `${cleanPublisher} is an institution and service provider in ${primaryHq.city}, ${primaryHq.country}.`,
-        pt: `${cleanPublisher} é um estabelecimento e provedor de serviços em ${primaryHq.city}, ${primaryHq.country}.`,
-        it: `${cleanPublisher} è un'istituzione e fornitore di servizi a ${primaryHq.city}, ${primaryHq.country}.`,
+        en: "",
+        pt: "",
+        it: "",
       };
 
   const publication: ScrapedPublication = {
