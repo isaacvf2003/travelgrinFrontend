@@ -2,15 +2,13 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Bot, Building2, ChevronDown, ChevronRight, FileText, GripVertical, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, RotateCw, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, Trash2, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
 import CountryMultiSelect from "@/components/CountryMultiSelect";
 import RichTextEditor from "@/components/RichTextEditor";
 import AiScraperModal, { type ScrapedPublicationDraft } from "@/components/admin/AiScraperModal";
-import AiFieldRefineModal, { type RefineFieldType } from "@/components/AiFieldRefineModal";
-import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
 import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
@@ -268,7 +266,7 @@ type Publication = {
 };
 
 type LocationInput = { country: string; city: string; mapUrl: string };
-type SocialLinkDetail = { kind: string; label: string; labelI18n?: I18nRecord; url: string };
+type SocialLinkDetail = { kind: string; label: string; url: string };
 type PrestacionButton = { label: string; labelI18n?: I18nRecord; url: string; style: "primary" | "secondary"; bgColor?: string; textColor?: string };
 type PrestacionResource = {
   title: string;
@@ -1003,52 +1001,6 @@ function getLangMediaValue(i18n: I18nRecord | null | undefined, lang: Lang, fall
   return value;
 }
 
-const COMMON_CONTACT_TRANSLATIONS: Record<string, Record<string, string>> = {
-  "página oficial": { es: "Página Oficial", en: "Official Website", pt: "Página Oficial", it: "Sito Ufficiale" },
-  "pagina oficial": { es: "Página Oficial", en: "Official Website", pt: "Página Oficial", it: "Sito Ufficiale" },
-  "sitio oficial": { es: "Sitio Oficial", en: "Official Website", pt: "Site Oficial", it: "Sito Ufficiale" },
-  "sitio web": { es: "Sitio Web", en: "Website", pt: "Site", it: "Sito Web" },
-  "web": { es: "Web", en: "Website", pt: "Web", it: "Web" },
-  "página web": { es: "Página Web", en: "Website", pt: "Site", it: "Sito Web" },
-  "pagina web": { es: "Página Web", en: "Website", pt: "Site", it: "Sito Web" },
-  "teléfono": { es: "Teléfono", en: "Contact Phone", pt: "Telefone de contato", it: "Telefono di contatto" },
-  "telefono": { es: "Teléfono", en: "Contact Phone", pt: "Telefone de contato", it: "Telefono di contacto" },
-  "teléfono de contacto": { es: "Teléfono de contacto", en: "Contact Phone", pt: "Telefone de contato", it: "Telefono di contacto" },
-  "telefono de contacto": { es: "Teléfono de contacto", en: "Contact Phone", pt: "Telefone de contato", it: "Telefono di contacto" },
-  "central telefónica": { es: "Central Telefónica", en: "Switchboard / Main Phone", pt: "Central Telefônica", it: "Centralino Telefonico" },
-  "central telefonica": { es: "Central Telefónica", en: "Switchboard / Main Phone", pt: "Central Telefônica", it: "Centralino Telefonico" },
-  "línea gratuita (0800)": { es: "Línea gratuita (0800)", en: "Toll-free line (0800)", pt: "Linha gratuita (0800)", it: "Numero verde (0800)" },
-  "linea gratuita (0800)": { es: "Línea gratuita (0800)", en: "Toll-free line (0800)", pt: "Linha gratuita (0800)", it: "Numero verde (0800)" },
-  "línea gratuita": { es: "Línea gratuita", en: "Toll-free line", pt: "Linha gratuita", it: "Numero verde" },
-  "linea gratuita": { es: "Línea gratuita", en: "Toll-free line", pt: "Linha gratuita", it: "Numero verde" },
-  "email": { es: "Email", en: "Contact Email", pt: "E-mail de contato", it: "Email di contatto" },
-  "email de contacto": { es: "Email de contacto", en: "Contact Email", pt: "E-mail de contato", it: "Email di contacto" },
-  "correo": { es: "Correo", en: "Contact Email", pt: "E-mail de contato", it: "Email di contacto" },
-  "correo de contacto": { es: "Correo de contacto", en: "Contact Email", pt: "E-mail de contato", it: "Email di contacto" },
-  "correo electrónico": { es: "Correo electrónico", en: "Email", pt: "E-mail", it: "Email" },
-  "correo electronico": { es: "Correo electrónico", en: "Email", pt: "E-mail", it: "Email" },
-  "instagram": { es: "Instagram", en: "Instagram", pt: "Instagram", it: "Instagram" },
-  "facebook": { es: "Facebook", en: "Facebook", pt: "Facebook", it: "Facebook" },
-  "youtube": { es: "YouTube", en: "YouTube", pt: "YouTube", it: "YouTube" },
-  "linkedin": { es: "LinkedIn", en: "LinkedIn", pt: "LinkedIn", it: "LinkedIn" },
-  "whatsapp": { es: "WhatsApp", en: "WhatsApp", pt: "WhatsApp", it: "WhatsApp" },
-  "tiktok": { es: "TikTok", en: "TikTok", pt: "TikTok", it: "TikTok" },
-  "contacto": { es: "Contacto", en: "Contact", pt: "Contato", it: "Contatto" },
-  "guardia": { es: "Guardia", en: "Emergency / 24h Duty", pt: "Plantão", it: "Pronto Soccorso" },
-};
-
-function resolveContactLabelI18nRecord(rawLabel: string, existingI18n?: I18nRecord | null): I18nRecord {
-  const baseLabel = String(rawLabel || "").trim();
-  const lower = baseLabel.toLowerCase();
-  const dict = COMMON_CONTACT_TRANSLATIONS[lower];
-  return {
-    es: existingI18n?.es || dict?.es || baseLabel,
-    en: existingI18n?.en || dict?.en || "",
-    pt: existingI18n?.pt || dict?.pt || "",
-    it: existingI18n?.it || dict?.it || "",
-  };
-}
-
 
 type DashboardStatCardProps = {
   label: string;
@@ -1579,412 +1531,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [pDescription, setPDescription] = useState("");
   const [pDescriptionI18n, setPDescriptionI18n] = useState<I18nRecord>({ es: "" });
   const [translatingField, setTranslatingField] = useState<string | null>(null);
-  const [aiRefineState, setAiRefineState] = useState<{
-    isOpen: boolean;
-    fieldType: RefineFieldType;
-    currentValue?: string;
-    currentTitleValue?: string;
-    initialPrompt?: string;
-    blockIndex?: number;
-  }>({
-    isOpen: false,
-    fieldType: "description",
-  });
-
-  const handleApplyAiRefinement = (data: {
-    resultText: string;
-    resultTitle?: string;
-    translations?: {
-      es?: string;
-      en?: string;
-      pt?: string;
-      it?: string;
-      titleI18n?: Record<string, string>;
-      bodyI18n?: Record<string, string>;
-    };
-    blockIndex?: number;
-    promptUsed?: string;
-  }) => {
-    const { resultText, resultTitle, translations, blockIndex, promptUsed } = data;
-    const sourceLang = pLang || "es";
-
-    if (aiRefineState.fieldType === "title") {
-      if (translations && (translations.en || translations.pt || translations.it)) {
-        setPTitleI18n((prev) => ({
-          ...prev,
-          ...translations,
-          [sourceLang]: resultText,
-          ...(sourceLang === "es" ? { es: resultText } : {}),
-        }));
-      } else {
-        setPTitleI18n((prev) => ({ ...prev, [sourceLang]: resultText }));
-      }
-      if (sourceLang === "es" || !pTitle) setPTitle(resultText);
-    } else if (aiRefineState.fieldType === "description") {
-      if (translations && (translations.en || translations.pt || translations.it)) {
-        setPDescriptionI18n((prev) => ({
-          ...prev,
-          ...translations,
-          [sourceLang]: resultText,
-          ...(sourceLang === "es" ? { es: resultText } : {}),
-        }));
-      } else {
-        setPDescriptionI18n((prev) => ({
-          ...prev,
-          [sourceLang]: resultText,
-          ...(sourceLang === "es" ? { es: resultText } : {}),
-        }));
-      }
-      if (sourceLang === "es" || !pDescription) setPDescription(resultText);
-    } else if (aiRefineState.fieldType === "provider_info") {
-      if (translations && (translations.en || translations.pt || translations.it)) {
-        setPProviderInfoI18n((prev) => ({
-          ...prev,
-          ...translations,
-          [sourceLang]: resultText,
-          ...(sourceLang === "es" ? { es: resultText } : {}),
-        }));
-      } else {
-        setPProviderInfoI18n((prev) => ({ ...prev, [sourceLang]: resultText }));
-      }
-    } else if (aiRefineState.fieldType === "extra_block" && typeof blockIndex === "number") {
-      setPExtraDescriptions((prev) =>
-        prev.map((d, i) => {
-          if (i !== blockIndex) return d;
-          const nextTitleI18n = translations?.titleI18n
-            ? { ...(d.titleI18n || {}), ...translations.titleI18n, [sourceLang]: resultTitle || d.titleI18n?.[sourceLang] || "" }
-            : { ...(d.titleI18n || {}), [sourceLang]: resultTitle || d.titleI18n?.[sourceLang] || "" };
-          const nextBodyI18n = translations?.bodyI18n
-            ? { ...(d.bodyI18n || {}), ...translations.bodyI18n, [sourceLang]: resultText }
-            : { ...(d.bodyI18n || {}), [sourceLang]: resultText };
-          return {
-            ...d,
-            title: sourceLang === "es" && resultTitle ? resultTitle : (d.title || nextTitleI18n.es || resultTitle || ""),
-            body: sourceLang === "es" ? resultText : (d.body || nextBodyI18n.es || resultText),
-            titleI18n: nextTitleI18n,
-            bodyI18n: nextBodyI18n,
-            prompt: promptUsed || d.prompt,
-          };
-        })
-      );
-    } else if (aiRefineState.fieldType === "new_extra_block") {
-      const newTitle = resultTitle || "Información adicional";
-      const tMap = translations?.titleI18n || { es: newTitle, en: newTitle, pt: newTitle, it: newTitle };
-      const bMap = translations?.bodyI18n || { es: resultText, en: resultText, pt: resultText, it: resultText };
-      setPExtraDescriptions((prev) => [
-        ...prev,
-        {
-          title: newTitle,
-          body: resultText,
-          titleI18n: tMap,
-          bodyI18n: bMap,
-          lang: "es",
-          visibleInCard: false,
-          prompt: promptUsed,
-        },
-      ]);
-    }
-  };
-
-  const [directRefiningField, setDirectRefiningField] = useState<string | null>(null);
-  const reformulateCountersRef = useRef<Record<string, number>>({});
-  const activeScrapedFactsRef = useRef<{
-    headings?: string[];
-    paragraphs?: string[];
-    rawText?: string;
-    rawPageTitle?: string;
-    publisherName?: string;
-    url?: string;
-  }>({});
-
-  const getDefaultCustomBlocks = (): ExtraDescription[] => {
-    try {
-      if (typeof window !== "undefined") {
-        const raw = window.localStorage.getItem("tgn_custom_scraper_blocks");
-        if (raw) {
-          const list: Array<{ title: string; prompt?: string }> = JSON.parse(raw);
-          if (Array.isArray(list) && list.length > 0) {
-            return list
-              .filter((b) => b && b.title && b.title.trim())
-              .map((b) => {
-                const cleanTitle = cleanGenericBlockTitle(b.title, b.prompt);
-                return {
-                  title: cleanTitle,
-                  body: "",
-                  titleI18n: { es: cleanTitle, en: cleanTitle, pt: cleanTitle, it: cleanTitle },
-                  bodyI18n: { es: "", en: "", pt: "", it: "" },
-                  lang: "es" as Lang,
-                  visibleInCard: false,
-                  prompt: b.prompt,
-                };
-              });
-          }
-        }
-      }
-    } catch {}
-    return [];
-  };
-
-  useEffect(() => {
-    try {
-      if (typeof window !== "undefined") {
-        const raw = window.localStorage.getItem("tgn_custom_scraper_blocks");
-        if (raw) {
-          const list: Array<{ title: string; prompt?: string }> = JSON.parse(raw);
-          if (Array.isArray(list) && list.length > 0) {
-            let changed = false;
-            const sanitized = list.map((b) => {
-              const rawTitle = (b?.title || "").trim();
-              const clean = cleanGenericBlockTitle(rawTitle, b?.prompt);
-              if (clean !== rawTitle) changed = true;
-              return { ...b, title: clean || rawTitle };
-            }).filter((b) => Boolean(b && b.title));
-            if (changed) {
-              window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(sanitized));
-            }
-          }
-        }
-      }
-    } catch {}
-  }, []);
-
-  const handleMoveExtraBlock = (index: number, direction: "up" | "down") => {
-    setPExtraDescriptions((prev) => {
-      const targetIndex = direction === "up" ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
-      const copy = [...prev];
-      const temp = copy[index];
-      copy[index] = copy[targetIndex];
-      copy[targetIndex] = temp;
-      return copy;
-    });
-  };
-
-  const handleOpenAiRefineModal = (
-    fieldType: RefineFieldType,
-    blockIndex?: number
-  ) => {
-    const sourceLang = pLang || "es";
-    let currentValue = "";
-    let currentTitleValue = "";
-    let initialPrompt = "";
-
-    if (fieldType === "title") {
-      currentValue = (pTitleI18n[sourceLang] || (sourceLang === "es" ? pTitle : "") || pTitleI18n.es || "").trim();
-      initialPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_title_prompt") : null) || "";
-    } else if (fieldType === "description") {
-      currentValue = (pDescriptionI18n[sourceLang] || (sourceLang === "es" ? pDescription : "") || pDescriptionI18n.es || "").trim();
-      initialPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) || "";
-    } else if (fieldType === "provider_info") {
-      currentValue = (pProviderInfoI18n[sourceLang] || pProviderInfoI18n.es || "").trim();
-      initialPrompt = "Mejorar la descripción institucional y trayectoria del oferente en 1 o 2 párrafos claros";
-    } else if (fieldType === "extra_block" && typeof blockIndex === "number") {
-      const block = pExtraDescriptions[blockIndex];
-      currentTitleValue = (block?.titleI18n?.[sourceLang] || block?.titleI18n?.es || block?.title || "").trim();
-      currentValue = (block?.bodyI18n?.[sourceLang] || block?.bodyI18n?.es || block?.body || "").trim();
-      initialPrompt = (block as any)?.prompt || "";
-      if (!initialPrompt && typeof window !== "undefined") {
-        try {
-          const rawBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
-          if (rawBlocks) {
-            const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawBlocks);
-            const found = list.find((b) => b.title?.toLowerCase() === currentTitleValue.toLowerCase());
-            if (found?.prompt) initialPrompt = found.prompt;
-          }
-        } catch {}
-      }
-    } else if (fieldType === "new_extra_block") {
-      currentValue = "";
-      currentTitleValue = "";
-      initialPrompt = "";
-    }
-
-    setAiRefineState({
-      isOpen: true,
-      fieldType,
-      currentValue,
-      currentTitleValue,
-      initialPrompt,
-      blockIndex,
-    });
-  };
-
-  const handleDirectReformulateField = async (
-    target: "title" | "description" | "provider_info" | { type: "extra_block"; index: number }
-  ) => {
-    const isExtra = typeof target === "object" && target.type === "extra_block";
-    const fieldTypeKey = isExtra ? `extra-${target.index}` : target;
-    if (directRefiningField) return;
-
-    setDirectRefiningField(fieldTypeKey);
-    reformulateCountersRef.current[fieldTypeKey] = (reformulateCountersRef.current[fieldTypeKey] || 0) + 1;
-    const variationIndex = reformulateCountersRef.current[fieldTypeKey];
-    const sourceLang = pLang || "es";
-    const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
-
-    try {
-      let fieldType: RefineFieldType = "description";
-      let currentVal = "";
-      let currentTitleVal = "";
-      let promptToUse = "";
-      let blockIdx: number | undefined = undefined;
-
-      // Extract any permanent general rules configured in the scraper modal
-      let generalRules = "";
-      try {
-        const rawRules = typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_scraper_prompts") : null;
-        if (rawRules) {
-          const parsed = JSON.parse(rawRules);
-          if (Array.isArray(parsed) && parsed.length) {
-            generalRules = parsed.filter(Boolean).join(". ");
-          }
-        }
-      } catch {}
-
-      if (target === "title") {
-        fieldType = "title";
-        currentVal = (pTitleI18n[sourceLang] || (sourceLang === "es" ? pTitle : "") || pTitleI18n.es || "").trim();
-        currentTitleVal = currentVal;
-        const savedTitlePrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_title_prompt") : null) || "";
-        promptToUse = [savedTitlePrompt, generalRules].filter(Boolean).join(". ") ||
-          "Generar un título atractivo, vendedor y representativo de la oferta real del oferente";
-      } else if (target === "description") {
-        fieldType = "description";
-        currentVal = (pDescriptionI18n[sourceLang] || (sourceLang === "es" ? pDescription : "") || pDescriptionI18n.es || "").trim();
-        const savedDescPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) || "";
-        promptToUse = [savedDescPrompt, generalRules].filter(Boolean).join(". ") ||
-          "Redactar una descripción profesional, completa y estructurada en párrafos HTML <p> destacando propuesta de valor y servicios";
-      } else if (target === "provider_info") {
-        fieldType = "provider_info";
-        currentVal = (pProviderInfoI18n[sourceLang] || pProviderInfoI18n.es || "").trim();
-        promptToUse = [generalRules, "Mejorar la descripción institucional y trayectoria del oferente en 1 o 2 párrafos claros"].filter(Boolean).join(". ");
-      } else if (isExtra) {
-        fieldType = "extra_block";
-        blockIdx = target.index;
-        const block = pExtraDescriptions[target.index];
-        currentTitleVal = (block?.titleI18n?.[sourceLang] || block?.titleI18n?.es || block?.title || "").trim();
-        currentVal = (block?.bodyI18n?.[sourceLang] || block?.bodyI18n?.es || block?.body || "").trim();
-
-        let savedBlockPrompt = (block as any)?.prompt || "";
-        if (!savedBlockPrompt) {
-          try {
-            const rawBlocks = typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_scraper_blocks") : null;
-            if (rawBlocks) {
-              const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawBlocks);
-              const found = list.find((b) => b.title?.toLowerCase() === currentTitleVal.toLowerCase());
-              if (found?.prompt) savedBlockPrompt = found.prompt;
-            }
-          } catch {}
-        }
-
-        const savedDescPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) || "";
-        promptToUse = savedBlockPrompt || savedDescPrompt || generalRules ||
-          `Generar contenido estructurado y relevante para el bloque '${currentTitleVal || "Información adicional"}' en párrafos HTML <p>`;
-      }
-
-      const res = await fetch("/api/admin/ai-refine-field", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fieldType,
-          currentText: currentVal,
-          currentTitle: currentTitleVal,
-          prompt: promptToUse,
-          publisherName: pPublisherName || (pTitle ? pTitle.split(/\s*[-–—|]\s*/)[0].trim() : ""),
-          category: pCategorySelections.join(", ") || pCategory || "",
-          city: pCity || pHeadquarterCity || "",
-          country: pCountry || pHeadquarterCountry || "",
-          url: pWebsite || activeScraperDraftUrl || activeScrapedFactsRef.current.url || "",
-          sourceLang,
-          autoTranslate: false,
-          apiKey: customKey,
-          provider: (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_scraper_provider") : null) || "auto",
-          variationIndex,
-          scrapedHeadings: activeScrapedFactsRef.current.headings || [],
-          scrapedParagraphs: activeScrapedFactsRef.current.paragraphs || [],
-          scrapedTextContent: activeScrapedFactsRef.current.rawText || "",
-          rawPageTitle: activeScrapedFactsRef.current.rawPageTitle || "",
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data?.success || !data?.result) {
-        throw new Error(data?.error || "No se pudo reformular el campo con IA.");
-      }
-
-      const { result } = data;
-
-      if (fieldType === "title") {
-        const resultText = result.title || result.text || "";
-        if (resultText) {
-          setPTitleI18n((prev) => ({
-            ...prev,
-            [sourceLang]: resultText,
-            ...(sourceLang === "es" ? { es: resultText } : {}),
-          }));
-          if (sourceLang === "es" || !pTitle) setPTitle(resultText);
-          setSaveMessage("✨ ¡Título reformulado con IA! (Haz clic en 'Traducir' cuando esté listo)");
-        }
-      } else if (fieldType === "description") {
-        const resultText = result.description || result.text || "";
-        if (resultText) {
-          setPDescriptionI18n((prev) => ({
-            ...prev,
-            [sourceLang]: resultText,
-            ...(sourceLang === "es" ? { es: resultText } : {}),
-          }));
-          if (sourceLang === "es" || !pDescription) setPDescription(resultText);
-          setSaveMessage("✨ ¡Descripción reformulada con IA! (Haz clic en 'Traducir' cuando esté listo)");
-        }
-      } else if (fieldType === "provider_info") {
-        const resultText = result.providerInfo || result.text || "";
-        if (resultText) {
-          setPProviderInfoI18n((prev) => ({
-            ...prev,
-            [sourceLang]: resultText,
-            ...(sourceLang === "es" ? { es: resultText } : {}),
-          }));
-          setSaveMessage("✨ ¡Información del oferente reformulada! (Haz clic en 'Traducir' cuando esté listo)");
-        }
-      } else if (fieldType === "extra_block" && typeof blockIdx === "number") {
-        const resultTitle = result.title || currentTitleVal;
-        const resultText = result.body || result.description || result.text || "";
-        if (resultText) {
-          setPExtraDescriptions((prev) =>
-            prev.map((d, i) => {
-              if (i !== blockIdx) return d;
-              const nextTitleI18n = { ...(d.titleI18n || {}), [sourceLang]: resultTitle || d.titleI18n?.[sourceLang] || "" };
-              const nextBodyI18n = { ...(d.bodyI18n || {}), [sourceLang]: resultText };
-              return {
-                ...d,
-                title: sourceLang === "es" && resultTitle ? resultTitle : (d.title || nextTitleI18n.es || resultTitle || ""),
-                body: sourceLang === "es" ? resultText : (d.body || nextBodyI18n.es || resultText),
-                titleI18n: nextTitleI18n,
-                bodyI18n: nextBodyI18n,
-                prompt: promptToUse || d.prompt,
-              };
-            })
-          );
-          setSaveMessage("✨ ¡Bloque adicional reformulado con IA! (Haz clic en 'Traducir' cuando esté listo)");
-        }
-      }
-      window.setTimeout(() => setSaveMessage(""), 4000);
-    } catch (err: any) {
-      console.error("Direct refine field error:", err);
-      setSaveMessage(`⚠️ Error al reformular con IA: ${err?.message || "Intente nuevamente."}`);
-      window.setTimeout(() => setSaveMessage(""), 5000);
-    } finally {
-      setDirectRefiningField(null);
-    }
-  };
   const [pPublisherName, setPPublisherName] = useState("");
   const [pProviderEmail, setPProviderEmail] = useState("");
   const [pStatus, setPStatus] = useState("active");
   const [pFeatured, setPFeatured] = useState(false);
   const [pPartner, setPPartner] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [activeScraperDraftIndex, setActiveScraperDraftIndex] = useState<number | null>(null);
-  const [activeScraperDraftUrl, setActiveScraperDraftUrl] = useState<string | null>(null);
 
   const [pCategory, setPCategory] = useState("");
   const [pCategoryI18n, setPCategoryI18n] = useState<I18nRecord | null>(null);
@@ -2024,7 +1576,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     bodyI18n: I18nRecord;
     lang: Lang;
     visibleInCard?: boolean;
-    prompt?: string;
   };
   const [pExtraDescriptions, setPExtraDescriptions] = useState<ExtraDescription[]>([]);
   const [pProviderInfoLang, setPProviderInfoLang] = useState<Lang>("es");
@@ -2382,109 +1933,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       ? formatAdminTaxonomyTypeLabel(taxonomyType)
       : trimmedLabel;
   };
-
-  const categoryById = useMemo(() => {
-    const map = new Map<string, Category>();
-    categories.forEach((category) => map.set(category.id, category));
-    return map;
-  }, [categories]);
-
-  const resolveCategoryBlockId = (category: Category, seen = new Set<string>()): string | null => {
-    if (seen.has(category.id)) return null;
-    seen.add(category.id);
-    if (category.blockId) return filterGroupById.has(category.blockId) ? category.blockId : null;
-    if (category.parentId) {
-      const parent = categoryById.get(category.parentId);
-      if (!parent) return null;
-      return resolveCategoryBlockId(parent, seen);
-    }
-    return null;
-  };
-
-  const resolveCategoryTaxonomyType = (category: Category, seen = new Set<string>()): string | null => {
-    if (seen.has(category.id)) return "categoria";
-    seen.add(category.id);
-    const ownTaxonomyType = normalizeTaxonomyTypeAlias(category.taxonomyType || "predeterminado");
-    if (ownTaxonomyType && !["", "default", "inherit", "predeterminado"].includes(ownTaxonomyType)) return ownTaxonomyType;
-    if (category.parentId) {
-      const parent = categoryById.get(category.parentId);
-      if (parent) return resolveCategoryTaxonomyType(parent, seen);
-    }
-    const effectiveBlockId = resolveCategoryBlockId(category);
-    if (effectiveBlockId) {
-      const block = filterGroupById.get(effectiveBlockId);
-      const blockTaxonomyType = normalizeTaxonomyTypeAlias(block?.taxonomyType || "predeterminado");
-      if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
-
-      const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) {
-        return "categoria";
-      }
-      if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) {
-        return "actividad";
-      }
-      if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) {
-        return "tipo";
-      }
-      if (blockLabelNorm.includes("modalidad")) {
-        return "modalidad";
-      }
-      if (blockLabelNorm.includes("prestacion")) {
-        return "prestacion";
-      }
-      if (blockLabelNorm.includes("idioma")) {
-        return "idiomas";
-      }
-      const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
-      const isExplicitFilterBlock = blockLabelNorm.includes("filtro") || blockLabelNorm.includes("general");
-      if (!hasChildren && isExplicitFilterBlock) {
-        return "filtro";
-      }
-    }
-    return "categoria";
-  };
-
-  const isCategoryRenderable = (category: Category): boolean => {
-    if (category.parentId && !categoryById.has(category.parentId)) return false;
-    const resolvedTaxonomyType = resolveCategoryTaxonomyType(category);
-    if (!resolvedTaxonomyType) return false;
-    return true;
-  };
-
-  const validRoots = useMemo(
-    () => roots.filter((root) => isCategoryRenderable(root)),
-    [roots, categories, filterGroups]
-  );
-
-  const modalidadRoots = useMemo(
-    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "modalidad"),
-    [validRoots, categories, filterGroups]
-  );
-  const idiomaRoots = useMemo(
-    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "idiomas"),
-    [validRoots, categories, filterGroups]
-  );
-  const actividadRoots = useMemo(
-    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "actividad"),
-    [validRoots, categories, filterGroups]
-  );
-  const tipoRoots = useMemo(
-    () => validRoots.filter((root) => ["tipo", "tipos"].includes(resolveCategoryTaxonomyType(root) || "")),
-    [validRoots, categories, filterGroups]
-  );
-  const prestacionRoots = useMemo(
-    () => validRoots.filter((root) => ["prestacion", "prestaciones"].includes(resolveCategoryTaxonomyType(root) || "")),
-    [validRoots, categories, filterGroups]
-  );
-
-  const publicationCategoryRoots = useMemo(
-    () =>
-      validRoots.filter((root) => {
-        const resolvedTaxonomyType = resolveCategoryTaxonomyType(root);
-        return resolvedTaxonomyType === "categoria";
-      }),
-    [validRoots, categories, filterGroups]
-  );
 
   const priceSymbolByCurrency: Record<string, string> = {
     ARS: "$",
@@ -3166,10 +2614,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   async function handleImageUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
     const next = await Promise.all(Array.from(files).map((file) => fileToUploadAsset(file)));
-    const newUrls = next.map((asset) => asset.url);
-    setPImageUploads((prev) => [...prev, ...newUrls]);
+    setPImageUploads((prev) => [...prev, ...next.map((asset) => asset.url)]);
     setPImageUploadAssets((prev) => [...prev, ...next]);
-    setPImageOrder((prev) => (prev.length ? [...prev, ...newUrls] : []));
   }
 
   async function handleProviderLogoUpload(file: File | null) {
@@ -3219,7 +2665,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       .map((entry) => ({
         kind: String(entry.kind ?? "").trim(),
         label: String(entry.label ?? "").trim(),
-        labelI18n: entry.labelI18n ?? null,
         url: (() => {
           const rawUrl = String(entry.url ?? "").trim();
           const kind = String(entry.kind ?? "").trim().toLowerCase();
@@ -3443,7 +2888,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               titleI18n: { ...d.titleI18n, es: firstNonEmpty(d.titleI18n.es, title) },
               bodyI18n: { ...d.bodyI18n, es: firstNonEmpty(d.bodyI18n.es, body) },
               visibleInCard: booleanLike(d.visibleInCard),
-              prompt: d.prompt,
             };
           })
           .filter((d) => d.title || d.body),
@@ -3511,7 +2955,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setPLanguages("");
       setPImageUrls("");
       setPImageUploads([]);
-      setPImageOrder([]);
       setPWebsite("");
       setPLocationAddress("");
       setPExtraDescriptions([]);
@@ -3566,56 +3009,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
   }
 
-  const applyAiDraftToForm = (draft: ScrapedPublicationDraft, index?: number) => {
-    try {
-      setActiveScraperDraftIndex(typeof index === "number" ? index : 0);
-      setActiveScraperDraftUrl(draft.url || null);
-      setEditingId(null);
-
-    // Guardar hechos y contenido real extraído del scraping para las reformulaciones con IA
-    activeScrapedFactsRef.current = {
-      headings: draft.scrapedHeadings || [],
-      paragraphs: draft.scrapedParagraphs || [],
-      rawText: draft.scrapedTextContent || "",
-      rawPageTitle: draft.rawPageTitle || draft.title || "",
-      publisherName: draft.publisherName || "",
-      url: draft.url || "",
-    };
-
-    // Complete form state clean reset before injecting fresh draft data
-    setPTitle("");
-    setPTitleI18n({ es: "", en: "", pt: "", it: "" });
-    setPPublisherName("");
-    setPDescription("");
-    setPDescriptionI18n({ es: "", en: "", pt: "", it: "" });
-    setPExtraDescriptions([]);
-    setPProviderInfoI18n({ es: "" });
-    setPProviderStartYear("");
-    setPProviderRating("5.0");
-    setPProviderReviewCount("0");
-    setPProviderCommentsUrl("");
-    setPProviderLogo("");
-    setPImageUrls("");
-    setPCountry("Argentina");
-    setPCity("");
-    setPHeadquarterCountry("Argentina");
-    setPHeadquarterCity("");
-    setPHeadquarterMapUrl("");
-    setPLocationAddress("");
-    setPHeadquarterExtras([]);
-    setPPrestacionDestinationCountries([]);
-    setPCurrency("USD");
-    setPPrice("");
-    setPPricePeriod("");
-    setPLanguages("Español");
-    setPWebsite("");
-    setPSocialLinksDetailed([]);
-    setPCategorySelections([]);
-    setPSubcategorySelections([]);
-    setPProviderActivities([]);
-    setPProviderTypes([]);
-    setPProviderModalities([]);
-
+  const applyAiDraftToForm = (draft: ScrapedPublicationDraft) => {
     const cleanTitleStr = (s: string) => {
       if (!s) return "";
       let res = s
@@ -3641,27 +3035,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const pubName = cleanTitleStr(draft.publisherName || draft.title || "");
     setPPublisherName(pubName);
 
-    const unescapeHtml = (s: string) => {
-      if (!s) return "";
-      return s
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#039;/g, "'")
-        .replace(/&amp;/g, "&");
-    };
-
-    let descEs = unescapeHtml((draft.description || draft.descriptionI18n?.es || "").trim());
-    if (descEs && !descEs.includes("<p>")) {
-      descEs = `<p>${descEs}</p>`;
-    }
-
-    const descI18nInit: I18nRecord = {
-      es: descEs,
-      en: unescapeHtml((draft.descriptionI18n?.en || "").trim()),
-      pt: unescapeHtml((draft.descriptionI18n?.pt || "").trim()),
-      it: unescapeHtml((draft.descriptionI18n?.it || "").trim()),
-    };
+    const descEs = draft.description || "";
+    const descI18nInit = draft.descriptionI18n || { es: descEs };
     setPDescription(descEs);
     setPDescriptionI18n(descI18nInit);
 
@@ -3685,45 +3060,82 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         },
         lang: (d.lang || "es") as Lang,
         visibleInCard: d.visibleInCard !== false,
-        prompt: d.prompt,
       };
     });
-
-    // Establecer exclusivamente los bloques generados en este borrador de scraping (sin inyectar bloques residuales ni score scout)
-    const filteredExtraDesc = extraDescInit.filter(
-      (eb) => !/score\s*scout/i.test(eb.title || eb.titleI18n?.es || "")
-    );
-    setPExtraDescriptions(filteredExtraDesc);
+    setPExtraDescriptions(extraDescInit);
 
     const providerInfoInit = draft.providerInfoI18n || { es: "" };
     setPProviderInfoI18n(providerInfoInit);
 
+    // Auto-translate missing languages (en, pt, it) if they are missing, equal to spanish fallback, or contain spanish headers
+    const hasSpanishMarkers = (str: string) => /<strong>\s*(?:Vigencia|Propuesta de valor|¿?Para qui[eé]n|Documentaci[oó]n requerida|Permanencia|Diferencial|Exclusiones):/i.test(str);
+    const needsTranslation =
+      descEs &&
+      (!descI18nInit.en ||
+        !descI18nInit.pt ||
+        !descI18nInit.it ||
+        descI18nInit.en === descEs ||
+        descI18nInit.pt === descEs ||
+        descI18nInit.it === descEs ||
+        hasSpanishMarkers(descI18nInit.en) ||
+        hasSpanishMarkers(descI18nInit.pt) ||
+        hasSpanishMarkers(descI18nInit.it));
 
+    if (needsTranslation) {
+      fetch("/api/admin/translate-i18n", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.translations) {
+            setPDescriptionI18n((prev) => ({
+              ...prev,
+              es: descEs,
+              en: data.translations.en || prev.en || descEs,
+              pt: data.translations.pt || prev.pt || descEs,
+              it: data.translations.it || prev.it || descEs,
+            }));
+          }
+        })
+        .catch((err) => console.error("[applyAiDraftToForm Auto-Translate Error]:", err));
+    }
+
+    if (titleEs && (!titleI18nInit.en || !titleI18nInit.pt || !titleI18nInit.it || titleI18nInit.en === titleEs || titleI18nInit.pt === titleEs)) {
+      fetch("/api/admin/translate-i18n", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.translations) {
+            setPTitleI18n((prev) => ({
+              ...prev,
+              es: titleEs,
+              en: data.translations.en || prev.en || titleEs,
+              pt: data.translations.pt || prev.pt || titleEs,
+              it: data.translations.it || prev.it || titleEs,
+            }));
+          }
+        })
+        .catch((err) => console.error("[applyAiDraftToForm Auto-Translate Title Error]:", err));
+    }
     let startYear = draft.providerStartYear || "";
     if ((!startYear || startYear === "2010" || startYear === "2015") && /garrahan/i.test(`${draft.url || ""} ${draft.title || ""}`)) {
       startYear = "1987";
     }
-    if ((!startYear || startYear === "2010" || startYear === "2015") && /serra\s*mansilla/i.test(`${draft.url || ""} ${draft.title || ""}`)) {
-      startYear = "2018";
-    }
     setPProviderStartYear(startYear);
-    const finalRatingVal = draft.providerRating !== undefined && draft.providerRating !== null && draft.providerRating.trim() !== "" ? draft.providerRating : "0";
-    const finalReviewCountVal = draft.providerReviewCount !== undefined && draft.providerReviewCount !== null && draft.providerReviewCount.trim() !== "" ? draft.providerReviewCount : "0";
-    const fallbackMapsQuery = [draft.publisherName || draft.title, draft.headquarterCity || draft.city, draft.headquarterCountry || draft.country].filter(Boolean).join(", ");
-    const finalCommentsUrlVal = draft.providerCommentsUrl && draft.providerCommentsUrl.trim() !== ""
-      ? draft.providerCommentsUrl
-      : (fallbackMapsQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackMapsQuery)}` : "");
-
-    setPProviderRating(finalRatingVal);
-    setPProviderReviewCount(finalReviewCountVal);
-    setPProviderCommentsUrl(finalCommentsUrlVal);
+    setPProviderRating(draft.providerRating || "0");
+    setPProviderReviewCount(draft.providerReviewCount ?? "0");
+    setPProviderCommentsUrl(draft.providerCommentsUrl || "");
     const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
     const cleanLogo = draft.providerLogo && !BAD_GFX.test(draft.providerLogo) ? draft.providerLogo : "";
     setPProviderLogo(cleanLogo);
     if (Array.isArray(draft.images)) {
       const cleanImages = draft.images.filter((img) => img && !BAD_GFX.test(img));
       setPImageUrls(cleanImages.join("\n"));
-      setPImageOrder(cleanImages);
     }
     if (draft.status) setPStatus(draft.status);
 
@@ -3760,8 +3172,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }))
     );
 
-    if (Array.isArray((draft as any).destinationCountries) && (draft as any).destinationCountries.length > 0) {
-      setPPrestacionDestinationCountries((draft as any).destinationCountries);
+    if (Array.isArray(draft.destinationCountries) && draft.destinationCountries.length > 0) {
+      setPPrestacionDestinationCountries(draft.destinationCountries);
     }
 
     setPCurrency(draft.currency || "USD");
@@ -3783,12 +3195,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         }
         const key = `${kind}:${u}`;
         if (!linkMap.has(key)) {
-          const rawLabel = String(entry.label || "").trim() || (kind === "phone" ? "Teléfono de contacto" : kind === "whatsapp" ? "WhatsApp" : kind === "email" ? "Email de contacto" : "Página Oficial");
-          const resolvedI18n = resolveContactLabelI18nRecord(rawLabel, (entry as any).labelI18n);
           linkMap.set(key, {
             kind,
-            label: rawLabel,
-            labelI18n: resolvedI18n,
+            label: String(entry.label || "").trim() || (kind === "phone" ? "Teléfono de contacto" : kind === "whatsapp" ? "WhatsApp" : kind === "email" ? "Email de contacto" : "Página Oficial"),
             url: u,
           });
         }
@@ -3824,68 +3233,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       draft.subcategory || "",
     ].filter(Boolean);
 
-    const fullTextCorpus = `${draft.title} ${draft.publisherName || ""} ${draft.description || ""} ${draft.url || ""} ${(draft.scrapedParagraphs || []).join(" ")} ${(draft.scrapedHeadings || []).join(" ")}`
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-
-    const isEducationalEntity =
-      /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
-      /\.edu(?:\.[a-z]{2})?/i.test(draft.url || "");
-
-    const isHealthEntity =
-      /\b(hospital|clinica|sanatorio|centro medic|centro de salud|maternidad|pediatria|guardia medica|policlinico|obra social|prepaga|osep|osde|swiss medical|galeno)\b/i.test(fullTextCorpus);
-
-    const isAuthenticOng =
-      (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(draft.url || "")) &&
-      /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(fullTextCorpus) &&
-      !isEducationalEntity &&
-      !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(fullTextCorpus);
-
-    const isOngMatch = (name: string): boolean => {
-      const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      return /\b(?:ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n) ||
-        /sin fines de lucro|organismo no gubernamental|asociacion civil/i.test(n);
-    };
-
-    const isStudentEduMatch = (name: string): boolean => {
-      const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      return /\b(?:estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto|facultad|intercambio|convocatoria|programa)\w*/i.test(n) ||
-        /estudiante|universidad|educacion|carrera|formacion|posgrado|grado|beca|colegio|instituto|programa|intercambio|convocatoria/i.test(n);
-    };
-
     const resolvedCategoryRoots = new Set<string>();
     const resolvedSubcategories = new Set<string>();
 
-    // Proactively resolve student and university categories when entity is educational
-    if (isEducationalEntity) {
-      publicationCategoryRoots.forEach((r) => {
-        if (isStudentEduMatch(r.description)) {
-          const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-          if (/estudiant|formaci|curso|programa/i.test(rNorm)) {
-            resolvedCategoryRoots.add(r.description);
-          } else if (/intercambio/i.test(rNorm) && (fullTextCorpus.includes("intercambio") || fullTextCorpus.includes("movilidad") || fullTextCorpus.includes("internacional") || fullTextCorpus.includes("convenio"))) {
-            resolvedCategoryRoots.add(r.description);
-          } else if (/convocatoria/i.test(rNorm) && (fullTextCorpus.includes("convocatoria") || fullTextCorpus.includes("ingreso") || fullTextCorpus.includes("beca") || fullTextCorpus.includes("admision"))) {
-            resolvedCategoryRoots.add(r.description);
-          } else if (/universi|educa|academ|carrera/i.test(rNorm)) {
-            resolvedCategoryRoots.add(r.description);
-          }
-        }
-      });
-    }
-
     for (const inputCat of rawInputCategories) {
-      if (!isAuthenticOng && isOngMatch(inputCat)) continue;
       const inputNorm = inputCat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       if (!inputNorm) continue;
 
       // 1. Direct root match
       const exactRoot = allRootsWithNorm.find((r) => r.original === inputCat || r.norm === inputNorm);
       if (exactRoot) {
-        if (isAuthenticOng || !isOngMatch(exactRoot.original)) {
-          resolvedCategoryRoots.add(exactRoot.original);
-        }
+        resolvedCategoryRoots.add(exactRoot.original);
         continue;
       }
 
@@ -3897,11 +3255,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (matchedCatInDb) {
         const root = resolveRoot(matchedCatInDb);
         if (validRootsSet.has(root.description)) {
-          if (isAuthenticOng || (!isOngMatch(root.description) && !isOngMatch(matchedCatInDb.description))) {
-            resolvedCategoryRoots.add(root.description);
-            if (matchedCatInDb.parentId) {
-              resolvedSubcategories.add(matchedCatInDb.description);
-            }
+          resolvedCategoryRoots.add(root.description);
+          if (matchedCatInDb.parentId) {
+            resolvedSubcategories.add(matchedCatInDb.description);
           }
           continue;
         }
@@ -3910,9 +3266,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       // 3. Substring match
       const substringRoot = allRootsWithNorm.find((r) => r.norm.includes(inputNorm) || inputNorm.includes(r.norm));
       if (substringRoot) {
-        if (isAuthenticOng || !isOngMatch(substringRoot.original)) {
-          resolvedCategoryRoots.add(substringRoot.original);
-        }
+        resolvedCategoryRoots.add(substringRoot.original);
         continue;
       }
 
@@ -3920,15 +3274,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3);
       const tokenRoot = allRootsWithNorm.find((r) => tokens.some((tok) => r.norm.includes(tok)));
       if (tokenRoot) {
-        if (isAuthenticOng || !isOngMatch(tokenRoot.original)) {
-          resolvedCategoryRoots.add(tokenRoot.original);
-        }
+        resolvedCategoryRoots.add(tokenRoot.original);
         continue;
       }
     }
 
     for (const inputSub of rawInputSubcategories) {
-      if (!isAuthenticOng && isOngMatch(inputSub)) continue;
       const subNorm = inputSub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       if (!subNorm) continue;
 
@@ -3941,172 +3292,68 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (matchedSubInDb) {
         const root = resolveRoot(matchedSubInDb);
         if (validRootsSet.has(root.description)) {
-          if (isAuthenticOng || (!isOngMatch(root.description) && !isOngMatch(matchedSubInDb.description))) {
-            resolvedCategoryRoots.add(root.description);
-            resolvedSubcategories.add(matchedSubInDb.description);
-          }
+          resolvedCategoryRoots.add(root.description);
+          resolvedSubcategories.add(matchedSubInDb.description);
         }
       }
     }
 
-    // 1. Dynamic category scoring across loaded catalog to ensure all legitimate defining categories are present
-    if (publicationCategoryRoots.length > 0) {
-      const isHealthEntity =
-        /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextCorpus) ||
-        /osep|hospital|clinica|sanatorio|salud/i.test(draft.url || "");
-
-      const isLegalOrConsulting =
-        /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica)\b/i.test(fullTextCorpus);
-
-      const isTourismEntity =
-        /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(fullTextCorpus);
-
-      const scoredRoots: { root: Category; score: number }[] = [];
-      for (const root of publicationCategoryRoots) {
-        if (!isAuthenticOng && isOngMatch(root.description)) continue;
-        const rNorm = root.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-
-        // Hard negative constraint: If entity is medical/health, NEVER match visa/migration categories!
-        if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(rNorm)) continue;
-        if (isEducationalEntity && /visa|migra/i.test(rNorm)) continue;
-
-        const rTokens = rNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
-        let score = 0;
-        if (fullTextCorpus.includes(rNorm)) score += 40;
-        for (const tok of rTokens) {
-          if (fullTextCorpus.includes(tok)) score += 15;
-        }
-        if (isEducationalEntity && isStudentEduMatch(root.description)) {
-          score += 100;
-        }
-        if (isHealthEntity && /salud|medic|asistenc|especializ|funcionario|social|afiliad|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(rNorm)) {
-          score += 80;
-        }
-        if (!isHealthEntity && isLegalOrConsulting && /migra|visa|legal|residencia|ciudadania|tramite|documentacion/i.test(rNorm)) {
-          score += 80;
-        }
-        if (isTourismEntity && /hotel|alojam|turism|hosped/i.test(rNorm)) {
-          score += 80;
-        }
-        const children = childrenBy.get(root.id) || [];
-        for (const child of children) {
-          if (!isAuthenticOng && isOngMatch(child.description)) continue;
-          const cNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-          if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(cNorm)) continue;
-
-          const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
-          if (fullTextCorpus.includes(cNorm)) score += 30;
-          for (const tok of cTokens) {
-            if (fullTextCorpus.includes(tok)) score += 10;
-          }
-          if (isEducationalEntity && isStudentEduMatch(child.description)) {
-            score += 50;
-          }
-          if (isHealthEntity && /salud|medic|asistenc|especializ|funcionario|social|afiliad|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(cNorm)) {
-            score += 40;
-          }
-        }
-        if (score > 0) scoredRoots.push({ root, score });
-      }
-
-      scoredRoots.sort((a, b) => b.score - a.score);
-      const topScore = scoredRoots[0]?.score ?? 0;
-      if (topScore > 0) {
-        for (const sr of scoredRoots) {
-          if (resolvedCategoryRoots.size < 4 && sr.score >= 25 && sr.score >= topScore * 0.5) {
-            resolvedCategoryRoots.add(sr.root.description);
-          }
-        }
-      }
-      if (resolvedCategoryRoots.size === 0 && scoredRoots[0] && scoredRoots[0].score >= 25) {
-        resolvedCategoryRoots.add(scoredRoots[0].root.description);
+    // 1. Resolve Category Roots and Subcategories
+    if (resolvedCategoryRoots.size === 0) {
+      const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
+      if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
+        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
+        if (eduRoot) resolvedCategoryRoots.add(eduRoot.original);
+      } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|policl[ií]nico|maternidad/i.test(titleContext)) {
+        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
+        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
+      } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
+        const autoRoot = allRootsWithNorm.find((r) => /auto|veh[ií]cul|transporte|comercio/i.test(r.norm));
+        if (autoRoot) resolvedCategoryRoots.add(autoRoot.original);
+      } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
+        const miningRoot = allRootsWithNorm.find((r) => /industria|miner|energ|construcci/i.test(r.norm));
+        if (miningRoot) resolvedCategoryRoots.add(miningRoot.original);
+      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
+        const entRoot = allRootsWithNorm.find((r) => /entretenimiento|cultura|arte|espect[aá]culo/i.test(r.norm));
+        if (entRoot) resolvedCategoryRoots.add(entRoot.original);
+      } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
+        const sportsRoot = allRootsWithNorm.find((r) => /deporte|fitness|gimnasio/i.test(r.norm));
+        if (sportsRoot) resolvedCategoryRoots.add(sportsRoot.original);
+      } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
+        const gastroRoot = allRootsWithNorm.find((r) => /gastronom|restaurante/i.test(r.norm));
+        if (gastroRoot) resolvedCategoryRoots.add(gastroRoot.original);
+      } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
+        const techRoot = allRootsWithNorm.find((r) => /tecnolog|software|digital/i.test(r.norm));
+        if (techRoot) resolvedCategoryRoots.add(techRoot.original);
+      } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
+        const realRoot = allRootsWithNorm.find((r) => /inmobiliari|propiedad|bienes/i.test(r.norm));
+        if (realRoot) resolvedCategoryRoots.add(realRoot.original);
+      } else if (/hotel|hostel|alojamiento|posada|cabaña|resort|hospedaje/i.test(titleContext)) {
+        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
+        if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
+      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra/i.test(titleContext)) {
+        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
+        if (legalRoot) resolvedCategoryRoots.add(legalRoot.original);
       }
     }
 
-    // Clean any accidental ONG or Visa categories from resolvedCategoryRoots
-    if (!isAuthenticOng) {
-      for (const cat of Array.from(resolvedCategoryRoots)) {
-        if (isOngMatch(cat)) resolvedCategoryRoots.delete(cat);
-      }
-      for (const sub of Array.from(resolvedSubcategories)) {
-        if (isOngMatch(sub)) resolvedSubcategories.delete(sub);
-      }
-    }
-    if (isHealthEntity) {
-      for (const cat of Array.from(resolvedCategoryRoots)) {
-        if (/visa|migra|residencia|ciudadan|pasaporte/i.test(cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
-          resolvedCategoryRoots.delete(cat);
-        }
-      }
-      for (const sub of Array.from(resolvedSubcategories)) {
-        if (/visa|migra|residencia|ciudadan|pasaporte/i.test(sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
-          resolvedSubcategories.delete(sub);
-        }
-      }
-    }
-
-    // Multi-selection of subcategories for all resolved roots
-    if (resolvedCategoryRoots.size > 0) {
+    // If subcategories were not resolved yet, automatically pick matching children from resolved roots
+    if (resolvedSubcategories.size === 0 && resolvedCategoryRoots.size > 0) {
       for (const rootName of resolvedCategoryRoots) {
         const rootObj = publicationCategoryRoots.find((r) => r.description === rootName);
         if (!rootObj) continue;
         const children = childrenBy.get(rootObj.id) || [];
-        if (children.length === 0) continue;
-
-        let rootHasChild = children.some((c) => resolvedSubcategories.has(c.description));
-        let bestChild = children[0];
-        let bestChildScore = -1;
-
         for (const child of children) {
-          if (!isAuthenticOng && isOngMatch(child.description)) continue;
           const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-          if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(childNorm)) continue;
-
-          const cTokens = childNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
-          let cScore = 0;
-
-          const isDirectInput = rawInputSubcategories.some((s) => {
-            const sNorm = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-            return sNorm === childNorm || sNorm.includes(childNorm) || childNorm.includes(sNorm);
-          });
-
-          if (isDirectInput) {
-            cScore += 100;
-          }
-
-          if (fullTextCorpus.includes(childNorm)) {
-            cScore += 35;
-          }
-
-          for (const tok of cTokens) {
-            if (fullTextCorpus.includes(tok)) {
-              cScore += 15;
-            }
-          }
-
-          // Semantic boost for student/university subcategories
-          if (isEducationalEntity && isStudentEduMatch(child.description)) {
-            cScore += 60;
-          }
-          if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(childNorm)) {
-            cScore += 50;
-          }
-
-          if (cScore > bestChildScore) {
-            bestChildScore = cScore;
-            bestChild = child;
-          }
-
-          // If the child was directly requested or matches context well, add it to resolvedSubcategories
-          if (isDirectInput || cScore >= 25) {
+          if (rawInputSubcategories.some((s) => s.toLowerCase().includes(childNorm) || childNorm.includes(s.toLowerCase()))) {
             resolvedSubcategories.add(child.description);
-            rootHasChild = true;
+          } else if (/educaci|estudio/i.test(rootName) && /universidad/i.test(childNorm)) {
+            resolvedSubcategories.add(child.description);
+          } else if (/salud|m[eé]dic/i.test(rootName) && /especialidad|m[eé]dic/i.test(childNorm)) {
+            resolvedSubcategories.add(child.description);
+          } else if (/alojamiento/i.test(rootName) && /hotel|hostel/i.test(childNorm)) {
+            resolvedSubcategories.add(child.description);
           }
-        }
-
-        // Only add bestChild if it actually scored positive relevance
-        if (!rootHasChild && bestChild && bestChildScore >= 20) {
-          resolvedSubcategories.add(bestChild.description);
         }
       }
     }
@@ -4114,41 +3361,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const finalCatSel = Array.from(resolvedCategoryRoots);
     const finalSubcatSel = Array.from(resolvedSubcategories);
 
-    setPCategorySelections(finalCatSel.length ? finalCatSel : (isHealthEntity ? [] : (draft.categorySelections || [])));
-    setPCategory(finalCatSel[0] || (isHealthEntity ? "" : (draft.category || "")));
+    setPCategorySelections(finalCatSel.length ? finalCatSel : (draft.categorySelections || []));
+    setPCategory(finalCatSel[0] || draft.category || "");
 
-    setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (isHealthEntity ? [] : (draft.subcategorySelections || [])));
-    setPSubcategory(finalSubcatSel[0] || (isHealthEntity ? "" : (draft.subcategory || "")));
+    setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (draft.subcategorySelections || []));
+    setPSubcategory(finalSubcatSel[0] || draft.subcategory || "");
 
-    // 2. Resolve Provider Activities directly against DB actividadRoots (strictly separate from providerTypes)
+    // 2. Resolve Provider Activities directly against DB actividadRoots
     const resolvedActivities = new Set<string>();
     const rawActivities = Array.isArray(draft.providerActivities) && draft.providerActivities.length > 0
       ? draft.providerActivities
-      : ((draft as any).providerActivity ? [(draft as any).providerActivity] : []);
+      : (draft.providerActivity ? [draft.providerActivity] : []);
 
-    const rawTypes = Array.isArray(draft.providerTypes) && draft.providerTypes.length > 0
-      ? draft.providerTypes
-      : ((draft as any).providerType ? [(draft as any).providerType] : []);
-
-    // Filter out any type names that mistakenly leaked into rawActivities (e.g., "Empresa", "Institución privada")
-    const tipoDescriptionsNorm = new Set(
-      tipoRoots.map((r) => r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim())
-    );
-
-    const filteredRawActivities: string[] = [];
     for (const rawAct of rawActivities) {
-      const actNorm = String(rawAct).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      if (!actNorm) continue;
-      if (tipoDescriptionsNorm.has(actNorm)) {
-        if (!rawTypes.some((t) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() === actNorm)) {
-          rawTypes.push(rawAct);
-        }
-        continue;
-      }
-      filteredRawActivities.push(rawAct);
-    }
-
-    for (const rawAct of filteredRawActivities) {
       const actNorm = rawAct.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const match = actividadRoots.find((r) => {
         const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -4157,80 +3382,50 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (match) {
         resolvedActivities.add(match.description);
       } else if (rawAct.trim()) {
-        const subMatch = categories.find((c) => {
-          const cTax = resolveCategoryTaxonomyType(c);
-          if (cTax !== "actividad") return false;
-          const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-          return cNorm === actNorm || cNorm.includes(actNorm) || actNorm.includes(cNorm);
-        });
-        if (subMatch) resolvedActivities.add(subMatch.description);
+        resolvedActivities.add(rawAct.trim());
       }
     }
 
-    if (actividadRoots.length > 0) {
-      const isHealthEntity =
-        /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextCorpus) ||
-        /osep|hospital|clinica|sanatorio|salud/i.test(draft.url || "");
-
-      const isLegalOrConsulting =
-        /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica)\b/i.test(fullTextCorpus);
-
-      const isTourismEntity =
-        /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(fullTextCorpus);
-
-      const isTechEntity =
-        /\b(software|tecnologia|tecnologias|app|aplicacion|sistemas|desarrollo web|programacion|informatica|it|ciberseguridad|telecomunicaciones|saas|plataforma digital)\b/i.test(fullTextCorpus);
-
-      const scoredActs: { act: Category; score: number }[] = [];
-      for (const act of actividadRoots) {
-        if (resolvedActivities.has(act.description)) continue;
-        const aNorm = act.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
-        let aScore = 0;
-        if (fullTextCorpus.includes(aNorm)) aScore += 40;
-        for (const tok of aTokens) {
-          if (fullTextCorpus.includes(tok)) aScore += 15;
-        }
-        if (isHealthEntity && /salud|asistencia|social|medic/i.test(aNorm)) {
-          aScore += 120;
-        }
-        if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
-          aScore += 120;
-        }
-        if (isLegalOrConsulting && /profesional|tecnico|legal|consult/i.test(aNorm)) {
-          aScore += 100;
-        }
-        if (isTechEntity && /tecnolog|informaci|comunicaci/i.test(aNorm)) {
-          aScore += 100;
-        }
-        if (isTourismEntity && /hosteler|alojam|turism/i.test(aNorm)) {
-          aScore += 100;
-        }
-        if (aScore > 0) {
-          scoredActs.push({ act, score: aScore });
-        }
+    // Only fallback if draft provided NO activities at all
+    if (resolvedActivities.size === 0) {
+      const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
+      if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
+        const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(eduAct ? eduAct.description : "Educación y formación");
+      } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|pediatr[ií]a|m[eé]dic/i.test(titleContext)) {
+        const healthAct = actividadRoots.find((r) => /salud|asistencia/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(healthAct ? healthAct.description : "Salud y asistencia social");
+      } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
+        const autoAct = actividadRoots.find((r) => /automotriz|reparaci|mantenimiento|transporte|comercio/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(autoAct ? autoAct.description : "Comercio y automotriz");
+      } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
+        const miningAct = actividadRoots.find((r) => /miner|industria|construcci|energ/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(miningAct ? miningAct.description : "Industria, minería y construcción");
+      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
+        const entAct = actividadRoots.find((r) => /arte|cultura|entretenimiento|recreaci/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(entAct ? entAct.description : "Arte, cultura y entretenimiento");
+      } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
+        const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(sportsAct ? sportsAct.description : "Deportes, fitness y bienestar");
+      } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
+        const gastroAct = actividadRoots.find((r) => /gastronom|restauraci|hosteler/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(gastroAct ? gastroAct.description : "Gastronomía y restauración");
+      } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
+        const techAct = actividadRoots.find((r) => /tecnolog|software|informaci/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(techAct ? techAct.description : "Tecnología, software e información");
+      } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
+        const realAct = actividadRoots.find((r) => /inmobiliari|bienes ra[ií]ces/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(realAct ? realAct.description : "Servicios inmobiliarios y bienes raíces");
+      } else if (/hotel|hostel|alojamiento|turismo|posada|resort/i.test(titleContext)) {
+        const tourAct = actividadRoots.find((r) => /hosteler|turismo|alojamiento/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(tourAct ? tourAct.description : "Hostelería, alojamiento y turismo");
+      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra/i.test(titleContext)) {
+        const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
+      } else {
+        const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
       }
-
-      scoredActs.sort((a, b) => b.score - a.score);
-      const topActScore = scoredActs[0]?.score ?? 0;
-      if (topActScore > 0) {
-        for (const sa of scoredActs) {
-          if (resolvedActivities.size < 3 && sa.score >= 20 && sa.score >= topActScore * 0.6) {
-            resolvedActivities.add(sa.act.description);
-          }
-        }
-      }
-      if (resolvedActivities.size === 0 && scoredActs[0]) {
-        resolvedActivities.add(scoredActs[0].act.description);
-      }
-      if (resolvedActivities.size === 0 && actividadRoots.length > 0) {
-        resolvedActivities.add(actividadRoots[0].description);
-      }
-    }
-
-    if (isEducationalEntity) {
-      const eduAct = actividadRoots.find((a) => /educaci|formaci|ensenan/i.test(a.description));
-      if (eduAct) resolvedActivities.add(eduAct.description);
     }
 
     const actSel = Array.from(resolvedActivities);
@@ -4239,28 +3434,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     // 3. Resolve Provider Types against DB tipoRoots
     const resolvedTypes = new Set<string>();
+    const rawTypes = Array.isArray(draft.providerTypes) && draft.providerTypes.length > 0
+      ? draft.providerTypes
+      : (draft.providerType ? [draft.providerType] : []);
 
     for (const rawType of rawTypes) {
-      if (!isAuthenticOng && isOngMatch(rawType)) continue;
       const typeNorm = rawType.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const match = tipoRoots.find((r) => {
         const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         return rNorm === typeNorm || rNorm.includes(typeNorm) || typeNorm.includes(rNorm);
       });
       if (match) {
-        if (isAuthenticOng || !isOngMatch(match.description)) {
-          resolvedTypes.add(match.description);
-        }
+        resolvedTypes.add(match.description);
       } else if (rawType.trim()) {
-        const subMatch = categories.find((c) => {
-          const cTax = resolveCategoryTaxonomyType(c);
-          if (!["tipo", "tipos"].includes(cTax || "")) return false;
-          const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-          return cNorm === typeNorm || cNorm.includes(typeNorm) || typeNorm.includes(cNorm);
-        });
-        if (subMatch && (isAuthenticOng || !isOngMatch(subMatch.description))) {
-          resolvedTypes.add(subMatch.description);
-        }
+        resolvedTypes.add(rawType.trim());
       }
     }
 
@@ -4274,373 +3461,80 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       resolvedTypes.delete("Profesional independiente");
       const pubType = tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description.toLowerCase()));
       if (pubType) resolvedTypes.add(pubType.description);
-      else if (tipoRoots.length) resolvedTypes.add(tipoRoots[0].description);
+      else resolvedTypes.add("Organismo público");
     }
 
-    if (!isAuthenticOng) {
-      for (const t of Array.from(resolvedTypes)) {
-        if (isOngMatch(t)) resolvedTypes.delete(t);
-      }
-    }
-
-    if (isEducationalEntity) {
-      for (const t of Array.from(resolvedTypes)) {
-        if (isOngMatch(t)) resolvedTypes.delete(t);
-      }
-      if (resolvedTypes.size === 0 && tipoRoots.length > 0) {
-        const eduType = isPublicGov
-          ? (tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description)) || tipoRoots[0])
-          : (tipoRoots.find((r) => /privad/i.test(r.description)) || tipoRoots[0]);
-        if (eduType) resolvedTypes.add(eduType.description);
-      }
-    }
-
-    if (resolvedTypes.size === 0 && tipoRoots.length > 0) {
-      const defaultType = isPublicGov
-        ? tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description))
-        : tipoRoots.find((r) => /privad|empresa/i.test(r.description));
-      resolvedTypes.add(defaultType ? defaultType.description : tipoRoots[0].description);
+    if (resolvedTypes.size === 0) {
+      resolvedTypes.add(isPublicGov ? "Organismo público" : "Institución privada");
     }
 
     const typeSel = Array.from(resolvedTypes);
     setPProviderTypes(typeSel);
     setPProviderType(typeSel[0] || "");
 
-    // 4. Resolve Provider Modalities against DB modalidadRoots
-    const resolvedModalities = new Set<string>();
-    const rawModalities = Array.isArray(draft.providerModalities) && draft.providerModalities.length > 0
-      ? draft.providerModalities
-      : [];
-
-    for (const rawMod of rawModalities) {
-      const modNorm = String(rawMod).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      if (!modNorm) continue;
-      const match = modalidadRoots.find((r) => {
-        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        return rNorm === modNorm || rNorm.includes(modNorm) || modNorm.includes(rNorm);
-      });
-      if (match) {
-        resolvedModalities.add(match.description);
-      } else {
-        const subMatch = categories.find((c) => {
-          const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-          return cNorm === modNorm || cNorm.includes(modNorm) || modNorm.includes(cNorm);
-        });
-        if (subMatch) resolvedModalities.add(subMatch.description);
-      }
-    }
-
-    const hasOnlineMention = /online|virtual|remoto|a distancia|zoom|meet|plataforma|app|web|portal|turnos/i.test(fullTextCorpus);
-    const hasPresencialMention = /sede|sedes|sucursal|sucursales|consultorio|consultorios|campus|ubicacion|direccion|atencion presencial|visitanos|delegacion|delegaciones/i.test(fullTextCorpus);
-    const hasTramitesMention = /tr[aá]mite|tr[aá]mites|gesti[oó]n|afiliaci[oó]n|afiliaciones|coseguro|coseguros|autorizaci[oó]n|autorizaciones/i.test(fullTextCorpus);
-
-    const presencial = modalidadRoots.find((r) => /presencial/i.test(r.description));
-    const online = modalidadRoots.find((r) => /online|virtual|remot/i.test(r.description));
-    const tramites = modalidadRoots.find((r) => /gesti[oó]n|tr[aá]mite/i.test(r.description));
-
-    if (hasPresencialMention && presencial) resolvedModalities.add(presencial.description);
-    if (hasOnlineMention && online) resolvedModalities.add(online.description);
-    if (hasTramitesMention && tramites) resolvedModalities.add(tramites.description);
-
-    if (resolvedModalities.size === 0 && modalidadRoots.length > 0) {
-      if (presencial) resolvedModalities.add(presencial.description);
-      if (online) resolvedModalities.add(online.description);
-      if (resolvedModalities.size === 0) resolvedModalities.add(modalidadRoots[0].description);
-    }
-    setPProviderModalities(Array.from(resolvedModalities));
-
-    // 5. Resolve Prestaciones against DB prestacionRoots
-    const resolvedPrestaciones = new Set<string>();
-    const rawPrestaciones = Array.isArray((draft as any).prestaciones)
-      ? (draft as any).prestaciones
-      : (draft as any).prestacion ? [(draft as any).prestacion] : [];
-
-    for (const rawPrest of rawPrestaciones) {
-      const pNorm = String(rawPrest).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      if (!pNorm) continue;
-      const match = prestacionRoots.find((r) => {
-        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        return rNorm === pNorm || rNorm.includes(pNorm) || pNorm.includes(rNorm);
-      });
-      if (match) {
-        resolvedPrestaciones.add(match.description);
-      } else {
-        const subMatch = categories.find((c) => {
-          const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-          return cNorm === pNorm || cNorm.includes(pNorm) || pNorm.includes(cNorm);
-        });
-        if (subMatch) resolvedPrestaciones.add(subMatch.description);
-      }
-    }
-    setPPrestaciones(Array.from(resolvedPrestaciones));
-
-    // 6. Resolve Languages against DB idiomaRoots
-    const rawLangStr = draft.languages || "Español";
-    const rawLangs = rawLangStr.split(/[,;\/|]+/).map((s) => s.trim()).filter(Boolean);
-    const resolvedLangs = new Set<string>();
-
-    for (const l of rawLangs) {
-      const lNorm = l.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      if (!lNorm) continue;
-      const match = idiomaRoots.find((r) => {
-        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        return rNorm === lNorm || rNorm.includes(lNorm) || lNorm.includes(rNorm);
-      });
-      if (match) {
-        resolvedLangs.add(match.description);
-      } else {
-        const subMatch = categories.find((c) => {
-          const cNorm = c.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-          return cNorm === lNorm || cNorm.includes(lNorm) || lNorm.includes(cNorm);
-        });
-        if (subMatch) resolvedLangs.add(subMatch.description);
-        else resolvedLangs.add(l);
-      }
-    }
-    setPLanguages(resolvedLangs.size > 0 ? Array.from(resolvedLangs).join(", ") : (draft.languages || "Español"));
+    const modSel = draft.providerModalities?.length ? draft.providerModalities : [];
+    setPProviderModalities(modSel);
 
     if (draft.images && draft.images.length) {
       setPImageUrls(draft.images.join("\n"));
-      setPImageOrder(draft.images);
     }
-    } catch (err) {
-      console.error("[applyAiDraftToForm error]:", err);
-      if (draft.title) setPTitle(draft.title);
-      if (draft.description) setPDescription(draft.description);
-      if (draft.publisherName) setPPublisherName(draft.publisherName);
-      if (draft.images?.length) {
-        setPImageUrls(draft.images.join("\n"));
-        setPImageOrder(draft.images);
-      }
-      if (draft.country) setPCountry(draft.country);
-      if (draft.city) setPCity(draft.city);
-      if (draft.locationAddress) setPLocationAddress(draft.locationAddress);
-      if (draft.providerCommentsUrl) setPProviderCommentsUrl(draft.providerCommentsUrl);
-      if (draft.languages) setPLanguages(draft.languages);
-      if (draft.categorySelections?.length) setPCategorySelections(draft.categorySelections);
-      else if (draft.category) setPCategorySelections([draft.category]);
-      if (draft.subcategorySelections?.length) setPSubcategorySelections(draft.subcategorySelections);
-      else if (draft.subcategory) setPSubcategorySelections([draft.subcategory]);
-      if (draft.providerActivities?.length) setPProviderActivities(draft.providerActivities);
-      else if (actividadRoots.length) setPProviderActivities([actividadRoots[0].description]);
-      if (draft.providerTypes?.length) setPProviderTypes(draft.providerTypes);
-      else if (tipoRoots.length) setPProviderTypes([tipoRoots[0].description]);
-      if (draft.providerModalities?.length) setPProviderModalities(draft.providerModalities);
-      else if (modalidadRoots.length) setPProviderModalities([modalidadRoots[0].description]);
-    } finally {
-      if (!isPublicationsSection) {
-        router.push(`${basePath}?section=publicaciones`);
-      }
-      setShowPublicationEditor(true);
-      window.setTimeout(() => {
-        if (publicationsTopRef.current) {
-          const detailsElem = publicationsTopRef.current.querySelector("details");
-          if (detailsElem) detailsElem.open = true;
-          publicationsTopRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 60);
-    }
-  };
-
-  const handleCancelScraperDraftEdit = () => {
-    setActiveScraperDraftIndex(null);
-    setActiveScraperDraftUrl(null);
-    if (isNewPublicationPage) {
-      router.push(`${basePath}?section=publicaciones`);
-    } else {
-      setShowPublicationEditor(false);
-    }
-    setAiModalOpen(true);
-  };
-
-  const handleSaveAiDraftChangesToQueue = () => {
-    const titleEs = (pTitleI18n[pLang] || pTitleI18n.es || pTitle || "").trim();
-    const descEs = (pDescriptionI18n[pLang] || pDescriptionI18n.es || pDescription || "").trim();
-    const catSelections = pCategorySelections.length ? pCategorySelections : (pCategory ? [pCategory] : []);
-    const subcatSelections = pSubcategorySelections.length ? pSubcategorySelections : (pSubcategory ? [pSubcategory] : []);
-
-    const headquarterLocations = [
-      {
-        country: pHeadquarterCountry || pCountry || "Argentina",
-        city: pHeadquarterCity || pCity || "Buenos Aires",
-        address: pLocationAddress || pHeadquarterMapUrl || "",
-        mapUrl: pHeadquarterMapUrl || pLocationAddress || "",
-      },
-      ...pHeadquarterExtras.map((e) => ({
-        country: e.country || pHeadquarterCountry || pCountry || "Argentina",
-        city: e.city || "",
-        address: e.mapUrl || "",
-        mapUrl: e.mapUrl || "",
-      })),
-    ];
-
-    const updatedDraft: ScrapedPublicationDraft = {
-      url: activeScraperDraftUrl || "",
-      title: titleEs,
-      titleI18n: {
-        ...pTitleI18n,
-        [pLang || "es"]: titleEs,
-        es: pTitleI18n.es || titleEs,
-      },
-      description: descEs,
-      descriptionI18n: {
-        ...pDescriptionI18n,
-        [pLang || "es"]: descEs,
-        es: pDescriptionI18n.es || descEs,
-      },
-      extraDescriptions: pExtraDescriptions.map((d) => ({
-        title: d.titleI18n?.[pLang] || d.titleI18n?.es || d.title,
-        titleI18n: d.titleI18n || { es: d.title },
-        body: d.bodyI18n?.[pLang] || d.bodyI18n?.es || d.body,
-        bodyI18n: d.bodyI18n || { es: d.body },
-        visibleInCard: d.visibleInCard !== false,
-        prompt: d.prompt,
-      })),
-      publisherName: pPublisherName || "",
-      providerInfoI18n: pProviderInfoI18n,
-      providerStartYear: pProviderStartYear,
-      providerRating: pProviderRating,
-      providerReviewCount: pProviderReviewCount,
-      providerCommentsUrl: pProviderCommentsUrl,
-      providerLogo: pProviderLogo,
-      country: pCountry || pHeadquarterCountry || "Argentina",
-      city: pCity || pHeadquarterCity || "Buenos Aires",
-      locationAddress: pLocationAddress || pHeadquarterMapUrl || "",
-      currency: pCurrency || "USD",
-      price: pPrice || "",
-      pricePeriod: pPricePeriod || "",
-      languages: pLanguages || "Español",
-      website: pWebsite || "",
-      socialLinksDetailed: pSocialLinksDetailed || [],
-      images: pImageUrls
-        ? pImageUrls
-            .split("\n")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : [],
-      category: catSelections[0] || pCategory || "General",
-      subcategory: subcatSelections[0] || pSubcategory || "",
-      categorySelections: catSelections,
-      subcategorySelections: subcatSelections,
-      providerActivities: pProviderActivities,
-      providerTypes: pProviderTypes,
-      providerModalities: pProviderModalities,
-      headquarterCountry: pHeadquarterCountry || pCountry || "Argentina",
-      headquarterCity: pHeadquarterCity || pCity || "Buenos Aires",
-      headquarterLocations,
-      status: (pStatus as "active" | "draft" | "paused") || "active",
-    };
-
-    try {
-      if (typeof window !== "undefined") {
-        const raw = window.sessionStorage.getItem("tgn_ai_drafts_queue");
-        let queue: ScrapedPublicationDraft[] = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(queue)) queue = [];
-
-        const targetIdx = typeof activeScraperDraftIndex === "number" ? activeScraperDraftIndex : 0;
-        if (targetIdx >= 0 && targetIdx < queue.length) {
-          queue[targetIdx] = updatedDraft;
-        } else {
-          queue.push(updatedDraft);
-        }
-
-        window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(queue));
-      }
-    } catch (err) {
-      console.error("Error saving updated draft to sessionStorage:", err);
-    }
-
-    setActiveScraperDraftIndex(null);
-    setActiveScraperDraftUrl(null);
-    if (isNewPublicationPage) {
-      router.push(`${basePath}?section=publicaciones`);
-    } else {
-      setShowPublicationEditor(false);
-    }
-    setAiModalOpen(true);
+    setShowPublicationEditor(true);
+    window.setTimeout(() => {
+      publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   const handleApproveAiDraftDirectly = async (draft: ScrapedPublicationDraft): Promise<boolean> => {
     try {
-      const titleEs = (draft.titleI18n?.es || draft.title || "").trim();
-      const descEs = (draft.descriptionI18n?.es || draft.description || "").trim();
-      const catSelections = draft.categorySelections?.length
-        ? draft.categorySelections
-        : draft.category
-        ? [draft.category]
-        : [];
-      const subcatSelections = draft.subcategorySelections?.length
-        ? draft.subcategorySelections
-        : draft.subcategory
-        ? [draft.subcategory]
-        : [];
-
       const payload = {
-        title: titleEs,
-        titleI18n: draft.titleI18n || { es: titleEs },
-        description: descEs,
-        descriptionI18n: draft.descriptionI18n || { es: descEs },
+        title: draft.title,
+        titleI18n: draft.titleI18n,
+        description: draft.description,
+        descriptionI18n: draft.descriptionI18n,
         publisherName: draft.publisherName || null,
-        status: draft.status || "active",
+        status: "active",
         featured: false,
-        category: catSelections[0] || draft.category || null,
-        subcategory: subcatSelections[0] || draft.subcategory || null,
+        category: draft.category || null,
+        subcategory: draft.subcategory || null,
         primaryGroupKey: "category",
-        country: draft.country || draft.headquarterCountry || (draft.headquarterLocations?.[0]?.country) || null,
-        headquarterCountry: draft.headquarterCountry || draft.country || (draft.headquarterLocations?.[0]?.country) || null,
-        city: draft.city || draft.headquarterCity || (draft.headquarterLocations?.[0]?.city) || null,
+        country: draft.country || null,
+        city: draft.city || null,
         currency: draft.currency || "USD",
         price: draft.price || null,
         pricePeriod: draft.pricePeriod || null,
-        languages: draft.languages
-          ? typeof draft.languages === "string"
-            ? draft.languages.split(",").map((s) => s.trim()).filter(Boolean)
-            : draft.languages
-          : null,
+        languages: draft.languages ? draft.languages.split(",").map((s) => s.trim()).filter(Boolean) : null,
         images: draft.images && draft.images.length ? draft.images : null,
         website: draft.website || null,
         fields: {
-          partner: false,
-          providerEmail: null,
-          locationAddress: draft.locationAddress || (draft.headquarterLocations?.[0]?.mapUrl) || null,
+          locationAddress: draft.locationAddress || null,
           headquarterLocations: draft.headquarterLocations || [],
           providerInfoI18n: draft.providerInfoI18n || null,
           providerRating: draft.providerRating || null,
           providerReviewCount: draft.providerReviewCount || null,
           providerCommentsUrl: draft.providerCommentsUrl || null,
           providerStartYear: draft.providerStartYear || null,
-          extraDescriptions: (draft.extraDescriptions || []).map((d) => ({
-            title: d.titleI18n?.es || d.title,
-            body: d.bodyI18n?.es || d.body,
-            titleI18n: d.titleI18n || { es: d.title },
-            bodyI18n: d.bodyI18n || { es: d.body },
-            visibleInCard: d.visibleInCard !== false,
-            prompt: d.prompt,
-          })),
+          extraDescriptions: draft.extraDescriptions || [],
           socialLinksDetailed: draft.socialLinksDetailed || [],
           providerLogo: draft.providerLogo || null,
-          categorySelections: catSelections,
-          subcategorySelections: subcatSelections,
+          categorySelections: draft.categorySelections || (draft.category ? [draft.category] : []),
+          subcategorySelections: draft.subcategorySelections || (draft.subcategory ? [draft.subcategory] : []),
           providerActivities: draft.providerActivities || [],
           providerTypes: draft.providerTypes || [],
           providerModalities: draft.providerModalities || [],
-          providerActivity: draft.providerActivities?.[0] || null,
-          providerType: draft.providerTypes?.[0] || null,
-          providerModality: draft.providerModalities?.[0] || null,
-          needsAdminReview: false,
-          adminReviewReason: null,
-          adminReviewResolvedAt: new Date().toISOString(),
         },
       };
 
-      await api("/api/admin/publications", {
+      const res = await fetch("/api/publications", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      await refresh();
-      return true;
+      if (res.ok) {
+        await refresh();
+        return true;
+      }
+      return false;
     } catch (err) {
       console.error("Error approving AI draft directly:", err);
       return false;
@@ -4657,7 +3551,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       message: `¿Seguro que querés eliminar la ${label} ${title}? Esta acción no se puede deshacer.`,
       onConfirm: async () => {
         setPublications((prev) => prev.filter((p) => p.id !== id));
-        setConfirmDeleteModal({ isOpen: false });
+        setConfirmDeleteModal((prev) => ({ ...prev, isOpen: false }));
         await api(`/api/admin/publications?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
         await refresh();
       },
@@ -4683,7 +3577,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           setDetailTravelService(null);
           setDetailImageExpanded(null);
         }
-        setConfirmDeleteModal({ isOpen: false });
+        setConfirmDeleteModal((prev) => ({ ...prev, isOpen: false }));
         await api(`/api/travel-services?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
         await refresh();
       },
@@ -4699,173 +3593,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     await refresh();
   }
 
-  const [translatingListPubId, setTranslatingListPubId] = useState<string | null>(null);
-  const [bulkTranslatingList, setBulkTranslatingList] = useState<boolean>(false);
-
-  const handleTranslateSinglePublicationInList = async (pub: Publication) => {
-    if (translatingListPubId) return;
-    setTranslatingListPubId(pub.id);
-    try {
-      const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
-      const targetLangs = ["en", "pt", "it"];
-
-      // 1. Title
-      const titleSource = (pub.titleI18n?.es || pub.title || "").trim();
-      let nextTitleI18n: Record<string, string> = { ...(pub.titleI18n || {}), es: titleSource };
-      if (titleSource) {
-        const r = await fetch("/api/admin/translate-i18n", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: titleSource, targetLangs, sourceLang: "es", isHtml: false, apiKey: customKey }),
-        });
-        const d = await r.json();
-        if (d?.translations) {
-          nextTitleI18n = { ...nextTitleI18n, ...d.translations };
-        }
-      }
-
-      // 2. Description
-      const descSource = (pub.descriptionI18n?.es || pub.description || "").trim();
-      let nextDescI18n: Record<string, string> = { ...(pub.descriptionI18n || {}), es: descSource };
-      if (descSource) {
-        const r = await fetch("/api/admin/translate-i18n", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: descSource, targetLangs, sourceLang: "es", isHtml: true, apiKey: customKey }),
-        });
-        const d = await r.json();
-        if (d?.translations) {
-          nextDescI18n = { ...nextDescI18n, ...d.translations };
-        }
-      }
-
-      // 3. Provider info
-      const provInfoSource = String((pub.fields as any)?.providerInfoI18n?.es || (pub.fields as any)?.providerInfo || "").trim();
-      let nextProvInfoI18n: Record<string, string> = { ...((pub.fields as any)?.providerInfoI18n || {}), es: provInfoSource };
-      if (provInfoSource) {
-        const r = await fetch("/api/admin/translate-i18n", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: provInfoSource, targetLangs, sourceLang: "es", isHtml: true, apiKey: customKey }),
-        });
-        const d = await r.json();
-        if (d?.translations) {
-          nextProvInfoI18n = { ...nextProvInfoI18n, ...d.translations };
-        }
-      }
-
-      // 4. Extra descriptions
-      const rawExtras: any[] = Array.isArray((pub.fields as any)?.extraDescriptions)
-        ? (pub.fields as any).extraDescriptions
-        : [];
-      let updatedExtras = rawExtras;
-      if (rawExtras.length) {
-        updatedExtras = await Promise.all(
-          rawExtras.map(async (ext: any) => {
-            const tSource = (ext.titleI18n?.es || ext.title || "").trim();
-            const bSource = (ext.bodyI18n?.es || ext.body || "").trim();
-            let tTrans = null;
-            let bTrans = null;
-            if (tSource) {
-              const r = await fetch("/api/admin/translate-i18n", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: tSource, targetLangs, sourceLang: "es", isHtml: false, apiKey: customKey }),
-              });
-              tTrans = (await r.json())?.translations;
-            }
-            if (bSource) {
-              const r = await fetch("/api/admin/translate-i18n", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: bSource, targetLangs, sourceLang: "es", isHtml: true, apiKey: customKey }),
-              });
-              bTrans = (await r.json())?.translations;
-            }
-            return {
-              ...ext,
-              titleI18n: { ...(ext.titleI18n || {}), es: tSource, ...(tTrans || {}) },
-              bodyI18n: { ...(ext.bodyI18n || {}), es: bSource, ...(bTrans || {}) },
-            };
-          })
-        );
-      }
-
-      const updatedFields = {
-        ...((pub.fields as any) || {}),
-        providerInfoI18n: nextProvInfoI18n,
-        extraDescriptions: updatedExtras,
-      };
-
-      await api("/api/admin/publications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: pub.id,
-          titleI18n: nextTitleI18n,
-          descriptionI18n: nextDescI18n,
-          fields: updatedFields,
-        }),
-      });
-
-      setSaveMessage(`✨ Publicación "${pub.title || pub.id}" traducida exitosamente a EN, PT, IT.`);
-      window.setTimeout(() => setSaveMessage(""), 4000);
-      await refresh();
-    } catch (err: any) {
-      console.error("Translate single publication error:", err);
-      setSaveMessage(`⚠️ Error al traducir publicación: ${err?.message || "Intente nuevamente."}`);
-      window.setTimeout(() => setSaveMessage(""), 5000);
-    } finally {
-      setTranslatingListPubId(null);
-    }
-  };
-
-  const handleTranslateAllPendingPublicationsInList = async () => {
-    if (bulkTranslatingList) return;
-    const pending = publications.filter((p) => {
-      const t = p.titleI18n;
-      const d = p.descriptionI18n;
-      return !t?.en || !t?.pt || !t?.it || !d?.en || !d?.pt || !d?.it;
-    });
-    if (!pending.length) {
-      setSaveMessage("Todas las publicaciones ya cuentan con traducciones completas.");
-      window.setTimeout(() => setSaveMessage(""), 4000);
-      return;
-    }
-    setBulkTranslatingList(true);
-    let count = 0;
-    try {
-      for (const pub of pending) {
-        setSaveMessage(`Traduciendo (${count + 1}/${pending.length}): ${pub.title || pub.id}...`);
-        await handleTranslateSinglePublicationInList(pub);
-        count++;
-      }
-      setSaveMessage(`✨ ¡Se tradujeron exitosamente ${count} publicaciones!`);
-      window.setTimeout(() => setSaveMessage(""), 4000);
-    } catch (e: any) {
-      console.error("Bulk translation error:", e);
-      setSaveMessage(`⚠️ Error durante la traducción masiva: ${e?.message || "Error"}`);
-    } finally {
-      setBulkTranslatingList(false);
-      await refresh();
-    }
-  };
-
-  const openNewPublicationEditor = () => {
-    setActiveScraperDraftIndex(null);
-    setActiveScraperDraftUrl(null);
-    cancelEdit();
-    if (isNewPublicationPage) {
-      router.push(`${basePath}?section=publicaciones`);
-    } else {
-      setShowPublicationEditor(true);
-      window.setTimeout(() => publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-    }
-  };
-
   function editPublication(pub: Publication) {
-    setActiveScraperDraftIndex(null);
-    setActiveScraperDraftUrl(null);
     setShowPublicationEditor(true);
     window.setTimeout(() => publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     setPTourismType("receptivo");
@@ -4946,7 +3674,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPImageUrls(imageUrls.join("\n"));
     setPImageUploads(imageUploads);
     setPImageUploadAssets(imageAssets);
-    setPImageOrder(existingImageEntries);
     setPWebsite(pub.website ?? "");
     setPFieldsBase((pub.fields as Record<string, any>) ?? {});
     setPLocationAddress((pub.fields as any)?.locationAddress ?? "");
@@ -5153,7 +3880,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               bodyI18n: bodyI18n ?? { es: fallbackBody },
               lang: "es" as Lang,
               visibleInCard: booleanLike(d?.visibleInCard),
-              prompt: typeof d?.prompt === "string" ? d.prompt : undefined,
             };
           })
         : []
@@ -5164,7 +3890,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           .map((entry: any) => ({
             kind: String(entry?.kind ?? ""),
             label: String(entry?.label ?? ""),
-            labelI18n: entry?.labelI18n ?? null,
             url: String(entry?.url ?? ""),
           }))
           .filter((entry: any) => entry.kind && entry.url)
@@ -5216,8 +3941,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   function cancelEdit() {
-    setActiveScraperDraftIndex(null);
-    setActiveScraperDraftUrl(null);
     setEditingId(null);
     setSaveMessage("");
     setPTitle("");
@@ -5251,7 +3974,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPLanguages("");
     setPImageUrls("");
     setPImageUploads([]);
-    setPImageOrder([]);
     setPWebsite("");
     setPLocationAddress("");
     setPReceivingCountries([]);
@@ -5281,7 +4003,65 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   const adminFilterGroups = useMemo(() => filterGroups, [filterGroups]);
+  const categoryById = useMemo(() => {
+    const map = new Map<string, Category>();
+    categories.forEach((category) => map.set(category.id, category));
+    return map;
+  }, [categories]);
 
+  const resolveCategoryBlockId = (category: Category, seen = new Set<string>()): string | null => {
+    if (seen.has(category.id)) return null;
+    seen.add(category.id);
+    if (category.blockId) return filterGroupById.has(category.blockId) ? category.blockId : null;
+    if (category.parentId) {
+      const parent = categoryById.get(category.parentId);
+      if (!parent) return null;
+      return resolveCategoryBlockId(parent, seen);
+    }
+    return null;
+  };
+
+  const resolveCategoryTaxonomyType = (category: Category, seen = new Set<string>()): string | null => {
+    if (seen.has(category.id)) return "categoria";
+    seen.add(category.id);
+    const ownTaxonomyType = normalizeTaxonomyTypeAlias(category.taxonomyType || "predeterminado");
+    if (ownTaxonomyType && !["", "default", "inherit", "predeterminado"].includes(ownTaxonomyType)) return ownTaxonomyType;
+    if (category.parentId) {
+      const parent = categoryById.get(category.parentId);
+      if (parent) return resolveCategoryTaxonomyType(parent, seen);
+    }
+    const effectiveBlockId = resolveCategoryBlockId(category);
+    if (effectiveBlockId) {
+      const block = filterGroupById.get(effectiveBlockId);
+      const blockTaxonomyType = normalizeTaxonomyTypeAlias(block?.taxonomyType || "predeterminado");
+      if (blockTaxonomyType && !["", "default", "predeterminado"].includes(blockTaxonomyType)) return blockTaxonomyType;
+
+      const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (blockLabelNorm.includes("categor") || blockLabelNorm.includes("proposito")) {
+        return "categoria";
+      }
+      if (blockLabelNorm.includes("actividad") || blockLabelNorm.includes("sector")) {
+        return "actividad";
+      }
+      if (blockLabelNorm.includes("tipo") || blockLabelNorm.includes("perfil")) {
+        return "tipo";
+      }
+      if (blockLabelNorm.includes("modalidad")) {
+        return "modalidad";
+      }
+      if (blockLabelNorm.includes("prestacion")) {
+        return "prestacion";
+      }
+      if (blockLabelNorm.includes("idioma")) {
+        return "idiomas";
+      }
+      const hasChildren = (childrenBy.get(category.id) ?? []).length > 0;
+      if (!hasChildren) {
+        return "filtro";
+      }
+    }
+    return "categoria";
+  };
   const resolveInheritedCategoryTaxonomyType = (category: Category): string | null => {
     if (category.parentId) {
       const parent = categoryById.get(category.parentId);
@@ -5311,6 +4091,48 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     if (resolved === inherited) return null;
     return `Tipo de filtro propio: ${resolved} (no hereda el tipo de filtro del bloque)`;
   };
+
+  const isCategoryRenderable = (category: Category): boolean => {
+    if (category.parentId && !categoryById.has(category.parentId)) return false;
+    const resolvedTaxonomyType = resolveCategoryTaxonomyType(category);
+    if (!resolvedTaxonomyType) return false;
+    return true;
+  };
+
+  const validRoots = useMemo(
+    () => roots.filter((root) => isCategoryRenderable(root)),
+    [roots, categories, filterGroups]
+  );
+
+  const modalidadRoots = useMemo(
+    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "modalidad"),
+    [validRoots, categories, filterGroups]
+  );
+  const idiomaRoots = useMemo(
+    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "idiomas"),
+    [validRoots, categories, filterGroups]
+  );
+  const actividadRoots = useMemo(
+    () => validRoots.filter((root) => resolveCategoryTaxonomyType(root) === "actividad"),
+    [validRoots, categories, filterGroups]
+  );
+  const tipoRoots = useMemo(
+    () => validRoots.filter((root) => ["tipo", "tipos"].includes(resolveCategoryTaxonomyType(root) || "")),
+    [validRoots, categories, filterGroups]
+  );
+  const prestacionRoots = useMemo(
+    () => validRoots.filter((root) => ["prestacion", "prestaciones"].includes(resolveCategoryTaxonomyType(root) || "")),
+    [validRoots, categories, filterGroups]
+  );
+
+  const publicationCategoryRoots = useMemo(
+    () =>
+      validRoots.filter((root) => {
+        const resolvedTaxonomyType = resolveCategoryTaxonomyType(root);
+        return resolvedTaxonomyType === "categoria";
+      }),
+    [validRoots, categories, filterGroups]
+  );
 
   const groupCategoriesForPublicationPicker = (items: Category[]) => {
     const groups = new Map<string, { label: string; items: Category[] }>();
@@ -5414,10 +4236,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const isHealth = !isEdu && /hospital|cl[ií]nica|sanatorio|m[eé]dic|odontol|psicol|obra social|salud/i.test(sectorContext);
 
       if (isEdu) {
-        const eduRoots = allRootsWithNorm.filter((r) => /educaci|estudio|formaci|estudiant|universi|carrera|alumno|academ|posgrado|grado|beca|colegio|instituto/i.test(r.norm));
-        eduRoots.forEach((er) => {
-          if (!mappedCategories.includes(er.original)) mappedCategories.push(er.original);
-        });
+        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
+        if (eduRoot) mappedCategories.push(eduRoot.original);
       } else if (isLegal) {
         const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
         if (legalRoot) mappedCategories.push(legalRoot.original);
@@ -5530,69 +4350,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     });
     return result;
   };
-  const [pImageOrder, setPImageOrder] = useState<string[]>([]);
-  const [draggingImageIndex, setDraggingImageIndex] = useState<number | null>(null);
-
   const imageList = useMemo(() => {
     const urls = splitLines(pImageUrls);
     const uploads = pImageUploads.map((item) => String(item).trim()).filter(Boolean);
-    const set = new Set([...urls, ...uploads].filter(isUsableImageUrl));
-
-    if (pImageOrder.length > 0) {
-      const ordered: string[] = [];
-      pImageOrder.forEach((img) => {
-        if (set.has(img)) {
-          ordered.push(img);
-          set.delete(img);
-        }
-      });
-      set.forEach((img) => ordered.push(img));
-      return ordered;
-    }
-
-    return Array.from(set);
-  }, [pImageUrls, pImageUploads, pImageOrder]);
-
-  const reorderImages = (fromIndex: number, toIndex: number) => {
-    if (fromIndex < 0 || fromIndex >= imageList.length || toIndex < 0 || toIndex >= imageList.length || fromIndex === toIndex) return;
-    const nextList = [...imageList];
-    const [moved] = nextList.splice(fromIndex, 1);
-    nextList.splice(toIndex, 0, moved);
-
-    setPImageOrder(nextList);
-
-    const nextUrls = nextList.filter((item) => !String(item).startsWith("data:image"));
-    const nextUploads = nextList.filter((item) => String(item).startsWith("data:image"));
-    setPImageUrls(nextUrls.join("\n"));
-    setPImageUploads(nextUploads);
-
-    if (pImageUploadAssets.length) {
-      setPImageUploadAssets((prev) => {
-        const map = new Map(prev.map((asset) => [imageAssetToUrl(asset), asset]));
-        const reordered: ImageAsset[] = [];
-        nextUploads.forEach((u) => {
-          const a = map.get(u);
-          if (a) reordered.push(a);
-        });
-        return reordered.length ? reordered : prev;
-      });
-    }
-  };
-
-  const moveImageDirection = (index: number, direction: -1 | 1) => {
-    reorderImages(index, index + direction);
-  };
-
-  const setAsCoverImage = (index: number) => {
-    if (index === 0) return;
-    reorderImages(index, 0);
-  };
-
+    const all = [...urls, ...uploads].filter(isUsableImageUrl);
+    return Array.from(new Set(all));
+  }, [pImageUrls, pImageUploads]);
   const removeImage = (img: string) => {
     setPImageUploads((prev) => prev.filter((item) => item !== img));
     setPImageUrls((prev) => splitLines(prev).filter((item) => item !== img).join("\n"));
     setPImageUploadAssets((prev) => prev.filter((asset) => imageAssetToUrl(asset) !== img));
-    setPImageOrder((prev) => prev.filter((item) => item !== img));
   };
   const [draggingFilterGroupId, setDraggingFilterGroupId] = useState<string | null>(null);
   const orderedFilterGroups = useMemo(
@@ -6747,7 +5514,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     if ((images.length === 0 || imagesAreIdentical) && existingPub && Array.isArray(existingPub.images)) {
       images = existingPub.images.map(String);
-      imageAssets = Array.isArray(existingPub.imageAssets) ? (existingPub.imageAssets as ImageAsset[]) : [];
+      imageAssets = Array.isArray((existingPub as any).imageAssets) ? ((existingPub as any).imageAssets as ImageAsset[]) : [];
     }
 
     const priceByCurrency = Array.isArray(extra.priceByCurrency)
@@ -6759,10 +5526,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     let providerLogo = String(extra.providerLogo ?? "").trim();
     let providerLogoAsset = (extra.providerLogoAsset as ImageAsset | undefined) ?? null;
 
-    const existingLogo = existingPub ? String(existingPub.providerLogo ?? "").trim() : "";
-    if ((!providerLogo || providerLogo === existingLogo) && existingPub && existingPub.providerLogo) {
-      providerLogo = String(existingPub.providerLogo).trim();
-      providerLogoAsset = (existingPub.providerLogoAsset as ImageAsset | undefined) ?? null;
+    const existingLogo = existingPub ? String((existingPub as any).providerLogo ?? "").trim() : "";
+    if ((!providerLogo || providerLogo === existingLogo) && existingPub && (existingPub as any).providerLogo) {
+      providerLogo = String((existingPub as any).providerLogo).trim();
+      providerLogoAsset = ((existingPub as any).providerLogoAsset as ImageAsset | undefined) ?? null;
     }
 
     const explicitLinks = [
@@ -6792,7 +5559,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const selectedPlanRaw = String(extra.requestedPlan ?? extra.publicationPlan ?? selected.publicationPlan ?? "").trim().toLowerCase();
     const isSelectedPaidPlan = ["featured", "featured_120d", "monthly", "featured_monthly"].includes(selectedPlanRaw);
     const isPartnerPromo = extra.promoMeta && typeof extra.promoMeta === "object" && (extra.promoMeta as any).scope === "partners";
-    setPFeatured(isSelectedPaidPlan || isPartnerPromo);
+    setPFeatured(Boolean(isSelectedPaidPlan || isPartnerPromo));
     setPPartner(Boolean(selected.isIntermediario || extra.isIntermediario || extra.isIntermediario === "true" || extra.isIntermediario === true || isPartnerPromo));
     setPProviderLogo(providerLogo);
     setPFieldsBase((prev) => ({
@@ -6894,7 +5661,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPImageUploads(uploadImages);
     setPImageUploadAssets(imageAssets.filter((asset) => uploadImages.includes(imageAssetToUrl(asset))));
     setPImageUrls(remoteImages.join("\n"));
-    setPImageOrder(images);
   };
 
 
@@ -7135,7 +5901,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       ) : (
                         <span className="text-slate-500 text-xs">- (Sin logo propuesto)</span>
                       )}
-                      {originalPub && originalPub.providerLogo && String(originalPub.providerLogo).trim() !== String(detailExtra?.providerLogo ?? "").trim() && (
+                      {originalPub && (originalPub as any).providerLogo && String((originalPub as any).providerLogo).trim() !== String(detailExtra?.providerLogo ?? "").trim() && (
                         <div className="text-center border-l border-rose-200 pl-4">
                           <div className="text-[10px] text-rose-600 font-medium mb-1">Actual:</div>
                           <div
@@ -7148,7 +5914,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                             }}
                           >
                             <img
-                              src={String(originalPub.providerLogo)}
+                              src={String((originalPub as any).providerLogo)}
                               alt="Logo actual"
                               referrerPolicy="no-referrer"
                               className="h-full w-full object-contain p-1 drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.7)]"
@@ -8318,6 +7084,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       </div>
     </section>
   );
+
+  const openNewPublicationEditor = () => {
+    router.push(`${basePath}/publicaciones/nueva`);
+  };
 
   const publicationTypeLabel = (item: Publication) => (item.primaryGroupKey === "prestacion" ? "Prestación" : "Publicación");
   const publicationTypeColors = (item: Publication) =>
@@ -9644,53 +8414,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
           {(showPublicationEditor || isNewPublicationPage) ? (
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-            {activeScraperDraftIndex !== null ? (
-              <div className="mb-4 rounded-xl border border-cyan-300 bg-gradient-to-r from-cyan-50 to-sky-50 p-3.5 flex flex-wrap items-center justify-between gap-3 text-cyan-950">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xl">🤖</span>
-                  <div>
-                    <div className="font-bold text-sm text-[#007D92]">
-                      Editando borrador de IA #{activeScraperDraftIndex + 1}
-                    </div>
-                    <div className="text-xs text-slate-600">
-                      Los cambios se guardarán en tu borrador al pulsar <strong>Guardar publicación</strong> abajo. Para cerrar sin guardar cambios, pulsá <strong>Cerrar</strong>.
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCancelScraperDraftEdit}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 shadow-xs cursor-pointer"
-                >
-                  Volver a la lista
-                </button>
-              </div>
-            ) : null}
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-xl font-semibold text-slate-900">
-                {activeScraperDraftIndex !== null
-                  ? `Borrador de IA: ${pTitle || "Sin título"}`
-                  : editingId
-                    ? "Editar publicación"
-                    : "Nueva publicación"}
-              </h3>
+              <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-[#007D92] hover:bg-cyan-100">Generar con IA</button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activeScraperDraftIndex !== null) {
-                      handleCancelScraperDraftEdit();
-                    } else if (isNewPublicationPage) {
-                      router.push(`${basePath}?section=publicaciones`);
-                    } else {
-                      setShowPublicationEditor(false);
-                    }
-                  }}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                >
-                  Cerrar
-                </button>
+                <button type="button" onClick={() => (isNewPublicationPage ? router.push(`${basePath}?section=publicaciones`) : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
               </div>
             </div>
           <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
@@ -9706,159 +8434,70 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   type="button"
                   disabled={translatingField === "all"}
                   onClick={async () => {
-                    const rawSourceLang = pLang || "es";
-                    const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
-
-                    // 1. Title
-                    const titleSource = (pTitleI18n.es || pTitle || pTitleI18n[rawSourceLang] || "").trim();
-                    const effectiveTitleLang = (pTitleI18n.es || pTitle) ? "es" : (rawSourceLang || "es");
-                    const titleTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveTitleLang);
-
-                    // 2. Description
-                    const descSource = (pDescriptionI18n.es || pDescription || pDescriptionI18n[rawSourceLang] || "").trim();
-                    const effectiveDescLang = (pDescriptionI18n.es || pDescription) ? "es" : (rawSourceLang || "es");
-                    const descTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveDescLang);
-
-                    // 3. Provider info
-                    const provSource = (pProviderInfoI18n.es || pProviderInfoI18n[rawSourceLang] || "").trim();
-                    const effectiveProvLang = pProviderInfoI18n.es ? "es" : (rawSourceLang || "es");
-                    const provTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveProvLang);
-
-                    if (!titleSource && !descSource && !provSource && !pExtraDescriptions.length && !pSocialLinksDetailed.length) return;
+                    const titleEs = pTitleI18n.es || pTitle;
+                    const descEs = pDescriptionI18n.es || pDescription;
+                    const provEs = pProviderInfoI18n.es || "";
+                    if (!titleEs && !descEs && !provEs) return;
                     setTranslatingField("all");
                     try {
-                      if (titleSource) {
+                      if (titleEs) {
                         const resT = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: titleSource, targetLangs: titleTargetLangs, sourceLang: effectiveTitleLang, isHtml: false, apiKey: customKey }),
+                          body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
                         });
                         const dataT = await resT.json();
                         if (dataT?.translations) {
                           setPTitleI18n((prev) => ({
                             ...prev,
-                            [effectiveTitleLang]: titleSource,
-                            ...dataT.translations,
+                            es: titleEs,
+                            en: dataT.translations.en || prev.en || titleEs,
+                            pt: dataT.translations.pt || prev.pt || titleEs,
+                            it: dataT.translations.it || prev.it || titleEs,
                           }));
-                          if (effectiveTitleLang === "es" || !pTitle) setPTitle(titleSource);
                         }
                       }
-                      if (descSource) {
+                      if (descEs) {
                         const resD = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: descSource, targetLangs: descTargetLangs, sourceLang: effectiveDescLang, isHtml: true, apiKey: customKey }),
+                          body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
                         });
                         const dataD = await resD.json();
                         if (dataD?.translations) {
                           setPDescriptionI18n((prev) => ({
                             ...prev,
-                            [effectiveDescLang]: descSource,
-                            ...dataD.translations,
+                            es: descEs,
+                            en: dataD.translations.en || prev.en || descEs,
+                            pt: dataD.translations.pt || prev.pt || descEs,
+                            it: dataD.translations.it || prev.it || descEs,
                           }));
-                          if (effectiveDescLang === "es" || !pDescription) setPDescription(descSource);
                         }
                       }
-                      if (provSource) {
+                      if (provEs) {
                         const resP = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: provSource, targetLangs: provTargetLangs, sourceLang: effectiveProvLang, isHtml: true, apiKey: customKey }),
+                          body: JSON.stringify({ text: provEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
                         });
                         const dataP = await resP.json();
                         if (dataP?.translations) {
                           setPProviderInfoI18n((prev) => ({
                             ...prev,
-                            [effectiveProvLang]: provSource,
-                            ...dataP.translations,
+                            es: provEs,
+                            en: dataP.translations.en || prev.en || provEs,
+                            pt: dataP.translations.pt || prev.pt || provEs,
+                            it: dataP.translations.it || prev.it || provEs,
                           }));
                         }
                       }
-                      if (pExtraDescriptions.length) {
-                        const extraPromises = pExtraDescriptions.map(async (d) => {
-                          const tSource = (d.titleI18n?.es || d.title || d.titleI18n?.[rawSourceLang] || "").trim();
-                          const bSource = (d.bodyI18n?.es || d.body || d.bodyI18n?.[rawSourceLang] || "").trim();
-                          const extLang = (d.titleI18n?.es || d.bodyI18n?.es || d.title || d.body) ? "es" : (rawSourceLang || "es");
-                          const extTargets = ["es", "en", "pt", "it"].filter((l) => l !== extLang);
-                          let tTrans = null;
-                          let bTrans = null;
-                          if (tSource) {
-                            const r = await fetch("/api/admin/translate-i18n", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ text: tSource, targetLangs: extTargets, sourceLang: extLang, isHtml: false, apiKey: customKey }),
-                            });
-                            tTrans = (await r.json())?.translations;
-                          }
-                          if (bSource) {
-                            const r = await fetch("/api/admin/translate-i18n", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ text: bSource, targetLangs: extTargets, sourceLang: extLang, isHtml: true, apiKey: customKey }),
-                            });
-                            bTrans = (await r.json())?.translations;
-                          }
-                          const nextTitleI18n = { ...d.titleI18n, [extLang]: tSource, ...(tTrans || {}) };
-                          const nextBodyI18n = { ...d.bodyI18n, [extLang]: bSource, ...(bTrans || {}) };
-                          return {
-                            ...d,
-                            title: extLang === "es" ? tSource : (d.title || nextTitleI18n.es || tSource),
-                            body: extLang === "es" ? bSource : (d.body || nextBodyI18n.es || bSource),
-                            titleI18n: nextTitleI18n,
-                            bodyI18n: nextBodyI18n,
-                          };
-                        });
-                        const updatedExtras = await Promise.all(extraPromises);
-                        setPExtraDescriptions(updatedExtras);
-                      }
-                      // Translate social links labels with AI
-                      if (pSocialLinksDetailed.length) {
-                        const socialPromises = pSocialLinksDetailed.map(async (item) => {
-                          const rawLabel = (item.labelI18n?.es || item.label || item.labelI18n?.[rawSourceLang] || "").trim() ||
-                            (item.kind === "phone" ? "Teléfono de contacto" : item.kind === "whatsapp" ? "WhatsApp" : item.kind === "email" ? "Email de contacto" : item.kind === "web" ? "Página Oficial" : "Enlace");
-                          const linkLang = (item.labelI18n?.es || item.label) ? "es" : (rawSourceLang || "es");
-                          const linkTargets = ["es", "en", "pt", "it"].filter((l) => l !== linkLang);
-                          let apiTrans: Record<string, string> | null = null;
-                          try {
-                            const r = await fetch("/api/admin/translate-i18n", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ text: rawLabel, targetLangs: linkTargets, sourceLang: linkLang, isHtml: false, apiKey: customKey }),
-                            });
-                            const apiData = await r.json();
-                            if (apiData?.translations) {
-                              apiTrans = apiData.translations;
-                            }
-                          } catch (e) {
-                            console.warn("Failed translating social link label:", e);
-                          }
-                          const dict = COMMON_CONTACT_TRANSLATIONS[rawLabel.toLowerCase()];
-                          const nextLabelI18n: I18nRecord = {
-                            es: item.labelI18n?.es || (linkLang === "es" ? rawLabel : (apiTrans?.es || dict?.es || rawLabel)),
-                            en: apiTrans?.en || dict?.en || item.labelI18n?.en || "",
-                            pt: apiTrans?.pt || dict?.pt || item.labelI18n?.pt || "",
-                            it: apiTrans?.it || dict?.it || item.labelI18n?.it || "",
-                            ...(apiTrans || {}),
-                            [linkLang]: rawLabel,
-                          };
-                          return {
-                            ...item,
-                            label: item.label || nextLabelI18n.es || rawLabel,
-                            labelI18n: nextLabelI18n,
-                          };
-                        });
-                        const updatedSocials = await Promise.all(socialPromises);
-                        setPSocialLinksDetailed(updatedSocials);
-                      }
-                      setSaveMessage("Traducción completada a todos los idiomas.");
-                      window.setTimeout(() => setSaveMessage(""), 4000);
                     } catch (err) {
                       console.error("Translation all error:", err);
                     } finally {
                       setTranslatingField(null);
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-300 bg-gradient-to-r from-cyan-600 to-[#007D92] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-300 bg-gradient-to-r from-cyan-600 to-[#007D92] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
                 >
                   <Languages className="h-3.5 w-3.5 text-white" />
                   {translatingField === "all" ? "Traduciendo..." : "🌐 Traducir publicación completa a EN, PT, IT"}
@@ -9873,7 +8512,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   if (lang === "en") return "🇬🇧 English (EN)";
                   if (lang === "pt") return "🇧🇷 Português (PT)";
                   if (lang === "it") return "🇮🇹 Italiano (IT)";
-                  return lang.toUpperCase();
+                  return String(lang || "").toUpperCase();
                 })}
               </div>
             </div>
@@ -9981,63 +8620,42 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
             </div>
             <div className="grid gap-2">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center justify-between gap-2">
                 <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={directRefiningField === "provider_info"}
-                    onClick={() => handleDirectReformulateField("provider_info")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
-                    title="Reformular información del oferente con IA"
-                  >
-                    {directRefiningField === "provider_info" ? (
-                      <>
-                        <RotateCw className="h-3.5 w-3.5 animate-spin text-purple-600" />
-                        <span>Reformulando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                        <span>Reformular con IA</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={translatingField === "providerInfo"}
-                    onClick={async () => {
-                      const currentSource = (pProviderInfoI18n[pLang] || pProviderInfoI18n.es || "").trim();
-                      if (!currentSource) return;
-                      const sourceLang = pLang || "es";
-                      const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
-                      setTranslatingField("providerInfo");
-                      try {
-                        const res = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: currentSource, targetLangs, sourceLang, isHtml: true }),
-                        });
-                        const data = await res.json();
-                        if (data?.translations) {
-                          setPProviderInfoI18n((prev) => ({
-                            ...prev,
-                            [sourceLang]: currentSource,
-                            ...data.translations,
-                          }));
-                        }
-                      } catch (err) {
-                        console.error("Translation error:", err);
-                      } finally {
-                        setTranslatingField(null);
+                <button
+                  type="button"
+                  disabled={translatingField === "providerInfo"}
+                  onClick={async () => {
+                    const currentEs = pProviderInfoI18n.es;
+                    if (!currentEs) return;
+                    setTranslatingField("providerInfo");
+                    try {
+                      const res = await fetch("/api/admin/translate-i18n", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      });
+                      const data = await res.json();
+                      if (data.translations) {
+                        setPProviderInfoI18n((prev) => ({
+                          ...prev,
+                          es: currentEs,
+                          en: data.translations.en || prev.en || currentEs,
+                          pt: data.translations.pt || prev.pt || currentEs,
+                          it: data.translations.it || prev.it || currentEs,
+                        }));
                       }
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-                  >
-                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
-                    {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
-                  </button>
-                </div>
+                    } catch (err) {
+                      console.error("Translation error:", err);
+                    } finally {
+                      setTranslatingField(null);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                >
+                  <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                  {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                </button>
               </div>
               <RichTextEditor
                 value={pProviderInfoI18n[pLang] ?? ""}
@@ -10095,7 +8713,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   value={pProviderStartYear}
                   onChange={(e) => setPProviderStartYear(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Ej: 2018"
+                  placeholder="2010"
                 />
               </div>
               <div className="grid gap-2">
@@ -10104,7 +8722,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   value={pProviderRating}
                   onChange={(e) => setPProviderRating(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Ej: 5.0"
+                  placeholder="4.5"
                 />
               </div>
               <div className="grid gap-2">
@@ -10113,7 +8731,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   value={pProviderReviewCount}
                   onChange={(e) => setPProviderReviewCount(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Ej: 15"
+                  placeholder="200"
                 />
               </div>
               <div className="grid gap-2">
@@ -10274,67 +8892,44 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
               </div>
               <div className="grid gap-2">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center justify-between gap-2">
                   <label className="text-sm font-medium text-slate-700">
                     Título de la publicación <span className="font-bold text-[#007D92]">({pLang.toUpperCase()})</span>
                   </label>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={directRefiningField === "title"}
-                      onClick={() => handleDirectReformulateField("title")}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
-                      title="Reformular título con IA"
-                    >
-                      {directRefiningField === "title" ? (
-                        <>
-                          <RotateCw className="h-3.5 w-3.5 animate-spin text-purple-600" />
-                          <span>Reformulando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                          <span>Reformular con IA</span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={translatingField === "title"}
-                      onClick={async () => {
-                        const sourceLang = pLang || "es";
-                        const sourceText = (pTitleI18n[sourceLang] || pTitleI18n.es || pTitle || "").trim();
-                        if (!sourceText) return;
-                        const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
-                        setTranslatingField("title");
-                        try {
-                          const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
-                          const res = await fetch("/api/admin/translate-i18n", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ text: sourceText, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
-                          });
-                          const data = await res.json();
-                          if (data?.translations) {
-                            setPTitleI18n((prev) => ({
-                              ...prev,
-                              [sourceLang]: sourceText,
-                              ...data.translations,
-                            }));
-                            if (sourceLang === "es" || !pTitle) setPTitle(sourceText);
-                          }
-                        } catch (err) {
-                          console.error("Translation error:", err);
-                        } finally {
-                          setTranslatingField(null);
+                  <button
+                    type="button"
+                    disabled={translatingField === "title"}
+                    onClick={async () => {
+                      const currentEs = pTitleI18n.es || pTitle;
+                      if (!currentEs) return;
+                      setTranslatingField("title");
+                      try {
+                        const res = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
+                        });
+                        const data = await res.json();
+                        if (data?.translations) {
+                          setPTitleI18n((prev) => ({
+                            ...prev,
+                            es: currentEs,
+                            en: data.translations.en || prev.en || currentEs,
+                            pt: data.translations.pt || prev.pt || currentEs,
+                            it: data.translations.it || prev.it || currentEs,
+                          }));
                         }
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-                    >
-                      <Languages className="h-3.5 w-3.5 text-cyan-600" />
-                      {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
-                    </button>
-                  </div>
+                      } catch (err) {
+                        console.error("Translation error:", err);
+                      } finally {
+                        setTranslatingField(null);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                  >
+                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                    {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                  </button>
                 </div>
                 <input
                   value={pTitleI18n[pLang] ?? ""}
@@ -10355,7 +8950,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <label className="text-sm font-medium text-slate-700">
                     Descripción <span className="font-bold text-[#007D92]">({pLang.toUpperCase()})</span>
                   </label>
-                  {(pDescriptionI18n[pLang] || (pLang === "es" && pDescription)) ? (
+                  {pDescriptionI18n[pLang] ? (
                     <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                       ✓ Idioma {pLang.toUpperCase()} activo
                     </span>
@@ -10366,25 +8961,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={directRefiningField === "description"}
-                    onClick={() => handleDirectReformulateField("description")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
-                    title="Reformular descripción con IA"
-                  >
-                    {directRefiningField === "description" ? (
-                      <>
-                        <RotateCw className="h-3.5 w-3.5 animate-spin text-purple-600" />
-                        <span>Reformulando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                        <span>Reformular con IA</span>
-                      </>
-                    )}
-                  </button>
                   {renderLangTabs(pLang, (l) => {
                     setPLang(l);
                     setEditingLang(l);
@@ -10393,27 +8969,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     type="button"
                     disabled={translatingField === "description"}
                     onClick={async () => {
-                      const sourceLang = pLang || "es";
-                      const sourceText = (pDescriptionI18n[sourceLang] || (sourceLang === "es" ? pDescription : "") || pDescriptionI18n.es || "").trim();
-                      if (!sourceText) return;
-                      const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
+                      const currentEs = pDescriptionI18n.es || pDescription;
+                      if (!currentEs) return;
                       setTranslatingField("description");
                       try {
-                        const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
                         const res = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: sourceText, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
+                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
                         });
                         const data = await res.json();
                         if (data?.translations) {
                           setPDescriptionI18n((prev) => ({
                             ...prev,
-                            [sourceLang]: sourceText,
-                            ...data.translations,
-                            ...(sourceLang === "es" ? { es: sourceText } : {}),
+                            es: currentEs,
+                            en: data.translations.en || prev.en || currentEs,
+                            pt: data.translations.pt || prev.pt || currentEs,
+                            it: data.translations.it || prev.it || currentEs,
                           }));
-                          if (sourceLang === "es" || !pDescription) setPDescription(sourceText);
                         }
                       } catch (err) {
                         console.error("Translation error:", err);
@@ -10429,13 +9002,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </div>
               </div>
               <RichTextEditor
-                value={pDescriptionI18n[pLang] || (pLang === "es" ? pDescription : "") || ""}
+                value={pDescriptionI18n[pLang] ?? ""}
                 onChange={(next) => {
-                  setPDescriptionI18n((prev) => ({
-                    ...prev,
-                    [pLang]: next,
-                    ...(pLang === "es" ? { es: next } : {}),
-                  }));
+                  setPDescriptionI18n((prev) => ({ ...prev, [pLang]: next }));
                   if (pLang === "es") setPDescription(next);
                 }}
                 placeholder={`Texto de la publicación (${pLang.toUpperCase()})...`}
@@ -10443,139 +9012,54 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
 
             <div className="grid gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-slate-900">Descripción opcional</div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setAiRefineState({
-                        isOpen: true,
-                        fieldType: "new_extra_block",
-                        currentValue: "",
-                      })
-                    }
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300"
-                  >
-                    <Bot className="h-3.5 w-3.5 text-purple-600" />
-                    + Crear bloque con IA
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const defs = getDefaultCustomBlocks();
-                      if (defs.length) {
-                        setPExtraDescriptions((prev) => {
-                          const merged = [...prev];
-                          defs.forEach((db) => {
-                            if (!merged.some((eb) => eb.title.toLowerCase() === db.title.toLowerCase())) {
-                              merged.push(db);
-                            }
-                          });
-                          return merged;
-                        });
-                        setSaveMessage("✓ Bloques guardados cargados correctamente.");
-                        window.setTimeout(() => setSaveMessage(""), 3000);
-                      }
-                    }}
-                    title="Cargar los bloques opcionales guardados en el navegador"
-                    className="rounded-lg border border-purple-200 bg-purple-50/70 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition cursor-pointer"
-                  >
-                    + Cargar bloques guardados
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPExtraDescriptions((prev) => [
-                        ...prev,
-                        { title: "", body: "", titleI18n: { es: "" }, bodyI18n: { es: "" }, lang: "es", visibleInCard: false },
-                      ])
-                    }
-                    className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-                  >
-                    + Agregar bloque
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPExtraDescriptions((prev) => [
+                      ...prev,
+                      { title: "", body: "", titleI18n: { es: "" }, bodyI18n: { es: "" }, lang: "es", visibleInCard: false },
+                    ])
+                  }
+                  className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  + Agregar bloque
+                </button>
               </div>
 
               {pExtraDescriptions.length ? (
                 <div className="grid gap-3">
                   {pExtraDescriptions.map((desc, idx) => (
-                    <div key={`extra-${idx}`} className="grid gap-2 rounded-xl border border-slate-100 p-3 bg-slate-50/30">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div key={`extra-${idx}`} className="grid gap-2 rounded-xl border border-slate-100 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
                         <div className="flex items-center gap-2">
-                          <div className="text-xs font-bold uppercase text-slate-600">Bloque {idx + 1}</div>
-                          {/* Reorder Arrows */}
-                          <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-xs">
-                            <button
-                              type="button"
-                              onClick={() => handleMoveExtraBlock(idx, "up")}
-                              disabled={idx === 0}
-                              title="Subir posición"
-                              className="px-1.5 py-0.5 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer border-r border-slate-100 transition"
-                            >
-                              <ArrowUp className="h-3 w-3" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleMoveExtraBlock(idx, "down")}
-                              disabled={idx === pExtraDescriptions.length - 1}
-                              title="Bajar posición"
-                              className="px-1.5 py-0.5 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition"
-                            >
-                              <ArrowDown className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={directRefiningField === `extra-${idx}`}
-                            onClick={() => handleDirectReformulateField({ type: "extra_block", index: idx })}
-                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
-                            title="Reformular este bloque con IA"
-                          >
-                            {directRefiningField === `extra-${idx}` ? (
-                              <>
-                                <RotateCw className="h-3 w-3 animate-spin text-purple-600" />
-                                <span>Reformulando...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="h-3 w-3 text-purple-600" />
-                                <span>Reformular con IA</span>
-                              </>
-                            )}
-                          </button>
                           <button
                             type="button"
                             disabled={translatingField === `extra-${idx}`}
                             onClick={async () => {
-                              const sourceLang = pLang || "es";
-                              const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
-                              const sourceTitle = (desc.titleI18n?.[sourceLang] || desc.titleI18n?.es || desc.title || "").trim();
-                              const sourceBody = (desc.bodyI18n?.[sourceLang] || desc.bodyI18n?.es || desc.body || "").trim();
-                              if (!sourceTitle && !sourceBody) return;
+                              const titleEs = desc.titleI18n?.es || desc.title;
+                              const bodyEs = desc.bodyI18n?.es || desc.body;
+                              if (!titleEs && !bodyEs) return;
                               setTranslatingField(`extra-${idx}`);
                               try {
-                                const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
                                 const promises = [];
-                                if (sourceTitle) {
+                                if (titleEs) {
                                   promises.push(
                                     fetch("/api/admin/translate-i18n", {
                                       method: "POST",
                                       headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ text: sourceTitle, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
+                                      body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
                                     }).then((res) => res.json())
                                   );
                                 } else { promises.push(Promise.resolve(null)); }
-                                if (sourceBody) {
+                                if (bodyEs) {
                                   promises.push(
                                     fetch("/api/admin/translate-i18n", {
                                       method: "POST",
                                       headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ text: sourceBody, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
+                                      body: JSON.stringify({ text: bodyEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
                                     }).then((res) => res.json())
                                   );
                                 } else { promises.push(Promise.resolve(null)); }
@@ -10583,15 +9067,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                                 setPExtraDescriptions((prev) =>
                                   prev.map((d, i) => {
                                     if (i !== idx) return d;
-                                    const nextTitleI18n = { ...(d.titleI18n || {}), [sourceLang]: sourceTitle, ...(tRes?.translations || {}) };
-                                    const nextBodyI18n = { ...(d.bodyI18n || {}), [sourceLang]: sourceBody, ...(bRes?.translations || {}) };
-                                    return {
-                                      ...d,
-                                      title: sourceLang === "es" ? sourceTitle : (d.title || nextTitleI18n.es || sourceTitle),
-                                      body: sourceLang === "es" ? sourceBody : (d.body || nextBodyI18n.es || sourceBody),
-                                      titleI18n: nextTitleI18n,
-                                      bodyI18n: nextBodyI18n,
-                                    };
+                                    const nextTitleI18n = { ...d.titleI18n, es: titleEs };
+                                    if (tRes?.translations) {
+                                      ["en", "pt", "it"].forEach((l) => { if (tRes.translations[l]) (nextTitleI18n as any)[l] = tRes.translations[l]; });
+                                    }
+                                    const nextBodyI18n = { ...d.bodyI18n, es: bodyEs };
+                                    if (bRes?.translations) {
+                                      ["en", "pt", "it"].forEach((l) => { if (bRes.translations[l]) (nextBodyI18n as any)[l] = bRes.translations[l]; });
+                                    }
+                                    return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
                                   })
                                 );
                               } catch (err) {
@@ -10607,42 +9091,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              // Eliminar el bloque únicamente de la publicación en edición,
-                              // sin alterar jamás la configuración global de bloques del scraper en localStorage
-                              setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx));
-                            }}
-                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                            onClick={() =>
+                              setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                           >
                             Eliminar
                           </button>
                         </div>
                       </div>
-
-                      {(() => {
-                        const currentTitleVal = (desc.titleI18n?.[pLang] || desc.titleI18n?.es || desc.title || "").trim();
-                        let savedPrompt = "";
-                        try {
-                          const rawSaved = typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_scraper_blocks") : null;
-                          if (rawSaved) {
-                            const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawSaved);
-                            const found = list.find((b) =>
-                              (b.title && b.title.toLowerCase() === currentTitleVal.toLowerCase()) ||
-                              (b.prompt && desc.prompt && b.prompt === desc.prompt) ||
-                              (cleanGenericBlockTitle(b.title, b.prompt).toLowerCase() === cleanGenericBlockTitle(currentTitleVal).toLowerCase())
-                            );
-                            if (found?.prompt) savedPrompt = found.prompt;
-                          }
-                        } catch {}
-                        if (!savedPrompt) return null;
-                        return (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50/80 border border-purple-200 text-[11px] text-purple-800">
-                            <Sparkles className="h-3 w-3 text-purple-600 shrink-0" />
-                            <span className="font-bold text-purple-900">Prompt IA asignado:</span>
-                            <span className="truncate flex-1 font-mono text-[10.5px]" title={savedPrompt}>{savedPrompt}</span>
-                          </div>
-                        );
-                      })()}
                       <input
                         value={desc.titleI18n[pLang] ?? ""}
                         onChange={(e) =>
@@ -11157,28 +9614,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     ))}
                   </select>
                   <input
-                    value={
-                      getLangEditValue(entry.labelI18n, pLang) ||
-                      (COMMON_CONTACT_TRANSLATIONS[String(entry.label || "").trim().toLowerCase()]?.[pLang] ?? "") ||
-                      (pLang === "es" ? entry.label : "")
-                    }
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    value={entry.label}
+                    onChange={(e) =>
                       setPSocialLinksDetailed((prev) =>
-                        prev.map((item, index) => {
-                          if (index !== idx) return item;
-                          const baseLabel = item.label || "";
-                          const baseI18n = resolveContactLabelI18nRecord(baseLabel, item.labelI18n);
-                          return {
-                            ...item,
-                            label: pLang === "es" ? val : item.label,
-                            labelI18n: setLangText(baseLabel, baseI18n, pLang, val),
-                          };
-                        })
-                      );
-                    }}
+                        prev.map((item, index) =>
+                          index === idx ? { ...item, label: e.target.value } : item
+                        )
+                      )
+                    }
                     className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                    placeholder={pLang === "es" ? "Renombre del link (ej: Página Oficial, Teléfono...)" : `Renombre del link (${pLang.toUpperCase()})`}
+                    placeholder="Renombre del link (opcional)"
                   />
                   <input
                     value={entry.url}
@@ -11247,116 +9692,23 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               className="w-full min-w-0 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#007D92] hover:file:bg-[#00A9C6]/20"
             />
             {imageList.length ? (
-              <div className="space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-slate-500">
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <GripVertical className="h-4 w-4 text-[#00A9C6]" />
-                    Arrastrá las tarjetas para ordenar. La primera (#1) es la portada.
-                  </span>
-                  <span className="rounded-full bg-slate-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
-                    {imageList.length} {imageList.length === 1 ? "imagen" : "imágenes"}
-                  </span>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {imageList.map((img, idx) => {
-                    const isCover = idx === 0;
-                    const isDragging = draggingImageIndex === idx;
-
-                    return (
-                      <div
-                        key={`${img}-${idx}`}
-                        draggable
-                        onDragStart={(e) => {
-                          setDraggingImageIndex(idx);
-                          e.dataTransfer.effectAllowed = "move";
-                          e.dataTransfer.setData("text/plain", String(idx));
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = "move";
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          if (draggingImageIndex !== null && draggingImageIndex !== idx) {
-                            reorderImages(draggingImageIndex, idx);
-                          }
-                          setDraggingImageIndex(null);
-                        }}
-                        onDragEnd={() => setDraggingImageIndex(null)}
-                        className={`group relative flex flex-col rounded-xl border bg-white p-2 shadow-sm transition-all duration-150 select-none ${
-                          isDragging
-                            ? "opacity-40 scale-95 border-dashed border-[#00A9C6] ring-2 ring-[#00A9C6]/40"
-                            : isCover
-                            ? "border-emerald-300 ring-1 ring-emerald-200/60 shadow-slate-200/70"
-                            : "border-slate-200 hover:border-slate-300 shadow-slate-200/50"
-                        }`}
+              <div className="grid gap-3 md:grid-cols-4">
+                {imageList.map((img, idx) => (
+                  <div key={`${img}-${idx}`} className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/60">
+                    <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => removeImage(img)}
+                        className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-xs font-semibold text-slate-600 shadow"
+                        aria-label="Quitar imagen"
                       >
-                        {/* Image Preview Container */}
-                        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-slate-100">
-                          {/* Order / Cover Badge */}
-                          <div className="absolute left-2 top-2 z-10 flex items-center gap-1">
-                            {isCover ? (
-                              <span className="inline-flex items-center rounded-md bg-emerald-600/95 px-2 py-0.5 text-[11px] font-bold text-white shadow-md backdrop-blur">
-                                #1 Portada
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center rounded-md bg-slate-900/80 px-1.5 py-0.5 text-[11px] font-bold text-white shadow-sm backdrop-blur">
-                                #{idx + 1}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() => removeImage(img)}
-                            className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-slate-600 shadow-md transition hover:bg-rose-50 hover:text-rose-600"
-                            title="Quitar imagen"
-                            aria-label="Quitar imagen"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-
-                          {/* Image Thumbnail */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={img}
-                            alt=""
-                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                            draggable={false}
-                          />
-
-                          {/* Drag Overlay Handle Indicator on Hover */}
-                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity duration-150 group-hover:bg-black/10 group-hover:opacity-100">
-                            <span className="flex items-center gap-1 rounded-full bg-slate-900/70 px-2 py-0.5 text-[11px] font-medium text-white shadow">
-                              <GripVertical className="h-3.5 w-3.5" /> Arrastrar
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Order Controls Bar */}
-                        <div className="mt-2 flex items-center justify-center border-t border-slate-100 pt-1.5">
-                          {!isCover ? (
-                            <button
-                              type="button"
-                              onClick={() => setAsCoverImage(idx)}
-                              className="inline-flex h-7 w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-700 transition hover:border-[#00A9C6]/50 hover:bg-[#00A9C6]/10 hover:text-[#007D92] active:scale-95"
-                              title="Poner como foto de portada (#1)"
-                            >
-                              Hacer portada
-                            </button>
-                          ) : (
-                            <span className="inline-flex h-7 w-full items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-700">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                              Portada actual
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img} alt={`preview-${idx}`} className="h-full w-full object-cover" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : null}
           </div>
@@ -11823,76 +10175,58 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           ) : null}
 
           <div className="flex flex-wrap items-center gap-3">
-            {activeScraperDraftIndex !== null ? (
-              <button
-                type="button"
-                onClick={handleSaveAiDraftChangesToQueue}
-                className="h-11 rounded-xl bg-[#00A9C6] px-6 text-sm font-semibold text-white hover:bg-[#0095AE] shadow-md transition cursor-pointer"
-              >
-                💾 Guardar publicación
-              </button>
-            ) : (
-              <button
-                onClick={createPublication}
-                className="h-11 rounded-xl bg-[#00A9C6] px-6 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:cursor-not-allowed disabled:opacity-70"
-                disabled={savingPublication}
-              >
-                {savingPublication
-                  ? "Guardando..."
-                  : editingId
-                    ? "Guardar cambios"
-                    : "Crear publicación"}
-              </button>
-            )}
+            <button
+              onClick={createPublication}
+              className="h-11 rounded-xl bg-[#00A9C6] px-6 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={savingPublication}
+            >
+              {savingPublication
+                ? "Guardando..."
+                : editingId
+                  ? "Guardar cambios"
+                  : "Crear publicación"}
+            </button>
             <button
               type="button"
               disabled={translatingField === "all"}
               onClick={async () => {
                 setTranslatingField("all");
                 try {
-                  const rawSourceLang = pLang || "es";
-                  const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
                   const promises: Promise<any>[] = [];
 
                   // Title
-                  const titleSource = (pTitleI18n.es || pTitle || pTitleI18n[rawSourceLang] || "").trim();
-                  const effectiveTitleLang = (pTitleI18n.es || pTitle) ? "es" : (rawSourceLang || "es");
-                  const titleTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveTitleLang);
-                  if (titleSource) {
+                  const titleEs = pTitleI18n.es || pTitle;
+                  if (titleEs) {
                     promises.push(
                       fetch("/api/admin/translate-i18n", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: titleSource, targetLangs: titleTargetLangs, sourceLang: effectiveTitleLang, isHtml: false, apiKey: customKey }),
-                      }).then((res) => res.json().then((d) => ({ key: "title", sourceLang: effectiveTitleLang, sourceText: titleSource, translations: d.translations })))
+                        body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                      }).then((res) => res.json().then((d) => ({ key: "title", translations: d.translations })))
                     );
                   }
 
                   // Description
-                  const descSource = (pDescriptionI18n.es || pDescription || pDescriptionI18n[rawSourceLang] || "").trim();
-                  const effectiveDescLang = (pDescriptionI18n.es || pDescription) ? "es" : (rawSourceLang || "es");
-                  const descTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveDescLang);
-                  if (descSource) {
+                  const descEs = pDescriptionI18n.es || pDescription;
+                  if (descEs) {
                     promises.push(
                       fetch("/api/admin/translate-i18n", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: descSource, targetLangs: descTargetLangs, sourceLang: effectiveDescLang, isHtml: true, apiKey: customKey }),
-                      }).then((res) => res.json().then((d) => ({ key: "description", sourceLang: effectiveDescLang, sourceText: descSource, translations: d.translations })))
+                        body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      }).then((res) => res.json().then((d) => ({ key: "description", translations: d.translations })))
                     );
                   }
 
                   // Provider info
-                  const providerSource = (pProviderInfoI18n.es || pProviderInfoI18n[rawSourceLang] || "").trim();
-                  const effectiveProvLang = pProviderInfoI18n.es ? "es" : (rawSourceLang || "es");
-                  const provTargetLangs = ["es", "en", "pt", "it"].filter((l) => l !== effectiveProvLang);
-                  if (providerSource) {
+                  const providerEs = pProviderInfoI18n.es;
+                  if (providerEs) {
                     promises.push(
                       fetch("/api/admin/translate-i18n", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: providerSource, targetLangs: provTargetLangs, sourceLang: effectiveProvLang, isHtml: true, apiKey: customKey }),
-                      }).then((res) => res.json().then((d) => ({ key: "providerInfo", sourceLang: effectiveProvLang, sourceText: providerSource, translations: d.translations })))
+                        body: JSON.stringify({ text: providerEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                      }).then((res) => res.json().then((d) => ({ key: "providerInfo", translations: d.translations })))
                     );
                   }
 
@@ -11902,22 +10236,23 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     if (item.key === "title") {
                       setPTitleI18n((prev) => ({
                         ...prev,
-                        [item.sourceLang]: item.sourceText,
-                        ...item.translations,
+                        en: item.translations.en || prev.en || titleEs,
+                        pt: item.translations.pt || prev.pt || titleEs,
+                        it: item.translations.it || prev.it || titleEs,
                       }));
-                      if (item.sourceLang === "es" || !pTitle) setPTitle(item.sourceText);
                     } else if (item.key === "description") {
                       setPDescriptionI18n((prev) => ({
                         ...prev,
-                        [item.sourceLang]: item.sourceText,
-                        ...item.translations,
+                        en: item.translations.en || prev.en || descEs,
+                        pt: item.translations.pt || prev.pt || descEs,
+                        it: item.translations.it || prev.it || descEs,
                       }));
-                      if (item.sourceLang === "es" || !pDescription) setPDescription(item.sourceText);
                     } else if (item.key === "providerInfo") {
                       setPProviderInfoI18n((prev) => ({
                         ...prev,
-                        [item.sourceLang]: item.sourceText,
-                        ...item.translations,
+                        en: item.translations.en || prev.en || providerEs,
+                        pt: item.translations.pt || prev.pt || providerEs,
+                        it: item.translations.it || prev.it || providerEs,
                       }));
                     }
                   });
@@ -11925,80 +10260,34 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   // Translate extra descriptions
                   if (pExtraDescriptions.length) {
                     const extraPromises = pExtraDescriptions.map(async (d) => {
-                      const tSource = (d.titleI18n?.es || d.title || d.titleI18n?.[rawSourceLang] || "").trim();
-                      const bSource = (d.bodyI18n?.es || d.body || d.bodyI18n?.[rawSourceLang] || "").trim();
-                      const extLang = (d.titleI18n?.es || d.bodyI18n?.es || d.title || d.body) ? "es" : (rawSourceLang || "es");
-                      const extTargets = ["es", "en", "pt", "it"].filter((l) => l !== extLang);
+                      const tEs = d.titleI18n?.es || d.title;
+                      const bEs = d.bodyI18n?.es || d.body;
                       let tTrans = null;
                       let bTrans = null;
-                      if (tSource) {
+                      if (tEs) {
                         const r = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: tSource, targetLangs: extTargets, sourceLang: extLang, isHtml: false, apiKey: customKey }),
+                          body: JSON.stringify({ text: tEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
                         });
                         tTrans = (await r.json())?.translations;
                       }
-                      if (bSource) {
+                      if (bEs) {
                         const r = await fetch("/api/admin/translate-i18n", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: bSource, targetLangs: extTargets, sourceLang: extLang, isHtml: true, apiKey: customKey }),
+                          body: JSON.stringify({ text: bEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
                         });
                         bTrans = (await r.json())?.translations;
                       }
-                      const nextTitleI18n = { ...(d.titleI18n || {}), [extLang]: tSource, ...(tTrans || {}) };
-                      const nextBodyI18n = { ...(d.bodyI18n || {}), [extLang]: bSource, ...(bTrans || {}) };
-                      return {
-                        ...d,
-                        title: extLang === "es" ? tSource : (d.title || nextTitleI18n.es || tSource),
-                        body: extLang === "es" ? bSource : (d.body || nextBodyI18n.es || bSource),
-                        titleI18n: nextTitleI18n,
-                        bodyI18n: nextBodyI18n,
-                      };
+                      const nextTitleI18n = { ...d.titleI18n, es: tEs };
+                      if (tTrans) ["en", "pt", "it"].forEach((l) => { if (tTrans[l]) (nextTitleI18n as any)[l] = tTrans[l]; });
+                      const nextBodyI18n = { ...d.bodyI18n, es: bEs };
+                      if (bTrans) ["en", "pt", "it"].forEach((l) => { if (bTrans[l]) (nextBodyI18n as any)[l] = bTrans[l]; });
+                      return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
                     });
                     const updatedExtras = await Promise.all(extraPromises);
                     setPExtraDescriptions(updatedExtras);
-                  }
-
-                  // Translate social links labels with AI
-                  if (pSocialLinksDetailed.length) {
-                    const socialPromises = pSocialLinksDetailed.map(async (item) => {
-                      const rawLabel = (item.labelI18n?.es || item.label || item.labelI18n?.[rawSourceLang] || "").trim() ||
-                        (item.kind === "phone" ? "Teléfono de contacto" : item.kind === "whatsapp" ? "WhatsApp" : item.kind === "email" ? "Email de contacto" : item.kind === "web" ? "Página Oficial" : "Enlace");
-                      const linkLang = (item.labelI18n?.es || item.label) ? "es" : (rawSourceLang || "es");
-                      const linkTargets = ["es", "en", "pt", "it"].filter((l) => l !== linkLang);
-                      let apiTrans: Record<string, string> | null = null;
-                      try {
-                        const r = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: rawLabel, targetLangs: linkTargets, sourceLang: linkLang, isHtml: false, apiKey: customKey }),
-                        });
-                        const apiData = await r.json();
-                        if (apiData?.translations) {
-                          apiTrans = apiData.translations;
-                        }
-                      } catch (e) {
-                        console.warn("Failed translating social link label:", e);
-                      }
-                      const dict = COMMON_CONTACT_TRANSLATIONS[rawLabel.toLowerCase()];
-                      const nextLabelI18n: I18nRecord = {
-                        es: item.labelI18n?.es || (linkLang === "es" ? rawLabel : (apiTrans?.es || dict?.es || rawLabel)),
-                        en: apiTrans?.en || dict?.en || item.labelI18n?.en || "",
-                        pt: apiTrans?.pt || dict?.pt || item.labelI18n?.pt || "",
-                        it: apiTrans?.it || dict?.it || item.labelI18n?.it || "",
-                        ...(apiTrans || {}),
-                        [linkLang]: rawLabel,
-                      };
-                      return {
-                        ...item,
-                        label: item.label || nextLabelI18n.es || rawLabel,
-                        labelI18n: nextLabelI18n,
-                      };
-                    });
-                    const updatedSocials = await Promise.all(socialPromises);
-                    setPSocialLinksDetailed(updatedSocials);
                   }
 
                   setSaveMessage("Traducción completada a todos los idiomas.");
@@ -12014,15 +10303,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <Languages className="h-4 w-4 text-cyan-600" />
               {translatingField === "all" ? "Traduciendo todo..." : "🌐 Traducir todo a multilenguaje (EN, PT, IT)"}
             </button>
-            {activeScraperDraftIndex !== null ? (
-              <button
-                type="button"
-                onClick={handleCancelScraperDraftEdit}
-                className="h-11 rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-              >
-                Cerrar sin guardar
-              </button>
-            ) : editingId ? (
+            {editingId ? (
               <button
                 onClick={cancelEdit}
                 className="h-11 rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -12074,30 +10355,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <button type="button" onClick={openNewPublicationEditor} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Nueva</button>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "Últimas publicaciones"}</div>
-              {publicationTab === "publicaciones" && publications.length > 0 ? (
-                <button
-                  type="button"
-                  disabled={bulkTranslatingList || Boolean(translatingListPubId)}
-                  onClick={handleTranslateAllPendingPublicationsInList}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
-                  title="Traduce automáticamente a EN, PT, IT todas las publicaciones que solo estén en Español"
-                >
-                  {bulkTranslatingList ? (
-                    <>
-                      <RotateCw className="h-3.5 w-3.5 animate-spin text-purple-600" />
-                      <span>Traduciendo publicaciones...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Languages className="h-3.5 w-3.5 text-purple-600" />
-                      <span>Traducir publicaciones pendientes (EN, PT, IT)</span>
-                    </>
-                  )}
-                </button>
-              ) : null}
-            </div>
+            <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "Últimas publicaciones"}</div>
             <div className="mt-3 space-y-3">
             {publicationTab === "denuncias" ? filteredReports.map((report) => {
               const isOpen = Boolean(expandedReports[report.id]);
@@ -12278,25 +10536,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       </>
                     ) : null}
                     <button
-                      type="button"
-                      disabled={translatingListPubId === p.id}
-                      onClick={() => handleTranslateSinglePublicationInList(p)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 disabled:opacity-60 cursor-pointer shadow-xs"
-                      title="Traducir esta publicación con IA a EN, PT, IT"
-                    >
-                      {translatingListPubId === p.id ? (
-                        <>
-                          <RotateCw className="h-3 w-3 animate-spin text-purple-600" />
-                          <span>Traduciendo...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Languages className="h-3 w-3 text-purple-600" />
-                          <span>Traducir con IA</span>
-                        </>
-                      )}
-                    </button>
-                    <button
                       onClick={() => editPublication(p)}
                       className="rounded-lg border border-[#00A9C6]/40 px-3 py-1.5 text-xs text-[#007D92] hover:bg-[#00A9C6]/10"
                     >
@@ -12330,33 +10569,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       <AiScraperModal
         isOpen={aiModalOpen}
         onClose={() => setAiModalOpen(false)}
-        onOpen={() => setAiModalOpen(true)}
         onSelectDraftToEdit={applyAiDraftToForm}
         onApproveDirectly={handleApproveAiDraftDirectly}
-        categories={categories}
-        filterGroups={filterGroups}
-      />
-      <AiFieldRefineModal
-        isOpen={aiRefineState.isOpen}
-        onClose={() => setAiRefineState((prev) => ({ ...prev, isOpen: false }))}
-        fieldType={aiRefineState.fieldType}
-        currentValue={aiRefineState.currentValue}
-        currentTitleValue={aiRefineState.currentTitleValue}
-        initialPrompt={aiRefineState.initialPrompt}
-        blockIndex={aiRefineState.blockIndex}
-        metadata={{
-          title: pTitleI18n[pLang] || pTitle || "",
-          publisherName: pPublisherName || "",
-          category: pCategory || "",
-          city: pCity || "",
-          country: pCountry || "",
-          url: pWebsite || activeScrapedFactsRef.current.url || "",
-          scrapedHeadings: activeScrapedFactsRef.current.headings || [],
-          scrapedParagraphs: activeScrapedFactsRef.current.paragraphs || [],
-          scrapedTextContent: activeScrapedFactsRef.current.rawText || "",
-          rawPageTitle: activeScrapedFactsRef.current.rawPageTitle || "",
-        }}
-        onApply={handleApplyAiRefinement}
       />
     </div>
   );
