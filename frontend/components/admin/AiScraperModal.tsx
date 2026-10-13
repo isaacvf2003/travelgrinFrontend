@@ -4,14 +4,16 @@ import { useState, useEffect } from "react";
 import { Sparkles, Trash2, ArrowUp, ArrowDown, Pencil, Bot } from "lucide-react";
 import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
 
-export type I18nRecord = Record<string, string>;
+export type I18nRecord = Record<string, string> | Partial<Record<"es" | "en" | "pt" | "it", string>>;
 
 export interface ExtraDescriptionBlock {
   title: string;
-  titleI18n: I18nRecord;
+  titleI18n?: any;
   body: string;
-  bodyI18n: I18nRecord;
-  visibleInCard: boolean;
+  bodyI18n?: any;
+  visibleInCard?: boolean;
+  lang?: string;
+  prompt?: string;
 }
 
 export interface SocialLinkDetail {
@@ -63,7 +65,7 @@ export interface ScrapedPublicationDraft {
 interface AiScraperModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectDraftToEdit: (draft: ScrapedPublicationDraft) => void;
+  onSelectDraftToEdit: (draft: ScrapedPublicationDraft, index?: number) => void;
   onApproveDirectly?: (draft: ScrapedPublicationDraft) => Promise<boolean>;
   categories?: any[];
   filterGroups?: any[];
@@ -403,7 +405,7 @@ export default function AiScraperModal({
 
   const handleApproveDraft = async (draft: ScrapedPublicationDraft, index: number) => {
     if (!onApproveDirectly) {
-      onSelectDraftToEdit(draft);
+      onSelectDraftToEdit(draft, index);
       handleRemoveDraft(index);
       onClose();
       return;
@@ -1155,7 +1157,7 @@ export default function AiScraperModal({
                       <button
                         type="button"
                         onClick={() => {
-                          onSelectDraftToEdit(draft);
+                          onSelectDraftToEdit(draft, index);
                           onClose();
                         }}
                         className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-sm"
