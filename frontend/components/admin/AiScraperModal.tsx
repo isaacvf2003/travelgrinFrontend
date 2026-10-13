@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Bot, Sparkles, X, Trash2, Plus, Info, RefreshCw, FileText, Check, Settings2, ArrowUp, ArrowDown, Pencil, Play, Pause, StopCircle, CheckCircle2, AlertCircle, Clock, Loader2, ArrowRight, ExternalLink } from "lucide-react";
-import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
+import { useState, useEffect } from "react";
 
 export type I18nRecord = Record<string, string>;
 
@@ -12,10 +10,6 @@ export interface ExtraDescriptionBlock {
   body: string;
   bodyI18n: I18nRecord;
   visibleInCard: boolean;
-  estado?: "ok" | "parcial" | "sin_datos";
-  contenido?: string;
-  evidencias?: string[];
-  prompt?: string;
 }
 
 export interface SocialLinkDetail {
@@ -55,181 +49,20 @@ export interface ScrapedPublicationDraft {
   headquarterLocations?: Array<{ country: string; city: string; address?: string; mapUrl: string }>;
   categorySelections?: string[];
   subcategorySelections?: string[];
-  providerActivities?: string[];
-  providerTypes?: string[];
-  providerModalities?: string[];
   destinationCountries?: string[];
+  providerActivities?: string[];
   providerActivity?: string;
+  providerTypes?: string[];
   providerType?: string;
-  scrapedHeadings?: string[];
-  scrapedParagraphs?: string[];
-  scrapedTextContent?: string;
-  rawPageTitle?: string;
+  providerModalities?: string[];
   status?: "active" | "draft" | "paused";
-}
-
-export interface BulkQueueItem {
-  id: string;
-  url: string;
-  status: "pending" | "processing" | "completed" | "error";
-  draft?: ScrapedPublicationDraft;
-  error?: string;
-}
-
-export function cleanDraftItem(pub: any, categories?: any[]): ScrapedPublicationDraft {
-  const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
-
-  let catSelections = Array.isArray(pub.categorySelections) && pub.categorySelections.length > 0 && pub.categorySelections[0] !== "General"
-    ? pub.categorySelections
-    : (pub.category && pub.category !== "General" ? [pub.category] : []);
-  let subSelections = Array.isArray(pub.subcategorySelections) && pub.subcategorySelections.length > 0 && pub.subcategorySelections[0] !== "General"
-    ? pub.subcategorySelections
-    : (pub.subcategory && pub.subcategory !== "General" ? [pub.subcategory] : []);
-
-  // Fallback to local categories catalog if backend returned General or empty
-  if (catSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
-    const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
-    const catRoots = categories.filter((c: any) => !c.parentId && (c.taxonomyType === "categoria" || !c.taxonomyType));
-    const scored = catRoots.map((r: any) => {
-      const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      const tokens = rNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|servicios|general/i.test(t));
-      let s = 0;
-      if (fullCorpus.includes(rNorm)) s += 40;
-      for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
-      return { name: r.description, score: s };
-    }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
-
-    if (scored.length > 0) {
-      catSelections = scored.slice(0, 3).map((x: any) => x.name);
-    }
-  }
-
-  // Fallback to local subcategories catalog if empty
-  if (subSelections.length === 0 && Array.isArray(categories) && categories.length > 0 && catSelections.length > 0) {
-    const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
-    const matchedParentCats = categories.filter((c: any) => !c.parentId && catSelections.includes(c.description));
-    const childCandidates = categories.filter((c: any) => c.parentId && matchedParentCats.some((p: any) => p.id === c.parentId));
-    if (childCandidates.length > 0) {
-      const scoredSubs = childCandidates.map((sub: any) => {
-        const sNorm = sub.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        const tokens = sNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|general/i.test(t));
-        let s = 0;
-        if (fullCorpus.includes(sNorm)) s += 40;
-        for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
-        return { name: sub.description, score: s };
-      }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
-
-      if (scoredSubs.length > 0) {
-        subSelections = scoredSubs.slice(0, 3).map((x: any) => x.name);
-      } else {
-        const defaultSubs: string[] = [];
-        matchedParentCats.forEach((parent: any) => {
-          const firstChild = childCandidates.find((c: any) => c.parentId === parent.id);
-          if (firstChild && !defaultSubs.includes(firstChild.description)) {
-            defaultSubs.push(firstChild.description);
-          }
-        });
-        if (defaultSubs.length > 0) {
-          subSelections = defaultSubs;
-        } else if (childCandidates[0]?.description) {
-          subSelections = [childCandidates[0].description];
-        }
-      }
-    }
-  }
-
-  // Fallback to local activities catalog if empty
-  let actSelections = Array.isArray(pub.providerActivities) && pub.providerActivities.length > 0
-    ? pub.providerActivities
-    : [];
-  if (actSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
-    const actRoots = categories.filter((c: any) => !c.parentId && c.taxonomyType === "actividad");
-    if (actRoots.length > 0) {
-      const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
-      const scored = actRoots.map((r: any) => {
-        const rNorm = String(r.description || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        const tokens = rNorm.split(/\s+/).filter((t: string) => t.length > 3 && !/para|sobre|servicios|general/i.test(t));
-        let s = 0;
-        if (fullCorpus.includes(rNorm)) s += 40;
-        for (const tok of tokens) if (fullCorpus.includes(tok)) s += 15;
-        return { name: r.description, score: s };
-      }).filter((x: any) => x.score > 0).sort((a: any, b: any) => b.score - a.score);
-      if (scored.length > 0) {
-        actSelections = [scored[0].name];
-        if (scored[1] && scored[1].score >= 25) actSelections.push(scored[1].name);
-      } else {
-        actSelections = [actRoots[0].description];
-      }
-    }
-  }
-
-  // Fallback to local types catalog if empty
-  let typeSelections = Array.isArray(pub.providerTypes) && pub.providerTypes.length > 0
-    ? pub.providerTypes
-    : [];
-  if (typeSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
-    const typeRoots = categories.filter((c: any) => !c.parentId && ["tipo", "tipos"].includes(c.taxonomyType));
-    if (typeRoots.length > 0) {
-      const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""}`.toLowerCase();
-      const isGov = /\b(\.gov|\.gob|\.mil)\b/i.test(pub.url || "") || /public|gobierno|ministerio|nacional/i.test(fullCorpus);
-      if (isGov) {
-        const pubMatch = typeRoots.find((r: any) => /public|estatal/i.test(String(r.description || "")));
-        typeSelections = [pubMatch ? pubMatch.description : typeRoots[0].description];
-      } else {
-        const profMatch = typeRoots.find((r: any) => /profesional|independiente|particular/i.test(String(r.description || "")));
-        const privMatch = typeRoots.find((r: any) => /privad|empresa|instituci/i.test(String(r.description || "")));
-        typeSelections = [profMatch ? profMatch.description : privMatch ? privMatch.description : typeRoots[0].description];
-      }
-    }
-  }
-
-  // Fallback to local modalities catalog if empty
-  let modSelections = Array.isArray(pub.providerModalities) && pub.providerModalities.length > 0
-    ? pub.providerModalities
-    : [];
-  if (modSelections.length === 0 && Array.isArray(categories) && categories.length > 0) {
-    const modRoots = categories.filter((c: any) => !c.parentId && c.taxonomyType === "modalidad");
-    if (modRoots.length > 0) {
-      const fullCorpus = `${pub.title || ""} ${pub.publisherName || ""} ${pub.description || ""} ${pub.url || ""} ${(pub.scrapedParagraphs || []).join(" ")}`.toLowerCase();
-      const presencial = modRoots.find((r: any) => /presencial|sede|sucursal/i.test(String(r.description || "")));
-      const online = modRoots.find((r: any) => /online|virtual|remoto|distancia/i.test(String(r.description || "")));
-      const picked: string[] = [];
-      if (presencial && (pub.locationAddress || /sede|sucursal|consultorio|direccion/i.test(fullCorpus))) picked.push(presencial.description);
-      if (online && /online|virtual|remoto|distancia|zoom|meet|web|portal/i.test(fullCorpus)) picked.push(online.description);
-      if (picked.length === 0) picked.push(presencial ? presencial.description : modRoots[0].description);
-      modSelections = picked;
-    }
-  }
-
-  const resolvedCat = catSelections[0] || (pub.category && pub.category !== "General" ? pub.category : "");
-  const resolvedSub = subSelections[0] || (pub.subcategory && pub.subcategory !== "General" ? pub.subcategory : "");
-
-  return {
-    ...pub,
-    category: resolvedCat,
-    subcategory: resolvedSub,
-    categorySelections: catSelections.length > 0 ? catSelections : (resolvedCat ? [resolvedCat] : []),
-    subcategorySelections: subSelections.length > 0 ? subSelections : (resolvedSub ? [resolvedSub] : []),
-    providerActivities: actSelections.length > 0 ? actSelections : (pub.providerActivities || []),
-    providerTypes: typeSelections.length > 0 ? typeSelections : (pub.providerTypes || []),
-    providerModalities: modSelections.length > 0 ? modSelections : (pub.providerModalities || []),
-    providerActivity: actSelections[0] || pub.providerActivity || "",
-    providerType: typeSelections[0] || pub.providerType || "",
-    destinationCountries: Array.isArray(pub.destinationCountries) ? pub.destinationCountries : undefined,
-    providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
-    images: (pub.images || []).filter((img: any) => img && !BAD_GFX.test(img)),
-    status: pub.status || "active",
-  };
 }
 
 interface AiScraperModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectDraftToEdit: (draft: ScrapedPublicationDraft, index?: number) => void;
+  onSelectDraftToEdit: (draft: ScrapedPublicationDraft) => void;
   onApproveDirectly?: (draft: ScrapedPublicationDraft) => Promise<boolean>;
-  categories?: any[];
-  filterGroups?: any[];
-  onOpen?: () => void;
 }
 
 export default function AiScraperModal({
@@ -237,9 +70,6 @@ export default function AiScraperModal({
   onClose,
   onSelectDraftToEdit,
   onApproveDirectly,
-  categories,
-  filterGroups,
-  onOpen,
 }: AiScraperModalProps) {
   const [tab, setTab] = useState<"single" | "bulk">("single");
   const [aiProvider, setAiProvider] = useState<"auto" | "gemini" | "openai">("auto");
@@ -252,23 +82,7 @@ export default function AiScraperModal({
   const [draftsQueue, setDraftsQueue] = useState<ScrapedPublicationDraft[]>([]);
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
   const [savingAll, setSavingAll] = useState(false);
-  const [translatingIndex, setTranslatingIndex] = useState<number | null>(null);
-  const [translatingAll, setTranslatingAll] = useState(false);
-  const [translateProgress, setTranslateProgress] = useState("");
   const [successNotice, setSuccessNotice] = useState("");
-  const [customTitlePrompt, setCustomTitlePrompt] = useState("");
-  const [customDescPrompt, setCustomDescPrompt] = useState("");
-  const [includeScoreScout, setIncludeScoreScout] = useState(false);
-  const [customScraperBlocks, setCustomScraperBlocks] = useState<Array<{ title: string; prompt?: string }>>([]);
-  const [newBlockTitleInput, setNewBlockTitleInput] = useState("");
-  const [newBlockPromptInput, setNewBlockPromptInput] = useState("");
-  const [customScraperPrompts, setCustomScraperPrompts] = useState<string[]>([]);
-  const [newPromptInput, setNewPromptInput] = useState("");
-
-  // Reordering and inline editing of custom description blocks
-  const [editingBlockIndex, setEditingBlockIndex] = useState<number | null>(null);
-  const [editingBlockTitle, setEditingBlockTitle] = useState("");
-  const [editingBlockPrompt, setEditingBlockPrompt] = useState("");
 
   // Accordion Inline Form State for active draft inspection directly in the queue card
   const [expandedDraftIndex, setExpandedDraftIndex] = useState<number | null>(null);
@@ -276,74 +90,22 @@ export default function AiScraperModal({
   const [newImageUrl, setNewImageUrl] = useState("");
   const [customLogoInput, setCustomLogoInput] = useState("");
 
-  // Sequential Queue Worker state for URL-by-URL processing
-  const [bulkQueue, setBulkQueue] = useState<BulkQueueItem[]>([]);
-  const [isBulkRunning, setIsBulkRunning] = useState(false);
-  const [isBulkPaused, setIsBulkPaused] = useState(false);
-  const cancelBulkRef = useRef(false);
-  const isBulkPausedRef = useRef(false);
-
-  // Restore queue from sessionStorage and customApiKey/prompts/blocks from localStorage on load
+  // Restore queue from sessionStorage and customApiKey from localStorage on load if available (Client-side only)
   useEffect(() => {
-    if (typeof window === "undefined" || !isOpen) return;
+    if (typeof window === "undefined") return;
     try {
       const savedKey = window.localStorage.getItem("tgn_ai_custom_api_key");
       if (savedKey) setCustomApiKey(savedKey);
 
-      const savedProvider = window.localStorage.getItem("tgn_ai_scraper_provider");
-      if (savedProvider === "auto" || savedProvider === "gemini" || savedProvider === "openai") {
-        setAiProvider(savedProvider);
-      }
-
-      const savedTitlePrompt = window.localStorage.getItem("tgn_custom_title_prompt");
-      if (savedTitlePrompt) setCustomTitlePrompt(savedTitlePrompt);
-
-      const savedDescPrompt = window.localStorage.getItem("tgn_custom_desc_prompt");
-      if (savedDescPrompt) setCustomDescPrompt(savedDescPrompt);
-
-      const savedScoreScout = window.localStorage.getItem("tgn_include_score_scout");
-      if (savedScoreScout !== null) {
-        setIncludeScoreScout(savedScoreScout === "true");
-      }
-
-      const savedBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
-      if (savedBlocks) {
-        const parsed = JSON.parse(savedBlocks);
-        if (Array.isArray(parsed)) {
-          // Clean legacy contaminated block titles (e.g. removing " - Universidad ..." or " en la Universidad Kennedy")
-          const sanitized = parsed.map((b: any) => {
-            const rawTitle = (b?.title || "").trim();
-            const cleanTitle = cleanGenericBlockTitle(rawTitle, b?.prompt);
-            return { ...b, title: cleanTitle || rawTitle };
-          }).filter((b: any) => Boolean(b && b.title));
-          const uniqueList: Array<{ title: string; prompt?: string }> = [];
-          sanitized.forEach((b: any) => {
-            if (!uniqueList.some((u) => u.title.toLowerCase() === b.title.toLowerCase())) {
-              uniqueList.push(b);
-            }
-          });
-          setCustomScraperBlocks(uniqueList);
-          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(uniqueList));
-        }
-      }
-
-      const savedPrompts = window.localStorage.getItem("tgn_custom_scraper_prompts");
-      if (savedPrompts) {
-        const parsed = JSON.parse(savedPrompts);
-        if (Array.isArray(parsed)) {
-          setCustomScraperPrompts(parsed);
-        }
-      }
-
       const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           setDraftsQueue(parsed);
         }
       }
     } catch {}
-  }, [isOpen]);
+  }, []);
 
   const handleSaveApiKey = (keyVal: string) => {
     setCustomApiKey(keyVal);
@@ -354,223 +116,6 @@ export default function AiScraperModal({
         } else {
           window.localStorage.removeItem("tgn_ai_custom_api_key");
         }
-      }
-    } catch {}
-  };
-
-  const handleSaveAiProvider = (provider: "auto" | "gemini" | "openai") => {
-    setAiProvider(provider);
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("tgn_ai_scraper_provider", provider);
-      }
-    } catch {}
-  };
-
-  const handleSaveTitlePrompt = (val: string) => {
-    setCustomTitlePrompt(val);
-    try {
-      if (typeof window !== "undefined") {
-        if (val.trim()) {
-          window.localStorage.setItem("tgn_custom_title_prompt", val.trim());
-        } else {
-          window.localStorage.removeItem("tgn_custom_title_prompt");
-        }
-      }
-    } catch {}
-  };
-
-  const handleSaveDescPrompt = (val: string) => {
-    setCustomDescPrompt(val);
-    try {
-      if (typeof window !== "undefined") {
-        if (val.trim()) {
-          window.localStorage.setItem("tgn_custom_desc_prompt", val.trim());
-        } else {
-          window.localStorage.removeItem("tgn_custom_desc_prompt");
-        }
-      }
-    } catch {}
-  };
-
-  const handleToggleScoreScout = (enabled: boolean) => {
-    setIncludeScoreScout(enabled);
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("tgn_include_score_scout", enabled ? "true" : "false");
-      }
-    } catch {}
-  };
-
-  const handleAddCustomScraperBlock = (title: string, promptText?: string) => {
-    const trimmedTitle = cleanGenericBlockTitle(title.trim(), promptText?.trim());
-    if (!trimmedTitle) return;
-    setCustomScraperBlocks((prev) => {
-      const filtered = prev.filter((b) => b.title.toLowerCase() !== trimmedTitle.toLowerCase());
-      const updated = [...filtered, { title: trimmedTitle, prompt: promptText?.trim() || undefined }];
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(updated));
-        }
-      } catch {}
-      return updated;
-    });
-    setNewBlockTitleInput("");
-    setNewBlockPromptInput("");
-  };
-
-  const handleRemoveCustomScraperBlock = (titleToRemove: string) => {
-    setCustomScraperBlocks((prev) => {
-      const updated = prev.filter((b) => b.title.toLowerCase() !== titleToRemove.toLowerCase());
-      try {
-        if (typeof window !== "undefined") {
-          if (updated.length > 0) {
-            window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(updated));
-          } else {
-            window.localStorage.removeItem("tgn_custom_scraper_blocks");
-          }
-        }
-      } catch {}
-      return updated;
-    });
-  };
-
-  const handleMoveCustomBlock = (index: number, direction: "up" | "down") => {
-    setCustomScraperBlocks((prev) => {
-      const targetIndex = direction === "up" ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
-      const copy = [...prev];
-      const temp = copy[index];
-      copy[index] = copy[targetIndex];
-      copy[targetIndex] = temp;
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(copy));
-        }
-      } catch {}
-      return copy;
-    });
-  };
-
-  const handleStartEditBlock = (index: number) => {
-    const block = customScraperBlocks[index];
-    if (!block) return;
-    setEditingBlockIndex(index);
-    setEditingBlockTitle(block.title);
-    setEditingBlockPrompt(block.prompt || "");
-  };
-
-  const handleSaveEditBlock = () => {
-    if (editingBlockIndex === null) return;
-    const cleanTitle = cleanGenericBlockTitle(editingBlockTitle.trim(), editingBlockPrompt.trim());
-    if (!cleanTitle) return;
-    setCustomScraperBlocks((prev) => {
-      const copy = [...prev];
-      copy[editingBlockIndex] = {
-        title: cleanTitle,
-        prompt: editingBlockPrompt.trim() || undefined,
-      };
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(copy));
-        }
-      } catch {}
-      return copy;
-    });
-    setEditingBlockIndex(null);
-    setEditingBlockTitle("");
-    setEditingBlockPrompt("");
-  };
-
-  const handleCancelEditBlock = () => {
-    setEditingBlockIndex(null);
-    setEditingBlockTitle("");
-    setEditingBlockPrompt("");
-  };
-
-  const ensureCustomBlocksInDraft = (draft: ScrapedPublicationDraft): ScrapedPublicationDraft => {
-    if (!draft) return draft;
-    try {
-      const existing = [...(draft.extraDescriptions || [])];
-      (customScraperBlocks || []).forEach((b) => {
-        if (!b || !b.title) return;
-        const cleanTitle = String(b.title).trim();
-        if (!cleanTitle) return;
-        const lowerTarget = cleanTitle.toLowerCase();
-        const existingIdx = existing.findIndex((eb) => {
-          if (!eb) return false;
-          const ebTitle = String(eb.title || eb.titleI18n?.es || "").toLowerCase().trim();
-          return (
-            ebTitle === lowerTarget ||
-            ebTitle.startsWith(lowerTarget) ||
-            lowerTarget.startsWith(ebTitle) ||
-            (Boolean(b.prompt && eb.prompt) &&
-              String(b.prompt).trim().toLowerCase() === String(eb.prompt).trim().toLowerCase())
-          );
-        });
-        if (existingIdx === -1) {
-          existing.push({
-            title: cleanTitle,
-            titleI18n: { es: cleanTitle, en: cleanTitle, pt: cleanTitle, it: cleanTitle },
-            body: "",
-            bodyI18n: { es: "", en: "", pt: "", it: "" },
-            visibleInCard: false,
-            prompt: b.prompt ? String(b.prompt).trim() : undefined,
-          });
-        } else if (b.prompt && !existing[existingIdx]?.prompt) {
-          existing[existingIdx] = {
-            ...existing[existingIdx],
-            prompt: String(b.prompt).trim(),
-          };
-        }
-      });
-      return {
-        ...draft,
-        extraDescriptions: existing,
-      };
-    } catch (err) {
-      console.error("[AiScraperModal] ensureCustomBlocksInDraft error:", err);
-      return draft;
-    }
-  };
-
-  const handleAddPromptRule = (promptText: string) => {
-    const trimmed = promptText.trim();
-    if (!trimmed) return;
-    setCustomScraperPrompts((prev) => {
-      if (prev.some((p) => p.toLowerCase() === trimmed.toLowerCase())) return prev;
-      const updated = [...prev, trimmed];
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem("tgn_custom_scraper_prompts", JSON.stringify(updated));
-        }
-      } catch {}
-      return updated;
-    });
-    setNewPromptInput("");
-  };
-
-  const handleRemovePromptRule = (index: number) => {
-    setCustomScraperPrompts((prev) => {
-      const updated = prev.filter((_, i) => i !== index);
-      try {
-        if (typeof window !== "undefined") {
-          if (updated.length > 0) {
-            window.localStorage.setItem("tgn_custom_scraper_prompts", JSON.stringify(updated));
-          } else {
-            window.localStorage.removeItem("tgn_custom_scraper_prompts");
-          }
-        }
-      } catch {}
-      return updated;
-    });
-  };
-
-  const handleClearAllPrompts = () => {
-    setCustomScraperPrompts([]);
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem("tgn_custom_scraper_prompts");
       }
     } catch {}
   };
@@ -587,69 +132,65 @@ export default function AiScraperModal({
     } catch {}
   }, [draftsQueue]);
 
-  const buildScrapePayload = (urls: string[]) => {
-    const effectivePrompts = [...customScraperPrompts];
-    if (newPromptInput.trim() && !effectivePrompts.some((p) => p.toLowerCase() === newPromptInput.trim().toLowerCase())) {
-      effectivePrompts.push(newPromptInput.trim());
-    }
+  if (!isOpen) return null;
 
-    return {
-      urls,
-      provider: aiProvider,
-      apiKey: customApiKey.trim() || undefined,
-      customTitlePrompt: customTitlePrompt.trim() || undefined,
-      customDescriptionPrompt: customDescPrompt.trim() || undefined,
-      includeScoreScout,
-      customBlocks: customScraperBlocks,
-      customPrompts: effectivePrompts,
-      categoriesPayload: categories && categories.length ? categories.map((c: any) => ({
-        id: c.id,
-        description: c.description,
-        taxonomyType: c.taxonomyType,
-        parentId: c.parentId,
-        blockId: c.blockId,
-      })) : undefined,
-      filterGroupsPayload: filterGroups && filterGroups.length ? filterGroups.map((g: any) => ({
-        id: g.id,
-        label: g.label,
-        taxonomyType: g.taxonomyType,
-        options: g.options,
-      })) : undefined,
-    };
-  };
-
-  const handleGenerateSingle = async (targetUrl: string) => {
-    setIsProcessing(true);
+  const handleGenerate = async () => {
     setErrorMessage("");
     setSuccessNotice("");
+    let urlsToProcess: string[] = [];
+
+    if (tab === "single") {
+      const trimmed = singleUrl.trim();
+      if (!trimmed) {
+        setErrorMessage("Por favor ingrese una URL válida.");
+        return;
+      }
+      urlsToProcess = [trimmed];
+    } else {
+      urlsToProcess = bulkUrlsText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (!urlsToProcess.length) {
+        setErrorMessage("Por favor ingrese al menos una URL (una por línea).");
+        return;
+      }
+    }
+
+    setIsProcessing(true);
 
     try {
-      const payload = buildScrapePayload([targetUrl]);
       const res = await fetch("/api/admin/ai-scrape-publications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          urls: urlsToProcess,
+          provider: aiProvider,
+          apiKey: customApiKey.trim() || undefined,
+        }),
       });
 
-      const rawText = await res.text();
-      let data: any = null;
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        if (res.status === 504 || rawText.includes("504") || /gateway timeout|FUNCTION_INVOCATION_TIMEOUT/i.test(rawText)) {
-          throw new Error("El proceso de scraping tardó más del tiempo límite de Vercel. Por favor reintentá en unos segundos.");
-        }
-        throw new Error(rawText.slice(0, 150) || "Error al procesar el scraping web con IA.");
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Error al procesar el scraping web con IA.");
       }
 
-      if (!res.ok || !data.success || !data.publications?.length) {
-        throw new Error(data.error || "No se pudo extraer la publicación.");
-      }
+      // Strictly exclude tracking pixels, tiny spacers, generic UI widgets
+      const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
 
-      const cleanedDraft = cleanDraftItem(data.publications[0], categories);
+      const generatedDrafts: ScrapedPublicationDraft[] = (data.publications || []).map(
+        (pub: ScrapedPublicationDraft) => ({
+          ...pub,
+          providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
+          images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
+          status: pub.status || "active",
+        })
+      );
 
       setDraftsQueue((prev) => {
-        const updated = [cleanedDraft, ...prev];
+        const updated = [...prev, ...generatedDrafts];
         try {
           if (typeof window !== "undefined") {
             window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
@@ -658,414 +199,15 @@ export default function AiScraperModal({
         return updated;
       });
 
-      setExpandedDraftIndex(0);
-      setDraftForm(cleanedDraft);
-      setSuccessNotice("Publicación analizada y generada exitosamente. Lista para revisar o pasar al formulario.");
+      if (tab === "single" && generatedDrafts.length === 1) {
+        setSuccessNotice("Publicación generada exitosamente.");
+      } else {
+        setSuccessNotice(`Se generaron ${generatedDrafts.length} borrador(es) en la cola de revisión.`);
+      }
     } catch (err: any) {
-      setErrorMessage(err?.message || "Error al procesar la URL con IA.");
+      setErrorMessage(err.message || "No se pudo completar la extracción web.");
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const runBulkSequentialQueue = async (initialQueue: BulkQueueItem[]) => {
-    setIsBulkRunning(true);
-    setIsProcessing(true);
-    cancelBulkRef.current = false;
-    isBulkPausedRef.current = false;
-    setIsBulkPaused(false);
-    setErrorMessage("");
-    setSuccessNotice("");
-
-    for (let i = 0; i < initialQueue.length; i++) {
-      if (cancelBulkRef.current) break;
-
-      while (isBulkPausedRef.current && !cancelBulkRef.current) {
-        await new Promise((r) => setTimeout(r, 400));
-      }
-      if (cancelBulkRef.current) break;
-
-      const item = initialQueue[i];
-      if (item.status === "completed") continue;
-
-      // Update item to processing
-      setBulkQueue((prev) =>
-        prev.map((it, idx) => (idx === i ? { ...it, status: "processing", error: undefined } : it))
-      );
-
-      try {
-        const payload = buildScrapePayload([item.url]);
-        const res = await fetch("/api/admin/ai-scrape-publications", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const rawText = await res.text();
-        let data: any = null;
-        try {
-          data = JSON.parse(rawText);
-        } catch {
-          throw new Error("Tiempo de respuesta excedido o error del servidor.");
-        }
-
-        if (!res.ok || !data.success || !data.publications?.length) {
-          throw new Error(data.error || "No se pudo extraer la web.");
-        }
-
-        const cleanedDraft = cleanDraftItem(data.publications[0], categories);
-
-        setBulkQueue((prev) =>
-          prev.map((it, idx) =>
-            idx === i ? { ...it, status: "completed", draft: cleanedDraft, error: undefined } : it
-          )
-        );
-
-        // Prepend directly to draftsQueue so it's instantly available in the review list
-        setDraftsQueue((prev) => {
-          const updated = [cleanedDraft, ...prev];
-          try {
-            if (typeof window !== "undefined") {
-              window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
-            }
-          } catch {}
-          return updated;
-        });
-      } catch (err: any) {
-        setBulkQueue((prev) =>
-          prev.map((it, idx) =>
-            idx === i ? { ...it, status: "error", error: err?.message || "Fallo en la extracción" } : it
-          )
-        );
-      }
-    }
-
-    setIsBulkRunning(false);
-    setIsProcessing(false);
-    setSuccessNotice("Extracción secuencial masiva finalizada.");
-  };
-
-  const handleGenerate = async () => {
-    setErrorMessage("");
-    setSuccessNotice("");
-
-    if (tab === "single") {
-      const trimmed = singleUrl.trim();
-      if (!trimmed) {
-        setErrorMessage("Por favor ingrese una URL válida.");
-        return;
-      }
-      await handleGenerateSingle(trimmed);
-    } else {
-      const urls = bulkUrlsText
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
-
-      if (!urls.length) {
-        setErrorMessage("Por favor ingrese al menos una URL (una por línea).");
-        return;
-      }
-
-      const newQueueItems: BulkQueueItem[] = urls.map((u, idx) => ({
-        id: `${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
-        url: u,
-        status: "pending",
-      }));
-
-      setBulkQueue(newQueueItems);
-      await runBulkSequentialQueue(newQueueItems);
-    }
-  };
-
-  const handleTogglePauseBulk = () => {
-    const nextPaused = !isBulkPaused;
-    isBulkPausedRef.current = nextPaused;
-    setIsBulkPaused(nextPaused);
-  };
-
-  const handleCancelBulk = () => {
-    cancelBulkRef.current = true;
-    setIsBulkRunning(false);
-    setIsProcessing(false);
-    setIsBulkPaused(false);
-    setBulkQueue((prev) =>
-      prev.map((it) => (it.status === "processing" || it.status === "pending" ? { ...it, status: "pending" } : it))
-    );
-    setSuccessNotice("Proceso de scraping masivo detenido.");
-  };
-
-  const handleClearBulkQueue = () => {
-    if (isBulkRunning) handleCancelBulk();
-    setBulkQueue([]);
-  };
-
-  const handleRetryBulkItem = async (itemId: string) => {
-    const targetIdx = bulkQueue.findIndex((it) => it.id === itemId);
-    if (targetIdx === -1) return;
-    const target = bulkQueue[targetIdx];
-
-    setBulkQueue((prev) =>
-      prev.map((it, idx) => (idx === targetIdx ? { ...it, status: "processing", error: undefined } : it))
-    );
-
-    try {
-      const payload = buildScrapePayload([target.url]);
-      const res = await fetch("/api/admin/ai-scrape-publications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success || !data.publications?.length) {
-        throw new Error(data.error || "No se pudo extraer la publicación.");
-      }
-      const cleaned = cleanDraftItem(data.publications[0], categories);
-      setBulkQueue((prev) =>
-        prev.map((it, idx) => (idx === targetIdx ? { ...it, status: "completed", draft: cleaned, error: undefined } : it))
-      );
-      setDraftsQueue((prev) => [cleaned, ...prev]);
-    } catch (err: any) {
-      setBulkQueue((prev) =>
-        prev.map((it, idx) => (idx === targetIdx ? { ...it, status: "error", error: err?.message || "Error al reintentar" } : it))
-      );
-    }
-  };
-
-  const handlePassDraftToForm = (draft: ScrapedPublicationDraft) => {
-    try {
-      const preparedDraft = ensureCustomBlocksInDraft(draft);
-      onSelectDraftToEdit(preparedDraft);
-    } catch (err) {
-      console.error("[AiScraperModal] Error pasando borrador al formulario:", err);
-      onSelectDraftToEdit(draft);
-    } finally {
-      onClose();
-    }
-  };
-
-  const isDraftTranslated = (draft: ScrapedPublicationDraft): boolean => {
-    const enTitle = draft.titleI18n?.en;
-    const enDesc = draft.descriptionI18n?.en;
-    const esTitle = draft.titleI18n?.es || draft.title;
-    const esDesc = draft.descriptionI18n?.es || draft.description;
-    return Boolean((enTitle && enTitle.trim() !== esTitle.trim()) || (enDesc && enDesc.trim() !== esDesc.trim()));
-  };
-
-  const translateSingleDraft = async (
-    draft: ScrapedPublicationDraft,
-    customKey?: string
-  ): Promise<ScrapedPublicationDraft> => {
-    const sourceLang = "es";
-    const targetLangs = ["en", "pt", "it"];
-    const titleSource = (draft.titleI18n?.es || draft.title || "").trim();
-    const descSource = (draft.descriptionI18n?.es || draft.description || "").trim();
-    const provSource = (draft.providerInfoI18n?.es || "").trim();
-
-    let updatedTitleI18n = { ...(draft.titleI18n || { es: titleSource }) };
-    let updatedDescI18n = { ...(draft.descriptionI18n || { es: descSource }) };
-    let updatedProvI18n = { ...(draft.providerInfoI18n || { es: provSource }) };
-
-    // 1. Translate Title
-    if (titleSource) {
-      try {
-        const res = await fetch("/api/admin/translate-i18n", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: titleSource,
-            targetLangs,
-            sourceLang,
-            isHtml: false,
-            apiKey: customKey?.trim() || undefined,
-          }),
-        });
-        const data = await res.json();
-        if (data?.translations) {
-          updatedTitleI18n = {
-            ...updatedTitleI18n,
-            es: titleSource,
-            ...data.translations,
-          };
-        }
-      } catch (e) {
-        console.error("Error translating title:", e);
-      }
-    }
-
-    // 2. Translate Description
-    if (descSource) {
-      try {
-        const res = await fetch("/api/admin/translate-i18n", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: descSource,
-            targetLangs,
-            sourceLang,
-            isHtml: true,
-            apiKey: customKey?.trim() || undefined,
-          }),
-        });
-        const data = await res.json();
-        if (data?.translations) {
-          updatedDescI18n = {
-            ...updatedDescI18n,
-            es: descSource,
-            ...data.translations,
-          };
-        }
-      } catch (e) {
-        console.error("Error translating description:", e);
-      }
-    }
-
-    // 3. Translate Provider Info
-    if (provSource) {
-      try {
-        const res = await fetch("/api/admin/translate-i18n", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: provSource,
-            targetLangs,
-            sourceLang,
-            isHtml: true,
-            apiKey: customKey?.trim() || undefined,
-          }),
-        });
-        const data = await res.json();
-        if (data?.translations) {
-          updatedProvI18n = {
-            ...updatedProvI18n,
-            es: provSource,
-            ...data.translations,
-          };
-        }
-      } catch (e) {
-        console.error("Error translating provider info:", e);
-      }
-    }
-
-    // 4. Translate Extra Description Blocks
-    let updatedExtraDescriptions = [...(draft.extraDescriptions || [])];
-    if (updatedExtraDescriptions.length > 0) {
-      const translatedBlocks = await Promise.all(
-        updatedExtraDescriptions.map(async (block) => {
-          const blockTitle = (block.titleI18n?.es || block.title || "").trim();
-          const blockBody = (block.bodyI18n?.es || block.body || "").trim();
-          let nextTitleI18n = { ...(block.titleI18n || { es: blockTitle }) };
-          let nextBodyI18n = { ...(block.bodyI18n || { es: blockBody }) };
-
-          if (blockTitle) {
-            try {
-              const res = await fetch("/api/admin/translate-i18n", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  text: blockTitle,
-                  targetLangs,
-                  sourceLang,
-                  isHtml: false,
-                  apiKey: customKey?.trim() || undefined,
-                }),
-              });
-              const data = await res.json();
-              if (data?.translations) {
-                nextTitleI18n = { ...nextTitleI18n, es: blockTitle, ...data.translations };
-              }
-            } catch {}
-          }
-
-          if (blockBody) {
-            try {
-              const res = await fetch("/api/admin/translate-i18n", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  text: blockBody,
-                  targetLangs,
-                  sourceLang,
-                  isHtml: true,
-                  apiKey: customKey?.trim() || undefined,
-                }),
-              });
-              const data = await res.json();
-              if (data?.translations) {
-                nextBodyI18n = { ...nextBodyI18n, es: blockBody, ...data.translations };
-              }
-            } catch {}
-          }
-
-          return {
-            ...block,
-            title: blockTitle,
-            body: blockBody,
-            titleI18n: nextTitleI18n,
-            bodyI18n: nextBodyI18n,
-          };
-        })
-      );
-      updatedExtraDescriptions = translatedBlocks;
-    }
-
-    return {
-      ...draft,
-      titleI18n: updatedTitleI18n,
-      descriptionI18n: updatedDescI18n,
-      providerInfoI18n: updatedProvI18n,
-      extraDescriptions: updatedExtraDescriptions,
-    };
-  };
-
-  const handleTranslateDraft = async (index: number) => {
-    const target = draftsQueue[index];
-    if (!target) return;
-    setTranslatingIndex(index);
-    setErrorMessage("");
-    try {
-      const updated = await translateSingleDraft(target, customApiKey);
-      setDraftsQueue((prev) => {
-        const copy = prev.map((d, i) => (i === index ? updated : d));
-        try {
-          if (typeof window !== "undefined") {
-            window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(copy));
-          }
-        } catch {}
-        return copy;
-      });
-      setSuccessNotice(`Borrador "${target.title.slice(0, 35)}..." traducido exitosamente a 4 idiomas (ES, EN, PT, IT).`);
-    } catch (err: any) {
-      setErrorMessage(err.message || "Error al traducir el borrador.");
-    } finally {
-      setTranslatingIndex(null);
-    }
-  };
-
-  const handleTranslateAllDrafts = async () => {
-    if (!draftsQueue.length) return;
-    setTranslatingAll(true);
-    setErrorMessage("");
-    setTranslateProgress(`Traduciendo 1 de ${draftsQueue.length}...`);
-    try {
-      const newQueue: ScrapedPublicationDraft[] = [];
-      for (let i = 0; i < draftsQueue.length; i++) {
-        setTranslateProgress(`Traduciendo ${i + 1} de ${draftsQueue.length}...`);
-        const updated = await translateSingleDraft(draftsQueue[i], customApiKey);
-        newQueue.push(updated);
-      }
-      setDraftsQueue(newQueue);
-      try {
-        if (typeof window !== "undefined") {
-          window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(newQueue));
-        }
-      } catch {}
-      setSuccessNotice(`Todos los borradores (${draftsQueue.length}) fueron traducidos a 4 idiomas (ES, EN, PT, IT).`);
-    } catch (err: any) {
-      setErrorMessage(err.message || "Error al traducir el lote de borradores.");
-    } finally {
-      setTranslatingAll(false);
-      setTranslateProgress("");
     }
   };
 
@@ -1078,9 +220,8 @@ export default function AiScraperModal({
   };
 
   const handleApproveDraft = async (draft: ScrapedPublicationDraft, index: number) => {
-    const effectiveDraft = ensureCustomBlocksInDraft(draft);
     if (!onApproveDirectly) {
-      onSelectDraftToEdit(effectiveDraft);
+      onSelectDraftToEdit(draft);
       handleRemoveDraft(index);
       onClose();
       return;
@@ -1088,7 +229,7 @@ export default function AiScraperModal({
 
     setSavingIndex(index);
     try {
-      const success = await onApproveDirectly(effectiveDraft);
+      const success = await onApproveDirectly(draft);
       if (success) {
         handleRemoveDraft(index);
       } else {
@@ -1233,44 +374,9 @@ export default function AiScraperModal({
     });
   };
 
-  if (!isOpen) {
-    if (isBulkRunning || bulkQueue.length > 0) {
-      const completedCount = bulkQueue.filter((q) => q.status === "completed").length;
-      return (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/95 px-4 py-3 text-white shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-300">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-3 w-3">
-              {isBulkRunning && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>}
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${isBulkRunning ? "bg-cyan-500" : "bg-emerald-500"}`}></span>
-            </span>
-            <div className="text-xs">
-              <p className="font-bold flex items-center gap-1.5">
-                <span>🤖 Scraping IA</span>
-                <span className="text-cyan-400 font-extrabold">{completedCount}/{bulkQueue.length} listos</span>
-              </p>
-              <p className="text-[10px] text-slate-400">
-                {isBulkRunning ? "Procesando en segundo plano..." : "Listos para pasar al formulario"}
-              </p>
-            </div>
-          </div>
-          {onOpen && (
-            <button
-              type="button"
-              onClick={onOpen}
-              className="rounded-lg bg-[#00A9C6] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#0095AE] transition cursor-pointer shadow-sm"
-            >
-              Ver cola
-            </button>
-          )}
-        </div>
-      );
-    }
-    return null;
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto">
-      <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 my-4 sm:my-8 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 my-8">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div>
@@ -1333,237 +439,16 @@ export default function AiScraperModal({
           ) : (
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                URLs a escrapear (una por línea, investigación secuencial una a una)
+                URLs a escrapear (una por línea, máx. 10)
               </label>
               <textarea
                 value={bulkUrlsText}
                 onChange={(e) => setBulkUrlsText(e.target.value)}
-                rows={4}
+                rows={5}
                 placeholder={"https://osepmendoza.com.ar/web/\nhttps://hospitalitaliano.org.ar\nhttps://estudiojuridico.com"}
-                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30 font-mono text-xs"
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
                 disabled={isProcessing}
               />
-              <p className="text-[11px] text-slate-500 mt-1">
-                💡 Cada URL se investiga de forma independiente y secuencial. Podés pasar cada publicación lista al formulario principal mientras la IA continúa analizando las siguientes en segundo plano.
-              </p>
-            </div>
-          )}
-
-          {/* Panel de Cola Masiva URL por URL en Tiempo Real */}
-          {bulkQueue.length > 0 && (
-            <div className="rounded-2xl border border-cyan-300/80 bg-gradient-to-b from-cyan-50/40 via-white to-slate-50/50 p-4 shadow-sm space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cyan-100 pb-3">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <span>🚀 Cola de Extracción Masiva URL por URL</span>
-                    {isBulkRunning && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#006070] animate-pulse">
-                        <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-ping" />
-                        Investigando en vivo
-                      </span>
-                    )}
-                  </h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Podés pasar cada publicación lista al formulario principal mientras la IA continúa analizando las siguientes.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  {isBulkRunning ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleTogglePauseBulk}
-                        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs cursor-pointer flex items-center gap-1"
-                      >
-                        {isBulkPaused ? "▶ Reanudar" : "⏸ Pausar"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCancelBulk}
-                        className="rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 shadow-xs cursor-pointer flex items-center gap-1"
-                      >
-                        ⏹ Cancelar restante
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {bulkQueue.some((q) => q.status === "pending" || q.status === "error") && (
-                        <button
-                          type="button"
-                          onClick={() => runBulkSequentialQueue(bulkQueue)}
-                          className="rounded-lg bg-[#00A9C6] px-3 py-1 text-xs font-bold text-white hover:bg-[#0095AE] shadow-xs cursor-pointer flex items-center gap-1"
-                        >
-                          ▶ Reanudar pendientes
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleClearBulkQueue}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-xs cursor-pointer flex items-center gap-1"
-                      >
-                        Limpiar cola
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Métricas y Estado */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
-                <div className="rounded-xl border border-slate-200 bg-white p-2">
-                  <p className="text-[10px] text-slate-500 font-semibold uppercase">Total URLs</p>
-                  <p className="text-base font-extrabold text-slate-800">{bulkQueue.length}</p>
-                </div>
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-2">
-                  <p className="text-[10px] text-emerald-700 font-semibold uppercase">Listas</p>
-                  <p className="text-base font-extrabold text-emerald-800">
-                    {bulkQueue.filter((q) => q.status === "completed").length}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-cyan-200 bg-cyan-50/70 p-2">
-                  <p className="text-[10px] text-cyan-700 font-semibold uppercase">En curso</p>
-                  <p className="text-base font-extrabold text-cyan-800">
-                    {bulkQueue.filter((q) => q.status === "processing").length}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
-                  <p className="text-[10px] text-slate-500 font-semibold uppercase">En espera</p>
-                  <p className="text-base font-extrabold text-slate-600">
-                    {bulkQueue.filter((q) => q.status === "pending").length}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-2">
-                  <p className="text-[10px] text-rose-700 font-semibold uppercase">Errores</p>
-                  <p className="text-base font-extrabold text-rose-800">
-                    {bulkQueue.filter((q) => q.status === "error").length}
-                  </p>
-                </div>
-              </div>
-
-              {/* Barra de Progreso */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                  <span>
-                    Progreso: {bulkQueue.filter((q) => q.status === "completed").length} de {bulkQueue.length} analizadas
-                  </span>
-                  <span>
-                    {Math.round(
-                      (bulkQueue.filter((q) => q.status === "completed").length / (bulkQueue.length || 1)) * 100
-                    )}%
-                  </span>
-                </div>
-                <div className="h-2.5 w-full rounded-full bg-slate-200 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#00A9C6] to-emerald-500 transition-all duration-500"
-                    style={{
-                      width: `${Math.round(
-                        (bulkQueue.filter((q) => q.status === "completed").length / (bulkQueue.length || 1)) * 100
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Items de la Cola */}
-              <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1 pt-1">
-                {bulkQueue.map((item, qIdx) => (
-                  <div
-                    key={item.id}
-                    className={`rounded-xl border p-3 transition flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
-                      item.status === "completed"
-                        ? "border-emerald-200 bg-emerald-50/50 shadow-xs"
-                        : item.status === "processing"
-                        ? "border-cyan-300 bg-cyan-50/70 shadow-xs ring-1 ring-cyan-200"
-                        : item.status === "error"
-                        ? "border-rose-200 bg-rose-50/50"
-                        : "border-slate-200 bg-white"
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-bold text-slate-400">#{qIdx + 1}</span>
-                        {item.status === "completed" && (
-                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 flex items-center gap-1">
-                            ✓ Lista para revisar
-                          </span>
-                        )}
-                        {item.status === "processing" && (
-                          <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-cyan-800 flex items-center gap-1 animate-pulse">
-                            ⏳ Analizando con IA...
-                          </span>
-                        )}
-                        {item.status === "pending" && (
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                            En espera
-                          </span>
-                        )}
-                        {item.status === "error" && (
-                          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800 flex items-center gap-1">
-                            ✕ Error
-                          </span>
-                        )}
-                        <span className="text-xs font-semibold text-slate-800 truncate" title={item.url}>
-                          {item.draft?.publisherName || item.draft?.title || item.url}
-                        </span>
-                      </div>
-
-                      {item.draft && (
-                        <p className="text-[11px] text-slate-600 truncate mt-0.5">
-                          <span className="font-semibold text-cyan-800">
-                            {item.draft.categorySelections?.[0] || item.draft.category || "General"}
-                          </span>
-                          {item.draft.city ? ` · ${item.draft.city}` : ""}
-                          {item.draft.providerRating && item.draft.providerRating !== "0"
-                            ? ` · ⭐ ${item.draft.providerRating}`
-                            : ""}
-                        </p>
-                      )}
-
-                      {item.error && (
-                        <p className="text-[11px] text-rose-600 mt-0.5">{item.error}</p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {item.status === "completed" && item.draft && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handlePassDraftToForm(item.draft!)}
-                            className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-xs cursor-pointer flex items-center gap-1"
-                          >
-                            📝 Pasar a Formulario Principal
-                          </button>
-                          {onApproveDirectly && (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const ok = await onApproveDirectly(item.draft!);
-                                if (ok) {
-                                  setSuccessNotice(`Publicación "${item.draft?.title}" aprobada directamente.`);
-                                }
-                              }}
-                              className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 shadow-xs cursor-pointer"
-                            >
-                              ⚡ Aprobar directo
-                            </button>
-                          )}
-                        </>
-                      )}
-                      {item.status === "error" && (
-                        <button
-                          type="button"
-                          onClick={() => handleRetryBulkItem(item.id)}
-                          className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs cursor-pointer"
-                        >
-                          🔄 Reintentar
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
@@ -1579,352 +464,12 @@ export default function AiScraperModal({
             </div>
           )}
 
-          {/* Custom AI Options & Fixed Prompts Section */}
-          <div className="rounded-2xl border border-cyan-200 bg-gradient-to-b from-cyan-50/70 to-slate-50/70 p-4 text-xs space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-cyan-100/80 pb-2.5">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-[#007D92] flex items-center gap-1.5 text-sm">
-                  <Sparkles className="h-4 w-4 text-[#00A9C6]" />
-                  Configuración de Prompts e Instrucciones Fijas de IA
-                </span>
-                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#006070]">
-                  Personalización Permanente
-                </span>
-              </div>
-              <span className="text-[11px] text-slate-500">
-                Se guarda en tu navegador y se aplica automáticamente en cada scraping futuro
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 1. Custom Title Prompt */}
-              <div className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                    <span>📌 Prompt para Título</span>
-                  </label>
-                  {customTitlePrompt ? (
-                    <button
-                      type="button"
-                      onClick={() => handleSaveTitlePrompt("")}
-                      className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer"
-                    >
-                      Restablecer
-                    </button>
-                  ) : null}
-                </div>
-                <p className="text-[11px] text-slate-500 leading-tight">
-                  Indicaciones para el estilo del título (ej: especialista de marketing, clientes extranjeros, tono empático).
-                </p>
-                <textarea
-                  rows={2}
-                  value={customTitlePrompt}
-                  onChange={(e) => handleSaveTitlePrompt(e.target.value)}
-                  placeholder="Ej: Actúa como especialista en marketing digital, orientado a clientes extranjeros, títulos llamativos y humanos..."
-                  className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
-                  disabled={isProcessing}
-                />
-                <div className="flex flex-wrap gap-1 pt-1 text-[10px]">
-                  {[
-                    "Especialista en marketing y conversión",
-                    "Enfoque clientes extranjeros",
-                    "Tono humano y cercano",
-                    "Nombre oficial con subtítulo destacado",
-                    "Corto, limpio y directo",
-                  ].map((sug) => (
-                    <button
-                      key={sug}
-                      type="button"
-                      onClick={() => handleSaveTitlePrompt(customTitlePrompt ? `${customTitlePrompt}. ${sug}` : sug)}
-                      className="rounded border border-cyan-100 bg-cyan-50/50 px-1.5 py-0.5 text-cyan-800 hover:bg-cyan-100 transition cursor-pointer"
-                    >
-                      + {sug}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 2. Custom Description Prompt */}
-              <div className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                    <span>📝 Prompt para Descripción Principal</span>
-                  </label>
-                  {customDescPrompt ? (
-                    <button
-                      type="button"
-                      onClick={() => handleSaveDescPrompt("")}
-                      className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer"
-                    >
-                      Restablecer
-                    </button>
-                  ) : null}
-                </div>
-                <p className="text-[11px] text-slate-500 leading-tight">
-                  Indicaciones de redacción (ej: estructura de servicios, tono empático, sin precios, sin emojis ni frases genéricas).
-                </p>
-                <textarea
-                  rows={2}
-                  value={customDescPrompt}
-                  onChange={(e) => handleSaveDescPrompt(e.target.value)}
-                  placeholder="Ej: Explicar servicio por servicio con detalle, redacción clara y profesional, sin precios ni aranceles..."
-                  className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
-                  disabled={isProcessing}
-                />
-                <div className="flex flex-wrap gap-1 pt-1 text-[10px]">
-                  {[
-                    "Sin precios ni aranceles",
-                    "Sin emojis ni viñetas genéricas",
-                    "Explicar cada servicio en detalle",
-                    "Resumen ejecutivo formal",
-                    "Enfocado en historia y trayectoria",
-                  ].map((sug) => (
-                    <button
-                      key={sug}
-                      type="button"
-                      onClick={() => handleSaveDescPrompt(customDescPrompt ? `${customDescPrompt}. ${sug}` : sug)}
-                      className="rounded border border-cyan-100 bg-cyan-50/50 px-1.5 py-0.5 text-cyan-800 hover:bg-cyan-100 transition cursor-pointer"
-                    >
-                      + {sug}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Bloques Opcionales de Descripción */}
-            <div className="rounded-xl border border-purple-200 bg-white p-3.5 space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-purple-900 text-xs flex items-center gap-1">
-                    <Bot className="h-4 w-4 text-purple-600" />
-                    Bloques Opcionales de Descripción
-                  </span>
-                  <span className="text-[11px] text-purple-700">
-                    (Se generan automáticamente debajo de la descripción principal)
-                  </span>
-                </div>
-                <span className="text-[10px] text-slate-400">
-                  Podés eliminar o agregar bloques según lo que necesites
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* Score Scout Block Card */}
-                {includeScoreScout ? (
-                  <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-emerald-900 text-xs">Score Scout</span>
-                        <span className="rounded bg-emerald-200/80 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800">
-                          Auditoría
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-emerald-700 leading-tight">
-                        Puntuación y confianza institucional calculada por IA.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleScoreScout(false)}
-                      title="Eliminar bloque Score Scout (no aparecerá en futuros scrapings)"
-                      className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      Eliminar bloque
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-                    <div className="text-[11px] text-slate-500">
-                      <span className="line-through font-medium text-slate-400">Score Scout</span>
-                      <span className="text-[10px] block text-slate-400">Bloque eliminado de futuros scrapings</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleScoreScout(true)}
-                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
-                    >
-                      + Restaurar Score Scout
-                    </button>
-                  </div>
-                )}
-
-                {/* Other Custom Blocks */}
-                {customScraperBlocks.map((b, bIdx) => {
-                  const isEditing = editingBlockIndex === bIdx;
-                  return (
-                    <div
-                      key={bIdx}
-                      className="rounded-xl border border-purple-200 bg-purple-50/50 p-2.5 transition space-y-2"
-                    >
-                      {isEditing ? (
-                        <div className="space-y-2 bg-white/90 p-2.5 rounded-lg border border-purple-300">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-purple-900">Editar Bloque Opcional</span>
-                            <span className="text-[10px] text-slate-500">Posición {bIdx + 1} de {customScraperBlocks.length}</span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Título del bloque:</label>
-                              <input
-                                type="text"
-                                value={editingBlockTitle}
-                                onChange={(e) => setEditingBlockTitle(e.target.value)}
-                                className="w-full rounded-lg border border-purple-300 bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                placeholder="Título del bloque"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Prompt o instrucción para la IA:</label>
-                              <input
-                                type="text"
-                                value={editingBlockPrompt}
-                                onChange={(e) => setEditingBlockPrompt(e.target.value)}
-                                className="w-full rounded-lg border border-purple-300 bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                placeholder="Prompt para la IA (ej: hazme o generame 10 preguntas con respuestas)"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-end gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={handleCancelEditBlock}
-                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                            >
-                              Cancelar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleSaveEditBlock}
-                              className="rounded-lg bg-purple-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-purple-700 cursor-pointer shadow-xs"
-                            >
-                              Guardar Cambios
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="space-y-0.5 overflow-hidden pr-2 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-purple-900 text-xs truncate">{b.title}</span>
-                              <span className="rounded bg-purple-200/80 px-1.5 py-0.2 text-[9px] font-bold text-purple-800">
-                                Personalizado
-                              </span>
-                            </div>
-                            {b.prompt ? (
-                              <p className="text-[10px] text-purple-700 truncate" title={b.prompt}>
-                                <span className="font-semibold text-purple-900">Prompt:</span> {b.prompt}
-                              </p>
-                            ) : (
-                              <p className="text-[10px] text-slate-400">Extracción automática de contenido</p>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {/* Reorder Arrows */}
-                            <div className="flex items-center border border-purple-200 rounded-lg bg-white overflow-hidden shadow-xs">
-                              <button
-                                type="button"
-                                onClick={() => handleMoveCustomBlock(bIdx, "up")}
-                                disabled={bIdx === 0}
-                                title="Subir posición de este bloque"
-                                className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition border-r border-purple-100"
-                              >
-                                <ArrowUp className="h-3 w-3" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleMoveCustomBlock(bIdx, "down")}
-                                disabled={bIdx === customScraperBlocks.length - 1}
-                                title="Bajar posición de este bloque"
-                                className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition"
-                              >
-                                <ArrowDown className="h-3 w-3" />
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleStartEditBlock(bIdx)}
-                              title="Editar título o prompt de este bloque"
-                              className="rounded-lg border border-purple-200 bg-white px-2 py-1 text-[11px] font-semibold text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition flex items-center gap-1 cursor-pointer shadow-xs"
-                            >
-                              <Pencil className="h-3 w-3" />
-                              Editar prompt
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveCustomScraperBlock(b.title)}
-                              title="Eliminar este bloque opcional"
-                              className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition flex items-center gap-1 cursor-pointer shadow-xs"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                              Eliminar bloque
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Form to Add New Custom Block */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 space-y-2">
-                <div className="flex items-center justify-between flex-wrap gap-1">
-                  <span className="text-[11px] font-bold text-slate-700">
-                    + Añadir nuevo bloque opcional para futuros scrapings:
-                  </span>
-                  <span className="text-[10px] text-slate-500">
-                    Definí el título y la instrucción para que la IA extraiga o genere ese contenido
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    value={newBlockTitleInput}
-                    onChange={(e) => setNewBlockTitleInput(e.target.value)}
-                    placeholder="Título del bloque (ej: Preguntas Frecuentes, Requisitos...)"
-                    className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-[#00A9C6]"
-                    disabled={isProcessing}
-                  />
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newBlockPromptInput}
-                      onChange={(e) => setNewBlockPromptInput(e.target.value)}
-                      placeholder="Prompt o instrucción para la IA (ej: extraer 10 preguntas con respuestas)"
-                      className="flex-1 h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-[#00A9C6]"
-                      disabled={isProcessing}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newBlockTitleInput.trim()) {
-                          e.preventDefault();
-                          handleAddCustomScraperBlock(newBlockTitleInput, newBlockPromptInput);
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleAddCustomScraperBlock(newBlockTitleInput, newBlockPromptInput)}
-                      disabled={isProcessing || !newBlockTitleInput.trim()}
-                      className="h-8 px-3 rounded-lg bg-[#00A9C6] text-xs font-bold text-white hover:bg-[#0095AE] disabled:opacity-50 transition cursor-pointer shrink-0"
-                    >
-                      + Añadir bloque
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <div className="flex flex-wrap items-center gap-2">
               <label className="text-xs font-semibold text-slate-700">Motor de IA:</label>
               <select
                 value={aiProvider}
-                onChange={(e) => handleSaveAiProvider(e.target.value as "auto" | "gemini" | "openai")}
+                onChange={(e) => setAiProvider(e.target.value as any)}
                 disabled={isProcessing}
                 className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 cursor-pointer"
               >
@@ -1946,23 +491,9 @@ export default function AiScraperModal({
               type="button"
               onClick={handleGenerate}
               disabled={isProcessing}
-              className="h-10 rounded-xl bg-[#00A9C6] px-5 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50 transition shadow-sm cursor-pointer flex items-center gap-2"
+              className="h-10 rounded-xl bg-[#00A9C6] px-5 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50 transition shadow-sm"
             >
-              {isBulkRunning ? (
-                <>
-                  <span className="inline-block animate-spin">⏳</span>
-                  <span>Extrayendo cola masiva...</span>
-                </>
-              ) : isProcessing ? (
-                <>
-                  <span className="inline-block animate-spin">⏳</span>
-                  <span>Extrayendo y analizando...</span>
-                </>
-              ) : tab === "bulk" ? (
-                "🚀 Iniciar Scraping Masivo (URL por URL)"
-              ) : (
-                "✨ Generar con IA"
-              )}
+              {isProcessing ? "Extrayendo y generando..." : "Generar con IA"}
             </button>
           </div>
 
@@ -1997,68 +528,26 @@ export default function AiScraperModal({
         {/* Review Queue (Cola de Revisión) */}
         {draftsQueue.length > 0 && (
           <div className="mt-8 border-t border-slate-200 pt-6">
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">
                   Cola de Revisión ({draftsQueue.length} borrador{draftsQueue.length > 1 ? "es" : ""})
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Inspecciona, traduce a 4 idiomas (EN, PT, IT) o pasa al formulario principal antes de publicar.
+                  Inspecciona, edita imágenes/logos o cambia el estado antes de publicar.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
+              {onApproveDirectly && draftsQueue.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setDraftsQueue([]);
-                    setExpandedDraftIndex(null);
-                    setDraftForm(null);
-                    try {
-                      if (typeof window !== "undefined") {
-                        window.sessionStorage.removeItem("tgn_ai_drafts_queue");
-                      }
-                    } catch {}
-                    setSuccessNotice("Cola de borradores vaciada.");
-                  }}
-                  className="h-9 rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  title="Vaciar todos los borradores de la cola de revisión"
+                  onClick={handleApproveAll}
+                  disabled={savingAll}
+                  className="h-9 rounded-xl border border-emerald-600 bg-emerald-50 px-4 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>Limpiar cola</span>
+                  {savingAll ? "Guardando lote..." : "Aprobar y guardar todas"}
                 </button>
-
-                <button
-                  type="button"
-                  onClick={handleTranslateAllDrafts}
-                  disabled={translatingAll || isProcessing || translatingIndex !== null}
-                  className="h-9 rounded-xl border border-sky-300 bg-sky-50 px-3.5 text-xs font-semibold text-[#007D92] hover:bg-sky-100 disabled:opacity-50 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  title="Traducir todos los borradores de la cola a Inglés, Portugués e Italiano"
-                >
-                  {translatingAll ? (
-                    <>
-                      <span className="inline-block animate-spin">⏳</span>
-                      <span>{translateProgress || "Traduciendo lote..."}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>🌐</span>
-                      <span>Traducir todo el lote (EN, PT, IT)</span>
-                    </>
-                  )}
-                </button>
-
-                {onApproveDirectly && draftsQueue.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={handleApproveAll}
-                    disabled={savingAll || translatingAll}
-                    className="h-9 rounded-xl border border-emerald-600 bg-emerald-50 px-4 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 cursor-pointer shadow-xs"
-                  >
-                    {savingAll ? "Guardando lote..." : "Aprobar y guardar todas"}
-                  </button>
-                )}
-              </div>
+              )}
             </div>
 
             <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
@@ -2098,12 +587,7 @@ export default function AiScraperModal({
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-bold text-[#00A9C6] uppercase tracking-wider">
-                            {Array.isArray(draft.categorySelections) && draft.categorySelections.length > 0 && draft.categorySelections[0] !== "General"
-                              ? draft.categorySelections.join(", ")
-                              : draft.category || "General"}
-                            {Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0 && draft.subcategorySelections[0] !== "General"
-                              ? ` · ${draft.subcategorySelections.join(", ")}`
-                              : draft.subcategory && draft.subcategory !== "General" ? ` · ${draft.subcategory}` : ""}
+                            {draft.category || "General"} {draft.subcategory ? `· ${draft.subcategory}` : ""}
                           </span>
                           {(() => {
                             const scoreBlock = (draft.extraDescriptions || []).find((d) => /score scout/i.test(d.title || d.titleI18n?.es || ""));
@@ -2125,31 +609,15 @@ export default function AiScraperModal({
                           >
                             {draft.status === "draft" ? "Borrador" : "Activo"}
                           </span>
-
-                          {/* Translation Status Badge */}
-                          {isDraftTranslated(draft) ? (
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                              <span>🌐</span> 4 Idiomas listos (ES, EN, PT, IT)
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 border border-slate-200 flex items-center gap-1">
-                              <span>🇪🇸</span> Solo Español
-                            </span>
-                          )}
                         </div>
                         <h4 className="text-base font-semibold text-slate-900 mt-0.5">{draft.title}</h4>
                         <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span>Oferente: <strong className="text-slate-700">{draft.publisherName}</strong></span>
                           <span>·</span>
                           <span>Ubicación: <strong className="text-slate-700">{draft.city}, {draft.country}</strong></span>
-                          {draft.providerRating && draft.providerRating !== "0" ? (
+                          {draft.providerRating ? (
                             <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
                               ⭐ {draft.providerRating} ({draft.providerReviewCount || "0"} reseñas)
-                            </span>
-                          ) : null}
-                          {draft.providerStartYear ? (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700 border border-sky-200">
-                              🏛️ Desde {draft.providerStartYear}
                             </span>
                           ) : null}
                           {draft.headquarterLocations && draft.headquarterLocations.length > 1 && (
@@ -2161,64 +629,24 @@ export default function AiScraperModal({
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => {
-                          try {
-                            const preparedDraft = ensureCustomBlocksInDraft(draft);
-                            onSelectDraftToEdit(preparedDraft, index);
-                          } catch (err) {
-                            console.error("[AiScraperModal] Error pasando borrador al formulario:", err);
-                            try {
-                              onSelectDraftToEdit(draft, index);
-                            } catch (innerErr) {
-                              console.error("[AiScraperModal] Error en fallback onSelectDraftToEdit:", innerErr);
-                            }
-                          } finally {
-                            onClose();
-                          }
+                          onSelectDraftToEdit(draft);
+                          onClose();
                         }}
-                        className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-xs cursor-pointer"
+                        className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-sm"
                       >
                         📝 Pasar a Formulario Principal
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleTranslateDraft(index)}
-                        disabled={translatingIndex === index || translatingAll}
-                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 ${
-                          isDraftTranslated(draft)
-                            ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                            : "border-sky-300 bg-sky-50 text-[#007D92] hover:bg-sky-100"
-                        }`}
-                        title="Traducir título, descripción, datos de oferente y bloques adicionales a Inglés, Portugués e Italiano"
-                      >
-                        {translatingIndex === index ? (
-                          <>
-                            <span className="inline-block animate-spin">⏳</span>
-                            <span>Traduciendo...</span>
-                          </>
-                        ) : isDraftTranslated(draft) ? (
-                          <>
-                            <span>🔄</span>
-                            <span>Re-traducir (EN, PT, IT)</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>🌐</span>
-                            <span>Traducir a EN, PT, IT</span>
-                          </>
-                        )}
                       </button>
 
                       {onApproveDirectly && (
                         <button
                           type="button"
                           onClick={() => handleApproveDraft(draft, index)}
-                          disabled={savingIndex === index || translatingIndex === index || translatingAll}
-                          className="rounded-lg bg-[#00A9C6] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50 cursor-pointer shadow-xs"
+                          disabled={savingIndex === index}
+                          className="rounded-lg bg-[#00A9C6] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50"
                         >
                           {savingIndex === index ? "Guardando..." : "Aprobar y Guardar"}
                         </button>
@@ -2227,8 +655,7 @@ export default function AiScraperModal({
                       <button
                         type="button"
                         onClick={() => handleRemoveDraft(index)}
-                        disabled={translatingIndex === index || translatingAll}
-                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
+                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
                       >
                         Descartar
                       </button>
@@ -2263,76 +690,21 @@ export default function AiScraperModal({
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600">
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Categoría</span>
-                      {Array.isArray(draft.categorySelections) && draft.categorySelections.length > 0 && draft.categorySelections[0] !== "General"
-                        ? draft.categorySelections.join(", ")
-                        : draft.category || "General"}
+                      {draft.category || "General"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Subcategoría</span>
-                      {Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0 && draft.subcategorySelections[0] !== "General"
-                        ? draft.subcategorySelections.join(", ")
-                        : (draft.subcategory && draft.subcategory !== "General" ? draft.subcategory : "(Sin subcategoría)")}
+                      {draft.subcategory || "General"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Tipo de Perfil / Sector</span>
-                      {Array.isArray(draft.providerActivities) && draft.providerActivities.length > 0
-                        ? draft.providerActivities.join(", ")
-                        : draft.providerTypes?.[0] || "Institución"}
+                      {draft.providerActivities?.[0] || draft.providerTypes?.[0] || "Institución"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Imágenes</span>
                       {draft.images?.length || 0} imagen(es)
                     </div>
                   </div>
-
-                  {/* Extra Description Blocks Status Pills */}
-                  {draft.extraDescriptions && draft.extraDescriptions.length > 0 && (
-                    <div className="rounded-xl border border-purple-100 bg-purple-50/40 p-2.5 text-xs space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-purple-950 text-[11px]">
-                          Bloques de Información ({draft.extraDescriptions.length}):
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {draft.extraDescriptions.map((blk, blkIdx) => {
-                          const isSinDatos = blk.estado === "sin_datos" || (!blk.body && !blk.contenido);
-                          const isParcial = blk.estado === "parcial";
-                          return (
-                            <div
-                              key={blkIdx}
-                              className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium border shadow-2xs ${
-                                isSinDatos
-                                  ? "bg-slate-100/90 text-slate-600 border-slate-200"
-                                  : isParcial
-                                  ? "bg-amber-50 text-amber-900 border-amber-200"
-                                  : "bg-white text-purple-900 border-purple-200"
-                              }`}
-                              title={
-                                isSinDatos
-                                  ? "Sin datos explícitos en la web (bloque vacío)"
-                                  : isParcial
-                                  ? "Información parcial extraída"
-                                  : "Información completa extraída"
-                              }
-                            >
-                              <span className="font-semibold">{blk.title}</span>
-                              <span
-                                className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider ${
-                                  isSinDatos
-                                    ? "bg-slate-200 text-slate-700"
-                                    : isParcial
-                                    ? "bg-amber-200 text-amber-900"
-                                    : "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                }`}
-                              >
-                                {blk.estado || (isSinDatos ? "sin_datos" : "ok")}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
