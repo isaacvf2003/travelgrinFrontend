@@ -267,7 +267,7 @@ type Publication = {
 };
 
 type LocationInput = { country: string; city: string; mapUrl: string };
-type SocialLinkDetail = { kind: string; label: string; url: string };
+type SocialLinkDetail = { kind: string; label: string; url: string; labelI18n?: I18nRecord };
 type PrestacionButton = { label: string; labelI18n?: I18nRecord; url: string; style: "primary" | "secondary"; bgColor?: string; textColor?: string };
 type PrestacionResource = {
   title: string;
@@ -2688,6 +2688,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       .map((entry) => ({
         kind: String(entry.kind ?? "").trim(),
         label: String(entry.label ?? "").trim(),
+        labelI18n: entry.labelI18n || (entry.label ? { es: String(entry.label).trim() } : undefined),
         url: (() => {
           const rawUrl = String(entry.url ?? "").trim();
           const kind = String(entry.kind ?? "").trim().toLowerCase();
@@ -3183,9 +3184,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         }
         const key = `${kind}:${u}`;
         if (!linkMap.has(key)) {
+          const defaultLabel = String(entry.label || "").trim() || (kind === "phone" ? "Teléfono de contacto" : kind === "whatsapp" ? "WhatsApp" : kind === "email" ? "Email de contacto" : "Página Oficial");
           linkMap.set(key, {
             kind,
-            label: String(entry.label || "").trim() || (kind === "phone" ? "Teléfono de contacto" : kind === "whatsapp" ? "WhatsApp" : kind === "email" ? "Email de contacto" : "Página Oficial"),
+            label: defaultLabel,
+            labelI18n: (entry as any).labelI18n || { es: defaultLabel },
             url: u,
           });
         }
@@ -3779,6 +3782,32 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     return { ...item, titleI18n: nextT, bodyI18n: nextB };
                   })
                 );
+              })
+              .catch(console.error)
+          );
+        }
+      });
+
+      pSocialLinksDetailed.forEach((sLink, sIdx) => {
+        const linkLabel = (sLink.labelI18n?.[sourceLang] || sLink.label || "").trim();
+        if (linkLabel) {
+          promises.push(
+            fetch("/api/admin/translate-i18n", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: linkLabel, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
+            })
+              .then((r) => r.json())
+              .then((data) => {
+                if (data?.translations) {
+                  setPSocialLinksDetailed((prev) =>
+                    prev.map((item, i) => {
+                      if (i !== sIdx) return item;
+                      const nextL = { ...(item.labelI18n || {}), [sourceLang]: linkLabel, ...data.translations };
+                      return { ...item, labelI18n: nextL };
+                    })
+                  );
+                }
               })
               .catch(console.error)
           );
@@ -4833,6 +4862,32 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPImageUploads((prev) => prev.filter((item) => item !== img));
     setPImageUrls((prev) => splitLines(prev).filter((item) => item !== img).join("\n"));
     setPImageUploadAssets((prev) => prev.filter((asset) => imageAssetToUrl(asset) !== img));
+  };
+  const [draggedImageIdx, setDraggedImageIdx] = useState<number | null>(null);
+  const reorderImages = (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
+    const currentList = [...imageList];
+    if (fromIdx >= currentList.length || toIdx >= currentList.length) return;
+    const [moved] = currentList.splice(fromIdx, 1);
+    currentList.splice(toIdx, 0, moved);
+
+    setPImageUrls(currentList.join("\n"));
+    setPImageUploads((prev) => {
+      return [...prev].sort((a, b) => currentList.indexOf(a) - currentList.indexOf(b));
+    });
+    setPImageUploadAssets((prev) => {
+      return [...prev].sort((a, b) => {
+        const urlA = imageAssetToUrl(a);
+        const urlB = imageAssetToUrl(b);
+        return currentList.indexOf(urlA) - currentList.indexOf(urlB);
+      });
+    });
+  };
+  const makeCoverImage = (img: string) => {
+    const fromIdx = imageList.indexOf(img);
+    if (fromIdx > 0) {
+      reorderImages(fromIdx, 0);
+    }
   };
   const [draggingFilterGroupId, setDraggingFilterGroupId] = useState<string | null>(null);
   const orderedFilterGroups = useMemo(
@@ -10128,14 +10183,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     ))}
                   </select>
                   <input
-                    value={entry.label}
-                    onChange={(e) =>
+                    value={entry.labelI18n?.[pLang] ?? entry.label}
+                    onChange={(e) => {
+                      const nextVal = e.target.value;
                       setPSocialLinksDetailed((prev) =>
                         prev.map((item, index) =>
-                          index === idx ? { ...item, label: e.target.value } : item
+                          index === idx
+                            ? {
+                                ...item,
+                                label: pLang === "es" ? nextVal : item.label,
+                                labelI18n: {
+                                  ...(item.labelI18n || { es: item.label }),
+                                  [pLang]: nextVal,
+                                },
+                              }
+                            : item
                         )
-                      )
-                    }
+                      );
+                    }}
                     className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
                     placeholder="Renombre del link (opcional)"
                   />
@@ -10207,22 +10272,59 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             />
             {imageList.length ? (
               <div className="grid gap-3 md:grid-cols-4">
-                {imageList.map((img, idx) => (
-                  <div key={`${img}-${idx}`} className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/60">
-                    <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => removeImage(img)}
-                        className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-xs font-semibold text-slate-600 shadow"
-                        aria-label="Quitar imagen"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img} alt={`preview-${idx}`} className="h-full w-full object-cover" />
+                {imageList.map((img, idx) => {
+                  const isCover = idx === 0;
+                  return (
+                    <div
+                      key={`${img}-${idx}`}
+                      draggable
+                      onDragStart={() => setDraggedImageIdx(idx)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedImageIdx !== null && draggedImageIdx !== idx) {
+                          reorderImages(draggedImageIdx, idx);
+                          setDraggedImageIdx(null);
+                        }
+                      }}
+                      onDragEnd={() => setDraggedImageIdx(null)}
+                      className={`group relative rounded-xl border bg-white p-2 shadow-sm transition-all cursor-grab active:cursor-grabbing ${
+                        isCover ? "border-[#00A9C6] ring-2 ring-[#00A9C6]/25 shadow-md" : "border-slate-200 shadow-slate-200/60 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
+                        {isCover ? (
+                          <span className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-md bg-[#00A9C6] px-2 py-0.5 text-[11px] font-semibold text-white shadow">
+                            ⭐ Portada
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => makeCoverImage(img)}
+                            className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-md bg-white/90 px-2 py-0.5 text-[11px] font-medium text-slate-700 shadow hover:bg-emerald-50 hover:text-emerald-700 opacity-90 group-hover:opacity-100 transition"
+                            title="Mover a la primera posición como portada"
+                          >
+                            ⭐ Hacer portada
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeImage(img)}
+                          className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-xs font-semibold text-slate-600 shadow hover:bg-rose-50 hover:text-rose-600"
+                          aria-label="Quitar imagen"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img} alt={`preview-${idx}`} className="h-full w-full object-cover" />
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between px-1 text-[11px] text-slate-400">
+                        <span>{isCover ? "1ª imagen (Portada)" : `Posición #${idx + 1}`}</span>
+                        <span className="text-[10px] text-slate-400">Arrastrar para mover</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : null}
           </div>
