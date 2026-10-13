@@ -898,6 +898,12 @@ export interface ProviderInfoResult {
   providerInfo: string;
   providerInfoI18n: I18nRecord;
   detectedPublisherName?: string;
+  detectedAddress?: string;
+  detectedCity?: string;
+  detectedCountry?: string;
+  detectedRating?: string;
+  detectedReviewCount?: string;
+  detectedFoundingYear?: string;
 }
 
 export async function runProviderInfoAgent(
@@ -917,29 +923,42 @@ Tu objetivo primordial es identificar con rigurosa precisión al oferente / inst
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "estado": "ok",
-  "nombreOferente": "Nombre oficial y verdadero de la empresa, institución u organización oferente (sé muy cuidadoso para distinguir el nombre de la empresa de títulos de programas, iniciativas, convocatorias o artículos)",
+  "nombreOferente": "Nombre oficial y verdadero de la empresa o institución (si el sitio usa una sigla o acrónimo como CTPPC, UTN, UBA, CPCE, OSEP, OSDE, etc., investiga y escribe obligatoriamente el NOMBRE INSTITUCIONAL COMPLETO desplegado)",
+  "direccionVigente": "Dirección física operativa actual extraída del pie de página (footer) o sección de contacto (descartando notas viejas o artículos de prensa históricos archivados en el cuerpo)",
+  "ciudad": "Ciudad de la sede principal",
+  "pais": "País",
   "contenido": "Breve descripción del oferente o institución aquí (1 o 2 oraciones profesionales basadas en datos reales de la web)",
+  "rating": "Puntuación de 1.0 a 5.0 (ej. '4.6') conocida o estimada en Google Maps",
+  "reviewCount": "Cantidad aproximada de opiniones o reseñas (ej. '120')",
+  "foundingYear": "Año de fundación o inicio si se conoce o menciona (ej. '1987')",
   "evidencias": ["frase o dato de la web"]
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. IDENTIFICACIÓN PRECISA DEL OFERENTE: Determina con total precisión el nombre oficial y verdadero de la entidad, empresa u organización responsable. Si el título de la página es un programa, evento, convocatoria o curso (por ejemplo: "Córdoba GovTech", "Programa Talento", "Becas 2024", etc.), identifica cuál es la institución o empresa responsable (por ejemplo: Incutex, Municipalidad de Córdoba, Universidad Siglo 21, etc.) y coloca ese nombre en "nombreOferente".
-2. CERO PLANTILLAS GENÉRICAS: Prohibido terminantemente usar frases clichés vacías como "Institución y prestador de servicios en Córdoba". Describe la actividad concreta, trayectoria o propósito real del oferente.
-3. Concisión: Redacta 1 o 2 oraciones concisas y profesionales en tercera persona.
-4. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+1. IDENTIFICACIÓN PRECISA DEL OFERENTE Y RESOLUCIÓN OBLIGATORIA DE SIGLAS:
+   - Determina con total precisión el nombre oficial y verdadero de la entidad, empresa u organización responsable.
+   - Si el título de la página, nombre preliminar o dominio es una SIGLA o ACRÓNIMO (ej: "CTPPC", "UBA", "UTN", "OSDE", "CPCE", etc.), OBLIGATORIAMENTE investiga y escribe el NOMBRE INSTITUCIONAL COMPLETO desplegado (ej: "Colegio de Traductores Públicos de la Provincia de Córdoba" en lugar de "CTPPC"). NUNCA dejes la sigla sola si el nombre completo institucional se menciona en la web o en la realidad.
+   - Si el título de la página es un programa, evento, convocatoria o curso (por ejemplo: "Córdoba GovTech", "Programa Talento", "Becas 2024", etc.), identifica cuál es la institución o empresa responsable matriz.
+2. DIRECCIÓN FÍSICA VIGENTE VS HISTÓRICA:
+   - Identifica la dirección operativa actual del pie de página (footer) o contacto oficial en "direccionVigente". NUNCA tomes direcciones de noticias viejas o artículos archivados del cuerpo.
+3. CERO PLANTILLAS GENÉRICAS:
+   - Prohibido terminantemente usar frases clichés vacías como "Institución y prestador de servicios en Córdoba". Describe la actividad concreta, trayectoria, funciones o propósito real del oferente.
+4. Concisión: Redacta 1 o 2 oraciones concisas y profesionales en tercera persona.
+5. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `=== DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - URL: "${context.url}"
 - Nombre preliminar detectado: "${entityName}"
 - Título original de la página: "${context.rawPageTitle || entityName}"
 - Ubicación: "${locationText || "No informada"}"
+- Dirección preliminar detectada: "${context.address || "No informada"}"
 - Resumen y párrafos de la web:
-"${(context.metaDescription || context.paragraphs?.slice(0, 4).join(" ") || context.mainText?.slice(0, 1000) || "").slice(0, 1200)}"
+"${(context.metaDescription || context.paragraphs?.slice(0, 5).join(" ") || context.mainText?.slice(0, 1200) || "").slice(0, 1500)}"
 
 === DIRECTIVA EDITORIAL DEL ADMINISTRADOR (SI APLICA) ===
 "${prompt || `Describir con precisión factual y profesional a ${entityName} y su alcance real.`}"${variationDirective}
 
-GENERA EL OBJETO JSON IDENTIFICANDO EL NOMBRE OFICIAL DEL OFERENTE Y SU DESCRIPCIÓN FACTUAL.`;
+GENERA EL OBJETO JSON IDENTIFICANDO EL NOMBRE OFICIAL COMPLETO DEL OFERENTE, SU DIRECCIÓN VIGENTE Y SU DESCRIPCIÓN FACTUAL.`;
 
   console.log(`\n[AI-AGENT-DEBUG: ProviderInfoAgent]`);
   console.log(`1. Admin Prompt: "${prompt || "(Sin prompt específico)"}"`);
@@ -964,6 +983,18 @@ GENERA EL OBJETO JSON IDENTIFICANDO EL NOMBRE OFICIAL DEL OFERENTE Y SU DESCRIPC
     const detectedPubName = cleanTitleString(
       String(parsed?.nombreOferente || parsed?.nombre || parsed?.oferente || "").trim()
     );
+    const detectedAddr = cleanTitleString(
+      String(parsed?.direccionVigente || parsed?.direccion || "").trim()
+    );
+    const detectedCityVal = cleanTitleString(
+      String(parsed?.ciudad || "").trim()
+    );
+    const detectedCountryVal = cleanTitleString(
+      String(parsed?.pais || "").trim()
+    );
+    const detectedRating = parsed?.rating ? String(parsed.rating).replace(",", ".").trim() : undefined;
+    const detectedReviewCount = parsed?.reviewCount ? String(parsed.reviewCount).replace(/[^0-9]/g, "").trim() : undefined;
+    const detectedFoundingYear = parsed?.foundingYear ? String(parsed.foundingYear).replace(/[^0-9]/g, "").trim() : undefined;
 
     if (!pInfo) {
       const cleanedRaw = rawText
@@ -1000,6 +1031,12 @@ GENERA EL OBJETO JSON IDENTIFICANDO EL NOMBRE OFICIAL DEL OFERENTE Y SU DESCRIPC
         providerInfo: pInfo,
         providerInfoI18n: { es: pInfo, en: pEn || pInfo, pt: pPt || pInfo, it: pIt || pInfo },
         detectedPublisherName: detectedPubName || undefined,
+        detectedAddress: detectedAddr || undefined,
+        detectedCity: detectedCityVal || undefined,
+        detectedCountry: detectedCountryVal || undefined,
+        detectedRating: detectedRating || undefined,
+        detectedReviewCount: detectedReviewCount || undefined,
+        detectedFoundingYear: detectedFoundingYear || undefined,
       },
       estado: "ok",
       evidencias: parsed?.evidencias || [entityName],
@@ -1103,8 +1140,8 @@ export async function runTaxonomyAgent(
         .join("\n\n")
     : categoriesPool.map((c) => `- "${c}"`).join("\n");
 
-  const systemPrompt = `Eres el Lead AI Auditor y Clasificador de Taxonomías de Travelgrin.
-Tu objetivo es clasificar con máxima precisión el contenido de un sitio web dentro del CATÁLOGO OFICIAL Y CERRADO de categorías y taxonomías del sistema.
+  const systemPrompt = `Eres el Lead AI Auditor y Clasificador Dinámico de Taxonomías de Travelgrin.
+Tu objetivo es clasificar con máxima precisión el contenido de un sitio web dentro del CATÁLOGO OFICIAL Y CERRADO de categorías y taxonomías del sistema creado por el administrador.
 
 REGLAS CRÍTICAS Y OBLIGATORIAS:
 1. CATÁLOGO ESTRICTAMENTE CERRADO (CERO ALUCINACIONES):
@@ -1116,32 +1153,17 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
    - 'category': La categoría principal (primer elemento de 'categorySelections').
    - 'subcategory': La subcategoría principal (primer elemento de 'subcategorySelections').
 3. SECTOR DE QUIEN OFRECE / ACTIVIDAD ('providerActivities'):
-   - Selecciona 1 o más actividades ÚNICAMENTE de la lista 'ACTIVIDADES DISPONIBLES EN BD' (correspondiente al sector económico o industria, ej. tecnología, servicios, finanzas, etc.).
-   - PROHIBIDO TERMINANTEMENTE colocar tipos de oferente como "Empresa", "Institución privada" u "Organismo público" en actividades. "Empresa" NO es una actividad; es un tipo de perfil.
+   - Selecciona 1 o más actividades ÚNICAMENTE de la lista 'ACTIVIDADES DISPONIBLES EN BD' (correspondiente al sector económico o industria de la entidad).
+   - PROHIBIDO colocar tipos de oferente como "Empresa", "Institución privada" u "Organismo público" en actividades. "Empresa" NO es una actividad; es un tipo de perfil.
 4. QUIÉN LO OFRECE / TIPO DE OFERENTE ('providerTypes'):
-   - Selecciona de la lista 'TIPOS DE PERFIL DISPONIBLES EN BD' (ej: "Empresa", "Institución privada", "Organismo público", etc.).
+   - Selecciona de la lista 'TIPOS DE PERFIL DISPONIBLES EN BD' (ej: "Empresa", "Institución privada", "Organismo público", "Profesional independiente", etc.).
 5. MODALIDADES DE ATENCIÓN ('providerModalities'):
-   - Selecciona de la lista 'MODALIDADES DISPONIBLES' (ej: "Atención presencial", "Atención online") según lo que ofrezca el sitio.
-8. PREVENCIÓN ESTRICTA DE FALSAS ONGs (REGLA MANDATORIA):
-   - NUNCA clasifiques un sitio web como "ONG", "Fundación", "Organización sin fines de lucro" o tipo "ONG" a menos que demuestre explícitamente personería jurídica y condición estatutaria de entidad sin fines de lucro (ej. dominio .org no comercial con misión social comprobada).
-   - Las universidades (como Universidad Siglo 21, UBA, etc.), empresas comerciales, startups, plataformas digitales, comercios, clínicas y academias privadas NO SON ONGs. Está TERMINANTEMENTE PROHIBIDO asignarles categorías, subcategorías o tipos de perfil de ONG.
-
-9. INTELIGENCIA SEMÁNTICA PARA UNIVERSIDADES, EDUCACIÓN Y ESTUDIANTES (MANDATORIA):
-   - Si la entidad analizada es una UNIVERSIDAD, FACULTAD, INSTITUTO SUPERIOR O COLEGIO (por ejemplo, "Universidad Siglo 21", universidades nacionales o privadas, campus, facultades, carreras universitarias):
-     a) Es una institución de educación orientada a ESTUDIANTES y carreras profesionales.
-     b) Si en el catálogo existen categorías o subcategorías que mencionen "Estudiantes", "Para estudiantes", "Universidades", "Educación", "Cursos", "Carreras", "Formación", "Vida universitaria", "Posgrados" o afines, DEBES seleccionarlas en 'categorySelections' y 'subcategorySelections'.
-     c) Su actividad económica debe ser de educación (ej. "Educación y formación", "Educación").
-     d) Su tipo de oferente debe ser "Institución privada" (para universidades privadas como Siglo 21) u "Organismo público" (para universidades estatales/nacionales). NUNCA ONG.
-
-10. INTELIGENCIA SEMÁNTICA PARA SALUD, OBRAS SOCIALES Y HOSPITALES (MANDATORIA):
-   - Si la entidad analizada es una OBRA SOCIAL, HOSPITAL, CLÍNICA, SANATORIO, PREPAGA O CENTRO MÉDICO (por ejemplo, "OSEP Mendoza", hospitales, sanatorios, centros de diagnóstico o salud):
-     a) Su actividad económica ('providerActivities') DEBE ser 'Salud y asistencia social' (o la opción de salud disponible en BD).
-     b) Si es obra social de empleados públicos u hospital público (ej: OSEP): su tipo de oferente ('providerTypes') DEBE ser 'Organismo público'. Si es clínica privada: 'Institución privada'. NUNCA ONG.
-     c) En categorías ('categorySelections') y subcategorías: selecciona todas las opciones del catálogo que mejor definan lo que ofrece (ej: 'Servicio especializado', 'Funcionario público' si es obra social pública, 'Profesional', y cualquier categoría o subcategoría de salud, medicina o trámites que el administrador haya creado en el catálogo).
-
-11. COMPRENSIÓN DINÁMICA DE NUEVAS TAXONOMÍAS CREADAS POR EL ADMINISTRADOR:
+   - Selecciona de la lista 'MODALIDADES DISPONIBLES' (ej: "Atención presencial", "Atención online", "Gestión y trámites") según lo que ofrezca el sitio.
+6. PREVENCIÓN ESTRICTA DE FALSAS ONGs (REGLA MANDATORIA):
+   - NUNCA clasifiques un sitio web como "ONG", "Fundación" u "Organización sin fines de lucro" a menos que demuestre explícitamente personería jurídica y condición estatutaria de entidad sin fines de lucro (ej. dominio .org no comercial con misión social comprobada). Universidades, empresas comerciales, clínicas y academias privadas NO SON ONGs.
+7. COMPRENSIÓN DINÁMICA DE NUEVAS TAXONOMÍAS CREADAS POR EL ADMINISTRADOR (SIN PLANTILLAS):
    - El catálogo es completamente dinámico y el administrador puede crear nuevas categorías, subcategorías o actividades en cualquier momento.
-   - Analiza semánticamente el concepto de CADA opción disponible en las listas abajo y selecciona todas las que coincidan genuinamente con el sitio analizado. NUNCA uses plantillas fijas.
+   - Analiza con criterio y profundidad semántica de qué trata el sitio web (su sector, público objetivo, servicios y especialidades) y busca en el catálogo todas las opciones que correspondan legítimamente.
 
 CATÁLOGO DE BLOQUES, CATEGORÍAS Y SUBCATEGORÍAS DISPONIBLES EN BD:
 ${categoryTreeFormat}
@@ -1230,40 +1252,15 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
 
-    const isHealthEntity =
-      /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextCorpus) ||
-      /osep|hospital|clinica|sanatorio|salud/i.test(context.url || "");
-
-    const isEducationalEntity =
-      /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
-      /\.edu(?:\.[a-z]{2})?/i.test(context.url || "");
-
-    const isLegalOrConsulting =
-      /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica)\b/i.test(fullTextCorpus);
-
-    const isTourismEntity =
-      /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(fullTextCorpus);
-
-    const isTechEntity =
-      /\b(software|tecnologia|tecnologias|app|aplicacion|sistemas|desarrollo web|programacion|informatica|it|ciberseguridad|telecomunicaciones|saas|plataforma digital)\b/i.test(fullTextCorpus);
-
     const isAuthenticOng =
       (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(context.url || "")) &&
       /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(fullTextCorpus) &&
-      !isEducationalEntity &&
-      !isHealthEntity &&
       !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(fullTextCorpus);
 
     const isOngMatch = (name: string): boolean => {
       const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       return /\b(?:ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n) ||
         /sin fines de lucro|organismo no gubernamental|asociacion civil/i.test(n);
-    };
-
-    const isStudentEduMatch = (name: string): boolean => {
-      const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      return /\b(?:estudiant|universi|educa|carrera|alumno|academ|formaci|posgrado|grado|beca|colegio|instituto|facultad|intercambio|convocatoria|programa)\w*/i.test(n) ||
-        /estudiante|universidad|educacion|carrera|formacion|posgrado|grado|beca|colegio|instituto|programa|intercambio|convocatoria/i.test(n);
     };
 
     // Strict multi-select category validation against DB pool
@@ -1276,16 +1273,6 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       .filter((c) => isAuthenticOng || !isOngMatch(c));
 
     let matchedCats = matchToCatalogPool(rawCategories, categoriesPool);
-
-    // If educational entity, proactively ensure student/education categories from pool are included
-    if (isEducationalEntity) {
-      const eduPoolCategories = categoriesPool.filter(isStudentEduMatch);
-      for (const eduCat of eduPoolCategories) {
-        if (!matchedCats.includes(eduCat)) {
-          matchedCats.push(eduCat);
-        }
-      }
-    }
 
     // Filter out ONG categories if not an authentic ONG
     if (!isAuthenticOng) {
@@ -1302,18 +1289,9 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
         const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
         let score = 0;
 
-        // Hard negative constraint: If entity is medical/health, NEVER match visa/migration categories!
-        if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(cNorm)) {
-          continue;
-        }
-        // If entity is university/education, NEVER match visa/migration categories
-        if (isEducationalEntity && /visa|migra/i.test(cNorm)) {
-          continue;
-        }
-
-        if (fullTextCorpus.includes(cNorm)) score += 50;
+        if (fullTextCorpus.includes(cNorm)) score += 60;
         for (const tok of cTokens) {
-          if (fullTextCorpus.includes(tok)) score += 15;
+          if (fullTextCorpus.includes(tok)) score += 20;
         }
 
         // Check child subcategories belonging to this category in the categoryTree
@@ -1324,18 +1302,15 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
             for (const sub of matchedNode.subcategories) {
               const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
               const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
-              if (fullTextCorpus.includes(sNorm)) score += 35;
+              if (fullTextCorpus.includes(sNorm)) score += 40;
               for (const tok of sTokens) {
-                if (fullTextCorpus.includes(tok)) score += 10;
+                if (fullTextCorpus.includes(tok)) score += 15;
               }
             }
           }
         }
 
-        if (isEducationalEntity && isStudentEduMatch(catName)) score += 60;
-        if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga/i.test(cNorm)) score += 80;
-
-        if (score >= 25) {
+        if (score >= 20) {
           scoredCats.push({ cat: catName, score });
         }
       }
@@ -1343,15 +1318,10 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       scoredCats.sort((a, b) => b.score - a.score);
       if (scoredCats.length > 0) {
         matchedCats = [scoredCats[0].cat];
-        if (scoredCats[1] && scoredCats[1].score >= 35 && scoredCats[1].score >= scoredCats[0].score * 0.7) {
+        if (scoredCats[1] && scoredCats[1].score >= 25 && scoredCats[1].score >= scoredCats[0].score * 0.6) {
           matchedCats.push(scoredCats[1].cat);
         }
       }
-    }
-
-    // Safety guardrail: Medical entities must NEVER contain visa or immigration categories
-    if (isHealthEntity) {
-      matchedCats = matchedCats.filter((c) => !/visa|migra|residencia|ciudadan|pasaporte/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
     }
 
     const finalCategories = matchedCats;
@@ -1387,67 +1357,38 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
 
     let matchedSubs = matchToCatalogPool(rawSubcategories, validSubcatPool);
 
-    // Also score against extracted text to include any additional relevant subcategories that fit the entity
-    if (validSubcatPool.length > 0) {
+    // If still empty or additional relevance, score valid subcategories dynamically against corpus
+    if (matchedSubs.length === 0 && validSubcatPool.length > 0) {
+      const scoredSubs: { sub: string; score: number }[] = [];
       for (const sub of validSubcatPool) {
-        if (matchedSubs.includes(sub)) continue;
         if (!isAuthenticOng && isOngMatch(sub)) continue;
-
         const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        // Negative guardrail: If entity is health, NEVER match visa subcategories!
-        if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(sNorm)) continue;
-        if (isEducationalEntity && /visa|migra/i.test(sNorm)) continue;
-
         const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
         let matchScore = 0;
-
-        if (fullTextCorpus.includes(sNorm)) matchScore += 30;
+        if (fullTextCorpus.includes(sNorm)) matchScore += 40;
         for (const tok of sTokens) {
-          if (fullTextCorpus.includes(tok)) matchScore += 10;
+          if (fullTextCorpus.includes(tok)) matchScore += 15;
         }
-
-        // Semantic boost for student/university subcategories when analyzing educational institutions
-        if (isEducationalEntity && isStudentEduMatch(sub)) {
-          matchScore += 40;
+        if (matchScore >= 15) {
+          scoredSubs.push({ sub, score: matchScore });
         }
-        if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga/i.test(sNorm)) {
-          matchScore += 50;
-        }
-
-        if (matchScore >= 20) {
-          matchedSubs.push(sub);
-        }
+      }
+      scoredSubs.sort((a, b) => b.score - a.score);
+      if (scoredSubs.length > 0) {
+        matchedSubs = scoredSubs.slice(0, 3).map((s) => s.sub);
       }
     }
 
     if (!isAuthenticOng) {
       matchedSubs = matchedSubs.filter((s) => !isOngMatch(s));
     }
-    if (isHealthEntity) {
-      matchedSubs = matchedSubs.filter((s) => !/visa|migra|residencia|ciudadan|pasaporte/i.test(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
-    }
 
-    // Completely remove blind fallback to validSubcatPool[0]: If no subcategory legitimately matches, leave empty
     const finalSub = matchedSubs[0] || "";
 
     // Activities: strictly match against activitiesPool and NEVER allow items from typesPool (e.g. Empresa)
     const rawActivities = Array.isArray(parsed.providerActivities) ? parsed.providerActivities : [parsed.providerActivities];
     const matchedActivities = matchToCatalogPool(rawActivities, activitiesPool);
     let cleanActivities = matchedActivities.filter((a) => !typesPool.includes(a));
-
-    if (isEducationalEntity) {
-      const eduAct = activitiesPool.find((a) => /educaci|formaci|ensenan/i.test(a));
-      if (eduAct && !cleanActivities.includes(eduAct)) {
-        cleanActivities = [eduAct, ...cleanActivities];
-      }
-    }
-
-    if (isHealthEntity) {
-      const healthAct = activitiesPool.find((a) => /salud|asistencia|social|medic/i.test(a));
-      if (healthAct && !cleanActivities.includes(healthAct)) {
-        cleanActivities = [healthAct, ...cleanActivities];
-      }
-    }
 
     if (cleanActivities.length === 0 && activitiesPool.length > 0) {
       const sanitizedPool = activitiesPool.filter((a) => !typesPool.includes(a));
@@ -1460,21 +1401,6 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
         if (fullTextCorpus.includes(aNorm)) score += 40;
         for (const tok of aTokens) {
           if (fullTextCorpus.includes(tok)) score += 15;
-        }
-        if (isHealthEntity && /salud|asistencia|social|medic/i.test(aNorm)) {
-          score += 60;
-        }
-        if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
-          score += 60;
-        }
-        if (isLegalOrConsulting && /profesional|tecnico|legal|consult/i.test(aNorm)) {
-          score += 50;
-        }
-        if (isTechEntity && /tecnolog|informaci|comunicaci/i.test(aNorm)) {
-          score += 50;
-        }
-        if (isTourismEntity && /hosteler|alojam|turism/i.test(aNorm)) {
-          score += 50;
         }
         if (score > 0) scoredActsList.push({ act, score });
       }
@@ -1498,13 +1424,13 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       matchedTypes = matchedTypes.filter((t) => !isOngMatch(t));
     }
 
-    if (isEducationalEntity && matchedTypes.length === 0) {
+    if (matchedTypes.length === 0 && typesPool.length > 0) {
       const isPublicGov =
         /\b(\.gov|\.gob|\.mil)\b/i.test(context.url || "") ||
-        /\b(universidad nacional|hospital publico|organismo publico|ministerio|gobierno)\b/i.test(fullTextCorpus);
+        /\b(organismo publico|ministerio|gobierno|estatal|nacional|provincial|publico)\b/i.test(fullTextCorpus);
       const chosenType = isPublicGov
-        ? typesPool.find((t) => /p[uú]blico|estatal/i.test(t))
-        : typesPool.find((t) => /privada|empresa/i.test(t));
+        ? (typesPool.find((t) => /p[uú]blico|estatal/i.test(t)) || typesPool[0])
+        : (typesPool.find((t) => /privada|empresa/i.test(t)) || typesPool[0]);
       if (chosenType) matchedTypes.push(chosenType);
     }
 
@@ -1593,9 +1519,10 @@ export function cleanScrapedHtmlText(html: string): {
 
   // Extract headings h1, h2, h3
   const headings: string[] = [];
-  const hMatches = cleaned.matchAll(/<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/gi);
-  for (const match of hMatches) {
-    const text = decodeEntities(match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+  const hRegex = /<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/gi;
+  let hMatch: RegExpExecArray | null;
+  while ((hMatch = hRegex.exec(cleaned)) !== null) {
+    const text = decodeEntities(hMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
     if (text.length > 3 && text.length < 120 && !/cookies|men[uú]|login|iniciar|buscar|search/i.test(text)) {
       headings.push(text);
     }
@@ -1603,9 +1530,10 @@ export function cleanScrapedHtmlText(html: string): {
 
   // Extract paragraphs
   const paragraphs: string[] = [];
-  const pMatches = cleaned.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi);
-  for (const match of pMatches) {
-    const text = decodeEntities(match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+  const pRegex = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
+  let pMatch: RegExpExecArray | null;
+  while ((pMatch = pRegex.exec(cleaned)) !== null) {
+    const text = decodeEntities(pMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
     if (text.length > 25 && !/cookies|pol[ií]tica de privacidad|todos los derechos reservados|copyright/i.test(text)) {
       paragraphs.push(text);
     }
