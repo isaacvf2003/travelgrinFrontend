@@ -1037,67 +1037,6 @@ async function enrichWithLiveGoogleMapsAndSearch(
     extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
   }
 
-  // Fast targeted Search fallback (timeout 1400ms) only if founding year or ratings are still completely missing
-  if ((!extracted.detectedRating || !extracted.detectedFoundingYear) && cleanName) {
-    try {
-      const webQuery = !extracted.detectedFoundingYear
-        ? `"${officialFullName || cleanName}" ("fundación" OR "fundado en" OR "inicio de actividades" OR "creada por ley" OR "historia" OR "Google Maps")`
-        : `"${officialFullName || cleanName}" ("sede central" OR "${city}") "Google Maps"`;
-      const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(webQuery)}`;
-      const res = await fetchWithTimeout(
-        searchUrl,
-        {
-          headers: {
-            "User-Agent": userAgent,
-            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "es-ES,es;q=0.9",
-          },
-        },
-        1400
-      );
-      if (res.ok) {
-        const rawHtml = await res.text();
-        const plainText = rawHtml.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
-        if (!extracted.detectedCommentsUrl) {
-          const gmapsMatch = rawHtml.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/place\/[^\s"'<>]+|maps\.app\.goo\.gl\/[^\s"'<>]+|goo\.gl\/maps\/[^\s"'<>]+)/i);
-          if (gmapsMatch && gmapsMatch[0]) {
-            extracted.detectedCommentsUrl = decodeURIComponent(gmapsMatch[0].replace(/&amp;/g, "&"));
-            if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
-          }
-        }
-        if (!extracted.detectedRating) {
-          const rMatch = plainText.match(/(?:calificaci[oó]n|valoraci[oó]n|rating)\s*:?\s*([1-5][.,]\d)\s*(?:\/|de)?\s*5?\s*(?:estrellas?|⭐|★)?/i) ||
-            plainText.match(/([1-5][.,]\d)\s*(?:[★⭐☆*]+|estrellas?|\/5)/i);
-          if (rMatch && rMatch[1]) {
-            const num = parseFloat(rMatch[1].replace(",", "."));
-            if (!isNaN(num) && num >= 1 && num <= 5) extracted.detectedRating = num.toFixed(1);
-          }
-        }
-        if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
-          const cMatch = plainText.match(/(?:\(\s*|[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews)\b/i);
-          if (cMatch && cMatch[1]) {
-            let countRaw = cMatch[1].replace(/,/g, ".");
-            let isThousand = /k|mil/i.test(cMatch[0]);
-            let numCount = parseFloat(countRaw);
-            if (isThousand) numCount = numCount * 1000;
-            const parsedCount = Math.round(numCount);
-            if (!isNaN(parsedCount) && parsedCount > 0) extracted.detectedReviewCount = String(parsedCount);
-          }
-        }
-        if (!extracted.detectedFoundingYear) {
-          const currentYear = new Date().getFullYear();
-          const startYearMatch = plainText.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|inicio\s+de\s+actividades|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i);
-          if (startYearMatch && startYearMatch[1]) {
-            const numYr = parseInt(startYearMatch[1], 10);
-            if (!isNaN(numYr) && numYr >= 1600 && numYr <= currentYear) {
-              extracted.detectedFoundingYear = String(numYr);
-            }
-          }
-        }
-      }
-    } catch {}
-  }
-
   // Fallback to official Google Maps query link if no direct Place link was discovered
   if (!extracted.detectedCommentsUrl) {
     const parts = [officialFullName || cleanName, mainAddress, city, country].filter(Boolean);
@@ -5360,19 +5299,30 @@ async function processUrlWithAI(
     };
   }
 
-  // 2, 3 & 4. Run Title, Description, Provider Info, and Closed-Catalog Taxonomy Agents in parallel with fallback
+  // 2, 3 & 4. Run Title, Description, Provider Info, Taxonomy and Custom Blocks all in ONE parallel Promise.all
   let titleAgentRes: any;
   let descAgentRes: any;
   let providerInfoRes: any;
   let taxonomyRes: any;
+  let customBlockResults: ExtraDescriptionBlock[] = [];
+
+  const validCustomBlocks = Array.isArray(customBlocks) && customBlocks.length > 0
+    ? customBlocks.filter((cb) => cb && cb.title && cb.title.trim())
+    : [];
 
   try {
-    [titleAgentRes, descAgentRes, providerInfoRes, taxonomyRes] = await Promise.all([
+    const [tRes, dRes, pRes, taxRes, ...cbResults] = await Promise.all([
       runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt),
       runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt),
       runProviderInfoAgent(cleanContext),
       runTaxonomyAgent(cleanContext, taxonomies),
+      ...validCustomBlocks.map((cb) => runCustomBlockAgent(cleanContext, cb.title, cb.prompt)),
     ]);
+    titleAgentRes = tRes;
+    descAgentRes = dRes;
+    providerInfoRes = pRes;
+    taxonomyRes = taxRes;
+    customBlockResults = cbResults;
   } catch (agentErr: any) {
     console.warn(`[AI Scraper] AI agent execution failed for ${url}, falling back to grounded extraction:`, agentErr?.message);
     const fallbackPub = await createFallbackPublication(
@@ -5458,12 +5408,8 @@ async function processUrlWithAI(
     extraDescriptions.push(scoreBlock);
   }
 
-  // Custom Blocks requested by admin (executed in parallel)
-  if (Array.isArray(customBlocks) && customBlocks.length > 0) {
-    const validCustomBlocks = customBlocks.filter((cb) => cb && cb.title && cb.title.trim());
-    const customBlockResults = await Promise.all(
-      validCustomBlocks.map((cb) => runCustomBlockAgent(cleanContext, cb.title, cb.prompt))
-    );
+  // Custom Blocks already generated in the parallel roundtrip
+  if (customBlockResults.length > 0) {
     extraDescriptions.push(...customBlockResults);
   }
 
