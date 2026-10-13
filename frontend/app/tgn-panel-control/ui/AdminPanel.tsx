@@ -1602,6 +1602,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     scrapedTextContent?: string;
     rawPageTitle?: string;
   }>({});
+  const isManualForm = activeDraftQueueIndex === null && !Boolean(activeScrapedFactsRef.current.rawPageTitle);
   const [pProviderInfoI18n, setPProviderInfoI18n] = useState<I18nRecord>({ es: "" });
   const [pProviderRating, setPProviderRating] = useState("4");
   const [pProviderReviewCount, setPProviderReviewCount] = useState("0");
@@ -3943,6 +3944,51 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       currentTitleValue,
       initialPrompt,
       blockIndex,
+    });
+  };
+
+  const handleAddCustomSavedBlocks = () => {
+    let customList: Array<{ title: string; prompt?: string }> = [];
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_scraper_blocks") : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) customList = parsed;
+      }
+    } catch {}
+
+    if (!customList.length) {
+      alert("No hay bloques personalizados creados en el sistema.");
+      return;
+    }
+
+    setPExtraDescriptions((prev) => {
+      const existingTitles = new Set(prev.map((b) => b.title.trim().toLowerCase()));
+      const toAdd: ExtraDescription[] = [];
+
+      customList.forEach((c) => {
+        const titleClean = String(c.title || "").trim();
+        if (titleClean && !existingTitles.has(titleClean.toLowerCase())) {
+          existingTitles.add(titleClean.toLowerCase());
+          toAdd.push({
+            title: titleClean,
+            body: "",
+            titleI18n: { es: titleClean },
+            bodyI18n: { es: "" },
+            lang: "es",
+            visibleInCard: false,
+            prompt: c.prompt,
+          });
+        }
+      });
+
+      if (!toAdd.length) {
+        alert("Todos los bloques guardados ya están presentes en esta publicación.");
+        return prev;
+      }
+
+      setSaveMessage(`✨ Se agregaron ${toAdd.length} bloque(s) guardado(s) con sus títulos.`);
+      return [...prev, ...toAdd];
     });
   };
 
@@ -9121,20 +9167,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <div className="flex items-center justify-between gap-2">
                 <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={directRefiningField === "provider_info"}
-                    onClick={() => handleDirectReformulateField("provider_info")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs disabled:opacity-60"
-                    title="Reformular información del oferente con IA"
-                  >
-                    {directRefiningField === "provider_info" ? (
-                      <RotateCw className="h-3.5 w-3.5 text-purple-600 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                    )}
-                    <span>{directRefiningField === "provider_info" ? "Reformulando..." : "Reformular con IA"}</span>
-                  </button>
+                  {!isManualForm ? (
+                    <button
+                      type="button"
+                      disabled={directRefiningField === "provider_info"}
+                      onClick={() => handleDirectReformulateField("provider_info")}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs disabled:opacity-60"
+                      title="Reformular información del oferente con IA"
+                    >
+                      {directRefiningField === "provider_info" ? (
+                        <RotateCw className="h-3.5 w-3.5 text-purple-600 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                      )}
+                      <span>{directRefiningField === "provider_info" ? "Reformulando..." : "Reformular con IA"}</span>
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     disabled={translatingField === "providerInfo"}
@@ -9411,20 +9459,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     Título de la publicación <span className="font-bold text-[#007D92]">({pLang.toUpperCase()})</span>
                   </label>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={directRefiningField === "title"}
-                      onClick={() => handleDirectReformulateField("title")}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs disabled:opacity-60"
-                      title="Reformular título con IA"
-                    >
-                      {directRefiningField === "title" ? (
-                        <RotateCw className="h-3.5 w-3.5 text-purple-600 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                      )}
-                      <span>{directRefiningField === "title" ? "Reformulando..." : "Reformular con IA"}</span>
-                    </button>
+                    {!isManualForm ? (
+                      <button
+                        type="button"
+                        disabled={directRefiningField === "title"}
+                        onClick={() => handleDirectReformulateField("title")}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs disabled:opacity-60"
+                        title="Reformular título con IA"
+                      >
+                        {directRefiningField === "title" ? (
+                          <RotateCw className="h-3.5 w-3.5 text-purple-600 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                        )}
+                        <span>{directRefiningField === "title" ? "Reformulando..." : "Reformular con IA"}</span>
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       disabled={translatingField === "title"}
@@ -9495,20 +9545,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     setPLang(l);
                     setEditingLang(l);
                   })}
-                  <button
-                    type="button"
-                    disabled={directRefiningField === "description"}
-                    onClick={() => handleDirectReformulateField("description")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs disabled:opacity-60"
-                    title="Reformular descripción con IA"
-                  >
-                    {directRefiningField === "description" ? (
-                      <RotateCw className="h-3.5 w-3.5 text-purple-600 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                    )}
-                    <span>{directRefiningField === "description" ? "Reformulando..." : "Reformular con IA"}</span>
-                  </button>
+                  {!isManualForm ? (
+                    <button
+                      type="button"
+                      disabled={directRefiningField === "description"}
+                      onClick={() => handleDirectReformulateField("description")}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs disabled:opacity-60"
+                      title="Reformular descripción con IA"
+                    >
+                      {directRefiningField === "description" ? (
+                        <RotateCw className="h-3.5 w-3.5 text-purple-600 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                      )}
+                      <span>{directRefiningField === "description" ? "Reformulando..." : "Reformular con IA"}</span>
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     disabled={translatingField === "description"}
@@ -9559,14 +9611,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-slate-900">Descripción opcional</div>
                 <div className="flex items-center gap-2">
+                  {!isManualForm ? (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAiRefineModal("new_extra_block")}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
+                      title="Crear un bloque adicional con IA"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                      <span>+ Crear bloque con IA</span>
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => handleOpenAiRefineModal("new_extra_block")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
-                    title="Crear un bloque adicional con IA"
+                    onClick={handleAddCustomSavedBlocks}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 cursor-pointer shadow-xs"
+                    title="Cargar bloques personalizados guardados"
                   >
-                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                    <span>+ Crear bloque con IA</span>
+                    + Cargar bloques guardados
                   </button>
                   <button
                     type="button"
@@ -9590,20 +9652,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={directRefiningField === `extra-${idx}`}
-                            onClick={() => handleDirectReformulateField({ type: "extra_block", index: idx })}
-                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs disabled:opacity-60"
-                            title="Reformular este bloque con IA"
-                          >
-                            {directRefiningField === `extra-${idx}` ? (
-                              <RotateCw className="h-3 w-3 text-purple-600 animate-spin" />
-                            ) : (
-                              <Sparkles className="h-3 w-3 text-purple-600" />
-                            )}
-                            <span>{directRefiningField === `extra-${idx}` ? "Reformulando..." : "Reformular con IA"}</span>
-                          </button>
+                          {!isManualForm ? (
+                            <button
+                              type="button"
+                              disabled={directRefiningField === `extra-${idx}`}
+                              onClick={() => handleDirectReformulateField({ type: "extra_block", index: idx })}
+                              className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs disabled:opacity-60"
+                              title="Reformular este bloque con IA"
+                            >
+                              {directRefiningField === `extra-${idx}` ? (
+                                <RotateCw className="h-3 w-3 text-purple-600 animate-spin" />
+                              ) : (
+                                <Sparkles className="h-3 w-3 text-purple-600" />
+                              )}
+                              <span>{directRefiningField === `extra-${idx}` ? "Reformulando..." : "Reformular con IA"}</span>
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             disabled={translatingField === `extra-${idx}`}
