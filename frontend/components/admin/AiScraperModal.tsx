@@ -559,8 +559,8 @@ export default function AiScraperModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 my-8">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-5 md:p-6 overflow-y-auto">
+      <div className="w-full max-w-4xl rounded-2xl bg-white p-4 sm:p-6 shadow-2xl border border-slate-200 my-4 sm:my-8">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div>
@@ -1228,6 +1228,58 @@ export default function AiScraperModal({
                       <span className="font-semibold block text-slate-800">Imágenes</span>
                       {draft.images?.length || 0} imagen(es)
                     </div>
+                  </div>
+
+                  {/* Bloques de Descripción Adicionales / Creados con IA */}
+                  <div className="rounded-xl border border-purple-100 bg-purple-50/40 p-3 text-xs space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="font-bold text-purple-900 flex items-center gap-1.5 text-xs">
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                        Bloques creados / opcionales ({draft.extraDescriptions?.length || 0}):
+                      </span>
+                      {(!draft.extraDescriptions || draft.extraDescriptions.length === 0) && (
+                        <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                          ⚠️ Sin bloques adicionales cargados
+                        </span>
+                      )}
+                    </div>
+
+                    {draft.extraDescriptions && draft.extraDescriptions.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {draft.extraDescriptions.map((blk, blkIdx) => {
+                          const blkTitle = blk.titleI18n?.es || blk.title || `Bloque ${blkIdx + 1}`;
+                          const blkBody = blk.bodyI18n?.es || blk.body || "";
+                          const isLoaded = Boolean(blkBody && blkBody.trim().length > 10);
+                          const wordCount = blkBody.replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length;
+
+                          return (
+                            <div
+                              key={`draft-blk-${blkIdx}-${blkTitle}`}
+                              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium shadow-2xs ${
+                                isLoaded
+                                  ? "border-emerald-200 bg-white text-emerald-800"
+                                  : "border-amber-200 bg-amber-50 text-amber-800"
+                              }`}
+                              title={isLoaded ? `Vista previa: ${blkBody.slice(0, 150)}...` : "Bloque sin contenido generado"}
+                            >
+                              <span className="font-semibold text-slate-800">{blkTitle}:</span>
+                              {isLoaded ? (
+                                <span className="inline-flex items-center gap-1 font-bold text-emerald-600">
+                                  <span>✓ OK</span>
+                                  <span className="text-[10px] text-emerald-600/70 font-normal">({wordCount} palabras)</span>
+                                </span>
+                              ) : (
+                                <span className="font-bold text-amber-600">⚠️ Error / Vacío</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500">
+                        Esta publicación no tiene bloques adicionales cargados. Podés agregar bloques antes del scraping o desde el formulario principal con IA.
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
