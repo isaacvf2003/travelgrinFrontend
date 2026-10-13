@@ -4238,7 +4238,7 @@ function extractJsonFromModelResponse(text: string): any {
 }
 
 async function callGeminiApi(prompt: string, apiKey: string) {
-  const models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.5-flash", "gemini-1.5-flash-latest"];
+  const models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-8b", "gemini-1.5-pro"];
   let lastError: any = null;
 
   for (const model of models) {

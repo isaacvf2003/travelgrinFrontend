@@ -26,39 +26,98 @@ interface RefineFieldRequest {
 }
 
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
-  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-latest"];
+  const candidateModels = [
+    "gemini-1.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-1.5-pro",
+  ];
   let lastError: any = null;
 
-  for (const model of models) {
-    try {
-      const res = await fetch(
+  const tryModel = async (model: string): Promise<string | null> => {
+    const payload = {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json",
+      },
+    };
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(25000),
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      return text.replace(/```json\s*|```/gi, "").trim();
+    } else if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 400));
+      const retryRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: AbortSignal.timeout(25000),
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.2,
-              responseMimeType: "application/json",
-            },
-          }),
+          body: JSON.stringify(payload),
         }
       );
-      if (res.ok) {
-        const data = await res.json();
+      if (retryRes.ok) {
+        const data = await retryRes.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
         return text.replace(/```json\s*|```/gi, "").trim();
-      } else {
-        const errText = await res.text();
-        lastError = new Error(`Gemini (${model}): ${errText}`);
       }
+      const errText = await retryRes.text();
+      lastError = new Error(`Gemini (${model}): ${errText}`);
+    } else {
+      const errText = await res.text();
+      lastError = new Error(`Gemini (${model}): ${errText}`);
+    }
+    return null;
+  };
+
+  for (const model of candidateModels) {
+    try {
+      const result = await tryModel(model);
+      if (result) return result;
     } catch (e: any) {
       lastError = e;
     }
   }
-  throw lastError || new Error("No se pudo obtener respuesta de Gemini.");
+
+  // Dynamic discovery via ListModels if all fixed models fail
+  try {
+    const listRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { signal: AbortSignal.timeout(7000) }
+    );
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      const available = (listData.models || [])
+        .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
+        .map((m: any) => m.name.replace(/^models\//, ""))
+        .filter((m: string) => !candidateModels.includes(m));
+
+      for (const model of available) {
+        try {
+          const result = await tryModel(model);
+          if (result) return result;
+        } catch (e: any) {
+          lastError = e;
+        }
+      }
+    }
+  } catch (e) {
+    console.error("ListModels discovery fallback error:", e);
+  }
+
+  throw lastError || new Error("No se pudo obtener respuesta de Gemini con tu API Key.");
 }
 
 async function callOpenAI(prompt: string, apiKey: string): Promise<string> {
