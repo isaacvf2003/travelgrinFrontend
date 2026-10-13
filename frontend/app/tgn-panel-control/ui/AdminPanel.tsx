@@ -2,13 +2,14 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, Trash2, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
 import CountryMultiSelect from "@/components/CountryMultiSelect";
 import RichTextEditor from "@/components/RichTextEditor";
 import AiScraperModal, { type ScrapedPublicationDraft } from "@/components/admin/AiScraperModal";
+import AiFieldRefineModal, { type RefineFieldType } from "@/components/AiFieldRefineModal";
 import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
@@ -1576,9 +1577,27 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     bodyI18n: I18nRecord;
     lang: Lang;
     visibleInCard?: boolean;
+    prompt?: string;
   };
   const [pExtraDescriptions, setPExtraDescriptions] = useState<ExtraDescription[]>([]);
   const [pProviderInfoLang, setPProviderInfoLang] = useState<Lang>("es");
+  const [aiRefineState, setAiRefineState] = useState<{
+    isOpen: boolean;
+    fieldType: RefineFieldType;
+    currentValue?: string;
+    currentTitleValue?: string;
+    initialPrompt?: string;
+    blockIndex?: number;
+  }>({
+    isOpen: false,
+    fieldType: "description",
+  });
+  const activeScrapedFactsRef = useRef<{
+    scrapedHeadings?: string[];
+    scrapedParagraphs?: string[];
+    scrapedTextContent?: string;
+    rawPageTitle?: string;
+  }>({});
   const [pProviderInfoI18n, setPProviderInfoI18n] = useState<I18nRecord>({ es: "" });
   const [pProviderRating, setPProviderRating] = useState("4");
   const [pProviderReviewCount, setPProviderReviewCount] = useState("0");
@@ -3010,6 +3029,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   }
 
   const applyAiDraftToForm = (draft: ScrapedPublicationDraft) => {
+    activeScrapedFactsRef.current = {
+      scrapedHeadings: (draft as any).scrapedHeadings,
+      scrapedParagraphs: (draft as any).scrapedParagraphs,
+      scrapedTextContent: (draft as any).scrapedTextContent,
+      rawPageTitle: (draft as any).rawPageTitle,
+    };
     const cleanTitleStr = (s: string) => {
       if (!s) return "";
       let res = s
@@ -3539,6 +3564,151 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       console.error("Error approving AI draft directly:", err);
       return false;
     }
+  };
+
+  const handleOpenAiRefineModal = (
+    fieldType: RefineFieldType,
+    blockIndex?: number
+  ) => {
+    const sourceLang = pLang || "es";
+    let currentValue = "";
+    let currentTitleValue = "";
+    let initialPrompt = "";
+
+    if (fieldType === "title") {
+      currentValue = (pTitleI18n[sourceLang] || (sourceLang === "es" ? pTitle : "") || pTitleI18n.es || "").trim();
+      initialPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_title_prompt") : null) || "";
+    } else if (fieldType === "description") {
+      currentValue = (pDescriptionI18n[sourceLang] || (sourceLang === "es" ? pDescription : "") || pDescriptionI18n.es || "").trim();
+      initialPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) || "";
+    } else if (fieldType === "provider_info") {
+      currentValue = (pProviderInfoI18n[sourceLang] || pProviderInfoI18n.es || "").trim();
+      initialPrompt = "Mejorar la descripción institucional y trayectoria del oferente";
+    } else if (fieldType === "extra_block" && typeof blockIndex === "number") {
+      const block = pExtraDescriptions[blockIndex];
+      currentTitleValue = (block?.titleI18n?.[sourceLang] || block?.titleI18n?.es || block?.title || "").trim();
+      currentValue = (block?.bodyI18n?.[sourceLang] || block?.bodyI18n?.es || block?.body || "").trim();
+      initialPrompt = (block as any)?.prompt || "";
+      if (!initialPrompt && typeof window !== "undefined") {
+        try {
+          const rawBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
+          if (rawBlocks) {
+            const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawBlocks);
+            const found = list.find((b) => b.title?.toLowerCase() === currentTitleValue.toLowerCase());
+            if (found?.prompt) initialPrompt = found.prompt;
+          }
+        } catch {}
+      }
+    } else if (fieldType === "new_extra_block") {
+      currentValue = "";
+      currentTitleValue = "";
+      initialPrompt = "";
+    }
+
+    setAiRefineState({
+      isOpen: true,
+      fieldType,
+      currentValue,
+      currentTitleValue,
+      initialPrompt,
+      blockIndex,
+    });
+  };
+
+  const handleApplyAiRefinement = (data: {
+    resultText: string;
+    resultTitle?: string;
+    translations?: {
+      es?: string;
+      en?: string;
+      pt?: string;
+      it?: string;
+      titleI18n?: Record<string, string>;
+      bodyI18n?: Record<string, string>;
+    };
+    blockIndex?: number;
+    promptUsed?: string;
+  }) => {
+    const { resultText, resultTitle, translations, blockIndex, promptUsed } = data;
+    const sourceLang = pLang || "es";
+
+    if (aiRefineState.fieldType === "title") {
+      if (translations && (translations.en || translations.pt || translations.it)) {
+        setPTitleI18n((prev) => ({
+          ...prev,
+          ...translations,
+          [sourceLang]: resultText,
+          ...(sourceLang === "es" ? { es: resultText } : {}),
+        }));
+      } else {
+        setPTitleI18n((prev) => ({ ...prev, [sourceLang]: resultText }));
+      }
+      if (sourceLang === "es" || !pTitle) setPTitle(resultText);
+    } else if (aiRefineState.fieldType === "description") {
+      if (translations && (translations.en || translations.pt || translations.it)) {
+        setPDescriptionI18n((prev) => ({
+          ...prev,
+          ...translations,
+          [sourceLang]: resultText,
+          ...(sourceLang === "es" ? { es: resultText } : {}),
+        }));
+      } else {
+        setPDescriptionI18n((prev) => ({
+          ...prev,
+          [sourceLang]: resultText,
+          ...(sourceLang === "es" ? { es: resultText } : {}),
+        }));
+      }
+      if (sourceLang === "es" || !pDescription) setPDescription(resultText);
+    } else if (aiRefineState.fieldType === "provider_info") {
+      if (translations && (translations.en || translations.pt || translations.it)) {
+        setPProviderInfoI18n((prev) => ({
+          ...prev,
+          ...translations,
+          [sourceLang]: resultText,
+          ...(sourceLang === "es" ? { es: resultText } : {}),
+        }));
+      } else {
+        setPProviderInfoI18n((prev) => ({ ...prev, [sourceLang]: resultText }));
+      }
+    } else if (aiRefineState.fieldType === "extra_block" && typeof blockIndex === "number") {
+      setPExtraDescriptions((prev) =>
+        prev.map((d, i) => {
+          if (i !== blockIndex) return d;
+          const nextTitleI18n = translations?.titleI18n
+            ? { ...(d.titleI18n || {}), ...translations.titleI18n, [sourceLang]: resultTitle || d.titleI18n?.[sourceLang] || "" }
+            : { ...(d.titleI18n || {}), [sourceLang]: resultTitle || d.titleI18n?.[sourceLang] || "" };
+          const nextBodyI18n = translations?.bodyI18n
+            ? { ...(d.bodyI18n || {}), ...translations.bodyI18n, [sourceLang]: resultText }
+            : { ...(d.bodyI18n || {}), [sourceLang]: resultText };
+          return {
+            ...d,
+            title: sourceLang === "es" && resultTitle ? resultTitle : (d.title || nextTitleI18n.es || resultTitle || ""),
+            body: sourceLang === "es" ? resultText : (d.body || nextBodyI18n.es || resultText),
+            titleI18n: nextTitleI18n,
+            bodyI18n: nextBodyI18n,
+            prompt: promptUsed || d.prompt,
+          };
+        })
+      );
+    } else if (aiRefineState.fieldType === "new_extra_block") {
+      const newTitle = resultTitle || "Información adicional";
+      const tMap = translations?.titleI18n || { es: newTitle, en: newTitle, pt: newTitle, it: newTitle };
+      const bMap = translations?.bodyI18n || { es: resultText, en: resultText, pt: resultText, it: resultText };
+      setPExtraDescriptions((prev) => [
+        ...prev,
+        {
+          title: newTitle,
+          body: resultText,
+          titleI18n: tMap,
+          bodyI18n: bMap,
+          lang: "es",
+          visibleInCard: false,
+          prompt: promptUsed,
+        },
+      ]);
+    }
+    setAiRefineState((prev) => ({ ...prev, isOpen: false }));
   };
 
   async function deletePublication(id: string) {
@@ -8622,40 +8792,51 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-2">
                 <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
-                <button
-                  type="button"
-                  disabled={translatingField === "providerInfo"}
-                  onClick={async () => {
-                    const currentEs = pProviderInfoI18n.es;
-                    if (!currentEs) return;
-                    setTranslatingField("providerInfo");
-                    try {
-                      const res = await fetch("/api/admin/translate-i18n", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
-                      });
-                      const data = await res.json();
-                      if (data.translations) {
-                        setPProviderInfoI18n((prev) => ({
-                          ...prev,
-                          es: currentEs,
-                          en: data.translations.en || prev.en || currentEs,
-                          pt: data.translations.pt || prev.pt || currentEs,
-                          it: data.translations.it || prev.it || currentEs,
-                        }));
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAiRefineModal("provider_info")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
+                    title="Reformular información del oferente con IA"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span>Reformular con IA</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={translatingField === "providerInfo"}
+                    onClick={async () => {
+                      const currentEs = pProviderInfoI18n.es;
+                      if (!currentEs) return;
+                      setTranslatingField("providerInfo");
+                      try {
+                        const res = await fetch("/api/admin/translate-i18n", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                        });
+                        const data = await res.json();
+                        if (data.translations) {
+                          setPProviderInfoI18n((prev) => ({
+                            ...prev,
+                            es: currentEs,
+                            en: data.translations.en || prev.en || currentEs,
+                            pt: data.translations.pt || prev.pt || currentEs,
+                            it: data.translations.it || prev.it || currentEs,
+                          }));
+                        }
+                      } catch (err) {
+                        console.error("Translation error:", err);
+                      } finally {
+                        setTranslatingField(null);
                       }
-                    } catch (err) {
-                      console.error("Translation error:", err);
-                    } finally {
-                      setTranslatingField(null);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-                >
-                  <Languages className="h-3.5 w-3.5 text-cyan-600" />
-                  {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
-                </button>
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                  >
+                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                    {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                  </button>
+                </div>
               </div>
               <RichTextEditor
                 value={pProviderInfoI18n[pLang] ?? ""}
@@ -8896,40 +9077,51 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   <label className="text-sm font-medium text-slate-700">
                     Título de la publicación <span className="font-bold text-[#007D92]">({pLang.toUpperCase()})</span>
                   </label>
-                  <button
-                    type="button"
-                    disabled={translatingField === "title"}
-                    onClick={async () => {
-                      const currentEs = pTitleI18n.es || pTitle;
-                      if (!currentEs) return;
-                      setTranslatingField("title");
-                      try {
-                        const res = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
-                        });
-                        const data = await res.json();
-                        if (data?.translations) {
-                          setPTitleI18n((prev) => ({
-                            ...prev,
-                            es: currentEs,
-                            en: data.translations.en || prev.en || currentEs,
-                            pt: data.translations.pt || prev.pt || currentEs,
-                            it: data.translations.it || prev.it || currentEs,
-                          }));
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAiRefineModal("title")}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
+                      title="Reformular título con IA"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                      <span>Reformular con IA</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={translatingField === "title"}
+                      onClick={async () => {
+                        const currentEs = pTitleI18n.es || pTitle;
+                        if (!currentEs) return;
+                        setTranslatingField("title");
+                        try {
+                          const res = await fetch("/api/admin/translate-i18n", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
+                          });
+                          const data = await res.json();
+                          if (data?.translations) {
+                            setPTitleI18n((prev) => ({
+                              ...prev,
+                              es: currentEs,
+                              en: data.translations.en || prev.en || currentEs,
+                              pt: data.translations.pt || prev.pt || currentEs,
+                              it: data.translations.it || prev.it || currentEs,
+                            }));
+                          }
+                        } catch (err) {
+                          console.error("Translation error:", err);
+                        } finally {
+                          setTranslatingField(null);
                         }
-                      } catch (err) {
-                        console.error("Translation error:", err);
-                      } finally {
-                        setTranslatingField(null);
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-                  >
-                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
-                    {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
-                  </button>
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                    >
+                      <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                      {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                    </button>
+                  </div>
                 </div>
                 <input
                   value={pTitleI18n[pLang] ?? ""}
@@ -8965,6 +9157,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     setPLang(l);
                     setEditingLang(l);
                   })}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAiRefineModal("description")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
+                    title="Reformular descripción con IA"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span>Reformular con IA</span>
+                  </button>
                   <button
                     type="button"
                     disabled={translatingField === "description"}
@@ -9014,18 +9215,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <div className="grid gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-slate-900">Descripción opcional</div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPExtraDescriptions((prev) => [
-                      ...prev,
-                      { title: "", body: "", titleI18n: { es: "" }, bodyI18n: { es: "" }, lang: "es", visibleInCard: false },
-                    ])
-                  }
-                  className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  + Agregar bloque
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAiRefineModal("new_extra_block")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
+                    title="Crear un bloque adicional con IA"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span>+ Crear bloque con IA</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPExtraDescriptions((prev) => [
+                        ...prev,
+                        { title: "", body: "", titleI18n: { es: "" }, bodyI18n: { es: "" }, lang: "es", visibleInCard: false },
+                      ])
+                    }
+                    className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    + Agregar bloque
+                  </button>
+                </div>
               </div>
 
               {pExtraDescriptions.length ? (
@@ -9035,6 +9247,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
                         <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAiRefineModal("extra_block", idx)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-800 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer shadow-xs"
+                            title="Reformular este bloque con IA"
+                          >
+                            <Sparkles className="h-3 w-3 text-purple-600" />
+                            <span>Reformular con IA</span>
+                          </button>
                           <button
                             type="button"
                             disabled={translatingField === `extra-${idx}`}
@@ -10566,11 +10787,35 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       </section>
       ) : null}
       {confirmDeleteModalElement}
+      <AiFieldRefineModal
+        isOpen={aiRefineState.isOpen}
+        onClose={() => setAiRefineState((prev) => ({ ...prev, isOpen: false }))}
+        fieldType={aiRefineState.fieldType}
+        currentValue={aiRefineState.currentValue}
+        currentTitleValue={aiRefineState.currentTitleValue}
+        initialPrompt={aiRefineState.initialPrompt}
+        blockIndex={aiRefineState.blockIndex}
+        metadata={{
+          title: pTitleI18n.es || pTitle,
+          publisherName: pPublisherName,
+          category: pCategory,
+          city: pCity,
+          country: pCountry,
+          url: pWebsite,
+          scrapedHeadings: activeScrapedFactsRef.current.scrapedHeadings,
+          scrapedParagraphs: activeScrapedFactsRef.current.scrapedParagraphs,
+          scrapedTextContent: activeScrapedFactsRef.current.scrapedTextContent,
+          rawPageTitle: activeScrapedFactsRef.current.rawPageTitle,
+        }}
+        onApply={handleApplyAiRefinement}
+      />
       <AiScraperModal
         isOpen={aiModalOpen}
         onClose={() => setAiModalOpen(false)}
         onSelectDraftToEdit={applyAiDraftToForm}
         onApproveDirectly={handleApproveAiDraftDirectly}
+        categories={categories}
+        filterGroups={filterGroups}
       />
     </div>
   );
