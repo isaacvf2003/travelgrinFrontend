@@ -198,6 +198,7 @@ export async function POST(req: Request) {
       url = "",
       apiKey,
       provider = "auto",
+      variationIndex = 1,
       scrapedHeadings = [],
       scrapedParagraphs = [],
       scrapedTextContent = "",
