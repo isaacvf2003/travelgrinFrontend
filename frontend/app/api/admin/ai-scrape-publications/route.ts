@@ -5719,7 +5719,7 @@ export async function POST(req: Request) {
 
     const customTitlePrompt = typeof body.customTitlePrompt === "string" ? body.customTitlePrompt.trim() : undefined;
     const customDescriptionPrompt = typeof body.customDescriptionPrompt === "string" ? body.customDescriptionPrompt.trim() : undefined;
-    const includeScoreScout = body.includeScoreScout === true;
+    const includeScoreScout = body.includeScoreScout !== false;
 
     const customKey = String(body.apiKey || "").trim();
     const requestedProvider = String(body.provider || "auto").toLowerCase();
