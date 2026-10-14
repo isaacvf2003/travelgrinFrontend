@@ -4145,8 +4145,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     window.setTimeout(() => publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     setPTourismType("receptivo");
     setEditingId(pub.id);
-    setPTitle(pub.title ?? "");
-    setPTitleI18n(pub.titleI18n ?? { es: pub.title ?? "" });
+    const cleanInitialTitle = pub.title && !/^(?:sin[-_\s]*datos|sin[-_\s]*t[ií]tulo)$/i.test(String(pub.title).trim())
+      ? pub.title
+      : pub.publisherName
+      ? `Publicación de ${pub.publisherName}`
+      : "";
+    setPTitle(cleanInitialTitle);
+    setPTitleI18n(
+      pub.titleI18n?.es && !/^(?:sin[-_\s]*datos|sin[-_\s]*t[ií]tulo)$/i.test(String(pub.titleI18n.es).trim())
+        ? pub.titleI18n
+        : { es: cleanInitialTitle }
+    );
     setPDescription(pub.description ?? "");
     setPDescriptionI18n(pub.descriptionI18n ?? { es: pub.description ?? "" });
     setPPublisherName(pub.publisherName ?? "");
@@ -11019,7 +11028,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-700">partner</span>
                       ) : null}
                     </div>
-                    <div className="mt-2 text-base font-semibold text-slate-900">{normalizeVisibleText(p.title)}</div>
+                    <div className="mt-2 text-base font-semibold text-slate-900">
+                      {normalizeVisibleText(
+                        !p.title || /^(?:sin[-_\s]*datos|sin[-_\s]*t[ií]tulo)$/i.test(String(p.title).trim())
+                          ? p.publisherName
+                            ? `Publicación de ${p.publisherName}`
+                            : "Publicación de establecimiento"
+                          : p.title
+                      )}
+                    </div>
                     <div className="mt-1 text-xs text-slate-500">
                       Oferente: {normalizeVisibleText(p.publisherName || "Sin nombre")} · Email: {normalizeVisibleText(String((p.fields as any)?.providerEmail ?? "-"))}
                     </div>
