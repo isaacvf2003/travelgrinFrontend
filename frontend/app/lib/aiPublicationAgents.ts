@@ -1116,8 +1116,12 @@ export async function runTaxonomyAgent(
     languages?: string[];
   }
 ): Promise<AgentResult<TaxonomyAgentData>> {
-  const categoriesPool = taxonomies?.categories || [];
-  const subcategoriesPool = taxonomies?.subcategories || [];
+  const allParentCategoriesFromTree = (taxonomies?.categoryTree || []).flatMap((b) => b.parentCategories.map((p) => p.name));
+  const categoriesPool = Array.from(new Set([...(taxonomies?.categories || []), ...allParentCategoriesFromTree].filter(Boolean)));
+
+  const allSubcategoriesFromTree = (taxonomies?.categoryTree || []).flatMap((b) => b.parentCategories.flatMap((p) => p.subcategories));
+  const subcategoriesPool = Array.from(new Set([...(taxonomies?.subcategories || []), ...allSubcategoriesFromTree].filter(Boolean)));
+
   const activitiesPool = taxonomies?.activities || [];
   const typesPool = taxonomies?.types || [];
   const modalitiesPool = taxonomies?.modalities || [];
@@ -1152,17 +1156,17 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
    - Está TERMINANTEMENTE PROHIBIDO crear, inventar, traducir o proponer nombres de categorías, subcategorías, actividades, tipos de perfil o modalidades que NO figuren explícitamente en el catálogo suministrado.
    - Debes elegir ÚNICAMENTE elementos existentes en las listas provistas a continuación.
 2. CATEGORÍAS Y SUBCATEGORÍAS PERTINENTES (SELECCIÓN MÚLTIPLE):
-   - 'categorySelections': Array con 1 o más categorías padre del catálogo oficial cerrado que correspondan genuinamente al oferente y a lo que ofrece. Puedes seleccionar MÁS DE UNA si el oferente abarca múltiples categorías del catálogo.
-   - 'subcategorySelections': Array con TODAS las subcategorías válidas (hijas de las categorías padre seleccionadas) que correspondan a sus servicios o actividad. NO te limites a una sola: selecciona todas las subcategorías del catálogo que correspondan al oferente (selección múltiple de subcategorías).
+   - 'categorySelections': Array con 1 o más categorías padre del catálogo oficial cerrado que correspondan genuinamente al oferente y a lo que ofrece según la web. Debes seleccionar las que sean verdaderamente relevantes.
+   - 'subcategorySelections': Array con las subcategorías válidas (hijas de las categorías padre seleccionadas) que correspondan a sus servicios o actividad según la web. Si ninguna subcategoría aplica a lo que ofrece la web, devuelve array vacío []. NO inventes ni fuerces subcategorías que no correspondan.
    - 'category': La categoría principal (primer elemento de 'categorySelections').
-   - 'subcategory': La subcategoría principal (primer elemento de 'subcategorySelections').
+   - 'subcategory': La subcategoría principal (primer elemento de 'subcategorySelections' o "" si no aplica ninguna).
 3. SECTOR DE QUIEN OFRECE / ACTIVIDAD ('providerActivities'):
-   - Selecciona 1 o más actividades ÚNICAMENTE de la lista 'ACTIVIDADES DISPONIBLES EN BD' (correspondiente al sector económico o industria, ej. tecnología, servicios, finanzas, etc.).
+   - Selecciona 1 o más actividades ÚNICAMENTE de la lista 'ACTIVIDADES DISPONIBLES EN BD' (correspondiente a la actividad o sector económico real del sitio web, ej. si es universidad -> Educación y formación; si es software/tech -> Tecnología, software e información; si es clínica/salud -> Salud y asistencia social; si es legal/consultoría -> Servicios profesionales y técnicos; si es turismo -> Hostelería, alojamiento y turismo; etc.).
    - PROHIBIDO TERMINANTEMENTE colocar tipos de oferente como "Empresa", "Institución privada" u "Organismo público" en actividades. "Empresa" NO es una actividad; es un tipo de perfil.
 4. QUIÉN LO OFRECE / TIPO DE OFERENTE ('providerTypes'):
-   - Selecciona de la lista 'TIPOS DE PERFIL DISPONIBLES EN BD' (ej: "Empresa", "Institución privada", "Organismo público", etc.).
+   - Selecciona de la lista 'TIPOS DE PERFIL DISPONIBLES EN BD' (ej: "Empresa", "Institución privada", "Organismo público", "Profesional independiente", etc.) analizando quién es el propietario o responsable del sitio web.
 5. MODALIDADES DE ATENCIÓN ('providerModalities'):
-   - Selecciona de la lista 'MODALIDADES DISPONIBLES' (ej: "Atención presencial", "Atención online") según lo que ofrezca el sitio.
+   - Selecciona de la lista 'MODALIDADES DISPONIBLES EN BD' (ej: "Atención presencial", "Atención online", etc.) según cómo ofrece o presta sus servicios el sitio web (si tiene sedes físicas, oficinas o campus -> "Atención presencial"; si ofrece portal online, plataforma, trámites a distancia o contacto web -> "Atención online"; o ambas).
 8. PREVENCIÓN ESTRICTA DE FALSAS ONGs (REGLA MANDATORIA):
    - NUNCA clasifiques un sitio web como "ONG", "Fundación", "Organización sin fines de lucro" o tipo "ONG" a menos que demuestre explícitamente personería jurídica y condición estatutaria de entidad sin fines de lucro (ej. dominio .org no comercial con misión social comprobada).
    - Las universidades (como Universidad Siglo 21, UBA, etc.), empresas comerciales, startups, plataformas digitales, comercios, clínicas y academias privadas NO SON ONGs. Está TERMINANTEMENTE PROHIBIDO asignarles categorías, subcategorías o tipos de perfil de ONG.
@@ -1228,40 +1232,45 @@ Responde ÚNICAMENTE con un JSON con esta estructura exacta:
 }`;
 
   const snippet = [
-    (context.headings || []).slice(0, 10).join(" | "),
-    (context.paragraphs || []).slice(0, 8).join("\n"),
-    (context.mainText || "").slice(0, 5000),
+    (context.headings || []).slice(0, 15).join(" | "),
+    (context.paragraphs || []).slice(0, 12).join("\n"),
+    (context.mainText || "").slice(0, 8000),
   ]
     .filter(Boolean)
     .join("\n\n");
 
-  const userPrompt = `Analiza los siguientes datos y clasifica la publicación dentro del catálogo cerrado:
+  const userPrompt = `Lee con detenimiento e infórmate a fondo sobre lo que ofrece esta entidad en su web para clasificarla con máxima precisión en el catálogo cerrado:
 - URL: ${context.url}
 - Nombre Oferente / Organización: ${context.publisherName}
 - Título Detectado: ${context.rawPageTitle || ""}
 - Meta Descripción: ${context.metaDescription || ""}
-- Contenido relevante:
+- Ubicación: ${[context.city, context.country].filter(Boolean).join(", ")}
+- Contenido relevante y servicios detectados:
 ${snippet}
 
-Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes seleccionar más de una categoría y más de una subcategoría si corresponden al oferente.`;
+INSTRUCCIONES CLAVE DE SELECCIÓN:
+1. 'providerActivities': Selecciona la actividad o sector económico REAL de la organización de la lista de ACTIVIDADES DISPONIBLES EN BD (NUNCA pongas "Empresa", "Institución privada" ni tipos de perfil aquí).
+2. 'providerTypes': Selecciona el tipo de entidad REAL de la lista de TIPOS DE PERFIL DISPONIBLES EN BD.
+3. 'providerModalities': Selecciona la o las modalidades REALES ("Atención presencial" si tiene sede o local físico, "Atención online" si opera de forma digital o remota, o ambas).
+4. 'categorySelections': Selecciona la/s categoría/s del catálogo que mejor correspondan a lo que ofrece la entidad según su web.
+5. 'subcategorySelections': Selecciona ÚNICAMENTE las subcategorías (hijas de las categorías seleccionadas) que apliquen de verdad a sus servicios. Si ninguna subcategoría aplica, devuelve array vacío []. NO inventes ni fuerces subcategorías innecesarias.
+Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
 
   try {
     let parsed: any = null;
     let providerUsed = "semantic-catalog-engine";
 
-    if (context.apiKey) {
-      try {
-        const res = await executeModelCall(
-          systemPrompt,
-          userPrompt,
-          context.apiKey,
-          context.provider || "auto"
-        );
-        providerUsed = res.providerUsed;
-        parsed = extractJson(res.rawText);
-      } catch (errCall: any) {
-        console.warn(`[AI-AGENT-DEBUG: TaxonomyAgent] LLM call failed or unavailable, falling back to dynamic catalog evaluation: ${errCall.message}`);
-      }
+    try {
+      const res = await executeModelCall(
+        systemPrompt,
+        userPrompt,
+        context.apiKey,
+        context.provider || "auto"
+      );
+      providerUsed = res.providerUsed;
+      parsed = extractJson(res.rawText);
+    } catch (errCall: any) {
+      console.warn(`[AI-AGENT-DEBUG: TaxonomyAgent] LLM call failed or unavailable, falling back to dynamic catalog evaluation: ${errCall.message}`);
     }
 
     if (!parsed) {
@@ -1441,34 +1450,18 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
 
     let matchedSubs = matchToCatalogPool(rawSubcategories, validSubcatPool);
 
-    // Also score against extracted text to include any additional relevant subcategories that fit the entity
-    if (validSubcatPool.length > 0) {
+    // Only if the AI returned no subcategories at all, check if an exact subcategory phrase exists in the text
+    if (matchedSubs.length === 0 && rawSubcategories.length === 0 && validSubcatPool.length > 0) {
       for (const sub of validSubcatPool) {
         if (matchedSubs.includes(sub)) continue;
         if (!isAuthenticOng && isOngMatch(sub)) continue;
 
         const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        // Negative guardrail: If entity is health, NEVER match visa subcategories!
         if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(sNorm)) continue;
         if (isEducationalEntity && /visa|migra/i.test(sNorm)) continue;
 
-        const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
-        let matchScore = 0;
-
-        if (fullTextCorpus.includes(sNorm)) matchScore += 30;
-        for (const tok of sTokens) {
-          if (fullTextCorpus.includes(tok)) matchScore += 10;
-        }
-
-        // Semantic boost for student/university subcategories when analyzing educational institutions
-        if (isEducationalEntity && isStudentEduMatch(sub)) {
-          matchScore += 40;
-        }
-        if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga/i.test(sNorm)) {
-          matchScore += 50;
-        }
-
-        if (matchScore >= 20) {
+        // Require genuine presence of the full subcategory name in scraped text
+        if (sNorm.length >= 4 && fullTextCorpus.includes(sNorm)) {
           matchedSubs.push(sub);
         }
       }
@@ -1569,6 +1562,19 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       Array.isArray(parsed.providerModalities) ? parsed.providerModalities : [parsed.providerModalities],
       modalitiesPool
     );
+
+    if (matchedModalities.length === 0 && modalitiesPool.length > 0) {
+      const presencial = modalitiesPool.find((m) => /presencial/i.test(m));
+      const online = modalitiesPool.find((m) => /online|virtual/i.test(m));
+      const hasOnlineMention = /online|virtual|remoto|a distancia|zoom|meet|plataforma|app|web|portal|turnos/i.test(fullTextCorpus);
+      const hasPresencialMention = /sede|sedes|sucursal|sucursales|consultorio|consultorios|campus|ubicacion|direccion|atencion presencial|visitanos|delegacion|delegaciones/i.test(fullTextCorpus);
+      if (hasPresencialMention && presencial) matchedModalities.push(presencial);
+      if (hasOnlineMention && online) matchedModalities.push(online);
+      if (matchedModalities.length === 0) {
+        if (presencial) matchedModalities.push(presencial);
+        if (online) matchedModalities.push(online);
+      }
+    }
 
     const matchedPrestaciones = matchToCatalogPool(
       Array.isArray(parsed.prestaciones) ? parsed.prestaciones : [parsed.prestaciones],
