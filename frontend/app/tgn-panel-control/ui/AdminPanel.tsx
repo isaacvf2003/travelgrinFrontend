@@ -3066,7 +3066,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPTitle(titleEs);
     setPTitleI18n(titleI18nInit);
 
-    const pubName = cleanTitleStr(draft.publisherName || draft.title || "");
+    let pubName = cleanTitleStr(draft.publisherName || draft.title || "");
+    const GENERIC_PUB_REGEX = /^(?:home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal|sitio\s*oficial|p[aá]gina\s*(?:principal|oficial|de\s*inicio)?|web\s*oficial|portal(?:\s*oficial)?|login|acceso|contacto|novedades|art[ií]culo|untitled|sin\s*datos|no\s*disponible|n\/?a|oferente|establecimiento|empresa|instituci[oó]n)$/i;
+    if (GENERIC_PUB_REGEX.test(pubName.trim())) {
+      if (draft.url) {
+        try {
+          const hostParts = new URL(draft.url).hostname.replace(/^www\./, "").split(".").filter((p) => !/^(?:com|org|net|edu|gob|gov|ar|cl|uy|br|io|co|es|mx|lat|app|dev)$/i.test(p));
+          if (hostParts.length > 0) {
+            pubName = hostParts
+              .map((part) => (part.length <= 4 && /^[a-z]+$/i.test(part) ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()))
+              .join(" ");
+          } else {
+            pubName = "";
+          }
+        } catch {
+          pubName = "";
+        }
+      } else {
+        pubName = "";
+      }
+    }
     setPPublisherName(pubName);
 
     const descEs = draft.description || "";
@@ -3323,9 +3342,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       } else if (/hotel|hostel|alojamiento|posada|cabaña|resort|hospedaje/i.test(titleContext)) {
         const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
         if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
-      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra/i.test(titleContext)) {
+      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra|cbi|immi/i.test(titleContext)) {
         const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
         if (legalRoot) resolvedCategoryRoots.add(legalRoot.original);
+      } else if (/moda|indumentaria|ropa|textil|prendas|vestido|calzado/i.test(titleContext)) {
+        const fashionRoot = allRootsWithNorm.find((r) => /moda|dise[ñn]o|indumentaria|textil/i.test(r.norm));
+        if (fashionRoot) resolvedCategoryRoots.add(fashionRoot.original);
+      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi|entretenimiento|concierto|festival|cultura/i.test(titleContext)) {
+        const entRoot = allRootsWithNorm.find((r) => /entretenimiento|cultura|arte|espect[aá]culo|medio/i.test(r.norm));
+        if (entRoot) resolvedCategoryRoots.add(entRoot.original);
       }
     }
 
@@ -3411,13 +3436,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       } else if (/hotel|hostel|alojamiento|turismo|posada|resort/i.test(titleContext)) {
         const tourAct = actividadRoots.find((r) => /hosteler|turismo|alojamiento/i.test(r.description.toLowerCase()));
         resolvedActivities.add(tourAct ? tourAct.description : "Hostelería, alojamiento y turismo");
-      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra/i.test(titleContext)) {
+      } else if (/moda|indumentaria|ropa|textil|prendas|calzado/i.test(titleContext)) {
+        const fashionAct = actividadRoots.find((r) => /moda|dise[ñn]o/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(fashionAct ? fashionAct.description : "Moda y diseño");
+      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi|entretenimiento|concierto|festival|cultura|audiovisual/i.test(titleContext)) {
+        const entAct = actividadRoots.find((r) => /medio|cultura|entretenimiento/i.test(r.description.toLowerCase()));
+        resolvedActivities.add(entAct ? entAct.description : "Medios, cultura y entretenimiento");
+      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra|cbi|immi/i.test(titleContext)) {
         const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
         resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
       } else {
         const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
         resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
       }
+    }
+
+    const isLegalConsultingDraft = /abogad|estudio jur[ií]dico|notar|escriban|visas?|migra|residencia|ciudadan[ií]a|consultor[ií]a legal|cbi|immi/i.test(
+      `${draft.title} ${draft.publisherName || ""} ${draft.url || ""} ${draft.description || ""}`.toLowerCase()
+    );
+    if (isLegalConsultingDraft) {
+      resolvedActivities.delete("Bienes raíces");
+      resolvedActivities.delete("Servicios inmobiliarios y bienes raíces");
+      const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
+      if (profAct) resolvedActivities.add(profAct.description);
     }
 
     const actSel = Array.from(resolvedActivities);
