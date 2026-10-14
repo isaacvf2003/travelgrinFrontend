@@ -5131,8 +5131,8 @@ function enforceStrictTaxonomyGuardrails(
   // Strict sanitization: Ensure providerActivities NEVER contains any option from providerTypes
   if (Array.isArray(publication.providerActivities) && taxonomies?.types?.length) {
     publication.providerActivities = publication.providerActivities.filter((a: string) => !taxonomies.types.includes(a));
-    if (publication.providerActivities.length === 0 && taxonomies?.activities?.length) {
-      publication.providerActivities = [taxonomies.activities[0]];
+    if (publication.providerActivities.length === 0) {
+      publication.providerActivities = classified.providerActivities?.length ? classified.providerActivities : (taxonomies?.activities?.length ? [taxonomies.activities[0]] : []);
     }
   }
 
@@ -5181,23 +5181,12 @@ function enforceStrictTaxonomyGuardrails(
     }
   }
 
-  // Ensure child subcategories are selected for every parent category if available in system
-  if (taxonomies?.categoryTree && Array.isArray(publication.categorySelections)) {
-    if (!Array.isArray(publication.subcategorySelections)) publication.subcategorySelections = [];
-    for (const catName of publication.categorySelections) {
-      for (const block of taxonomies.categoryTree) {
-        const parentMatch = block.parentCategories.find((p: any) => p.name === catName);
-        if (parentMatch && Array.isArray(parentMatch.subcategories) && parentMatch.subcategories.length > 0) {
-          const hasChild = parentMatch.subcategories.some((s: any) => publication.subcategorySelections!.includes(s));
-          if (!hasChild) {
-            publication.subcategorySelections.push(parentMatch.subcategories[0]);
-          }
-        }
-      }
-    }
-    if (publication.subcategorySelections.length > 0) {
-      publication.subcategory = publication.subcategorySelections[0];
-    }
+  // Ensure child subcategories strictly reflect genuine selections without injecting arbitrary defaults
+  if (Array.isArray(publication.subcategorySelections) && publication.subcategorySelections.length > 0) {
+    publication.subcategory = publication.subcategorySelections[0];
+  } else {
+    publication.subcategory = "";
+    publication.subcategorySelections = [];
   }
 
   const isHospitalOrClinic =
@@ -5295,9 +5284,9 @@ function enforceStrictTaxonomyGuardrails(
     }
   }
 
-  // Strict capping: never allow more than 2 categories per publication
-  if (Array.isArray(publication.categorySelections) && publication.categorySelections.length > 2) {
-    publication.categorySelections = publication.categorySelections.slice(0, 2);
+  // Strict capping: allow up to 5 categories per publication if selected by AI
+  if (Array.isArray(publication.categorySelections) && publication.categorySelections.length > 5) {
+    publication.categorySelections = publication.categorySelections.slice(0, 5);
     publication.category = publication.categorySelections[0] || publication.category;
   }
 
