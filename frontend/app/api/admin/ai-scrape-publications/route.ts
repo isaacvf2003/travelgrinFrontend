@@ -114,6 +114,10 @@ function decodeHtmlEntities(str: string): string {
 
 function cleanTitleString(title: string): string {
   if (!title) return "";
+  const rawClean = String(title).trim();
+  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(rawClean)) {
+    return "";
+  }
   let decoded = decodeHtmlEntities(title);
   // Remove XLIFF/MyMemory/translation memory tags like <g id="...">, </g>, <x id="..."/>, etc.
   decoded = decoded
@@ -143,10 +147,14 @@ function cleanTitleString(title: string): string {
     const p1Lower = p1.toLowerCase();
     const p2Lower = p2.toLowerCase();
     if (p1Lower === p2Lower || p1Lower.includes(p2Lower) || p2Lower.includes(p1Lower)) {
-      return p1.length >= p2.length ? p1 : p2;
+      decoded = p1.length >= p2.length ? p1 : p2;
     }
   }
-  return decoded;
+  const finalCleaned = decoded.trim();
+  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(finalCleaned)) {
+    return "";
+  }
+  return finalCleaned;
 }
 
 function buildGoogleMapsUrl(queryText: string): string {
@@ -2320,6 +2328,8 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
     if (!dbCategories || dbCategories.length === 0) {
       dbCategories = clientCategories;
     } else {
+      const clientMap = new Map(clientCategories.map((c) => [String(c.id), c]));
+      dbCategories = dbCategories.map((c) => clientMap.get(String(c.id)) || c);
       const existingIds = new Set(dbCategories.map((c) => String(c.id)));
       for (const cat of clientCategories) {
         if (!existingIds.has(String(cat.id))) {
@@ -2334,6 +2344,8 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
     if (!dbFilterGroups || dbFilterGroups.length === 0) {
       dbFilterGroups = clientFilterGroups;
     } else {
+      const clientGroupMap = new Map(clientFilterGroups.map((g) => [String(g.id), g]));
+      dbFilterGroups = dbFilterGroups.map((g) => clientGroupMap.get(String(g.id)) || g);
       const existingGroupIds = new Set(dbFilterGroups.map((g) => String(g.id)));
       for (const grp of clientFilterGroups) {
         if (!existingGroupIds.has(String(grp.id))) {
@@ -2408,18 +2420,21 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       return {
         ...cat,
         resolvedTaxonomyType: taxonomyType,
-        blockName: block?.label || "Categoría General",
+        blockName: block?.label || "Categorías del Sistema",
       };
     });
 
-    const blocksMap = new Map<string, { blockName: string; parentCategories: Array<{ name: string; subcategories: string[] }> }>();
+    const blocksMap = new Map<string, { blockName: string; blockTaxonomy: string; parentCategories: Array<{ name: string; categoryTaxonomy: string; subcategories: string[] }> }>();
 
     categoryMapWithTaxonomy
-      .filter((c) => !c.parentId && c.resolvedTaxonomyType === "categoria")
+      .filter((c) => !c.parentId)
       .forEach((c) => {
         const blockKey = c.blockName;
+        const blockId = resolveCategoryBlockId(c);
+        const block = blockId ? filterGroupById.get(blockId) : null;
+        const blockTaxonomy = normalizeType(block?.taxonomyType) || "categoria";
         if (!blocksMap.has(blockKey)) {
-          blocksMap.set(blockKey, { blockName: blockKey, parentCategories: [] });
+          blocksMap.set(blockKey, { blockName: blockKey, blockTaxonomy, parentCategories: [] });
         }
         const children = categoryMapWithTaxonomy
           .filter((sub) => String(sub.parentId) === String(c.id))
@@ -2427,6 +2442,7 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
           .filter(Boolean);
         blocksMap.get(blockKey)!.parentCategories.push({
           name: String(c.description || "").trim(),
+          categoryTaxonomy: c.resolvedTaxonomyType || "categoria",
           subcategories: children,
         });
       });
@@ -3741,7 +3757,12 @@ function classifySectorAndTaxonomy(
     /osep|hospital|clinica|sanatorio|salud/i.test(url));
 
   const isLegalOrConsulting =
-    /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica)\b/i.test(lowerCorpus);
+    /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|allende|brea)\b/i.test(lowerCorpus) ||
+    /abogados|legal|estudio/i.test(urlNorm);
+
+  const isBusinessOrChamber =
+    /\b(amcham|c[aá]mara\s+de\s+comercio|asociaci[oó]n\s+empresaria|red\s+de\s+negocios|networking|coworking|workplace|negocios|empresarial|empresarios|comercio\s+exterior|c[aá]mara\s+argentino|inversi[oó]n|inversiones|membresias?)\b/i.test(lowerCorpus) ||
+    /amcham|workplace/i.test(urlNorm);
 
   const isTourismEntity =
     /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(lowerCorpus);
@@ -3919,14 +3940,10 @@ function classifySectorAndTaxonomy(
     }
   }
 
-  // Critical Guarantee: Ensure EVERY selected parent category with child subcategories has at least one subcategory selected
-  for (const catName of selectedCategories) {
-    const parentObj = parentCategoriesList.find((p) => p.name === catName);
-    if (parentObj && parentObj.subcategories.length > 0) {
-      const hasChildSelected = parentObj.subcategories.some((s) => selectedSubcategories.includes(s));
-      if (!hasChildSelected) {
-        selectedSubcategories.push(parentObj.subcategories[0]);
-      }
+  // Assign matching subcategories from score evaluations (strictly avoid arbitrary blind push of subcategories[0])
+  if (selectedSubcategories.length === 0 && bestSub && highestParentScore >= 25) {
+    if (!isHealthEntity || !/visa|migra|residencia|ciudadan|pasaporte/i.test(bestSub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
+      selectedSubcategories.push(bestSub);
     }
   }
 
@@ -3954,8 +3971,11 @@ function classifySectorAndTaxonomy(
     if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
       actScore += 120;
     }
-    if (isLegalOrConsulting && /profesional|tecnico|legal|consult/i.test(aNorm)) {
-      actScore += 100;
+    if (isLegalOrConsulting && /profesional|tecnico|legal|consult|jurid/i.test(aNorm)) {
+      actScore += 120;
+    }
+    if (isBusinessOrChamber && /asociaci|organizaci|comercio|empresarial|profesional|servicio|negocio/i.test(aNorm)) {
+      actScore += 120;
     }
     if (isTechEntity && /tecnolog|informaci|comunicaci/i.test(aNorm)) {
       actScore += 100;
@@ -4489,7 +4509,7 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
 
 0. TÍTULOS, AÑO HISTÓRICO REAL Y DATOS DE GOOGLE MAPS DE LA SEDE PRINCIPAL:
 - 'publisherName': Es ÚNICAMENTE el nombre limpio y oficial de la institución, empresa u oferente (ej: "Colegio de Traductores Públicos de la Provincia de Córdoba", "Universidad Siglo 21", "Hospital Garrahan"). Si la web o el dominio usa una sigla o acrónimo (ej: CTPPC, UBA, OSDE, UTN), escribe OBLIGATORIAMENTE el nombre institucional formal completo desplegado. NUNCA pongas aquí slogans publicitarios.
-- 'title': Título claro, representativo y profesional en tercera persona. Puede ser un objeto { "estado": "ok"|"parcial"|"sin_datos", "contenido": "Título", "evidencias": ["..."] } o cadena de texto.
+- 'title': Título claro, representativo y profesional en tercera persona. NUNCA devuelvas "sin_datos" en el título; genera siempre un título representativo con el nombre y propuesta del establecimiento. Puede ser un objeto { "estado": "ok"|"parcial", "contenido": "Título", "evidencias": ["..."] } o cadena de texto.
 - 'providerStartYear': Año real de fundación histórica o inicio de actividades en que empezaron a operar (ej: 1821, 1903, 1973, 1987, 1995). Investiga o deduce el año de fundación real de la institución a partir del texto y tu conocimiento verificado sobre la entidad. NUNCA uses el año actual ni años de copyright web del pie de página (ej: 2010, 2024, 2025, 2026).
 - 'providerRating': Valoración real que tiene en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). En caso de tener varias sedes o sucursales, toma OBLIGATORIAMENTE la puntuación de la sede principal para evitar confusiones. Si no tiene puntuación o ficha en Google Maps, pon "0". NUNCA inventes puntuaciones arbitrarias.
 - 'providerReviewCount': Cantidad EXACTA de comentarios o reseñas que hay en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). En caso de tener varias sedes o sucursales, toma OBLIGATORIAMENTE la cantidad de la sede principal. NUNCA pongas números ficticios ni valores arbitrarios como "24" o "120". Si no tiene comentarios en Google Maps, pon estrictamente "0".
@@ -4641,11 +4661,14 @@ async function formatPublicationResult(
   } else if (typeof parsed.title === "string") {
     rawTitle = parsed.title.trim();
   }
-  if (!rawTitle) {
+  if (!rawTitle || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(rawTitle)) {
     rawTitle = extractedData.title || `Publicación de ${host}`;
   }
   let title = cleanTitleString(rawTitle);
   let publisherName = cleanPublisherName(parsed.publisherName || extractedData.title || title, extractedData.url, rawTitle);
+  if (!title || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(title)) {
+    title = publisherName ? `Propuestas y servicios de ${publisherName}` : `Publicación de ${host}`;
+  }
   const officialPubFullName = findOfficialOrganizationName(extractedData.htmlContent || "", publisherName, extractedData.detectedSiteName);
   if (officialPubFullName && officialPubFullName !== publisherName && /^[A-Z0-9]{2,8}$/.test(publisherName.replace(/\s+/g, ""))) {
     publisherName = officialPubFullName;
@@ -4733,13 +4756,19 @@ async function formatPublicationResult(
 
   // Categories and subcategories are strictly evaluated dynamically against the catalog.
   // Never assign blind fallbacks like validCats[0] or static templates!
-  if (!matchedActivities.length && validActs.length > 0) {
+  if (!matchedActivities.length && sectorClassification.providerActivities?.length) {
+    matchedActivities = sectorClassification.providerActivities;
+  } else if (!matchedActivities.length && validActs.length > 0) {
     matchedActivities = [validActs[0]];
   }
-  if (!matchedTypes.length && validTypes.length > 0) {
+  if (!matchedTypes.length && sectorClassification.providerTypes?.length) {
+    matchedTypes = sectorClassification.providerTypes;
+  } else if (!matchedTypes.length && validTypes.length > 0) {
     matchedTypes = [validTypes[0]];
   }
-  if (!matchedModalities.length) {
+  if (!matchedModalities.length && sectorClassification.providerModalities?.length) {
+    matchedModalities = sectorClassification.providerModalities;
+  } else if (!matchedModalities.length) {
     matchedModalities = ["Atención presencial", "Atención online"];
   }
 
@@ -5538,8 +5567,11 @@ async function processUrlWithAI(
   }
 
   // 5. Taxonomy & Location mapping
-  const titleVal = titleAgentRes.data?.title || extracted.title || cleanPublisher;
-  const titleI18nVal = titleAgentRes.data?.titleI18n || { es: titleVal, en: "", pt: "", it: "" };
+  let titleVal = titleAgentRes?.data?.title || cleanTitleString(extracted.title) || cleanPublisher;
+  if (!titleVal || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(titleVal)) {
+    titleVal = cleanPublisher ? `Servicios y propuestas de ${cleanPublisher}` : `Publicación de ${url}`;
+  }
+  const titleI18nVal = titleAgentRes?.data?.titleI18n || { es: titleVal, en: "", pt: "", it: "" };
   const descVal = descAgentRes.data?.description || extracted.description || "";
   const descI18nVal = descAgentRes.data?.descriptionI18n || { es: descVal, en: "", pt: "", it: "" };
 
