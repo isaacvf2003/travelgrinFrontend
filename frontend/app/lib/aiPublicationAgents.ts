@@ -80,7 +80,7 @@ function escapeHtml(str: string): string {
 export function cleanTitleString(title: string): string {
   if (!title) return "";
   const raw = String(title).trim();
-  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(raw)) {
+  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal)$/i.test(raw)) {
     return "";
   }
   const cleaned = title
@@ -89,7 +89,7 @@ export function cleanTitleString(title: string): string {
     .replace(/\s*[-–—|]\s*(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*$/i, "")
     .replace(/^(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*[-–—|]\s*/i, "")
     .trim();
-  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(cleaned)) {
+  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal)$/i.test(cleaned)) {
     return "";
   }
   return cleaned;
@@ -1200,6 +1200,27 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
      d) 'categorySelections' y 'subcategorySelections': Las categorías y subcategorías que correspondan al contenido y propuesta de la web.
    - NUNCA inventes 'General' como categoría ni como subcategoría a menos que exista explícitamente en el catálogo. Si no hay subcategorías que apliquen, devuelve array vacío [].
 
+13. DIRECTIVAS ESPECÍFICAS DE CLASIFICACIÓN FACTUAL POR SECTOR:
+   a) MODA, INDUMENTARIA Y TEXTIL:
+      - Si la entidad o web ofrece moda, ropa, calzado, indumentaria, accesorios de moda, diseño textil, colecciones de temporada o alta costura:
+        * 'providerActivities': DEBE ser 'Moda y diseño' (o la opción de moda/diseño disponible en BD).
+        * 'categorySelections': Selecciona la/s categoría/s del catálogo que correspondan a moda, indumentaria, diseño o compras.
+   b) MEDIOS, CULTURA Y ENTRETENIMIENTO:
+      - Si la entidad ofrece espectáculos, teatro, cine, conciertos, música, eventos culturales o recreativos, festivales, arte, producción audiovisual o entretenimiento nocturno:
+        * 'providerActivities': DEBE ser 'Medios, cultura y entretenimiento' (o 'Arte, cultura y entretenimiento' según BD).
+        * 'categorySelections': Selecciona la/s categoría/s de entretenimiento, cultura o eventos del catálogo.
+   c) ASESORAMIENTO LEGAL, VISAS, CIUDADANÍA Y TRÁMITES MIGRATORIOS (ej: consultoras legales, CBI, estudios jurídicos):
+        * 'providerActivities': DEBE ser 'Servicios profesionales y técnicos'.
+        * PROHIBIDO TERMINANTEMENTE colocar 'Bienes raíces' a una consultora legal o de inmigración (incluso si tramitan residencia por inversión). 'Bienes raíces' es ÚNICAMENTE para agencias inmobiliarias y venta/alquiler de propiedades.
+        * 'categorySelections': 'Gestiones migratorias y visas' (o la categoría migratoria/legal correspondiente).
+        * 'subcategorySelections': 'Residencia y ciudadanía', 'Visas de entrada', 'Permisos de trabajo', etc. según corresponda a lo que ofrece la web.
+   d) BIENES RAÍCES / INMOBILIARIA:
+      - Solo seleccionar 'Bienes raíces' si la web es de una empresa inmobiliaria, broker o desarrolladora de inmuebles cuya actividad central sea comprar, vender o alquilar propiedades o lotes.
+   e) TECNOLOGÍA Y DIGITAL:
+      - 'providerActivities': 'Tecnologías de la información y comunicación' (o 'Tecnología, software e información').
+   f) TURISMO Y ALOJAMIENTO:
+      - 'providerActivities': 'Hostelería, alojamiento y turismo'.
+
 CATÁLOGO DE BLOQUES, CATEGORÍAS Y SUBCATEGORÍAS DISPONIBLES EN BD:
 ${categoryTreeFormat}
 
@@ -1301,7 +1322,18 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       /\.edu(?:\.[a-z]{2})?/i.test(context.url || "");
 
     const isLegalOrConsulting =
-      /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica)\b/i.test(fullTextCorpus);
+      /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|cbi argentina|allende|brea)\b/i.test(fullTextCorpus) ||
+      /legal|migra|visas|estudio/i.test(context.url || "");
+
+    const isFashionOrDesign =
+      /\b(moda|modas|diseno de indumentaria|indumentaria|textil|textiles|vestimenta|ropa|calzado|alta costura|fashion|prendas|confeccion|desfile|coleccion primavera|tendencias de moda|marcas de ropa)\b/i.test(fullTextCorpus);
+
+    const isEntertainmentOrCulture =
+      /\b(entretenimiento|espectaculo|espectaculos|teatro|cine|musica|concierto|conciertos|arte|cultura|cultural|eventos culturales|festival|festivales|recreacion|audiovisual|productora|producciones|galeria de arte|museo|museos|discoteca|boliche|ocio)\b/i.test(fullTextCorpus);
+
+    const isRealEstate =
+      /\b(inmobiliaria|inmobiliario|bienes raices|alquiler de propiedades|venta de casas|inmuebles|real estate|desarrollos inmobiliarios|lotes|terrenos)\b/i.test(fullTextCorpus) &&
+      !isLegalOrConsulting;
 
     const isTourismEntity =
       /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(fullTextCorpus);
@@ -1346,6 +1378,27 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
         if (!matchedCats.includes(eduCat)) {
           matchedCats.push(eduCat);
         }
+      }
+    }
+
+    if (isLegalOrConsulting) {
+      const migraCat = categoriesPool.find((c) => /gesti[oó]n.*migra|visas/i.test(c));
+      if (migraCat && !matchedCats.includes(migraCat)) {
+        matchedCats.push(migraCat);
+      }
+    }
+
+    if (isFashionOrDesign) {
+      const fashionCat = categoriesPool.find((c) => /moda|dise[nñ]o|indumentaria|textil/i.test(c));
+      if (fashionCat && !matchedCats.includes(fashionCat)) {
+        matchedCats.push(fashionCat);
+      }
+    }
+
+    if (isEntertainmentOrCulture) {
+      const entCat = categoriesPool.find((c) => /entretenimiento|cultura|arte|espect[aá]culo/i.test(c));
+      if (entCat && !matchedCats.includes(entCat)) {
+        matchedCats.push(entCat);
       }
     }
 
@@ -1499,6 +1552,29 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       }
     }
 
+    if (isFashionOrDesign) {
+      const fashionAct = activitiesPool.find((a) => /moda|dise[nñ]o|textil/i.test(a));
+      if (fashionAct && !cleanActivities.includes(fashionAct)) {
+        cleanActivities = [fashionAct, ...cleanActivities];
+      }
+    }
+
+    if (isEntertainmentOrCulture) {
+      const entAct = activitiesPool.find((a) => /entretenimiento|cultura|arte|medio/i.test(a));
+      if (entAct && !cleanActivities.includes(entAct)) {
+        cleanActivities = [entAct, ...cleanActivities];
+      }
+    }
+
+    if (isLegalOrConsulting) {
+      const legalAct = activitiesPool.find((a) => /profesional|tecnico|legal|consult|jurid/i.test(a));
+      if (legalAct && !cleanActivities.includes(legalAct)) {
+        cleanActivities = [legalAct, ...cleanActivities];
+      }
+      // Strictly prevent false real estate assignment
+      cleanActivities = cleanActivities.filter((a) => !/bienes\s*ra[ií]ces|inmobiliari/i.test(a));
+    }
+
     if (cleanActivities.length === 0 && activitiesPool.length > 0) {
       const sanitizedPool = activitiesPool.filter((a) => !typesPool.includes(a));
       const poolToUse = sanitizedPool.length > 0 ? sanitizedPool : activitiesPool;
@@ -1518,7 +1594,16 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
           score += 60;
         }
         if (isLegalOrConsulting && /profesional|tecnico|legal|consult/i.test(aNorm)) {
-          score += 50;
+          score += 70;
+        }
+        if (isLegalOrConsulting && /bienes\s*ra[ií]ces|inmobiliari/i.test(aNorm)) {
+          continue; // NEVER score real estate for legal consultancies!
+        }
+        if (isFashionOrDesign && /moda|dise[nñ]o|textil/i.test(aNorm)) {
+          score += 70;
+        }
+        if (isEntertainmentOrCulture && /entretenimiento|cultura|arte|medio/i.test(aNorm)) {
+          score += 70;
         }
         if (isTechEntity && /tecnolog|informaci|comunicaci/i.test(aNorm)) {
           score += 50;
