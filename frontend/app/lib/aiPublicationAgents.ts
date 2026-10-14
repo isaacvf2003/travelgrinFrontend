@@ -79,12 +79,20 @@ function escapeHtml(str: string): string {
 
 export function cleanTitleString(title: string): string {
   if (!title) return "";
-  return title
+  const raw = String(title).trim();
+  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(raw)) {
+    return "";
+  }
+  const cleaned = title
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\s*[-–—|]\s*(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*$/i, "")
     .replace(/^(?:Home|Inicio|Portada|Bienvenidos?|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Principal|Oficial)\s*[-–—|]\s*/i, "")
     .trim();
+  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(cleaned)) {
+    return "";
+  }
+  return cleaned;
 }
 
 export function cleanGenericBlockTitle(title: string, prompt?: string): string {
@@ -466,9 +474,10 @@ Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exac
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL: La directiva del administrador es la regla SUPREMA. Si el administrador solicita un estilo específico, tono, longitud exacta (ej: cantidad de palabras o caracteres), palabras obligatorias o exclusiones, DEBES CUMPLIRLO AL 100%.
-2. Fidelidad factual: Usa los datos reales del sitio web (nombre, ubicación, especialidad) sin inventar hechos que contradigan la realidad.
-3. Formato estricto: Devuelve únicamente el objeto JSON sin texto adicional fuera del JSON.`;
+1. TÍTULO OBLIGATORIO Y PROFESIONAL: El título es MANDATORIO. NUNCA devuelvas "sin_datos", "SIN_DATOS", "N/A" ni cadena vacía en "contenido". Siempre genera un título comercial representativo que presente al establecimiento ("${entityName}") y su propuesta de valor.
+2. AUTORIDAD EDITORIAL: La directiva del administrador es la regla SUPREMA. Si el administrador solicita un estilo específico, tono, longitud exacta (ej: cantidad de palabras o caracteres), palabras obligatorias o exclusiones, DEBES CUMPLIRLO AL 100%.
+3. Fidelidad factual: Usa los datos reales del sitio web (nombre, ubicación, especialidad) sin inventar hechos que contradigan la realidad.
+4. Formato estricto: Devuelve únicamente el objeto JSON sin texto adicional fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
 "${prompt || "Crear un título claro, comercial y profesional que mencione el nombre del establecimiento y su propuesta principal."}"${variationDirective}
@@ -509,6 +518,10 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
       ""
     ).trim();
 
+    if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(rawTitle)) {
+      rawTitle = "";
+    }
+
     if (!rawTitle) {
       // Fallback: Si el modelo devolvió texto plano o markdown
       const cleanedRaw = rawText
@@ -517,16 +530,16 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
         .replace(/^["'{}\s]+|["'{}\s]+$/g, "")
         .trim();
       const firstLine = cleanedRaw.split("\n")[0].trim();
-      if (firstLine && firstLine.length >= 2 && firstLine.length <= 160) {
+      if (firstLine && firstLine.length >= 2 && firstLine.length <= 160 && !/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a)$/i.test(firstLine)) {
         rawTitle = firstLine;
       }
     }
 
     if (!rawTitle || rawTitle.length < 2) {
-      throw new Error("El modelo devolvió un título vacío o no estructurado.");
+      rawTitle = context.rawPageTitle || `Servicios y propuestas de ${entityName}` || entityName;
     }
 
-    const cleanTitle = cleanTitleString(rawTitle);
+    const cleanTitle = cleanTitleString(rawTitle) || entityName;
     console.log(`6. Normalized Title Output: "${cleanTitle}"`);
     console.log(`7. Validation: OK (Cumple JSON y contenido no vacío)`);
 
@@ -557,13 +570,16 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
     };
   } catch (err: any) {
     console.warn(`[AI-AGENT-DEBUG: TitleAgent] ERROR: ${err.message}`);
+    const fallbackTitle = cleanTitleString(context.rawPageTitle || `Servicios de ${entityName}`) || entityName;
     return {
-      success: false,
-      data: null,
-      estado: "sin_datos",
-      evidencias: [],
-      providerUsed: "none",
-      error: `Error al generar el título: ${err.message}`,
+      success: true,
+      data: {
+        title: fallbackTitle,
+        titleI18n: { es: fallbackTitle, en: fallbackTitle, pt: fallbackTitle, it: fallbackTitle },
+      },
+      estado: "ok",
+      evidencias: [entityName],
+      providerUsed: "fallback",
     };
   }
 }
@@ -1114,13 +1130,13 @@ export async function runTaxonomyAgent(
     ? taxonomies.categoryTree!
         .map(
           (block: any) =>
-            `=== BLOQUE: ${block.blockName} ===\n` +
+            `=== BLOQUE: "${block.blockName}" (Propósito / Taxonomía: ${block.blockTaxonomy || "general"}) ===\n` +
             block.parentCategories
               .map(
                 (cat: any) =>
-                  `  - Categoría Padre: "${cat.name}"\n` +
+                  `  - Categoría: "${cat.name}" ${cat.categoryTaxonomy && cat.categoryTaxonomy !== "categoria" ? `[Taxonomía específica: ${cat.categoryTaxonomy}]` : ""}\n` +
                   (cat.subcategories && cat.subcategories.length
-                    ? `    Subcategorías válidas: ${cat.subcategories.map((s: string) => `"${s}"`).join(", ")}`
+                    ? `    Subcategorías: ${cat.subcategories.map((s: string) => `"${s}"`).join(", ")}`
                     : `    Subcategorías: (ninguna)`)
               )
               .join("\n")
@@ -1167,6 +1183,18 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
 11. COMPRENSIÓN DINÁMICA DE NUEVAS TAXONOMÍAS CREADAS POR EL ADMINISTRADOR:
    - El catálogo es completamente dinámico y el administrador puede crear nuevas categorías, subcategorías o actividades en cualquier momento.
    - Analiza semánticamente el concepto de CADA opción disponible en las listas abajo y selecciona todas las que coincidan genuinamente con el sitio analizado. NUNCA uses plantillas fijas.
+
+12. ENTENDIMIENTO PROFUNDO DE BLOQUES Y TAXONOMÍAS DEL ADMINISTRADOR:
+   - El administrador de Travelgrin crea BLOQUES con nombres específicos (ej: 'Actividad', 'Tipo de Perfil', 'Modalidad en que ofrece sus servicios', 'Categorías y subcategorías', etc.) y les asigna un tipo de taxonomía.
+   - Además, dentro de un bloque pueden existir categorías con una taxonomía diferente (por ejemplo, una categoría con taxonomía 'actividad' o 'tipo').
+   - Analiza la información de CADA bloque con sus categorías y subcategorías creadas por el admin (SIN USAR PLANTILLAS).
+   - Relaciona los títulos de los bloques y las categorías para entender exactamente a qué se refiere cada una.
+   - Selecciona ÚNICAMENTE lo que corresponda de forma REAL y EXACTA al sitio web escrapeado:
+     a) 'providerActivities': La actividad o sector económico REAL de la organización (ej: si es una universidad -> 'Educación y formación'; si es estudio jurídico / legal -> 'Servicios profesionales y técnicos' o afín; si es cámara de comercio / red de negocios -> 'Actividades de asociaciones y organizaciones' o 'Servicios empresariales'; si es hospital / salud -> 'Salud y asistencia social').
+     b) 'providerTypes': El tipo de perfil REAL según lo que es la entidad (ej: si es privada comercial -> 'Institución privada' o 'Empresa'; si es estatal -> 'Organismo público'; etc.).
+     c) 'providerModalities': Las modalidades de atención REALES ('Atención presencial' si tiene ubicación física, sedes o campus; 'Atención online' si opera digitalmente, turnos o plataforma; o ambas).
+     d) 'categorySelections' y 'subcategorySelections': Las categorías y subcategorías que correspondan al contenido y propuesta de la web.
+   - NUNCA inventes 'General' como categoría ni como subcategoría a menos que exista explícitamente en el catálogo. Si no hay subcategorías que apliquen, devuelve array vacío [].
 
 CATÁLOGO DE BLOQUES, CATEGORÍAS Y SUBCATEGORÍAS DISPONIBLES EN BD:
 ${categoryTreeFormat}
@@ -1379,7 +1407,8 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
       matchedCats = matchedCats.filter((c) => !/visa|migra|residencia|ciudadan|pasaporte/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
     }
 
-    const finalCategories = matchedCats;
+    // Never output "General" if not explicitly part of the categories pool in DB
+    const finalCategories = matchedCats.filter((c) => c !== "General" || categoriesPool.includes("General"));
     const finalCat = finalCategories[0] || "";
 
     // Collect all valid subcategories belonging to any of the selected categories
@@ -1451,6 +1480,9 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas del catálogo. Puedes 
     if (isHealthEntity) {
       matchedSubs = matchedSubs.filter((s) => !/visa|migra|residencia|ciudadan|pasaporte/i.test(s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
     }
+
+    // Strip phantom "General" if not explicitly in subcategories catalog
+    matchedSubs = matchedSubs.filter((s) => s !== "General" || subcategoriesPool.includes("General"));
 
     // Completely remove blind fallback to validSubcatPool[0]: If no subcategory legitimately matches, leave empty
     const finalSub = matchedSubs[0] || "";
