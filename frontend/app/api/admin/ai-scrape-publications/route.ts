@@ -115,7 +115,7 @@ function decodeHtmlEntities(str: string): string {
 function cleanTitleString(title: string): string {
   if (!title) return "";
   const rawClean = String(title).trim();
-  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(rawClean)) {
+  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal)$/i.test(rawClean)) {
     return "";
   }
   let decoded = decodeHtmlEntities(title);
@@ -151,7 +151,7 @@ function cleanTitleString(title: string): string {
     }
   }
   const finalCleaned = decoded.trim();
-  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(finalCleaned)) {
+  if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal)$/i.test(finalCleaned)) {
     return "";
   }
   return finalCleaned;
@@ -602,6 +602,18 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Incutex+Cordoba",
     additionalCities: ["Buenos Aires"],
   },
+  "immi.legal": {
+    name: "CBI Argentina",
+    startYear: "2010",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Servicios profesionales y técnicos",
+    category: "Gestiones migratorias y visas",
+    subcategory: "Residencia y ciudadanía",
+    type: "Consultora legal y migratoria",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=CBI+Argentina+Buenos+Aires",
+    additionalCities: [],
+  },
 };
 
 function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: string, explicitSiteName?: string): string {
@@ -719,6 +731,31 @@ function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: stri
   }
 
   text = text.replace(/^["'«“]+|["'»”]+$/g, "").trim();
+
+  const GENERIC_PUBLISHER_REGEX = /^(?:home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal|sitio\s*oficial|p[aá]gina\s*(?:principal|oficial|de\s*inicio)?|web\s*oficial|portal(?:\s*oficial)?|login|acceso|contacto|novedades|art[ií]culo|untitled|sin\s*datos|no\s*disponible|n\/?a|oferente|establecimiento|empresa|instituci[oó]n|default)$/i;
+
+  if (GENERIC_PUBLISHER_REGEX.test(text) && sourceUrl) {
+    try {
+      const parsedUrl = new URL(sourceUrl);
+      const hostParts = parsedUrl.hostname
+        .replace(/^www\./, "")
+        .split(".")
+        .filter((p) => !/^(?:com|org|net|edu|gob|gov|ar|cl|uy|br|io|co|es|mx|lat|app|dev)$/i.test(p));
+      if (hostParts.length > 0) {
+        text = hostParts
+          .map((part) =>
+            part.length <= 4 && /^[a-z]+$/i.test(part)
+              ? part.toUpperCase()
+              : part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+          )
+          .join(" ");
+      }
+    } catch {}
+  }
+
+  if (GENERIC_PUBLISHER_REGEX.test(text)) {
+    return "";
+  }
 
   return text || "Oferente";
 }
@@ -3757,8 +3794,16 @@ function classifySectorAndTaxonomy(
     /osep|hospital|clinica|sanatorio|salud/i.test(url));
 
   const isLegalOrConsulting =
-    /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|allende|brea)\b/i.test(lowerCorpus) ||
-    /abogados|legal|estudio/i.test(urlNorm);
+    /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|allende|brea|cbi|immi)\b/i.test(lowerCorpus) ||
+    /abogados|legal|estudio|immi/i.test(urlNorm);
+
+  const isFashionOrDesign =
+    /\b(moda|indumentaria|ropa|textil|prendas|calzado|zapatos|vestidos|diseño\s+de\s+indumentaria|accesorios\s+de\s+moda|couture|fashion|marca\s+de\s+ropa)\b/i.test(lowerCorpus) ||
+    /\b(moda|fashion|indumentaria|ropa)\b/i.test(urlNorm);
+
+  const isEntertainmentOrCulture =
+    /\b(entretenimiento|espectaculo|espectaculos|teatro|cine|musica|cultural|cultura|concierto|conciertos|show|shows|produccion\s+audiovisual|streaming|eventos\s+culturales|festival|festivales)\b/i.test(lowerCorpus) ||
+    /\b(entretenimiento|teatro|cine|cultura|musica)\b/i.test(urlNorm);
 
   const isBusinessOrChamber =
     /\b(amcham|c[aá]mara\s+de\s+comercio|asociaci[oó]n\s+empresaria|red\s+de\s+negocios|networking|coworking|workplace|negocios|empresarial|empresarios|comercio\s+exterior|c[aá]mara\s+argentino|inversi[oó]n|inversiones|membresias?)\b/i.test(lowerCorpus) ||
@@ -3830,6 +3875,15 @@ function classifySectorAndTaxonomy(
     if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|farmaci|obra\s*social|prepaga/i.test(pNorm)) {
       parentScore += 100;
     }
+    if (isLegalOrConsulting && /gestiones?\s*migratorias|visas?|residencia|ciudadan[ií]a|servicios?\s*profesionales/i.test(pNorm)) {
+      parentScore += 130;
+    }
+    if (isFashionOrDesign && /moda|dise[ñn]o|indumentaria|textil/i.test(pNorm)) {
+      parentScore += 130;
+    }
+    if (isEntertainmentOrCulture && /entretenimiento|espectaculo|cultura|arte|medio/i.test(pNorm)) {
+      parentScore += 130;
+    }
 
     let bestSubForThisParent = "";
     let highestSubScore = -1;
@@ -3865,6 +3919,15 @@ function classifySectorAndTaxonomy(
       }
       if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|farmaci|obra\s*social|prepaga/i.test(sNorm)) {
         subScore += 80;
+      }
+      if (isLegalOrConsulting && /residencia|ciudadan[ií]a|visa|migra/i.test(sNorm)) {
+        subScore += 120;
+      }
+      if (isFashionOrDesign && /moda|dise[ñn]o|indumentaria|textil|ropa/i.test(sNorm)) {
+        subScore += 120;
+      }
+      if (isEntertainmentOrCulture && /entretenimiento|espectaculo|cultura|arte|teatro|cine|musica/i.test(sNorm)) {
+        subScore += 120;
       }
 
       if (subScore > highestSubScore) {
@@ -3970,6 +4033,18 @@ function classifySectorAndTaxonomy(
     }
     if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
       actScore += 120;
+    }
+    // Negative constraint: Do NOT assign Bienes raíces to legal, migration or consulting services
+    if (/bienes\s*ra[ií]ces|inmobiliari/i.test(aNorm)) {
+      if (isLegalOrConsulting || /visa|migra|residencia|ciudadan|abogad|jur[ií]d/i.test(lowerCorpus)) {
+        actScore = -100;
+      }
+    }
+    if (isFashionOrDesign && /moda|dise[ñn]o/i.test(aNorm)) {
+      actScore += 140;
+    }
+    if (isEntertainmentOrCulture && /medio|cultura|entretenimiento/i.test(aNorm)) {
+      actScore += 140;
     }
     if (isLegalOrConsulting && /profesional|tecnico|legal|consult|jurid/i.test(aNorm)) {
       actScore += 120;
@@ -5098,6 +5173,13 @@ function enforceStrictTaxonomyGuardrails(
   const allText = `${publication.url} ${publication.title} ${publication.description} ${extractedData.textContent}`.toLowerCase();
   const titleClean = cleanTitleString(publication.title);
   publication.publisherName = cleanTitleString(publication.publisherName || titleClean.split(/\s*[-–—|]\s*/)[0].trim());
+  const GENERIC_PUB_REGEX = /^(?:home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal|sitio\s*oficial|p[aá]gina\s*(?:principal|oficial|de\s*inicio)?|web\s*oficial|portal(?:\s*oficial)?|login|acceso|contacto|novedades|art[ií]culo|untitled|sin\s*datos|no\s*disponible|n\/?a|oferente|establecimiento|empresa|instituci[oó]n)$/i;
+  if (GENERIC_PUB_REGEX.test((publication.publisherName || "").trim())) {
+    const domainBrand = cleanPublisherName("", publication.url, publication.title, extractedData?.detectedSiteName);
+    if (domainBrand && !GENERIC_PUB_REGEX.test(domainBrand)) {
+      publication.publisherName = domainBrand;
+    }
+  }
 
   // Merge any extracted phone, whatsapp, email, web links
   if (extractedData?.socialLinksExtracted && Array.isArray(extractedData.socialLinksExtracted)) {
@@ -5280,6 +5362,90 @@ function enforceStrictTaxonomyGuardrails(
         if (!publication.providerActivities.includes(healthAct)) {
           publication.providerActivities = [healthAct, ...publication.providerActivities];
         }
+      }
+    }
+  }
+
+  // Legal & Migration intelligence: strictly clean up Bienes raíces and enforce Gestiones migratorias / Residencia y ciudadanía
+  const isLegalMigrationGuard =
+    /\b(abogad|legal|leyes|estudio\s+juridico|consultoria\s+legal|asesoramiento\s+legal|migracion|migratori|visa|visas|residencia|ciudadani|tramite\s+migratorio|naturalizacion|pasaporte|cbi|immi)\b/i.test(allText) ||
+    /immi|legal|visa|migra/i.test(publication.url);
+
+  if (isLegalMigrationGuard) {
+    if (Array.isArray(publication.providerActivities)) {
+      publication.providerActivities = publication.providerActivities.filter((a) => !/bienes\s*ra[ií]ces|inmobiliari/i.test(a));
+    }
+    const profAct = taxonomies?.activities?.find((a: string) => /profesionales|t[eé]cnicos/i.test(a));
+    if (profAct) {
+      if (!Array.isArray(publication.providerActivities)) publication.providerActivities = [];
+      if (!publication.providerActivities.includes(profAct)) {
+        publication.providerActivities = [profAct, ...publication.providerActivities];
+      }
+    }
+    if (taxonomies?.categories?.length) {
+      const migCat = taxonomies.categories.find((c: string) => /migra|visa|residencia|ciudadan/i.test(c));
+      if (migCat) {
+        if (!Array.isArray(publication.categorySelections)) publication.categorySelections = [];
+        if (!publication.categorySelections.includes(migCat)) {
+          publication.categorySelections = [migCat, ...publication.categorySelections.slice(0, 4)];
+          publication.category = migCat;
+        }
+      }
+    }
+    if (taxonomies?.subcategories?.length) {
+      const resSub = taxonomies.subcategories.find((s: string) => /residencia|ciudadan|migra/i.test(s));
+      if (resSub) {
+        if (!Array.isArray(publication.subcategorySelections)) publication.subcategorySelections = [];
+        if (!publication.subcategorySelections.includes(resSub)) {
+          publication.subcategorySelections = [resSub, ...publication.subcategorySelections.slice(0, 4)];
+          publication.subcategory = resSub;
+        }
+      }
+    }
+  }
+
+  // Fashion & Design intelligence
+  const isFashionGuard =
+    /\b(moda|indumentaria|ropa|textil|prendas|calzado|zapatos|vestidos|diseño\s+de\s+indumentaria|accesorios\s+de\s+moda|couture|fashion|marca\s+de\s+ropa)\b/i.test(allText) ||
+    /\b(moda|fashion|indumentaria|ropa)\b/i.test(publication.url);
+
+  if (isFashionGuard && taxonomies) {
+    const fashionAct = taxonomies.activities?.find((a: string) => /moda|dise[ñn]o/i.test(a));
+    if (fashionAct) {
+      if (!Array.isArray(publication.providerActivities)) publication.providerActivities = [];
+      if (!publication.providerActivities.includes(fashionAct)) {
+        publication.providerActivities = [fashionAct, ...publication.providerActivities];
+      }
+    }
+    const fashionCat = taxonomies.categories?.find((c: string) => /moda|dise[ñn]o|indumentaria|textil/i.test(c));
+    if (fashionCat) {
+      if (!Array.isArray(publication.categorySelections)) publication.categorySelections = [];
+      if (!publication.categorySelections.includes(fashionCat)) {
+        publication.categorySelections = [fashionCat, ...publication.categorySelections.slice(0, 4)];
+        publication.category = fashionCat;
+      }
+    }
+  }
+
+  // Entertainment & Culture intelligence
+  const isEntertainmentGuard =
+    /\b(entretenimiento|espectaculo|espectaculos|teatro|cine|musica|cultural|cultura|concierto|conciertos|show|shows|produccion\s+audiovisual|streaming|eventos\s+culturales|festival|festivales)\b/i.test(allText) ||
+    /\b(entretenimiento|teatro|cine|cultura|musica)\b/i.test(publication.url);
+
+  if (isEntertainmentGuard && taxonomies) {
+    const entAct = taxonomies.activities?.find((a: string) => /medio|cultura|entretenimiento/i.test(a));
+    if (entAct) {
+      if (!Array.isArray(publication.providerActivities)) publication.providerActivities = [];
+      if (!publication.providerActivities.includes(entAct)) {
+        publication.providerActivities = [entAct, ...publication.providerActivities];
+      }
+    }
+    const entCat = taxonomies.categories?.find((c: string) => /entretenimiento|espectaculo|cultura|arte/i.test(c));
+    if (entCat) {
+      if (!Array.isArray(publication.categorySelections)) publication.categorySelections = [];
+      if (!publication.categorySelections.includes(entCat)) {
+        publication.categorySelections = [entCat, ...publication.categorySelections.slice(0, 4)];
+        publication.category = entCat;
       }
     }
   }
@@ -5513,18 +5679,20 @@ async function processUrlWithAI(
 
   // Carefully refine publisher name if provider info agent detected the true company/organization
   const isAcronymPub = /^[A-Z0-9]{2,8}$/.test(cleanPublisher.replace(/\s+/g, ""));
+  const isGenericPub = !cleanPublisher || /^(?:home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal|sitio\s*oficial|p[aá]gina\s*(?:principal|oficial|de\s*inicio)?|web\s*oficial|portal(?:\s*oficial)?|login|acceso|contacto|novedades|art[ií]culo|untitled|sin\s*datos|no\s*disponible|n\/?a|oferente|establecimiento|empresa|instituci[oó]n)$/i.test(cleanPublisher.trim());
+
   if (
     providerInfoRes.data?.detectedPublisherName &&
     providerInfoRes.data.detectedPublisherName.length >= 2 &&
-    !/^(?:oferente|establecimiento|instituci[oó]n|empresa)$/i.test(providerInfoRes.data.detectedPublisherName)
+    !/^(?:oferente|establecimiento|instituci[oó]n|empresa|home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal)$/i.test(providerInfoRes.data.detectedPublisherName)
   ) {
     const isProgramOrHeadline = /govtech|programa|iniciativa|evento|noticia|art[ií]culo|trabaj[aá]|aprend[eé]|carrera|curso|taller|edici[oó]n|becas/i.test(cleanPublisher);
-    if (isProgramOrHeadline || cleanPublisher.length > 35 || isAcronymPub) {
+    if (isProgramOrHeadline || cleanPublisher.length > 35 || isAcronymPub || isGenericPub) {
       cleanPublisher = providerInfoRes.data.detectedPublisherName;
     }
-  } else if (isAcronymPub) {
+  } else if (isAcronymPub || isGenericPub) {
     const officialFullName = findOfficialOrganizationName(extracted.htmlContent || "", cleanPublisher, extracted.detectedSiteName);
-    if (officialFullName && officialFullName !== cleanPublisher) {
+    if (officialFullName && !/^(?:home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal)$/i.test(officialFullName)) {
       cleanPublisher = officialFullName;
     }
   }
