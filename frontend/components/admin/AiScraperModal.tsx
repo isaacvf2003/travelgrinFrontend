@@ -1111,7 +1111,10 @@ export default function AiScraperModal({
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-bold text-[#00A9C6] uppercase tracking-wider">
-                            {draft.category || "General"} {draft.subcategory ? `· ${draft.subcategory}` : ""}
+                            {(draft.categorySelections?.length ? draft.categorySelections.join(", ") : draft.category) || "(Sin categoría)"}
+                            {(draft.subcategorySelections?.length ? draft.subcategorySelections.join(", ") : draft.subcategory)
+                              ? ` · ${draft.subcategorySelections?.length ? draft.subcategorySelections.join(", ") : draft.subcategory}`
+                              : ""}
                           </span>
                           {(() => {
                             const scoreBlock = (draft.extraDescriptions || []).find((d) => /score scout/i.test(d.title || d.titleI18n?.es || ""));
@@ -1214,11 +1217,15 @@ export default function AiScraperModal({
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600">
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Categoría</span>
-                      {draft.category || "General"}
+                      {Array.isArray(draft.categorySelections) && draft.categorySelections.length > 0
+                        ? draft.categorySelections.join(", ")
+                        : draft.category || "(Sin categoría)"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Subcategoría</span>
-                      {draft.subcategory || "General"}
+                      {Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0
+                        ? draft.subcategorySelections.join(", ")
+                        : draft.subcategory || "(Sin subcategoría)"}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Tipo de Perfil / Sector</span>
