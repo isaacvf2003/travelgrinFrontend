@@ -11,6 +11,7 @@ import {
   runProviderInfoAgent,
   runTaxonomyAgent,
   runUnifiedPublicationAgent,
+  buildTaxonomyCatalogPromptSection,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
@@ -2489,28 +2490,6 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
         });
       });
 
-    const categoryTree = Array.from(blocksMap.values());
-
-    const activities = categoryMapWithTaxonomy
-      .filter((c) => c.resolvedTaxonomyType === "actividad")
-      .map((c) => String(c.description || "").trim());
-
-    const types = categoryMapWithTaxonomy
-      .filter((c) => c.resolvedTaxonomyType === "tipo")
-      .map((c) => String(c.description || "").trim());
-
-    const modalities = categoryMapWithTaxonomy
-      .filter((c) => c.resolvedTaxonomyType === "modalidad")
-      .map((c) => String(c.description || "").trim());
-
-    const prestaciones = categoryMapWithTaxonomy
-      .filter((c) => c.resolvedTaxonomyType === "prestacion")
-      .map((c) => String(c.description || "").trim());
-
-    const languages = categoryMapWithTaxonomy
-      .filter((c) => c.resolvedTaxonomyType === "idiomas" || c.resolvedTaxonomyType === "idioma")
-      .map((c) => String(c.description || "").trim());
-
     dbFilterGroups.forEach((group) => {
       const gType = normalizeType(group.taxonomyType);
       const gLabelNorm = String(group.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -2540,7 +2519,24 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       } else if (resolvedGType === "idiomas" || resolvedGType === "idioma") {
         group.options?.forEach((opt: any) => languages.push(opt.label || opt.value));
       }
+
+      if (!blocksMap.has(group.label)) {
+        const optionCats = (group.options || []).map((opt: any) => ({
+          name: String(opt.label || opt.value || "").trim(),
+          categoryTaxonomy: resolvedGType || "categoria",
+          subcategories: [],
+        })).filter((c: any) => c.name);
+        if (optionCats.length > 0) {
+          blocksMap.set(group.label, {
+            blockName: group.label,
+            blockTaxonomy: resolvedGType || "categoria",
+            parentCategories: optionCats,
+          });
+        }
+      }
     });
+
+    const categoryTree = Array.from(blocksMap.values());
 
     const allMainCatNames = categoryMapWithTaxonomy
       .filter((c) => !c.parentId && c.resolvedTaxonomyType === "categoria")
@@ -3799,8 +3795,10 @@ function classifySectorAndTaxonomy(
     /osep|hospital|clinica|sanatorio|salud/i.test(url));
 
   const isLegalOrConsulting =
-    /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|allende|brea|cbi|immi)\b/i.test(lowerCorpus) ||
-    /abogados|legal|estudio|immi/i.test(urlNorm);
+    !isEducationalEntity &&
+    !isHealthEntity &&
+    (/\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|allende|brea|cbi|immi)\b/i.test(lowerCorpus) ||
+    /abogados|legal|estudio|immi/i.test(urlNorm));
 
   const isFashionOrDesign =
     /\b(moda|indumentaria|ropa|textil|prendas|calzado|zapatos|vestidos|diseño\s+de\s+indumentaria|accesorios\s+de\s+moda|couture|fashion|marca\s+de\s+ropa)\b/i.test(lowerCorpus) ||
@@ -4085,7 +4083,9 @@ function classifySectorAndTaxonomy(
   if (scoredActs.length > 0 && scoredActs[0].score > 0) {
     selectedActivities.push(scoredActs[0].name);
     if (scoredActs[1] && scoredActs[1].score >= 30 && scoredActs[1].score >= scoredActs[0].score * 0.6) {
-      selectedActivities.push(scoredActs[1].name);
+      if (!(isEducationalEntity && /agricultura|ganader|pesca|miner/i.test(scoredActs[1].name))) {
+        selectedActivities.push(scoredActs[1].name);
+      }
     }
   } else if (actsToEvaluate.length > 0) {
     selectedActivities.push(actsToEvaluate[0]);
@@ -4584,17 +4584,7 @@ ${extractedData.detectedCommentsUrl ? `- ENLACE DE COMENTARIOS / MAPS DE LA SEDE
 - Texto Completo del Sitio:
 ${extractedData.textContent.slice(0, 30000)}
 
-CATÁLOGO OFICIAL DE BLOQUES Y CATEGORÍAS EN LA BASE DE DATOS:
-${categoryTreeFormat}
-
-SECTOR DE QUIEN OFRECE (ACTIVIDADES DISPONIBLES EN BD):
-${taxonomies.activities.map((a: string) => `"${a}"`).join(", ")}
-
-QUIÉN LO OFRECE (TIPOS DE PERFIL DISPONIBLES EN BD):
-${taxonomies.types.map((t: string) => `"${t}"`).join(", ")}
-
-ACOMPAÑAMIENTO Y SOPORTE (MODALIDADES DISPONIBLES EN BD):
-${taxonomies.modalities.map((m: string) => `"${m}"`).join(", ")}
+${buildTaxonomyCatalogPromptSection(taxonomies)}
 
 REGLAS CRÍTICAS Y OBLIGATORIAS:
 
@@ -5315,7 +5305,11 @@ function enforceStrictTaxonomyGuardrails(
     const validActs: string[] = taxonomies.activities || [];
     const eduAct = validActs.find((a) => /educaci|formaci/i.test(a));
     if (eduAct) {
-      publication.providerActivities = [eduAct];
+      if (!Array.isArray(publication.providerActivities)) {
+        publication.providerActivities = [eduAct];
+      } else if (!publication.providerActivities.includes(eduAct)) {
+        publication.providerActivities = [eduAct, ...publication.providerActivities];
+      }
     }
   }
 
@@ -5329,7 +5323,7 @@ function enforceStrictTaxonomyGuardrails(
     publication.providerActivities = publication.providerActivities.filter((a) => !/salud|asistencia\s+social|m[eé]dic/i.test(a));
     const eduAct = taxonomies?.activities?.find((a: string) => /educaci|formaci/i.test(a));
     if (eduAct && !publication.providerActivities.includes(eduAct)) {
-      publication.providerActivities = [eduAct];
+      publication.providerActivities = [eduAct, ...publication.providerActivities];
     } else if (publication.providerActivities.length === 0) {
       publication.providerActivities = ["Educación y formación"];
     }
@@ -5383,9 +5377,12 @@ function enforceStrictTaxonomyGuardrails(
   }
 
   // Legal & Migration intelligence: strictly clean up Bienes raíces and enforce Gestiones migratorias / Residencia y ciudadanía
+  // ONLY if entity is legitimately legal/migration and NOT an educational institution or healthcare provider
   const isLegalMigrationGuard =
-    /\b(abogad|legal|leyes|estudio\s+juridico|consultoria\s+legal|asesoramiento\s+legal|migracion|migratori|visa|visas|residencia|ciudadani|tramite\s+migratorio|naturalizacion|pasaporte|cbi|immi)\b/i.test(allText) ||
-    /immi|legal|visa|migra/i.test(publication.url);
+    !isEducational &&
+    !isHealth &&
+    (/\b(abogado|abogada|abogados|estudio\s+juridico|consultoria\s+legal|asesoramiento\s+legal|tramite\s+migratorio|naturalizacion|cbi\s+argentina|ciudadania\s+italiana|ciudadania\s+espanola)\b/i.test(allText) ||
+    /immi|estudiojuridico/i.test(publication.url));
 
   if (isLegalMigrationGuard) {
     if (Array.isArray(publication.providerActivities)) {
@@ -5398,24 +5395,53 @@ function enforceStrictTaxonomyGuardrails(
         publication.providerActivities = [profAct, ...publication.providerActivities];
       }
     }
-    if (taxonomies?.categories?.length) {
+    if ((!publication.categorySelections || publication.categorySelections.length === 0) && taxonomies?.categories?.length) {
       const migCat = taxonomies.categories.find((c: string) => /migra|visa|residencia|ciudadan/i.test(c));
       if (migCat) {
         if (!Array.isArray(publication.categorySelections)) publication.categorySelections = [];
         if (!publication.categorySelections.includes(migCat)) {
-          publication.categorySelections = [migCat, ...publication.categorySelections.slice(0, 4)];
+          publication.categorySelections = [migCat];
           publication.category = migCat;
         }
       }
     }
-    if (taxonomies?.subcategories?.length) {
+    if ((!publication.subcategorySelections || publication.subcategorySelections.length === 0) && taxonomies?.subcategories?.length) {
       const resSub = taxonomies.subcategories.find((s: string) => /residencia|ciudadan|migra/i.test(s));
       if (resSub) {
         if (!Array.isArray(publication.subcategorySelections)) publication.subcategorySelections = [];
         if (!publication.subcategorySelections.includes(resSub)) {
-          publication.subcategorySelections = [resSub, ...publication.subcategorySelections.slice(0, 4)];
+          publication.subcategorySelections = [resSub];
           publication.subcategory = resSub;
         }
+      }
+    }
+  }
+
+  // Educational clean-up: universities must never have false migration categories or agriculture
+  if (isEducational) {
+    if (Array.isArray(publication.categorySelections)) {
+      publication.categorySelections = publication.categorySelections.filter(
+        (c) => !/migra|visas|residencia\s*y\s*ciudadan/i.test(c)
+      );
+      if (publication.categorySelections.length > 0) {
+        publication.category = publication.categorySelections[0];
+      }
+    }
+    if (Array.isArray(publication.subcategorySelections)) {
+      publication.subcategorySelections = publication.subcategorySelections.filter(
+        (s) => !/migra|visas|residencia\s*y\s*ciudadan/i.test(s)
+      );
+      if (publication.subcategorySelections.length > 0) {
+        publication.subcategory = publication.subcategorySelections[0];
+      }
+    }
+    if (Array.isArray(publication.providerActivities)) {
+      publication.providerActivities = publication.providerActivities.filter(
+        (a) => !/agricultura|ganader|pesca|miner/i.test(a)
+      );
+      const eduAct = taxonomies?.activities?.find((a: string) => /educaci|formaci/i.test(a));
+      if (eduAct && !publication.providerActivities.includes(eduAct)) {
+        publication.providerActivities = [eduAct, ...publication.providerActivities];
       }
     }
   }
