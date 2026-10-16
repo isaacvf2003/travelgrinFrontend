@@ -3649,8 +3649,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           variationIndex,
           scrapedHeadings: activeScrapedFactsRef.current.scrapedHeadings || [],
           scrapedParagraphs: activeScrapedFactsRef.current.scrapedParagraphs || [],
-          scrapedTextContent: activeScrapedFactsRef.current.scrapedTextContent || "",
-          rawPageTitle: activeScrapedFactsRef.current.rawPageTitle || "",
+          scrapedTextContent: activeScrapedFactsRef.current.scrapedTextContent || pDescription || currentVal || "",
+          rawPageTitle: activeScrapedFactsRef.current.rawPageTitle || pTitle || "",
         }),
       });
 
