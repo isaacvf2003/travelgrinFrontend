@@ -10,6 +10,7 @@ import {
   runCustomBlockAgent,
   runProviderInfoAgent,
   runTaxonomyAgent,
+  runUnifiedPublicationAgent,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
@@ -4271,7 +4272,11 @@ async function createFallbackPublication(
     providerActivities: finalTaxonomyData.providerActivities?.length ? finalTaxonomyData.providerActivities : dynamicFallbackClassified.providerActivities,
     providerTypes: finalTaxonomyData.providerTypes?.length ? finalTaxonomyData.providerTypes : dynamicFallbackClassified.providerTypes,
     providerModalities: finalTaxonomyData.providerModalities?.length ? finalTaxonomyData.providerModalities : dynamicFallbackClassified.providerModalities,
-  };
+    scrapedHeadings: (extractedData.headings || []).slice(0, 20),
+    scrapedParagraphs: (extractedData.paragraphs || (extractedData.textContent || "").split(/\n\s*\n+/).filter((p: string) => p.length > 25)).slice(0, 15),
+    scrapedTextContent: (extractedData.textContent || "").slice(0, 5000),
+    rawPageTitle: extractedData.title || "",
+  } as any;
 
   return enforceStrictTaxonomyGuardrails(
     fallbackResult,
@@ -5653,91 +5658,133 @@ async function processUrlWithAI(
     };
   }
 
-  // 2, 3 & 4. Run Title, Description, Provider Info, and Taxonomy Agents in staggered stages
+  // 2. Ejecución Inteligente: Probar Agente Unificado (1 solo llamado rápido y seguro contra rate limits)
   let titleAgentRes: any;
   let descAgentRes: any;
   let providerInfoRes: any;
   let taxonomyRes: any;
-
-  try {
-    // Stage 1: Title Agent
-    titleAgentRes = await runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt);
-
-    // Stage 2: Description Agent
-    descAgentRes = await runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt);
-
-    // Stage 3: Taxonomy Agent
-    taxonomyRes = await runTaxonomyAgent(cleanContext, taxonomies);
-
-    // Stage 4: Provider Info Agent
-    providerInfoRes = await runProviderInfoAgent(cleanContext);
-  } catch (agentErr: any) {
-    console.warn(`[AI Scraper] AI agent execution failed for ${url}, falling back to grounded extraction:`, agentErr?.message);
-    const fallbackPub = await createFallbackPublication(
-      extracted,
-      taxonomies,
-      customBlocks,
-      customAdminPrompt,
-      customTitlePrompt,
-      customDescriptionPrompt,
-      includeScoreScout
-    );
-    return {
-      publication: enforceStrictTaxonomyGuardrails(fallbackPub, extracted, taxonomies),
-      providerUsed: "extractor",
-    };
-  }
-
-  if (titleAgentRes?.providerUsed && titleAgentRes.providerUsed !== "none") providersUsed.add(titleAgentRes.providerUsed);
-  if (descAgentRes?.providerUsed && descAgentRes.providerUsed !== "none") providersUsed.add(descAgentRes.providerUsed);
-  if (providerInfoRes?.providerUsed && providerInfoRes.providerUsed !== "none") providersUsed.add(providerInfoRes.providerUsed);
-  if (taxonomyRes?.providerUsed && taxonomyRes.providerUsed !== "none") providersUsed.add(taxonomyRes.providerUsed);
-
-  // Carefully refine publisher name if provider info agent detected the true company/organization
-  const isAcronymPub = /^[A-Z0-9]{2,8}$/.test(cleanPublisher.replace(/\s+/g, ""));
-  const isGenericPub = !cleanPublisher || /^(?:home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal|sitio\s*oficial|p[aá]gina\s*(?:principal|oficial|de\s*inicio)?|web\s*oficial|portal(?:\s*oficial)?|login|acceso|contacto|novedades|art[ií]culo|untitled|sin\s*datos|no\s*disponible|n\/?a|oferente|establecimiento|empresa|instituci[oó]n)$/i.test(cleanPublisher.trim());
-
-  if (
-    providerInfoRes.data?.detectedPublisherName &&
-    providerInfoRes.data.detectedPublisherName.length >= 2 &&
-    !/^(?:oferente|establecimiento|instituci[oó]n|empresa|home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal)$/i.test(providerInfoRes.data.detectedPublisherName)
-  ) {
-    const isProgramOrHeadline = /govtech|programa|iniciativa|evento|noticia|art[ií]culo|trabaj[aá]|aprend[eé]|carrera|curso|taller|edici[oó]n|becas/i.test(cleanPublisher);
-    if (isProgramOrHeadline || cleanPublisher.length > 35 || isAcronymPub || isGenericPub) {
-      cleanPublisher = providerInfoRes.data.detectedPublisherName;
-    }
-  } else if (isAcronymPub || isGenericPub) {
-    const officialFullName = findOfficialOrganizationName(extracted.htmlContent || "", cleanPublisher, extracted.detectedSiteName);
-    if (officialFullName && !/^(?:home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal)$/i.test(officialFullName)) {
-      cleanPublisher = officialFullName;
-    }
-  }
-
-  // 4. Run Custom Block Agents (sequentially to protect AI provider RPM limits)
   const extraDescriptions: ExtraDescriptionBlock[] = [];
 
-  // Score Scout Block (if enabled)
-  if (includeScoreScout !== false) {
-    const scoreBlock = buildScoreScoutBlock(
-      cleanPublisher,
-      cleanContext.foundingYear || "",
-      cleanContext.rating || "5.0",
-      extracted.textContent,
-      undefined,
-      url,
-      cleanContext.reviewCount || "0"
-    );
-    extraDescriptions.push(scoreBlock);
+  let unifiedRes: any = null;
+  try {
+    unifiedRes = await runUnifiedPublicationAgent({
+      context: cleanContext,
+      customTitlePrompt,
+      customDescriptionPrompt,
+      customBlocks,
+      taxonomies,
+      includeScoreScout,
+    });
+  } catch (uErr: any) {
+    console.warn(`[AI Scraper] Unified agent failed for ${url}:`, uErr?.message);
   }
 
-  // Custom Blocks requested by admin
-  if (Array.isArray(customBlocks) && customBlocks.length > 0) {
-    const validCustomBlocks = customBlocks.filter((cb) => cb && cb.title && cb.title.trim());
-    for (const cb of validCustomBlocks) {
-      const blockRes = await runCustomBlockAgent(cleanContext, cb.title, cb.prompt);
-      extraDescriptions.push(blockRes);
-      if (validCustomBlocks.length > 1) {
-        await new Promise((r) => setTimeout(r, 200));
+  if (unifiedRes && unifiedRes.success && unifiedRes.data) {
+    if (unifiedRes.providerUsed && unifiedRes.providerUsed !== "none") {
+      providersUsed.add(unifiedRes.providerUsed);
+    }
+    titleAgentRes = {
+      success: true,
+      data: {
+        title: unifiedRes.data.title,
+        titleI18n: unifiedRes.data.titleI18n,
+      },
+    };
+    descAgentRes = {
+      success: true,
+      data: {
+        description: unifiedRes.data.description,
+        descriptionI18n: unifiedRes.data.descriptionI18n,
+      },
+    };
+    providerInfoRes = {
+      success: true,
+      data: {
+        providerInfo: unifiedRes.data.providerInfo,
+        providerInfoI18n: unifiedRes.data.providerInfoI18n,
+        detectedPublisherName: unifiedRes.data.detectedPublisherName,
+        detectedAddress: unifiedRes.data.detectedAddress,
+        detectedCity: unifiedRes.data.detectedCity,
+        detectedCountry: unifiedRes.data.detectedCountry,
+      },
+    };
+    taxonomyRes = {
+      success: true,
+      data: unifiedRes.data.taxonomyData,
+    };
+
+    // Score Scout Block (si está habilitado)
+    if (includeScoreScout !== false) {
+      const scoreBlock = buildScoreScoutBlock(
+        cleanPublisher,
+        cleanContext.foundingYear || "",
+        cleanContext.rating || "5.0",
+        extracted.textContent,
+        undefined,
+        url,
+        cleanContext.reviewCount || "0"
+      );
+      extraDescriptions.push(scoreBlock);
+    }
+
+    // Agregar los bloques personalizados generados por la IA en base a los prompts
+    if (Array.isArray(unifiedRes.data.extraDescriptions)) {
+      for (const cb of unifiedRes.data.extraDescriptions) {
+        extraDescriptions.push(cb);
+      }
+    }
+  } else {
+    // Si el agente unificado no pudo responder, correr mini-agentes escalonados
+    try {
+      titleAgentRes = await runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt);
+      descAgentRes = await runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt);
+      taxonomyRes = await runTaxonomyAgent(cleanContext, taxonomies);
+      providerInfoRes = await runProviderInfoAgent(cleanContext);
+    } catch (agentErr: any) {
+      console.warn(`[AI Scraper] AI agent execution failed for ${url}, falling back to grounded extraction:`, agentErr?.message);
+      const fallbackPub = await createFallbackPublication(
+        extracted,
+        taxonomies,
+        customBlocks,
+        customAdminPrompt,
+        customTitlePrompt,
+        customDescriptionPrompt,
+        includeScoreScout
+      );
+      return {
+        publication: enforceStrictTaxonomyGuardrails(fallbackPub, extracted, taxonomies),
+        providerUsed: "extractor",
+      };
+    }
+
+    if (titleAgentRes?.providerUsed && titleAgentRes.providerUsed !== "none") providersUsed.add(titleAgentRes.providerUsed);
+    if (descAgentRes?.providerUsed && descAgentRes.providerUsed !== "none") providersUsed.add(descAgentRes.providerUsed);
+    if (providerInfoRes?.providerUsed && providerInfoRes.providerUsed !== "none") providersUsed.add(providerInfoRes.providerUsed);
+    if (taxonomyRes?.providerUsed && taxonomyRes.providerUsed !== "none") providersUsed.add(taxonomyRes.providerUsed);
+
+    // Score Scout Block (si está habilitado)
+    if (includeScoreScout !== false) {
+      const scoreBlock = buildScoreScoutBlock(
+        cleanPublisher,
+        cleanContext.foundingYear || "",
+        cleanContext.rating || "5.0",
+        extracted.textContent,
+        undefined,
+        url,
+        cleanContext.reviewCount || "0"
+      );
+      extraDescriptions.push(scoreBlock);
+    }
+
+    // Bloques personalizados solicitados por el administrador
+    if (Array.isArray(customBlocks) && customBlocks.length > 0) {
+      const validCustomBlocks = customBlocks.filter((cb) => cb && cb.title && cb.title.trim());
+      for (const cb of validCustomBlocks) {
+        const blockRes = await runCustomBlockAgent(cleanContext, cb.title, cb.prompt);
+        extraDescriptions.push(blockRes);
+        if (validCustomBlocks.length > 1) {
+          await new Promise((r) => setTimeout(r, 200));
+        }
       }
     }
   }

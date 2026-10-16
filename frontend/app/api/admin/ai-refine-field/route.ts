@@ -47,6 +47,8 @@ function extractJson(text: string): any {
   return null;
 }
 
+let cachedRefineModel: string | null = null;
+
 async function callGemini(prompt: string, apiKey: string, temperature = 0.85): Promise<string> {
   const candidateModels = [
     "gemini-1.5-flash",
@@ -65,23 +67,8 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.85): P
       },
     };
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(25000),
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (res.ok) {
-      const data = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-      return text.replace(/```json\s*|```/gi, "").trim();
-    } else if (res.status === 429) {
-      await new Promise((r) => setTimeout(r, 400));
-      const retryRes = await fetch(
+    try {
+      let res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: "POST",
@@ -90,24 +77,67 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.85): P
           body: JSON.stringify(payload),
         }
       );
-      if (retryRes.ok) {
-        const data = await retryRes.json();
+
+      if (res.status === 429) {
+        await new Promise((r) => setTimeout(r, 1200));
+        res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: AbortSignal.timeout(25000),
+            body: JSON.stringify(payload),
+          }
+        );
+      }
+
+      if (res.status === 400) {
+        // Fallback without responseMimeType in case model doesn't support structured output
+        res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: AbortSignal.timeout(25000),
+            body: JSON.stringify({
+              contents: payload.contents,
+              generationConfig: { temperature },
+            }),
+          }
+        );
+      }
+
+      if (res.ok) {
+        const data = await res.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
         return text.replace(/```json\s*|```/gi, "").trim();
+      } else {
+        const errText = await res.text().catch(() => "");
+        lastError = new Error(`Gemini (${model}): ${errText}`);
       }
-      const errText = await retryRes.text();
-      lastError = new Error(`Gemini (${model}): ${errText}`);
-    } else {
-      const errText = await res.text();
-      lastError = new Error(`Gemini (${model}): ${errText}`);
+    } catch (e: any) {
+      lastError = e;
     }
     return null;
   };
 
+  if (cachedRefineModel) {
+    try {
+      const result = await tryModel(cachedRefineModel);
+      if (result) return result;
+      cachedRefineModel = null;
+    } catch {
+      cachedRefineModel = null;
+    }
+  }
+
   for (const model of candidateModels) {
     try {
       const result = await tryModel(model);
-      if (result) return result;
+      if (result) {
+        cachedRefineModel = model;
+        return result;
+      }
     } catch (e: any) {
       lastError = e;
     }
@@ -300,40 +330,42 @@ export async function POST(req: Request) {
       city || country ? `Ubicación: ${[city, country].filter(Boolean).join(", ")}` : "",
       category ? `Categoría: ${category}` : "",
       url ? `Web: ${url}` : "",
-      scrapedHeadings.length ? `Encabezados: ${scrapedHeadings.slice(0, 8).join(" | ")}` : "",
-      scrapedParagraphs.length ? `Datos web: ${scrapedParagraphs.slice(0, 5).join(" ")}` : "",
-      scrapedTextContent ? `Texto: ${scrapedTextContent.slice(0, 2000)}` : "",
+      scrapedHeadings.length ? `Encabezados: ${scrapedHeadings.slice(0, 10).join(" | ")}` : "",
+      scrapedParagraphs.length ? `Datos web: ${scrapedParagraphs.slice(0, 6).join(" ")}` : "",
+      scrapedTextContent
+        ? `Texto web: ${scrapedTextContent.slice(0, 2500)}`
+        : (currentText ? `Contenido previo de referencia: ${currentText.replace(/<[^>]+>/g, " ").slice(0, 1500)}` : ""),
     ].filter(Boolean).join("\n");
 
     const variationDirective = `
 ======================================================================
-VARIACIÓN #${variationIndex || 1} (SOLICITUD DE RESPUESTA TOTALMENTE DIFERENTE):
-- El administrador está reformulando y exige una propuesta TOTALMENTE DISTINTA a la anterior.
-- VALOR ACTUAL PREVIO A DESCARTAR / SUPERAR: "${currentText || currentTitle}"
-- NO repitas la misma estructura de frases, ni el mismo orden de ideas, ni los mismos adjetivos de la versión previa.
-- Explora un nuevo enfoque persuasivo, dinámico y atractivo respetando la veracidad de los datos de la entidad y la instrucción del administrador.
+DIRECTIVA OBLIGATORIA DE REFORMULACIÓN (VARIACIÓN #${variationIndex || 1}):
+- El administrador pulsó "Reformular con IA" porque NO LE GUSTÓ la respuesta anterior y exige una versión NUEVA, DIFERENTE, FRESCA Y ATRACTIVA.
+- VALOR PREVIO A REEMPLAZAR Y NO REPETIR: "${(currentText || currentTitle || "").replace(/<[^>]+>/g, " ").slice(0, 500)}"
+REGLAS ESTRICTAS:
+1. PROHIBIDO repetir exactamente las mismas frases, párrafos o estructura de apertura de la versión previa.
+2. MANTÉN RIGUROSAMENTE Y AL 100% EL PROMPT DADO POR EL ADMINISTRADOR: "${prompt}".
+3. Utiliza nuevos conectores, otro orden sintáctico o destaca otros servicios y beneficios reales de la entidad.
 ======================================================================`;
 
     // 1. TÍTULO
     if (fieldType === "title") {
-      const aiPrompt = `Eres un redactor y editor profesional de Travelgrin.
-Genera un título comercial, atractivo y representativo para la publicación de la siguiente entidad cumpliendo la instrucción del administrador.
-INSTRUCCIÓN DEL ADMINISTRADOR: "${prompt}"
+      const aiPrompt = `Eres un redactor y especialista en marketing para Travelgrin.
+Genera un título comercial, atractivo y de alta conversión cumpliendo rigurosamente la instrucción del administrador.
+INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
 ${variationDirective}
 DATOS DE LA ENTIDAD:
 ${contextFacts}
-TÍTULO ACTUAL: "${currentText || currentTitle}"
+TÍTULO ACTUAL PREVIO A REEMPLAZAR: "${currentText || currentTitle}"
 
-REGLAS:
-- Elimina sufijos y prefijos genéricos de navegación como "- Inicio", "| Home", "Sitio Oficial".
-- Debe ser atractivo, claro y en español.
-- Genera también traducciones a en, pt, it.
-
-Devuelve UN JSON ESTRICTO con:
+REGLAS DE MÁXIMA PRIORIDAD:
+1. AUTORIDAD EDITORIAL SUPREMA: Cumple al pie de la letra lo que el administrador pide en su instrucción (tono de marketing, llamada de atención, palabras clave, estilo o enfoque específico). NUNCA devuelvas solo el nombre seco de la entidad si se pidió impacto comercial.
+2. Limpieza: Elimina sufijos y prefijos genéricos de navegación como "- Inicio", "| Home", "Sitio Oficial".
+3. Formato estricto: Devuelve ÚNICAMENTE un objeto JSON con:
 {
-  "title": "Título en español",
+  "title": "Título redactado aquí",
   "titleI18n": {
-    "es": "Título en español",
+    "es": "Título redactado aquí",
     "en": "Title in English",
     "pt": "Título em português",
     "it": "Titolo in italiano"
@@ -351,28 +383,28 @@ Devuelve UN JSON ESTRICTO con:
     // 2. DESCRIPCIÓN PRINCIPAL
     if (fieldType === "description") {
       const aiPrompt = `Eres el redactor jefe de Travelgrin.
-Tu objetivo es redactar o mejorar la descripción principal de la publicación cumpliendo con la instrucción del administrador y basándote en la información real de la entidad.
-INSTRUCCIÓN DEL ADMINISTRADOR: "${prompt}"
+Tu objetivo es redactar o mejorar la descripción principal de la publicación CUMPLIENDO RIGUROSAMENTE CON LA INSTRUCCIÓN DEL ADMINISTRADOR y basándote en la información real de la entidad.
+INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
 ${variationDirective}
-DESCRIPCIÓN ACTUAL: "${currentText}"
+DESCRIPCIÓN ACTUAL PREVIA A REEMPLAZAR: "${currentText}"
 DATOS DE LA ENTIDAD:
 ${contextFacts}
 
-PAUTAS DE REDACCIÓN:
-- Redacta de forma profesional, fluida, humana y atractiva en párrafos HTML (<p>...</p>).
-- Cumple fielmente las instrucciones del administrador (por ejemplo, si pide párrafos con subtítulos en negrita, tono comercial, resumen, etc.).
-- PROHIBIDO usar plantillas rígidas o etiquetas repetitivas obligatorias como 'Vigencia:' o 'Propuesta de valor:' a menos que el administrador lo haya solicitado expresamente.
-- No inventes datos ficticios; describe los servicios reales que ofrece la entidad.
-- Genera también las traducciones a en, pt, it correspondientes.
-
-Devuelve UN JSON ESTRICTO con:
+REGLAS DE MÁXIMA PRIORIDAD:
+1. AUTORIDAD EDITORIAL SUPREMA: Cumple fielmente y al pie de la letra la instrucción del administrador:
+   - Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS.
+   - Si el administrador pide títulos en negrita o letras negras con su explicación, cada párrafo debe comenzar con <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>.
+   - Si el administrador pide tono de marketing o conversión, aplícalo con fluidez.
+2. CERO PLANTILLAS RÍGIDAS: Prohibido usar etiquetas fijas obligatorias o plantillas genéricas. La redacción debe adaptarse orgánicamente a lo solicitado por el administrador y a los servicios reales de la entidad.
+3. Formato HTML limpio: Estructura en párrafos <p>...</p>.
+4. Formato estricto: Devuelve ÚNICAMENTE un objeto JSON con:
 {
-  "description": "Texto completo en español estructurado en párrafos HTML (<p>...</p>)",
+  "description": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>",
   "descriptionI18n": {
-    "es": "Texto completo en español estructurado en párrafos HTML",
-    "en": "Complete text in English formatted in HTML paragraphs",
-    "pt": "Texto completo em português formatado em parágrafos HTML",
-    "it": "Testo completo in italiano formattato in paragrafi HTML"
+    "es": "<p>Contenido en español...</p>",
+    "en": "<p>Content in English...</p>",
+    "pt": "<p>Conteúdo em português...</p>",
+    "it": "<p>Contenuto in italiano...</p>"
   }
 }`;
       const parsed = await callAI(aiPrompt, "description");
@@ -387,24 +419,25 @@ Devuelve UN JSON ESTRICTO con:
     // 3. BLOQUE ADICIONAL (extra_block / new_extra_block)
     if (fieldType === "extra_block" || fieldType === "new_extra_block") {
       const blockTitle = currentTitle || "Información Adicional";
-      const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(blockTitle) || /faq|preguntas/i.test(prompt);
+      const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(blockTitle) || /pregunt/i.test(prompt);
 
       const aiPrompt = `Eres un redactor profesional de bloques de contenido para Travelgrin.
-Tu tarea es redactar el contenido para un bloque específico titulado "${blockTitle}" cumpliendo estrictamente la instrucción del administrador.
+Tu tarea es redactar el contenido para el bloque titulado "${blockTitle}" CUMPLIENDO ESTRICTAMENTE LA INSTRUCCIÓN DEL ADMINISTRADOR.
 TÍTULO DEL BLOQUE: "${blockTitle}"
-INSTRUCCIÓN DEL ADMINISTRADOR: "${prompt}"
+INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
 ${variationDirective}
-CONTENIDO ACTUAL DEL BLOQUE: "${currentText}"
+CONTENIDO ACTUAL PREVIO A REEMPLAZAR: "${currentText}"
 DATOS DE REFERENCIA DE LA ENTIDAD:
 ${contextFacts}
 
-REGLAS DE FORMATO:
-- Si el bloque es de Preguntas Frecuentes (FAQ) o pide preguntas y respuestas: redacta entre 5 y 10 preguntas y respuestas relevantes en formato HTML: <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona basada en los servicios...</p>.
-- Si es otro tipo de bloque (ej. Requisitos, Modalidades, Servicios, Aranceles): redacta párrafos estructurados y profesionales en HTML <p>...</p>.
-- NUNCA devuelvas el contenido vacío.
-- Genera también las traducciones a es, en, pt, it.
-
-Devuelve UN JSON ESTRICTO con:
+REGLAS DE MÁXIMA PRIORIDAD:
+1. AUTORIDAD EDITORIAL SUPREMA: Cumple al 100% y al pie de la letra la instrucción del administrador:
+   - Si el administrador especifica una cantidad exacta de preguntas o párrafos, GENERA EXACTAMENTE esa cantidad (ni más ni menos).
+   - Si el administrador especifica un formato de texto, estilo, colores (<strong style="color: ...">) o directiva editorial, APLÍCALO EXACTAMENTE como fue solicitado.
+   - Si es un bloque de Preguntas Frecuentes y no especificó cantidad, genera entre 4 y 8 preguntas relevantes basadas en los servicios reales de la web en formato <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>.
+   - Si es otro tipo de bloque (Requisitos, Propuesta, etc.), redacta párrafos estructurados en HTML <p>...</p>.
+2. CERO PLANTILLAS RÍGIDAS: No uses preguntas o respuestas de plantilla fija; adáptalas a los servicios y datos reales de la entidad.
+3. Formato estricto: Devuelve ÚNICAMENTE un objeto JSON con:
 {
   "title": "${blockTitle}",
   "body": "Contenido enriquecido en HTML",
