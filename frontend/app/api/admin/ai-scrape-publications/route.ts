@@ -2700,42 +2700,51 @@ function detectLanguagesFromText(allText: string, canonicalPool: string[] = []):
   const esp = poolWithNorm.find((p) => p.norm.includes("espanol") || p.norm === "es");
   if (esp) detected.add(esp.original);
 
-  // English detection
+  // English detection (text keywords, international relations/exchange, domain or path indicators)
   if (
-    /\b(english|ingl[eé]s|bilingual|biling[uü]e|we speak english|english spoken|international|foreign|languages?:\s*.*english)\b/i.test(lower) ||
-    /\b(contact us|about us|apply now|all rights reserved|overview|schedule a tour|admissions)\b/i.test(lower)
+    /\b(english|ingl[eé]s|bilingual|biling[uü]e|we speak english|english spoken|international|foreign|languages?:\s*.*english|exchange|study abroad|toefl|ielts|admissions|apply now|all rights reserved|overview|schedule a tour|international students?|relaciones internacionales|movilidad internacional|convenios internacionales|lenguas extranjeras)\b/i.test(lower) ||
+    /\.(?:us|uk|ca|au|edu)(?:\/|\?|#|$)/i.test(lower) ||
+    /\/(?:en|en-us|en-gb)(?:\/|\?|#|$)/i.test(lower)
   ) {
     const eng = poolWithNorm.find((p) => p.norm.includes("ingles") || p.norm === "en");
     if (eng) detected.add(eng.original);
   }
 
-  // Portuguese detection
+  // Portuguese detection (text keywords, domain or path indicators)
   if (
-    /\b(portugu[eêé]s|falamos portugu[eêé]s|atendimento em portugu[eêé]s|fale conosco|bem-vindo|sobre n[oó]s|institui[cç][aã]o)\b/i.test(lower)
+    /\b(portugu[eêé]s|falamos portugu[eêé]s|atendimento em portugu[eêé]s|fale conosco|bem-vindo|sobre n[oó]s|institui[cç][aã]o|brasil|brazil|brasileiro|brasileira)\b/i.test(lower) ||
+    /\.br(?:\/|\?|#|$)/i.test(lower) ||
+    /\/(?:pt|pt-br)(?:\/|\?|#|$)/i.test(lower)
   ) {
     const pt = poolWithNorm.find((p) => p.norm.includes("portugues") || p.norm === "pt");
     if (pt) detected.add(pt.original);
   }
 
-  // Italian detection
+  // Italian detection (text keywords, domain or path indicators)
   if (
-    /\b(italiano|parliamo italiano|contattaci|chi siamo|benvenuti)\b/i.test(lower)
+    /\b(italiano|parliamo italiano|contattaci|chi siamo|benvenuti|italia|italian)\b/i.test(lower) ||
+    /\.it(?:\/|\?|#|$)/i.test(lower) ||
+    /\/(?:it|it-it)(?:\/|\?|#|$)/i.test(lower)
   ) {
     const it = poolWithNorm.find((p) => p.norm.includes("italiano") || p.norm === "it");
     if (it) detected.add(it.original);
   }
 
-  // German detection
+  // German detection (text keywords, domain or path indicators)
   if (
-    /\b(alem[aá]n|deutsch|german|kontakt)\b/i.test(lower)
+    /\b(alem[aá]n|deutsch|german|kontakt|deutschland)\b/i.test(lower) ||
+    /\.de(?:\/|\?|#|$)/i.test(lower) ||
+    /\/(?:de|de-de)(?:\/|\?|#|$)/i.test(lower)
   ) {
     const de = poolWithNorm.find((p) => p.norm.includes("aleman") || p.norm === "de");
     if (de) detected.add(de.original);
   }
 
-  // French detection
+  // French detection (text keywords, domain or path indicators)
   if (
-    /\b(franc[eéè]s|fran[cç]ais|french|nous contacter|bienvenue)\b/i.test(lower)
+    /\b(franc[eéè]s|fran[cç]ais|french|nous contacter|bienvenue|france)\b/i.test(lower) ||
+    /\.fr(?:\/|\?|#|$)/i.test(lower) ||
+    /\/(?:fr|fr-fr)(?:\/|\?|#|$)/i.test(lower)
   ) {
     const fr = poolWithNorm.find((p) => p.norm.includes("frances") || p.norm === "fr");
     if (fr) detected.add(fr.original);
@@ -3813,6 +3822,9 @@ function classifySectorAndTaxonomy(
     /amcham|workplace/i.test(urlNorm);
 
   const isTourismEntity =
+    !isEducationalEntity &&
+    !isHealthEntity &&
+    !isLegalOrConsulting &&
     /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(lowerCorpus);
 
   const isTechEntity =
@@ -3985,11 +3997,12 @@ function classifySectorAndTaxonomy(
   if (scoredParents.length > 0 && scoredParents[0].score >= 25) {
     const topScore = scoredParents[0].score;
     for (const p of scoredParents) {
-      if (selectedCategories.length >= 2) break;
+      if (selectedCategories.length >= 4) break;
       const pNormCheck = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(pNormCheck)) continue;
-      // Select the top-1 parent, or top-2 if its score is very close (at least 70% of the top score and >= 40)
-      if (selectedCategories.length === 0 || (p.score >= 40 && p.score >= topScore * 0.7)) {
+      if (isEducationalEntity && /visa|migra/i.test(pNormCheck)) continue;
+      // Multi-selection: Select top parent and subsequent parents if score is significant (at least 55% of top score and >= 35)
+      if (selectedCategories.length === 0 || (p.score >= 35 && p.score >= topScore * 0.55)) {
         selectedCategories.push(p.name);
         p.matchingSubs.forEach((s) => {
           const sNormCheck = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -3999,6 +4012,33 @@ function classifySectorAndTaxonomy(
           }
         });
       }
+    }
+  }
+
+  // Educational intelligence: Universities must always include "Estudiante" if in DB, and never include false "Profesional"
+  if (isEducationalEntity) {
+    const studentParent = parentCategoriesList.find((p) => /\bestudiant\w*/i.test(p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+    if (studentParent && !selectedCategories.includes(studentParent.name)) {
+      selectedCategories.unshift(studentParent.name);
+      studentParent.subcategories.forEach((s) => {
+        if (!selectedSubcategories.includes(s)) selectedSubcategories.push(s);
+      });
+    }
+    const hasStudentOrEdu = selectedCategories.some((c) => /\bestudiant|curso|formaci|educaci/i.test(c));
+    if (hasStudentOrEdu) {
+      const profIdx = selectedCategories.findIndex((c) => /^\s*profesional\s*$/i.test(c));
+      if (profIdx >= 0) selectedCategories.splice(profIdx, 1);
+    }
+  }
+
+  // Non-profit / ONG intelligence: must include voluntary/social categories if in DB
+  if (isOngEntity) {
+    const ongParent = parentCategoriesList.find((p) => isOngMatch(p.name));
+    if (ongParent && !selectedCategories.includes(ongParent.name)) {
+      selectedCategories.unshift(ongParent.name);
+      ongParent.subcategories.forEach((s) => {
+        if (!selectedSubcategories.includes(s)) selectedSubcategories.push(s);
+      });
     }
   }
 
@@ -4042,7 +4082,7 @@ function classifySectorAndTaxonomy(
       actScore += 120;
     }
     if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
-      actScore += 120;
+      actScore += 140;
     }
     // Negative constraint: Do NOT assign Bienes raíces to legal, migration or consulting services
     if (/bienes\s*ra[ií]ces|inmobiliari/i.test(aNorm)) {
@@ -4079,34 +4119,41 @@ function classifySectorAndTaxonomy(
   }
 
   scoredActs.sort((a, b) => b.score - a.score);
-  const selectedActivities: string[] = [];
-  if (scoredActs.length > 0 && scoredActs[0].score > 0) {
-    selectedActivities.push(scoredActs[0].name);
-    if (scoredActs[1] && scoredActs[1].score >= 30 && scoredActs[1].score >= scoredActs[0].score * 0.6) {
-      if (!(isEducationalEntity && /agricultura|ganader|pesca|miner/i.test(scoredActs[1].name))) {
+  let selectedActivities: string[] = [];
+
+  if (isEducationalEntity) {
+    // UNIVERSITIES AND EDUCATIONAL ENTITIES: Strictly and solely education and training!
+    const eduAct = actsToEvaluate.find((a) => /educaci|formaci|ensenan/i.test(a));
+    selectedActivities = [eduAct || "Educación y formación"];
+  } else {
+    if (scoredActs.length > 0 && scoredActs[0].score > 0) {
+      selectedActivities.push(scoredActs[0].name);
+      if (scoredActs[1] && scoredActs[1].score >= 35 && scoredActs[1].score >= scoredActs[0].score * 0.65) {
         selectedActivities.push(scoredActs[1].name);
       }
+    } else if (actsToEvaluate.length > 0) {
+      selectedActivities.push(actsToEvaluate[0]);
     }
-  } else if (actsToEvaluate.length > 0) {
-    selectedActivities.push(actsToEvaluate[0]);
   }
 
   // 5. Dynamic Type Resolution across validTypes
   let bestType = validTypes[0] || "Institución privada";
+  const selectedTypes: string[] = [];
+
   if (isPublicEntity) {
     const pub = validTypes.find((t) => /p[uú]blico|estatal/i.test(t));
     if (pub) bestType = pub;
     else bestType = "Organismo público";
+    selectedTypes.push(bestType);
   } else if (isOngEntity) {
-    const ongType = validTypes.find((t) => /ong|sin fines de lucro|fundaci|asociaci/i.test(t));
+    const ongType = validTypes.find((t) => /\b(?:ong|sin fines de lucro|fundaci|asociaci)\b/i.test(t));
     if (ongType) bestType = ongType;
-    else {
-      const priv = validTypes.find((t) => /privada|instituci/i.test(t));
-      if (priv) bestType = priv;
-    }
+    else bestType = "ONG";
+    selectedTypes.push(bestType);
   } else {
     const priv = validTypes.find((t) => /privada|empresa/i.test(t));
     if (priv) bestType = priv;
+    selectedTypes.push(bestType);
   }
 
   // 6. Dynamic Modalities across validMods
@@ -4135,7 +4182,7 @@ function classifySectorAndTaxonomy(
     categorySelections: selectedCategories,
     subcategorySelections: selectedSubcategories,
     providerActivities: selectedActivities,
-    providerTypes: [bestType],
+    providerTypes: selectedTypes.length ? selectedTypes : [bestType],
     providerModalities: finalMods,
   };
 }
@@ -5417,32 +5464,51 @@ function enforceStrictTaxonomyGuardrails(
     }
   }
 
-  // Educational clean-up: universities must never have false migration categories or agriculture
+  // Educational clean-up: universities must never have false tourism, false corporate professional services, false migration or agriculture
   if (isEducational) {
     if (Array.isArray(publication.categorySelections)) {
       publication.categorySelections = publication.categorySelections.filter(
         (c) => !/migra|visas|residencia\s*y\s*ciudadan/i.test(c)
       );
-      if (publication.categorySelections.length > 0) {
-        publication.category = publication.categorySelections[0];
-      }
     }
     if (Array.isArray(publication.subcategorySelections)) {
       publication.subcategorySelections = publication.subcategorySelections.filter(
         (s) => !/migra|visas|residencia\s*y\s*ciudadan/i.test(s)
       );
-      if (publication.subcategorySelections.length > 0) {
-        publication.subcategory = publication.subcategorySelections[0];
-      }
     }
     if (Array.isArray(publication.providerActivities)) {
       publication.providerActivities = publication.providerActivities.filter(
-        (a) => !/agricultura|ganader|pesca|miner/i.test(a)
+        (a) => !/hosteler|turism|alojam|profesional|tecnic|agricultura|ganader|pesca|miner|comercio/i.test(a)
       );
       const eduAct = taxonomies?.activities?.find((a: string) => /educaci|formaci/i.test(a));
       if (eduAct && !publication.providerActivities.includes(eduAct)) {
         publication.providerActivities = [eduAct, ...publication.providerActivities];
       }
+      if (publication.providerActivities.length === 0) {
+        publication.providerActivities = [eduAct || "Educación y formación"];
+      }
+    }
+
+    // Proactively ensure "Estudiante" category from DB catalog is selected for educational entity
+    if (taxonomies?.categories?.length) {
+      const studentCat = taxonomies.categories.find((c: string) => /\bestudiant\w*/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+      if (studentCat) {
+        if (!Array.isArray(publication.categorySelections)) {
+          publication.categorySelections = [studentCat];
+        } else if (!publication.categorySelections.includes(studentCat)) {
+          publication.categorySelections = [studentCat, ...publication.categorySelections];
+        }
+      }
+      // Remove false "Profesional" (since university is for students, not freelance professionals)
+      if (Array.isArray(publication.categorySelections) && studentCat && publication.categorySelections.includes(studentCat)) {
+        publication.categorySelections = publication.categorySelections.filter((c) => !/^\s*profesional\s*$/i.test(c));
+      }
+      if (Array.isArray(publication.categorySelections) && publication.categorySelections.length > 0) {
+        publication.category = publication.categorySelections[0];
+      }
+    }
+    if (Array.isArray(publication.subcategorySelections) && publication.subcategorySelections.length > 0) {
+      publication.subcategory = publication.subcategorySelections[0];
     }
   }
 
@@ -5507,6 +5573,17 @@ function enforceStrictTaxonomyGuardrails(
   }
   if (!publication.providerTypes || publication.providerTypes.length === 0) {
     publication.providerTypes = classified.providerTypes;
+  }
+
+  // Sync detected languages from text and URL
+  const detectedLangs = detectLanguagesFromText(allText, taxonomies?.languages);
+  if (detectedLangs && detectedLangs.length > 0) {
+    const existingLangs = String(publication.languages || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const mergedLangs = Array.from(new Set([...existingLangs, ...detectedLangs]));
+    publication.languages = mergedLangs.join(", ");
   }
 
   // 2. Guarantee valid founding year
