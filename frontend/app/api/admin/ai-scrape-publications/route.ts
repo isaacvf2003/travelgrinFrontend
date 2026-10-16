@@ -1088,7 +1088,11 @@ async function enrichWithLiveGoogleMapsAndSearch(
     officialFullName || cleanName,
   ].filter(Boolean) as string[];
 
-  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 5);
+  if (extracted.detectedCommentsUrl && extracted.detectedRating) {
+    return;
+  }
+
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 2);
 
   const searchPromises = uniqueQueries.map(async (q) => {
     try {
@@ -1101,7 +1105,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        2200
+        1200
       );
       if (!gmapsRes.ok) return null;
       return await gmapsRes.text();
@@ -2135,7 +2139,7 @@ async function fetchPageContent(url: string) {
         "Upgrade-Insecure-Requests": "1",
       },
       redirect: "follow",
-      signal: AbortSignal.timeout(4500),
+      signal: AbortSignal.timeout(3200),
     });
 
     if (res.ok) {
@@ -2156,7 +2160,7 @@ async function fetchPageContent(url: string) {
                 "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
               },
               redirect: "follow",
-              signal: AbortSignal.timeout(4500),
+              signal: AbortSignal.timeout(2000),
             });
             if (redirectRes.ok) {
               const redirectHtml = await redirectRes.text();
@@ -2208,12 +2212,12 @@ async function fetchPageContent(url: string) {
                 return score(b) - score(a);
               });
 
-              const topCandidates = subpageCandidates.slice(0, 3);
+              const topCandidates = subpageCandidates.slice(0, 1);
               const subPromises = topCandidates.map(async (subUrl) => {
                 try {
                   const subRes = await fetch(subUrl, {
                     headers: { "User-Agent": userAgents[0] },
-                    signal: AbortSignal.timeout(3000),
+                    signal: AbortSignal.timeout(1200),
                   });
                   if (!subRes.ok) return null;
                   const subHtml = await subRes.text();
@@ -2258,7 +2262,7 @@ async function fetchPageContent(url: string) {
     const jinaUrl = `https://r.jina.ai/${formattedUrl}`;
     const res = await fetch(jinaUrl, {
       headers: { "User-Agent": userAgents[1], Accept: "text/plain, text/html" },
-      signal: AbortSignal.timeout(3500),
+      signal: AbortSignal.timeout(2200),
     });
     if (res.ok) {
       const textContent = await res.text();
@@ -2328,7 +2332,7 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
   let dbCategories: any[] = [];
   let dbFilterGroups: any[] = [];
   try {
-    const [fetchedCats, fetchedGroups] = await Promise.all([
+    const prismaPromise = Promise.all([
       prisma.category.findMany({
         select: { id: true, description: true, taxonomyType: true, blockId: true, parentId: true, isPublicVisible: true },
         orderBy: [{ blockId: "asc" }, { parentId: "asc" }, { description: "asc" }],
@@ -2337,6 +2341,10 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
         include: { options: true },
       }),
     ]);
+    const timeoutPromise = new Promise<any>((_, reject) =>
+      setTimeout(() => reject(new Error("Prisma timeout")), 1500)
+    );
+    const [fetchedCats, fetchedGroups] = await Promise.race([prismaPromise, timeoutPromise]);
     dbCategories = fetchedCats || [];
     dbFilterGroups = fetchedGroups || [];
   } catch (e) {
@@ -2348,8 +2356,8 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
     try {
       const backendUrl = getBackendApiUrl();
       const [resCats, resGroups] = await Promise.all([
-        fetch(`${backendUrl}/api/categories?t=${Date.now()}`).then((r) => (r.ok ? r.json() : null)),
-        fetch(`${backendUrl}/api/admin/filters?t=${Date.now()}`).then((r) => (r.ok ? r.json() : null)),
+        fetch(`${backendUrl}/api/categories?t=${Date.now()}`, { signal: AbortSignal.timeout(1200) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(`${backendUrl}/api/admin/filters?t=${Date.now()}`, { signal: AbortSignal.timeout(1200) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
       const catsList = Array.isArray(resCats?.items) ? resCats.items : Array.isArray(resCats) ? resCats : [];
       const groupsList = Array.isArray(resGroups?.groups) ? resGroups.groups : Array.isArray(resGroups) ? resGroups : [];
