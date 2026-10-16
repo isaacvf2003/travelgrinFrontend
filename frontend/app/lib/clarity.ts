@@ -1,6 +1,5 @@
 /**
- * Microsoft Clarity Helper & Utilities
- * Permite registrar eventos personalizados, tags (país, idioma, usuario) y gestionar consentimientos.
+ * Microsoft Clarity Helper & Utilities (Deshabilitado en entorno de pruebas)
  */
 
 declare global {
@@ -9,78 +8,24 @@ declare global {
   }
 }
 
-export const CLARITY_PROJECT_ID = "syw6vrucog";
+export const CLARITY_PROJECT_ID = "";
 
-/**
- * Registra un evento personalizado en Microsoft Clarity
- * @param eventName Nombre del evento (ej: 'search_destination', 'click_contact', 'filter_applied')
- */
-export function clarityEvent(eventName: string) {
-  if (typeof window !== "undefined" && typeof window.clarity === "function") {
-    try {
-      window.clarity("event", eventName);
-    } catch (e) {
-      console.warn("[Clarity] Error enviando evento:", e);
-    }
-  }
+export function clarityEvent(_eventName: string) {
+  // Deshabilitado en entorno de pruebas
 }
 
-/**
- * Asigna una etiqueta personalizada (Custom Tag) a la sesión actual
- * @param key Clave de la etiqueta (ej: 'selected_country', 'language', 'user_role')
- * @param value Valor de la etiqueta
- */
-export function claritySetTag(key: string, value: string | number | boolean | null | undefined) {
-  if (value === null || value === undefined || value === "") return;
-  if (typeof window !== "undefined" && typeof window.clarity === "function") {
-    try {
-      window.clarity("set", key, String(value));
-    } catch (e) {
-      console.warn("[Clarity] Error asignando tag:", e);
-    }
-  }
+export function claritySetTag(_key: string, _value: string | number | boolean | null | undefined) {
+  // Deshabilitado en entorno de pruebas
 }
 
-/**
- * Identifica un usuario específico en Clarity (sin enviar datos sensibles)
- * @param customId Identificador único anónimo del usuario (ej: user_id)
- * @param friendlyName Nombre o rol legible (opcional)
- */
-export function clarityIdentify(customId: string, friendlyName?: string) {
-  if (!customId) return;
-  if (typeof window !== "undefined" && typeof window.clarity === "function") {
-    try {
-      window.clarity("identify", customId, undefined, undefined, friendlyName);
-    } catch (e) {
-      console.warn("[Clarity] Error identificando usuario:", e);
-    }
-  }
+export function clarityIdentify(_customId: string, _friendlyName?: string) {
+  // Deshabilitado en entorno de pruebas
 }
 
-/**
- * Actualiza el consentimiento de cookies para Clarity
- * @param granted true si el usuario aceptó cookies de telemetría/análisis
- */
-export function clarityConsent(granted: boolean = true) {
-  if (typeof window !== "undefined" && typeof window.clarity === "function") {
-    try {
-      window.clarity("consent", granted);
-    } catch (e) {
-      console.warn("[Clarity] Error actualizando consentimiento:", e);
-    }
-  }
+export function clarityConsent(_granted: boolean = true) {
+  // Deshabilitado en entorno de pruebas
 }
 
-/**
- * Fuerza a Clarity a priorizar la grabación de una sesión con alta relevancia
- * @param reason Motivo (ej: 'checkout_process', 'error_detected')
- */
-export function clarityUpgrade(reason: string) {
-  if (typeof window !== "undefined" && typeof window.clarity === "function") {
-    try {
-      window.clarity("upgrade", reason);
-    } catch (e) {
-      console.warn("[Clarity] Error haciendo upgrade de sesión:", e);
-    }
-  }
+export function clarityUpgrade(_reason: string) {
+  // Deshabilitado en entorno de pruebas
 }
