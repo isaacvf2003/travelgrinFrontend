@@ -193,28 +193,55 @@ export async function translateHtmlParagraphs(html: string, targetLang: "en" | "
 
 function extractJson(text: string): any {
   if (!text) return null;
-  const trimmed = text.trim();
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (fenceMatch && fenceMatch[1]) {
-    try {
-      return JSON.parse(fenceMatch[1].trim());
-    } catch {}
-  }
+  const clean = text.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
+
   try {
-    return JSON.parse(trimmed);
+    return JSON.parse(clean);
   } catch {}
-  const first = trimmed.indexOf("{");
-  const last = trimmed.lastIndexOf("}");
+
+  const first = clean.indexOf("{");
+  const last = clean.lastIndexOf("}");
   if (first !== -1 && last > first) {
+    const sub = clean.substring(first, last + 1);
     try {
-      return JSON.parse(trimmed.substring(first, last + 1));
+      return JSON.parse(sub);
+    } catch {}
+    try {
+      const sanitized = sub.replace(/:\s*"([\s\S]*?)"(?=\s*[,}\]])/g, (_, p1) => {
+        return `: "${p1.replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t")}"`;
+      });
+      return JSON.parse(sanitized);
     } catch {}
   }
-  return null;
+
+  const res: any = {};
+  const titleM = clean.match(/"(?:title|titulo|contenido)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/i);
+  if (titleM) {
+    try {
+      res.title = JSON.parse(`"${titleM[1]}"`);
+    } catch {
+      res.title = titleM[1].replace(/\\"/g, '"');
+    }
+    res.contenido = res.title;
+  }
+
+  const descM = clean.match(/"(?:description|descripcion|contenido)"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"|"\s*})/i);
+  if (descM) {
+    res.description = descM[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').trim();
+    if (!res.contenido) res.contenido = res.description;
+  }
+
+  const bodyM = clean.match(/"(?:body|cuerpo|contenido)"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"|"\s*})/i);
+  if (bodyM) {
+    res.body = bodyM[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').trim();
+    if (!res.contenido) res.contenido = res.body;
+  }
+
+  return Object.keys(res).length > 0 ? res : null;
 }
 
 // ----------------------------------------------------------------------------
-let cachedWorkingGeminiModel: string | null = "gemini-1.5-flash";
+let cachedWorkingGeminiModel: string | null = "gemini-2.0-flash";
 
 // ----------------------------------------------------------------------------
 // Provider Dispatcher (Gemini -> OpenAI -> Controlled Error)
@@ -223,7 +250,8 @@ async function executeModelCall(
   systemPrompt: string,
   userPrompt: string,
   apiKeyParam?: string,
-  preferredProvider: "auto" | "gemini" | "openai" = "auto"
+  preferredProvider: "auto" | "gemini" | "openai" = "auto",
+  maxOutputTokens: number = 1000
 ): Promise<{ rawText: string; providerUsed: string }> {
   const customKey = String(apiKeyParam || "").trim();
   const rawGemini =
@@ -252,7 +280,7 @@ async function executeModelCall(
     if (!geminiKey) throw new Error("GEMINI_API_KEY no disponible.");
 
     const callModel = async (model: string): Promise<string | null> => {
-      const payload = {
+      const payload: any = {
         contents: [
           {
             role: "user",
@@ -261,6 +289,7 @@ async function executeModelCall(
         ],
         generationConfig: {
           temperature: 0.85,
+          maxOutputTokens,
           responseMimeType: "application/json",
         },
       };
@@ -271,37 +300,35 @@ async function executeModelCall(
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(25000),
+            signal: AbortSignal.timeout(20000),
             body: JSON.stringify(payload),
           }
         );
 
         if (res.status === 429) {
-          // Gemini rate limit backoff: wait 1200ms and retry
-          await new Promise((r) => setTimeout(r, 1200));
+          await new Promise((r) => setTimeout(r, 600));
           res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(25000),
+              signal: AbortSignal.timeout(20000),
               body: JSON.stringify(payload),
             }
           );
         }
 
         if (res.status === 400) {
-          // Retry without responseMimeType in case json mode isn't supported for this prompt/model
           const fallbackPayload = {
             contents: payload.contents,
-            generationConfig: { temperature: 0.85 },
+            generationConfig: { temperature: 0.85, maxOutputTokens },
           };
           res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(25000),
+              signal: AbortSignal.timeout(20000),
               body: JSON.stringify(fallbackPayload),
             }
           );
@@ -321,7 +348,7 @@ async function executeModelCall(
       return null;
     };
 
-    // 1. Fast-path: Usar modelo en caché (o predeterminado gemini-1.5-flash) directamente en <1s
+    // 1. Fast-path: Usar modelo en caché (gemini-2.0-flash) directamente en ~1s
     if (cachedWorkingGeminiModel) {
       try {
         const result = await callModel(cachedWorkingGeminiModel);
@@ -332,11 +359,11 @@ async function executeModelCall(
       }
     }
 
-    // 2. Probar candidatos conocidos oficiales
+    // 2. Probar candidatos conocidos oficiales (gemini-2.0-flash y 1.5-flash-8b primero por máxima velocidad)
     const candidateModels = [
-      "gemini-1.5-flash",
       "gemini-2.0-flash",
       "gemini-1.5-flash-8b",
+      "gemini-1.5-flash",
       "gemini-1.5-pro",
     ];
 
@@ -461,23 +488,26 @@ REGLAS MANDATORIAS DE REFORMULACIÓN:
 2. Basándote SIEMPRE en la directiva del administrador y en los datos reales del establecimiento, utiliza otra estructura sintáctica, otro orden de palabras o destaca otro beneficio/aspecto relevante de la web.`
     : "";
 
-  const systemPrompt = `Eres un redactor profesional de títulos para Travelgrin.
-Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
+  const systemPrompt = `Eres un redactor y especialista en marketing para Travelgrin.
+Tu objetivo primordial es generar un TÍTULO COMERCIAL IMPACTANTE Y DE ALTA CONVERSIÓN cumpliendo rigurosamente la directiva editorial del administrador.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
-  "estado": "ok",
-  "contenido": "Título redactado aquí",
-  "evidencias": ["frase o dato de la web"]
+  "title": "Título redactado aquí",
+  "titleI18n": {
+    "es": "Título redactado aquí",
+    "en": "Title in English",
+    "pt": "Título em português",
+    "it": "Titolo in italiano"
+  }
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. TÍTULO OBLIGATORIO Y PROFESIONAL: El título es MANDATORIO. NUNCA devuelvas "sin_datos", "SIN_DATOS", "N/A" ni cadena vacía en "contenido". Siempre genera un título comercial representativo que presente al establecimiento ("${entityName}") y su propuesta de valor.
-2. AUTORIDAD EDITORIAL: La directiva del administrador es la regla SUPREMA. Si el administrador solicita un estilo específico, tono, longitud exacta (ej: cantidad de palabras o caracteres), palabras obligatorias o exclusiones, DEBES CUMPLIRLO AL 100%.
-3. Fidelidad factual: Usa los datos reales del sitio web (nombre, ubicación, especialidad) sin inventar hechos que contradigan la realidad.
-4. Formato estricto: Devuelve únicamente el objeto JSON sin texto adicional fuera del JSON.`;
+1. AUTORIDAD EDITORIAL SUPREMA: La instrucción del administrador es la regla NÚMERO UNO. Si pide marketing, llamada a la atención, palabras clave, estilo llamativo o enfoque específico, CÚMPLELO AL 100%. NUNCA devuelvas solo el nombre seco de la entidad si se pidió un título comercial o llamativo.
+2. Fidelidad factual: Presenta a "${entityName}" destacando su propuesta de valor según los datos provistos de la web.
+3. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
-"${prompt || "Crear un título claro, comercial y profesional que mencione el nombre del establecimiento y su propuesta principal."}"${variationDirective}
+"${prompt || "Crear un título claro, comercial, atractivo y representativo que presente al establecimiento y su propuesta principal."}"${variationDirective}
 
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
@@ -486,29 +516,30 @@ REGLAS DE MÁXIMA PRIORIDAD:
 - Servicios detectados: ${(context.servicesList || []).slice(0, 6).join(" | ") || "N/A"}
 - Resumen y párrafos de la web: "${(context.metaDescription || context.paragraphs?.slice(0, 3).join(" ") || context.mainText?.slice(0, 500) || "").slice(0, 600)}"
 
-GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
+GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
   console.log(`\n[AI-AGENT-DEBUG: TitleAgent]`);
   console.log(`1. URL: ${context.url}`);
   console.log(`2. Admin Title Prompt: "${prompt || "(Sin prompt personalizado, usando instrucción básica)"}"`);
-  console.log(`3. Final User Prompt:\n${userPrompt}`);
 
   try {
     const { rawText, providerUsed } = await executeModelCall(
       systemPrompt,
       userPrompt,
       context.apiKey,
-      context.provider || "auto"
+      context.provider || "auto",
+      300
     );
 
-    console.log(`4. Provider Used: ${providerUsed}`);
-    console.log(`5. Raw Model Response: ${rawText}`);
+    console.log(`3. Provider Used: ${providerUsed}`);
+    console.log(`4. Raw Model Response: ${rawText}`);
 
     const parsed = extractJson(rawText);
     let rawTitle = String(
-      parsed?.contenido ||
       parsed?.title ||
+      parsed?.titleI18n?.es ||
       parsed?.titulo ||
+      parsed?.contenido ||
       parsed?.nombre ||
       parsed?.text ||
       parsed?.resultado ||
@@ -520,7 +551,6 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
     }
 
     if (!rawTitle) {
-      // Fallback: Si el modelo devolvió texto plano o markdown
       const cleanedRaw = rawText
         .replace(/```(?:json)?/gi, "")
         .replace(/```/g, "")
@@ -533,33 +563,24 @@ GENERA ÚNICAMENTE EL TÍTULO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMEN
     }
 
     if (!rawTitle || rawTitle.length < 2) {
-      rawTitle = context.rawPageTitle || `Servicios y propuestas de ${entityName}` || entityName;
+      rawTitle = prompt ? `${entityName}: Propuesta destacada y servicios oficiales` : (context.rawPageTitle || entityName);
     }
 
     const cleanTitle = cleanTitleString(rawTitle) || entityName;
-    console.log(`6. Normalized Title Output: "${cleanTitle}"`);
-    console.log(`7. Validation: OK (Cumple JSON y contenido no vacío)`);
+    console.log(`5. Normalized Title Output: "${cleanTitle}"`);
 
-    let tEn = "";
-    let tPt = "";
-    let tIt = "";
-    if (context.autoTranslate !== false) {
-      try {
-        [tEn, tPt, tIt] = await Promise.all([
-          translateText(cleanTitle, "es", "en"),
-          translateText(cleanTitle, "es", "pt"),
-          translateText(cleanTitle, "es", "it"),
-        ]);
-      } catch (transErr) {
-        console.warn(`[AI-AGENT-DEBUG: TitleAgent] Error no fatal en traducción:`, transErr);
-      }
-    }
+    const tI18n: I18nRecord = {
+      es: cleanTitle,
+      en: parsed?.titleI18n?.en || cleanTitle,
+      pt: parsed?.titleI18n?.pt || cleanTitle,
+      it: parsed?.titleI18n?.it || cleanTitle,
+    };
 
     return {
       success: true,
       data: {
         title: cleanTitle,
-        titleI18n: { es: cleanTitle, en: tEn, pt: tPt, it: tIt },
+        titleI18n: tI18n,
       },
       estado: "ok",
       evidencias: parsed?.evidencias || [entityName],
@@ -605,20 +626,27 @@ REGLAS MANDATORIAS DE REFORMULACIÓN:
 4. Cumple rigurosamente con todas las directivas de formato, cantidad de párrafos, estilo y exclusiones pedidas por el administrador.`
     : "";
 
-  const systemPrompt = `Eres un redactor profesional de descripciones para Travelgrin.
-Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
-Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
+  const systemPrompt = `Eres un redactor publicitario senior y especialista en marketing para Travelgrin.
+Tu objetivo primordial es redactar la DESCRIPCIÓN PRINCIPAL de la publicación cumpliendo fielmente la directiva editorial del administrador.
+Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato:
 {
-  "estado": "ok",
-  "contenido": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>",
-  "evidencias": ["frase o dato de la web"]
+  "description": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>",
+  "descriptionI18n": {
+    "es": "<p>Contenido en español...</p>",
+    "en": "<p>Content in English...</p>",
+    "pt": "<p>Conteúdo em português...</p>",
+    "it": "<p>Contenuto in italiano...</p>"
+  }
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL: La directiva del administrador es la regla SUPREMA. Si el administrador pide una cantidad exacta de párrafos, longitud máxima, enfoque comercial o informativo, exclusión de precios o inclusión de servicios específicos, DEBES CUMPLIRLO EXACTAMENTE.
-2. Formato HTML: Escribe el contenido estructurado en etiquetas de párrafos HTML <p>...</p>.
-3. Fidelidad factual: No inventes datos que contradigan la información provista.
-4. Formato estricto: Devuelve únicamente el objeto JSON sin texto adicional fuera del JSON.`;
+1. AUTORIDAD EDITORIAL SUPREMA: La directiva del administrador es la regla NÚMERO UNO:
+   - Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS.
+   - Si el administrador pide subtítulos o títulos en negrita/letras negras con su explicación, escribe cada párrafo con su subtítulo en negrita (<p><strong>Subtítulo</strong><br/>Explicación persuasiva y detallada...</p>).
+   - Si el administrador pide tono de marketing, enfoque de conversión o empatía, APLÍCALO AL 100%.
+2. Formato HTML limpio: Estructura el texto en etiquetas <p>...</p>, <strong>...</strong>, <br/>.
+3. Fidelidad factual: Basa el contenido en los servicios, infraestructura, propuestas y datos reales de "${entityName}".
+4. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
 "${prompt || "Escribir una descripción profesional en párrafos HTML <p> en tercera persona explicando qué ofrece, su alcance y vías oficiales."}"${variationDirective}
@@ -632,36 +660,36 @@ REGLAS DE MÁXIMA PRIORIDAD:
 ${(context.paragraphs || []).slice(0, 8).join("\n\n") || (context.mainText?.slice(0, 2000) || context.metaDescription || "N/A")}
 - Contacto y canales: ${(context.socialLinks || []).map((s) => `${s.label}: ${s.url}`).join(" | ") || "N/A"}
 
-GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
+GENERA LA DESCRIPCIÓN CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
   console.log(`\n[AI-AGENT-DEBUG: DescriptionAgent]`);
   console.log(`1. URL: ${context.url}`);
   console.log(`2. Admin Description Prompt: "${prompt || "(Sin prompt personalizado, usando instrucción básica)"}"`);
-  console.log(`3. Final User Prompt:\n${userPrompt}`);
 
   try {
     const { rawText, providerUsed } = await executeModelCall(
       systemPrompt,
       userPrompt,
       context.apiKey,
-      context.provider || "auto"
+      context.provider || "auto",
+      1500
     );
 
-    console.log(`4. Provider Used: ${providerUsed}`);
-    console.log(`5. Raw Model Response: ${rawText}`);
+    console.log(`3. Provider Used: ${providerUsed}`);
+    console.log(`4. Raw Model Response: ${rawText}`);
 
     const parsed = extractJson(rawText);
     let descHtml = String(
-      parsed?.contenido ||
       parsed?.description ||
+      parsed?.descriptionI18n?.es ||
       parsed?.descripcion ||
+      parsed?.contenido ||
       parsed?.texto ||
       parsed?.body ||
       ""
     ).trim();
 
     if (!descHtml) {
-      // Fallback: Si el modelo devolvió párrafos HTML directamente sin envolver en JSON
       const cleanedRaw = rawText
         .replace(/```(?:json|html)?/gi, "")
         .replace(/```/g, "")
@@ -675,7 +703,6 @@ GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
       throw new Error("El modelo devolvió una descripción vacía o no estructurada.");
     }
 
-    // Ensure valid <p> tags
     if (!descHtml.includes("<p>")) {
       descHtml = descHtml
         .split(/\n\s*\n+/)
@@ -685,29 +712,20 @@ GENERA ÚNICAMENTE LA DESCRIPCIÓN EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRIC
         .join("\n");
     }
 
-    console.log(`6. Normalized Description Output:\n${descHtml}`);
-    console.log(`7. Validation: OK (Cumple JSON y contenido estructurado)`);
+    console.log(`5. Normalized Description Output:\n${descHtml}`);
 
-    let dEn = "";
-    let dPt = "";
-    let dIt = "";
-    if (context.autoTranslate !== false) {
-      try {
-        [dEn, dPt, dIt] = await Promise.all([
-          translateHtmlParagraphs(descHtml, "en"),
-          translateHtmlParagraphs(descHtml, "pt"),
-          translateHtmlParagraphs(descHtml, "it"),
-        ]);
-      } catch (transErr) {
-        console.warn(`[AI-AGENT-DEBUG: DescriptionAgent] Error no fatal en traducción:`, transErr);
-      }
-    }
+    const dI18n: I18nRecord = {
+      es: descHtml,
+      en: parsed?.descriptionI18n?.en || descHtml,
+      pt: parsed?.descriptionI18n?.pt || descHtml,
+      it: parsed?.descriptionI18n?.it || descHtml,
+    };
 
     return {
       success: true,
       data: {
         description: descHtml,
-        descriptionI18n: { es: descHtml, en: dEn, pt: dPt, it: dIt },
+        descriptionI18n: dI18n,
       },
       estado: "ok",
       evidencias: parsed?.evidencias || [entityName],
@@ -763,31 +781,37 @@ export async function runCustomBlockAgent(
 ${currentBody.slice(0, 3000)}
 
 INSTRUCCIONES CLAVE PARA EL AJUSTE:
-- Si el administrador solicita cambiar el título (ej. "Cambiá el título a Requisitos"), actualiza el campo "titulo" con el nuevo título solicitado.
-- Si el administrador solicita agregar o modificar datos (ej. "agrega más opciones de pago y horarios"), realiza el ajuste sobre el contenido manteniendo la coherencia factual.\n`
+- Si el administrador solicita cambiar el título (ej. "Cambiá el título a Requisitos"), actualiza el campo "title" con el nuevo título solicitado.
+- Si el administrador solicita agregar o modificar datos, realiza el ajuste sobre el contenido manteniendo la coherencia factual.\n`
     : "";
 
-  const systemPrompt = `Eres un redactor profesional de bloques de información para Travelgrin.
-Tu objetivo primordial es cumplir fielmente la directiva editorial del administrador.
-Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
+  const systemPrompt = `Eres un redactor editorial experto para Travelgrin.
+Tu tarea es generar el bloque opcional "${bTitle}" para la publicación de la entidad "${entityName}".
+Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato:
 {
-  "estado": "ok",
-  "titulo": "${bTitle}",
-  "contenido": "<p>...</p>",
-  "evidencias": ["frase o dato de la web"]
+  "title": "${bTitle}",
+  "body": "<p>Contenido del bloque...</p>",
+  "bodyI18n": {
+    "es": "<p>Contenido en español...</p>",
+    "en": "<p>Content in English...</p>",
+    "pt": "<p>Conteúdo em português...",
+    "it": "<p>Contenuto in italiano...</p>"
+  }
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL: Cumple fielmente las instrucciones o ajustes del administrador para este bloque. Si pide cambiar el título, define el nuevo título en "titulo". Si pide agregar opciones, preguntas/respuestas, horarios o modificar redacción, aplica las modificaciones en "contenido" formateado en HTML <p>...</p>.
-2. TÍTULO LIMPIO: Mantén el título conceptual del bloque ('${bTitle}'). NUNCA agregues el nombre de la institución o empresa ni guiones en el título del bloque.
-3. Si es de preguntas frecuentes o pide preguntas y respuestas, formatea cada una en HTML <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>. Si es otro tipo de bloque, redacta párrafos estructurados en HTML <p>...</p>.
-4. Fidelidad factual: Usa los datos reales del sitio web provistos.
-5. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+1. AUTORIDAD EDITORIAL SUPREMA: Cumple fielmente y al pie de la letra la directiva del administrador para este bloque:
+   - Si el administrador pide una cantidad exacta (ej: "2 preguntas"), GENERA EXACTAMENTE esa cantidad (ni más ni menos).
+   - Si el administrador pide colores o formato específico (ej: "preguntas en azul"), APLICA EL ESTILO HTML CORRESPONDIENTE (ej: <p><strong style="color: #2563eb">¿Pregunta en azul?</strong><br/>Respuesta detallada...</p>).
+   - Si no pide color, usa formato estándar (<p><strong>¿Pregunta?</strong><br/>Respuesta...</p>).
+2. TÍTULO LIMPIO: Mantén el título conceptual del bloque ('${bTitle}') sin agregar nombres de la entidad.
+3. Fidelidad factual: Usa los datos reales del sitio web de "${entityName}" (servicios, carreras, propuestas, requisitos).
+4. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `TÍTULO DEL BLOQUE: "${bTitle}"
 ${currentBlockSection}
 === DIRECTIVA EDITORIAL DEL ADMINISTRADOR PARA ESTE BLOQUE (MÁXIMA PRIORIDAD) ===
-"${bPrompt || (isFaq ? `Generar ${requestedCount || 10} preguntas frecuentes con sus respuestas pertinentes basadas en los servicios, turnos, atención y datos del sitio.` : "Redactar información estructurada y útil para este bloque.")}"${variationDirective}
+"${bPrompt || (isFaq ? `Generar preguntas frecuentes con sus respuestas pertinentes basadas en los servicios, turnos, atención y datos del sitio.` : "Redactar información estructurada y útil para este bloque.")}"${variationDirective}
 
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
@@ -796,7 +820,7 @@ ${currentBlockSection}
 - Servicios detectados: ${(context.servicesList || []).slice(0, 8).join(" | ") || "N/A"}
 - Párrafos destacados: ${(context.paragraphs || []).slice(0, 6).join("\n") || (context.metaDescription || "")}
 
-GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
+GENERA EL CONTENIDO EN HTML DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
   console.log(`\n[AI-AGENT-DEBUG: CustomBlockAgent - ${bTitle}]`);
   console.log(`1. Block Prompt: "${bPrompt || "(Sin prompt específico)"}"`);
@@ -806,7 +830,8 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
       systemPrompt,
       userPrompt,
       context.apiKey,
-      context.provider || "auto"
+      context.provider || "auto",
+      1200
     );
 
     console.log(`2. Provider Used: ${providerUsed}`);
@@ -814,9 +839,9 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
 
     const parsed = extractJson(rawText);
     let bodyContent = String(
-      parsed?.contenido ||
       parsed?.body ||
-      parsed?.texto ||
+      parsed?.bodyI18n?.es ||
+      parsed?.contenido ||
       parsed?.description ||
       ""
     ).trim();
@@ -855,33 +880,18 @@ GENERA EL CONTENIDO EN ESPAÑOL DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRE
     }
     if (!genTitle) genTitle = bTitle || "Información Adicional";
 
-    let tEn = "";
-    let tPt = "";
-    let tIt = "";
-    let bEn = "";
-    let bPt = "";
-    let bIt = "";
-
-    if (context.autoTranslate !== false) {
-      try {
-        [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
-          translateText(genTitle, "es", "en"),
-          translateText(genTitle, "es", "pt"),
-          translateText(genTitle, "es", "it"),
-          translateHtmlParagraphs(bodyContent, "en"),
-          translateHtmlParagraphs(bodyContent, "pt"),
-          translateHtmlParagraphs(bodyContent, "it"),
-        ]);
-      } catch (transErr) {
-        console.warn(`[AI-AGENT-DEBUG: CustomBlockAgent - ${genTitle}] Error no fatal en traducción:`, transErr);
-      }
-    }
+    const bI18n: I18nRecord = {
+      es: bodyContent,
+      en: parsed?.bodyI18n?.en || bodyContent,
+      pt: parsed?.bodyI18n?.pt || bodyContent,
+      it: parsed?.bodyI18n?.it || bodyContent,
+    };
 
     return {
       title: genTitle,
-      titleI18n: { es: genTitle, en: tEn, pt: tPt, it: tIt },
+      titleI18n: { es: genTitle, en: genTitle, pt: genTitle, it: genTitle },
       body: bodyContent,
-      bodyI18n: { es: bodyContent, en: bEn, pt: bPt, it: bIt },
+      bodyI18n: bI18n,
       visibleInCard: false,
       estado: "ok",
       contenido: bodyContent,
