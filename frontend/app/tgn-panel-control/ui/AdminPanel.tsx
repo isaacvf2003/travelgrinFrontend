@@ -3188,7 +3188,38 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPCurrency(draft.currency || "USD");
     setPPrice(draft.price || "");
     setPPricePeriod(draft.pricePeriod || "");
-    setPLanguages(draft.languages || "Español");
+    const resolvedLangs = new Set<string>();
+    const rawLangs = (draft.languages || "Español")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    for (const rawLang of rawLangs) {
+      const lNorm = rawLang.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const match = idiomaRoots.find((r) => {
+        const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return rNorm === lNorm || rNorm.includes(lNorm) || lNorm.includes(rNorm);
+      });
+      if (match) {
+        resolvedLangs.add(match.description);
+      } else if (rawLang.trim()) {
+        resolvedLangs.add(rawLang.trim());
+      }
+    }
+    const draftTextContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""} ${draft.description || ""}`.toLowerCase();
+    if (/\b(english|ingl[eé]s|bilingual|biling[uü]e|international|exchange|study abroad|toefl|ielts)\b/i.test(draftTextContext) || /\.(?:us|uk|ca|au|edu)(?:\/|$)/i.test(draft.url || "")) {
+      const engRoot = idiomaRoots.find((r) => /ingl[eé]s/i.test(r.description));
+      if (engRoot) resolvedLangs.add(engRoot.description);
+    }
+    if (/\b(portugu[eêé]s|brasil|brazil)\b/i.test(draftTextContext) || /\.br(?:\/|$)/i.test(draft.url || "")) {
+      const ptRoot = idiomaRoots.find((r) => /portugu[eéè]s/i.test(r.description));
+      if (ptRoot) resolvedLangs.add(ptRoot.description);
+    }
+    if (resolvedLangs.size === 0) {
+      const espRoot = idiomaRoots.find((r) => /espa[ñn]ol/i.test(r.description));
+      resolvedLangs.add(espRoot ? espRoot.description : "Español");
+    }
+    setPLanguages(Array.from(resolvedLangs).join(", "));
     const { website: parsedWebsite, socialLinks: parsedSocialLinks } = parseProviderLinks(draft.website || "");
     const effectiveWebsite = draft.website || parsedWebsite;
     setPWebsite(effectiveWebsite);
@@ -3375,6 +3406,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
+    const isEduDraft = /universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(
+      `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase()
+    );
+    const isOngDraft =
+      /\b(?:ong|ongs|fundaci[oó]n|asociaci[oó]n civil|sin fines de lucro|sin [aá]nimo de lucro|tercer sector|voluntariado)\b/i.test(`${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase()) &&
+      !isEduDraft;
+
+    if (isEduDraft) {
+      const studentRoot = allRootsWithNorm.find((r) => /\bestudiant\w*/i.test(r.norm));
+      if (studentRoot) {
+        resolvedCategoryRoots.add(studentRoot.original);
+      }
+      resolvedCategoryRoots.delete("Profesional");
+    }
+
+    if (isOngDraft) {
+      const ongCat = allRootsWithNorm.find((r) => /\b(?:ong|voluntari|ayuda social|donaci|comunitari)\b/i.test(r.norm));
+      if (ongCat) resolvedCategoryRoots.add(ongCat.original);
+    }
+
     const finalCatSel = Array.from(resolvedCategoryRoots);
     const finalSubcatSel = Array.from(resolvedSubcategories);
 
@@ -3451,9 +3502,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    const isEduDraft = /universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(
-      `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase()
-    );
+    if (isEduDraft) {
+      resolvedActivities.delete("Hostelería, alojamiento y turismo");
+      resolvedActivities.delete("Servicios profesionales y técnicos");
+      resolvedActivities.delete("Agricultura, ganadería y pesca");
+      resolvedActivities.delete("Comercio y automotriz");
+      const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
+      if (eduAct) resolvedActivities.add(eduAct.description);
+      else resolvedActivities.add("Educación y formación");
+    }
+
     const isLegalConsultingDraft = !isEduDraft && /abogad|estudio jur[ií]dico|notar|escriban|visas?|migra|consultor[ií]a legal|cbi|immi/i.test(
       `${draft.title} ${draft.publisherName || ""} ${draft.url || ""} ${draft.description || ""}`.toLowerCase()
     );
@@ -3500,8 +3558,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       else resolvedTypes.add("Organismo público");
     }
 
+    if (isOngDraft) {
+      resolvedTypes.delete("Institución privada");
+      resolvedTypes.delete("Empresa");
+      resolvedTypes.delete("Profesional independiente");
+      const ongType = tipoRoots.find((r) => /\b(?:ong|sin fines de lucro|fundaci|asociaci)\b/i.test(r.description.toLowerCase()));
+      if (ongType) resolvedTypes.add(ongType.description);
+      else resolvedTypes.add("ONG");
+    }
+
     if (resolvedTypes.size === 0) {
-      resolvedTypes.add(isPublicGov ? "Organismo público" : "Institución privada");
+      resolvedTypes.add(isPublicGov ? "Organismo público" : isOngDraft ? "ONG" : "Institución privada");
     }
 
     const typeSel = Array.from(resolvedTypes);
