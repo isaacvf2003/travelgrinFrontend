@@ -1284,23 +1284,34 @@ export default function AiScraperModal({
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600">
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Categoría</span>
-                      {Array.isArray(draft.categorySelections) && draft.categorySelections.length > 0
-                        ? draft.categorySelections.join(", ")
-                        : draft.category || "(Sin categoría)"}
+                      <div className="line-clamp-2" title={Array.isArray(draft.categorySelections) && draft.categorySelections.length > 0 ? draft.categorySelections.join(", ") : draft.category || "(Sin categoría)"}>
+                        {Array.isArray(draft.categorySelections) && draft.categorySelections.length > 0
+                          ? draft.categorySelections.join(", ")
+                          : draft.category || "(Sin categoría)"}
+                      </div>
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
                       <span className="font-semibold block text-slate-800">Subcategoría</span>
-                      {Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0
-                        ? draft.subcategorySelections.join(", ")
-                        : draft.subcategory || "(Sin subcategoría)"}
+                      <div className="line-clamp-2" title={Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0 ? draft.subcategorySelections.join(", ") : draft.subcategory || "(Sin subcategoría)"}>
+                        {Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0
+                          ? draft.subcategorySelections.join(", ")
+                          : draft.subcategory || "(Sin subcategoría)"}
+                      </div>
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
-                      <span className="font-semibold block text-slate-800">Tipo de Perfil / Sector</span>
-                      {draft.providerActivities?.[0] || draft.providerTypes?.[0] || "Institución"}
+                      <span className="font-semibold block text-slate-800">Actividad / Perfil</span>
+                      <div className="line-clamp-2" title={Array.from(new Set([...(draft.providerActivities || []), ...(draft.providerTypes || [])])).filter(Boolean).join(", ") || "Institución"}>
+                        {Array.from(new Set([...(draft.providerActivities || []), ...(draft.providerTypes || [])])).filter(Boolean).join(", ") || "Institución"}
+                      </div>
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-2">
-                      <span className="font-semibold block text-slate-800">Imágenes</span>
-                      {draft.images?.length || 0} imagen(es)
+                      <span className="font-semibold block text-slate-800">Modalidad / Fotos</span>
+                      <div className="truncate font-medium text-slate-700" title={draft.providerModalities?.length ? draft.providerModalities.join(", ") : "Presencial"}>
+                        {draft.providerModalities?.length ? draft.providerModalities.join(", ") : "Presencial"}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {draft.images?.length || 0} imagen(es)
+                      </div>
                     </div>
                   </div>
 
