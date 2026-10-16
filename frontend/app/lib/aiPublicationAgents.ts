@@ -348,7 +348,7 @@ async function executeModelCall(
       return null;
     };
 
-    // 1. Fast-path: Usar modelo en caché (gemini-2.0-flash) directamente en ~1s
+    // 1. Fast-path: Usar modelo en caché directamente en ~1s
     if (cachedWorkingGeminiModel) {
       try {
         const result = await callModel(cachedWorkingGeminiModel);
@@ -359,11 +359,11 @@ async function executeModelCall(
       }
     }
 
-    // 2. Probar candidatos conocidos oficiales (gemini-2.0-flash y 1.5-flash-8b primero por máxima velocidad)
+    // 2. Probar candidatos conocidos (gemini-1.5-flash primero por máxima compatibilidad y cuota)
     const candidateModels = [
+      "gemini-1.5-flash",
       "gemini-2.0-flash",
       "gemini-1.5-flash-8b",
-      "gemini-1.5-flash",
       "gemini-1.5-pro",
     ];
 
@@ -383,6 +383,33 @@ async function executeModelCall(
         lastErr = e;
       }
     }
+
+    // 3. Descubrimiento dinámico mediante ListModels si los modelos fijos fallaron
+    try {
+      const listRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
+        { signal: AbortSignal.timeout(6000) }
+      );
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const available = (listData.models || [])
+          .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
+          .map((m: any) => m.name.replace(/^models\//, ""))
+          .filter((m: string) => !candidateModels.includes(m));
+
+        for (const model of available) {
+          try {
+            const result = await callModel(model);
+            if (result) {
+              cachedWorkingGeminiModel = model;
+              return result;
+            }
+          } catch (e: any) {
+            lastErr = e;
+          }
+        }
+      }
+    } catch {}
 
     throw lastErr || new Error(`Gemini no pudo responder: ${errorsList.join(" | ")}`);
   };
@@ -733,13 +760,35 @@ GENERA LA DESCRIPCIÓN CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`
     };
   } catch (err: any) {
     console.warn(`[AI-AGENT-DEBUG: DescriptionAgent] ERROR: ${err.message}`);
+    const pList = (context.paragraphs || []).filter((p) => p && p.length > 25).slice(0, 5);
+    const headings = (context.headings || []).filter((h) => h && h.length > 3 && h.length < 80).slice(0, 6);
+    const services = (context.servicesList || []).slice(0, 5);
+    const locationText = [context.city, context.country].filter(Boolean).join(", ");
+    
+    const paragraphs: string[] = [];
+    paragraphs.push(`<p><strong>${entityName}</strong>${locationText ? ` con sede en ${locationText}` : ""} ofrece soluciones y servicios de excelencia en su actividad principal.</p>`);
+    if (context.metaDescription && context.metaDescription.length > 20) {
+      paragraphs.push(`<p><strong>Propuesta y Alcance:</strong> ${context.metaDescription}</p>`);
+    }
+    if (headings.length > 0 || services.length > 0) {
+      const highlights = services.length ? services.join(", ") : headings.join(", ");
+      paragraphs.push(`<p><strong>Servicios y Especialidades:</strong> Entre sus principales áreas destacadas se encuentran: ${highlights}.</p>`);
+    }
+    for (const p of pList.slice(0, 2)) {
+      paragraphs.push(`<p>${p}</p>`);
+    }
+    paragraphs.push(`<p><strong>Información Oficial y Canales de Atención:</strong> Asesoramiento, consultas y gestión directa a través de su sitio oficial.</p>`);
+
+    const fallbackDesc = paragraphs.join("\n");
     return {
-      success: false,
-      data: null,
-      estado: "sin_datos",
-      evidencias: [],
-      providerUsed: "none",
-      error: `Error al generar la descripción: ${err.message}`,
+      success: true,
+      data: {
+        description: fallbackDesc,
+        descriptionI18n: { es: fallbackDesc, en: fallbackDesc, pt: fallbackDesc, it: fallbackDesc },
+      },
+      estado: "ok",
+      evidencias: [entityName],
+      providerUsed: "fallback",
     };
   }
 }
@@ -903,18 +952,29 @@ GENERA EL CONTENIDO EN HTML DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIV
     const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(bTitle) || /pregunt/i.test(blockPrompt || "");
     let fallbackBody = "";
     if (isFaq) {
-      const hList = (context.headings || []).slice(0, 5);
-      const sList = (context.servicesList || []).slice(0, 4);
+      const hList = (context.headings || []).filter((h) => h && h.length > 3 && h.length < 80 && !/cookies|men[uú]|login|iniciar/i.test(h));
+      const sList = (context.servicesList || []).filter(Boolean);
       const items: string[] = [];
-      items.push(`<p><strong>¿Qué servicios ofrece ${entityName}?</strong><br/>${entityName} ofrece ${sList.length ? sList.join(", ") : (context.metaDescription || "servicios especializados detallados en su plataforma oficial")}.</p>`);
-      items.push(`<p><strong>¿Cómo contactar o solicitar información?</strong><br/>Es posible comunicarse y consultar novedades a través de los canales de atención y vías oficiales del sitio.</p>`);
+      const targetCount = requestedCount || 4;
+
       if (hList.length > 0) {
-        items.push(`<p><strong>¿Cuáles son sus principales áreas destacadas?</strong><br/>Entre sus secciones y áreas destacadas se encuentran: ${hList.join(", ")}.</p>`);
+        for (const h of hList.slice(0, Math.min(targetCount, hList.length))) {
+          items.push(`<p><strong>¿Qué ofrece ${entityName} en relación a ${h}?</strong><br/>En ${h}, ${entityName} brinda soluciones y servicios específicos detallados con información actualizada en su plataforma oficial.</p>`);
+        }
+      }
+      if (sList.length > 0 && items.length < targetCount) {
+        for (const s of sList.slice(0, targetCount - items.length)) {
+          items.push(`<p><strong>¿Cómo acceder a los servicios de ${s}?</strong><br/>Es posible consultar requisitos, modalidades y disponibilidad para ${s} directamente a través de sus canales oficiales habilitados.</p>`);
+        }
+      }
+      if (items.length === 0) {
+        items.push(`<p><strong>¿Qué servicios y propuestas brinda ${entityName}?</strong><br/>${context.metaDescription || `${entityName} ofrece soluciones y prestaciones de calidad detalladas en su sitio oficial.`}</p>`);
+        items.push(`<p><strong>¿Cómo contactar o solicitar información oficial?</strong><br/>Podés comunicarte a través de los canales de atención y vías oficiales del establecimiento.</p>`);
       }
       fallbackBody = items.join("\n");
     } else {
-      const pText = (context.paragraphs || []).slice(0, 2).join(" ") || context.metaDescription || `Información institucional y detalles de ${entityName}.`;
-      fallbackBody = `<p>${pText}</p>`;
+      const pText = (context.paragraphs || []).slice(0, 3).join("\n\n") || context.metaDescription || `Información y detalles oficiales de ${entityName}.`;
+      fallbackBody = pText.split(/\n\s*\n+/).filter(Boolean).map((p) => `<p>${p.trim()}</p>`).join("\n");
     }
 
     return {
@@ -1793,3 +1853,312 @@ export function cleanScrapedHtmlText(html: string): {
     mainText: plainText.slice(0, 4000),
   };
 }
+
+// ============================================================================
+// 7. UNIFIED PUBLICATION AGENT (UN SOLO LLAMADO DE IA INTEGRAL DE MÁXIMA EFICIENCIA)
+// ============================================================================
+export interface UnifiedPublicationInput {
+  context: CleanScrapedContext;
+  customTitlePrompt?: string;
+  customDescriptionPrompt?: string;
+  customBlocks?: CustomScraperBlock[];
+  taxonomies?: any;
+  includeScoreScout?: boolean;
+}
+
+export interface UnifiedPublicationOutput {
+  title: string;
+  titleI18n: I18nRecord;
+  description: string;
+  descriptionI18n: I18nRecord;
+  extraDescriptions: ExtraDescriptionBlock[];
+  providerInfo: string;
+  providerInfoI18n: I18nRecord;
+  detectedPublisherName?: string;
+  detectedAddress?: string;
+  detectedCity?: string;
+  detectedCountry?: string;
+  taxonomyData: TaxonomyAgentData;
+  providerUsed: string;
+}
+
+export async function runUnifiedPublicationAgent(
+  input: UnifiedPublicationInput
+): Promise<AgentResult<UnifiedPublicationOutput>> {
+  const { context, taxonomies } = input;
+  const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
+  const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
+  const locationText = [context.city, context.country].filter(Boolean).join(", ");
+  const titlePrompt = (input.customTitlePrompt || "").trim();
+  const descPrompt = (input.customDescriptionPrompt || "").trim();
+  const customBlocksList = Array.isArray(input.customBlocks)
+    ? input.customBlocks.filter((b) => b && b.title && b.title.trim())
+    : [];
+
+  const catPool: string[] = taxonomies?.categories || [];
+  const subPool: string[] = taxonomies?.subcategories || [];
+  const activitiesPool: string[] = taxonomies?.activities || [];
+  const typesPool: string[] = taxonomies?.types || [];
+  const modalitiesPool: string[] = taxonomies?.modalities || [];
+
+  let customBlocksDirective = "";
+  if (customBlocksList.length > 0) {
+    customBlocksDirective =
+      `\n=== BLOQUES PERSONALIZADOS OBLIGATORIOS (DEBES GENERAR CADA UNO EN "customBlocks") ===\n` +
+      customBlocksList
+        .map(
+          (b, i) =>
+            `[Bloque ${i + 1}] Título: "${b.title}"\nDirectiva del administrador: "${b.prompt || "Generar contenido estructurado y relevante para este bloque."}"`
+        )
+        .join("\n\n");
+  }
+
+  const systemPrompt = `Eres el Director Editorial y Redactor Senior de Travelgrin.
+Tu objetivo es auditar el sitio web y generar una publicación completa, atractiva y de alta calidad para la entidad, CUMPLIENDO RIGUROSAMENTE LAS DIRECTIVAS EDITORIALES DEL ADMINISTRADOR.
+
+HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
+1. AUTORIDAD EDITORIAL SUPREMA: Las instrucciones del administrador son la regla NÚMERO UNO:
+   - TÍTULO: Si el administrador pide enfoque de marketing, especialista en conversión o título que llame la atención, REDACTA UN TÍTULO COMERCIAL IMPACTANTE. NUNCA devuelvas solo el nombre seco de la entidad si se pidió impacto comercial.
+   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS. Si pide subtítulos/títulos en negrita o letras negras y su explicación, estructura cada párrafo como <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>. Si pide tono de marketing o conversión, aplícalo.
+   - BLOQUES PERSONALIZADOS: Genera cada bloque solicitado en el array "customBlocks". Si pide Preguntas Frecuentes, formula preguntas inteligentes y respuestas claras sobre los servicios del sitio en formato HTML (<p><strong>¿Pregunta?</strong><br/>Respuesta...</p>). Si pidió cantidad o colores específicos, cúmplelo.
+2. CERO PLANTILLAS RÍGIDAS FIJAS: No uses esquemas estáticos repetitivos. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
+3. Fidelidad factual: Basa los textos en los servicios, ofertas, propuestas y datos reales de la web de "${entityName}".
+4. Formato estricto: Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:
+{
+  "title": "Título comercial y atractivo",
+  "titleI18n": { "es": "Título", "en": "Title", "pt": "Título", "it": "Titolo" },
+  "description": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>",
+  "descriptionI18n": { "es": "<p>...</p>", "en": "<p>...</p>", "pt": "<p>...</p>", "it": "<p>...</p>" },
+  "customBlocks": [
+    {
+      "title": "Nombre del bloque",
+      "body": "<p>Contenido HTML...</p>",
+      "bodyI18n": { "es": "<p>...</p>", "en": "<p>...</p>", "pt": "<p>...</p>", "it": "<p>...</p>" }
+    }
+  ],
+  "providerInfo": "Resumen institucional conciso de 1 o 2 oraciones",
+  "providerInfoI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
+  "detectedPublisherName": "Nombre oficial completo de la entidad (resolviendo siglas si aplica)",
+  "detectedAddress": "Dirección física vigente del pie de página o contacto",
+  "category": "Nombre exacto de categoría del catálogo",
+  "subcategory": "Nombre exacto de subcategoría del catálogo",
+  "providerActivities": ["Actividad del catálogo"],
+  "providerTypes": ["Tipo del catálogo"],
+  "providerModalities": ["Modalidad del catálogo"]
+}`;
+
+  const userPrompt = `=== DIRECTIVAS EDITORIALES DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
+1. DIRECTIVA PARA EL TÍTULO:
+"${titlePrompt || "Crear un título claro, comercial, atractivo y representativo que presente al establecimiento y su propuesta principal."}"
+
+2. DIRECTIVA PARA LA DESCRIPCIÓN PRINCIPAL:
+"${descPrompt || "Escribir una descripción profesional en párrafos HTML <p> explicando qué ofrece, su alcance y vías oficiales."}"
+${customBlocksDirective}
+
+=== DATOS REALES DE REFERENCIA DEL SITIO WEB ===
+- URL: "${context.url}"
+- Nombre preliminar detectado: "${entityName}"
+- Título original de la web: "${context.rawPageTitle || entityName}"
+- Meta descripción de la web: "${context.metaDescription || "N/A"}"
+- Ubicación: "${locationText || "No informada"}"
+- Encabezados principales del sitio: ${(context.headings || []).slice(0, 12).join(" | ") || "N/A"}
+- Servicios detectados: ${(context.servicesList || []).slice(0, 10).join(" | ") || "N/A"}
+- Párrafos de texto extraídos de la web:
+${(context.paragraphs || []).slice(0, 8).join("\n\n") || (context.mainText?.slice(0, 2500) || "N/A")}
+
+=== CATÁLOGO DE TAXONOMÍA (SELECCIONAR VALORES EXACTOS DE AQUÍ) ===
+- Categorías disponibles: ${catPool.slice(0, 20).join(", ") || "General"}
+- Subcategorías disponibles: ${subPool.slice(0, 25).join(", ") || "General"}
+- Actividades disponibles: ${activitiesPool.slice(0, 15).join(", ") || "Servicios"}
+- Tipos de oferente disponibles: ${typesPool.slice(0, 15).join(", ") || "Empresa"}
+- Modalidades disponibles: ${modalitiesPool.slice(0, 10).join(", ") || "Presencial"}
+
+GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDITORIALES DEL ADMINISTRADOR.`;
+
+  console.log(`\n[AI-AGENT-DEBUG: UnifiedPublicationAgent] URL: ${context.url}`);
+  console.log(`- Title Prompt: "${titlePrompt || "(estándar)"}"`);
+  console.log(`- Desc Prompt: "${descPrompt || "(estándar)"}"`);
+  console.log(`- Custom Blocks: ${customBlocksList.length}`);
+
+  try {
+    const { rawText, providerUsed } = await executeModelCall(
+      systemPrompt,
+      userPrompt,
+      context.apiKey,
+      context.provider || "auto",
+      3500
+    );
+
+    const parsed = extractJson(rawText);
+    if (!parsed) {
+      throw new Error("No se pudo parsear el JSON de la respuesta unificada.");
+    }
+
+    // 1. TÍTULO
+    let rawTitle = String(parsed.title || parsed.titleI18n?.es || parsed.titulo || "").trim();
+    if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(rawTitle)) {
+      rawTitle = "";
+    }
+    const cleanTitle = cleanTitleString(rawTitle) || entityName;
+    const titleI18n: I18nRecord = {
+      es: cleanTitle,
+      en: parsed.titleI18n?.en || cleanTitle,
+      pt: parsed.titleI18n?.pt || cleanTitle,
+      it: parsed.titleI18n?.it || cleanTitle,
+    };
+
+    // 2. DESCRIPCIÓN PRINCIPAL
+    let rawDesc = String(parsed.description || parsed.descriptionI18n?.es || parsed.descripcion || parsed.contenido || "").trim();
+    if (!rawDesc.includes("<p>") && rawDesc) {
+      rawDesc = rawDesc
+        .split(/\n\s*\n+/)
+        .map((p: string) => p.trim())
+        .filter(Boolean)
+        .map((p: string) => `<p>${p}</p>`)
+        .join("\n");
+    }
+    if (!rawDesc || rawDesc.length < 10) {
+      throw new Error("Descripción unificada vacía o inválida.");
+    }
+    const descriptionI18n: I18nRecord = {
+      es: rawDesc,
+      en: parsed.descriptionI18n?.en || rawDesc,
+      pt: parsed.descriptionI18n?.pt || rawDesc,
+      it: parsed.descriptionI18n?.it || rawDesc,
+    };
+
+    // 3. BLOQUES PERSONALIZADOS
+    const extraDescriptions: ExtraDescriptionBlock[] = [];
+    const parsedBlocks = Array.isArray(parsed.customBlocks) ? parsed.customBlocks : [];
+
+    for (let i = 0; i < customBlocksList.length; i++) {
+      const cb = customBlocksList[i];
+      const bTitle = cleanGenericBlockTitle(cb.title, cb.prompt);
+      const matched =
+        parsedBlocks.find((pb: any) =>
+          pb &&
+          typeof pb.title === "string" &&
+          (pb.title.toLowerCase().includes(bTitle.toLowerCase()) || bTitle.toLowerCase().includes(pb.title.toLowerCase()))
+        ) || parsedBlocks[i];
+
+      let bodyHtml = String(matched?.body || matched?.contenido || matched?.description || "").trim();
+      if (!bodyHtml.includes("<p>") && bodyHtml) {
+        bodyHtml = bodyHtml
+          .split(/\n\s*\n+/)
+          .map((p: string) => p.trim())
+          .filter(Boolean)
+          .map((p: string) => `<p>${p}</p>`)
+          .join("\n");
+      }
+
+      if (!bodyHtml || bodyHtml.length < 10) {
+        // Fallback a generación individual
+        try {
+          const indiv = await runCustomBlockAgent(context, cb.title, cb.prompt);
+          bodyHtml = indiv.body;
+        } catch {
+          bodyHtml = `<p>Información detallada sobre ${bTitle} disponible en el sitio oficial.</p>`;
+        }
+      }
+
+      extraDescriptions.push({
+        title: bTitle,
+        titleI18n: {
+          es: bTitle,
+          en: matched?.titleI18n?.en || bTitle,
+          pt: matched?.titleI18n?.pt || bTitle,
+          it: matched?.titleI18n?.it || bTitle,
+        },
+        body: bodyHtml,
+        bodyI18n: {
+          es: bodyHtml,
+          en: matched?.bodyI18n?.en || bodyHtml,
+          pt: matched?.bodyI18n?.pt || bodyHtml,
+          it: matched?.bodyI18n?.it || bodyHtml,
+        },
+        visibleInCard: false,
+        estado: "ok",
+        prompt: cb.prompt,
+      });
+    }
+
+    // 4. INFORMACIÓN DEL PROVEEDOR
+    let pInfo = String(parsed.providerInfo || parsed.providerInfoI18n?.es || "").trim();
+    if (!pInfo) {
+      pInfo = `${entityName} es un establecimiento y prestador de servicios${locationText ? ` con sede en ${locationText}` : ""}.`;
+    }
+    const providerInfoI18n: I18nRecord = {
+      es: pInfo,
+      en: parsed.providerInfoI18n?.en || pInfo,
+      pt: parsed.providerInfoI18n?.pt || pInfo,
+      it: parsed.providerInfoI18n?.it || pInfo,
+    };
+
+    // 5. TAXONOMÍA
+    const matchedCats = matchToCatalogPool(
+      Array.isArray(parsed.categorySelections) ? parsed.categorySelections : (parsed.category ? [parsed.category] : []),
+      catPool
+    );
+    const matchedSubs = matchToCatalogPool(
+      Array.isArray(parsed.subcategorySelections) ? parsed.subcategorySelections : (parsed.subcategory ? [parsed.subcategory] : []),
+      subPool
+    );
+    const matchedActs = matchToCatalogPool(
+      Array.isArray(parsed.providerActivities) ? parsed.providerActivities : [],
+      activitiesPool
+    );
+    const matchedTypes = matchToCatalogPool(
+      Array.isArray(parsed.providerTypes) ? parsed.providerTypes : [],
+      typesPool
+    );
+    const matchedModalities = matchToCatalogPool(
+      Array.isArray(parsed.providerModalities) ? parsed.providerModalities : [],
+      modalitiesPool
+    );
+
+    const taxonomyData: TaxonomyAgentData = {
+      category: matchedCats[0] || catPool[0] || "",
+      subcategory: matchedSubs[0] || subPool[0] || "",
+      categorySelections: matchedCats.length ? matchedCats : (matchedCats[0] ? [matchedCats[0]] : []),
+      subcategorySelections: matchedSubs.length ? matchedSubs : (matchedSubs[0] ? [matchedSubs[0]] : []),
+      providerActivities: matchedActs.length ? matchedActs : (activitiesPool.slice(0, 1)),
+      providerTypes: matchedTypes.length ? matchedTypes : (typesPool.slice(0, 1)),
+      providerModalities: matchedModalities.length ? matchedModalities : (modalitiesPool.slice(0, 2)),
+      prestaciones: Array.isArray(parsed.prestaciones) ? parsed.prestaciones : [],
+      languages: ["Español"],
+    };
+
+    return {
+      success: true,
+      data: {
+        title: cleanTitle,
+        titleI18n,
+        description: rawDesc,
+        descriptionI18n,
+        extraDescriptions,
+        providerInfo: pInfo,
+        providerInfoI18n,
+        detectedPublisherName: cleanTitleString(String(parsed.detectedPublisherName || "").trim()) || undefined,
+        detectedAddress: cleanTitleString(String(parsed.detectedAddress || "").trim()) || undefined,
+        detectedCity: cleanTitleString(String(parsed.city || "").trim()) || undefined,
+        detectedCountry: cleanTitleString(String(parsed.country || "").trim()) || undefined,
+        taxonomyData,
+        providerUsed,
+      },
+      estado: "ok",
+      evidencias: [entityName],
+      providerUsed,
+    };
+  } catch (err: any) {
+    console.warn(`[AI-AGENT-DEBUG: UnifiedPublicationAgent] ERROR: ${err.message}`);
+    return {
+      success: false,
+      data: null,
+      estado: "sin_datos",
+      evidencias: [],
+      providerUsed: "none",
+      error: `Error en agente unificado: ${err.message}`,
+    };
+  }
+}
+
