@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 
 import "./globals.css";
 import { CountryProvider } from "./context/CountryProvider";
@@ -44,48 +43,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-      <Script id="google-consent-mode" strategy="beforeInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          
-          var hasConsent = false;
-          try {
-            var consent = localStorage.getItem('tg_cookie_consent');
-            hasConsent = consent === 'accepted' || consent === 'custom';
-          } catch(e) {}
-          
-          gtag('consent', 'default', {
-            'ad_storage': hasConsent ? 'granted' : 'denied',
-            'ad_user_data': hasConsent ? 'granted' : 'denied',
-            'ad_personalization': hasConsent ? 'granted' : 'denied',
-            'analytics_storage': hasConsent ? 'granted' : 'denied'
-          });
-        `}
-      </Script>
-      <Script async src="https://www.googletagmanager.com/gtag/js?id=G-Y3PLZ67DHS" strategy="afterInteractive" />
-      <Script id="google-analytics-gtag" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-Y3PLZ67DHS');
-        `}
-      </Script>
-      <script 
-      type="text/javascript"
-      dangerouslySetInnerHTML={{
-        __html: `
-          (function(c,l,a,r,i,t,y){
-            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-          })(window, document, "clarity", "script", "syw6vrucog");
-        `
-      }}
-    />
-      </head>
+      <head />
       <body
         suppressHydrationWarning
         className="antialiased"
