@@ -3564,7 +3564,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       });
 
       if (res.ok) {
-        await refresh();
+        refresh().catch(() => {});
         return true;
       }
       return false;
