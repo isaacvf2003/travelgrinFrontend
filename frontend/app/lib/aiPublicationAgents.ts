@@ -1305,23 +1305,7 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
    f) TURISMO Y ALOJAMIENTO:
       - 'providerActivities': 'Hostelería, alojamiento y turismo'.
 
-CATÁLOGO DE BLOQUES, CATEGORÍAS Y SUBCATEGORÍAS DISPONIBLES EN BD:
-${categoryTreeFormat}
-
-ACTIVIDADES DISPONIBLES EN BD:
-${activitiesPool.map((a) => `"${a}"`).join(", ")}
-
-TIPOS DE PERFIL DISPONIBLES EN BD:
-${typesPool.map((t) => `"${t}"`).join(", ")}
-
-MODALIDADES DISPONIBLES EN BD:
-${modalitiesPool.map((m) => `"${m}"`).join(", ")}
-
-PRESTACIONES DISPONIBLES EN BD:
-${prestacionesPool.map((p) => `"${p}"`).join(", ")}
-
-IDIOMAS DISPONIBLES EN BD:
-${languagesPool.map((l) => `"${l}"`).join(", ")}
+${buildTaxonomyCatalogPromptSection(taxonomies)}
 
 Responde ÚNICAMENTE con un JSON con esta estructura exacta:
 {
@@ -1854,6 +1838,147 @@ export function cleanScrapedHtmlText(html: string): {
   };
 }
 
+export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
+  if (!taxonomies) return "Sin catálogo de taxonomías cargado.";
+
+  const blocks: Array<{
+    blockName: string;
+    blockTaxonomy?: string;
+    parentCategories: Array<{
+      name: string;
+      categoryTaxonomy?: string;
+      subcategories: string[];
+    }>;
+  }> = Array.isArray(taxonomies.categoryTree) ? taxonomies.categoryTree : [];
+
+  const activities: string[] = Array.isArray(taxonomies.activities) && taxonomies.activities.length
+    ? taxonomies.activities
+    : [];
+
+  const types: string[] = Array.isArray(taxonomies.types) && taxonomies.types.length
+    ? taxonomies.types
+    : [];
+
+  const modalities: string[] = Array.isArray(taxonomies.modalities) && taxonomies.modalities.length
+    ? taxonomies.modalities
+    : [];
+
+  const languages: string[] = Array.isArray(taxonomies.languages) && taxonomies.languages.length
+    ? taxonomies.languages
+    : ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"];
+
+  const norm = (s: any) => String(s || "").trim().toLowerCase();
+  const actBlocks = blocks.filter((b) => norm(b.blockTaxonomy) === "actividad");
+  const typeBlocks = blocks.filter((b) => norm(b.blockTaxonomy) === "tipo" || norm(b.blockTaxonomy) === "tipos");
+  const modBlocks = blocks.filter((b) => norm(b.blockTaxonomy) === "modalidad");
+  const catBlocks = blocks.filter((b) => ["", "categoria", "default", "predeterminado", "inherit"].includes(norm(b.blockTaxonomy)));
+  const otherBlocks = blocks.filter((b) => !["actividad", "tipo", "tipos", "modalidad", "categoria", "default", "predeterminado", "inherit"].includes(norm(b.blockTaxonomy)));
+
+  const lines: string[] = [];
+
+  lines.push("======================================================================");
+  lines.push("CATÁLOGO DINÁMICO DE BLOQUES Y TAXONOMÍAS DE LA BASE DE DATOS:");
+  lines.push("El administrador define y clasifica los bloques del sistema según su tipo de filtro/taxonomía.");
+  lines.push("Cada bloque contiene categorías con sus subcategorías. Todo es 100% dinámico.");
+  lines.push("REGLA FUNDAMENTAL DE SELECCIÓN MÚLTIPLE (PUEDES SELECCIONAR MÁS DE UNA OPCIÓN):");
+  lines.push("PUEDES Y DEBES SELECCIONAR MÁS DE UNA OPCIÓN en cualquiera de las secciones siempre que el sitio web analizado genuinamente abarque, ofrezca o corresponda a varias:");
+  lines.push("- 'providerActivities': Si la organización desarrolla múltiples actividades o sectores comprobados, incluye todas en el array.");
+  lines.push("- 'providerTypes': Si aplican múltiples perfiles de oferente (ej: organismo público, institución educativa), incluye todos.");
+  lines.push("- 'providerModalities': Si ofrece tanto atención física (sedes/locales) como digital (web/turnos/campus), selecciona ambas [\"Atención presencial\", \"Atención online\"].");
+  lines.push("- 'categorySelections': Puedes seleccionar más de una categoría del catálogo si la entidad cubre múltiples rubros.");
+  lines.push("- 'subcategorySelections': Puedes seleccionar múltiples subcategorías hijas de las categorías seleccionadas.");
+  lines.push("- 'languages': Selecciona todos los idiomas de atención verificados en la web.");
+  lines.push("");
+
+  lines.push("1. SECCIÓN ACTIVIDADES ('providerActivities' - Array de strings):");
+  lines.push("Examina los bloques de actividad y selecciona TODAS las actividades que definan el núcleo real y servicios principales de la institución (puedes seleccionar más de una si la entidad es multisectorial comprobada).");
+  lines.push("REGLA ANTI-FALSOS POSITIVOS: Asigna la actividad nuclear de la institución. En universidades (ej. UNCuyo, UBA), la actividad es 'Educación y formación'; contar con una facultad de agronomía o medicina NO la convierte en una empresa agropecuaria ('Agricultura, ganadería y pesca') ni en una clínica, a menos que el sitio sea exclusivamente de esa unidad o una empresa agropecuaria. Si una entidad es genuinamente multisectorial comprobada, selecciona todas las que correspondan.");
+  lines.push("Opciones de Actividad disponibles:");
+  if (actBlocks.length > 0) {
+    actBlocks.forEach((b) => {
+      lines.push(`  Bloque: "${b.blockName}"`);
+      (b.parentCategories || []).forEach((c) => {
+        lines.push(`   - "${c.name}"`);
+      });
+    });
+  } else if (activities.length > 0) {
+    activities.forEach((a) => lines.push(`   - "${a}"`));
+  } else {
+    lines.push('   - "Servicios profesionales y técnicos"');
+  }
+  lines.push("");
+
+  lines.push("2. SECCIÓN TIPO DE OFERENTE / PERFIL ('providerTypes' - Array de strings):");
+  lines.push("Examina los bloques de tipo y selecciona el/los perfiles según la naturaleza legal o de dominio (.edu.ar, .gov.ar, privada, empresa, etc.): Puedes seleccionar más de uno si aplica.");
+  lines.push("Opciones de Tipo disponibles:");
+  if (typeBlocks.length > 0) {
+    typeBlocks.forEach((b) => {
+      lines.push(`  Bloque: "${b.blockName}"`);
+      (b.parentCategories || []).forEach((c) => {
+        lines.push(`   - "${c.name}"`);
+      });
+    });
+  } else if (types.length > 0) {
+    types.forEach((t) => lines.push(`   - "${t}"`));
+  } else {
+    lines.push('   - "Institución privada", "Organismo público"');
+  }
+  lines.push("");
+
+  lines.push("3. SECCIÓN MODALIDAD DE SERVICIO ('providerModalities' - Array de strings):");
+  lines.push("Examina los bloques de modalidad y selecciona TODAS las modalidades comprobadas que ofrece la web (ej: si tiene sedes físicas y además plataforma/campus/turnos online, selecciona ambas: [\"Atención presencial\", \"Atención online\"]).");
+  lines.push("Opciones de Modalidad disponibles:");
+  if (modBlocks.length > 0) {
+    modBlocks.forEach((b) => {
+      lines.push(`  Bloque: "${b.blockName}"`);
+      (b.parentCategories || []).forEach((c) => {
+        lines.push(`   - "${c.name}"`);
+      });
+    });
+  } else if (modalities.length > 0) {
+    modalities.forEach((m) => lines.push(`   - "${m}"`));
+  } else {
+    lines.push('   - "Atención presencial", "Atención online"');
+  }
+  lines.push("");
+
+  lines.push("4. SECCIÓN PROPUESTA O PUBLICACIÓN - CATEGORÍAS Y SUBCATEGORÍAS:");
+  lines.push("Examina cada bloque de categoría, el nombre del bloque, el nombre de la categoría y las subcategorías.");
+  lines.push("Selecciona en 'categorySelections' (array de strings) las categorías que apliquen y en 'subcategorySelections' (array de strings) las subcategorías específicas hijas de esas categorías. Si ninguna subcategoría aplica, deja el array vacío []. PUEDES SELECCIONAR MÁS DE UNA categoría y más de una subcategoría si la web cubre varios rubros o servicios.");
+  lines.push("Estructura de Bloques de Categorías disponibles:");
+  if (catBlocks.length > 0) {
+    catBlocks.forEach((b) => {
+      lines.push(`=== BLOQUE: "${b.blockName}" (Taxonomía: ${b.blockTaxonomy || "categoria"}) ===`);
+      (b.parentCategories || []).forEach((cat) => {
+        lines.push(`  - Categoría: "${cat.name}"${cat.categoryTaxonomy && cat.categoryTaxonomy !== "categoria" ? ` [Taxonomía propia: ${cat.categoryTaxonomy}]` : ""}`);
+        if (cat.subcategories && cat.subcategories.length) {
+          lines.push(`    Subcategorías: ${cat.subcategories.map((s) => `"${s}"`).join(", ")}`);
+        } else {
+          lines.push("    Subcategorías: (ninguna)");
+        }
+      });
+      lines.push("");
+    });
+  } else if (taxonomies.categories && taxonomies.categories.length) {
+    taxonomies.categories.forEach((c: string) => lines.push(`  - Categoría: "${c}"`));
+  }
+  if (otherBlocks.length > 0) {
+    lines.push("OTROS BLOQUES Y CATEGORÍAS DISPONIBLES:");
+    otherBlocks.forEach((b) => {
+      lines.push(`=== BLOQUE: "${b.blockName}" (Taxonomía: ${b.blockTaxonomy}) ===`);
+      (b.parentCategories || []).forEach((c) => lines.push(`  - "${c.name}"`));
+    });
+  }
+  lines.push("");
+
+  lines.push("5. SECCIÓN IDIOMAS ('languages' - Array de strings):");
+  lines.push("Selecciona todos los idiomas con soporte o atención verificados en el sitio web (ej: [\"Español\", \"Inglés\"]):");
+  languages.forEach((l) => lines.push(`  - "${l}"`));
+  lines.push("======================================================================");
+
+  return lines.join("\n");
+}
+
 // ============================================================================
 // 7. UNIFIED PUBLICATION AGENT (UN SOLO LLAMADO DE IA INTEGRAL DE MÁXIMA EFICIENCIA)
 // ============================================================================
@@ -1900,6 +2025,7 @@ export async function runUnifiedPublicationAgent(
   const activitiesPool: string[] = taxonomies?.activities || [];
   const typesPool: string[] = taxonomies?.types || [];
   const modalitiesPool: string[] = taxonomies?.modalities || [];
+  const languagesPool: string[] = taxonomies?.languages || ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"];
 
   let customBlocksDirective = "";
   if (customBlocksList.length > 0) {
@@ -1913,8 +2039,10 @@ export async function runUnifiedPublicationAgent(
         .join("\n\n");
   }
 
-  const systemPrompt = `Eres el Director Editorial y Redactor Senior de Travelgrin.
-Tu objetivo es auditar el sitio web y generar una publicación completa, atractiva y de alta calidad para la entidad, CUMPLIENDO RIGUROSAMENTE LAS DIRECTIVAS EDITORIALES DEL ADMINISTRADOR.
+  const taxonomySectionPrompt = buildTaxonomyCatalogPromptSection(taxonomies);
+
+  const systemPrompt = `Eres el Director Editorial y Clasificador de Taxonomías Senior de Travelgrin.
+Tu objetivo es auditar el sitio web y generar una publicación completa, atractiva y de alta calidad para la entidad, CUMPLIENDO RIGUROSAMENTE LAS DIRECTIVAS EDITORIALES DEL ADMINISTRADOR Y CLASIFICANDO CORRECTAMENTE SUS TAXONOMÍAS.
 
 HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 1. AUTORIDAD EDITORIAL SUPREMA: Las instrucciones del administrador son la regla NÚMERO UNO:
@@ -1923,7 +2051,16 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
    - BLOQUES PERSONALIZADOS: Genera cada bloque solicitado en el array "customBlocks". Si pide Preguntas Frecuentes, formula preguntas inteligentes y respuestas claras sobre los servicios del sitio en formato HTML (<p><strong>¿Pregunta?</strong><br/>Respuesta...</p>). Si pidió cantidad o colores específicos, cúmplelo.
 2. CERO PLANTILLAS RÍGIDAS FIJAS: No uses esquemas estáticos repetitivos. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
 3. Fidelidad factual: Basa los textos en los servicios, ofertas, propuestas y datos reales de la web de "${entityName}".
-4. Formato estricto: Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:
+4. CLASIFICACIÓN TAXONÓMICA DINÁMICA Y SELECCIÓN MÚLTIPLE:
+   - El administrador crea los bloques con taxonomías: actividad, modalidad, tipos, categoria, idiomas.
+   - PUEDES SELECCIONAR MÁS DE UNA OPCIÓN en cada sección si la web analizada legítimamente corresponde o abarca varias.
+   - 'providerActivities': Selecciona en array las actividades nucleares centrales (ej: en universidades públicas o privadas -> "Educación y formación"; no selecciones agricultura solo por una facultad de agronomía; si una empresa ofrece múltiples actividades centrales reales, selecciona todas).
+   - 'providerTypes': Array de tipos según la naturaleza legal o de dominio (.edu.ar / universidad pública -> "Organismo público"; empresa privada -> "Institución privada" o "Empresa", etc.).
+   - 'providerModalities': Array de modalidades comprobadas en la web (ej: ["Atención presencial", "Atención online"]).
+   - 'categorySelections': Array con las categorías padre de los bloques de taxonomía categoría que apliquen a lo que ofrece la web.
+   - 'subcategorySelections': Array con las subcategorías específicas correspondientes.
+   - 'languages': Array con los idiomas comprobados de atención en la web.
+5. Formato estricto: Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:
 {
   "title": "Título comercial y atractivo",
   "titleI18n": { "es": "Título", "en": "Title", "pt": "Título", "it": "Titolo" },
@@ -1940,11 +2077,14 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
   "providerInfoI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
   "detectedPublisherName": "Nombre oficial completo de la entidad (resolviendo siglas si aplica)",
   "detectedAddress": "Dirección física vigente del pie de página o contacto",
-  "category": "Nombre exacto de categoría del catálogo",
-  "subcategory": "Nombre exacto de subcategoría del catálogo",
-  "providerActivities": ["Actividad del catálogo"],
-  "providerTypes": ["Tipo del catálogo"],
-  "providerModalities": ["Modalidad del catálogo"]
+  "category": "Primera categoría principal del catálogo",
+  "subcategory": "Primera subcategoría principal del catálogo",
+  "categorySelections": ["Categoría 1", "Categoría 2 (si aplica)"],
+  "subcategorySelections": ["Subcategoría 1", "Subcategoría 2 (si aplica)"],
+  "providerActivities": ["Actividad 1", "Actividad 2 (si aplica)"],
+  "providerTypes": ["Tipo 1"],
+  "providerModalities": ["Atención presencial", "Atención online"],
+  "languages": ["Español", "Inglés"]
 }`;
 
   const userPrompt = `=== DIRECTIVAS EDITORIALES DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
@@ -1966,14 +2106,9 @@ ${customBlocksDirective}
 - Párrafos de texto extraídos de la web:
 ${(context.paragraphs || []).slice(0, 8).join("\n\n") || (context.mainText?.slice(0, 2500) || "N/A")}
 
-=== CATÁLOGO DE TAXONOMÍA (SELECCIONAR VALORES EXACTOS DE AQUÍ) ===
-- Categorías disponibles: ${catPool.slice(0, 20).join(", ") || "General"}
-- Subcategorías disponibles: ${subPool.slice(0, 25).join(", ") || "General"}
-- Actividades disponibles: ${activitiesPool.slice(0, 15).join(", ") || "Servicios"}
-- Tipos de oferente disponibles: ${typesPool.slice(0, 15).join(", ") || "Empresa"}
-- Modalidades disponibles: ${modalitiesPool.slice(0, 10).join(", ") || "Presencial"}
+${taxonomySectionPrompt}
 
-GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDITORIALES DEL ADMINISTRADOR.`;
+GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDITORIALES DEL ADMINISTRADOR Y LA CLASIFICACIÓN TAXONÓMICA EXACTA (SELECCIONANDO MÁS DE UNA OPCIÓN EN CADA SECCIÓN SI CORRESPONDE A LA WEB).`;
 
   console.log(`\n[AI-AGENT-DEBUG: UnifiedPublicationAgent] URL: ${context.url}`);
   console.log(`- Title Prompt: "${titlePrompt || "(estándar)"}"`);
@@ -2094,38 +2229,47 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       it: parsed.providerInfoI18n?.it || pInfo,
     };
 
-    // 5. TAXONOMÍA
-    const matchedCats = matchToCatalogPool(
-      Array.isArray(parsed.categorySelections) ? parsed.categorySelections : (parsed.category ? [parsed.category] : []),
-      catPool
-    );
-    const matchedSubs = matchToCatalogPool(
-      Array.isArray(parsed.subcategorySelections) ? parsed.subcategorySelections : (parsed.subcategory ? [parsed.subcategory] : []),
-      subPool
-    );
-    const matchedActs = matchToCatalogPool(
-      Array.isArray(parsed.providerActivities) ? parsed.providerActivities : [],
-      activitiesPool
-    );
-    const matchedTypes = matchToCatalogPool(
-      Array.isArray(parsed.providerTypes) ? parsed.providerTypes : [],
-      typesPool
-    );
-    const matchedModalities = matchToCatalogPool(
-      Array.isArray(parsed.providerModalities) ? parsed.providerModalities : [],
-      modalitiesPool
-    );
+    // 5. TAXONOMÍA (PRESERVANDO SELECCIÓN MÚLTIPLE DE LA IA)
+    const rawCats = Array.isArray(parsed.categorySelections) && parsed.categorySelections.length > 0
+      ? parsed.categorySelections
+      : (parsed.category ? [parsed.category] : []);
+    const matchedCats = matchToCatalogPool(rawCats, catPool);
+
+    const rawSubs = Array.isArray(parsed.subcategorySelections) && parsed.subcategorySelections.length > 0
+      ? parsed.subcategorySelections
+      : (parsed.subcategory ? [parsed.subcategory] : []);
+    const matchedSubs = matchToCatalogPool(rawSubs, subPool);
+
+    const rawActs = Array.isArray(parsed.providerActivities) && parsed.providerActivities.length > 0
+      ? parsed.providerActivities
+      : (parsed.providerActivity ? [parsed.providerActivity] : []);
+    const matchedActs = matchToCatalogPool(rawActs, activitiesPool);
+
+    const rawTypes = Array.isArray(parsed.providerTypes) && parsed.providerTypes.length > 0
+      ? parsed.providerTypes
+      : (parsed.providerType ? [parsed.providerType] : []);
+    const matchedTypes = matchToCatalogPool(rawTypes, typesPool);
+
+    const rawMods = Array.isArray(parsed.providerModalities) && parsed.providerModalities.length > 0
+      ? parsed.providerModalities
+      : (parsed.providerModality ? [parsed.providerModality] : []);
+    const matchedModalities = matchToCatalogPool(rawMods, modalitiesPool);
+
+    const rawLangs = Array.isArray(parsed.languages) && parsed.languages.length > 0
+      ? parsed.languages
+      : (typeof parsed.languages === "string" ? parsed.languages.split(",").map((s: string) => s.trim()) : ["Español"]);
+    const matchedLanguages = matchToCatalogPool(rawLangs, languagesPool);
 
     const taxonomyData: TaxonomyAgentData = {
       category: matchedCats[0] || catPool[0] || "",
       subcategory: matchedSubs[0] || subPool[0] || "",
-      categorySelections: matchedCats.length ? matchedCats : (matchedCats[0] ? [matchedCats[0]] : []),
-      subcategorySelections: matchedSubs.length ? matchedSubs : (matchedSubs[0] ? [matchedSubs[0]] : []),
+      categorySelections: matchedCats.length ? matchedCats : (catPool[0] ? [catPool[0]] : []),
+      subcategorySelections: matchedSubs.length ? matchedSubs : (subPool[0] ? [subPool[0]] : []),
       providerActivities: matchedActs.length ? matchedActs : (activitiesPool.slice(0, 1)),
       providerTypes: matchedTypes.length ? matchedTypes : (typesPool.slice(0, 1)),
       providerModalities: matchedModalities.length ? matchedModalities : (modalitiesPool.slice(0, 2)),
       prestaciones: Array.isArray(parsed.prestaciones) ? parsed.prestaciones : [],
-      languages: ["Español"],
+      languages: matchedLanguages.length ? matchedLanguages : ["Español"],
     };
 
     return {
