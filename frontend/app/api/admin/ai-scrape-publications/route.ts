@@ -5853,15 +5853,20 @@ async function processBatchWithConcurrency<T, R>(
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const urls: string[] = Array.isArray(body.urls)
+    const rawUrls: string[] = Array.isArray(body.urls)
       ? body.urls
       : body.url
       ? [body.url]
       : [];
 
+    const urls = rawUrls
+      .map((u: any) => String(u || "").trim())
+      .filter((u: string) => u.length > 3)
+      .map((u: string) => (/^https?:\/\//i.test(u) ? u : "https://" + u));
+
     if (!urls.length) {
       return NextResponse.json(
-        { error: "Debe proporcionar al menos una URL para analizar." },
+        { error: "Debe proporcionar al menos una URL válida para analizar." },
         { status: 400 }
       );
     }
@@ -5922,29 +5927,59 @@ export async function POST(req: Request) {
     const targetUrls = urls.slice(0, 10);
     const providersUsed = new Set<string>();
 
-    // Process up to 10 URLs concurrently in mini-batches of 3
-    const batchResults = await processBatchWithConcurrency(targetUrls, 3, async (url) => {
-      const { publication, providerUsed } = await processUrlWithAI(
-        url,
-        taxonomies,
-        effectiveProvider,
-        geminiKey,
-        openaiKey,
-        customBlocks,
-        customAdminPrompt,
-        customTitlePrompt,
-        customDescriptionPrompt,
-        includeScoreScout
-      );
-      providersUsed.add(providerUsed);
-      return publication;
+    // Process up to 10 URLs concurrently in mini-batches of 2 with error isolation per URL
+    const batchResults = await processBatchWithConcurrency(targetUrls, 2, async (url) => {
+      try {
+        const { publication, providerUsed } = await processUrlWithAI(
+          url,
+          taxonomies,
+          effectiveProvider,
+          geminiKey,
+          openaiKey,
+          customBlocks,
+          customAdminPrompt,
+          customTitlePrompt,
+          customDescriptionPrompt,
+          includeScoreScout
+        );
+        if (providerUsed) providersUsed.add(providerUsed);
+        return publication;
+      } catch (err: any) {
+        console.warn(`[AI Scraper] AI agent execution failed for URL ${url}, falling back to grounded extraction:`, err?.message);
+        try {
+          const extractedFallback: any = await fetchPageContent(url);
+          const fallbackPub = await createFallbackPublication(
+            extractedFallback,
+            taxonomies,
+            customBlocks,
+            customAdminPrompt,
+            customTitlePrompt,
+            customDescriptionPrompt,
+            includeScoreScout
+          );
+          providersUsed.add("extractor");
+          return enforceStrictTaxonomyGuardrails(fallbackPub, extractedFallback, taxonomies);
+        } catch (fatalErr: any) {
+          console.error(`[AI Scraper] Critical error processing URL ${url}:`, fatalErr?.message);
+          return null;
+        }
+      }
     });
+
+    const validPublications = batchResults.filter(Boolean) as ScrapedPublication[];
+
+    if (validPublications.length === 0) {
+      return NextResponse.json(
+        { error: "No se pudo extraer contenido válido de ninguna de las URLs proporcionadas." },
+        { status: 422 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       providerUsed: Array.from(providersUsed).join(", ") || effectiveProvider,
-      count: batchResults.length,
-      publications: batchResults,
+      count: validPublications.length,
+      publications: validPublications,
     });
   } catch (error: any) {
     console.error("AI Scraper Route Error:", error);
