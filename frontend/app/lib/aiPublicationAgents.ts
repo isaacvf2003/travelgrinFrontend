@@ -272,13 +272,29 @@ async function executeModelCall(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         },
-        3000
+        20000
       );
 
       if (res.ok) {
         const json = await res.json();
         const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
         if (raw) return raw;
+      } else if (res.status === 429) {
+        await new Promise((r) => setTimeout(r, 400));
+        const retryRes = await fetchWithTimeout(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+          20000
+        );
+        if (retryRes.ok) {
+          const json = await retryRes.json();
+          const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (raw) return raw;
+        }
       }
       return null;
     };
@@ -298,6 +314,8 @@ async function executeModelCall(
     const candidateModels = [
       "gemini-1.5-flash",
       "gemini-2.0-flash",
+      "gemini-1.5-flash-8b",
+      "gemini-1.5-pro",
     ];
 
     let lastErr: any = null;
@@ -341,7 +359,7 @@ async function executeModelCall(
             response_format: { type: "json_object" },
             temperature: 0.75,
           }),
-          signal: AbortSignal.timeout(3200),
+          signal: AbortSignal.timeout(20000),
         });
         if (res.ok) {
           const json = await res.json();
