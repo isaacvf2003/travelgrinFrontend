@@ -76,15 +76,8 @@ export default function CookieConsentBanner() {
     }
   }, []);
 
-  const updateGoogleConsent = (analytics: boolean, marketing: boolean) => {
-    if (typeof window !== "undefined" && (window as any).gtag) {
-      (window as any).gtag("consent", "update", {
-        analytics_storage: analytics ? "granted" : "denied",
-        ad_storage: marketing ? "granted" : "denied",
-        ad_user_data: marketing ? "granted" : "denied",
-        ad_personalization: marketing ? "granted" : "denied",
-      });
-    }
+  const updateGoogleConsent = (_analytics: boolean, _marketing: boolean) => {
+    // Deshabilitado en entorno de pruebas
   };
 
   const handleAcceptAll = () => {

@@ -314,13 +314,18 @@ export default function AiScraperModal({
       }
       urlsToProcess = [trimmed];
     } else {
-      urlsToProcess = bulkUrlsText
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
+      urlsToProcess = Array.from(
+        new Set(
+          bulkUrlsText
+            .split(/[\r\n,;]+/)
+            .map((line) => line.trim())
+            .filter((line) => line.length > 3)
+            .map((line) => (/^https?:\/\//i.test(line) ? line : "https://" + line))
+        )
+      );
 
       if (!urlsToProcess.length) {
-        setErrorMessage("Por favor ingrese al menos una URL (una por línea).");
+        setErrorMessage("Por favor ingrese al menos una URL válida (una por línea).");
         return;
       }
     }
@@ -434,16 +439,20 @@ export default function AiScraperModal({
     try {
       const remaining: ScrapedPublicationDraft[] = [];
       for (const draft of draftsQueue) {
-        const ok = await onApproveDirectly(draft);
-        if (!ok) {
+        try {
+          const ok = await onApproveDirectly(draft);
+          if (!ok) {
+            remaining.push(draft);
+          }
+        } catch {
           remaining.push(draft);
         }
       }
       setDraftsQueue(remaining);
       if (remaining.length === 0) {
-        setSuccessNotice("Todas las publicaciones fueron aprobadas y guardadas.");
+        setSuccessNotice("Todas las publicaciones fueron aprobadas y guardadas exitosamente.");
       } else {
-        setErrorMessage(`Se guardaron algunas publicaciones, pero ${remaining.length} fallaron.`);
+        setErrorMessage(`Se procesó el guardado: ${draftsQueue.length - remaining.length} guardadas, pero ${remaining.length} requirieron revisión.`);
       }
     } catch {
       setErrorMessage("Error al procesar el guardado masivo.");
