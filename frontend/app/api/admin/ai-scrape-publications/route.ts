@@ -1068,23 +1068,19 @@ async function enrichWithLiveGoogleMapsAndSearch(
   const hqLoc = extracted.headquarterLocations?.[0];
   const rawAddress = hqLoc?.address || extracted.detectedAddress || "";
   const mainAddress = cleanAddressForSearch(rawAddress);
-  const city = locInfoInput?.primaryCity || hqLoc?.city || extracted.detectedCity || "Argentina";
-  const country = locInfoInput?.primaryCountry || hqLoc?.country || extracted.detectedCountry || "Argentina";
+  const city = locInfoInput?.primaryCity || hqLoc?.city || extracted.detectedCity || "";
+  const country = locInfoInput?.primaryCountry || hqLoc?.country || extracted.detectedCountry || "";
 
   const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-  // Fast targeted queries executed in parallel (including clean address for exact Sede Principal match)
+  // Targeted queries executed in parallel for exact Sede Principal match
   const candidateQueries = [
     mainAddress ? `${officialFullName || cleanName} ${mainAddress} ${city}` : null,
-    mainAddress ? `${officialFullName || cleanName} ${mainAddress}` : null,
-    mainAddress ? `${cleanName} ${mainAddress} ${city}` : null,
     mainAddress ? `${cleanName} ${mainAddress}` : null,
-    `${officialFullName || cleanName} sede central ${city}`,
-    `${officialFullName || cleanName} casa central ${city}`,
-    `${officialFullName || cleanName} campus ${city}`,
-    officialFullName && officialFullName !== city ? `${officialFullName} ${city}` : null,
-    officialFullName && officialFullName !== cleanName ? officialFullName : null,
-    `${cleanName} ${city}`,
+    city ? `${officialFullName || cleanName} ${city}` : null,
+    city ? `${cleanName} ${city}` : null,
+    `${officialFullName || cleanName} sede central`,
+    `${cleanName} reviews`,
     officialFullName || cleanName,
   ].filter(Boolean) as string[];
 
@@ -1092,7 +1088,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     return;
   }
 
-  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 2);
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 4);
 
   const searchPromises = uniqueQueries.map(async (q) => {
     try {
@@ -1105,7 +1101,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        1200
+        4000
       );
       if (!gmapsRes.ok) return null;
       return await gmapsRes.text();
@@ -3859,6 +3855,10 @@ function classifySectorAndTaxonomy(
     if (isEducationalEntity && /visa|migra/i.test(pNorm)) {
       continue;
     }
+    // Hard negative constraint: Do NOT match "Partner" or language categories on generic token hits
+    if (/partner|ingles|idioma/i.test(pNorm) && !/alianza|convenio|aprender|curso\s*de\s*ingles|idiomas|language\s*school/i.test(lowerCorpus)) {
+      continue;
+    }
 
     const pTokens = pNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
 
@@ -3902,6 +3902,9 @@ function classifySectorAndTaxonomy(
         continue;
       }
       if (isEducationalEntity && /visa|migra/i.test(sNorm)) {
+        continue;
+      }
+      if (/partner|ingles|idioma/i.test(sNorm) && !/alianza|convenio|aprender|curso\s*de\s*ingles|idiomas|language\s*school/i.test(lowerCorpus)) {
         continue;
       }
 
@@ -5650,16 +5653,23 @@ async function processUrlWithAI(
     };
   }
 
-  // 2, 3 & 4. Run Title, Description, Provider Info, and Closed-Catalog Taxonomy Agents in parallel with fallback
+  // 2, 3 & 4. Run Title, Description, Provider Info, and Taxonomy Agents in staggered stages
   let titleAgentRes: any;
   let descAgentRes: any;
   let providerInfoRes: any;
   let taxonomyRes: any;
 
   try {
-    [titleAgentRes, descAgentRes, providerInfoRes, taxonomyRes] = await Promise.all([
+    // Stage 1: Title & Description Agents
+    [titleAgentRes, descAgentRes] = await Promise.all([
       runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt),
       runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt),
+    ]);
+
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Stage 2: Taxonomy & Provider Info Agents
+    [providerInfoRes, taxonomyRes] = await Promise.all([
       runProviderInfoAgent(cleanContext),
       runTaxonomyAgent(cleanContext, taxonomies),
     ]);
@@ -5705,7 +5715,7 @@ async function processUrlWithAI(
     }
   }
 
-  // 4. Run Custom Block Agents in parallel
+  // 4. Run Custom Block Agents (sequentially to protect AI provider RPM limits)
   const extraDescriptions: ExtraDescriptionBlock[] = [];
 
   // Score Scout Block (if enabled)
@@ -5722,13 +5732,16 @@ async function processUrlWithAI(
     extraDescriptions.push(scoreBlock);
   }
 
-  // Custom Blocks requested by admin (executed in parallel)
+  // Custom Blocks requested by admin
   if (Array.isArray(customBlocks) && customBlocks.length > 0) {
     const validCustomBlocks = customBlocks.filter((cb) => cb && cb.title && cb.title.trim());
-    const customBlockResults = await Promise.all(
-      validCustomBlocks.map((cb) => runCustomBlockAgent(cleanContext, cb.title, cb.prompt))
-    );
-    extraDescriptions.push(...customBlockResults);
+    for (const cb of validCustomBlocks) {
+      const blockRes = await runCustomBlockAgent(cleanContext, cb.title, cb.prompt);
+      extraDescriptions.push(blockRes);
+      if (validCustomBlocks.length > 1) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
   }
 
   // 5. Taxonomy & Location mapping
@@ -5737,8 +5750,8 @@ async function processUrlWithAI(
     titleVal = cleanPublisher ? `Servicios y propuestas de ${cleanPublisher}` : `Publicación de ${url}`;
   }
   const titleI18nVal = titleAgentRes?.data?.titleI18n || { es: titleVal, en: "", pt: "", it: "" };
-  const descVal = descAgentRes.data?.description || extracted.description || "";
-  const descI18nVal = descAgentRes.data?.descriptionI18n || { es: descVal, en: "", pt: "", it: "" };
+  const descVal = descAgentRes?.data?.description || extracted.description || "";
+  const descI18nVal = descAgentRes?.data?.descriptionI18n || { es: descVal, en: "", pt: "", it: "" };
 
   const headquarterLocations = resolveHeadquarterLocations(
     undefined,
