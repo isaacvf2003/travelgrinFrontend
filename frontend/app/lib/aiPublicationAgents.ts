@@ -1404,6 +1404,9 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       !isLegalOrConsulting;
 
     const isTourismEntity =
+      !isEducationalEntity &&
+      !isHealthEntity &&
+      !isLegalOrConsulting &&
       /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(fullTextCorpus);
 
     const isTechEntity =
@@ -1418,8 +1421,8 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
 
     const isOngMatch = (name: string): boolean => {
       const n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      return /\b(?:ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector)\b/i.test(n) ||
-        /sin fines de lucro|organismo no gubernamental|asociacion civil/i.test(n);
+      return /\b(?:ong|sin fines de lucro|fundaci[oó]n|asociaci[oó]n civil|tercer sector|voluntariado|ayuda social)\b/i.test(n) ||
+        /sin fines de lucro|organismo no gubernamental|asociacion civil|voluntariado|ayuda social/i.test(n);
     };
 
     const isStudentEduMatch = (name: string): boolean => {
@@ -1441,10 +1444,26 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
 
     // If educational entity, proactively ensure student/education categories from pool are included
     if (isEducationalEntity) {
+      const studentCat = categoriesPool.find((c) => /\bestudiant\w*/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+      if (studentCat && !matchedCats.includes(studentCat)) {
+        matchedCats = [studentCat, ...matchedCats];
+      }
       const eduPoolCategories = categoriesPool.filter(isStudentEduMatch);
       for (const eduCat of eduPoolCategories) {
         if (!matchedCats.includes(eduCat)) {
           matchedCats.push(eduCat);
+        }
+      }
+      if (studentCat && matchedCats.includes(studentCat)) {
+        matchedCats = matchedCats.filter((c) => !/^\s*profesional\s*$/i.test(c));
+      }
+    }
+
+    if (isAuthenticOng) {
+      const ongPoolCategories = categoriesPool.filter(isOngMatch);
+      for (const ongCat of ongPoolCategories) {
+        if (!matchedCats.includes(ongCat)) {
+          matchedCats.push(ongCat);
         }
       }
     }
@@ -1607,9 +1626,13 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
     let cleanActivities = matchedActivities.filter((a) => !typesPool.includes(a));
 
     if (isEducationalEntity) {
+      cleanActivities = cleanActivities.filter((a) => !/hosteler|turism|alojam|profesional|tecnic|agricult|ganader|pesca|miner|comercio/i.test(a));
       const eduAct = activitiesPool.find((a) => /educaci|formaci|ensenan/i.test(a));
       if (eduAct && !cleanActivities.includes(eduAct)) {
         cleanActivities = [eduAct, ...cleanActivities];
+      }
+      if (cleanActivities.length === 0) {
+        cleanActivities = [eduAct || "Educación y formación"];
       }
     }
 
@@ -1697,7 +1720,12 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       typesPool
     );
 
-    if (!isAuthenticOng) {
+    if (isAuthenticOng) {
+      const ongType = typesPool.find(isOngMatch);
+      if (ongType && !matchedTypes.includes(ongType)) {
+        matchedTypes = [ongType, ...matchedTypes.filter((t) => !/empresa|privada/i.test(t))];
+      }
+    } else {
       matchedTypes = matchedTypes.filter((t) => !isOngMatch(t));
     }
 
@@ -1734,10 +1762,21 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       prestacionesPool
     );
 
-    const matchedLanguages = matchToCatalogPool(
+    let matchedLanguages = matchToCatalogPool(
       Array.isArray(parsed.languages) ? parsed.languages : [parsed.languages],
       languagesPool
     );
+    if (/\b(english|ingl[eé]s|international|exchange|intercambio|study abroad|toefl|ielts|admissions)\b/i.test(fullTextCorpus) || /\b(\.edu|\.gov)\b/i.test(context.url || "")) {
+      const eng = languagesPool.find((l) => /ingl[eé]s|english/i.test(l));
+      if (eng && !matchedLanguages.includes(eng)) matchedLanguages.push(eng);
+    }
+    if (/\b(portugu[eêé]s|falamos|brasil|brazil)\b/i.test(fullTextCorpus) || /\.br(?:\/|$)/i.test(context.url || "")) {
+      const pt = languagesPool.find((l) => /portugu[eéè]s/i.test(l));
+      if (pt && !matchedLanguages.includes(pt)) matchedLanguages.push(pt);
+    }
+    if (matchedLanguages.length === 0) {
+      matchedLanguages = ["Español"];
+    }
 
     return {
       success: true,
@@ -1880,19 +1919,20 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("CATÁLOGO DINÁMICO DE BLOQUES Y TAXONOMÍAS DE LA BASE DE DATOS:");
   lines.push("El administrador define y clasifica los bloques del sistema según su tipo de filtro/taxonomía.");
   lines.push("Cada bloque contiene categorías con sus subcategorías. Todo es 100% dinámico.");
-  lines.push("REGLA FUNDAMENTAL DE SELECCIÓN MÚLTIPLE (PUEDES SELECCIONAR MÁS DE UNA OPCIÓN):");
-  lines.push("PUEDES Y DEBES SELECCIONAR MÁS DE UNA OPCIÓN en cualquiera de las secciones siempre que el sitio web analizado genuinamente abarque, ofrezca o corresponda a varias:");
-  lines.push("- 'providerActivities': Si la organización desarrolla múltiples actividades o sectores comprobados, incluye todas en el array.");
-  lines.push("- 'providerTypes': Si aplican múltiples perfiles de oferente (ej: organismo público, institución educativa), incluye todos.");
-  lines.push("- 'providerModalities': Si ofrece tanto atención física (sedes/locales) como digital (web/turnos/campus), selecciona ambas [\"Atención presencial\", \"Atención online\"].");
-  lines.push("- 'categorySelections': Puedes seleccionar más de una categoría del catálogo si la entidad cubre múltiples rubros.");
-  lines.push("- 'subcategorySelections': Puedes seleccionar múltiples subcategorías hijas de las categorías seleccionadas.");
-  lines.push("- 'languages': Selecciona todos los idiomas de atención verificados en la web.");
+  lines.push("REGLA FUNDAMENTAL DE SELECCIÓN MÚLTIPLE Y EXACTITUD ESTRICTA:");
+  lines.push("PUEDES Y DEBES SELECCIONAR MÁS DE UNA OPCIÓN cuando el sitio web analizado genuinamente abarque, ofrezca o corresponda a varias, pero DEBES SER TOTALMENTE ESTRICTO:");
   lines.push("");
 
   lines.push("1. SECCIÓN ACTIVIDADES ('providerActivities' - Array de strings):");
-  lines.push("Examina los bloques de actividad y selecciona TODAS las actividades que definan el núcleo real y servicios principales de la institución (puedes seleccionar más de una si la entidad es multisectorial comprobada).");
-  lines.push("REGLA ANTI-FALSOS POSITIVOS: Asigna la actividad nuclear de la institución. En universidades (ej. UNCuyo, UBA), la actividad es 'Educación y formación'; contar con una facultad de agronomía o medicina NO la convierte en una empresa agropecuaria ('Agricultura, ganadería y pesca') ni en una clínica, a menos que el sitio sea exclusivamente de esa unidad o una empresa agropecuaria. Si una entidad es genuinamente multisectorial comprobada, selecciona todas las que correspondan.");
+  lines.push("Examina los bloques de actividad y selecciona ÚNICAMENTE la/s actividad/es que definan el núcleo real y principal de la organización:");
+  lines.push("- UNIVERSIDADES Y CENTROS EDUCATIVOS (ej: UNCuyo, UBA, Siglo 21, colegios, escuelas): Su actividad es EXCLUSIVAMENTE 'Educación y formación'.");
+  lines.push("  * PROHIBIDO TERMINANTEMENTE asignar 'Hostelería, alojamiento y turismo' (aunque tengan albergues para estudiantes o carrera de turismo).");
+  lines.push("  * PROHIBIDO TERMINANTEMENTE asignar 'Servicios profesionales y técnicos' (aunque tengan carreras profesionales o institutos técnicos).");
+  lines.push("  * PROHIBIDO TERMINANTEMENTE asignar 'Agricultura, ganadería y pesca' (aunque tengan facultad de agronomía o veterinaria).");
+  lines.push("- HOSPITALES, CLÍNICAS Y CENTROS DE SALUD: Su actividad es EXCLUSIVAMENTE 'Salud y asistencia social'.");
+  lines.push("- HOTELES, HOSTELS Y ALOJAMIENTO TURÍSTICO: Su actividad es 'Hostelería, alojamiento y turismo'.");
+  lines.push("- ESTUDIOS JURÍDICOS Y ASESORÍAS LEGALES/MIGRATORIAS: Su actividad es 'Servicios profesionales y técnicos' (PROHIBIDO 'Bienes raíces').");
+  lines.push("- ONGs, FUNDACIONES Y ASOCIACIONES CIVILES: Asigna la labor social/comunitaria o 'Actividades de asociaciones y organizaciones'.");
   lines.push("Opciones de Actividad disponibles:");
   if (actBlocks.length > 0) {
     actBlocks.forEach((b) => {
@@ -1909,7 +1949,10 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("");
 
   lines.push("2. SECCIÓN TIPO DE OFERENTE / PERFIL ('providerTypes' - Array de strings):");
-  lines.push("Examina los bloques de tipo y selecciona el/los perfiles según la naturaleza legal o de dominio (.edu.ar, .gov.ar, privada, empresa, etc.): Puedes seleccionar más de uno si aplica.");
+  lines.push("Examina los bloques de tipo y selecciona el/los perfiles según la naturaleza legal y operativa comprobada:");
+  lines.push("- ONGs, FUNDACIONES Y ASOCIACIONES CIVILES SIN FINES DE LUCRO: Si la entidad es una ONG, fundación o asociación sin fines de lucro, DEBES SELECCIONAR OBLIGATORIAMENTE 'ONG', 'Fundación' u 'Organización sin fines de lucro' del catálogo. NUNCA 'Empresa' ni 'Institución privada lucrativa'.");
+  lines.push("- ORGANISMOS PÚBLICOS: Universidades estatales/nacionales (.edu.ar / públicas), ministerios, hospitales públicos -> 'Organismo público'.");
+  lines.push("- EMPRESAS / PRIVADAS: Empresas comerciales, privadas con fines de lucro -> 'Institución privada' o 'Empresa'.");
   lines.push("Opciones de Tipo disponibles:");
   if (typeBlocks.length > 0) {
     typeBlocks.forEach((b) => {
@@ -1921,7 +1964,7 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   } else if (types.length > 0) {
     types.forEach((t) => lines.push(`   - "${t}"`));
   } else {
-    lines.push('   - "Institución privada", "Organismo público"');
+    lines.push('   - "Institución privada", "Organismo público", "ONG"');
   }
   lines.push("");
 
@@ -1944,7 +1987,11 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
 
   lines.push("4. SECCIÓN PROPUESTA O PUBLICACIÓN - CATEGORÍAS Y SUBCATEGORÍAS:");
   lines.push("Examina cada bloque de categoría, el nombre del bloque, el nombre de la categoría y las subcategorías.");
-  lines.push("Selecciona en 'categorySelections' (array de strings) las categorías que apliquen y en 'subcategorySelections' (array de strings) las subcategorías específicas hijas de esas categorías. Si ninguna subcategoría aplica, deja el array vacío []. PUEDES SELECCIONAR MÁS DE UNA categoría y más de una subcategoría si la web cubre varios rubros o servicios.");
+  lines.push("REGLAS SEMÁNTICAS CRÍTICAS:");
+  lines.push("- UNIVERSIDADES Y CENTROS EDUCATIVOS: El destinatario y categoría central es 'Estudiante' / 'Estudiantes'. Si en los bloques de categorías existe 'Estudiante', 'Estudiantes' o similar, ES OBLIGATORIO SELECCIONARLA. Si ofrece cursos o carreras, incluye además 'Curso o formación' o 'Educación'. NO selecciones 'Profesional' para una universidad si está concebido para profesionales independientes o autónomos.");
+  lines.push("- ONGs Y CAUSAS SOCIALES: Selecciona las categorías correspondientes a 'Voluntariado', 'Ayuda social', 'Donaciones', 'ONGs' o afines que existan en el bloque.");
+  lines.push("- PRESTADORES PROFESIONALES: Si la web es de un profesional individual, autónomo o estudio profesional, selecciona 'Profesional'.");
+  lines.push("Selecciona en 'categorySelections' (array de strings) las categorías que apliquen y en 'subcategorySelections' (array de strings) las subcategorías específicas hijas de esas categorías. Si ninguna subcategoría aplica, deja el array vacío []. PUEDES SELECCIONAR MÁS DE UNA categoría y más de una subcategoría.");
   lines.push("Estructura de Bloques de Categorías disponibles:");
   if (catBlocks.length > 0) {
     catBlocks.forEach((b) => {
@@ -1972,7 +2019,12 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("");
 
   lines.push("5. SECCIÓN IDIOMAS ('languages' - Array de strings):");
-  lines.push("Selecciona todos los idiomas con soporte o atención verificados en el sitio web (ej: [\"Español\", \"Inglés\"]):");
+  lines.push("Examina con detenimiento los idiomas aplicables a la web y a la entidad:");
+  lines.push("- Revisa el idioma principal en que está redactada la página web raspada (ej: Español).");
+  lines.push("- Revisa si la web ofrece selector de idioma (banderas o enlaces a versiones en inglés, portugués, etc.).");
+  lines.push("- Revisa el país donde opera la sede (Brasil -> Portugués; EE.UU./UK/Canadá/Australia -> Inglés; Italia -> Italiano; Francia -> Francés; Alemania -> Alemán; Argentina/España/Latam -> Español).");
+  lines.push("- Revisa si la entidad ofrece programas internacionales, carreras bilingües o atención multilingüe comprobada (ej: Inglés).");
+  lines.push("Selecciona TODOS los idiomas correspondientes que figuren en la lista a continuación (ej: [\"Español\", \"Inglés\"]):");
   languages.forEach((l) => lines.push(`  - "${l}"`));
   lines.push("======================================================================");
 
@@ -2260,16 +2312,92 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       : (typeof parsed.languages === "string" ? parsed.languages.split(",").map((s: string) => s.trim()) : ["Español"]);
     const matchedLanguages = matchToCatalogPool(rawLangs, languagesPool);
 
+    // Entity semantics
+    const fullTextCorpus = `${context.rawPageTitle || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.mainText || ""} ${context.url} ${context.publisherName || ""}`
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    const isEducationalEntity =
+      /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
+      /\.edu(?:\.[a-z]{2})?/i.test(context.url || "");
+
+    const isAuthenticOng =
+      (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(context.url || "")) &&
+      /\b(sin fines de lucro|organismo no gubernamental|asociacion civil sin fines de lucro|fundacion sin fines de lucro|donaciones para la fundacion)\b/i.test(fullTextCorpus) &&
+      !isEducationalEntity &&
+      !/\b(empresa s\.a\.|empresa s\.r\.l\.|sociedad anonima|startup|e-commerce|tienda online|hotel|agencia de viajes|clinica privada|sanatorio privado)\b/i.test(fullTextCorpus);
+
+    let finalMatchedCats = [...matchedCats];
+    let finalMatchedActs = [...matchedActs];
+    let finalMatchedTypes = [...matchedTypes];
+    let finalMatchedLangs = [...matchedLanguages];
+
+    if (isEducationalEntity) {
+      finalMatchedActs = finalMatchedActs.filter((a) => !/hosteler|turism|alojam|profesional|tecnic|agricult|ganader|pesca|miner|comercio/i.test(a));
+      const eduAct = activitiesPool.find((a) => /educaci|formaci|ensenan/i.test(a));
+      if (eduAct && !finalMatchedActs.includes(eduAct)) {
+        finalMatchedActs = [eduAct, ...finalMatchedActs];
+      }
+      if (finalMatchedActs.length === 0) {
+        finalMatchedActs = [eduAct || "Educación y formación"];
+      }
+
+      // Prioritize student categories (e.g. 'Estudiante', 'Estudiantes', 'Vida estudiantil')
+      const studentCat = catPool.find((c: string) => /\bestudiant\w*/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+      if (studentCat && !finalMatchedCats.includes(studentCat)) {
+        finalMatchedCats = [studentCat, ...finalMatchedCats];
+      }
+      if (studentCat && finalMatchedCats.includes(studentCat)) {
+        finalMatchedCats = finalMatchedCats.filter((c) => !/^\s*profesional\s*$/i.test(c));
+      }
+    }
+
+    if (isAuthenticOng) {
+      const ongType = typesPool.find((t) => /\b(?:ong|sin fines de lucro|fundaci|asociaci)\b/i.test(t));
+      if (ongType && !finalMatchedTypes.includes(ongType)) {
+        finalMatchedTypes = [ongType, ...finalMatchedTypes.filter((t) => !/empresa|privada/i.test(t))];
+      }
+      const ongCat = catPool.find((c: string) => /\b(?:ong|voluntari|ayuda social|donaci|comunitari)\b/i.test(c));
+      if (ongCat && !finalMatchedCats.includes(ongCat)) {
+        finalMatchedCats = [ongCat, ...finalMatchedCats];
+      }
+    }
+
+    if (/\b(english|ingl[eé]s|bilingual|biling[uü]e|international|exchange|intercambio|study abroad|toefl|ielts|admissions)\b/i.test(fullTextCorpus) || /\b(\.edu|\.gov|\.us|\.uk)\b/i.test(context.url || "")) {
+      const eng = languagesPool.find((l) => /ingl[eé]s|english/i.test(l));
+      if (eng && !finalMatchedLangs.includes(eng)) finalMatchedLangs.push(eng);
+    }
+    if (/\b(portugu[eêé]s|falamos|brasil|brazil)\b/i.test(fullTextCorpus) || /\.br(?:\/|$)/i.test(context.url || "")) {
+      const pt = languagesPool.find((l) => /portugu[eéè]s/i.test(l));
+      if (pt && !finalMatchedLangs.includes(pt)) finalMatchedLangs.push(pt);
+    }
+    if (/\b(italiano|italia|italian)\b/i.test(fullTextCorpus) || /\.it(?:\/|$)/i.test(context.url || "")) {
+      const it = languagesPool.find((l) => /italiano/i.test(l));
+      if (it && !finalMatchedLangs.includes(it)) finalMatchedLangs.push(it);
+    }
+    if (/\b(alem[aá]n|deutsch|german)\b/i.test(fullTextCorpus) || /\.de(?:\/|$)/i.test(context.url || "")) {
+      const de = languagesPool.find((l) => /alem[aá]n/i.test(l));
+      if (de && !finalMatchedLangs.includes(de)) finalMatchedLangs.push(de);
+    }
+    if (/\b(franc[eéè]s|fran[cç]ais|french)\b/i.test(fullTextCorpus) || /\.fr(?:\/|$)/i.test(context.url || "")) {
+      const fr = languagesPool.find((l) => /franc[eéè]s/i.test(l));
+      if (fr && !finalMatchedLangs.includes(fr)) finalMatchedLangs.push(fr);
+    }
+    if (finalMatchedLangs.length === 0) {
+      finalMatchedLangs = ["Español"];
+    }
+
     const taxonomyData: TaxonomyAgentData = {
-      category: matchedCats[0] || catPool[0] || "",
+      category: finalMatchedCats[0] || catPool[0] || "",
       subcategory: matchedSubs[0] || subPool[0] || "",
-      categorySelections: matchedCats.length ? matchedCats : (catPool[0] ? [catPool[0]] : []),
+      categorySelections: finalMatchedCats.length ? finalMatchedCats : (catPool[0] ? [catPool[0]] : []),
       subcategorySelections: matchedSubs.length ? matchedSubs : (subPool[0] ? [subPool[0]] : []),
-      providerActivities: matchedActs.length ? matchedActs : (activitiesPool.slice(0, 1)),
-      providerTypes: matchedTypes.length ? matchedTypes : (typesPool.slice(0, 1)),
+      providerActivities: finalMatchedActs.length ? finalMatchedActs : (activitiesPool.slice(0, 1)),
+      providerTypes: finalMatchedTypes.length ? finalMatchedTypes : (typesPool.slice(0, 1)),
       providerModalities: matchedModalities.length ? matchedModalities : (modalitiesPool.slice(0, 2)),
       prestaciones: Array.isArray(parsed.prestaciones) ? parsed.prestaciones : [],
-      languages: matchedLanguages.length ? matchedLanguages : ["Español"],
+      languages: finalMatchedLangs.length ? finalMatchedLangs : ["Español"],
     };
 
     return {
