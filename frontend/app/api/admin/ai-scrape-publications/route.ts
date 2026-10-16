@@ -5660,19 +5660,17 @@ async function processUrlWithAI(
   let taxonomyRes: any;
 
   try {
-    // Stage 1: Title & Description Agents
-    [titleAgentRes, descAgentRes] = await Promise.all([
-      runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt),
-      runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt),
-    ]);
+    // Stage 1: Title Agent
+    titleAgentRes = await runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt);
 
-    await new Promise((r) => setTimeout(r, 200));
+    // Stage 2: Description Agent
+    descAgentRes = await runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt);
 
-    // Stage 2: Taxonomy & Provider Info Agents
-    [providerInfoRes, taxonomyRes] = await Promise.all([
-      runProviderInfoAgent(cleanContext),
-      runTaxonomyAgent(cleanContext, taxonomies),
-    ]);
+    // Stage 3: Taxonomy Agent
+    taxonomyRes = await runTaxonomyAgent(cleanContext, taxonomies);
+
+    // Stage 4: Provider Info Agent
+    providerInfoRes = await runProviderInfoAgent(cleanContext);
   } catch (agentErr: any) {
     console.warn(`[AI Scraper] AI agent execution failed for ${url}, falling back to grounded extraction:`, agentErr?.message);
     const fallbackPub = await createFallbackPublication(
