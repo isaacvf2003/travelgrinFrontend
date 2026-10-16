@@ -3451,7 +3451,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    const isLegalConsultingDraft = /abogad|estudio jur[ií]dico|notar|escriban|visas?|migra|residencia|ciudadan[ií]a|consultor[ií]a legal|cbi|immi/i.test(
+    const isEduDraft = /universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(
+      `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase()
+    );
+    const isLegalConsultingDraft = !isEduDraft && /abogad|estudio jur[ií]dico|notar|escriban|visas?|migra|consultor[ií]a legal|cbi|immi/i.test(
       `${draft.title} ${draft.publisherName || ""} ${draft.url || ""} ${draft.description || ""}`.toLowerCase()
     );
     if (isLegalConsultingDraft) {
