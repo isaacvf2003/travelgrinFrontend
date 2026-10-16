@@ -332,12 +332,23 @@ export default function AiScraperModal({
 
     setIsProcessing(true);
 
-    try {
+    const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
+
+    const sanitizeDrafts = (publications: any[]): ScrapedPublicationDraft[] => {
+      return (publications || []).map((pub: ScrapedPublicationDraft) => ({
+        ...pub,
+        providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
+        images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
+        status: pub.status || "active",
+      }));
+    };
+
+    const processSingleUrlBatch = async (batch: string[]): Promise<ScrapedPublicationDraft[]> => {
       const res = await fetch("/api/admin/ai-scrape-publications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          urls: urlsToProcess,
+          urls: batch,
           provider: aiProvider,
           apiKey: customApiKey.trim() || undefined,
           customTitlePrompt: customTitlePrompt.trim() || undefined,
@@ -360,38 +371,85 @@ export default function AiScraperModal({
         }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = null;
+      if (contentType.includes("application/json")) {
+        try {
+          data = await res.json();
+        } catch {
+          data = null;
+        }
+      }
 
-      if (!res.ok || !data.success) {
+      if (!res.ok || !data || !data.success) {
+        if (res.status === 504 || res.status === 502) {
+          throw new Error("El servidor tardó demasiado en responder (Timeout). Por favor intenta nuevamente.");
+        }
+        if (!data) {
+          const rawText = await res.text().catch(() => "");
+          if (rawText.toLowerCase().includes("timeout") || rawText.toLowerCase().includes("an error occurred") || rawText.includes("FUNCTION_INVOCATION_TIMEOUT")) {
+            throw new Error("El servidor excedió el tiempo límite de ejecución (Timeout). Por favor intenta nuevamente.");
+          }
+          throw new Error(`Error ${res.status}: Respuesta no válida del servidor.`);
+        }
         throw new Error(data.error || "Error al procesar el scraping web con IA.");
       }
 
-      // Strictly exclude tracking pixels, tiny spacers, generic UI widgets
-      const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
+      return sanitizeDrafts(data.publications || []);
+    };
 
-      const generatedDrafts: ScrapedPublicationDraft[] = (data.publications || []).map(
-        (pub: ScrapedPublicationDraft) => ({
-          ...pub,
-          providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
-          images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
-          status: pub.status || "active",
-        })
-      );
-
-      setDraftsQueue((prev) => {
-        const updated = [...prev, ...generatedDrafts];
-        try {
-          if (typeof window !== "undefined") {
-            window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
-          }
-        } catch {}
-        return updated;
-      });
-
-      if (tab === "single" && generatedDrafts.length === 1) {
+    try {
+      if (tab === "single") {
+        const generatedDrafts = await processSingleUrlBatch(urlsToProcess);
+        if (!generatedDrafts.length) {
+          throw new Error("No se pudo generar el borrador para la URL indicada.");
+        }
+        setDraftsQueue((prev) => {
+          const updated = [...prev, ...generatedDrafts];
+          try {
+            if (typeof window !== "undefined") {
+              window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+            }
+          } catch {}
+          return updated;
+        });
         setSuccessNotice("Publicación generada exitosamente.");
       } else {
-        setSuccessNotice(`Se generaron ${generatedDrafts.length} borrador(es) en la cola de revisión.`);
+        const allDrafts: ScrapedPublicationDraft[] = [];
+        const failedUrls: string[] = [];
+
+        for (let i = 0; i < urlsToProcess.length; i++) {
+          const currentUrl = urlsToProcess[i];
+          setSuccessNotice(`Procesando URL ${i + 1} de ${urlsToProcess.length}: ${currentUrl}`);
+          try {
+            const drafts = await processSingleUrlBatch([currentUrl]);
+            if (drafts && drafts.length) {
+              allDrafts.push(...drafts);
+              setDraftsQueue((prev) => {
+                const updated = [...prev, ...drafts];
+                try {
+                  if (typeof window !== "undefined") {
+                    window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+                  }
+                } catch {}
+                return updated;
+              });
+            } else {
+              failedUrls.push(currentUrl);
+            }
+          } catch (itemErr: any) {
+            console.warn(`[Bulk Scrape] Error procesando ${currentUrl}:`, itemErr?.message);
+            failedUrls.push(currentUrl);
+          }
+        }
+
+        if (allDrafts.length > 0) {
+          setSuccessNotice(
+            `Se generaron ${allDrafts.length} borrador(es) en la cola de revisión.${failedUrls.length ? ` (${failedUrls.length} URL(s) no pudieron procesarse)` : ""}`
+          );
+        } else {
+          setErrorMessage("No se pudo generar ningún borrador con las URLs proporcionadas.");
+        }
       }
     } catch (err: any) {
       setErrorMessage(err.message || "No se pudo completar la extracción web.");
