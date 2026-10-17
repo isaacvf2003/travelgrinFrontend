@@ -1385,9 +1385,14 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextCorpus) ||
       /osep|hospital|clinica|sanatorio|salud/i.test(context.url || "");
 
+    const isMediaOrSportsOrEntertainment =
+      /\b(deportv|televisi[oó]n|streaming|transmisi[oó]n|transmisiones|canal de tv|deportes?|f[uú]tbol|automovilismo|boxeo|tenis|b[aá]squet|torneo|liga profesional|espect[aá]culos?|teatro|cine)\b/i.test(fullTextCorpus) ||
+      /deportv|tv|deporte|streaming/i.test(context.url || "");
+
     const isEducationalEntity =
-      /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
-      /\.edu(?:\.[a-z]{2})?/i.test(context.url || "");
+      !isMediaOrSportsOrEntertainment &&
+      (/\b(universidad|facultad|carrera universitaria|carreras universitarias|licenciatura|tecnicatura|alumnos?|estudiantes?|vida estudiantil|campus universitario|matr[ií]cula acad[eé]mica|aranceles acad[eé]micos|inscripciones a carreras|ingreso universitario|becas de estudio|docentes? universitarios?|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
+      /\.edu(?:\.[a-z]{2})?/i.test(context.url || ""));
 
     const isLegalOrConsulting =
       /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|cbi argentina|allende|brea)\b/i.test(fullTextCorpus) ||
@@ -1890,50 +1895,41 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
     }>;
   }> = Array.isArray(taxonomies.categoryTree) ? taxonomies.categoryTree : [];
 
-  const activities: string[] = Array.isArray(taxonomies.activities) && taxonomies.activities.length
-    ? taxonomies.activities
-    : [];
+  const norm = (s: any) => String(s || "").trim().toLowerCase();
+  const actBlocks = blocks.filter((b) => norm(b.blockTaxonomy) === "actividad" || norm(b.blockName).includes("actividad") || norm(b.blockName).includes("sector"));
+  const typeBlocks = blocks.filter((b) => ["tipo", "tipos"].includes(norm(b.blockTaxonomy)) || norm(b.blockName).includes("tipo") || norm(b.blockName).includes("perfil"));
+  const modBlocks = blocks.filter((b) => norm(b.blockTaxonomy) === "modalidad" || norm(b.blockName).includes("modalidad"));
+  const catBlocks = blocks.filter((b) => !actBlocks.includes(b) && !typeBlocks.includes(b) && !modBlocks.includes(b) && (["", "categoria", "default", "predeterminado", "inherit"].includes(norm(b.blockTaxonomy)) || norm(b.blockName).includes("categor") || norm(b.blockName).includes("propuesta") || norm(b.blockName).includes("publicaci")));
+  const otherBlocks = blocks.filter((b) => !actBlocks.includes(b) && !typeBlocks.includes(b) && !modBlocks.includes(b) && !catBlocks.includes(b));
 
-  const types: string[] = Array.isArray(taxonomies.types) && taxonomies.types.length
-    ? taxonomies.types
-    : [];
+  const allActOptions = new Set<string>();
+  actBlocks.forEach((b) => (b.parentCategories || []).forEach((c) => { if (c.name) allActOptions.add(c.name); }));
+  (taxonomies.activities || []).forEach((a: string) => { if (a) allActOptions.add(a); });
 
-  const modalities: string[] = Array.isArray(taxonomies.modalities) && taxonomies.modalities.length
-    ? taxonomies.modalities
-    : [];
+  const allTypeOptions = new Set<string>();
+  typeBlocks.forEach((b) => (b.parentCategories || []).forEach((c) => { if (c.name) allTypeOptions.add(c.name); }));
+  (taxonomies.types || []).forEach((t: string) => { if (t) allTypeOptions.add(t); });
+
+  const allModOptions = new Set<string>();
+  modBlocks.forEach((b) => (b.parentCategories || []).forEach((c) => { if (c.name) allModOptions.add(c.name); }));
+  (taxonomies.modalities || []).forEach((m: string) => { if (m) allModOptions.add(m); });
 
   const languages: string[] = Array.isArray(taxonomies.languages) && taxonomies.languages.length
     ? taxonomies.languages
     : ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"];
 
-  const norm = (s: any) => String(s || "").trim().toLowerCase();
-  const actBlocks = blocks.filter((b) => norm(b.blockTaxonomy) === "actividad");
-  const typeBlocks = blocks.filter((b) => norm(b.blockTaxonomy) === "tipo" || norm(b.blockTaxonomy) === "tipos");
-  const modBlocks = blocks.filter((b) => norm(b.blockTaxonomy) === "modalidad");
-  const catBlocks = blocks.filter((b) => ["", "categoria", "default", "predeterminado", "inherit"].includes(norm(b.blockTaxonomy)));
-  const otherBlocks = blocks.filter((b) => !["actividad", "tipo", "tipos", "modalidad", "categoria", "default", "predeterminado", "inherit"].includes(norm(b.blockTaxonomy)));
-
   const lines: string[] = [];
 
   lines.push("======================================================================");
-  lines.push("CATÁLOGO DINÁMICO DE BLOQUES Y TAXONOMÍAS DE LA BASE DE DATOS:");
+  lines.push("CATÁLOGO OFICIAL Y CERRADO DE BLOQUES Y CATEGORÍAS (DEFINIDO POR EL ADMINISTRADOR):");
   lines.push("El administrador define y clasifica los bloques del sistema según su tipo de filtro/taxonomía.");
-  lines.push("Cada bloque contiene categorías con sus subcategorías. Todo es 100% dinámico.");
-  lines.push("REGLA FUNDAMENTAL DE SELECCIÓN MÚLTIPLE Y EXACTITUD ESTRICTA:");
-  lines.push("PUEDES Y DEBES SELECCIONAR MÁS DE UNA OPCIÓN cuando el sitio web analizado genuinamente abarque, ofrezca o corresponda a varias, pero DEBES SER TOTALMENTE ESTRICTO:");
+  lines.push("Cada categoría y subcategoría ha sido creada por el administrador. Todo es 100% dinámico.");
+  lines.push("REGLA FUNDAMENTAL DE EXACTITUD ESTRICTA (CERO ALUCINACIONES / CERO CATEGORÍAS INVENTADAS):");
+  lines.push("PUEDES Y DEBES SELECCIONAR MÁS DE UNA OPCIÓN cuando el sitio web analizado genuinamente abarque varias, pero DEBES ELEGIR EXCLUSIVAMENTE OPCIONES QUE EXISTAN EN ESTE CATÁLOGO.");
   lines.push("");
 
   lines.push("1. SECCIÓN ACTIVIDADES ('providerActivities' - Array de strings):");
-  lines.push("Examina los bloques de actividad y selecciona ÚNICAMENTE la/s actividad/es que definan el núcleo real y principal de la organización:");
-  lines.push("- UNIVERSIDADES Y CENTROS EDUCATIVOS (ej: UNCuyo, UBA, Siglo 21, colegios, escuelas): Su actividad es EXCLUSIVAMENTE 'Educación y formación'.");
-  lines.push("  * PROHIBIDO TERMINANTEMENTE asignar 'Hostelería, alojamiento y turismo' (aunque tengan albergues para estudiantes o carrera de turismo).");
-  lines.push("  * PROHIBIDO TERMINANTEMENTE asignar 'Servicios profesionales y técnicos' (aunque tengan carreras profesionales o institutos técnicos).");
-  lines.push("  * PROHIBIDO TERMINANTEMENTE asignar 'Agricultura, ganadería y pesca' (aunque tengan facultad de agronomía o veterinaria).");
-  lines.push("- HOSPITALES, CLÍNICAS Y CENTROS DE SALUD: Su actividad es EXCLUSIVAMENTE 'Salud y asistencia social'.");
-  lines.push("- HOTELES, HOSTELS Y ALOJAMIENTO TURÍSTICO: Su actividad es 'Hostelería, alojamiento y turismo'.");
-  lines.push("- ESTUDIOS JURÍDICOS Y ASESORÍAS LEGALES/MIGRATORIAS: Su actividad es 'Servicios profesionales y técnicos' (PROHIBIDO 'Bienes raíces').");
-  lines.push("- ONGs, FUNDACIONES Y ASOCIACIONES CIVILES: Asigna la labor social/comunitaria o 'Actividades de asociaciones y organizaciones'.");
-  lines.push("Opciones de Actividad disponibles:");
+  lines.push("Examina los bloques de actividad y selecciona ÚNICAMENTE la/s actividad/es reales de la base de datos que definan el núcleo de la entidad:");
   if (actBlocks.length > 0) {
     actBlocks.forEach((b) => {
       lines.push(`  Bloque: "${b.blockName}"`);
@@ -1941,19 +1937,15 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
         lines.push(`   - "${c.name}"`);
       });
     });
-  } else if (activities.length > 0) {
-    activities.forEach((a) => lines.push(`   - "${a}"`));
+  } else if (allActOptions.size > 0) {
+    allActOptions.forEach((a) => lines.push(`   - "${a}"`));
   } else {
     lines.push('   - "Servicios profesionales y técnicos"');
   }
   lines.push("");
 
   lines.push("2. SECCIÓN TIPO DE OFERENTE / PERFIL ('providerTypes' - Array de strings):");
-  lines.push("Examina los bloques de tipo y selecciona el/los perfiles según la naturaleza legal y operativa comprobada:");
-  lines.push("- ONGs, FUNDACIONES Y ASOCIACIONES CIVILES SIN FINES DE LUCRO: Si la entidad es una ONG, fundación o asociación sin fines de lucro, DEBES SELECCIONAR OBLIGATORIAMENTE 'ONG', 'Fundación' u 'Organización sin fines de lucro' del catálogo. NUNCA 'Empresa' ni 'Institución privada lucrativa'.");
-  lines.push("- ORGANISMOS PÚBLICOS: Universidades estatales/nacionales (.edu.ar / públicas), ministerios, hospitales públicos -> 'Organismo público'.");
-  lines.push("- EMPRESAS / PRIVADAS: Empresas comerciales, privadas con fines de lucro -> 'Institución privada' o 'Empresa'.");
-  lines.push("Opciones de Tipo disponibles:");
+  lines.push("Examina los bloques de tipo y selecciona el/los perfiles según la naturaleza legal comprobada:");
   if (typeBlocks.length > 0) {
     typeBlocks.forEach((b) => {
       lines.push(`  Bloque: "${b.blockName}"`);
@@ -1961,16 +1953,15 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
         lines.push(`   - "${c.name}"`);
       });
     });
-  } else if (types.length > 0) {
-    types.forEach((t) => lines.push(`   - "${t}"`));
+  } else if (allTypeOptions.size > 0) {
+    allTypeOptions.forEach((t) => lines.push(`   - "${t}"`));
   } else {
-    lines.push('   - "Institución privada", "Organismo público", "ONG"');
+    lines.push('   - "Institución privada", "Organismo público", "ONG", "Empresa"');
   }
   lines.push("");
 
   lines.push("3. SECCIÓN MODALIDAD DE SERVICIO ('providerModalities' - Array de strings):");
-  lines.push("Examina los bloques de modalidad y selecciona TODAS las modalidades comprobadas que ofrece la web (ej: si tiene sedes físicas y además plataforma/campus/turnos online, selecciona ambas: [\"Atención presencial\", \"Atención online\"]).");
-  lines.push("Opciones de Modalidad disponibles:");
+  lines.push("Examina los bloques de modalidad y selecciona las modalidades comprobadas que ofrece la web (ej: [\"Atención presencial\", \"Atención online\"]):");
   if (modBlocks.length > 0) {
     modBlocks.forEach((b) => {
       lines.push(`  Bloque: "${b.blockName}"`);
@@ -1978,20 +1969,24 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
         lines.push(`   - "${c.name}"`);
       });
     });
-  } else if (modalities.length > 0) {
-    modalities.forEach((m) => lines.push(`   - "${m}"`));
+  } else if (allModOptions.size > 0) {
+    allModOptions.forEach((m) => lines.push(`   - "${m}"`));
   } else {
     lines.push('   - "Atención presencial", "Atención online"');
   }
   lines.push("");
 
-  lines.push("4. SECCIÓN PROPUESTA O PUBLICACIÓN - CATEGORÍAS Y SUBCATEGORÍAS:");
+  lines.push("4. SECCIÓN PROPUESTA O PUBLICACIÓN - CATEGORÍAS Y SUBCATEGORÍAS ('categorySelections' y 'subcategorySelections'):");
   lines.push("Examina cada bloque de categoría, el nombre del bloque, el nombre de la categoría y las subcategorías.");
-  lines.push("REGLAS SEMÁNTICAS CRÍTICAS:");
-  lines.push("- UNIVERSIDADES Y CENTROS EDUCATIVOS: El destinatario y categoría central es 'Estudiante' / 'Estudiantes'. Si en los bloques de categorías existe 'Estudiante', 'Estudiantes' o similar, ES OBLIGATORIO SELECCIONARLA. Si ofrece cursos o carreras, incluye además 'Curso o formación' o 'Educación'. NO selecciones 'Profesional' para una universidad si está concebido para profesionales independientes o autónomos.");
-  lines.push("- ONGs Y CAUSAS SOCIALES: Selecciona las categorías correspondientes a 'Voluntariado', 'Ayuda social', 'Donaciones', 'ONGs' o afines que existan en el bloque.");
-  lines.push("- PRESTADORES PROFESIONALES: Si la web es de un profesional individual, autónomo o estudio profesional, selecciona 'Profesional'.");
-  lines.push("Selecciona en 'categorySelections' (array de strings) las categorías que apliquen y en 'subcategorySelections' (array de strings) las subcategorías específicas hijas de esas categorías. Si ninguna subcategoría aplica, deja el array vacío []. PUEDES SELECCIONAR MÁS DE UNA categoría y más de una subcategoría.");
+  lines.push("");
+  lines.push("*** REGLA SUPREMA DE EXACTITUD Y CERO ALUCINACIONES ***:");
+  lines.push("1. El catálogo de categorías y subcategorías es ESTRICTAMENTE CERRADO y administrado por el usuario.");
+  lines.push("2. Si el sitio web escrapeado pertenece a un rubro para el cual el administrador NO ha creado una categoría o subcategoría en las opciones de abajo (por ejemplo, si la web es de un canal de televisión, streaming o deportes, y NO existe una categoría en el catálogo):");
+  lines.push("   - DEBES DEVOLVER: 'categorySelections': [], 'subcategorySelections': [], 'category': '', 'subcategory': ''.");
+  lines.push("   - ESTÁ TERMINANTEMENTE PROHIBIDO crear o inventar nombres de categorías o subcategorías que no existan en la lista (ej: NUNCA inventes 'Entretenimiento y Medios', 'Deportes', 'Televisión y Streaming', etc.).");
+  lines.push("   - NUNCA fuerces una categoría no relacionada (como 'Curso o formación' o 'Estudiante') si la web no es de esa área.");
+  lines.push("   - ÚNICAMENTE selecciona categorías o subcategorías si coinciden genuinamente y existen en las opciones de abajo.");
+  lines.push("");
   lines.push("Estructura de Bloques de Categorías disponibles:");
   if (catBlocks.length > 0) {
     catBlocks.forEach((b) => {
@@ -2019,12 +2014,7 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("");
 
   lines.push("5. SECCIÓN IDIOMAS ('languages' - Array de strings):");
-  lines.push("Examina con detenimiento los idiomas aplicables a la web y a la entidad:");
-  lines.push("- Revisa el idioma principal en que está redactada la página web raspada (ej: Español).");
-  lines.push("- Revisa si la web ofrece selector de idioma (banderas o enlaces a versiones en inglés, portugués, etc.).");
-  lines.push("- Revisa el país donde opera la sede (Brasil -> Portugués; EE.UU./UK/Canadá/Australia -> Inglés; Italia -> Italiano; Francia -> Francés; Alemania -> Alemán; Argentina/España/Latam -> Español).");
-  lines.push("- Revisa si la entidad ofrece programas internacionales, carreras bilingües o atención multilingüe comprobada (ej: Inglés).");
-  lines.push("Selecciona TODOS los idiomas correspondientes que figuren en la lista a continuación (ej: [\"Español\", \"Inglés\"]):");
+  lines.push("Examina los idiomas comprobados de atención en la web:");
   languages.forEach((l) => lines.push(`  - "${l}"`));
   lines.push("======================================================================");
 
@@ -2072,8 +2062,12 @@ export async function runUnifiedPublicationAgent(
     ? input.customBlocks.filter((b) => b && b.title && b.title.trim())
     : [];
 
-  const catPool: string[] = taxonomies?.categories || [];
-  const subPool: string[] = taxonomies?.subcategories || [];
+  const allParentCategoriesFromTree = (taxonomies?.categoryTree || []).flatMap((b: any) => (b.parentCategories || []).map((p: any) => p.name));
+  const catPool: string[] = Array.from(new Set([...(taxonomies?.categories || []), ...allParentCategoriesFromTree].filter(Boolean)));
+
+  const allSubcategoriesFromTree = (taxonomies?.categoryTree || []).flatMap((b: any) => (b.parentCategories || []).flatMap((p: any) => p.subcategories || []));
+  const subPool: string[] = Array.from(new Set([...(taxonomies?.subcategories || []), ...allSubcategoriesFromTree].filter(Boolean)));
+
   const activitiesPool: string[] = taxonomies?.activities || [];
   const typesPool: string[] = taxonomies?.types || [];
   const modalitiesPool: string[] = taxonomies?.modalities || [];
@@ -2318,9 +2312,14 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
 
+    const isMediaOrSportsOrEntertainment =
+      /\b(deportv|televisi[oó]n|streaming|transmisi[oó]n|transmisiones|canal de tv|deportes?|f[uú]tbol|automovilismo|boxeo|tenis|b[aá]squet|torneo|liga profesional|espect[aá]culos?|teatro|cine)\b/i.test(fullTextCorpus) ||
+      /deportv|tv|deporte|streaming/i.test(context.url || "");
+
     const isEducationalEntity =
-      /\b(universidad|facultad|carrera|carreras|grado|posgrado|licenciatura|tecnicatura|alumno|alumnos|estudiante|estudiantes|vida estudiantil|campus|matricula|aranceles|inscripciones|ingreso|becas|academico|academica|educacion|educativo|docente|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
-      /\.edu(?:\.[a-z]{2})?/i.test(context.url || "");
+      !isMediaOrSportsOrEntertainment &&
+      (/\b(universidad|facultad|carrera universitaria|carreras universitarias|licenciatura|tecnicatura|alumnos?|estudiantes?|vida estudiantil|campus universitario|matr[ií]cula acad[eé]mica|aranceles acad[eé]micos|inscripciones a carreras|ingreso universitario|becas de estudio|docentes? universitarios?|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
+      /\.edu(?:\.[a-z]{2})?/i.test(context.url || ""));
 
     const isAuthenticOng =
       (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(context.url || "")) &&
@@ -2339,8 +2338,8 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       if (eduAct && !finalMatchedActs.includes(eduAct)) {
         finalMatchedActs = [eduAct, ...finalMatchedActs];
       }
-      if (finalMatchedActs.length === 0) {
-        finalMatchedActs = [eduAct || "Educación y formación"];
+      if (finalMatchedActs.length === 0 && eduAct) {
+        finalMatchedActs = [eduAct];
       }
 
       // Prioritize student categories (e.g. 'Estudiante', 'Estudiantes', 'Vida estudiantil')
@@ -2389,13 +2388,13 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     }
 
     const taxonomyData: TaxonomyAgentData = {
-      category: finalMatchedCats[0] || catPool[0] || "",
-      subcategory: matchedSubs[0] || subPool[0] || "",
-      categorySelections: finalMatchedCats.length ? finalMatchedCats : (catPool[0] ? [catPool[0]] : []),
-      subcategorySelections: matchedSubs.length ? matchedSubs : (subPool[0] ? [subPool[0]] : []),
-      providerActivities: finalMatchedActs.length ? finalMatchedActs : (activitiesPool.slice(0, 1)),
-      providerTypes: finalMatchedTypes.length ? finalMatchedTypes : (typesPool.slice(0, 1)),
-      providerModalities: matchedModalities.length ? matchedModalities : (modalitiesPool.slice(0, 2)),
+      category: finalMatchedCats[0] || "",
+      subcategory: matchedSubs[0] || "",
+      categorySelections: finalMatchedCats,
+      subcategorySelections: matchedSubs,
+      providerActivities: finalMatchedActs,
+      providerTypes: finalMatchedTypes,
+      providerModalities: matchedModalities,
       prestaciones: Array.isArray(parsed.prestaciones) ? parsed.prestaciones : [],
       languages: finalMatchedLangs.length ? finalMatchedLangs : ["Español"],
     };
