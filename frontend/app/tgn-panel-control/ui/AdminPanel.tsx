@@ -3063,9 +3063,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const titleEs = cleanTitleStr(draft.title || "");
     const titleI18nInit = {
       es: titleEs,
-      en: draft.titleI18n?.en && draft.titleI18n.en !== titleEs ? cleanTitleStr(draft.titleI18n.en) : "",
-      pt: draft.titleI18n?.pt && draft.titleI18n.pt !== titleEs ? cleanTitleStr(draft.titleI18n.pt) : "",
-      it: draft.titleI18n?.it && draft.titleI18n.it !== titleEs ? cleanTitleStr(draft.titleI18n.it) : "",
+      en: "",
+      pt: "",
+      it: "",
     };
     setPTitle(titleEs);
     setPTitleI18n(titleI18nInit);
@@ -3095,9 +3095,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const descEs = draft.description || "";
     const descI18nInit = {
       es: descEs,
-      en: draft.descriptionI18n?.en && draft.descriptionI18n.en !== descEs ? draft.descriptionI18n.en : "",
-      pt: draft.descriptionI18n?.pt && draft.descriptionI18n.pt !== descEs ? draft.descriptionI18n.pt : "",
-      it: draft.descriptionI18n?.it && draft.descriptionI18n.it !== descEs ? draft.descriptionI18n.it : "",
+      en: "",
+      pt: "",
+      it: "",
     };
     setPDescription(descEs);
     setPDescriptionI18n(descI18nInit);
@@ -3110,15 +3110,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         body: bBodyEs,
         titleI18n: {
           es: bTitleEs,
-          en: d.titleI18n?.en && d.titleI18n.en !== bTitleEs ? d.titleI18n.en : "",
-          pt: d.titleI18n?.pt && d.titleI18n.pt !== bTitleEs ? d.titleI18n.pt : "",
-          it: d.titleI18n?.it && d.titleI18n.it !== bTitleEs ? d.titleI18n.it : "",
+          en: "",
+          pt: "",
+          it: "",
         },
         bodyI18n: {
           es: bBodyEs,
-          en: d.bodyI18n?.en && d.bodyI18n.en !== bBodyEs ? d.bodyI18n.en : "",
-          pt: d.bodyI18n?.pt && d.bodyI18n.pt !== bBodyEs ? d.bodyI18n.pt : "",
-          it: d.bodyI18n?.it && d.bodyI18n.it !== bBodyEs ? d.bodyI18n.it : "",
+          en: "",
+          pt: "",
+          it: "",
         },
         lang: (d.lang || "es") as Lang,
         visibleInCard: d.visibleInCard !== false,
@@ -3130,9 +3130,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const provEs = draft.providerInfoI18n?.es || "";
     const providerInfoInit = {
       es: provEs,
-      en: draft.providerInfoI18n?.en && draft.providerInfoI18n.en !== provEs ? draft.providerInfoI18n.en : "",
-      pt: draft.providerInfoI18n?.pt && draft.providerInfoI18n.pt !== provEs ? draft.providerInfoI18n.pt : "",
-      it: draft.providerInfoI18n?.it && draft.providerInfoI18n.it !== provEs ? draft.providerInfoI18n.it : "",
+      en: "",
+      pt: "",
+      it: "",
     };
     setPProviderInfoI18n(providerInfoInit);
     let startYear = draft.providerStartYear || "";
