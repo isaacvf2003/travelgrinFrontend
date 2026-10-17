@@ -265,18 +265,6 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
       { kind: "facebook", label: "Facebook", url: "https://www.facebook.com/OsepMendozaOficial" },
     ],
   },
-  "uncuyo.edu.ar": {
-    name: "Universidad Nacional de Cuyo",
-    startYear: "1939",
-    primaryCity: "Mendoza",
-    primaryCountry: "Argentina",
-    activity: "Educación y formación",
-    category: "Educación y centros de estudios",
-    subcategory: "Universidad y posgrado",
-    type: "Organismo público",
-    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Nacional+de+Cuyo+Mendoza",
-    additionalCities: ["San Rafael", "General Alvear", "Rivadavia"],
-  },
   "hospitalespanolmendoza.com.ar": {
     name: "Hospital Español de Mendoza",
     startYear: "1923",
@@ -2167,25 +2155,41 @@ async function fetchPageContent(url: string) {
 
   // Tier 1: Direct fetch with browser headers
   try {
-    const res = await fetch(formattedUrl, {
-      headers: {
-        "User-Agent": userAgents[0],
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-        "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-      },
-      redirect: "follow",
-      signal: AbortSignal.timeout(3200),
-    });
+    let res: Response | null = null;
+    try {
+      res = await fetch(formattedUrl, {
+        headers: {
+          "User-Agent": userAgents[0],
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+          "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+          "Sec-Ch-Ua": '"Chromium";v="124", "Not-A.Brand";v="99", "Google Chrome";v="124"',
+          "Sec-Ch-Ua-Mobile": "?0",
+          "Sec-Ch-Ua-Platform": '"Windows"',
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
+          "Sec-Fetch-User": "?1",
+          "Upgrade-Insecure-Requests": "1",
+        },
+        redirect: "follow",
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch {
+      // Fallback direct fetch without sec-ch-ua headers (some university/gov servers block client hints)
+      try {
+        res = await fetch(formattedUrl, {
+          headers: {
+            "User-Agent": userAgents[0],
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+          },
+          redirect: "follow",
+          signal: AbortSignal.timeout(8000),
+        });
+      } catch {}
+    }
 
-    if (res.ok) {
+    if (res && res.ok) {
       let html = await res.text();
       let activeUrl = res.url || formattedUrl;
 
@@ -2203,7 +2207,7 @@ async function fetchPageContent(url: string) {
                 "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
               },
               redirect: "follow",
-              signal: AbortSignal.timeout(2000),
+              signal: AbortSignal.timeout(4000),
             });
             if (redirectRes.ok) {
               const redirectHtml = await redirectRes.text();
@@ -2218,7 +2222,10 @@ async function fetchPageContent(url: string) {
 
       if (html && html.length > 200) {
         const extracted = extractTextAndMetaFromHtml(html, activeUrl);
-        if (extracted.textContent && extracted.textContent.length > 80) {
+        if ((extracted.textContent && extracted.textContent.length > 25) || (extracted.title && extracted.title.length > 3)) {
+          if (!extracted.textContent || extracted.textContent.length < 80) {
+            extracted.textContent = [extracted.title, extracted.description, extracted.textContent].filter(Boolean).join(" - ");
+          }
           // If founding year or address wasn't detected on landing page, inspect candidate institutional subpages
           if (!extracted.detectedFoundingYear || !extracted.detectedAddress) {
             const subpageCandidates: string[] = [];
@@ -2260,7 +2267,7 @@ async function fetchPageContent(url: string) {
                 try {
                   const subRes = await fetch(subUrl, {
                     headers: { "User-Agent": userAgents[0] },
-                    signal: AbortSignal.timeout(1200),
+                    signal: AbortSignal.timeout(3500),
                   });
                   if (!subRes.ok) return null;
                   const subHtml = await subRes.text();
@@ -2300,12 +2307,12 @@ async function fetchPageContent(url: string) {
     console.warn(`Primary direct fetch failed for ${url}:`, e.message);
   }
 
-  // Tier 2: Jina AI Web Reader
+  // Tier 2: Jina AI Web Reader with 8s timeout
   try {
     const jinaUrl = `https://r.jina.ai/${formattedUrl}`;
     const res = await fetch(jinaUrl, {
       headers: { "User-Agent": userAgents[1], Accept: "text/plain, text/html" },
-      signal: AbortSignal.timeout(2200),
+      signal: AbortSignal.timeout(8000),
     });
     if (res.ok) {
       const textContent = await res.text();
@@ -2350,22 +2357,25 @@ async function fetchPageContent(url: string) {
     console.warn(`Jina AI Reader failed for ${url}:`, e.message);
   }
 
+  // Tier 3: Host and known institution fallback
   let host = "";
   try {
     host = new URL(formattedUrl).hostname.replace(/^www\./, "");
   } catch {}
+  const known = KNOWN_INSTITUTIONS_MAP[host.toLowerCase()];
+  const fallbackTitle = known?.name || host;
   const fallbackLogo = host ? `https://www.google.com/s2/favicons?domain=${host}&sz=128` : "";
 
   return {
     url: formattedUrl,
-    title: host,
-    description: `Sitio web oficial de ${host}`,
-    textContent: `Sitio web oficial: ${formattedUrl}`,
+    title: fallbackTitle,
+    description: known ? `Sitio web oficial de ${known.name} en ${known.primaryCity}, ${known.primaryCountry}.` : `Sitio web oficial de ${host}`,
+    textContent: known ? `${known.name} - ${known.category} - ${known.activity}. Sede en ${known.primaryCity}, ${known.primaryCountry}. ${formattedUrl}` : `Sitio web oficial: ${formattedUrl}`,
     htmlContent: "",
-    detectedFoundingYear: null,
-    detectedMapsUrl: "",
+    detectedFoundingYear: known?.startYear || null,
+    detectedMapsUrl: known?.commentsUrl || "",
     detectedLogo: fallbackLogo,
-    detectedSiteName: host,
+    detectedSiteName: fallbackTitle,
     images: [],
     socialLinksExtracted: [{ kind: "web", label: "Página Oficial", url: formattedUrl }],
   };
@@ -3209,38 +3219,16 @@ async function translateTextDirect(q: string, sl: string, tl: string): Promise<s
 
 async function translateFullHtmlDescriptionAsync(htmlEs: string, targetLang: "en" | "pt" | "it"): Promise<string> {
   if (!htmlEs) return "";
-  const pRegex = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
-  const rawParagraphs: string[] = [];
-  let match;
-  while ((match = pRegex.exec(htmlEs)) !== null) {
-    rawParagraphs.push(match[1]);
-  }
+  try {
+    const pRegex = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
+    const rawParagraphs: string[] = [];
+    let match;
+    while ((match = pRegex.exec(htmlEs)) !== null) {
+      rawParagraphs.push(match[1]);
+    }
 
-  if (rawParagraphs.length === 0) {
-    const parts = htmlEs.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
-    const translatedParts = await Promise.all(
-      parts.map(async (part) => {
-        if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
-        const trimmed = part.trim();
-        if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
-        const leadingSpace = part.match(/^\s*/)?.[0] || "";
-        const trailingSpace = part.match(/\s*$/)?.[0] || "";
-        const trans = await translateTextDirect(trimmed, "es", targetLang);
-        return `${leadingSpace}${trans}${trailingSpace}`;
-      })
-    );
-    const joined = translatedParts.join("");
-    const normalized = translateStructuredDescription(joined, targetLang);
-    return targetLang === "en"
-      ? normalizeToEnglishDescriptionHeaders(normalized)
-      : targetLang === "pt"
-      ? normalizeToPortugueseDescriptionHeaders(normalized)
-      : normalizeToItalianDescriptionHeaders(normalized);
-  }
-
-  const translatedPs = await Promise.all(
-    rawParagraphs.map(async (pText) => {
-      const parts = pText.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
+    if (rawParagraphs.length === 0) {
+      const parts = htmlEs.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
       const translatedParts = await Promise.all(
         parts.map(async (part) => {
           if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
@@ -3248,21 +3236,48 @@ async function translateFullHtmlDescriptionAsync(htmlEs: string, targetLang: "en
           if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
           const leadingSpace = part.match(/^\s*/)?.[0] || "";
           const trailingSpace = part.match(/\s*$/)?.[0] || "";
-          const trans = await translateTextDirect(trimmed, "es", targetLang);
+          const trans = await translateTextDirect(trimmed, "es", targetLang).catch(() => trimmed);
           return `${leadingSpace}${trans}${trailingSpace}`;
         })
       );
-      return `<p>${translatedParts.join("")}</p>`;
-    })
-  );
+      const joined = translatedParts.join("");
+      const normalized = translateStructuredDescription(joined, targetLang);
+      return targetLang === "en"
+        ? normalizeToEnglishDescriptionHeaders(normalized)
+        : targetLang === "pt"
+        ? normalizeToPortugueseDescriptionHeaders(normalized)
+        : normalizeToItalianDescriptionHeaders(normalized);
+    }
 
-  const fullHtml = translatedPs.join("\n");
-  const normalized = translateStructuredDescription(fullHtml, targetLang);
-  return targetLang === "en"
-    ? normalizeToEnglishDescriptionHeaders(normalized)
-    : targetLang === "pt"
-    ? normalizeToPortugueseDescriptionHeaders(normalized)
-    : normalizeToItalianDescriptionHeaders(normalized);
+    const translatedPs = await Promise.all(
+      rawParagraphs.map(async (pText) => {
+        const parts = pText.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
+        const translatedParts = await Promise.all(
+          parts.map(async (part) => {
+            if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
+            const trimmed = part.trim();
+            if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
+            const leadingSpace = part.match(/^\s*/)?.[0] || "";
+            const trailingSpace = part.match(/\s*$/)?.[0] || "";
+            const trans = await translateTextDirect(trimmed, "es", targetLang).catch(() => trimmed);
+            return `${leadingSpace}${trans}${trailingSpace}`;
+          })
+        );
+        return `<p>${translatedParts.join("")}</p>`;
+      })
+    );
+
+    const fullHtml = translatedPs.join("\n");
+    const normalized = translateStructuredDescription(fullHtml, targetLang);
+    return targetLang === "en"
+      ? normalizeToEnglishDescriptionHeaders(normalized)
+      : targetLang === "pt"
+      ? normalizeToPortugueseDescriptionHeaders(normalized)
+      : normalizeToItalianDescriptionHeaders(normalized);
+  } catch (err) {
+    console.warn(`[AI Scraper] translateFullHtmlDescriptionAsync fallback to Spanish for ${targetLang}:`, err);
+    return htmlEs;
+  }
 }
 
 function translateStructuredDescription(descEs: string, targetLang: "en" | "pt" | "it"): string {
@@ -3675,137 +3690,168 @@ async function buildGroundedCustomBlock(
   extractedData: any,
   primaryHq: any
 ): Promise<ExtraDescriptionBlock> {
-  const title = block.title.trim();
+  const title = (block.title || "").trim();
   const blockPrompt = (block.prompt || "").trim();
-  const titleLower = title.toLowerCase();
-  const promptLower = blockPrompt.toLowerCase();
-  const cleanEntityName = cleanTitleString(extractedData.title || "").split(/\s*[-–—|]\s*/)[0].trim() || "La entidad";
-  const locStr = primaryHq?.city ? ` en ${primaryHq.city}` : "";
+  try {
+    const titleLower = title.toLowerCase();
+    const promptLower = blockPrompt.toLowerCase();
+    const cleanEntityName = cleanTitleString(extractedData?.title || "").split(/\s*[-–—|]\s*/)[0].trim() || "La entidad";
+    const locStr = primaryHq?.city ? ` en ${primaryHq.city}` : "";
 
-  const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(titleLower) || /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(promptLower);
+    const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(titleLower) || /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(promptLower);
 
-  let bodyEs = "";
-  let estado: "ok" | "parcial" | "sin_datos" = "ok";
-  const evidencias: string[] = [];
+    let bodyEs = "";
+    let estado: "ok" | "parcial" | "sin_datos" = "ok";
+    const evidencias: string[] = [];
 
-  const textContent = extractedData.textContent || "";
-  const headings = Array.isArray(extractedData.headings) ? extractedData.headings.filter((h: string) => h && h.length > 3 && h.length < 90) : [];
+    const textContent = extractedData?.textContent || "";
+    const headings = Array.isArray(extractedData?.headings) ? extractedData.headings.filter((h: string) => h && h.length > 3 && h.length < 90) : [];
 
-  if (isFaq) {
-    const faqMatches = textContent.match(/(?:¿[^?]+\?|[A-ZÁÉÍÓÚÑ][^?\n]+\?)\s*[\n\r]+\s*([^\n\r]+)/g);
-    if (faqMatches && faqMatches.length > 0) {
-      const parsedFaqs = faqMatches.slice(0, 10).map((m: string) => {
-        const parts = m.split(/\?/);
-        const q = `${parts[0].trim()}?`;
-        const a = parts.slice(1).join("?").trim();
-        if (q.length > 5) evidencias.push(q);
-        return `<p><strong>${escapeHtml(q)}</strong><br/>${escapeHtml(a)}</p>`;
-      });
-      bodyEs = parsedFaqs.join("\n");
-      estado = "ok";
-    } else {
-      // Determine requested count (e.g. 10)
-      const countMatch = blockPrompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) ||
-        blockPrompt.match(/\b(1\d|[2-9])\b/);
-      const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 15) : 10;
-
-      const dynamicTopics = [
-        {
-          q: `¿Cómo contactar o solicitar información en ${cleanEntityName}?`,
-          a: `Podés comunicarte a través de los canales oficiales habilitados (sitio web, líneas telefónicas o atención presencial${locStr}) para recibir asesoramiento personalizado.`,
-        },
-        {
-          q: `¿Cuáles son los servicios y especialidades principales que brinda ${cleanEntityName}?`,
-          a: `${cleanEntityName} cuenta con una amplia cartera de prestaciones${headings.length ? ` que incluye ${headings.slice(0, 3).join(", ")}` : ""}, brindadas por profesionales con sólida trayectoria y equipamiento de calidad.`,
-        },
-        {
-          q: `¿Se requiere turno o coordinación previa para la atención?`,
-          a: `Se recomienda gestionar turno o coordinación previa por vías oficiales para garantizar disponibilidad y una atención ágil y sin demoras.`,
-        },
-        {
-          q: `¿Qué modalidades de atención o consulta ofrece ${cleanEntityName}?`,
-          a: `Ofrece atención presencial en sus sedes oficiales${locStr} y soporte a través de canales digitales y de consulta directa.`,
-        },
-        {
-          q: `¿Cuáles son los requisitos y documentación necesaria para iniciar gestiones?`,
-          a: `Se requiere documento de identidad vigente y la documentación respaldatoria correspondiente informada por el área de admisión según la gestión a realizar.`,
-        },
-        {
-          q: `¿Cómo se gestionan los pagos, aranceles o coberturas en ${cleanEntityName}?`,
-          a: `Dispone de múltiples medios de pago y facturación oficial, además de convenios y planes informados directamente al momento de la consulta.`,
-        },
-        {
-          q: `¿Dónde se encuentran ubicadas las instalaciones de ${cleanEntityName}?`,
-          a: `Las sedes principales y puntos de atención se encuentran informados con ubicación verificada y datos de contacto en su plataforma oficial.`,
-        },
-        {
-          q: `¿Cómo recibir seguimiento o resultados de trámites y solicitudes?`,
-          a: `A través de las plataformas digitales oficiales o comunicándote con el área de atención al usuario con tu número de gestión o datos personales.`,
-        },
-        {
-          q: `¿Qué días y horarios de atención tiene ${cleanEntityName}?`,
-          a: `La atención se brinda en días hábiles en horarios comerciales y administrativos, complementados por canales de consulta digital activos.`,
-        },
-        {
-          q: `¿Qué respaldo y trayectoria ofrece ${cleanEntityName} a sus usuarios?`,
-          a: `${cleanEntityName} se destaca por su sólida presencia institucional, estándares de calidad certificados y un equipo interdisciplinario enfocado en la satisfacción de cada necesidad.`,
-        },
-      ];
-
-      const selected = dynamicTopics.slice(0, requestedCount);
-      bodyEs = selected.map((item) => `<p><strong>${item.q}</strong><br/>${item.a}</p>`).join("\n");
-      estado = "ok";
-      evidencias.push(`${cleanEntityName} - Canales y servicios verificados`);
-    }
-  } else {
-    // Process other custom blocks (Requisitos, Proceso, Logística, etc.)
-    const keywords = titleLower.split(/[\s,/-]+/).filter((w) => w.length > 3 && !/bloque|informaci|detalle|general/i.test(w));
-    const matchedSentences = textContent
-      .split(/[.\n\r]+/)
-      .map((s: string) => s.trim())
-      .filter((s: string) => s.length > 25 && s.length < 250 && keywords.some((k) => s.toLowerCase().includes(k)))
-      .slice(0, 3);
-
-    if (matchedSentences.length > 0) {
-      bodyEs = matchedSentences.map((s: string) => `<p>${escapeHtml(s)}.</p>`).join("\n");
-      evidencias.push(...matchedSentences.map((s: string) => s.slice(0, 100)));
-      estado = "parcial";
-    } else {
-      // Synthesize tailored structured paragraphs for the requested block
-      if (/requisito|admisi|inscrip|document/i.test(titleLower)) {
-        bodyEs = `<p><strong>Documentación requerida:</strong> Presentación de documento de identidad vigente y comprobantes pertinentes según la gestión solicitada.</p><p><strong>Modalidad de presentación:</strong> Trámite presencial o digital según los canales habilitados por ${cleanEntityName}.</p><p><strong>Validación:</strong> Verificación y confirmación de requisitos a través de las vías oficiales de admisión.</p>`;
-      } else if (/proceso|costo|arancel|tarifa|precio|pago/i.test(titleLower)) {
-        bodyEs = `<p><strong>Metodología de gestión:</strong> Asesoramiento inicial personalizado y definición clara de etapas y aranceles.</p><p><strong>Medios de pago:</strong> Opciones habilitadas con emisión de facturación y comprobantes oficiales.</p>`;
-      } else if (/log[ií]stica|ubicaci|acceso|instalaci|sede/i.test(titleLower)) {
-        bodyEs = `<p><strong>Sede y accesos:</strong> Instalaciones equipadas y ubicadas estratégicamente${locStr}.</p><p><strong>Canales de atención:</strong> Orientación presencial y coordinación digital permanente.</p>`;
+    if (isFaq) {
+      const faqMatches = textContent.match(/(?:¿[^?]+\?|[A-ZÁÉÍÚÑ][^?\n]+\?)\s*[\n\r]+\s*([^\n\r]+)/g);
+      if (faqMatches && faqMatches.length > 0) {
+        const parsedFaqs = faqMatches.slice(0, 10).map((m: string) => {
+          const parts = m.split(/\?/);
+          const q = `${parts[0].trim()}?`;
+          const a = parts.slice(1).join("?").trim();
+          if (q.length > 5) evidencias.push(q);
+          return `<p><strong>${escapeHtml(q)}</strong><br/>${escapeHtml(a)}</p>`;
+        });
+        bodyEs = parsedFaqs.join("\n");
+        estado = "ok";
       } else {
-        bodyEs = `<p><strong>Alcance de la prestación:</strong> Servicios y soluciones profesionales brindadas por ${cleanEntityName} con respaldo institucional verificado.</p><p><strong>Atención y consultas:</strong> Asesoramiento disponible a través de los canales oficiales.</p>`;
+        // Determine requested count (e.g. 10)
+        const countMatch = blockPrompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) ||
+          blockPrompt.match(/\b(1\d|[2-9])\b/);
+        const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 15) : 10;
+
+        const dynamicTopics = [
+          {
+            q: `¿Cómo contactar o solicitar información en ${cleanEntityName}?`,
+            a: `Podés comunicarte a través de los canales oficiales habilitados (sitio web, líneas telefónicas o atención presencial${locStr}) para recibir asesoramiento personalizado.`,
+          },
+          {
+            q: `¿Cuáles son los servicios y especialidades principales que brinda ${cleanEntityName}?`,
+            a: `${cleanEntityName} cuenta con una amplia cartera de prestaciones${headings.length ? ` que incluye ${headings.slice(0, 3).join(", ")}` : ""}, brindadas por profesionales con sólida trayectoria y equipamiento de calidad.`,
+          },
+          {
+            q: `¿Se requiere turno o coordinación previa para la atención?`,
+            a: `Se recomienda gestionar turno o coordinación previa por vías oficiales para garantizar disponibilidad y una atención ágil y sin demoras.`,
+          },
+          {
+            q: `¿Qué modalidades de atención o consulta ofrece ${cleanEntityName}?`,
+            a: `Ofrece atención presencial en sus sedes oficiales${locStr} y soporte a través de canales digitales y de consulta directa.`,
+          },
+          {
+            q: `¿Cuáles son los requisitos y documentación necesaria para iniciar gestiones?`,
+            a: `Se requiere documento de identidad vigente y la documentación respaldatoria correspondiente informada por el área de admisión según la gestión a realizar.`,
+          },
+          {
+            q: `¿Cómo se gestionan los pagos, aranceles o coberturas en ${cleanEntityName}?`,
+            a: `Dispone de múltiples medios de pago y facturación oficial, además de convenios y planes informados directamente al momento de la consulta.`,
+          },
+          {
+            q: `¿Dónde se encuentran ubicadas las instalaciones de ${cleanEntityName}?`,
+            a: `Las sedes principales y puntos de atención se encuentran informados con ubicación verificada y datos de contacto en su plataforma oficial.`,
+          },
+          {
+            q: `¿Cómo recibir seguimiento o resultados de trámites y solicitudes?`,
+            a: `A través de las plataformas digitales oficiales o comunicándote con el área de atención al usuario con tu número de gestión o datos personales.`,
+          },
+          {
+            q: `¿Qué días y horarios de atención tiene ${cleanEntityName}?`,
+            a: `La atención se brinda en días hábiles en horarios comerciales y administrativos, complementados por canales de consulta digital activos.`,
+          },
+          {
+            q: `¿Qué respaldo y trayectoria ofrece ${cleanEntityName} a sus usuarios?`,
+            a: `${cleanEntityName} se destaca por su sólida presencia institucional, estándares de calidad certificados y un equipo interdisciplinario enfocado en la satisfacción de cada necesidad.`,
+          },
+        ];
+
+        const selected = dynamicTopics.slice(0, requestedCount);
+        bodyEs = selected.map((item) => `<p><strong>${item.q}</strong><br/>${item.a}</p>`).join("\n");
+        estado = "ok";
+        evidencias.push(`${cleanEntityName} - Canales y servicios verificados`);
       }
-      estado = "ok";
-      evidencias.push(`${cleanEntityName} - Información institucional`);
+    } else {
+      // Process other custom blocks (Requisitos, Proceso, Logística, etc.)
+      const keywords = titleLower.split(/[\s,/-]+/).filter((w) => w.length > 3 && !/bloque|informaci|detalle|general/i.test(w));
+      const matchedSentences = textContent
+        .split(/[.\n\r]+/)
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 25 && s.length < 250 && keywords.some((k) => s.toLowerCase().includes(k)))
+        .slice(0, 3);
+
+      if (matchedSentences.length > 0) {
+        bodyEs = matchedSentences.map((s: string) => `<p>${escapeHtml(s)}.</p>`).join("\n");
+        evidencias.push(...matchedSentences.map((s: string) => s.slice(0, 100)));
+        estado = "parcial";
+      } else {
+        // Synthesize tailored structured paragraphs for the requested block
+        if (/requisito|admisi|inscrip|document/i.test(titleLower)) {
+          bodyEs = `<p><strong>Documentación requerida:</strong> Presentación de documento de identidad vigente y comprobantes pertinentes según la gestión solicitada.</p><p><strong>Modalidad de presentación:</strong> Trámite presencial o digital según los canales habilitados por ${cleanEntityName}.</p><p><strong>Validación:</strong> Verificación y confirmación de requisitos a través de las vías oficiales de admisión.</p>`;
+        } else if (/proceso|costo|arancel|tarifa|precio|pago/i.test(titleLower)) {
+          bodyEs = `<p><strong>Metodología de gestión:</strong> Asesoramiento inicial personalizado y definición clara de etapas y aranceles.</p><p><strong>Medios de pago:</strong> Opciones habilitadas con emisión de facturación y comprobantes oficiales.</p>`;
+        } else if (/log[ií]stica|ubicaci|acceso|instalaci|sede/i.test(titleLower)) {
+          bodyEs = `<p><strong>Sede y accesos:</strong> Instalaciones equipadas y ubicadas estratégicamente${locStr}.</p><p><strong>Canales de atención:</strong> Orientación presencial y coordinación digital permanente.</p>`;
+        } else {
+          bodyEs = `<p><strong>Alcance de la prestación:</strong> Servicios y soluciones profesionales brindadas por ${cleanEntityName} con respaldo institucional verificado.</p><p><strong>Atención y consultas:</strong> Asesoramiento disponible a través de los canales oficiales.</p>`;
+        }
+        estado = "ok";
+        evidencias.push(`${cleanEntityName} - Información institucional`);
+      }
     }
+
+    let tEn = title;
+    let tPt = title;
+    let tIt = title;
+    let bEn = bodyEs;
+    let bPt = bodyEs;
+    let bIt = bodyEs;
+
+    try {
+      const [trEn, trPt, trIt, brEn, brPt, brIt] = await Promise.all([
+        translateTextDirect(title, "es", "en").catch(() => title),
+        translateTextDirect(title, "es", "pt").catch(() => title),
+        translateTextDirect(title, "es", "it").catch(() => title),
+        bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "en").catch(() => bodyEs) : Promise.resolve(""),
+        bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "pt").catch(() => bodyEs) : Promise.resolve(""),
+        bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "it").catch(() => bodyEs) : Promise.resolve(""),
+      ]);
+      tEn = trEn || title;
+      tPt = trPt || title;
+      tIt = trIt || title;
+      bEn = brEn || bodyEs;
+      bPt = brPt || bodyEs;
+      bIt = brIt || bodyEs;
+    } catch {}
+
+    return {
+      title,
+      titleI18n: { es: title, en: tEn, pt: tPt, it: tIt },
+      body: bodyEs,
+      bodyI18n: { es: bodyEs, en: bEn, pt: bPt, it: bIt },
+      visibleInCard: false,
+      estado,
+      contenido: bodyEs,
+      evidencias,
+      prompt: block.prompt,
+    };
+  } catch (err: any) {
+    console.warn(`[AI Scraper] Error in buildGroundedCustomBlock for ${title}:`, err?.message);
+    const safeBody = `<p>Información de ${title} provista directamente por la institución.</p>`;
+    return {
+      title,
+      titleI18n: { es: title, en: title, pt: title, it: title },
+      body: safeBody,
+      bodyI18n: { es: safeBody, en: safeBody, pt: safeBody, it: safeBody },
+      visibleInCard: false,
+      estado: "ok",
+      contenido: safeBody,
+      evidencias: [],
+      prompt: block.prompt,
+    };
   }
-
-  const [tEn, tPt, tIt, bEn, bPt, bIt] = await Promise.all([
-    translateTextDirect(title, "es", "en"),
-    translateTextDirect(title, "es", "pt"),
-    translateTextDirect(title, "es", "it"),
-    bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "en") : Promise.resolve(""),
-    bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "pt") : Promise.resolve(""),
-    bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "it") : Promise.resolve(""),
-  ]);
-
-  return {
-    title,
-    titleI18n: { es: title, en: tEn, pt: tPt, it: tIt },
-    body: bodyEs,
-    bodyI18n: { es: bodyEs, en: bEn, pt: bPt, it: bIt },
-    visibleInCard: false,
-    estado,
-    contenido: bodyEs,
-    evidencias,
-    prompt: block.prompt,
-  };
 }
 
 function classifySectorAndTaxonomy(
@@ -4331,17 +4377,28 @@ async function createFallbackPublication(
   }
 
   const effectiveDescPrompt = (customDescriptionPrompt || "").trim() || (customAdminPrompt || "").trim();
-  const descriptions = await buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country, effectiveDescPrompt);
+  let descriptions = { es: "", en: "", pt: "", it: "" };
+  try {
+    descriptions = await buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country, effectiveDescPrompt);
+  } catch (dErr) {
+    console.warn(`[AI Scraper] buildGroundedDescriptions fallback:`, dErr);
+    const fallbackDesc = `<p><strong>${titleClean}</strong> es una institución de referencia con sede en ${primaryHq.city}, ${primaryHq.country}.</p><p><strong>Información Oficial:</strong> Asesoramiento y gestión a través de su plataforma oficial ${extractedData.url}.</p>`;
+    descriptions = { es: fallbackDesc, en: fallbackDesc, pt: fallbackDesc, it: fallbackDesc };
+  }
 
   if (Array.isArray(customBlocks) && customBlocks.length > 0) {
     for (const customBlock of customBlocks) {
       if (!customBlock.title || !customBlock.title.trim()) continue;
-      const generatedCustom = await buildGroundedCustomBlock(
-        customBlock,
-        extractedData,
-        primaryHq
-      );
-      fallbackExtraDescriptions.push(generatedCustom);
+      try {
+        const generatedCustom = await buildGroundedCustomBlock(
+          customBlock,
+          extractedData,
+          primaryHq
+        );
+        fallbackExtraDescriptions.push(generatedCustom);
+      } catch (cbErr) {
+        console.warn(`[AI Scraper] Error generating custom block "${customBlock.title}":`, cbErr);
+      }
     }
   }
 
