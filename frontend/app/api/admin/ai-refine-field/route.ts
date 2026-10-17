@@ -49,10 +49,11 @@ function extractJson(text: string): any {
 
 let cachedRefineModel: string | null = null;
 
-async function callGemini(prompt: string, apiKey: string, temperature = 0.85): Promise<string> {
+async function callGemini(prompt: string, apiKey: string, temperature = 0.92): Promise<string> {
   const candidateModels = [
-    "gemini-1.5-flash",
+    "gemini-2.5-flash",
     "gemini-2.0-flash",
+    "gemini-1.5-flash",
     "gemini-1.5-flash-8b",
     "gemini-1.5-pro",
   ];
@@ -73,19 +74,19 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.85): P
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(25000),
+          signal: AbortSignal.timeout(15000),
           body: JSON.stringify(payload),
         }
       );
 
       if (res.status === 429) {
-        await new Promise((r) => setTimeout(r, 1200));
+        await new Promise((r) => setTimeout(r, 1000));
         res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(25000),
+            signal: AbortSignal.timeout(15000),
             body: JSON.stringify(payload),
           }
         );
@@ -98,7 +99,7 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.85): P
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(25000),
+            signal: AbortSignal.timeout(15000),
             body: JSON.stringify({
               contents: payload.contents,
               generationConfig: { temperature },
@@ -147,7 +148,7 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.85): P
   try {
     const listRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-      { signal: AbortSignal.timeout(7000) }
+      { signal: AbortSignal.timeout(6000) }
     );
     if (listRes.ok) {
       const listData = await listRes.json();
@@ -159,7 +160,10 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.85): P
       for (const model of available) {
         try {
           const result = await tryModel(model);
-          if (result) return result;
+          if (result) {
+            cachedRefineModel = model;
+            return result;
+          }
         } catch (e: any) {
           lastError = e;
         }
@@ -172,7 +176,7 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.85): P
   throw lastError || new Error("No se pudo obtener respuesta de Gemini con tu API Key.");
 }
 
-async function callOpenAI(prompt: string, apiKey: string, temperature = 0.85): Promise<string> {
+async function callOpenAI(prompt: string, apiKey: string, temperature = 0.92): Promise<string> {
   const models = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"];
   let lastError: any = null;
 
@@ -184,7 +188,7 @@ async function callOpenAI(prompt: string, apiKey: string, temperature = 0.85): P
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(18000),
         body: JSON.stringify({
           model,
           temperature,
@@ -226,6 +230,8 @@ export async function POST(req: Request) {
       city = "",
       country = "",
       url = "",
+      sourceLang = "es",
+      autoTranslate = false,
       apiKey,
       provider = "auto",
       variationIndex = 1,
@@ -236,7 +242,7 @@ export async function POST(req: Request) {
     } = body;
 
     if (!prompt || !prompt.trim()) {
-      return NextResponse.json({ error: "Debe ingresar una instrucción o prompt para la IA." }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Debe ingresar una instrucción o prompt para la IA." }, { status: 400 });
     }
 
     const customKey = String(apiKey || "").trim();
@@ -267,20 +273,20 @@ export async function POST(req: Request) {
       let rawJson = "";
       if (effectiveProvider === "openai" && openaiKey) {
         try {
-          rawJson = await callOpenAI(promptStr, openaiKey, 0.85);
+          rawJson = await callOpenAI(promptStr, openaiKey, 0.92);
         } catch (e) {
-          if (geminiKey) rawJson = await callGemini(promptStr, geminiKey, 0.85);
+          if (geminiKey) rawJson = await callGemini(promptStr, geminiKey, 0.92);
           else throw e;
         }
       } else if (geminiKey) {
         try {
-          rawJson = await callGemini(promptStr, geminiKey, 0.85);
+          rawJson = await callGemini(promptStr, geminiKey, 0.92);
         } catch (e) {
-          if (openaiKey) rawJson = await callOpenAI(promptStr, openaiKey, 0.85);
+          if (openaiKey) rawJson = await callOpenAI(promptStr, openaiKey, 0.92);
           else throw e;
         }
       } else if (openaiKey) {
-        rawJson = await callOpenAI(promptStr, openaiKey, 0.85);
+        rawJson = await callOpenAI(promptStr, openaiKey, 0.92);
       } else {
         throw new Error("No hay una API Key configurada para IA. Por favor ingresá tu clave de Gemini u OpenAI.");
       }
@@ -337,20 +343,22 @@ export async function POST(req: Request) {
         : (currentText ? `Contenido previo de referencia: ${currentText.replace(/<[^>]+>/g, " ").slice(0, 1500)}` : ""),
     ].filter(Boolean).join("\n");
 
+    const randomSalt = Math.floor(Math.random() * 900000) + 100000;
     const variationDirective = `
 ======================================================================
-DIRECTIVA OBLIGATORIA DE REFORMULACIÓN (VARIACIÓN #${variationIndex || 1}):
-- El administrador pulsó "Reformular con IA" porque NO LE GUSTÓ la respuesta anterior y exige una versión NUEVA, DIFERENTE, FRESCA Y ATRACTIVA.
-- VALOR PREVIO A REEMPLAZAR Y NO REPETIR: "${(currentText || currentTitle || "").replace(/<[^>]+>/g, " ").slice(0, 500)}"
-REGLAS ESTRICTAS:
-1. PROHIBIDO repetir exactamente las mismas frases, párrafos o estructura de apertura de la versión previa.
-2. MANTÉN RIGUROSAMENTE Y AL 100% EL PROMPT DADO POR EL ADMINISTRADOR: "${prompt}".
-3. Utiliza nuevos conectores, otro orden sintáctico o destaca otros servicios y beneficios reales de la entidad.
+DIRECTIVA OBLIGATORIA DE REFORMULACIÓN CREATIVA (INTENTO / VARIACIÓN #${variationIndex || 1} - SEMILLA: ${randomSalt}):
+- El usuario pulsó "Reformular con IA" porque exige una versión NUEVA, COMPLETAMENTE DIFERENTE, FRESCA Y CON ALTO IMPACTO.
+- TEXTO PREVIO A REEMPLAZAR Y NO REPETIR: "${(currentText || currentTitle || "").replace(/<[^>]+>/g, " ").slice(0, 450)}"
+REGLAS ESTRICTAS DE VARIACIÓN:
+1. TOTALMENTE PROHIBIDO repetir exactamente las mismas frases de inicio, conectores o idéntica estructura que la versión anterior.
+2. Utiliza una apertura novedosa, palabras clave frescas, enfoque dinámico y atractivo comercial.
+3. CUMPLE RIGUROSAMENTE CON LA INSTRUCCIÓN O PROMPT DEL ADMINISTRADOR: "${prompt}".
 ======================================================================`;
 
     // 1. TÍTULO
     if (fieldType === "title") {
-      const aiPrompt = `Eres un redactor y especialista en marketing para Travelgrin.
+      const aiPrompt = autoTranslate
+        ? `Eres un redactor y especialista en marketing para Travelgrin.
 Genera un título comercial, atractivo y de alta conversión cumpliendo rigurosamente la instrucción del administrador.
 INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
 ${variationDirective}
@@ -358,31 +366,47 @@ DATOS DE LA ENTIDAD:
 ${contextFacts}
 TÍTULO ACTUAL PREVIO A REEMPLAZAR: "${currentText || currentTitle}"
 
-REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL SUPREMA: Cumple al pie de la letra lo que el administrador pide en su instrucción (tono de marketing, llamada de atención, palabras clave, estilo o enfoque específico). NUNCA devuelvas solo el nombre seco de la entidad si se pidió impacto comercial.
-2. Limpieza: Elimina sufijos y prefijos genéricos de navegación como "- Inicio", "| Home", "Sitio Oficial".
-3. Formato estricto: Devuelve ÚNICAMENTE un objeto JSON con:
+Devuelve ÚNICAMENTE un objeto JSON con:
 {
   "title": "Título redactado aquí",
   "titleI18n": {
-    "es": "Título redactado aquí",
+    "es": "Título en español",
     "en": "Title in English",
     "pt": "Título em português",
     "it": "Titolo in italiano"
   }
+}`
+        : `Eres un redactor y especialista en marketing para Travelgrin.
+Genera un título comercial, atractivo y de alta conversión cumpliendo rigurosamente la instrucción del administrador en idioma ${sourceLang}.
+INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
+${variationDirective}
+DATOS DE LA ENTIDAD:
+${contextFacts}
+TÍTULO ACTUAL PREVIO A REEMPLAZAR: "${currentText || currentTitle}"
+
+Devuelve ÚNICAMENTE un objeto JSON rápido con:
+{
+  "title": "Título redactado y fresco aquí"
 }`;
+
       const parsed = await callAI(aiPrompt, "title");
-      const titleRes = parsed.title || parsed.titleI18n?.es || currentTitle || currentText;
+      const titleRes = parsed.title || parsed.titleI18n?.[sourceLang] || parsed.titleI18n?.es || currentTitle || currentText;
+      const translations = parsed.titleI18n || {
+        [sourceLang]: titleRes,
+        ...(sourceLang === "es" ? { es: titleRes } : {}),
+      };
+
       return NextResponse.json({
         success: true,
         result: { title: titleRes, text: titleRes },
-        translations: parsed.titleI18n || { es: titleRes, en: titleRes, pt: titleRes, it: titleRes },
+        translations,
       });
     }
 
     // 2. DESCRIPCIÓN PRINCIPAL
     if (fieldType === "description") {
-      const aiPrompt = `Eres el redactor jefe de Travelgrin.
+      const aiPrompt = autoTranslate
+        ? `Eres el redactor jefe de Travelgrin.
 Tu objetivo es redactar o mejorar la descripción principal de la publicación CUMPLIENDO RIGUROSAMENTE CON LA INSTRUCCIÓN DEL ADMINISTRADOR y basándote en la información real de la entidad.
 INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
 ${variationDirective}
@@ -392,12 +416,12 @@ ${contextFacts}
 
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: Cumple fielmente y al pie de la letra la instrucción del administrador:
-   - Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS.
-   - Si el administrador pide títulos en negrita o letras negras con su explicación, cada párrafo debe comenzar con <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>.
-   - Si el administrador pide tono de marketing o conversión, aplícalo con fluidez.
-2. CERO PLANTILLAS RÍGIDAS: Prohibido usar etiquetas fijas obligatorias o plantillas genéricas. La redacción debe adaptarse orgánicamente a lo solicitado por el administrador y a los servicios reales de la entidad.
+   - Si pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS.
+   - Si pide subtítulos en negrita o letras negras y su explicación, cada párrafo debe comenzar con <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>.
+   - Si pide tono comercial, persuasivo o de conversión, aplícalo con fluidez.
+2. CERO PLANTILLAS RÍGIDAS: La redacción debe ser fresca y personalizada a los servicios de la entidad.
 3. Formato HTML limpio: Estructura en párrafos <p>...</p>.
-4. Formato estricto: Devuelve ÚNICAMENTE un objeto JSON con:
+Devuelve ÚNICAMENTE un objeto JSON con:
 {
   "description": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>",
   "descriptionI18n": {
@@ -406,22 +430,47 @@ REGLAS DE MÁXIMA PRIORIDAD:
     "pt": "<p>Conteúdo em português...</p>",
     "it": "<p>Contenuto in italiano...</p>"
   }
+}`
+        : `Eres el redactor jefe de Travelgrin.
+Tu objetivo es redactar o mejorar la descripción principal de la publicación CUMPLIENDO RIGUROSAMENTE CON LA INSTRUCCIÓN DEL ADMINISTRADOR en idioma ${sourceLang} y basándote en la información real de la entidad.
+INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
+${variationDirective}
+DESCRIPCIÓN ACTUAL PREVIA A REEMPLAZAR: "${currentText}"
+DATOS DE LA ENTIDAD:
+${contextFacts}
+
+REGLAS DE MÁXIMA PRIORIDAD:
+1. AUTORIDAD EDITORIAL SUPREMA: Cumple fielmente y al pie de la letra la instrucción del administrador:
+   - Si pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
+   - Si pide subtítulos en negrita o letras negras y su explicación, cada párrafo debe comenzar con <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>.
+   - Si pide tono comercial, persuasivo o de conversión, aplícalo con fluidez.
+2. CERO PLANTILLAS RÍGIDAS: Redacción personalizada, humana y directa.
+3. Formato HTML limpio: Estructura en párrafos <p>...</p>.
+Devuelve ÚNICAMENTE un objeto JSON rápido con:
+{
+  "description": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>"
 }`;
+
       const parsed = await callAI(aiPrompt, "description");
-      const descRes = parsed.description || parsed.descriptionI18n?.es || currentText;
+      const descRes = parsed.description || parsed.descriptionI18n?.[sourceLang] || parsed.descriptionI18n?.es || currentText;
+      const translations = parsed.descriptionI18n || {
+        [sourceLang]: descRes,
+        ...(sourceLang === "es" ? { es: descRes } : {}),
+      };
+
       return NextResponse.json({
         success: true,
         result: { description: descRes, text: descRes },
-        translations: parsed.descriptionI18n || { es: descRes, en: descRes, pt: descRes, it: descRes },
+        translations,
       });
     }
 
     // 3. BLOQUE ADICIONAL (extra_block / new_extra_block)
     if (fieldType === "extra_block" || fieldType === "new_extra_block") {
       const blockTitle = currentTitle || "Información Adicional";
-      const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(blockTitle) || /pregunt/i.test(prompt);
 
-      const aiPrompt = `Eres un redactor profesional de bloques de contenido para Travelgrin.
+      const aiPrompt = autoTranslate
+        ? `Eres un redactor profesional de bloques de contenido para Travelgrin.
 Tu tarea es redactar el contenido para el bloque titulado "${blockTitle}" CUMPLIENDO ESTRICTAMENTE LA INSTRUCCIÓN DEL ADMINISTRADOR.
 TÍTULO DEL BLOQUE: "${blockTitle}"
 INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
@@ -430,30 +479,46 @@ CONTENIDO ACTUAL PREVIO A REEMPLAZAR: "${currentText}"
 DATOS DE REFERENCIA DE LA ENTIDAD:
 ${contextFacts}
 
-REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL SUPREMA: Cumple al 100% y al pie de la letra la instrucción del administrador:
-   - Si el administrador especifica una cantidad exacta de preguntas o párrafos, GENERA EXACTAMENTE esa cantidad (ni más ni menos).
-   - Si el administrador especifica un formato de texto, estilo, colores (<strong style="color: ...">) o directiva editorial, APLÍCALO EXACTAMENTE como fue solicitado.
-   - Si es un bloque de Preguntas Frecuentes y no especificó cantidad, genera entre 4 y 8 preguntas relevantes basadas en los servicios reales de la web en formato <p><strong>¿Pregunta...?</strong><br/>Respuesta clara en tercera persona...</p>.
-   - Si es otro tipo de bloque (Requisitos, Propuesta, etc.), redacta párrafos estructurados en HTML <p>...</p>.
-2. CERO PLANTILLAS RÍGIDAS: No uses preguntas o respuestas de plantilla fija; adáptalas a los servicios y datos reales de la entidad.
-3. Formato estricto: Devuelve ÚNICAMENTE un objeto JSON con:
+REGLAS:
+1. Cumple al 100% la instrucción del administrador (cantidad de preguntas si es FAQ, formato, negritas, estilos).
+2. Si es Preguntas Frecuentes, genera formato <p><strong>¿Pregunta...?</strong><br/>Respuesta detallada...</p>.
+3. Devuelve ÚNICAMENTE un objeto JSON con:
 {
   "title": "${blockTitle}",
-  "body": "Contenido enriquecido en HTML",
+  "body": "Contenido enriquecido en HTML <p>...",
   "titleI18n": { "es": "${blockTitle}", "en": "...", "pt": "...", "it": "..." },
-  "bodyI18n": {
-    "es": "Contenido en HTML en español",
-    "en": "Content in HTML in English",
-    "pt": "Conteúdo em HTML em português",
-    "it": "Contenuto in HTML in italiano"
-  }
+  "bodyI18n": { "es": "<p>...</p>", "en": "<p>...</p>", "pt": "<p>...</p>", "it": "<p>...</p>" }
+}`
+        : `Eres un redactor profesional de bloques de contenido para Travelgrin.
+Tu tarea es redactar el contenido para el bloque titulado "${blockTitle}" CUMPLIENDO ESTRICTAMENTE LA INSTRUCCIÓN DEL ADMINISTRADOR en idioma ${sourceLang}.
+TÍTULO DEL BLOQUE: "${blockTitle}"
+INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
+${variationDirective}
+CONTENIDO ACTUAL PREVIO A REEMPLAZAR: "${currentText}"
+DATOS DE REFERENCIA DE LA ENTIDAD:
+${contextFacts}
+
+REGLAS:
+1. Cumple al 100% la instrucción del administrador (cantidad de preguntas si es FAQ, formato, negritas, estilos).
+2. Si es Preguntas Frecuentes, genera formato <p><strong>¿Pregunta...?</strong><br/>Respuesta detallada...</p>.
+3. Devuelve ÚNICAMENTE un objeto JSON rápido con:
+{
+  "title": "${blockTitle}",
+  "body": "Contenido enriquecido en párrafos HTML <p>..."
 }`;
+
       const parsed = await callAI(aiPrompt, fieldType);
       const resolvedTitle = parsed.title || blockTitle;
-      const resolvedBody = parsed.body || parsed.bodyI18n?.es || "";
-      const tI18n = parsed.titleI18n || { es: resolvedTitle, en: resolvedTitle, pt: resolvedTitle, it: resolvedTitle };
-      const bI18n = parsed.bodyI18n || { es: resolvedBody, en: resolvedBody, pt: resolvedBody, it: resolvedBody };
+      const resolvedBody = parsed.body || parsed.bodyI18n?.[sourceLang] || parsed.bodyI18n?.es || "";
+
+      const tI18n = parsed.titleI18n || {
+        [sourceLang]: resolvedTitle,
+        ...(sourceLang === "es" ? { es: resolvedTitle } : {}),
+      };
+      const bI18n = parsed.bodyI18n || {
+        [sourceLang]: resolvedBody,
+        ...(sourceLang === "es" ? { es: resolvedBody } : {}),
+      };
 
       return NextResponse.json({
         success: true,
@@ -471,7 +536,8 @@ REGLAS DE MÁXIMA PRIORIDAD:
 
     // 4. INFORMACIÓN DEL PRESTADOR (provider_info)
     if (fieldType === "provider_info") {
-      const aiPrompt = `Eres un redactor institucional de Travelgrin.
+      const aiPrompt = autoTranslate
+        ? `Eres un redactor institucional de Travelgrin.
 Redacta 1 o 2 párrafos institucionales concisos sobre la entidad destacando su trayectoria, acreditación y presencia en ${city || country || "la región"}.
 INSTRUCCIÓN DEL ADMINISTRADOR: "${prompt}"
 ${variationDirective}
@@ -479,7 +545,7 @@ TEXTO ACTUAL: "${currentText}"
 DATOS DE LA ENTIDAD:
 ${contextFacts}
 
-Devuelve UN JSON ESTRICTO con:
+Devuelve UN JSON con:
 {
   "providerInfo": "Texto en español",
   "providerInfoI18n": {
@@ -488,21 +554,42 @@ Devuelve UN JSON ESTRICTO con:
     "pt": "Texto em português",
     "it": "Testo in italiano"
   }
+}`
+        : `Eres un redactor institucional de Travelgrin.
+Redacta 1 o 2 párrafos institucionales concisos sobre la entidad destacando su trayectoria, acreditación y presencia en ${city || country || "la región"} en idioma ${sourceLang}.
+INSTRUCCIÓN DEL ADMINISTRADOR: "${prompt}"
+${variationDirective}
+TEXTO ACTUAL: "${currentText}"
+DATOS DE LA ENTIDAD:
+${contextFacts}
+
+Devuelve UN JSON rápido con:
+{
+  "providerInfo": "Texto institucional conciso y fresco"
 }`;
+
       const parsed = await callAI(aiPrompt, "provider_info");
-      const infoRes = parsed.providerInfo || parsed.providerInfoI18n?.es || currentText;
+      const infoRes = parsed.providerInfo || parsed.providerInfoI18n?.[sourceLang] || parsed.providerInfoI18n?.es || currentText;
+      const translations = parsed.providerInfoI18n || {
+        [sourceLang]: infoRes,
+        ...(sourceLang === "es" ? { es: infoRes } : {}),
+      };
+
       return NextResponse.json({
         success: true,
         result: { providerInfo: infoRes, text: infoRes },
-        translations: parsed.providerInfoI18n || { es: infoRes, en: infoRes, pt: infoRes, it: infoRes },
+        translations,
       });
     }
 
-    return NextResponse.json({ error: `Tipo de campo no soportado: ${fieldType}` }, { status: 400 });
+    return NextResponse.json({ success: false, error: `Tipo de campo no soportado: ${fieldType}` }, { status: 400 });
   } catch (err: any) {
     console.error("AI Refine Field Route Error:", err);
     return NextResponse.json(
-      { error: err?.message || "Error al procesar el prompt con IA." },
+      {
+        success: false,
+        error: err?.message || "Error al procesar la reformulación con IA.",
+      },
       { status: 500 }
     );
   }

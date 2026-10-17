@@ -606,14 +606,14 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
   },
   "immi.legal": {
     name: "CBI Argentina",
-    startYear: "2010",
+    startYear: "2022",
     primaryCity: "Buenos Aires",
     primaryCountry: "Argentina",
     activity: "Servicios profesionales y técnicos",
     category: "Gestiones migratorias y visas",
     subcategory: "Residencia y ciudadanía",
     type: "Consultora legal y migratoria",
-    commentsUrl: "https://www.google.com/maps/search/?api=1&query=CBI+Argentina+Buenos+Aires",
+    commentsUrl: "https://maps.app.goo.gl/BgjkxMboJXMw73TeA",
     additionalCities: [],
   },
 };
@@ -1086,7 +1086,52 @@ async function enrichWithLiveGoogleMapsAndSearch(
     officialFullName || cleanName,
   ].filter(Boolean) as string[];
 
-  if (extracted.detectedCommentsUrl && extracted.detectedRating) {
+  // 2.1 Si ya existe un link a Google Maps (shortlink o place), resolver y extraer rating y reseñas directamente
+  if (extracted.detectedCommentsUrl && /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.[a-z.]+\/maps)/i.test(extracted.detectedCommentsUrl)) {
+    try {
+      const gRes = await fetchWithTimeout(
+        extracted.detectedCommentsUrl,
+        {
+          headers: {
+            "User-Agent": userAgent,
+            "Accept-Language": "es-ES,es;q=0.9",
+          },
+          redirect: "follow",
+        },
+        4000
+      );
+      if (gRes.ok) {
+        const gHtml = await gRes.text();
+        const mDirect = gHtml.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null/);
+        if (mDirect) {
+          const numRating = parseFloat(mDirect[1]);
+          const numReviews = parseInt(mDirect[2], 10);
+          if (!isNaN(numRating) && numRating >= 1 && numRating <= 5 && (!extracted.detectedRating || extracted.detectedRating === "0")) {
+            extracted.detectedRating = numRating.toFixed(1);
+          }
+          if (!isNaN(numReviews) && numReviews > 0 && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0")) {
+            extracted.detectedReviewCount = String(numReviews);
+          }
+        }
+        if (!extracted.detectedRating || extracted.detectedRating === "0") {
+          const starMatch = gHtml.match(/([1-5][.,]\d)\s*(?:estrellas?|stars?|⭐|★)/i) ||
+                            gHtml.match(/aria-label=["']([1-5][.,]\d)\s*(?:estrellas?|stars?)/i);
+          if (starMatch && starMatch[1]) {
+            const num = parseFloat(starMatch[1].replace(",", "."));
+            if (!isNaN(num) && num >= 1 && num <= 5) extracted.detectedRating = num.toFixed(1);
+          }
+        }
+        if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
+          const revMatch = gHtml.match(/(\d{1,7})\s*(?:reseñas|reviews|opiniones|comentarios)/i);
+          if (revMatch && revMatch[1]) {
+            extracted.detectedReviewCount = revMatch[1];
+          }
+        }
+      }
+    } catch {}
+  }
+
+  if (extracted.detectedCommentsUrl && extracted.detectedRating && extracted.detectedRating !== "0") {
     return;
   }
 
@@ -2478,6 +2523,12 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       if (labelNorm.includes("idioma")) return "idiomas";
       return "categoria";
     };
+
+    const activities: string[] = [];
+    const types: string[] = [];
+    const modalities: string[] = [];
+    const prestaciones: string[] = [];
+    const languages: string[] = [];
 
     categoryMapWithTaxonomy.forEach((cat) => {
       const name = String(cat.description || "").trim();
@@ -5869,6 +5920,23 @@ async function processUrlWithAI(
       data: unifiedRes.data.taxonomyData,
     };
 
+    if (unifiedRes.data.detectedRating && unifiedRes.data.detectedRating !== "0") {
+      cleanContext.rating = unifiedRes.data.detectedRating;
+      extracted.detectedRating = unifiedRes.data.detectedRating;
+    }
+    if (unifiedRes.data.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0") {
+      cleanContext.reviewCount = unifiedRes.data.detectedReviewCount;
+      extracted.detectedReviewCount = unifiedRes.data.detectedReviewCount;
+    }
+    if (unifiedRes.data.detectedFoundingYear) {
+      cleanContext.foundingYear = unifiedRes.data.detectedFoundingYear;
+      extracted.detectedFoundingYear = unifiedRes.data.detectedFoundingYear;
+    }
+    if (unifiedRes.data.detectedCommentsUrl) {
+      cleanContext.commentsUrl = unifiedRes.data.detectedCommentsUrl;
+      extracted.detectedCommentsUrl = unifiedRes.data.detectedCommentsUrl;
+    }
+
     // Score Scout Block (si está habilitado)
     if (includeScoreScout !== false) {
       const scoreBlock = buildScoreScoutBlock(
@@ -6008,10 +6076,10 @@ async function processUrlWithAI(
     extraDescriptions,
     publisherName: cleanPublisher,
     providerInfoI18n: providerInfoI18nVal,
-    providerStartYear: cleanContext.foundingYear || extracted.detectedFoundingYear || "",
-    providerRating: cleanContext.rating || extracted.detectedRating || "0",
-    providerReviewCount: cleanContext.reviewCount || extracted.detectedReviewCount || "0",
-    providerCommentsUrl: extracted.detectedCommentsUrl || cleanContext.commentsUrl || primaryHq.mapUrl,
+    providerStartYear: cleanContext.foundingYear || extracted.detectedFoundingYear || unifiedRes?.data?.detectedFoundingYear || "",
+    providerRating: cleanContext.rating || extracted.detectedRating || unifiedRes?.data?.detectedRating || "0",
+    providerReviewCount: cleanContext.reviewCount || extracted.detectedReviewCount || unifiedRes?.data?.detectedReviewCount || "0",
+    providerCommentsUrl: extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || primaryHq.mapUrl,
     providerLogo: cleanContext.logo || "",
     country: primaryHq.country,
     city: primaryHq.city,
@@ -6038,6 +6106,8 @@ async function processUrlWithAI(
     scrapedTextContent: (extracted.textContent || "").slice(0, 5000),
     rawPageTitle: extracted.title || "",
     prestaciones: finalTaxonomyData.prestaciones || [],
+    customTitlePrompt: customTitlePrompt || customAdminPrompt || "",
+    customDescriptionPrompt: customDescriptionPrompt || customAdminPrompt || "",
   } as any;
 
   // Enforce taxonomy structure only (without altering title/description text!)
