@@ -519,19 +519,14 @@ REGLAS MANDATORIAS DE REFORMULACIÓN:
 Tu objetivo primordial es generar un TÍTULO COMERCIAL IMPACTANTE Y DE ALTA CONVERSIÓN cumpliendo rigurosamente la directiva editorial del administrador.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
-  "title": "Título redactado aquí",
-  "titleI18n": {
-    "es": "Título redactado aquí",
-    "en": "Title in English",
-    "pt": "Título em português",
-    "it": "Titolo in italiano"
-  }
+  "title": "Título comercial y de impacto en español"
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: La instrucción del administrador es la regla NÚMERO UNO. Si pide marketing, llamada a la atención, palabras clave, estilo llamativo o enfoque específico, CÚMPLELO AL 100%. NUNCA devuelvas solo el nombre seco de la entidad si se pidió un título comercial o llamativo.
-2. Fidelidad factual: Presenta a "${entityName}" destacando su propuesta de valor según los datos provistos de la web.
-3. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+2. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano durante el scraping.
+3. Fidelidad factual: Presenta a "${entityName}" destacando su propuesta de valor según los datos provistos de la web.
+4. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
 "${prompt || "Crear un título claro, comercial, atractivo y representativo que presente al establecimiento y su propuesta principal."}"${variationDirective}
@@ -598,9 +593,9 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
     const tI18n: I18nRecord = {
       es: cleanTitle,
-      en: parsed?.titleI18n?.en || cleanTitle,
-      pt: parsed?.titleI18n?.pt || cleanTitle,
-      it: parsed?.titleI18n?.it || cleanTitle,
+      en: "",
+      pt: "",
+      it: "",
     };
 
     return {
@@ -620,7 +615,7 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
       success: true,
       data: {
         title: fallbackTitle,
-        titleI18n: { es: fallbackTitle, en: fallbackTitle, pt: fallbackTitle, it: fallbackTitle },
+        titleI18n: { es: fallbackTitle, en: "", pt: "", it: "" },
       },
       estado: "ok",
       evidencias: [entityName],
@@ -657,13 +652,7 @@ REGLAS MANDATORIAS DE REFORMULACIÓN:
 Tu objetivo primordial es redactar la DESCRIPCIÓN PRINCIPAL de la publicación cumpliendo fielmente la directiva editorial del administrador.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato:
 {
-  "description": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>",
-  "descriptionI18n": {
-    "es": "<p>Contenido en español...</p>",
-    "en": "<p>Content in English...</p>",
-    "pt": "<p>Conteúdo em português...</p>",
-    "it": "<p>Contenuto in italiano...</p>"
-  }
+  "description": "<p>Primer párrafo en español...</p><p>Segundo párrafo en español...</p>"
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
@@ -671,9 +660,10 @@ REGLAS DE MÁXIMA PRIORIDAD:
    - Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS.
    - Si el administrador pide subtítulos o títulos en negrita/letras negras con su explicación, escribe cada párrafo con su subtítulo en negrita (<p><strong>Subtítulo</strong><br/>Explicación persuasiva y detallada...</p>).
    - Si el administrador pide tono de marketing, enfoque de conversión o empatía, APLÍCALO AL 100%.
-2. Formato HTML limpio: Estructura el texto en etiquetas <p>...</p>, <strong>...</strong>, <br/>.
-3. Fidelidad factual: Basa el contenido en los servicios, infraestructura, propuestas y datos reales de "${entityName}".
-4. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+2. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano durante el scraping.
+3. Formato HTML limpio: Estructura el texto en etiquetas <p>...</p>, <strong>...</strong>, <br/>.
+4. Fidelidad factual: Basa el contenido en los servicios, infraestructura, propuestas y datos reales de "${entityName}".
+5. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
 "${prompt || "Escribir una descripción profesional en párrafos HTML <p> en tercera persona explicando qué ofrece, su alcance y vías oficiales."}"${variationDirective}
@@ -743,9 +733,9 @@ GENERA LA DESCRIPCIÓN CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`
 
     const dI18n: I18nRecord = {
       es: descHtml,
-      en: parsed?.descriptionI18n?.en || descHtml,
-      pt: parsed?.descriptionI18n?.pt || descHtml,
-      it: parsed?.descriptionI18n?.it || descHtml,
+      en: "",
+      pt: "",
+      it: "",
     };
 
     return {
@@ -784,7 +774,7 @@ GENERA LA DESCRIPCIÓN CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`
       success: true,
       data: {
         description: fallbackDesc,
-        descriptionI18n: { es: fallbackDesc, en: fallbackDesc, pt: fallbackDesc, it: fallbackDesc },
+        descriptionI18n: { es: fallbackDesc, en: "", pt: "", it: "" },
       },
       estado: "ok",
       evidencias: [entityName],
@@ -839,13 +829,7 @@ Tu tarea es generar el bloque opcional "${bTitle}" para la publicación de la en
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato:
 {
   "title": "${bTitle}",
-  "body": "<p>Contenido del bloque...</p>",
-  "bodyI18n": {
-    "es": "<p>Contenido en español...</p>",
-    "en": "<p>Content in English...</p>",
-    "pt": "<p>Conteúdo em português...",
-    "it": "<p>Contenuto in italiano...</p>"
-  }
+  "body": "<p>Contenido del bloque en español...</p>"
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
@@ -853,9 +837,10 @@ REGLAS DE MÁXIMA PRIORIDAD:
    - Si el administrador pide una cantidad exacta (ej: "2 preguntas"), GENERA EXACTAMENTE esa cantidad (ni más ni menos).
    - Si el administrador pide colores o formato específico (ej: "preguntas en azul"), APLICA EL ESTILO HTML CORRESPONDIENTE (ej: <p><strong style="color: #2563eb">¿Pregunta en azul?</strong><br/>Respuesta detallada...</p>).
    - Si no pide color, usa formato estándar (<p><strong>¿Pregunta?</strong><br/>Respuesta...</p>).
-2. TÍTULO LIMPIO: Mantén el título conceptual del bloque ('${bTitle}') sin agregar nombres de la entidad.
-3. Fidelidad factual: Usa los datos reales del sitio web de "${entityName}" (servicios, carreras, propuestas, requisitos).
-4. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+2. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano durante el scraping.
+3. TÍTULO LIMPIO: Mantén el título conceptual del bloque ('${bTitle}') sin agregar nombres de la entidad.
+4. Fidelidad factual: Usa los datos reales del sitio web de "${entityName}" (servicios, carreras, propuestas, requisitos).
+5. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `TÍTULO DEL BLOQUE: "${bTitle}"
 ${currentBlockSection}
@@ -931,14 +916,14 @@ GENERA EL CONTENIDO EN HTML DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIV
 
     const bI18n: I18nRecord = {
       es: bodyContent,
-      en: parsed?.bodyI18n?.en || bodyContent,
-      pt: parsed?.bodyI18n?.pt || bodyContent,
-      it: parsed?.bodyI18n?.it || bodyContent,
+      en: "",
+      pt: "",
+      it: "",
     };
 
     return {
       title: genTitle,
-      titleI18n: { es: genTitle, en: genTitle, pt: genTitle, it: genTitle },
+      titleI18n: { es: genTitle, en: "", pt: "", it: "" },
       body: bodyContent,
       bodyI18n: bI18n,
       visibleInCard: false,
@@ -979,9 +964,9 @@ GENERA EL CONTENIDO EN HTML DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIV
 
     return {
       title: bTitle,
-      titleI18n: { es: bTitle, en: bTitle, pt: bTitle, it: bTitle },
+      titleI18n: { es: bTitle, en: "", pt: "", it: "" },
       body: fallbackBody,
-      bodyI18n: { es: fallbackBody, en: fallbackBody, pt: fallbackBody, it: fallbackBody },
+      bodyI18n: { es: fallbackBody, en: "", pt: "", it: "" },
       visibleInCard: false,
       estado: "ok",
       contenido: fallbackBody,
@@ -1102,19 +1087,9 @@ GENERA EL OBJETO JSON IDENTIFICANDO EL NOMBRE OFICIAL COMPLETO DEL OFERENTE, SU 
     }
 
     let pEn = "";
-    let pPt = "";
-    let pIt = "";
-    if (context.autoTranslate !== false) {
-      try {
-        [pEn, pPt, pIt] = await Promise.all([
-          translateText(pInfo, "es", "en"),
-          translateText(pInfo, "es", "pt"),
-          translateText(pInfo, "es", "it"),
-        ]);
-      } catch (transErr) {
-        console.warn(`[AI-AGENT-DEBUG: ProviderInfoAgent] Error no fatal en traducción:`, transErr);
-      }
-    }
+    const pEn = "";
+    const pPt = "";
+    const pIt = "";
 
     return {
       success: true,
@@ -2115,21 +2090,20 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
    - 'categorySelections': Array con las categorías padre de los bloques de taxonomía categoría que apliquen a lo que ofrece la web.
    - 'subcategorySelections': Array con las subcategorías específicas correspondientes.
    - 'languages': Array con los idiomas comprobados de atención en la web.
-5. Formato estricto: Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:
+5. REGLA DE IDIOMA Y TRADUCCIÓN (ESTRICTA):
+   - Redacta TODOS los campos (título, descripción principal, bloques personalizados e información del proveedor) EXCLUSIVAMENTE en ESPAÑOL.
+   - NO generes ni traduzcas a inglés, portugués ni italiano. Los campos se traducirán posteriormente desde el panel de control.
+6. Formato estricto: Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:
 {
-  "title": "Título comercial y atractivo",
-  "titleI18n": { "es": "Título", "en": "Title", "pt": "Título", "it": "Titolo" },
-  "description": "<p>Primer párrafo...</p><p>Segundo párrafo...</p>",
-  "descriptionI18n": { "es": "<p>...</p>", "en": "<p>...</p>", "pt": "<p>...</p>", "it": "<p>...</p>" },
+  "title": "Título comercial y atractivo en español",
+  "description": "<p>Primer párrafo en español...</p><p>Segundo párrafo en español...</p>",
   "customBlocks": [
     {
       "title": "Nombre del bloque",
-      "body": "<p>Contenido HTML...</p>",
-      "bodyI18n": { "es": "<p>...</p>", "en": "<p>...</p>", "pt": "<p>...</p>", "it": "<p>...</p>" }
+      "body": "<p>Contenido HTML en español...</p>"
     }
   ],
-  "providerInfo": "Resumen institucional conciso de 1 o 2 oraciones",
-  "providerInfoI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
+  "providerInfo": "Resumen institucional conciso en español de 1 o 2 oraciones",
   "detectedPublisherName": "Nombre oficial completo de la entidad (resolviendo siglas si aplica)",
   "detectedAddress": "Dirección física vigente del pie de página o contacto",
   "detectedFoundingYear": "2022",
@@ -2196,9 +2170,9 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     const cleanTitle = cleanTitleString(rawTitle) || entityName;
     const titleI18n: I18nRecord = {
       es: cleanTitle,
-      en: parsed.titleI18n?.en || cleanTitle,
-      pt: parsed.titleI18n?.pt || cleanTitle,
-      it: parsed.titleI18n?.it || cleanTitle,
+      en: "",
+      pt: "",
+      it: "",
     };
 
     // 2. DESCRIPCIÓN PRINCIPAL
@@ -2216,9 +2190,9 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     }
     const descriptionI18n: I18nRecord = {
       es: rawDesc,
-      en: parsed.descriptionI18n?.en || rawDesc,
-      pt: parsed.descriptionI18n?.pt || rawDesc,
-      it: parsed.descriptionI18n?.it || rawDesc,
+      en: "",
+      pt: "",
+      it: "",
     };
 
     // 3. BLOQUES PERSONALIZADOS
@@ -2259,16 +2233,16 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         title: bTitle,
         titleI18n: {
           es: bTitle,
-          en: matched?.titleI18n?.en || bTitle,
-          pt: matched?.titleI18n?.pt || bTitle,
-          it: matched?.titleI18n?.it || bTitle,
+          en: "",
+          pt: "",
+          it: "",
         },
         body: bodyHtml,
         bodyI18n: {
           es: bodyHtml,
-          en: matched?.bodyI18n?.en || bodyHtml,
-          pt: matched?.bodyI18n?.pt || bodyHtml,
-          it: matched?.bodyI18n?.it || bodyHtml,
+          en: "",
+          pt: "",
+          it: "",
         },
         visibleInCard: false,
         estado: "ok",
@@ -2283,9 +2257,9 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     }
     const providerInfoI18n: I18nRecord = {
       es: pInfo,
-      en: parsed.providerInfoI18n?.en || pInfo,
-      pt: parsed.providerInfoI18n?.pt || pInfo,
-      it: parsed.providerInfoI18n?.it || pInfo,
+      en: "",
+      pt: "",
+      it: "",
     };
 
     // 5. TAXONOMÍA (PRESERVANDO SELECCIÓN MÚLTIPLE DE LA IA)
