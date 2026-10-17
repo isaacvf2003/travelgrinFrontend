@@ -1086,7 +1086,6 @@ GENERA EL OBJETO JSON IDENTIFICANDO EL NOMBRE OFICIAL COMPLETO DEL OFERENTE, SU 
       throw new Error("El modelo devolvió información de proveedor vacía.");
     }
 
-    let pEn = "";
     const pEn = "";
     const pPt = "";
     const pIt = "";
