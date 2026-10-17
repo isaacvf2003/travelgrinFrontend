@@ -1601,6 +1601,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     scrapedParagraphs?: string[];
     scrapedTextContent?: string;
     rawPageTitle?: string;
+    customTitlePrompt?: string;
+    customDescPrompt?: string;
   }>({});
   const isManualForm = activeDraftQueueIndex === null && !Boolean(activeScrapedFactsRef.current.rawPageTitle);
   const [pProviderInfoI18n, setPProviderInfoI18n] = useState<I18nRecord>({ es: "" });
@@ -3043,6 +3045,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       scrapedParagraphs: (draft as any).scrapedParagraphs,
       scrapedTextContent: (draft as any).scrapedTextContent,
       rawPageTitle: (draft as any).rawPageTitle,
+      customTitlePrompt: (draft as any).customTitlePrompt || (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_title_prompt") : null) || "",
+      customDescPrompt: (draft as any).customDescriptionPrompt || (draft as any).customDescPrompt || (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) || "",
     };
     const cleanTitleStr = (s: string) => {
       if (!s) return "";
@@ -3134,6 +3138,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     let startYear = draft.providerStartYear || "";
     if ((!startYear || startYear === "2010" || startYear === "2015") && /garrahan/i.test(`${draft.url || ""} ${draft.title || ""}`)) {
       startYear = "1987";
+    }
+    if ((!startYear || startYear === "2010") && /immi\.legal/i.test(`${draft.url || ""}`)) {
+      startYear = "2022";
     }
     setPProviderStartYear(startYear);
     setPProviderRating(draft.providerRating || "0");
@@ -3684,12 +3691,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (target === "title") {
         fieldType = "title";
         currentVal = (pTitleI18n[sourceLang] || (sourceLang === "es" ? pTitle : "") || pTitleI18n.es || "").trim();
-        const savedTitlePrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_title_prompt") : null) || "";
-        promptToUse = savedTitlePrompt || "Reformular el título de manera atractiva, clara y profesional sin plantillas";
+        const savedTitlePrompt =
+          activeScrapedFactsRef.current.customTitlePrompt ||
+          (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_title_prompt") : null) ||
+          "";
+        promptToUse = savedTitlePrompt || "Reformular el título de manera comercial, atractiva, clara y profesional sin plantillas";
       } else if (target === "description") {
         fieldType = "description";
         currentVal = (pDescriptionI18n[sourceLang] || (sourceLang === "es" ? pDescription : "") || pDescriptionI18n.es || "").trim();
-        const savedDescPrompt = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) || "";
+        const savedDescPrompt =
+          activeScrapedFactsRef.current.customDescPrompt ||
+          (typeof window !== "undefined" ? window.localStorage.getItem("tgn_custom_desc_prompt") : null) ||
+          "";
         promptToUse = savedDescPrompt || "Reformular la descripción en párrafos HTML <p> fluidos, profesionales y naturales, destacando la propuesta de valor sin plantillas rígidas";
       } else if (target === "provider_info") {
         fieldType = "provider_info";
@@ -3708,8 +3721,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             const rawBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
             if (rawBlocks) {
               const list: Array<{ title: string; prompt?: string }> = JSON.parse(rawBlocks);
-              const found = list.find((b) => b.title?.toLowerCase() === currentTitleVal.toLowerCase());
+              const found = list.find((b) => b.title?.toLowerCase().trim() === currentTitleVal.toLowerCase().trim());
               if (found?.prompt) savedBlockPrompt = found.prompt;
+              else if (typeof blockIdx === "number" && list[blockIdx]?.prompt) savedBlockPrompt = list[blockIdx].prompt;
             }
           } catch {}
         }
@@ -3741,7 +3755,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        data = await res.json().catch(() => null);
+      } else {
+        const rawText = await res.text().catch(() => "");
+        throw new Error(rawText && rawText.length < 160 ? rawText : `El servicio de IA tardó demasiado en responder (${res.status}). Intenta nuevamente.`);
+      }
+
       if (!res.ok || !data?.success || !data?.result) {
         throw new Error(data?.error || "No se pudo reformular el campo con IA.");
       }
@@ -9412,7 +9434,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   value={pProviderStartYear}
                   onChange={(e) => setPProviderStartYear(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="2010"
+                  placeholder="Año de fundación real"
                 />
               </div>
               <div className="grid gap-2">
