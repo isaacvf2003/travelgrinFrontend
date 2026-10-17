@@ -3406,9 +3406,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    const isEduDraft = /universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(
-      `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase()
-    );
+    const isEduDraft =
+      !/\b(deportv|televisi[oó]n|streaming|canal de tv|deportes?|f[uú]tbol|automovilismo|tc|turismo carretera|noticias|radio)\b/i.test(`${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase()) &&
+      /universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(
+        `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase()
+      );
     const isOngDraft =
       /\b(?:ong|ongs|fundaci[oó]n|asociaci[oó]n civil|sin fines de lucro|sin [aá]nimo de lucro|tercer sector|voluntariado)\b/i.test(`${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase()) &&
       !isEduDraft;
@@ -3429,11 +3431,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const finalCatSel = Array.from(resolvedCategoryRoots);
     const finalSubcatSel = Array.from(resolvedSubcategories);
 
-    setPCategorySelections(finalCatSel.length ? finalCatSel : (draft.categorySelections || []));
-    setPCategory(finalCatSel[0] || draft.category || "");
+    setPCategorySelections(finalCatSel);
+    setPCategory(finalCatSel[0] || "");
 
-    setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (draft.subcategorySelections || []));
-    setPSubcategory(finalSubcatSel[0] || draft.subcategory || "");
+    setPSubcategorySelections(finalSubcatSel);
+    setPSubcategory(finalSubcatSel[0] || "");
 
     // 2. Resolve Provider Activities directly against DB actividadRoots
     const resolvedActivities = new Set<string>();
@@ -3449,8 +3451,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       });
       if (match) {
         resolvedActivities.add(match.description);
-      } else if (rawAct.trim()) {
-        resolvedActivities.add(rawAct.trim());
       }
     }
 
@@ -3589,6 +3589,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const handleApproveAiDraftDirectly = async (draft: ScrapedPublicationDraft): Promise<boolean> => {
     try {
+      const matchedFilterOptionIds: string[] = [];
+      const draftActivities = draft.providerActivities || [];
+      const draftTypes = draft.providerTypes || [];
+      const draftModalities = draft.providerModalities || [];
+      const draftPrestaciones = (draft as any).prestaciones || [];
+
+      filterGroups.forEach((group) => {
+        (group.options || []).forEach((opt: any) => {
+          const optLabel = String(opt.label || opt.value || "").trim().toLowerCase();
+          const matchAct = draftActivities.some((a) => a.toLowerCase().trim() === optLabel);
+          const matchType = draftTypes.some((t) => t.toLowerCase().trim() === optLabel);
+          const matchMod = draftModalities.some((m) => m.toLowerCase().trim() === optLabel);
+          const matchPres = draftPrestaciones.some((p: string) => p.toLowerCase().trim() === optLabel);
+          if (matchAct || matchType || matchMod || matchPres) {
+            matchedFilterOptionIds.push(opt.id);
+          }
+        });
+      });
+
       const payload = {
         title: draft.title,
         titleI18n: draft.titleI18n,
@@ -3608,6 +3627,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         languages: draft.languages ? draft.languages.split(",").map((s) => s.trim()).filter(Boolean) : null,
         images: draft.images && draft.images.length ? draft.images : null,
         website: draft.website || null,
+        filterOptionIds: matchedFilterOptionIds,
         fields: {
           locationAddress: draft.locationAddress || null,
           headquarterLocations: draft.headquarterLocations || [],
@@ -3627,17 +3647,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         },
       };
 
-      const res = await fetch("/api/publications", {
+      await api("/api/admin/publications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        refresh().catch(() => {});
-        return true;
-      }
-      return false;
+      refresh().catch(() => {});
+      return true;
     } catch (err) {
       console.error("Error approving AI draft directly:", err);
       return false;
