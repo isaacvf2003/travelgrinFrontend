@@ -2045,6 +2045,10 @@ export interface UnifiedPublicationOutput {
   detectedAddress?: string;
   detectedCity?: string;
   detectedCountry?: string;
+  detectedRating?: string;
+  detectedReviewCount?: string;
+  detectedFoundingYear?: string;
+  detectedCommentsUrl?: string;
   taxonomyData: TaxonomyAgentData;
   providerUsed: string;
 }
@@ -2096,7 +2100,12 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
    - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS. Si pide subtítulos/títulos en negrita o letras negras y su explicación, estructura cada párrafo como <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>. Si pide tono de marketing o conversión, aplícalo.
    - BLOQUES PERSONALIZADOS: Genera cada bloque solicitado en el array "customBlocks". Si pide Preguntas Frecuentes, formula preguntas inteligentes y respuestas claras sobre los servicios del sitio en formato HTML (<p><strong>¿Pregunta?</strong><br/>Respuesta...</p>). Si pidió cantidad o colores específicos, cúmplelo.
 2. CERO PLANTILLAS RÍGIDAS FIJAS: No uses esquemas estáticos repetitivos. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
-3. Fidelidad factual: Basa los textos en los servicios, ofertas, propuestas y datos reales de la web de "${entityName}".
+3. Fidelidad factual y Reputación en Google Maps:
+   - Basa los textos en los servicios, ofertas, propuestas y datos reales de la web de "${entityName}".
+   - 'detectedFoundingYear': Año real y verdadero en que se fundó la institución o comenzó sus actividades históricas (ej: "1987", "1903", "2022"). Deduce o investiga de la web y de tus conocimientos el año verídico de inicio. TOTALMENTE PROHIBIDO inventar años genéricos como "2010" o "2015".
+   - 'detectedRating': Calificación numérica real de 1.0 a 5.0 (ej: "4.8", "4.5", "5.0") que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL (Casa Central). Si hay múltiples sedes, toma obligatoriamente la de la sede principal. Si no posee ficha en Google Maps o no hay datos, pon "0".
+   - 'detectedReviewCount': Cantidad exacta de reseñas / comentarios de usuarios que tiene en Google Maps en esa sede principal (ej: "142", "26"). Si no posee, pon "0".
+   - 'detectedCommentsUrl': Enlace directo o de búsqueda a las opiniones en Google Maps de su sede principal.
 4. CLASIFICACIÓN TAXONÓMICA DINÁMICA Y SELECCIÓN MÚLTIPLE:
    - El administrador crea los bloques con taxonomías: actividad, modalidad, tipos, categoria, idiomas.
    - PUEDES SELECCIONAR MÁS DE UNA OPCIÓN en cada sección si la web analizada legítimamente corresponde o abarca varias.
@@ -2123,6 +2132,10 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
   "providerInfoI18n": { "es": "...", "en": "...", "pt": "...", "it": "..." },
   "detectedPublisherName": "Nombre oficial completo de la entidad (resolviendo siglas si aplica)",
   "detectedAddress": "Dirección física vigente del pie de página o contacto",
+  "detectedFoundingYear": "2022",
+  "detectedRating": "4.8",
+  "detectedReviewCount": "35",
+  "detectedCommentsUrl": "https://www.google.com/maps/search/?api=1&query=...",
   "category": "Primera categoría principal del catálogo",
   "subcategory": "Primera subcategoría principal del catálogo",
   "categorySelections": ["Categoría 1", "Categoría 2 (si aplica)"],
@@ -2399,6 +2412,24 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       languages: finalMatchedLangs.length ? finalMatchedLangs : ["Español"],
     };
 
+    let detectedFoundingYear = parsed.detectedFoundingYear ? String(parsed.detectedFoundingYear).trim() : undefined;
+    if (detectedFoundingYear) {
+      const yrNum = parseInt(detectedFoundingYear, 10);
+      if (isNaN(yrNum) || yrNum < 1600 || yrNum > new Date().getFullYear()) {
+        detectedFoundingYear = undefined;
+      }
+    }
+
+    let detectedRating = parsed.detectedRating ? String(parsed.detectedRating).trim() : undefined;
+    if (detectedRating && !isNaN(parseFloat(detectedRating))) {
+      const rNum = parseFloat(detectedRating);
+      if (rNum >= 1 && rNum <= 5) detectedRating = rNum.toFixed(1);
+      else if (rNum === 0) detectedRating = "0";
+    }
+
+    let detectedReviewCount = parsed.detectedReviewCount ? String(parsed.detectedReviewCount).replace(/[^0-9]/g, "").trim() : undefined;
+    let detectedCommentsUrl = parsed.detectedCommentsUrl ? String(parsed.detectedCommentsUrl).trim() : undefined;
+
     return {
       success: true,
       data: {
@@ -2413,6 +2444,10 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         detectedAddress: cleanTitleString(String(parsed.detectedAddress || "").trim()) || undefined,
         detectedCity: cleanTitleString(String(parsed.city || "").trim()) || undefined,
         detectedCountry: cleanTitleString(String(parsed.country || "").trim()) || undefined,
+        detectedRating,
+        detectedReviewCount,
+        detectedFoundingYear,
+        detectedCommentsUrl,
         taxonomyData,
         providerUsed,
       },
