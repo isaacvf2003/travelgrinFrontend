@@ -1123,7 +1123,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     return;
   }
 
-  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 4);
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 2);
 
   const searchPromises = uniqueQueries.map(async (q) => {
     try {
@@ -1136,7 +1136,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        4000
+        1200
       );
       if (!gmapsRes.ok) return null;
       return await gmapsRes.text();
@@ -2153,38 +2153,31 @@ async function fetchPageContent(url: string) {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
   ];
 
-  // Tier 1: Direct fetch with browser headers
+  // Tier 1: Direct fetch with standard browser headers (clean, fast, universally accepted)
   try {
     let res: Response | null = null;
     try {
       res = await fetch(formattedUrl, {
         headers: {
           "User-Agent": userAgents[0],
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-          "Sec-Ch-Ua": '"Chromium";v="124", "Not-A.Brand";v="99", "Google Chrome";v="124"',
-          "Sec-Ch-Ua-Mobile": "?0",
-          "Sec-Ch-Ua-Platform": '"Windows"',
-          "Sec-Fetch-Dest": "document",
-          "Sec-Fetch-Mode": "navigate",
-          "Sec-Fetch-Site": "none",
-          "Sec-Fetch-User": "?1",
           "Upgrade-Insecure-Requests": "1",
         },
         redirect: "follow",
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(5000),
       });
     } catch {
-      // Fallback direct fetch without sec-ch-ua headers (some university/gov servers block client hints)
+      // Fast fallback retry with secondary user-agent
       try {
         res = await fetch(formattedUrl, {
           headers: {
-            "User-Agent": userAgents[0],
-            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+            "User-Agent": userAgents[1],
+            Accept: "*/*",
+            "Accept-Language": "es-ES,es;q=0.9",
           },
           redirect: "follow",
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(3000),
         });
       } catch {}
     }
@@ -2207,7 +2200,7 @@ async function fetchPageContent(url: string) {
                 "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
               },
               redirect: "follow",
-              signal: AbortSignal.timeout(4000),
+              signal: AbortSignal.timeout(2000),
             });
             if (redirectRes.ok) {
               const redirectHtml = await redirectRes.text();
@@ -2267,7 +2260,7 @@ async function fetchPageContent(url: string) {
                 try {
                   const subRes = await fetch(subUrl, {
                     headers: { "User-Agent": userAgents[0] },
-                    signal: AbortSignal.timeout(3500),
+                    signal: AbortSignal.timeout(1800),
                   });
                   if (!subRes.ok) return null;
                   const subHtml = await subRes.text();
@@ -2307,12 +2300,12 @@ async function fetchPageContent(url: string) {
     console.warn(`Primary direct fetch failed for ${url}:`, e.message);
   }
 
-  // Tier 2: Jina AI Web Reader with 8s timeout
+  // Tier 2: Jina AI Web Reader with 3.5s timeout
   try {
     const jinaUrl = `https://r.jina.ai/${formattedUrl}`;
     const res = await fetch(jinaUrl, {
       headers: { "User-Agent": userAgents[1], Accept: "text/plain, text/html" },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(3500),
     });
     if (res.ok) {
       const textContent = await res.text();
@@ -3172,10 +3165,10 @@ async function translateTextDirect(q: string, sl: string, tl: string): Promise<s
   const trimmed = q.trim();
   if (!trimmed || sl === tl) return q;
 
-  // 1. Google Chrome Dict translation endpoint (fastest, most reliable)
+  // 1. Google Chrome Dict translation endpoint (fastest, strict 1200ms timeout)
   try {
     const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${sl}&tl=${tl}&q=${encodeURIComponent(trimmed)}`;
-    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3500);
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 1200);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data[0]) {
@@ -3185,10 +3178,10 @@ async function translateTextDirect(q: string, sl: string, tl: string): Promise<s
     }
   } catch {}
 
-  // 2. Google Translate public API (gtx)
+  // 2. Google Translate public API (gtx) (strict 1000ms timeout)
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(trimmed)}`;
-    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 3000);
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }, 1000);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && Array.isArray(data[0])) {
@@ -3200,26 +3193,15 @@ async function translateTextDirect(q: string, sl: string, tl: string): Promise<s
     }
   } catch {}
 
-  // 3. Try MyMemory
-  try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=${sl}|${tl}`;
-    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0" } }, 3000);
-    if (res.ok) {
-      const data = await res.json();
-      const trans = data.responseData?.translatedText;
-      if (trans && typeof trans === "string" && !trans.includes("MYMEMORY WARNING") && trans.trim() !== trimmed) {
-        return decodeHtmlEntities(trans.trim());
-      }
-    }
-  } catch {}
-
-  // 4. Fallback to dictionary translation
+  // 3. Fallback to dictionary translation
   return translateStructuredDescription(trimmed, tl as any);
 }
 
 async function translateFullHtmlDescriptionAsync(htmlEs: string, targetLang: "en" | "pt" | "it"): Promise<string> {
   if (!htmlEs) return "";
   try {
+    const instantTrans = translateStructuredDescription(htmlEs, targetLang);
+
     const pRegex = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
     const rawParagraphs: string[] = [];
     let match;
@@ -3227,43 +3209,23 @@ async function translateFullHtmlDescriptionAsync(htmlEs: string, targetLang: "en
       rawParagraphs.push(match[1]);
     }
 
-    if (rawParagraphs.length === 0) {
-      const parts = htmlEs.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
-      const translatedParts = await Promise.all(
-        parts.map(async (part) => {
-          if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
-          const trimmed = part.trim();
-          if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
-          const leadingSpace = part.match(/^\s*/)?.[0] || "";
-          const trailingSpace = part.match(/\s*$/)?.[0] || "";
-          const trans = await translateTextDirect(trimmed, "es", targetLang).catch(() => trimmed);
-          return `${leadingSpace}${trans}${trailingSpace}`;
-        })
-      );
-      const joined = translatedParts.join("");
-      const normalized = translateStructuredDescription(joined, targetLang);
+    // If there are no paragraphs or many paragraphs (> 3, e.g. FAQ with 10 questions),
+    // use instant dictionary translation to completely avoid 504 Gateway Timeouts from 90+ external HTTP requests!
+    if (rawParagraphs.length === 0 || rawParagraphs.length > 3) {
       return targetLang === "en"
-        ? normalizeToEnglishDescriptionHeaders(normalized)
+        ? normalizeToEnglishDescriptionHeaders(instantTrans)
         : targetLang === "pt"
-        ? normalizeToPortugueseDescriptionHeaders(normalized)
-        : normalizeToItalianDescriptionHeaders(normalized);
+        ? normalizeToPortugueseDescriptionHeaders(instantTrans)
+        : normalizeToItalianDescriptionHeaders(instantTrans);
     }
 
+    // For 1-3 short paragraphs, translate cleanly with strict timeout
     const translatedPs = await Promise.all(
       rawParagraphs.map(async (pText) => {
-        const parts = pText.split(/(<\/?[a-z0-9]+\b[^>]*>)/gi);
-        const translatedParts = await Promise.all(
-          parts.map(async (part) => {
-            if (!part || /^<\/?[a-z0-9]+/i.test(part)) return part;
-            const trimmed = part.trim();
-            if (!trimmed || /^[💡⭐⚠️•>]+$/.test(trimmed)) return part;
-            const leadingSpace = part.match(/^\s*/)?.[0] || "";
-            const trailingSpace = part.match(/\s*$/)?.[0] || "";
-            const trans = await translateTextDirect(trimmed, "es", targetLang).catch(() => trimmed);
-            return `${leadingSpace}${trans}${trailingSpace}`;
-          })
-        );
-        return `<p>${translatedParts.join("")}</p>`;
+        const cleanP = pText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        if (!cleanP || cleanP.length < 5) return `<p>${pText}</p>`;
+        const trans = await translateTextDirect(cleanP, "es", targetLang).catch(() => cleanP);
+        return `<p>${trans || cleanP}</p>`;
       })
     );
 
