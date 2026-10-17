@@ -3767,32 +3767,11 @@ async function buildGroundedCustomBlock(
     let tEn = title;
     let tPt = title;
     let tIt = title;
-    let bEn = bodyEs;
-    let bPt = bodyEs;
-    let bIt = bodyEs;
-
-    try {
-      const [trEn, trPt, trIt, brEn, brPt, brIt] = await Promise.all([
-        translateTextDirect(title, "es", "en").catch(() => title),
-        translateTextDirect(title, "es", "pt").catch(() => title),
-        translateTextDirect(title, "es", "it").catch(() => title),
-        bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "en").catch(() => bodyEs) : Promise.resolve(""),
-        bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "pt").catch(() => bodyEs) : Promise.resolve(""),
-        bodyEs ? translateFullHtmlDescriptionAsync(bodyEs, "it").catch(() => bodyEs) : Promise.resolve(""),
-      ]);
-      tEn = trEn || title;
-      tPt = trPt || title;
-      tIt = trIt || title;
-      bEn = brEn || bodyEs;
-      bPt = brPt || bodyEs;
-      bIt = brIt || bodyEs;
-    } catch {}
-
     return {
       title,
-      titleI18n: { es: title, en: tEn, pt: tPt, it: tIt },
+      titleI18n: { es: title, en: "", pt: "", it: "" },
       body: bodyEs,
-      bodyI18n: { es: bodyEs, en: bEn, pt: bPt, it: bIt },
+      bodyI18n: { es: bodyEs, en: "", pt: "", it: "" },
       visibleInCard: false,
       estado,
       contenido: bodyEs,
@@ -3804,9 +3783,9 @@ async function buildGroundedCustomBlock(
     const safeBody = `<p>Información de ${title} provista directamente por la institución.</p>`;
     return {
       title,
-      titleI18n: { es: title, en: title, pt: title, it: title },
+      titleI18n: { es: title, en: "", pt: "", it: "" },
       body: safeBody,
-      bodyI18n: { es: safeBody, en: safeBody, pt: safeBody, it: safeBody },
+      bodyI18n: { es: safeBody, en: "", pt: "", it: "" },
       visibleInCard: false,
       estado: "ok",
       contenido: safeBody,
@@ -4265,162 +4244,6 @@ function classifySectorAndTaxonomy(
   };
 }
 
-async function createFallbackPublication(
-  extractedData: any,
-  taxonomies?: any,
-  customBlocks?: CustomScraperBlock[],
-  customAdminPrompt?: string,
-  customTitlePrompt?: string,
-  customDescriptionPrompt?: string,
-  includeScoreScout: boolean = true
-): Promise<ScrapedPublication> {
-  const host = new URL(extractedData.url).hostname.replace("www.", "");
-  const allText = `${extractedData.url} ${extractedData.title} ${extractedData.description} ${extractedData.textContent}`.toLowerCase();
-  let titleClean = cleanTitleString(extractedData.title) || host;
-  const locInfo = detectAllLocationsAndHeadquarters(allText, extractedData.url, titleClean);
-  const classified = classifySectorAndTaxonomy(extractedData.url, titleClean, allText, taxonomies);
-
-  const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
-  if (effectiveTitlePrompt) {
-    titleClean = generateImpactfulTitle(titleClean, classified.sector, effectiveTitlePrompt, locInfo.primaryCity, allText, extractedData.title);
-  }
-
-  const headquarterLocations = resolveHeadquarterLocations(
-    undefined,
-    titleClean,
-    titleClean,
-    locInfo.primaryCity,
-    locInfo.primaryCountry,
-    extractedData.detectedMapsUrl,
-    allText,
-    locInfo.additionalCities
-  );
-
-  const primaryHq = headquarterLocations[0] || {
-    country: locInfo.primaryCountry,
-    city: locInfo.primaryCity,
-    mapUrl: buildGoogleMapsUrl(`${titleClean}, ${locInfo.primaryCity}, ${locInfo.primaryCountry}`),
-  };
-
-  const startYear = extractedData.detectedFoundingYear || extractFoundingYear("", allText, extractedData.url, titleClean) || "";
-  const ratingInfo = extractRatingAndReviewsFromHtml(
-    extractedData.htmlContent || "",
-    allText,
-    extractedData.url,
-    titleClean,
-    primaryHq.city,
-    primaryHq.country
-  );
-
-  const finalRating = (ratingInfo.rating && ratingInfo.rating !== "0" && ratingInfo.rating.trim() !== "")
-    ? ratingInfo.rating
-    : (extractedData.detectedRating && extractedData.detectedRating !== "0" && extractedData.detectedRating.trim() !== "" ? extractedData.detectedRating : "0");
-  const finalReviewCount = (ratingInfo.reviewCount && ratingInfo.reviewCount !== "0" && ratingInfo.reviewCount.trim() !== "")
-    ? ratingInfo.reviewCount
-    : (extractedData.detectedReviewCount && extractedData.detectedReviewCount !== "0" && extractedData.detectedReviewCount.trim() !== "" ? extractedData.detectedReviewCount : "0");
-  const officialFullName = findOfficialOrganizationName(extractedData.htmlContent || "", titleClean, extractedData.detectedSiteName);
-  const finalCommentsUrl =
-    extractedData.detectedCommentsUrl ||
-    ratingInfo.commentsUrl ||
-    buildGoogleMapsUrl(`${officialFullName || titleClean}, ${primaryHq.city}, ${primaryHq.country}`);
-
-  const fallbackExtraDescriptions: ExtraDescriptionBlock[] = [];
-  if (includeScoreScout !== false) {
-    const scoreBlock = buildScoreScoutBlock(
-      titleClean,
-      startYear,
-      finalRating,
-      allText,
-      undefined,
-      extractedData.url,
-      finalReviewCount
-    );
-    fallbackExtraDescriptions.push(scoreBlock);
-  }
-
-  const effectiveDescPrompt = (customDescriptionPrompt || "").trim() || (customAdminPrompt || "").trim();
-  let descriptions = { es: "", en: "", pt: "", it: "" };
-  try {
-    descriptions = await buildGroundedDescriptions(extractedData, titleClean, primaryHq.city, primaryHq.country, effectiveDescPrompt);
-  } catch (dErr) {
-    console.warn(`[AI Scraper] buildGroundedDescriptions fallback:`, dErr);
-    const fallbackDesc = `<p><strong>${titleClean}</strong> es una institución de referencia con sede en ${primaryHq.city}, ${primaryHq.country}.</p><p><strong>Información Oficial:</strong> Asesoramiento y gestión a través de su plataforma oficial ${extractedData.url}.</p>`;
-    descriptions = { es: fallbackDesc, en: fallbackDesc, pt: fallbackDesc, it: fallbackDesc };
-  }
-
-  if (Array.isArray(customBlocks) && customBlocks.length > 0) {
-    for (const customBlock of customBlocks) {
-      if (!customBlock.title || !customBlock.title.trim()) continue;
-      try {
-        const generatedCustom = await buildGroundedCustomBlock(
-          customBlock,
-          extractedData,
-          primaryHq
-        );
-        fallbackExtraDescriptions.push(generatedCustom);
-      } catch (cbErr) {
-        console.warn(`[AI Scraper] Error generating custom block "${customBlock.title}":`, cbErr);
-      }
-    }
-  }
-
-  const dynamicFallbackClassified = classifySectorAndTaxonomy(extractedData.url, titleClean, allText, taxonomies);
-  const finalTaxonomyData = dynamicFallbackClassified;
-  const detectedLanguages = detectLanguagesFromText(allText, taxonomies?.languages);
-
-  const fallbackResult: ScrapedPublication = {
-    url: extractedData.url,
-    title: titleClean,
-    titleI18n: { es: titleClean, en: titleClean, pt: titleClean, it: titleClean },
-    description: descriptions.es,
-    descriptionI18n: descriptions,
-    extraDescriptions: fallbackExtraDescriptions,
-    publisherName: cleanPublisherName(extractedData.title, extractedData.url, titleClean, extractedData.detectedSiteName),
-    providerInfoI18n: {
-      es: `${cleanPublisherName(extractedData.title, extractedData.url, titleClean, extractedData.detectedSiteName)} es un establecimiento y prestador de servicios en ${primaryHq.city}, ${primaryHq.country}.`,
-      en: `${cleanPublisherName(extractedData.title, extractedData.url, titleClean, extractedData.detectedSiteName)} is an institution and service provider in ${primaryHq.city}, ${primaryHq.country}.`,
-      pt: `${cleanPublisherName(extractedData.title, extractedData.url, titleClean, extractedData.detectedSiteName)} é um estabelecimento e provedor de serviços em ${primaryHq.city}, ${primaryHq.country}.`,
-      it: `${cleanPublisherName(extractedData.title, extractedData.url, titleClean, extractedData.detectedSiteName)} è un'istituzione e fornitore di servizi a ${primaryHq.city}, ${primaryHq.country}.`,
-    },
-    providerStartYear: startYear,
-    providerRating: finalRating,
-    providerReviewCount: finalReviewCount,
-    providerCommentsUrl: finalCommentsUrl,
-    providerLogo: extractedData.detectedLogo || "",
-    country: primaryHq.country,
-    city: primaryHq.city,
-    headquarterCountry: primaryHq.country,
-    headquarterCity: primaryHq.city,
-    locationAddress: primaryHq.mapUrl,
-    destinationCountries: locInfo.detectedCountries.length ? locInfo.detectedCountries : [primaryHq.country],
-    headquarterLocations,
-    currency: "USD",
-    price: "A consultar",
-    pricePeriod: "",
-    languages: Array.isArray(detectedLanguages) && detectedLanguages.length ? detectedLanguages.join(", ") : "Español",
-    website: extractedData.url,
-    socialLinksDetailed: extractedData.socialLinksExtracted || [{ kind: "web", label: "Sitio Oficial", url: extractedData.url }],
-    images: extractedData.images || [],
-    category: finalTaxonomyData.category,
-    subcategory: finalTaxonomyData.subcategory,
-    categorySelections: finalTaxonomyData.categorySelections?.length ? finalTaxonomyData.categorySelections : [finalTaxonomyData.category].filter(Boolean),
-    subcategorySelections: finalTaxonomyData.subcategorySelections?.length ? finalTaxonomyData.subcategorySelections : [finalTaxonomyData.subcategory].filter(Boolean),
-    providerActivities: finalTaxonomyData.providerActivities?.length ? finalTaxonomyData.providerActivities : dynamicFallbackClassified.providerActivities,
-    providerTypes: finalTaxonomyData.providerTypes?.length ? finalTaxonomyData.providerTypes : dynamicFallbackClassified.providerTypes,
-    providerModalities: finalTaxonomyData.providerModalities?.length ? finalTaxonomyData.providerModalities : dynamicFallbackClassified.providerModalities,
-    scrapedHeadings: (extractedData.headings || []).slice(0, 20),
-    scrapedParagraphs: (extractedData.paragraphs || (extractedData.textContent || "").split(/\n\s*\n+/).filter((p: string) => p.length > 25)).slice(0, 15),
-    scrapedTextContent: (extractedData.textContent || "").slice(0, 5000),
-    rawPageTitle: extractedData.title || "",
-  } as any;
-
-  return enforceStrictTaxonomyGuardrails(
-    fallbackResult,
-    extractedData,
-    taxonomies
-  );
-}
-
 function extractJsonFromModelResponse(text: string): any {
   if (!text || typeof text !== "string") return null;
   const trimmed = text.trim();
@@ -4861,6 +4684,27 @@ function mergeSocialLinks(linksA: SocialLinkDetail[] = [], linksB: SocialLinkDet
   return merged;
 }
 
+async function createFallbackPublication(
+  extractedData: any,
+  taxonomies?: any,
+  customBlocks?: CustomScraperBlock[],
+  customAdminPrompt?: string,
+  customTitlePrompt?: string,
+  customDescriptionPrompt?: string,
+  includeScoreScout: boolean = true
+): Promise<ScrapedPublication> {
+  return formatPublicationResult(
+    {},
+    extractedData,
+    taxonomies,
+    customBlocks,
+    customAdminPrompt,
+    customTitlePrompt,
+    customDescriptionPrompt,
+    includeScoreScout
+  );
+}
+
 async function formatPublicationResult(
   parsed: any,
   extractedData: any,
@@ -5175,61 +5019,24 @@ async function formatPublicationResult(
         if (customBlock.prompt && !formattedExtraDescriptions[existingIdx].prompt) {
           formattedExtraDescriptions[existingIdx].prompt = customBlock.prompt;
         }
-        const currentBody = formattedExtraDescriptions[existingIdx].body || "";
-        const countMatch = (customBlock.prompt || "").match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) ||
-          (customBlock.prompt || "").match(/\b(1\d|[2-9])\b/);
-        const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 2), 20) : (/faq|pregunt/i.test(cleanCustomTitle) ? 8 : 0);
-        const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(cleanCustomTitle) || /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(customBlock.prompt || "");
-
-        const questionMarks = (currentBody.match(/\?/g) || []).length;
-        const pTagsCount = (currentBody.match(/<p>/gi) || []).length;
-        const actualQCount = Math.max(questionMarks, pTagsCount);
-
-        const needsGeneration =
-          !currentBody ||
-          currentBody.trim().length < 25 ||
-          formattedExtraDescriptions[existingIdx].estado === "sin_datos" ||
-          (isFaq && requestedCount > 0 && actualQCount < requestedCount);
-
-        if (needsGeneration) {
-          const generatedCustom = await buildGroundedCustomBlock(
-            customBlock,
-            extractedData,
-            primaryHq
-          );
-          formattedExtraDescriptions[existingIdx] = generatedCustom;
-        }
       }
     }
   }
 
-  const titleI18n = parsed.titleI18n
-    ? {
-        es: cleanTitleString(title),
-        en: cleanTitleString(parsed.titleI18n.en || title),
-        pt: cleanTitleString(parsed.titleI18n.pt || title),
-        it: cleanTitleString(parsed.titleI18n.it || title),
-      }
-    : { es: title, en: title, pt: title, it: title };
+  const titleI18n = {
+    es: cleanTitleString(title),
+    en: "",
+    pt: "",
+    it: "",
+  };
 
   const defaultProvInfoEs = `${publisherName || title} es un establecimiento y prestador de servicios en ${primaryHq.city}, ${primaryHq.country}.`;
-  const defaultProvInfoEn = `${publisherName || title} is an institution and service provider in ${primaryHq.city}, ${primaryHq.country}.`;
-  const defaultProvInfoPt = `${publisherName || title} é um estabelecimento e provedor de serviços em ${primaryHq.city}, ${primaryHq.country}.`;
-  const defaultProvInfoIt = `${publisherName || title} è un'istituzione e fornitore di servizi a ${primaryHq.city}, ${primaryHq.country}.`;
-
-  const providerInfoI18n = parsed.providerInfoI18n
-    ? {
-        es: String(parsed.providerInfoI18n.es || defaultProvInfoEs),
-        en: String(parsed.providerInfoI18n.en || defaultProvInfoEn),
-        pt: String(parsed.providerInfoI18n.pt || defaultProvInfoPt),
-        it: String(parsed.providerInfoI18n.it || defaultProvInfoIt),
-      }
-    : {
-        es: defaultProvInfoEs,
-        en: defaultProvInfoEn,
-        pt: defaultProvInfoPt,
-        it: defaultProvInfoIt,
-      };
+  const providerInfoI18n = {
+    es: defaultProvInfoEs,
+    en: "",
+    pt: "",
+    it: "",
+  };
 
   // Comments URL: prioritize verified real place link from live scraping / known catalog, then valid AI link, then fallback search
   let finalCommentsUrl =
@@ -5265,11 +5072,15 @@ async function formatPublicationResult(
     description: finalDescEs,
     descriptionI18n: {
       es: finalDescEs,
-      en: finalDescEn,
-      pt: finalDescPt,
-      it: finalDescIt,
+      en: "",
+      pt: "",
+      it: "",
     },
-    extraDescriptions: formattedExtraDescriptions,
+    extraDescriptions: formattedExtraDescriptions.map((blk) => ({
+      ...blk,
+      titleI18n: { es: blk.title, en: "", pt: "", it: "" },
+      bodyI18n: { es: blk.body, en: "", pt: "", it: "" },
+    })),
     publisherName,
     providerInfoI18n,
     providerStartYear: startYear,
