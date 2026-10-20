@@ -25,22 +25,56 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
   let titleColor: string | undefined;
   let bodyColor: string | undefined;
 
-  // Blue / Celeste detection (e.g. "en azul", "de azul el título", "preguntas en azul", "color azul")
-  if (/\b(?:de\s+)?azul(?:es)?\b|color\s+azul|en\s+azul|celeste/i.test(p)) {
-    titleColor = "#0066cc";
-  } else if (/\brojo(?:s)?|color\s+rojo|en\s+rojo/i.test(p)) {
-    titleColor = "#dc2626";
-  } else if (/\bverde(?:s)?|color\s+verde|en\s+verde/i.test(p)) {
-    titleColor = "#16a34a";
-  } else if (/\bvioleta(?:s)?|morado|p[uú]rpura/i.test(p)) {
-    titleColor = "#9333ea";
-  } else if (/\bnaranja/i.test(p)) {
-    titleColor = "#ea580c";
+  const colorMap: Record<string, string> = {
+    azul: "#0066cc",
+    azules: "#0066cc",
+    celeste: "#0284c7",
+    rojo: "#dc2626",
+    rojos: "#dc2626",
+    verde: "#16a34a",
+    verdes: "#16a34a",
+    violeta: "#9333ea",
+    morado: "#9333ea",
+    púrpura: "#9333ea",
+    purpura: "#9333ea",
+    naranja: "#ea580c",
+    negro: "#000000",
+    negros: "#000000",
+    negras: "#000000",
+    gris: "#4b5563",
+  };
+
+  // Specific question/title target match:
+  const titleColorMatch =
+    p.match(/(?:preguntas?|t[ií]tulos?)\s+(?:en|de)?\s*(rojo|rojos|azul|azules|celeste|verde|verdes|violeta|morado|p[uú]rpura|naranja|negro|negras?|gris)/i) ||
+    p.match(/(?:en|de)\s+(rojo|rojos|azul|azules|celeste|verde|verdes|violeta|morado|p[uú]rpura|naranja)\s+(?:el\s+t[ií]tulo|las\s+preguntas)/i);
+
+  if (titleColorMatch && titleColorMatch[1]) {
+    titleColor = colorMap[titleColorMatch[1].toLowerCase()];
   }
 
-  // Black body text (e.g. "respuesta en negro", "texto en negro", "letras negras")
-  if (/respuesta\s+en\s+negro|en\s+negro|texto\s+en\s+negro|letras\s+negras/i.test(p)) {
-    bodyColor = "#000000";
+  // Specific answer/body target match:
+  const bodyColorMatch =
+    p.match(/(?:respuestas?|cuerpo|texto)\s+(?:en|de)?\s*(rojo|rojos|azul|azules|celeste|verde|verdes|violeta|morado|p[uú]rpura|naranja|negro|negras?|gris)/i) ||
+    p.match(/(?:en|de)\s+(rojo|rojos|azul|azules|celeste|verde|verdes|violeta|morado|p[uú]rpura|naranja|negro|negras?|gris)\s+(?:la\s+respuesta|las\s+respuestas|el\s+texto)/i);
+
+  if (bodyColorMatch && bodyColorMatch[1]) {
+    bodyColor = colorMap[bodyColorMatch[1].toLowerCase()];
+  }
+
+  // Fallback broad matching if not targeted:
+  if (!titleColor) {
+    if (/\b(?:de\s+)?azul(?:es)?\b|color\s+azul|en\s+azul|celeste/i.test(p)) titleColor = "#0066cc";
+    else if (/\brojo(?:s)?|color\s+rojo|en\s+rojo/i.test(p)) titleColor = "#dc2626";
+    else if (/\bverde(?:s)?|color\s+verde|en\s+verde/i.test(p)) titleColor = "#16a34a";
+    else if (/\bvioleta(?:s)?|morado|p[uú]rpura/i.test(p)) titleColor = "#9333ea";
+    else if (/\bnaranja/i.test(p)) titleColor = "#ea580c";
+  }
+
+  if (!bodyColor) {
+    if (/respuesta\s+en\s+negro|en\s+negro|texto\s+en\s+negro|letras\s+negras/i.test(p)) bodyColor = "#000000";
+    else if (/respuesta\s+en\s+azul|texto\s+en\s+azul/i.test(p)) bodyColor = "#0066cc";
+    else if (/respuesta\s+en\s+rojo|texto\s+en\s+rojo/i.test(p)) bodyColor = "#dc2626";
   }
 
   return { titleColor, bodyColor };
@@ -70,14 +104,55 @@ export function applyPromptColorStyles(html: string, prompt?: string): string {
 
   // 2. Body/Answer Color Styling
   if (bodyColor) {
-    res = res.replace(/<br\s*\/?>\s*([^<]+)(?=<\/p>|$)/gi, (match, answerText) => {
-      const trimmed = answerText.trim();
-      if (!trimmed) return match;
-      return `<br/><span style="color: ${bodyColor};">${trimmed}</span>`;
-    });
+    if (/<br\s*\/?>\s*<span/i.test(res)) {
+      res = res.replace(/<br\s*\/?>\s*<span(?:\s+style="([^"]*)")?>([\s\S]*?)<\/span>/gi, (match, existingStyle, content) => {
+        const cleanStyle = (existingStyle || "").replace(/color\s*:\s*[^;]+;?/gi, "").trim();
+        const newStyle = cleanStyle ? `color: ${bodyColor}; ${cleanStyle}` : `color: ${bodyColor};`;
+        return `<br/><span style="${newStyle}">${content}</span>`;
+      });
+    } else {
+      res = res.replace(/<br\s*\/?>\s*([^<]+)(?=<\/p>|$)/gi, (match, answerText) => {
+        const trimmed = answerText.trim();
+        if (!trimmed) return match;
+        return `<br/><span style="color: ${bodyColor};">${trimmed}</span>`;
+      });
+    }
   }
 
   return res;
+}
+
+export function enforceFaqCountAndFilter(html: string, prompt?: string): string {
+  if (!html || !prompt) return html;
+  const countMatch =
+    prompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) ||
+    prompt.match(/\b(1\d|[2-9])\b/);
+  if (!countMatch) return html;
+
+  const requestedCount = Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 1), 15);
+
+  const UI_TRASH_REGEX =
+    /¿QUÉ ESTÁS BUSCANDO|¿En qué momento|¿Cuál va a ser tu próximo paso|¿Dónde querés estudiar|¿Buscás algo más|¿Tenés dudas\?|cookies|iniciar sesión|tipo de formación|de \d+ a \d+ años|elegir|registrate/i;
+
+  const pBlocks = html.match(/<p[\s\S]*?<\/p>/gi) || [];
+  if (pBlocks.length === 0) return html;
+
+  const validBlocks: string[] = [];
+  const seenQuestions = new Set<string>();
+
+  for (const block of pBlocks) {
+    if (UI_TRASH_REGEX.test(block)) continue;
+    const qMatch = block.match(/¿[^?]+\?/);
+    const qKey = qMatch ? qMatch[0].toLowerCase().replace(/[^a-záéíóúñ]/g, "") : "";
+    if (qKey && seenQuestions.has(qKey)) continue;
+    if (qKey) seenQuestions.add(qKey);
+    validBlocks.push(block);
+  }
+
+  if (validBlocks.length > 0) {
+    return validBlocks.slice(0, requestedCount).join("\n");
+  }
+  return html;
 }
 
 export function buildRichProviderInfo(
@@ -433,7 +508,7 @@ async function executeModelCall(
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(3800),
+            signal: AbortSignal.timeout(12000),
             body: JSON.stringify(payload),
           }
         );
@@ -445,7 +520,7 @@ async function executeModelCall(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(2500),
+              signal: AbortSignal.timeout(6000),
               body: JSON.stringify(payload),
             }
           );
@@ -2182,9 +2257,9 @@ Tu objetivo es auditar el sitio web y generar una publicación completa, atracti
 
 HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 1. AUTORIDAD EDITORIAL SUPREMA: Las instrucciones del administrador son la regla NÚMERO UNO:
-   - TÍTULO: Si el administrador pide enfoque de marketing, especialista en conversión o título que llame la atención, REDACTA UN TÍTULO COMERCIAL IMPACTANTE. NUNCA devuelvas solo el nombre seco de la entidad si se pidió impacto comercial.
-   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS. Si pide subtítulos/títulos en negrita o letras negras y su explicación, estructura cada párrafo como <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>. Si pide tono de marketing o conversión, aplícalo.
-   - BLOQUES PERSONALIZADOS: Genera cada bloque solicitado en el array "customBlocks". Si pide Preguntas Frecuentes, formula preguntas inteligentes y respuestas claras sobre los servicios del sitio en formato HTML. Si el administrador pide colores específicos (ej: "preguntas en azul y respuestas en negro" o "de azul el título"), APLICA EL ESTILO EN LÍNEA: <p><strong style="color: #0066cc;">¿Pregunta en azul?</strong><br/><span style="color: #000000;">Respuesta en negro...</span></p>. Si no pide colores, usa <p><strong>¿Pregunta?</strong><br/>Respuesta...</p>.
+   - TÍTULO: Si el administrador proporcionó una directiva para el título ("${titlePrompt}"), DEBES ADAPTARTE DIRECTAMENTE A LO QUE PIDIÓ. Si pidió un ángulo o palabras clave específicas (ej: inscripciones, educación a distancia, títulos oficiales, tecnología, etc.), ese ángulo DEBE SER EL CORAZÓN DEL TÍTULO junto con el nombre de la entidad. NUNCA devuelvas solo el nombre seco si se pidió impacto y NUNCA uses plantillas genéricas fijas.
+   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS. Si pide subtítulos/títulos en negrita o letras negras y su explicación, estructura cada párrafo como <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>. Si la entidad es una universidad o institución educativa, habla EXCLUSIVAMENTE de su propuesta académica, carreras, modalidades de cursado, campus y admisiones; JAMÁS menciones hospitales, emergencias o guardias médicas a menos que sea un hospital clínico prestador de salud.
+   - BLOQUES PERSONALIZADOS: Genera cada bloque solicitado en el array "customBlocks". Si pide Preguntas Frecuentes, formula preguntas inteligentes y respuestas claras sobre los servicios del sitio en formato HTML. Respeta RIGUROSAMENTE la CANTIDAD de preguntas pedidas (ej: si pide "2 preguntas", genera EXACTAMENTE 2 preguntas y 2 respuestas, NI UNA MÁS NI UNA MENOS). ESTÁ ESTRICTAMENTE PROHIBIDO tomar botones o etiquetas de filtros de formularios de la web (como "¿Qué estás buscando?", "¿Cuál va a ser tu próximo paso?"). Si el administrador pide colores específicos (ej: "preguntas en rojo y su respuesta en negro" o "de azul el título"), APLICA EL ESTILO EN LÍNEA: <p><strong style="color: #dc2626;">¿Pregunta en rojo?</strong><br/><span style="color: #000000;">Respuesta en negro...</span></p>.
    - INFORMACIÓN DEL OFERENTE ('providerInfo'): Resumen institucional conciso de 1 o 2 oraciones (máximo 40 palabras) pero MUY rico, concreto y personalizado. TOTALMENTE PROHIBIDO usar plantillas clichés vacías como "es un establecimiento y prestador de servicios en...". Describe qué hace la entidad, su especialidad, áreas asistenciales o académicas de excelencia, tomando aspectos clave de la descripción principal o del sitio web.
 2. CERO PLANTILLAS RÍGIDAS FIJAS: No uses esquemas estáticos repetitivos. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
 3. Fidelidad factual y Reputación en Google Maps:
@@ -2341,6 +2416,7 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         }
       }
 
+      bodyHtml = enforceFaqCountAndFilter(bodyHtml, cb.prompt);
       bodyHtml = applyPromptColorStyles(bodyHtml, cb.prompt);
 
       extraDescriptions.push({
