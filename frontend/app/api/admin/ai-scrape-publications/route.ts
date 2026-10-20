@@ -786,9 +786,19 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
   for (const regex of explicitPatterns) {
     const m = cleanHtml.match(regex) || textContent.match(regex);
     if (m) {
+      const matchIndex = (m as any).index ?? 0;
+      const textToSearch = cleanHtml || textContent;
+      const snippet = textToSearch.slice(Math.max(0, matchIndex - 60), Math.min(textToSearch.length, matchIndex + 80));
+      if (/copyright|©|\(c\)|todos los derechos|all rights reserved|diseño web|desarrollo web|sitio desarrollado/i.test(snippet)) {
+        continue;
+      }
       const yr = m[1] || m[0].match(/([12]\d{3})/)?.[1];
       if (yr) {
         const num = Number(yr);
+        // Exclude recent copyright-like dates (current year or last 2 years) if no explicit historical founding keyword
+        if (num >= currentYear - 2 && !/fundad|cread|inaugurad|abrió|constitu/i.test(m[0])) {
+          continue;
+        }
         if (num >= 1600 && num <= currentYear) {
           return yr;
         }
@@ -1065,11 +1075,12 @@ async function enrichWithLiveGoogleMapsAndSearch(
 
   // Targeted queries executed in parallel for exact Sede Principal match
   const candidateQueries = [
-    mainAddress ? `${officialFullName || cleanName} ${mainAddress} ${city}` : null,
+    mainAddress && city ? `${officialFullName || cleanName} ${mainAddress} ${city}` : null,
+    city ? `${officialFullName || cleanName} sede central ${city}` : null,
+    `${officialFullName || cleanName} sede central`,
     mainAddress ? `${cleanName} ${mainAddress}` : null,
     city ? `${officialFullName || cleanName} ${city}` : null,
     city ? `${cleanName} ${city}` : null,
-    `${officialFullName || cleanName} sede central`,
     `${cleanName} reviews`,
     officialFullName || cleanName,
   ].filter(Boolean) as string[];
@@ -1123,7 +1134,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     return;
   }
 
-  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 2);
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 3);
 
   const searchPromises = uniqueQueries.map(async (q) => {
     try {
@@ -1136,7 +1147,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        1200
+        3500
       );
       if (!gmapsRes.ok) return null;
       return await gmapsRes.text();
@@ -2148,6 +2159,13 @@ async function fetchPageContent(url: string) {
     formattedUrl = "https://" + formattedUrl;
   }
 
+  let hostname = "";
+  try {
+    hostname = new URL(formattedUrl).hostname;
+  } catch {
+    throw new Error(`La URL "${url}" no tiene un formato válido.`);
+  }
+
   const userAgents = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -2167,7 +2185,14 @@ async function fetchPageContent(url: string) {
         redirect: "follow",
         signal: AbortSignal.timeout(5000),
       });
-    } catch {
+    } catch (e: any) {
+      const isDnsError =
+        e?.code === "ENOTFOUND" ||
+        e?.cause?.code === "ENOTFOUND" ||
+        (e?.message && /getaddrinfo\s+ENOTFOUND/i.test(e.message));
+      if (isDnsError) {
+        throw new Error(`No se pudo conectar con '${hostname || formattedUrl}'. El dominio no existe o está mal escrito. Por favor verifica la URL ingresada.`);
+      }
       // Fast fallback retry with secondary user-agent
       try {
         res = await fetch(formattedUrl, {
@@ -2179,7 +2204,15 @@ async function fetchPageContent(url: string) {
           redirect: "follow",
           signal: AbortSignal.timeout(3000),
         });
-      } catch {}
+      } catch (retryErr: any) {
+        const isRetryDns =
+          retryErr?.code === "ENOTFOUND" ||
+          retryErr?.cause?.code === "ENOTFOUND" ||
+          (retryErr?.message && /getaddrinfo\s+ENOTFOUND/i.test(retryErr.message));
+        if (isRetryDns) {
+          throw new Error(`No se pudo conectar con '${hostname || formattedUrl}'. El dominio no existe o está mal escrito. Por favor verifica la URL ingresada.`);
+        }
+      }
     }
 
     if (res && res.ok) {
@@ -2297,6 +2330,9 @@ async function fetchPageContent(url: string) {
       }
     }
   } catch (e: any) {
+    if (e?.message && e.message.includes("El dominio no existe o está mal escrito")) {
+      throw e;
+    }
     console.warn(`Primary direct fetch failed for ${url}:`, e.message);
   }
 
@@ -4792,9 +4828,15 @@ async function formatPublicationResult(
 
   let startYear =
     extractedData.detectedFoundingYear ||
-    (parsed.providerStartYear && !["2010", "2015", "2024", "2025", "2026"].includes(String(parsed.providerStartYear).trim()) ? String(parsed.providerStartYear).trim() : "") ||
+    (parsed.providerStartYear && !["2010", "2015", "2024", "2025", "2026", "2027"].includes(String(parsed.providerStartYear).trim()) ? String(parsed.providerStartYear).trim() : "") ||
     extractFoundingYear("", allText, extractedData.url, titleClean) ||
     "";
+
+  if (startYear && ["2024", "2025", "2026", "2027"].includes(startYear.trim())) {
+    if (!/fundad|cread|inaugurad|abrió|constitu/i.test(allText)) {
+      startYear = "";
+    }
+  }
 
   const sectorClassification = classifySectorAndTaxonomy(
     extractedData.url,
@@ -5905,9 +5947,15 @@ async function processUrlWithAI(
     descriptionI18n: descI18nVal,
     extraDescriptions,
     publisherName: cleanPublisher,
-    providerInfoI18n: providerInfoI18nVal,
-    providerStartYear: cleanContext.foundingYear || extracted.detectedFoundingYear || unifiedRes?.data?.detectedFoundingYear || "",
-    providerRating: cleanContext.rating || extracted.detectedRating || unifiedRes?.data?.detectedRating || "0",
+    providerStartYear: (() => {
+      const candidateYear = String(cleanContext.foundingYear || extracted.detectedFoundingYear || unifiedRes?.data?.detectedFoundingYear || "").trim();
+      if (candidateYear && ["2024", "2025", "2026", "2027"].includes(candidateYear)) {
+        if (!/fundad|cread|inaugurad|abrió|constitu/i.test(extracted.textContent || "")) {
+          return "";
+        }
+      }
+      return candidateYear;
+    })(),
     providerReviewCount: cleanContext.reviewCount || extracted.detectedReviewCount || unifiedRes?.data?.detectedReviewCount || "0",
     providerCommentsUrl: extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || primaryHq.mapUrl,
     providerLogo: cleanContext.logo || "",
@@ -6048,6 +6096,7 @@ export async function POST(req: Request) {
 
     const targetUrls = urls.slice(0, 10);
     const providersUsed = new Set<string>();
+    const batchErrors: string[] = [];
 
     // Process up to 10 URLs concurrently in mini-batches of 2 with error isolation per URL
     const batchResults = await processBatchWithConcurrency(targetUrls, 2, async (url) => {
@@ -6067,6 +6116,10 @@ export async function POST(req: Request) {
         if (providerUsed) providersUsed.add(providerUsed);
         return publication;
       } catch (err: any) {
+        if (err?.message && err.message.includes("El dominio no existe o está mal escrito")) {
+          batchErrors.push(err.message);
+          return null;
+        }
         console.warn(`[AI Scraper] AI agent execution failed for URL ${url}, falling back to grounded extraction:`, err?.message);
         try {
           const extractedFallback: any = await fetchPageContent(url);
@@ -6082,7 +6135,11 @@ export async function POST(req: Request) {
           providersUsed.add("extractor");
           return enforceStrictTaxonomyGuardrails(fallbackPub, extractedFallback, taxonomies);
         } catch (fatalErr: any) {
-          console.error(`[AI Scraper] Critical error processing URL ${url}:`, fatalErr?.message);
+          if (fatalErr?.message && fatalErr.message.includes("El dominio no existe o está mal escrito")) {
+            batchErrors.push(fatalErr.message);
+          } else {
+            console.error(`[AI Scraper] Critical error processing URL ${url}:`, fatalErr?.message);
+          }
           return null;
         }
       }
@@ -6091,9 +6148,12 @@ export async function POST(req: Request) {
     const validPublications = batchResults.filter(Boolean) as ScrapedPublication[];
 
     if (validPublications.length === 0) {
+      const specificError = batchErrors.length > 0
+        ? batchErrors[0]
+        : "No se pudo extraer contenido válido de ninguna de las URLs proporcionadas.";
       return NextResponse.json(
-        { error: "No se pudo extraer contenido válido de ninguna de las URLs proporcionadas." },
-        { status: 422 }
+        { error: specificError },
+        { status: 400 }
       );
     }
 
