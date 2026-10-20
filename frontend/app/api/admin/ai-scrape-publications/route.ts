@@ -5881,16 +5881,16 @@ async function processUrlWithAI(
 
   const dynamicFallbackClassified = classifySectorAndTaxonomy(url, titleVal, extracted.textContent, taxonomies);
 
-  const finalTaxonomyData = (taxonomyRes.success && taxonomyRes.data)
+  const finalTaxonomyData = (taxonomyRes?.success && taxonomyRes?.data)
     ? taxonomyRes.data
     : dynamicFallbackClassified;
 
-  const detectedLanguages = (taxonomyRes.success && taxonomyRes.data?.languages?.length)
+  const detectedLanguages = (taxonomyRes?.success && taxonomyRes?.data?.languages?.length)
     ? taxonomyRes.data.languages
-    : detectLanguagesFromText(extracted.textContent, taxonomies.languages);
+    : detectLanguagesFromText(extracted.textContent, taxonomies?.languages);
 
-  const aiProviderInfo = providerInfoRes.data?.providerInfoI18n;
-  const pInfoEs = aiProviderInfo?.es || providerInfoRes.data?.providerInfo || "";
+  const aiProviderInfo = providerInfoRes?.data?.providerInfoI18n;
+  const pInfoEs = aiProviderInfo?.es || providerInfoRes?.data?.providerInfo || "";
   const providerInfoI18nVal = pInfoEs
     ? {
         es: pInfoEs,
@@ -5922,6 +5922,7 @@ async function processUrlWithAI(
       }
       return candidateYear;
     })(),
+    providerRating: cleanContext.rating || extracted.detectedRating || unifiedRes?.data?.detectedRating || "0",
     providerReviewCount: cleanContext.reviewCount || extracted.detectedReviewCount || unifiedRes?.data?.detectedReviewCount || "0",
     providerCommentsUrl: extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || primaryHq.mapUrl,
     providerLogo: cleanContext.logo || "",
@@ -6101,11 +6102,8 @@ export async function POST(req: Request) {
           providersUsed.add("extractor");
           return enforceStrictTaxonomyGuardrails(fallbackPub, extractedFallback, taxonomies);
         } catch (fatalErr: any) {
-          if (fatalErr?.message && fatalErr.message.includes("El dominio no existe o está mal escrito")) {
-            batchErrors.push(fatalErr.message);
-          } else {
-            console.error(`[AI Scraper] Critical error processing URL ${url}:`, fatalErr?.message);
-          }
+          batchErrors.push(fatalErr?.message || err?.message || `Error procesando ${url}`);
+          console.error(`[AI Scraper] Critical error processing URL ${url}:`, fatalErr?.message || err?.message);
           return null;
         }
       }
