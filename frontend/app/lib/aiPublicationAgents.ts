@@ -304,19 +304,19 @@ async function executeModelCall(
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(6000),
+            signal: AbortSignal.timeout(3800),
             body: JSON.stringify(payload),
           }
         );
 
         if (res.status === 429) {
-          await new Promise((r) => setTimeout(r, 400));
+          await new Promise((r) => setTimeout(r, 300));
           res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(4000),
+              signal: AbortSignal.timeout(2500),
               body: JSON.stringify(payload),
             }
           );
@@ -332,7 +332,7 @@ async function executeModelCall(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(4000),
+              signal: AbortSignal.timeout(2500),
               body: JSON.stringify(fallbackPayload),
             }
           );
