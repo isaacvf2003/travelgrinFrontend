@@ -12,6 +12,9 @@ import {
   runTaxonomyAgent,
   runUnifiedPublicationAgent,
   buildTaxonomyCatalogPromptSection,
+  detectPromptColors,
+  applyPromptColorStyles,
+  buildRichProviderInfo,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
@@ -3793,6 +3796,10 @@ async function buildGroundedCustomBlock(
     const cleanEntityName = cleanTitleString(extractedData?.title || "").split(/\s*[-–—|]\s*/)[0].trim() || "La entidad";
     const locStr = primaryHq?.city ? ` en ${primaryHq.city}` : "";
 
+    const { titleColor, bodyColor } = detectPromptColors(blockPrompt);
+    const titleStyle = titleColor ? ` style="color: ${titleColor};"` : "";
+    const bodySpan = (txt: string) => bodyColor ? `<span style="color: ${bodyColor};">${txt}</span>` : txt;
+
     const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(titleLower) || /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(promptLower);
 
     let bodyEs = "";
@@ -3810,7 +3817,7 @@ async function buildGroundedCustomBlock(
           const q = `${parts[0].trim()}?`;
           const a = parts.slice(1).join("?").trim();
           if (q.length > 5) evidencias.push(q);
-          return `<p><strong>${escapeHtml(q)}</strong><br/>${escapeHtml(a)}</p>`;
+          return `<p><strong${titleStyle}>${escapeHtml(q)}</strong><br/>${bodySpan(escapeHtml(a))}</p>`;
         });
         bodyEs = parsedFaqs.join("\n");
         estado = "ok";
@@ -3864,7 +3871,7 @@ async function buildGroundedCustomBlock(
         ];
 
         const selected = dynamicTopics.slice(0, requestedCount);
-        bodyEs = selected.map((item) => `<p><strong>${item.q}</strong><br/>${item.a}</p>`).join("\n");
+        bodyEs = selected.map((item) => `<p><strong${titleStyle}>${item.q}</strong><br/>${bodySpan(item.a)}</p>`).join("\n");
         estado = "ok";
         evidencias.push(`${cleanEntityName} - Canales y servicios verificados`);
       }
@@ -5168,6 +5175,24 @@ async function formatPublicationResult(
     }
   }
 
+  // Apply prompt-driven color styling to ALL custom description blocks
+  for (const extra of formattedExtraDescriptions) {
+    if (!extra.prompt && Array.isArray(customBlocks)) {
+      const matchCb = customBlocks.find((cb) => cb.title && cb.title.trim().toLowerCase() === extra.title.trim().toLowerCase());
+      if (matchCb?.prompt) {
+        extra.prompt = matchCb.prompt;
+      }
+    }
+    if (extra.prompt && extra.body) {
+      const styled = applyPromptColorStyles(extra.body, extra.prompt);
+      extra.body = styled;
+      extra.contenido = styled;
+      if (extra.bodyI18n) {
+        extra.bodyI18n.es = styled;
+      }
+    }
+  }
+
   const titleI18n = {
     es: cleanTitleString(title),
     en: "",
@@ -5175,12 +5200,17 @@ async function formatPublicationResult(
     it: "",
   };
 
-  const defaultProvInfoEs = `${publisherName || title} es un establecimiento y prestador de servicios en ${primaryHq.city}, ${primaryHq.country}.`;
+  const defaultProvInfoEs = (parsed.providerInfo && !parsed.providerInfo.includes("es un establecimiento y prestador de servicios") && parsed.providerInfo.length > 20)
+    ? parsed.providerInfo
+    : (parsed.providerInfoI18n?.es && !parsed.providerInfoI18n.es.includes("es un establecimiento y prestador de servicios") && parsed.providerInfoI18n.es.length > 20)
+    ? parsed.providerInfoI18n.es
+    : buildRichProviderInfo(publisherName || title, primaryHq.city, primaryHq.country, extractedData, finalDescEs);
+
   const providerInfoI18n = {
     es: defaultProvInfoEs,
-    en: "",
-    pt: "",
-    it: "",
+    en: parsed.providerInfoI18n?.en || "",
+    pt: parsed.providerInfoI18n?.pt || "",
+    it: parsed.providerInfoI18n?.it || "",
   };
 
   // Comments URL: prioritize verified real place link from live scraping / known catalog, then valid AI link, then fallback search
@@ -6003,7 +6033,7 @@ async function processUrlWithAI(
 
   const aiProviderInfo = providerInfoRes?.data?.providerInfoI18n;
   const pInfoEs = aiProviderInfo?.es || providerInfoRes?.data?.providerInfo || "";
-  const providerInfoI18nVal = pInfoEs
+  const providerInfoI18nVal = (pInfoEs && !pInfoEs.includes("es un establecimiento y prestador de servicios") && pInfoEs.length > 20)
     ? {
         es: pInfoEs,
         en: aiProviderInfo?.en || "",
@@ -6011,11 +6041,29 @@ async function processUrlWithAI(
         it: aiProviderInfo?.it || "",
       }
     : {
-        es: `${cleanPublisher} es un establecimiento y prestador de servicios en ${primaryHq.city}, ${primaryHq.country}.`,
+        es: buildRichProviderInfo(cleanPublisher, primaryHq.city, primaryHq.country, extracted, descVal),
         en: "",
         pt: "",
         it: "",
       };
+
+  // Apply prompt-driven color styling to ALL extraDescriptions
+  for (const extra of extraDescriptions) {
+    if (!extra.prompt && Array.isArray(customBlocks)) {
+      const matchCb = customBlocks.find((cb) => cb.title && cb.title.trim().toLowerCase() === extra.title.trim().toLowerCase());
+      if (matchCb?.prompt) {
+        extra.prompt = matchCb.prompt;
+      }
+    }
+    if (extra.prompt && extra.body) {
+      const styled = applyPromptColorStyles(extra.body, extra.prompt);
+      extra.body = styled;
+      extra.contenido = styled;
+      if (extra.bodyI18n) {
+        extra.bodyI18n.es = styled;
+      }
+    }
+  }
 
   const publication: ScrapedPublication = {
     url,
