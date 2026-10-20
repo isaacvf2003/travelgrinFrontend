@@ -20,3 +20,10 @@ Thumbs.db
 *.log
 *.tmp
 *.temp
+travelgrin definitivo/
+scratch/
+test_maps.js
+test_scraper_sim.js
+gmaps_response.html
+state.json
+scratch_check_sites.js

@@ -300,19 +300,19 @@ async function executeModelCall(
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(20000),
+            signal: AbortSignal.timeout(6000),
             body: JSON.stringify(payload),
           }
         );
 
         if (res.status === 429) {
-          await new Promise((r) => setTimeout(r, 600));
+          await new Promise((r) => setTimeout(r, 400));
           res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(20000),
+              signal: AbortSignal.timeout(4000),
               body: JSON.stringify(payload),
             }
           );
@@ -328,7 +328,7 @@ async function executeModelCall(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(20000),
+              signal: AbortSignal.timeout(4000),
               body: JSON.stringify(fallbackPayload),
             }
           );
@@ -359,12 +359,10 @@ async function executeModelCall(
       }
     }
 
-    // 2. Probar candidatos conocidos (gemini-1.5-flash primero por máxima compatibilidad y cuota)
+    // 2. Probar candidatos ultrarrápidos (gemini-1.5-flash primero por máxima compatibilidad y cuota)
     const candidateModels = [
       "gemini-1.5-flash",
       "gemini-2.0-flash",
-      "gemini-1.5-flash-8b",
-      "gemini-1.5-pro",
     ];
 
     let lastErr: any = null;
@@ -383,33 +381,6 @@ async function executeModelCall(
         lastErr = e;
       }
     }
-
-    // 3. Descubrimiento dinámico mediante ListModels si los modelos fijos fallaron
-    try {
-      const listRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
-        { signal: AbortSignal.timeout(6000) }
-      );
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const available = (listData.models || [])
-          .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
-          .map((m: any) => m.name.replace(/^models\//, ""))
-          .filter((m: string) => !candidateModels.includes(m));
-
-        for (const model of available) {
-          try {
-            const result = await callModel(model);
-            if (result) {
-              cachedWorkingGeminiModel = model;
-              return result;
-            }
-          } catch (e: any) {
-            lastErr = e;
-          }
-        }
-      }
-    } catch {}
 
     throw lastErr || new Error(`Gemini no pudo responder: ${errorsList.join(" | ")}`);
   };
@@ -435,7 +406,7 @@ async function executeModelCall(
             response_format: { type: "json_object" },
             temperature: 0.75,
           }),
-          signal: AbortSignal.timeout(20000),
+          signal: AbortSignal.timeout(6000),
         });
         if (res.ok) {
           const json = await res.json();

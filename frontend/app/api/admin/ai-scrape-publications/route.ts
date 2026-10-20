@@ -1147,7 +1147,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        3500
+        2200
       );
       if (!gmapsRes.ok) return null;
       return await gmapsRes.text();
@@ -1229,7 +1229,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0" && extracted.detectedFoundingYear) break;
   }
 
-  // Fast targeted Search fallback (timeout 1800ms) only if founding year or ratings are still completely missing
+  // Fast targeted Search fallback (timeout 1200ms) only if founding year or ratings are still completely missing
   if ((!extracted.detectedRating || !extracted.detectedFoundingYear) && cleanName) {
     try {
       const webQuery = !extracted.detectedFoundingYear
@@ -1245,7 +1245,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        1800
+        1200
       );
       if (res.ok) {
         const rawHtml = await res.text();
@@ -5746,7 +5746,7 @@ async function processUrlWithAI(
 
   let unifiedRes: any = null;
   try {
-    unifiedRes = await runUnifiedPublicationAgent({
+    const aiPromise = runUnifiedPublicationAgent({
       context: cleanContext,
       customTitlePrompt,
       customDescriptionPrompt,
@@ -5754,8 +5754,12 @@ async function processUrlWithAI(
       taxonomies,
       includeScoreScout,
     });
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("AI generation timeout")), 7000)
+    );
+    unifiedRes = await Promise.race([aiPromise, timeoutPromise]);
   } catch (uErr: any) {
-    console.warn(`[AI Scraper] Unified agent failed for ${url}:`, uErr?.message);
+    console.warn(`[AI Scraper] Unified agent skipped (${uErr?.message})`);
   }
 
   if (unifiedRes && unifiedRes.success && unifiedRes.data) {
@@ -5830,59 +5834,21 @@ async function processUrlWithAI(
       }
     }
   } else {
-    // Si el agente unificado no pudo responder, correr mini-agentes escalonados
-    try {
-      titleAgentRes = await runTitleAgent(cleanContext, customTitlePrompt || customAdminPrompt);
-      descAgentRes = await runDescriptionAgent(cleanContext, customDescriptionPrompt || customAdminPrompt);
-      taxonomyRes = await runTaxonomyAgent(cleanContext, taxonomies);
-      providerInfoRes = await runProviderInfoAgent(cleanContext);
-    } catch (agentErr: any) {
-      console.warn(`[AI Scraper] AI agent execution failed for ${url}, falling back to grounded extraction:`, agentErr?.message);
-      const fallbackPub = await createFallbackPublication(
-        extracted,
-        taxonomies,
-        customBlocks,
-        customAdminPrompt,
-        customTitlePrompt,
-        customDescriptionPrompt,
-        includeScoreScout
-      );
-      return {
-        publication: enforceStrictTaxonomyGuardrails(fallbackPub, extracted, taxonomies),
-        providerUsed: "extractor",
-      };
-    }
-
-    if (titleAgentRes?.providerUsed && titleAgentRes.providerUsed !== "none") providersUsed.add(titleAgentRes.providerUsed);
-    if (descAgentRes?.providerUsed && descAgentRes.providerUsed !== "none") providersUsed.add(descAgentRes.providerUsed);
-    if (providerInfoRes?.providerUsed && providerInfoRes.providerUsed !== "none") providersUsed.add(providerInfoRes.providerUsed);
-    if (taxonomyRes?.providerUsed && taxonomyRes.providerUsed !== "none") providersUsed.add(taxonomyRes.providerUsed);
-
-    // Score Scout Block (si está habilitado)
-    if (includeScoreScout !== false) {
-      const scoreBlock = buildScoreScoutBlock(
-        cleanPublisher,
-        cleanContext.foundingYear || "",
-        cleanContext.rating || "5.0",
-        extracted.textContent,
-        undefined,
-        url,
-        cleanContext.reviewCount || "0"
-      );
-      extraDescriptions.push(scoreBlock);
-    }
-
-    // Bloques personalizados solicitados por el administrador
-    if (Array.isArray(customBlocks) && customBlocks.length > 0) {
-      const validCustomBlocks = customBlocks.filter((cb) => cb && cb.title && cb.title.trim());
-      for (const cb of validCustomBlocks) {
-        const blockRes = await runCustomBlockAgent(cleanContext, cb.title, cb.prompt);
-        extraDescriptions.push(blockRes);
-        if (validCustomBlocks.length > 1) {
-          await new Promise((r) => setTimeout(r, 200));
-        }
-      }
-    }
+    // Si el agente unificado no respondió a tiempo o falló, recurrir inmediatamente a grounded extraction para evitar 504 en Vercel
+    console.warn(`[AI Scraper] AI agent did not respond within limit for ${url}, switching directly to grounded extractor`);
+    const fallbackPub = await createFallbackPublication(
+      extracted,
+      taxonomies,
+      customBlocks,
+      customAdminPrompt,
+      customTitlePrompt,
+      customDescriptionPrompt,
+      includeScoreScout
+    );
+    return {
+      publication: enforceStrictTaxonomyGuardrails(fallbackPub, extracted, taxonomies),
+      providerUsed: "extractor",
+    };
   }
 
   // 5. Taxonomy & Location mapping
