@@ -2076,9 +2076,9 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 2. CERO PLANTILLAS RÍGIDAS FIJAS: No uses esquemas estáticos repetitivos. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
 3. Fidelidad factual y Reputación en Google Maps:
    - Basa los textos en los servicios, ofertas, propuestas y datos reales de la web de "${entityName}".
-   - 'detectedFoundingYear': Año real y verdadero en que se fundó la institución o comenzó sus actividades históricas (ej: "1987", "1903", "2022"). Deduce o investiga de la web y de tus conocimientos el año verídico de inicio. TOTALMENTE PROHIBIDO inventar años genéricos como "2010" o "2015".
-   - 'detectedRating': Calificación numérica real de 1.0 a 5.0 (ej: "4.8", "4.5", "5.0") que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL (Casa Central). Si hay múltiples sedes, toma obligatoriamente la de la sede principal. Si no posee ficha en Google Maps o no hay datos, pon "0".
-   - 'detectedReviewCount': Cantidad exacta de reseñas / comentarios de usuarios que tiene en Google Maps en esa sede principal (ej: "142", "26"). Si no posee, pon "0".
+   - 'detectedFoundingYear': Año real y verdadero en que se fundó la institución o comenzó sus actividades históricas (ej: "1987", "1969", "1903", "2022"). TOTALMENTE PROHIBIDO tomar el año de copyright del pie de página de la web (como "2024", "2025" o "2026"), ya que eso es solo la fecha técnica del sitio web y NO el año de origen de la entidad. Si no hay año histórico verídico comprobado, devuelve "".
+   - 'detectedRating': Calificación numérica real de 1.0 a 5.0 (ej: "4.8", "2.6", "4.5", "5.0") que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). Si hay múltiples sedes, toma OBLIGATORIAMENTE la de la sede principal. Si no posee ficha en Google Maps o no hay datos, pon "0".
+   - 'detectedReviewCount': Cantidad exacta de reseñas / opiniones de usuarios que tiene en Google Maps en esa sede principal (ej: "714", "142", "26"). Si no posee, pon "0".
    - 'detectedCommentsUrl': Enlace directo o de búsqueda a las opiniones en Google Maps de su sede principal.
 4. CLASIFICACIÓN TAXONÓMICA DINÁMICA Y SELECCIÓN MÚLTIPLE:
    - El administrador crea los bloques con taxonomías: actividad, modalidad, tipos, categoria, idiomas.
