@@ -9910,6 +9910,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                         className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
                         placeholder="Título del bloque"
                       />
+                      <input
+                        value={desc.prompt ?? ""}
+                        onChange={(e) =>
+                          setPExtraDescriptions((prev) =>
+                            prev.map((d, i) =>
+                              i === idx ? { ...d, prompt: e.target.value } : d
+                            )
+                          )
+                        }
+                        className="h-8 rounded-lg border border-purple-200 bg-purple-50/40 px-3 text-xs text-purple-900 placeholder:text-purple-400 outline-none focus:ring-1 focus:ring-purple-400"
+                        placeholder="💡 Instrucción / Prompt de IA para este bloque (ej: 4 preguntas frecuentes con respuesta, requisitos clave...)"
+                      />
                       <RichTextEditor
                         value={desc.bodyI18n[pLang] ?? ""}
                         onChange={(next) =>
