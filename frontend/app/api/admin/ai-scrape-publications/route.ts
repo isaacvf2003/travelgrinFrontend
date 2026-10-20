@@ -29,6 +29,10 @@ async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms: number 
   }
 }
 
+function escapeRegExp(str: string): string {
+  return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export type I18nRecord = Record<string, string>;
 
 export interface ExtraDescriptionBlock {
@@ -3973,9 +3977,11 @@ function classifySectorAndTaxonomy(
     for (const tok of pTokens) {
       if (titleNorm.includes(tok)) parentScore += 15;
       if (urlNorm.includes(tok)) parentScore += 10;
-      const regex = new RegExp(`\\b${tok}`, "g");
-      const matches = lowerCorpus.match(regex);
-      if (matches) parentScore += Math.min(matches.length * 2, 20);
+      try {
+        const regex = new RegExp(`\\b${escapeRegExp(tok)}`, "g");
+        const matches = lowerCorpus.match(regex);
+        if (matches) parentScore += Math.min(matches.length * 2, 20);
+      } catch {}
     }
 
     if (isOngEntity && isOngMatch(parent.name)) {
@@ -4021,9 +4027,11 @@ function classifySectorAndTaxonomy(
       for (const tok of sTokens) {
         if (titleNorm.includes(tok)) subScore += 20;
         if (urlNorm.includes(tok)) subScore += 15;
-        const regex = new RegExp(`\\b${tok}`, "g");
-        const matches = lowerCorpus.match(regex);
-        if (matches) subScore += Math.min(matches.length * 3, 30);
+        try {
+          const regex = new RegExp(`\\b${escapeRegExp(tok)}`, "g");
+          const matches = lowerCorpus.match(regex);
+          if (matches) subScore += Math.min(matches.length * 3, 30);
+        } catch {}
       }
 
       if (isOngEntity && isOngMatch(sub)) {
@@ -4167,9 +4175,11 @@ function classifySectorAndTaxonomy(
     if (titleNorm.includes(aNorm)) actScore += 40;
     for (const tok of aTokens) {
       if (titleNorm.includes(tok)) actScore += 15;
-      const regex = new RegExp(`\\b${tok}`, "g");
-      const matches = lowerCorpus.match(regex);
-      if (matches) actScore += Math.min(matches.length * 2, 20);
+      try {
+        const regex = new RegExp(`\\b${escapeRegExp(tok)}`, "g");
+        const matches = lowerCorpus.match(regex);
+        if (matches) actScore += Math.min(matches.length * 2, 20);
+      } catch {}
     }
     if (isHealthEntity && /salud|asistencia|social|medic/i.test(aNorm)) {
       actScore += 120;

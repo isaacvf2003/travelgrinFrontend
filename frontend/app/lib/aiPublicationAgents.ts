@@ -16,6 +16,10 @@
 
 export type I18nRecord = Record<string, string>;
 
+function escapeRegExp(str: string): string {
+  return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export interface ExtraDescriptionBlock {
   title: string;
   titleI18n: I18nRecord;
@@ -769,7 +773,9 @@ export async function runCustomBlockAgent(
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
 
   if (entityName && bTitle.toLowerCase().includes(entityName.toLowerCase())) {
-    bTitle = bTitle.replace(new RegExp(`\\s*(?:[-–—|]|(?:\\b(?:en|de|del|para|sobre|con)\\s+(?:la|el|los|las)?))\\s*${entityName}.*$`, "i"), "").trim();
+    try {
+      bTitle = bTitle.replace(new RegExp(`\\s*(?:[-–—|]|(?:\\b(?:en|de|del|para|sobre|con)\\s+(?:la|el|los|las)?))\\s*${escapeRegExp(entityName)}.*$`, "i"), "").trim();
+    } catch {}
   }
   if (!bTitle) bTitle = "Información Adicional";
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
@@ -881,7 +887,9 @@ GENERA EL CONTENIDO EN HTML DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIV
 
     genTitle = cleanGenericBlockTitle(genTitle, bPrompt);
     if (entityName && genTitle.toLowerCase().includes(entityName.toLowerCase())) {
-      genTitle = genTitle.replace(new RegExp(`\\s*(?:[-–—|]|(?:\\b(?:en|de|del|para|sobre|con)\\s+(?:la|el|los|las)?))\\s*${entityName}.*$`, "i"), "").trim();
+      try {
+        genTitle = genTitle.replace(new RegExp(`\\s*(?:[-–—|]|(?:\\b(?:en|de|del|para|sobre|con)\\s+(?:la|el|los|las)?))\\s*${escapeRegExp(entityName)}.*$`, "i"), "").trim();
+      } catch {}
     }
     if (!genTitle) genTitle = bTitle || "Información Adicional";
 
