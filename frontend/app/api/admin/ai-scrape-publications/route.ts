@@ -3626,7 +3626,8 @@ function generateImpactfulTitle(
   const pTrim = (prompt || "").trim();
   if (!pTrim) return cleanName;
 
-  const baseEntityName = publisherName?.trim() || cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
+  let baseEntityName = publisherName?.trim() || cleanName.split(/\s*[:|–—\-]\s*/)[0].trim() || cleanName;
+  baseEntityName = baseEntityName.replace(/(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|especialista|experto|marketing|conversi[oó]n|llamativ|impactante|vendedor)[\s\S]*/i, "").trim() || baseEntityName;
 
   // 1. If the prompt contains explicit quoted title text: e.g. Título: "..." or '...'
   const quotedMatch = pTrim.match(/["'«“]([^"'»”]{5,120})["'»”]/);
@@ -3648,25 +3649,13 @@ function generateImpactfulTitle(
     return `${baseEntityName}: ${dText}`;
   }
 
-  // 3. Extract the substantive request from the prompt itself (remove meta-instructions)
-  const cleanPromptText = pTrim
-    .replace(/^(?:por\s+favor\s+)?(?:quiero\s+(?:un\s+)?)?t[ií]tulo(?:\s+(?:que\s+sea|llamativo|impactante|vendedor|comercial|de\s+marketing))*\s*(?:y\s+(?:vendedor|impactante|llamativo|comercial))?\s*[:\-–]?\s*/i, "")
-    .replace(/^(?:crear|generar|hacer|poner|redactar)\s+(?:un\s+)?t[ií]tulo(?:\s+(?:que\s+diga|enfocado\s+en|sobre))?\s*[:\-–]?\s*/i, "")
-    .replace(/^(?:un\s+)?t[ií]tulo(?:\s+(?:que\s+sea|con\s+enfoque\s+en|centrado\s+en))?\s*[:\-–]?\s*/i, "")
-    .replace(/^(?:con\s+enfoque\s+en|enfocado\s+en|centrado\s+en|que\s+hable\s+de)\s*[:\-–]?\s*/i, "")
-    .trim();
+  // Check if prompt is an instruction / directive for the AI
+  const isInstructionPrompt = /(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|act[uú]a|especialista|experto|copywriter|llamativ|impactante|conversi[oó]n|marketing|que\s+(?:llame|sea|tenga)|atenci[oó]n|vendedor|buen\s+seo|optimizado|persuasiv|venda)/i.test(pTrim);
 
-  // If the user gave a descriptive phrase (e.g. "Líder en educación superior y carreras virtuales"):
-  const isGenericPromptWord = /^(?:impactante|llamativo|vendedor|comercial|marketing|atractivo|bueno|profesional|corto|largo|y\s+vendedor|y\s+llamativo|y\s+comercial)$/i.test(cleanPromptText);
-  if (cleanPromptText.length >= 8 && !isGenericPromptWord) {
-    if (cleanPromptText.toLowerCase().includes(baseEntityName.toLowerCase())) {
-      return cleanPromptText;
-    }
-    return `${baseEntityName}: ${cleanPromptText}`;
-  }
-
-  // 4. Dynamic extraction from real website corpus (NO templates!)
   const allCorpus = `${corpusText || ""}`;
+  const isExplicitEdu = /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${baseEntityName} ${sector} ${allCorpus}`);
+  const isHealth = !isExplicitEdu && /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico/i.test(`${baseEntityName} ${sector} ${allCorpus}`);
+
   const headings = allCorpus
     .split(/\n+/)
     .map((h) => h.trim())
@@ -3675,12 +3664,39 @@ function generateImpactfulTitle(
     (h) => !h.toLowerCase().includes(baseEntityName.toLowerCase()) && !/¿/i.test(h)
   );
 
+  if (isInstructionPrompt) {
+    if (isExplicitEdu) {
+      return `${baseEntityName} | Carreras Universitarias, Cursado Online y Título Oficial`;
+    }
+    if (isHealth) {
+      return `${baseEntityName} | Servicios Médicos, Guardia y Especialidades Clínicas`;
+    }
+    if (candidateSlogan) {
+      return `${baseEntityName} | ${candidateSlogan}`;
+    }
+    return `${baseEntityName} | Servicios Profesionales de Alta Calidad`;
+  }
+
+  // 3. Extract the substantive request from the prompt itself (remove meta-instructions)
+  const cleanPromptText = pTrim
+    .replace(/^(?:por\s+favor\s+)?(?:quiero\s+(?:un\s+)?)?t[ií]tulo(?:\s+(?:que\s+sea|llamativo|impactante|vendedor|comercial|de\s+marketing))*\s*(?:y\s+(?:vendedor|impactante|llamativo|comercial))?\s*[:\-–]?\s*/i, "")
+    .replace(/^(?:crear|generar|hacer|poner|redactar)\s+(?:un\s+)?t[ií]tulo(?:\s+(?:que\s+diga|enfocado\s+en|sobre))?\s*[:\-–]?\s*/i, "")
+    .replace(/^(?:un\s+)?t[ií]tulo(?:\s+(?:que\s+sea|con\s+enfoque\s+en|centrado\s+en))?\s*[:\-–]?\s*/i, "")
+    .replace(/^(?:con\s+enfoque\s+en|enfocado\s+en|centrado\s+en|que\s+hable\s+de)\s*[:\-–]?\s*/i, "")
+    .trim();
+
+  // If the user gave a descriptive subtitle (e.g. "Líder en educación superior"):
+  const isGenericPromptWord = /^(?:impactante|llamativo|vendedor|comercial|marketing|atractivo|bueno|profesional|corto|largo|y\s+vendedor|y\s+llamativo|y\s+comercial)$/i.test(cleanPromptText);
+  if (cleanPromptText.length >= 8 && !isGenericPromptWord) {
+    if (cleanPromptText.toLowerCase().includes(baseEntityName.toLowerCase())) {
+      return cleanPromptText;
+    }
+    return `${baseEntityName}: ${cleanPromptText}`;
+  }
+
   if (candidateSlogan) {
     return `${baseEntityName} | ${candidateSlogan}`;
   }
-
-  const isExplicitEdu = /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${baseEntityName} ${sector} ${allCorpus}`);
-  const isHealth = !isExplicitEdu && /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico/i.test(`${baseEntityName} ${sector} ${allCorpus}`);
 
   if (isExplicitEdu) {
     return `${baseEntityName} | Propuesta Académica y Formación Universitaria`;
@@ -3702,15 +3718,19 @@ async function buildGroundedDescriptions(
   const prompt = (customAdminPrompt || "").trim();
   const omitIcons = checkPromptOmitIcons(prompt);
 
-  const cleanTitle = title || cleanTitleString(extractedData.title) || "";
-  const baseEntityName = cleanTitle.split(/\s*[-–—|]\s*/)[0].trim() || cleanTitle;
+  const rawCleanTitle = title || cleanTitleString(extractedData.title) || "";
+  let baseEntityName = rawCleanTitle
+    .split(/\s*[:|–—\-]\s*/)[0]
+    .replace(/(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|especialista|experto|marketing|conversi[oó]n|llamativ|impactante|vendedor)[\s\S]*/i, "")
+    .trim() || rawCleanTitle;
+
   const locationText = [city, country].filter(Boolean).join(", ");
   const siteUrl = escapeHtml(extractedData.url);
 
   let rawDesc = cleanJunkTextPhrases(extractedData.description || "");
   if (!rawDesc || rawDesc.length < 20) {
     const rawParagraphs = (extractedData.textContent || "").split("\n\n").map((p: string) => cleanJunkTextPhrases(p.trim()));
-    rawDesc = rawParagraphs.find((p: string) => p.length >= 45 && !p.includes("•") && !/portal del empleado|webmail|intranet|gde|login|iniciar sesi/i.test(p)) || rawParagraphs[0] || cleanTitle;
+    rawDesc = rawParagraphs.find((p: string) => p.length >= 45 && !p.includes("•") && !/portal del empleado|webmail|intranet|gde|login|iniciar sesi/i.test(p)) || rawParagraphs[0] || cleanTitleString(extractedData.title || "");
   }
   rawDesc = cleanJunkTextPhrases(rawDesc);
   const cleanSummary = escapeHtml(decodeHtmlEntities(rawDesc.slice(0, 380))).trim();
@@ -3734,13 +3754,12 @@ async function buildGroundedDescriptions(
 
   // Precise sector detection: never mix education with medical!
   const isExplicitEdu = /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${baseEntityName} ${extractedData.url}`);
-  const isHealth = !isExplicitEdu && /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico|policl[ií]nic|urgencias?\s+m[eé]dicas?/i.test(`${baseEntityName} ${extractedData.url}`);
   const isEdu = isExplicitEdu || /universidad|facultad|instituto|colegio|educaci[oó]n|carrera|alumno|estudiante|grado|posgrado|campus|licenciatura/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`);
+  const isHealth = !isExplicitEdu && !isEdu && /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico|policl[ií]nic|urgencias?\s+m[eé]dicas?/i.test(`${baseEntityName} ${extractedData.url}`);
   const isTourism = !isHealth && !isEdu && /hotel|hostel|turismo|alojam|posada|cabaña|resort|hospedaje/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`);
   const isGastro = !isHealth && !isEdu && /restaurante|bar|gastronom|cocina|parrilla|caf[eé]/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`);
   const isLegal = !isHealth && !isEdu && /traduct|abogad|legal|notari|escriban|jur[ií]dic/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`);
 
-  // Dynamic paragraphs built from actual scraped content - NO hardcoded medical/clinic templates!
   const paragraphs: string[] = [];
 
   const cleanParas = (extractedData.textContent || "")
@@ -3748,25 +3767,135 @@ async function buildGroundedDescriptions(
     .map((p: string) => cleanJunkTextPhrases(p.trim()))
     .filter((p: string) => p.length >= 40 && !p.includes("•") && !/cookie|login|iniciar sesi|portal/i.test(p));
 
-  if (targetParagraphCount > 0 && wantsBoldTitles) {
-    for (let i = 0; i < targetParagraphCount; i++) {
-      const heading = headingsList[i] || (i === 0 ? "Presentación Institucional" : i === 1 ? "Propuesta y Servicios" : i === 2 ? "Metodología y Alcance" : i === 3 ? "Equipo y Calidad" : "Contacto y Canales Oficiales");
-      const bodyContent = cleanParas[i] || (i === 0 ? `${baseEntityName} ofrece servicios y propuestas destacadas${locationText ? ` en ${locationText}` : ""}, con trayectoria y compromiso profesional.` : i === targetParagraphCount - 1 ? `Consultas, información y canales de atención disponibles en su sitio oficial ${siteUrl}.` : `Brinda prestaciones orientadas a la excelencia, adaptadas a las necesidades de cada usuario con respaldo institucional.`);
-      paragraphs.push(`<p><strong>${heading}:</strong> ${bodyContent}</p>`);
+  if (targetParagraphCount > 0) {
+    let thematicParagraphs: Array<{ heading: string; body: string }> = [];
+
+    if (isEdu) {
+      thematicParagraphs = [
+        {
+          heading: "Liderazgo Institucional y Propuesta Educativa",
+          body: `${baseEntityName} es una destacada institución de educación superior${locationText ? ` con sede en ${locationText}` : ""}, reconocida por su trayectoria académica, su modelo pedagógico de vanguardia y su firme compromiso con la formación integral de profesionales líderes.`
+        },
+        {
+          heading: "Oferta Académica, Grados y Titulaciones Oficiales",
+          body: `Dispone de una sólida propuesta académica que abarca ${headingsList.length ? escapeHtml(headingsList.slice(0, 3).join(", ")) : "carreras de grado, posgrados, tecnicaturas y diplomaturas"}, diseñadas con planes de estudio actualizados y títulos oficiales que responden a las exigencias del entorno laboral global.`
+        },
+        {
+          heading: "Modalidades Flexibles y Plataforma de Aprendizaje",
+          body: `Brinda opciones de cursado presenciales en su campus y programas 100% online a través de modernas plataformas virtuales, permitiendo a los estudiantes organizar sus tiempos de estudio con flexibilidad y acompañamiento tutorial permanente.`
+        },
+        {
+          heading: "Innovación Tecnológica y Competencias Profesionales",
+          body: `Su metodología formativa integra herramientas digitales de última generación, vinculación estratégica con el mercado profesional y desarrollo de habilidades orientadas a potenciar la inserción laboral y el crecimiento de sus graduados.`
+        },
+        {
+          heading: "Admisiones, Asesoramiento y Vías Oficiales",
+          body: `Para conocer los requisitos de ingreso, fechas de inscripción, aranceles y programas de becas vigentes, podés solicitar asesoramiento personalizado a través de su sitio oficial ${siteUrl}.`
+        }
+      ];
+    } else if (isHealth) {
+      thematicParagraphs = [
+        {
+          heading: "Perfil Institucional y Compromiso Asistencial",
+          body: `${baseEntityName} es una institución de salud de referencia${locationText ? ` ubicada en ${locationText}` : ""}, orientada a la atención médica de excelencia y al cuidado integral de la comunidad.`
+        },
+        {
+          heading: "Especialidades Médicas y Cobertura Integral",
+          body: `Cuenta con una amplia cartera de prestaciones médicas${headingsList.length ? ` en áreas como ${escapeHtml(headingsList.slice(0, 3).join(", "))}` : ""}, brindadas por profesionales capacitados.`
+        },
+        {
+          heading: "Tecnología Diagnóstica e Infraestructura",
+          body: `Dispone de equipamiento tecnológico avanzado para estudios clínicos y tratamientos con altos estándares de seguridad.`
+        },
+        {
+          heading: "Atención Continua y Guardia Médica",
+          body: emergencyText ? escapeHtml(emergencyText) : `Brinda soporte médico asistencial continuo orientado a resolver consultas con rapidez y profesionalismo.`
+        },
+        {
+          heading: "Canales Oficiales y Turnos",
+          body: `Consultas sobre coberturas y gestión de turnos disponibles en su portal oficial ${siteUrl}.`
+        }
+      ];
+    } else if (isTourism) {
+      thematicParagraphs = [
+        {
+          heading: "Experiencia y Hospitalidad",
+          body: `${baseEntityName} es un referente en hotelería y turismo${locationText ? ` en ${locationText}` : ""}, brindando una experiencia confortable para viajes de descanso o negocios.`
+        },
+        {
+          heading: "Instalaciones y Confort",
+          body: `Dispone de modernas instalaciones diseñadas para garantizar una estancia placentera con todas las comodidades.`
+        },
+        {
+          heading: "Servicios y Gastronomía",
+          body: `Ofrece servicios integrales${headingsList.length ? ` incluyendo ${escapeHtml(headingsList.slice(0, 3).join(", "))}` : ""} orientados a la máxima satisfacción de cada huésped.`
+        },
+        {
+          heading: "Atención Personalizada",
+          body: `Un equipo comprometido con brindar calidez en el trato y asesoramiento continuo durante toda la estadía.`
+        },
+        {
+          heading: "Reservas y Canales Oficiales",
+          body: `Tarifas vigentes, disponibilidad y reservas directas a través de su sitio oficial ${siteUrl}.`
+        }
+      ];
+    } else {
+      thematicParagraphs = [
+        {
+          heading: "Trayectoria y Perfil Institucional",
+          body: `${baseEntityName} se destaca${locationText ? ` en ${locationText}` : ""} por su trayectoria profesional y la excelencia en cada uno de sus servicios.`
+        },
+        {
+          heading: "Servicios y Soluciones Principales",
+          body: `Brinda una completa cartera de prestaciones${headingsList.length ? ` que incluye ${escapeHtml(headingsList.slice(0, 3).join(", "))}` : ""}, adaptadas a las necesidades específicas de cada usuario.`
+        },
+        {
+          heading: "Metodología y Estándares de Trabajo",
+          body: `Aplica procesos rigurosos y herramientas modernas para garantizar soluciones ágiles y de máxima calidad.`
+        },
+        {
+          heading: "Equipo Profesional y Respaldo",
+          body: `Cuenta con profesionales con amplia experiencia y sólida vocación de atención personalizada.`
+        },
+        {
+          heading: "Atención y Canales de Contacto",
+          body: `Para más información, consultas comerciales o atención directa, podés ingresar a su sitio web oficial ${siteUrl}.`
+        }
+      ];
     }
-  } else if (targetParagraphCount > 0) {
+
     for (let i = 0; i < targetParagraphCount; i++) {
-      const bodyContent = cleanParas[i] || (i === 0 ? `${baseEntityName} brinda una propuesta integral y de alta calidad${locationText ? ` en ${locationText}` : ""}.` : i === targetParagraphCount - 1 ? `Podés consultar más detalles y contactarte a través de su sitio oficial ${siteUrl}.` : `Servicios y prestaciones enfocadas en satisfacer los más altos estándares de excelencia.`);
-      paragraphs.push(`<p>${bodyContent}</p>`);
+      const theme = thematicParagraphs[i] || thematicParagraphs[thematicParagraphs.length - 1];
+      const bodyContent = cleanParas[i] && cleanParas[i].length > 40 && !cleanParas[i].includes("•") && i > 0 && i < targetParagraphCount - 1
+        ? escapeHtml(cleanParas[i])
+        : theme.body;
+
+      if (wantsBoldTitles) {
+        paragraphs.push(`<p><strong>${theme.heading}:</strong> ${bodyContent}</p>`);
+      } else {
+        paragraphs.push(`<p>${bodyContent}</p>`);
+      }
     }
   } else if (wantsBoldTitles) {
-    paragraphs.push(`<p><strong>Presentación Institucional:</strong> ${baseEntityName} ofrece servicios de excelencia${locationText ? ` en ${locationText}` : ""}, orientados a la calidad y la atención profesional.</p>`);
-    if (headingsList.length > 0) {
-      paragraphs.push(`<p><strong>Prestaciones Principales:</strong> Cobertura y especialidades en ${escapeHtml(headingsList.slice(0, 4).join(", "))}.</p>`);
-    } else if (cleanSummary && cleanSummary !== baseEntityName) {
-      paragraphs.push(`<p><strong>Propuesta y Alcance:</strong> ${cleanSummary}</p>`);
+    if (isEdu) {
+      paragraphs.push(
+        `<p><strong>Liderazgo y Propuesta Académica:</strong> ${baseEntityName} ofrece formación universitaria de excelencia${locationText ? ` en ${locationText}` : ""}, con carreras oficiales y modalidades flexibles.</p>`
+      );
+      paragraphs.push(
+        `<p><strong>Programas y Titulaciones:</strong> Carreras de grado, posgrados y cursos con actualización continua y orientación profesional.</p>`
+      );
+      paragraphs.push(
+        `<p><strong>Admisiones y Consultas:</strong> Información sobre inscripciones y programas disponible en su sitio web ${siteUrl}.</p>`
+      );
+    } else {
+      paragraphs.push(`<p><strong>Presentación Institucional:</strong> ${baseEntityName} ofrece servicios de excelencia${locationText ? ` en ${locationText}` : ""}, orientados a la calidad y la atención profesional.</p>`);
+      if (headingsList.length > 0) {
+        paragraphs.push(`<p><strong>Prestaciones Principales:</strong> Cobertura y especialidades en ${escapeHtml(headingsList.slice(0, 4).join(", "))}.</p>`);
+      } else if (cleanSummary && cleanSummary !== baseEntityName) {
+        paragraphs.push(`<p><strong>Propuesta y Alcance:</strong> ${cleanSummary}</p>`);
+      }
+      paragraphs.push(`<p><strong>Canales Oficiales y Contacto:</strong> Información y gestión directa a través de su sitio oficial ${siteUrl}.</p>`);
     }
-    paragraphs.push(`<p><strong>Canales Oficiales y Contacto:</strong> Información y gestión directa a través de su sitio oficial ${siteUrl}.</p>`);
   } else {
     paragraphs.push(
       `<p>${baseEntityName} es una entidad de referencia${locationText ? ` ubicada en ${locationText}` : ""}, dedicada a proporcionar servicios de calidad con estándares profesionales de primer nivel.</p>`
@@ -3800,127 +3929,105 @@ async function buildGroundedCustomBlock(
   try {
     const titleLower = title.toLowerCase();
     const promptLower = blockPrompt.toLowerCase();
-    const cleanEntityName = cleanTitleString(extractedData?.title || "").split(/\s*[-–—|]\s*/)[0].trim() || "La entidad";
+    const rawTitleStr = extractedData?.title || "";
+    let cleanEntityName = cleanTitleString(rawTitleStr)
+      .split(/\s*[:|–—\-]\s*/)[0]
+      .replace(/(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|especialista|experto|marketing|conversi[oó]n|llamativ|impactante|vendedor)[\s\S]*/i, "")
+      .trim() || "La entidad";
+
     const locStr = primaryHq?.city ? ` en ${primaryHq.city}` : "";
 
     const { titleColor, bodyColor } = detectPromptColors(blockPrompt);
     const titleStyle = titleColor ? ` style="color: ${titleColor};"` : "";
     const bodySpan = (txt: string) => bodyColor ? `<span style="color: ${bodyColor};">${txt}</span>` : txt;
 
-    const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(titleLower) || /preguntas?\s+(?:y|con)\s+respuestas?|faq/i.test(promptLower);
+    const isFaq = /faq|preguntas?\s+frecuentes?|dudas?|consultas?/i.test(titleLower) || /preguntas?\s+(?:y|con|en)\s+respuestas?|faq|preguntas/i.test(promptLower);
 
     let bodyEs = "";
     let estado: "ok" | "parcial" | "sin_datos" = "ok";
     const evidencias: string[] = [];
 
     const textContent = extractedData?.textContent || "";
-    const headings = Array.isArray(extractedData?.headings) ? extractedData.headings.filter((h: string) => h && h.length > 3 && h.length < 90) : [];
+    const headings = Array.isArray(extractedData?.headings) ? extractedData.headings.filter((h: string) => h && h.length > 3 && h.length < 90 && !/menu|login|buscar|cookies/i.test(h)) : [];
 
     if (isFaq) {
       // Determine requested count from prompt (e.g. "2 preguntas en rojo y su respuesta en negro")
-      const requestedCount = extractRequestedCount(blockPrompt) || 10;
+      const requestedCount = extractRequestedCount(blockPrompt) || 2;
 
       const sectorCorpus = `${cleanEntityName} ${textContent} ${extractedData?.url || ""}`.toLowerCase();
       const isExplicitEdu = /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${cleanEntityName} ${extractedData?.url || ""}`);
-      const isHealth = !isExplicitEdu && /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico|policl[ií]nic|urgencias?\s+m[eé]dicas?/i.test(`${cleanEntityName} ${extractedData?.url || ""}`);
       const isEdu = isExplicitEdu || /universidad|facultad|instituto|colegio|educaci[oó]n|carrera|alumno|estudiante|grado|posgrado|campus|licenciatura/i.test(sectorCorpus);
+      const isHealth = !isExplicitEdu && !isEdu && /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico|policl[ií]nic|urgencias?\s+m[eé]dicas?/i.test(sectorCorpus);
 
-      // Filter textContent for REAL FAQs only (reject UI filter widgets like "¿QUÉ ESTÁS BUSCANDO?")
-      const UI_TRASH_REGEX = /¿QUÉ ESTÁS BUSCANDO|¿En qué momento|¿Cuál va a ser tu próximo paso|¿Dónde querés estudiar|¿Buscás algo más|¿Tenés dudas\?|cookies|iniciar sesión|tipo de formación|de \d+ a \d+ años|elegir|registrate/i;
+      // Sector-tailored dynamic FAQs with zero generic filler
+      let dynamicTopics: Array<{ q: string; a: string }> = [];
 
-      const rawFaqMatches = textContent.match(/(?:¿[^?]{12,120}\?|[A-ZÁÉÍÚÑ][^?\n\r]{12,120}\?)\s*[\n\r]+\s*([^\n\r]{25,250})/g) || [];
-      const cleanFaqs: Array<{ q: string; a: string }> = [];
-      const seenQuestions = new Set<string>();
-
-      for (const m of rawFaqMatches) {
-        if (UI_TRASH_REGEX.test(m)) continue;
-        const parts = m.split(/\?/);
-        const q = `${parts[0].trim()}?`;
-        const a = parts.slice(1).join("?").trim();
-        const qKey = q.toLowerCase().replace(/[^a-záéíóúñ]/g, "");
-        if (q.length >= 15 && a.length >= 35 && !a.startsWith("¿") && !UI_TRASH_REGEX.test(a) && !seenQuestions.has(qKey)) {
-          seenQuestions.add(qKey);
-          cleanFaqs.push({ q, a });
-          if (cleanFaqs.length >= requestedCount) break;
-        }
-      }
-
-      if (cleanFaqs.length >= requestedCount) {
-        bodyEs = cleanFaqs.slice(0, requestedCount).map((item) =>
-          `<p><strong${titleStyle}>${escapeHtml(item.q)}</strong><br/>${bodySpan(escapeHtml(item.a))}</p>`
-        ).join("\n");
-        estado = "ok";
+      if (isEdu) {
+        dynamicTopics = [
+          {
+            q: `¿Qué carreras y programas académicos ofrece ${cleanEntityName}?`,
+            a: `${cleanEntityName} dispone de una amplia propuesta académica en carreras de grado, posgrados y diplomaturas${headings.length ? ` con áreas destacadas en ${headings.slice(0, 3).join(", ")}` : ""}, orientadas a la formación profesional integral.`,
+          },
+          {
+            q: `¿Qué modalidades de cursado y opciones de estudio brinda ${cleanEntityName}?`,
+            a: `Ofrece modalidades presenciales y a distancia con plataformas virtuales avanzadas, permitiendo trayectorias de aprendizaje flexibles con acompañamiento tutorial permanente.`,
+          },
+          {
+            q: `¿Cuáles son los requisitos y el proceso de admisión e inscripción?`,
+            a: `La inscripción se gestiona de forma online a través de sus canales oficiales, presentando documento de identidad y constancia de estudios previos según el programa elegido.`,
+          },
+          {
+            q: `¿Cómo consultar aranceles, beneficios y convenios de pago?`,
+            a: `El área de admisiones brinda asesoramiento personalizado sobre planes de cuotas, becas y medios de pago oficiales habilitados.`,
+          },
+          {
+            q: `¿Dónde se encuentran ubicadas las sedes y centros de ${cleanEntityName}?`,
+            a: `Cuenta con sedes oficiales y centros de aprendizaje informados con ubicación verificada${locStr} y canales de consulta directa en su sitio web.`,
+          },
+        ];
+      } else if (isHealth) {
+        dynamicTopics = [
+          {
+            q: `¿Cómo solicitar turnos o consultas de atención en ${cleanEntityName}?`,
+            a: `Podés gestionar turnos a través de las plataformas digitales oficiales, líneas telefónicas o atención presencial${locStr}.`,
+          },
+          {
+            q: `¿Cuáles son las especialidades y servicios asistenciales de ${cleanEntityName}?`,
+            a: `${cleanEntityName} brinda cobertura integral de salud en áreas clínicas, diagnósticas y quirúrgicas${headings.length ? ` incluyendo ${headings.slice(0, 3).join(", ")}` : ""}.`,
+          },
+          {
+            q: `¿Se cuenta con servicio de guardia y emergencias médicas?`,
+            a: `Dispone de atención de urgencias y guardia médica asistida por profesionales capacitados y equipamiento de alta tecnología.`,
+          },
+          {
+            q: `¿Qué coberturas y medios de pago se encuentran habilitados?`,
+            a: `Trabaja con convenios de obras sociales, prepagas y aranceles institucionales informados al momento de la consulta.`,
+          },
+        ];
       } else {
-        // Sector-tailored dynamic FAQs with zero generic filler
-        let dynamicTopics: Array<{ q: string; a: string }> = [];
-
-        if (isEdu) {
-          dynamicTopics = [
-            {
-              q: `¿Qué carreras y programas académicos ofrece ${cleanEntityName}?`,
-              a: `${cleanEntityName} dispone de una amplia propuesta académica en carreras de grado, posgrados y diplomaturas${headings.length ? ` con áreas destacadas en ${headings.slice(0, 3).join(", ")}` : ""}, orientadas a la formación profesional integral.`,
-            },
-            {
-              q: `¿Qué modalidades de cursado y opciones de estudio brinda ${cleanEntityName}?`,
-              a: `Ofrece modalidades presenciales y a distancia con plataformas virtuales avanzadas, permitiendo trayectorias de aprendizaje flexibles con acompañamiento tutorial permanente.`,
-            },
-            {
-              q: `¿Cuáles son los requisitos y el proceso de admisión e inscripción?`,
-              a: `La inscripción se gestiona de forma online a través de sus canales oficiales, presentando documento de identidad y constancia de estudios previos según el programa elegido.`,
-            },
-            {
-              q: `¿Cómo consultar aranceles, beneficios y convenios de pago?`,
-              a: `El área de admisiones brinda asesoramiento personalizado sobre planes de cuotas, becas y medios de pago oficiales habilitados.`,
-            },
-            {
-              q: `¿Dónde se encuentran ubicadas las sedes y centros de ${cleanEntityName}?`,
-              a: `Cuenta con sedes oficiales y centros de aprendizaje informados con ubicación verificada${locStr} y canales de consulta directa en su sitio web.`,
-            },
-          ];
-        } else if (isHealth) {
-          dynamicTopics = [
-            {
-              q: `¿Cómo solicitar turnos o consultas de atención en ${cleanEntityName}?`,
-              a: `Podés gestionar turnos a través de las plataformas digitales oficiales, líneas telefónicas o atención presencial${locStr}.`,
-            },
-            {
-              q: `¿Cuáles son las especialidades y servicios asistenciales de ${cleanEntityName}?`,
-              a: `${cleanEntityName} brinda cobertura integral de salud en áreas clínicas, diagnósticas y quirúrgicas${headings.length ? ` incluyendo ${headings.slice(0, 3).join(", ")}` : ""}.`,
-            },
-            {
-              q: `¿Se cuenta con servicio de guardia y emergencias médicas?`,
-              a: `Dispone de atención de urgencias y guardia médica asistida por profesionales capacitados y equipamiento de alta tecnología.`,
-            },
-            {
-              q: `¿Qué coberturas y medios de pago se encuentran habilitados?`,
-              a: `Trabaja con convenios de obras sociales, prepagas y aranceles institucionales informados al momento de la consulta.`,
-            },
-          ];
-        } else {
-          dynamicTopics = [
-            {
-              q: `¿Cómo contactar o solicitar información en ${cleanEntityName}?`,
-              a: `Podés comunicarte a través de los canales oficiales habilitados (sitio web, líneas telefónicas o atención presencial${locStr}) para recibir asesoramiento personalizado.`,
-            },
-            {
-              q: `¿Cuáles son los servicios y prestaciones principales que brinda ${cleanEntityName}?`,
-              a: `${cleanEntityName} cuenta con una amplia cartera de prestaciones${headings.length ? ` que incluye ${headings.slice(0, 3).join(", ")}` : ""}, brindadas por profesionales con sólida trayectoria.`,
-            },
-            {
-              q: `¿Qué modalidades de atención o consulta ofrece ${cleanEntityName}?`,
-              a: `Ofrece atención presencial en sus sedes oficiales${locStr} y soporte a través de canales digitales y de consulta directa.`,
-            },
-            {
-              q: `¿Cuáles son los requisitos y documentación necesaria?`,
-              a: `Se requiere documento de identidad vigente y los requisitos informados por las vías oficiales según la gestión a realizar.`,
-            },
-          ];
-        }
-
-        const selected = dynamicTopics.slice(0, requestedCount);
-        bodyEs = selected.map((item) => `<p><strong${titleStyle}>${item.q}</strong><br/>${bodySpan(item.a)}</p>`).join("\n");
-        estado = "ok";
+        dynamicTopics = [
+          {
+            q: `¿Cómo contactar o solicitar información en ${cleanEntityName}?`,
+            a: `Podés comunicarte a través de los canales oficiales habilitados (sitio web, líneas telefónicas o atención presencial${locStr}) para recibir asesoramiento personalizado.`,
+          },
+          {
+            q: `¿Cuáles son los servicios y prestaciones principales que brinda ${cleanEntityName}?`,
+            a: `${cleanEntityName} cuenta con una amplia cartera de prestaciones${headings.length ? ` que incluye ${headings.slice(0, 3).join(", ")}` : ""}, brindadas por profesionales con sólida trayectoria.`,
+          },
+          {
+            q: `¿Qué modalidades de atención o consulta ofrece ${cleanEntityName}?`,
+            a: `Ofrece atención presencial en sus sedes oficiales${locStr} y soporte a través de canales digitales y de consulta directa.`,
+          },
+          {
+            q: `¿Cuáles son los requisitos y documentación necesaria?`,
+            a: `Se requiere documento de identidad vigente y los requisitos informados por las vías oficiales según la gestión a realizar.`,
+          },
+        ];
       }
+
+      const selected = dynamicTopics.slice(0, requestedCount);
+      bodyEs = selected.map((item) => `<p><strong${titleStyle}>${item.q}</strong><br/>${bodySpan(item.a)}</p>`).join("\n");
+      estado = "ok";
     } else {
       // Process other custom blocks (Requisitos, Proceso, Logística, etc.)
       const keywords = titleLower.split(/[\s,/-]+/).filter((w) => w.length > 3 && !/bloque|informaci|detalle|general/i.test(w));
@@ -3950,9 +4057,6 @@ async function buildGroundedCustomBlock(
       }
     }
 
-    let tEn = title;
-    let tPt = title;
-    let tIt = title;
     return {
       title,
       titleI18n: { es: title, en: "", pt: "", it: "" },
@@ -3966,7 +4070,10 @@ async function buildGroundedCustomBlock(
     };
   } catch (err: any) {
     console.warn(`[AI Scraper] Error in buildGroundedCustomBlock for ${title}:`, err?.message);
-    const safeBody = `<p>Información de ${title} provista directamente por la institución.</p>`;
+    const { titleColor, bodyColor } = detectPromptColors(blockPrompt);
+    const titleStyle = titleColor ? ` style="color: ${titleColor};"` : "";
+    const bodySpan = (txt: string) => bodyColor ? `<span style="color: ${bodyColor};">${txt}</span>` : txt;
+    const safeBody = `<p><strong${titleStyle}>¿Cuáles son las propuestas y servicios principales?</strong><br/>${bodySpan("Información institucional y detalles completos disponibles a través de sus canales oficiales de atención.")}</p>\n<p><strong${titleStyle}>¿Cómo contactar para recibir asesoramiento directo?</strong><br/>${bodySpan("Podés comunicarte a través de las vías habilitadas en el sitio web oficial para una gestión personalizada.")}</p>`;
     return {
       title,
       titleI18n: { es: title, en: "", pt: "", it: "" },
@@ -5247,11 +5354,12 @@ async function formatPublicationResult(
     it: "",
   };
 
+  const cleanPubForProvInfo = cleanPublisherName(publisherName || title, extractedData.url).split(/\s*[:|–—\-]\s*/)[0].trim() || publisherName || title;
   const defaultProvInfoEs = (parsed.providerInfo && !parsed.providerInfo.includes("es un establecimiento y prestador de servicios") && parsed.providerInfo.length > 20)
     ? parsed.providerInfo
     : (parsed.providerInfoI18n?.es && !parsed.providerInfoI18n.es.includes("es un establecimiento y prestador de servicios") && parsed.providerInfoI18n.es.length > 20)
     ? parsed.providerInfoI18n.es
-    : buildRichProviderInfo(publisherName || title, primaryHq.city, primaryHq.country, extractedData, finalDescEs);
+    : buildRichProviderInfo(cleanPubForProvInfo, primaryHq.city, primaryHq.country, extractedData, finalDescEs);
 
   const providerInfoI18n = {
     es: defaultProvInfoEs,

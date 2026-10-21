@@ -212,66 +212,56 @@ export function buildRichProviderInfo(
   extractedData?: any,
   mainDescription?: string
 ): string {
-  const cleanName = publisherName.split(/\s*[-–—|]\s*/)[0].trim() || publisherName;
+  let cleanName = (publisherName || "")
+    .split(/\s*[:|–—\-]\s*/)[0]
+    .replace(/(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|especialista|experto|marketing|conversi[oó]n|llamativ|impactante|vendedor)[\s\S]*/i, "")
+    .trim() || publisherName;
   const locStr = [city, country].filter(Boolean).join(", ");
 
   const plainDesc = (mainDescription || "")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  const textCorpus = `${plainDesc} ${extractedData?.textContent || ""}`.toLowerCase();
+  const headings = Array.isArray(extractedData?.headings)
+    ? extractedData.headings.filter((h: string) => h && h.length > 3 && h.length < 80 && !/menu|login|buscar|cookies|inicio/i.test(h))
+    : [];
 
-  // 1. If mainDescription has a strong, rich sentence introducing the entity, take it directly
-  if (plainDesc.length > 30) {
-    const escapedCleanName = escapeRegExp(cleanName);
-    const introSentenceRegex = new RegExp(
-      `(?:(?:Presentaci[oó]n[^:]*|Institucional[^:]*|Sobre Nosotros[^:]*|Qui[eé]nes Somos[^:]*):\\s*)?(${escapedCleanName}[^.?!]+(?:prestadora|instituci[oó]n|referencia|dedicada|enfocada|brinda|cuenta con|reconocid|especializ|l[ií]der|garantiz|ofrece|establecimiento)[^.?!]*[.?!])`,
-      "i"
-    );
-    const matchIntro = plainDesc.match(introSentenceRegex);
-    if (matchIntro && matchIntro[1] && matchIntro[1].length > 35 && matchIntro[1].length < 350) {
-      return matchIntro[1].trim();
+  const isExplicitEdu = /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${cleanName} ${extractedData?.url || ""}`);
+  const isEdu = isExplicitEdu || /universidad|facultad|instituto|colegio|educaci[oó]n|carrera|estudio|grado|posgrado|licenciatura/i.test(textCorpus);
+  const isHealth = !isEdu && /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico|policl[ií]nic|guardia\s+m[eé]dica|urgencias?\s+m[eé]dicas?/i.test(textCorpus);
+  const isTourism = !isEdu && !isHealth && /hotel|hostel|turismo|alojam|posada|cabaña|resort/i.test(textCorpus);
+  const isLegal = !isEdu && !isHealth && /traduct|abogad|legal|notari|escriban|jur[ií]dic/i.test(textCorpus);
+
+  // 1. If website metaDescription or intro sentence describes the entity cleanly without templates
+  if (extractedData?.metaDescription && extractedData.metaDescription.length > 35 && extractedData.metaDescription.length < 260) {
+    const meta = extractedData.metaDescription.trim();
+    if (!/cookies|javascript|sesi[oó]n|portal|ingres[oa]/i.test(meta) && (!isEdu || !/m[eé]dic|paciente|cl[ií]nic/i.test(meta))) {
+      return meta;
     }
   }
 
-  const textCorpus = `${plainDesc} ${extractedData?.textContent || ""}`;
-
-  const isHealth = /salud|hospital|m[eé]dic|sanatorio|cl[ií]nica|guardia|urgencia/i.test(textCorpus);
-  const isEdu = /universidad|facultad|instituto|colegio|educaci[oó]n|carrera|estudio/i.test(textCorpus);
-  const isTourism = /hotel|hostel|turismo|alojam|posada|cabaña/i.test(textCorpus);
-  const isLegal = /traduct|abogad|legal|notari|escriban|jur[ií]dic/i.test(textCorpus);
-
-  const hasEmergency = /guardia|emergencia|urgencia/i.test(textCorpus);
-  const hasSpecialties = /especialidades|trasplantes?|cirug/i.test(textCorpus);
-
-  if (isHealth) {
-    const highlights = [
-      hasEmergency ? "servicio de emergencias y guardia médica 24 hs" : "",
-      hasSpecialties ? "amplia cobertura de especialidades" : "",
-      "alta complejidad",
-      "sólido respaldo profesional",
-    ].filter(Boolean).slice(0, 3).join(", ");
-
-    return `${cleanName} es una destacada institución médica${locStr ? ` con sede en ${locStr}` : ""}, orientada a la atención de calidad, ${highlights} y un trato ético y humano para el cuidado integral de sus pacientes.`;
+  // 2. Dynamic non-template descriptions tailored to the entity's real activity
+  if (isEdu) {
+    const academicAreas = headings.length > 0 ? ` en áreas como ${headings.slice(0, 3).join(", ")}` : "";
+    return `${cleanName} es una institución de educación superior${locStr ? ` con sede en ${locStr}` : ""}, dedicada a la formación académica y profesional a través de carreras de grado, posgrados y programas de capacitación continua${academicAreas} en modalidades presencial y a distancia.`;
   }
 
-  if (isEdu) {
-    return `${cleanName} es una prestigiosa institución educativa${locStr ? ` ubicada en ${locStr}` : ""}, reconocida por su trayectoria académica, formación profesional de excelencia y programas orientados a responder a las demandas del entorno actual.`;
+  if (isHealth) {
+    const healthAreas = headings.length > 0 ? ` en áreas como ${headings.slice(0, 3).join(", ")}` : "";
+    return `${cleanName} es una institución de salud${locStr ? ` con sede en ${locStr}` : ""}, dedicada a brindar atención médica de calidad, servicios asistenciales integrales y consultas diagnósticas especializadas${healthAreas}.`;
   }
 
   if (isTourism) {
-    return `${cleanName} es un referente en hospitalidad y turismo${locStr ? ` en ${locStr}` : ""}, ofreciendo experiencias de hospedaje confortables, atención personalizada e instalaciones pensadas para brindar el máximo confort y descanso.`;
+    return `${cleanName} es un referente en hospitalidad y turismo${locStr ? ` en ${locStr}` : ""}, orientado a brindar estadías confortables, atención personalizada y servicios integrales de alojamiento.`;
   }
 
   if (isLegal) {
-    return `${cleanName} es una institución profesional de referencia${locStr ? ` en ${locStr}` : ""}, dedicada a brindar servicios técnicos especializados, asesoramiento de confianza y soporte normativo con los más altos estándares de excelencia.`;
+    return `${cleanName} es un prestador de servicios profesionales${locStr ? ` con sede en ${locStr}` : ""}, enfocado en brindar asesoramiento técnico, soporte integral y soluciones a medida con los más altos estándares de excelencia.`;
   }
 
-  const firstSentenceMatch = plainDesc.match(/^([^.?!]+[.?!])/);
-  if (firstSentenceMatch && firstSentenceMatch[1].length > 30 && firstSentenceMatch[1].length < 180 && !firstSentenceMatch[1].includes("es un establecimiento y prestador de servicios")) {
-    return firstSentenceMatch[1].trim();
-  }
-
-  return `${cleanName} se destaca${locStr ? ` en ${locStr}` : ""} por su trayectoria profesional, brindando servicios especializados con moderna infraestructura y un firme compromiso con la satisfacción y seguridad de sus usuarios.`;
+  const generalAreas = headings.length > 0 ? ` destacándose en ${headings.slice(0, 3).join(", ")}` : "";
+  return `${cleanName} es una entidad de referencia${locStr ? ` con base en ${locStr}` : ""}, orientada a brindar prestaciones y soluciones profesionales${generalAreas} con sólida trayectoria y atención personalizada.`;
 }
 
 export interface ExtraDescriptionBlock {
@@ -2325,8 +2315,8 @@ Tu objetivo es auditar el sitio web y generar una publicación completa, atracti
 
 HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 1. AUTORIDAD EDITORIAL SUPREMA: Las instrucciones del administrador son la regla NÚMERO UNO:
-   - TÍTULO: Si el administrador proporcionó una directiva para el título ("${titlePrompt}"), DEBES ADAPTARTE DIRECTAMENTE A LO QUE PIDIÓ (incluso si pide emojis, palabras clave de alto impacto o estilo libre). Si pidió un ángulo o palabras clave específicas (ej: inscripciones, educación a distancia, títulos oficiales, tecnología, etc.), ese ángulo DEBE SER EL CORAZÓN DEL TÍTULO junto con el nombre de la entidad. NUNCA devuelvas solo el nombre seco si se pidió impacto y NUNCA uses plantillas genéricas fijas.
-   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>. Si pide subtítulos/títulos en negrita o letras negras y su explicación, estructura cada párrafo como <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>. Si pide emojis, íconos o estilo específico, aplícalo libremente. Si la entidad es una universidad o institución educativa, habla EXCLUSIVAMENTE de su propuesta académica, carreras, modalidades de cursado, campus y admisiones; JAMÁS menciones hospitales, emergencias o guardias médicas a menos que sea un hospital clínico prestador de salud.
+   - TÍTULO: Si el administrador proporcionó una directiva para el título ("${titlePrompt}"), DEBES ADAPTARTE DIRECTAMENTE A LO QUE PIDIÓ (incluso si pide emojis, palabras clave de alto impacto o estilo libre). Si pidió un ángulo o palabras clave específicas (ej: inscripciones, educación a distancia, títulos oficiales, tecnología, etc.), ese ángulo DEBE SER EL CORAZÓN DEL TÍTULO junto con el nombre de la entidad. JAMÁS devuelvas las palabras de la instrucción como parte del título (ej: si pide "Especialista en marketing y haz un título que llame la atención", NO escribas "Especialista en marketing..." en el título, sino que genera el título resultante como "Universidad Siglo 21 | Carreras Universitarias, Cursado Online y Título Oficial"). NUNCA devuelvas solo el nombre seco si se pidió impacto y NUNCA uses plantillas genéricas fijas.
+   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>. Si pide subtítulos/títulos en negrita o letras negras y su explicación, estructura cada párrafo como <p><strong>Título del Párrafo:</strong> Explicación persuasiva y detallada con excelente SEO...</p>. CADA PÁRRAFO DEBE TENER UN CONTENIDO ÚNICO Y DIFERENTE (Misión/Propuesta, Carreras y Títulos Oficiales, Modalidades Flexibles, Innovación y Salida Laboral, Admisiones y Vías Oficiales). ESTÁ TOTALMENTE PROHIBIDO REPETIR ORACIONES O FRASES GENÉRICAS ENTRE PÁRRAFOS. Si pide emojis, íconos o estilo específico, aplícalo libremente. Si la entidad es una universidad o institución educativa, habla EXCLUSIVAMENTE de su propuesta académica, carreras, modalidades de cursado, campus y admisiones; JAMÁS menciones hospitales, emergencias o guardias médicas a menos que sea un hospital clínico prestador de salud.
    - BLOQUES PERSONALIZADOS: Genera cada bloque solicitado en el array "customBlocks".
      * TÍTULO TEMÁTICO: El Título del bloque define la temática central si el prompt solo especifica formato, estilo o colores (ej: si el título es "Preguntas Frecuentes", el contenido DEBE ser de preguntas frecuentes sobre los servicios y ofertas reales del sitio).
      * CONTEXTO Y CONTINUIDAD: Si el administrador pide tener en cuenta la descripción o bloques anteriores, revísalos e integra la información manteniendo total coherencia.
