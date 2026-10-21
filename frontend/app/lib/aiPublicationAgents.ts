@@ -20,6 +20,61 @@ function escapeRegExp(str: string): string {
   return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+export function checkPromptOmitEntityName(prompt?: string): boolean {
+  if (!prompt) return false;
+  return /\b(?:que\s+no\s+(?:contenga|tenga|incluya|mencione|diga)|sin\s+(?:el\s+)?nombre|no\s+(?:incluir|poner|mencionar|usar|coloques?|pongas?)\s+(?:el\s+)?nombre|omitir\s+(?:el\s+)?nombre|omitiendo\s+(?:el\s+)?nombre|sin\s+(?:mencionar|nombrar)\s+(?:la\s+)?(?:instituci[oó]n|empresa|marca|entidad|oferente|universidad|hospital|colegio))\b/i.test(prompt);
+}
+
+export function cleanTitleOmitEntity(
+  title: string,
+  baseEntityName: string,
+  publisherName?: string
+): string {
+  if (!title) return "";
+  let res = title;
+
+  const rawNames = [publisherName, baseEntityName]
+    .filter(Boolean)
+    .map((n) => n!.trim())
+    .filter((n) => n.length >= 3);
+
+  const namesToStrip: string[] = [];
+  for (const n of rawNames) {
+    if (!namesToStrip.includes(n)) namesToStrip.push(n);
+    const withoutPrefix = n.replace(/^(?:universidad|instituto(?:\s+universitario)?|hospital|sanatorio|cl[ií]nica|colegio|fundaci[oó]n|asociaci[oó]n|empresa)\s+/i, "").trim();
+    if (withoutPrefix && withoutPrefix.length >= 4 && !namesToStrip.includes(withoutPrefix)) {
+      namesToStrip.push(withoutPrefix);
+    }
+  }
+
+  namesToStrip.sort((a, b) => b.length - a.length);
+
+  for (const name of namesToStrip) {
+    const esc = escapeRegExp(name);
+
+    // 1. Remove at beginning followed by delimiter: e.g. "Universidad Siglo 21 | ", "Universidad Siglo 21: "
+    res = res.replace(new RegExp(`^${esc}\\s*[:|–—\\-•]\\s*`, "i"), "");
+
+    // 2. Remove at ending preceded by delimiter: e.g. " | Universidad Siglo 21", " - Universidad Siglo 21"
+    res = res.replace(new RegExp(`\\s*[:|–—\\-•]\\s*${esc}$`, "i"), "");
+
+    // 3. Remove prepositional phrases: e.g. " en Universidad Siglo 21", " de Universidad Siglo 21"
+    res = res.replace(new RegExp(`\\s+(?:en|de|del|para|por|con)\\s+${esc}\\b`, "gi"), "");
+
+    // 4. Remove standalone occurrences
+    res = res.replace(new RegExp(`\\b${esc}\\b`, "gi"), "");
+  }
+
+  res = res
+    .replace(/^[\s:|–—\-•,;.]+/g, "")
+    .replace(/[\s:|–—\-•,;.]+$/g, "")
+    .replace(/\s*[:|–—\-•]\s*[:|–—\-•]\s*/g, " | ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return res;
+}
+
 export function extractRequestedCount(prompt?: string): number | null {
   if (!prompt) return null;
   const p = prompt.toLowerCase();
@@ -736,6 +791,8 @@ REGLAS MANDATORIAS DE REFORMULACIÓN:
 2. Basándote SIEMPRE en la directiva del administrador y en los datos reales del establecimiento, utiliza otra estructura sintáctica, otro orden de palabras o destaca otro beneficio/aspecto relevante de la web.`
     : "";
 
+  const omitName = checkPromptOmitEntityName(prompt);
+
   const systemPrompt = `Eres un redactor y especialista en marketing para Travelgrin.
 Tu objetivo primordial es generar un TÍTULO COMERCIAL IMPACTANTE Y DE ALTA CONVERSIÓN cumpliendo rigurosamente la directiva editorial del administrador.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
@@ -745,13 +802,14 @@ Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exac
 
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: La instrucción del administrador es la regla NÚMERO UNO. Si pide marketing, llamada a la atención, palabras clave, estilo llamativo o enfoque específico, CÚMPLELO AL 100%. NUNCA devuelvas solo el nombre seco de la entidad si se pidió un título comercial o llamativo.
-2. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano durante el scraping.
-3. Fidelidad factual: Presenta a "${entityName}" destacando su propuesta de valor según los datos provistos de la web.
-4. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
+2. REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre'), ESTÁ ESTRICTAMENTE PROHIBIDO incluir '${entityName}' o el nombre de la institución en el título; genera únicamente el eslogan comercial, propuesta o titular de alto impacto.
+3. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano durante el scraping.
+4. Fidelidad factual: Si no se pidió omitir el nombre, presenta a "${entityName}" destacando su propuesta de valor según los datos provistos de la web.
+5. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
 "${prompt || "Crear un título claro, comercial, atractivo y representativo que presente al establecimiento y su propuesta principal."}"${variationDirective}
-
+${omitName ? "\n--> REGLA CRÍTICA OBLIGATORIA: El administrador ha solicitado expresamente que el título NO contenga el nombre de la institución. ESTÁ TERMINANTEMENTE PROHIBIDO poner '" + entityName + "' en el título; genera únicamente el titular/eslogan de alto impacto.\n" : ""}
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
 - Ubicación: "${locationText || "No informada"}"
@@ -806,10 +864,23 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
     }
 
     if (!rawTitle || rawTitle.length < 2) {
-      rawTitle = prompt ? `${entityName}: Propuesta destacada y servicios oficiales` : (context.rawPageTitle || entityName);
+      if (omitName) {
+        rawTitle = "Carreras Universitarias, Cursado Online y Título Oficial";
+      } else {
+        rawTitle = prompt ? `${entityName}: Propuesta destacada y servicios oficiales` : (context.rawPageTitle || entityName);
+      }
     }
 
-    const cleanTitle = cleanTitleString(rawTitle) || entityName;
+    let cleanTitle = cleanTitleString(rawTitle);
+    if (omitName) {
+      cleanTitle = cleanTitleOmitEntity(cleanTitle, entityName, context.publisherName);
+      if (!cleanTitle || cleanTitle.length < 8) {
+        cleanTitle = "Carreras Universitarias, Cursado Online y Título Oficial";
+      }
+    } else if (!cleanTitle) {
+      cleanTitle = entityName;
+    }
+
     console.log(`5. Normalized Title Output: "${cleanTitle}"`);
 
     const tI18n: I18nRecord = {
@@ -831,7 +902,9 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
     };
   } catch (err: any) {
     console.warn(`[AI-AGENT-DEBUG: TitleAgent] ERROR: ${err.message}`);
-    const fallbackTitle = cleanTitleString(context.rawPageTitle || `Servicios de ${entityName}`) || entityName;
+    const fallbackTitle = omitName
+      ? "Carreras Universitarias, Cursado Online y Título Oficial"
+      : (cleanTitleString(context.rawPageTitle || `Servicios de ${entityName}`) || entityName);
     return {
       success: true,
       data: {
@@ -2315,7 +2388,10 @@ Tu objetivo es auditar el sitio web y generar una publicación completa, atracti
 
 HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 1. AUTORIDAD EDITORIAL SUPREMA: Las instrucciones del administrador son la regla NÚMERO UNO:
-   - TÍTULO: Si el administrador proporcionó una directiva para el título ("${titlePrompt}"), DEBES ADAPTARTE DIRECTAMENTE A LO QUE PIDIÓ (incluso si pide emojis, palabras clave de alto impacto o estilo libre). Si pidió un ángulo o palabras clave específicas (ej: inscripciones, educación a distancia, títulos oficiales, tecnología, etc.), ese ángulo DEBE SER EL CORAZÓN DEL TÍTULO junto con el nombre de la entidad. JAMÁS devuelvas las palabras de la instrucción como parte del título (ej: si pide "Especialista en marketing y haz un título que llame la atención", NO escribas "Especialista en marketing..." en el título, sino que genera el título resultante como "Universidad Siglo 21 | Carreras Universitarias, Cursado Online y Título Oficial"). NUNCA devuelvas solo el nombre seco si se pidió impacto y NUNCA uses plantillas genéricas fijas.
+   - TÍTULO: Si el administrador proporcionó una directiva para el título ("${titlePrompt}"), DEBES ADAPTARTE DIRECTAMENTE A LO QUE PIDIÓ (incluso si pide emojis, palabras clave de alto impacto o estilo libre). Si pidió un ángulo o palabras clave específicas (ej: inscripciones, educación a distancia, títulos oficiales, tecnología, etc.), ese ángulo DEBE SER EL CORAZÓN DEL TÍTULO.
+     * REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA DE NOMBRE: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre', 'sin mencionar la institucion'), ESTÁ TERMINANTEMENTE PROHIBIDO incluir '${entityName}' o el nombre de la institución en el título; genera ÚNICAMENTE el titular o eslogan publicitario/comercial de alto impacto (ej: 'Carreras Universitarias, Cursado Online y Título Oficial').
+     * Si NO pidió omitir el nombre, genera el título combinando el nombre con la propuesta comercial (ej: '${entityName} | Carreras Universitarias, Cursado Online y Título Oficial').
+     * JAMÁS devuelvas las palabras de la instrucción como parte del título (ej: si pide "Especialista en marketing y haz un título...", NO escribas "Especialista en marketing..." en el título). NUNCA devuelvas solo el nombre seco si se pidió impacto y NUNCA uses plantillas genéricas fijas.
    - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>. Si pide subtítulos/títulos en negrita o letras negras y su explicación, estructura cada párrafo como <p><strong>Título del Párrafo:</strong> Explicación persuasiva y detallada con excelente SEO...</p>. CADA PÁRRAFO DEBE TENER UN CONTENIDO ÚNICO Y DIFERENTE (Misión/Propuesta, Carreras y Títulos Oficiales, Modalidades Flexibles, Innovación y Salida Laboral, Admisiones y Vías Oficiales). ESTÁ TOTALMENTE PROHIBIDO REPETIR ORACIONES O FRASES GENÉRICAS ENTRE PÁRRAFOS. Si pide emojis, íconos o estilo específico, aplícalo libremente. Si la entidad es una universidad o institución educativa, habla EXCLUSIVAMENTE de su propuesta académica, carreras, modalidades de cursado, campus y admisiones; JAMÁS menciones hospitales, emergencias o guardias médicas a menos que sea un hospital clínico prestador de salud.
    - BLOQUES PERSONALIZADOS: Genera cada bloque solicitado en el array "customBlocks".
      * TÍTULO TEMÁTICO: El Título del bloque define la temática central si el prompt solo especifica formato, estilo o colores (ej: si el título es "Preguntas Frecuentes", el contenido DEBE ser de preguntas frecuentes sobre los servicios y ofertas reales del sitio).
@@ -2370,10 +2446,12 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
   "languages": ["Español", "Inglés"]
 }`;
 
+  const omitUnifiedTitleName = checkPromptOmitEntityName(titlePrompt);
+
   const userPrompt = `=== DIRECTIVAS EDITORIALES DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
 1. DIRECTIVA PARA EL TÍTULO:
 "${titlePrompt || "Crear un título claro, comercial, atractivo y representativo que presente al establecimiento y su propuesta principal."}"
-
+${omitUnifiedTitleName ? "\n--> REGLA CRÍTICA OBLIGATORIA: El administrador ha exigido que el título NO contenga el nombre de la institución. ESTÁ TERMINANTEMENTE PROHIBIDO poner '" + entityName + "' en el título; genera únicamente el eslogan publicitario o titular comercial de alto impacto.\n" : ""}
 2. DIRECTIVA PARA LA DESCRIPCIÓN PRINCIPAL:
 "${descPrompt || "Escribir una descripción profesional en párrafos HTML <p> explicando qué ofrece, su alcance y vías oficiales."}"
 ${customBlocksDirective}
@@ -2417,7 +2495,15 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     if (/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(rawTitle)) {
       rawTitle = "";
     }
-    const cleanTitle = cleanTitleString(rawTitle) || entityName;
+    let cleanTitle = cleanTitleString(rawTitle);
+    if (omitUnifiedTitleName) {
+      cleanTitle = cleanTitleOmitEntity(cleanTitle, entityName, cleanPublisher);
+      if (!cleanTitle || cleanTitle.length < 8) {
+        cleanTitle = "Carreras Universitarias, Cursado Online y Título Oficial";
+      }
+    } else if (!cleanTitle) {
+      cleanTitle = entityName;
+    }
     const titleI18n: I18nRecord = {
       es: cleanTitle,
       en: "",

@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import {
   enforceFaqCountAndFilter,
   applyPromptColorStyles,
+  checkPromptOmitEntityName,
+  cleanTitleOmitEntity,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60;
@@ -366,10 +368,17 @@ REGLAS ESTRICTAS DE VARIACIÓN:
 
     // 1. TÍTULO
     if (fieldType === "title") {
+      const omitName = checkPromptOmitEntityName(prompt);
+      const entityLabel = publisherName || currentTitle || "la institución";
+      const negativeConstraintNotice = omitName
+        ? `\nREGLA CRÍTICA NEGATIVA: El administrador exige expresamente que el título NO CONTENGA EL NOMBRE DE LA INSTITUCIÓN O EMPRESA (${entityLabel}). ESTÁ TERMINANTEMENTE PROHIBIDO incluir '${entityLabel}' o el nombre de la entidad en el título. Genera únicamente el titular, propuesta de valor o eslogan publicitario de alto impacto (ej: 'Carreras Universitarias, Cursado Online y Título Oficial').\n`
+        : "";
+
       const aiPrompt = autoTranslate
         ? `Eres un redactor y especialista en marketing para Travelgrin.
 Genera un título comercial, atractivo y de alta conversión cumpliendo rigurosamente la instrucción del administrador.
 INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
+${negativeConstraintNotice}
 ${variationDirective}
 DATOS DE LA ENTIDAD:
 ${contextFacts}
@@ -388,6 +397,7 @@ Devuelve ÚNICAMENTE un objeto JSON con:
         : `Eres un redactor y especialista en marketing para Travelgrin.
 Genera un título comercial, atractivo y de alta conversión cumpliendo rigurosamente la instrucción del administrador en idioma ${sourceLang}.
 INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
+${negativeConstraintNotice}
 ${variationDirective}
 DATOS DE LA ENTIDAD:
 ${contextFacts}
@@ -399,11 +409,25 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
 }`;
 
       const parsed = await callAI(aiPrompt, "title");
-      const titleRes = parsed.title || parsed.titleI18n?.[sourceLang] || parsed.titleI18n?.es || currentTitle || currentText;
+      let titleRes = parsed.title || parsed.titleI18n?.[sourceLang] || parsed.titleI18n?.es || currentTitle || currentText;
+      if (omitName) {
+        titleRes = cleanTitleOmitEntity(titleRes, entityLabel, publisherName);
+        if (!titleRes || titleRes.length < 8) {
+          titleRes = "Carreras Universitarias, Cursado Online y Título Oficial";
+        }
+      }
       const translations = parsed.titleI18n || {
         [sourceLang]: titleRes,
         ...(sourceLang === "es" ? { es: titleRes } : {}),
       };
+      if (omitName && translations) {
+        for (const lang of Object.keys(translations)) {
+          translations[lang] = cleanTitleOmitEntity(translations[lang], entityLabel, publisherName);
+          if (!translations[lang] || translations[lang].length < 8) {
+            translations[lang] = titleRes;
+          }
+        }
+      }
 
       return NextResponse.json({
         success: true,

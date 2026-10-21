@@ -17,6 +17,8 @@ import {
   enforceFaqCountAndFilter,
   extractRequestedCount,
   buildRichProviderInfo,
+  checkPromptOmitEntityName,
+  cleanTitleOmitEntity,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
@@ -3629,28 +3631,7 @@ function generateImpactfulTitle(
   let baseEntityName = publisherName?.trim() || cleanName.split(/\s*[:|–—\-]\s*/)[0].trim() || cleanName;
   baseEntityName = baseEntityName.replace(/(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|especialista|experto|marketing|conversi[oó]n|llamativ|impactante|vendedor)[\s\S]*/i, "").trim() || baseEntityName;
 
-  // 1. If the prompt contains explicit quoted title text: e.g. Título: "..." or '...'
-  const quotedMatch = pTrim.match(/["'«“]([^"'»”]{5,120})["'»”]/);
-  if (quotedMatch && quotedMatch[1]) {
-    const qText = quotedMatch[1].trim();
-    if (qText.toLowerCase().includes(baseEntityName.toLowerCase())) {
-      return qText;
-    }
-    return `${baseEntityName}: ${qText}`;
-  }
-
-  // 2. If prompt says "que diga X" or "titular como X" or "usar como título X" or "título: X"
-  const directiveMatch = pTrim.match(/(?:que\s+diga|titular\s+como|usar\s+(?:como\s+)?t[ií]tulo|poner\s+(?:como\s+)?t[ií]tulo|t[ií]tulo\s*[:=])\s*[:]?\s*([^.?!,;\n]{5,120})/i);
-  if (directiveMatch && directiveMatch[1]) {
-    const dText = directiveMatch[1].trim();
-    if (dText.toLowerCase().includes(baseEntityName.toLowerCase())) {
-      return dText;
-    }
-    return `${baseEntityName}: ${dText}`;
-  }
-
-  // Check if prompt is an instruction / directive for the AI
-  const isInstructionPrompt = /(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|act[uú]a|especialista|experto|copywriter|llamativ|impactante|conversi[oó]n|marketing|que\s+(?:llame|sea|tenga)|atenci[oó]n|vendedor|buen\s+seo|optimizado|persuasiv|venda)/i.test(pTrim);
+  const omitName = checkPromptOmitEntityName(pTrim);
 
   const allCorpus = `${corpusText || ""}`;
   const isExplicitEdu = /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${baseEntityName} ${sector} ${allCorpus}`);
@@ -3664,17 +3645,47 @@ function generateImpactfulTitle(
     (h) => !h.toLowerCase().includes(baseEntityName.toLowerCase()) && !/¿/i.test(h)
   );
 
+  const formatTitle = (sloganOrTitle: string): string => {
+    const cleanSlogan = sloganOrTitle.trim();
+    if (omitName) {
+      const stripped = cleanTitleOmitEntity(cleanSlogan, baseEntityName, publisherName);
+      if (stripped.length >= 8) return stripped;
+      if (isExplicitEdu) return "Carreras Universitarias, Cursado Online y Título Oficial";
+      if (isHealth) return "Servicios Médicos, Guardia y Especialidades Clínicas";
+      return candidateSlogan || "Servicios Profesionales de Excelencia y Alta Calidad";
+    }
+    if (cleanSlogan.toLowerCase().includes(baseEntityName.toLowerCase())) {
+      return cleanSlogan;
+    }
+    return `${baseEntityName} | ${cleanSlogan}`;
+  };
+
+  // 1. If the prompt contains explicit quoted title text: e.g. Título: "..." or '...'
+  const quotedMatch = pTrim.match(/["'«“]([^"'»”]{5,120})["'»”]/);
+  if (quotedMatch && quotedMatch[1]) {
+    return formatTitle(quotedMatch[1]);
+  }
+
+  // 2. If prompt says "que diga X" or "titular como X" or "usar como título X" or "título: X"
+  const directiveMatch = pTrim.match(/(?:que\s+diga|titular\s+como|usar\s+(?:como\s+)?t[ií]tulo|poner\s+(?:como\s+)?t[ií]tulo|t[ií]tulo\s*[:=])\s*[:]?\s*([^.?!,;\n]{5,120})/i);
+  if (directiveMatch && directiveMatch[1]) {
+    return formatTitle(directiveMatch[1]);
+  }
+
+  // Check if prompt is an instruction / directive for the AI
+  const isInstructionPrompt = /(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|act[uú]a|especialista|experto|copywriter|llamativ|impactante|conversi[oó]n|marketing|que\s+(?:llame|sea|tenga)|atenci[oó]n|vendedor|buen\s+seo|optimizado|persuasiv|venda)/i.test(pTrim);
+
   if (isInstructionPrompt) {
     if (isExplicitEdu) {
-      return `${baseEntityName} | Carreras Universitarias, Cursado Online y Título Oficial`;
+      return formatTitle("Carreras Universitarias, Cursado Online y Título Oficial");
     }
     if (isHealth) {
-      return `${baseEntityName} | Servicios Médicos, Guardia y Especialidades Clínicas`;
+      return formatTitle("Servicios Médicos, Guardia y Especialidades Clínicas");
     }
     if (candidateSlogan) {
-      return `${baseEntityName} | ${candidateSlogan}`;
+      return formatTitle(candidateSlogan);
     }
-    return `${baseEntityName} | Servicios Profesionales de Alta Calidad`;
+    return formatTitle("Servicios Profesionales de Alta Calidad");
   }
 
   // 3. Extract the substantive request from the prompt itself (remove meta-instructions)
@@ -3688,21 +3699,23 @@ function generateImpactfulTitle(
   // If the user gave a descriptive subtitle (e.g. "Líder en educación superior"):
   const isGenericPromptWord = /^(?:impactante|llamativo|vendedor|comercial|marketing|atractivo|bueno|profesional|corto|largo|y\s+vendedor|y\s+llamativo|y\s+comercial)$/i.test(cleanPromptText);
   if (cleanPromptText.length >= 8 && !isGenericPromptWord) {
-    if (cleanPromptText.toLowerCase().includes(baseEntityName.toLowerCase())) {
-      return cleanPromptText;
-    }
-    return `${baseEntityName}: ${cleanPromptText}`;
+    return formatTitle(cleanPromptText);
   }
 
   if (candidateSlogan) {
-    return `${baseEntityName} | ${candidateSlogan}`;
+    return formatTitle(candidateSlogan);
   }
 
   if (isExplicitEdu) {
-    return `${baseEntityName} | Propuesta Académica y Formación Universitaria`;
+    return formatTitle("Propuesta Académica y Formación Universitaria");
   }
   if (isHealth) {
-    return `${baseEntityName} | Servicios Médicos y Especialidades Clínicas`;
+    return formatTitle("Servicios Médicos y Especialidades Clínicas");
+  }
+
+  if (omitName) {
+    const stripped = cleanTitleOmitEntity(cleanName, baseEntityName, publisherName);
+    return stripped.length >= 8 ? stripped : "Propuestas y Servicios Oficiales";
   }
 
   return cleanName;
@@ -4760,7 +4773,7 @@ ${customBlocks
 ======================================================================
 🎯 DIRECTIVA MAESTRA FIJA PARA EL TÍTULO ('title' y 'titleI18n'):
 "${customTitlePrompt.trim()}"
-REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del título (en tercera persona, tono profesional y representativo de la oferta real).
+REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del título (en tercera persona, tono profesional y representativo de la oferta real). ${checkPromptOmitEntityName(customTitlePrompt) ? "RESTRICCIÓN NEGATIVA OBLIGATORIA: El administrador ha solicitado explícitamente que el título NO contenga el nombre de la institución. ESTÁ TERMINANTEMENTE PROHIBIDO incluir el nombre del establecimiento u oferente en el título; genera únicamente el eslogan comercial o titular publicitario de alto impacto." : ""}
 ======================================================================
 `
     : "";
@@ -4848,7 +4861,7 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
 
 0. TÍTULOS, AÑO HISTÓRICO REAL Y DATOS DE GOOGLE MAPS DE LA SEDE PRINCIPAL:
 - 'publisherName': Es ÚNICAMENTE el nombre limpio y oficial de la institución, empresa u oferente (ej: "Colegio de Traductores Públicos de la Provincia de Córdoba", "Universidad Siglo 21", "Hospital Garrahan"). Si la web o el dominio usa una sigla o acrónimo (ej: CTPPC, UBA, OSDE, UTN), escribe OBLIGATORIAMENTE el nombre institucional formal completo desplegado. NUNCA pongas aquí slogans publicitarios.
-- 'title': Título claro, representativo y profesional en tercera persona. NUNCA devuelvas "sin_datos" en el título; genera siempre un título representativo con el nombre y propuesta del establecimiento. Puede ser un objeto { "estado": "ok"|"parcial", "contenido": "Título", "evidencias": ["..."] } o cadena de texto.
+- 'title': Título claro, representativo y profesional en tercera persona. NUNCA devuelvas "sin_datos" en el título; genera siempre un título representativo con la propuesta de valor del establecimiento. ${checkPromptOmitEntityName(customTitlePrompt) ? "SI EL ADMINISTRADOR PIDIÓ NO INCLUIR EL NOMBRE DE LA INSTITUCIÓN O OFERENTE, ESTÁ ESTRICTAMENTE PROHIBIDO PONER EL NOMBRE EN EL TÍTULO." : "Incluye el nombre del establecimiento junto con su propuesta comercial de impacto."} Puede ser un objeto { "estado": "ok"|"parcial", "contenido": "Título", "evidencias": ["..."] } o cadena de texto.
 - 'providerStartYear': Año real de fundación histórica o inicio de actividades en que empezaron a operar (ej: 1821, 1903, 1973, 1987, 1995). Investiga o deduce el año de fundación real de la institución a partir del texto y tu conocimiento verificado sobre la entidad. NUNCA uses el año actual ni años de copyright web del pie de página (ej: 2010, 2024, 2025, 2026).
 - 'providerRating': Valoración real que tiene en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). En caso de tener varias sedes o sucursales, toma OBLIGATORIAMENTE la puntuación de la sede principal para evitar confusiones. Si no tiene puntuación o ficha en Google Maps, pon "0". NUNCA inventes puntuaciones arbitrarias.
 - 'providerReviewCount': Cantidad EXACTA de comentarios o reseñas que hay en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). En caso de tener varias sedes o sucursales, toma OBLIGATORIAMENTE la cantidad de la sede principal. NUNCA pongas números ficticios ni valores arbitrarios como "24" o "120". Si no tiene comentarios en Google Maps, pon estrictamente "0".
@@ -6153,7 +6166,14 @@ async function processUrlWithAI(
   if (!titleVal || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(titleVal)) {
     titleVal = cleanPublisher ? `Servicios y propuestas de ${cleanPublisher}` : `Publicación de ${url}`;
   }
-  const titleI18nVal = titleAgentRes?.data?.titleI18n || { es: titleVal, en: "", pt: "", it: "" };
+  const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
+  if (effectiveTitlePrompt && checkPromptOmitEntityName(effectiveTitlePrompt)) {
+    titleVal = cleanTitleOmitEntity(titleVal, cleanPublisher, cleanPublisher);
+    if (!titleVal || titleVal.length < 8) {
+      titleVal = generateImpactfulTitle(titleVal, dynamicFallbackClassified?.sector || "general", effectiveTitlePrompt, locInfo.primaryCity, extracted.textContent, cleanPublisher);
+    }
+  }
+  const titleI18nVal = { es: titleVal, en: "", pt: "", it: "" };
   const descVal = descAgentRes?.data?.description || extracted.description || "";
   const descI18nVal = descAgentRes?.data?.descriptionI18n || { es: descVal, en: "", pt: "", it: "" };
 
