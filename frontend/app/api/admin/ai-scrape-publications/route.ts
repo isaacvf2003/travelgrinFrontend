@@ -5115,7 +5115,9 @@ async function formatPublicationResult(
     if (checkPromptOmitEntityName(effectiveTitlePrompt)) {
       title = cleanTitleOmitEntity(title, publisherName || titleClean, publisherName);
     }
-    if (!title || title.length < 8) {
+    const rawFallbackTitle = cleanTitleString(extractedData.title || "");
+    const isRawTitle = !title || title.length < 8 || (rawFallbackTitle && title.trim().toLowerCase() === rawFallbackTitle.toLowerCase());
+    if (isRawTitle) {
       title = generateImpactfulTitle(title, sectorClassification?.sector || "general", effectiveTitlePrompt, city, allText, publisherName);
     }
   }
@@ -6036,47 +6038,74 @@ async function processUrlWithAI(
     };
   }
 
-  // 2. Ejecución Inteligente: Probar Agente Unificado en paralelo con Maps enrichment
+  // 2. Ejecución Inteligente: Probar Agente Unificado y Agente de Título Dedicado en paralelo con Maps enrichment
   let titleAgentRes: any;
   let descAgentRes: any;
   let providerInfoRes: any;
   let taxonomyRes: any;
   const extraDescriptions: ExtraDescriptionBlock[] = [];
 
+  const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
+
   let unifiedRes: any = null;
+  let titleDedicatedRes: any = null;
+
   try {
     const aiPromise = runUnifiedPublicationAgent({
       context: cleanContext,
-      customTitlePrompt,
+      customTitlePrompt: effectiveTitlePrompt,
       customDescriptionPrompt,
       customBlocks,
       taxonomies,
       includeScoreScout,
     });
+
+    // Si el usuario proporcionó una directiva para el título, ejecutamos el Agente de Título dedicado
+    // en paralelo con el unificado. El título dedicado se enfoca 100% en la directiva de marketing/conversión,
+    // garantizando un titular de alto impacto sin diluirse en la generación de descripciones y taxonomías.
+    const titlePromise = (canUseAI && effectiveTitlePrompt)
+      ? runTitleAgent(cleanContext, effectiveTitlePrompt).catch((err) => {
+          console.warn(`[AI Scraper] Dedicated title agent error:`, err?.message);
+          return null;
+        })
+      : Promise.resolve(null);
+
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("AI generation timeout")), 35000)
     );
-    const [resUnified] = await Promise.all([
+    const [resUnified, resTitleDedicated] = await Promise.all([
       Promise.race([aiPromise, timeoutPromise]),
+      titlePromise,
       enrichPromise,
     ]);
     unifiedRes = resUnified;
+    titleDedicatedRes = resTitleDedicated;
   } catch (uErr: any) {
     console.warn(`[AI Scraper] Unified agent skipped (${uErr?.message})`);
   }
   await enrichPromise;
 
+  // Si el Agente de Título dedicado respondió con éxito, su título tiene prioridad absoluta
+  if (titleDedicatedRes && titleDedicatedRes.success && titleDedicatedRes.data?.title) {
+    titleAgentRes = titleDedicatedRes;
+    if (titleDedicatedRes.providerUsed && titleDedicatedRes.providerUsed !== "none") {
+      providersUsed.add(titleDedicatedRes.providerUsed);
+    }
+  }
+
   if (unifiedRes && unifiedRes.success && unifiedRes.data) {
     if (unifiedRes.providerUsed && unifiedRes.providerUsed !== "none") {
       providersUsed.add(unifiedRes.providerUsed);
     }
-    titleAgentRes = {
-      success: true,
-      data: {
-        title: unifiedRes.data.title,
-        titleI18n: unifiedRes.data.titleI18n,
-      },
-    };
+    if (!titleAgentRes) {
+      titleAgentRes = {
+        success: true,
+        data: {
+          title: unifiedRes.data.title,
+          titleI18n: unifiedRes.data.titleI18n,
+        },
+      };
+    }
     descAgentRes = {
       success: true,
       data: {
@@ -6149,6 +6178,10 @@ async function processUrlWithAI(
       customDescriptionPrompt,
       includeScoreScout
     );
+    if (titleDedicatedRes && titleDedicatedRes.success && titleDedicatedRes.data?.title) {
+      fallbackPub.title = titleDedicatedRes.data.title;
+      fallbackPub.titleI18n = { es: titleDedicatedRes.data.title, en: "", pt: "", it: "" };
+    }
     return {
       publication: enforceStrictTaxonomyGuardrails(fallbackPub, extracted, taxonomies),
       providerUsed: "extractor",
@@ -6160,7 +6193,34 @@ async function processUrlWithAI(
   if (!titleVal || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(titleVal)) {
     titleVal = cleanPublisher ? `Servicios y propuestas de ${cleanPublisher}` : `Publicación de ${url}`;
   }
-  const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
+
+  // Verificación de seguridad: si el admin dio una directiva de título pero el título actual coincide
+  // exactamente con el <title> crudo del sitio web o con el nombre seco de la entidad, significa que no se aplicó el prompt.
+  // En tal caso, llamamos de inmediato al Agente de Título dedicado para generar el titular requerido.
+  const rawSiteTitle = cleanTitleString(extracted.title || "");
+  const isRawEcho = Boolean(
+    effectiveTitlePrompt &&
+    titleVal &&
+    rawSiteTitle &&
+    (titleVal.trim().toLowerCase() === rawSiteTitle.toLowerCase() ||
+     titleVal.trim().toLowerCase() === cleanPublisher.toLowerCase())
+  );
+
+  if (isRawEcho && canUseAI) {
+    try {
+      console.log(`[AI Scraper] Title was raw web title echo ("${titleVal}"). Invoking dedicated title agent.`);
+      const directTitleRes = await runTitleAgent(cleanContext, effectiveTitlePrompt);
+      if (directTitleRes?.success && directTitleRes.data?.title) {
+        titleVal = directTitleRes.data.title;
+        if (directTitleRes.providerUsed && directTitleRes.providerUsed !== "none") {
+          providersUsed.add(directTitleRes.providerUsed);
+        }
+      }
+    } catch (tErr: any) {
+      console.warn(`[AI Scraper] Direct title agent invocation failed:`, tErr?.message);
+    }
+  }
+
   if (effectiveTitlePrompt && checkPromptOmitEntityName(effectiveTitlePrompt)) {
     titleVal = cleanTitleOmitEntity(titleVal, cleanPublisher, cleanPublisher);
     if (!titleVal || titleVal.length < 8) {
