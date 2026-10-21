@@ -6250,7 +6250,7 @@ async function processUrlWithAI(
         if (!fallbackPub.title || fallbackPub.title.length < 8) {
           fallbackPub.title = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
         }
-      } else if (isBare || (wantsMarketing && fallbackPub.title.length < 35)) {
+      } else if (isBare || !fallbackPub.title) {
         fallbackPub.title = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
       }
       fallbackPub.titleI18n = { es: fallbackPub.title, en: "", pt: "", it: "" };
@@ -6285,8 +6285,7 @@ async function processUrlWithAI(
     const isBareEcho = Boolean(
       titleVal &&
       (titleVal.trim().toLowerCase() === cleanPublisher.toLowerCase() ||
-       (rawSiteTitle && titleVal.trim().toLowerCase() === rawSiteTitle.toLowerCase()) ||
-       (wantsMarketing && titleVal.length < 35))
+       (rawSiteTitle && titleVal.trim().toLowerCase() === rawSiteTitle.toLowerCase()))
     );
 
     if (isBareEcho && canUseAI) {

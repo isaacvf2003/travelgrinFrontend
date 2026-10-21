@@ -466,7 +466,6 @@ export function synthesizeMarketingTitle(
 ): string {
   const p = (prompt || "").trim();
   const omitName = checkPromptOmitEntityName(p);
-  const locationText = [context.city, context.country].filter(Boolean).join(", ") || context.city || "";
 
   // 1. Explicit quotes in prompt
   const quotedMatch = p.match(/["'«“]([^"'»”]{5,120})["'»”]/);
@@ -479,7 +478,7 @@ export function synthesizeMarketingTitle(
   // 2. Extract best heading or service from actual scraped website
   const allHeadings = (context.headings || [])
     .map((h) => cleanTitleString(h))
-    .filter((h) => h.length > 10 && h.length < 85 && !/¿|\?|menu|login|buscar|inicio|cookies|sesi[oó]n|bienvenidos?|error/i.test(h));
+    .filter((h) => h.length > 8 && h.length < 90 && !/¿|\?|menu|login|buscar|inicio|cookies|sesi[oó]n|bienvenidos?|error/i.test(h));
 
   const allServices = (context.servicesList || [])
     .map((s) => cleanTitleString(s))
@@ -496,49 +495,18 @@ export function synthesizeMarketingTitle(
     }
   }
 
-  const corpus = `${entityName} ${context.url || ""} ${context.rawPageTitle || ""} ${(context.headings || []).join(" ")} ${(context.paragraphs || []).join(" ")}`.toLowerCase();
-  const isHealth = /hospital|sanatorio|cl[ií]nica|centro\s+m[eé]dico|m[eé]dic|salud|guardia|urgencias/i.test(corpus);
-  const isEdu = !isHealth && /universidad|facultad|instituto|colegio|campus|educaci|carrera|estudio/i.test(corpus);
-  const isTourism = !isHealth && !isEdu && /hotel|hostel|turismo|alojam|resort|posada|cabaña/i.test(corpus);
-
-  let sectorLead = "";
-  if (isHealth) {
-    sectorLead = "Centro Médico de Excelencia y Urgencias";
-  } else if (isEdu) {
-    sectorLead = "Institución Académica y Formación Superior";
-  } else if (isTourism) {
-    sectorLead = "Experiencias de Hospitalidad y Turismo";
-  } else {
-    sectorLead = "Servicios y Prestaciones Profesionales";
-  }
-
-  const wantsLong = /(?:bastante\s+largo|largo|extenso|amplio|completo)/i.test(p);
-
-  let synthesized = "";
-  if (highlight) {
-    if (highlight.length > 35) {
-      synthesized = highlight;
-    } else {
-      synthesized = `${sectorLead}: ${highlight}`;
-    }
-  } else {
-    synthesized = `${sectorLead}${locationText ? ` en ${locationText}` : ""}`;
-  }
-
-  if (wantsLong && synthesized.length < 55) {
-    const secondaryService = allServices[0] || (locationText ? `en ${locationText}` : "");
-    if (secondaryService && !synthesized.toLowerCase().includes(secondaryService.toLowerCase())) {
-      synthesized = `${synthesized} | Atención Integral ${secondaryService}`;
-    }
-  }
+  const rawTitleClean = cleanTitleString(context.rawPageTitle || "");
+  const baseTitle = highlight || (rawTitleClean && !rawTitleClean.toLowerCase().includes(entityName.toLowerCase()) ? rawTitleClean : "");
 
   let finalRes = "";
   if (omitName) {
-    finalRes = cleanTitleOmitEntity(synthesized, entityName, context.publisherName);
-  } else if (synthesized.toLowerCase().includes(entityName.toLowerCase())) {
-    finalRes = synthesized;
+    finalRes = baseTitle ? cleanTitleOmitEntity(baseTitle, entityName, context.publisherName) : "Servicios y Prestaciones";
+  } else if (!baseTitle) {
+    finalRes = entityName;
+  } else if (baseTitle.toLowerCase().includes(entityName.toLowerCase())) {
+    finalRes = baseTitle;
   } else {
-    finalRes = `${entityName} | ${synthesized}`;
+    finalRes = `${entityName} | ${baseTitle}`;
   }
 
   return enforceTitleConstraints(finalRes, prompt);
@@ -1148,7 +1116,6 @@ Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exac
 {
   "title": "Título comercial y de impacto en español"
 }
-
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: La instrucción del administrador es la regla NÚMERO UNO:
    - Si el administrador solicita un límite de palabras o longitud (ej: "máximo 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras bajo ninguna circunstancia. Cuenta las palabras con exactitud antes de responder.

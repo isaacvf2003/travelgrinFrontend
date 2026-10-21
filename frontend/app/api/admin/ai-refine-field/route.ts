@@ -7,6 +7,8 @@ import {
   cleanTitleOmitEntity,
   enforceDescriptionParagraphCount,
   synthesizeMarketingTitle,
+  enforceTitleConstraints,
+  buildRichProviderInfo,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60;
@@ -379,6 +381,8 @@ REGLAS ESTRICTAS DE VARIACIÓN:
       const aiPrompt = autoTranslate
         ? `Eres un redactor y especialista en marketing para Travelgrin.
 Genera un título comercial, atractivo y de alta conversión cumpliendo rigurosamente la instrucción del administrador.
+REGLA ESTRICTA DE LÍMITE DE PALABRAS Y LONGITUD: Si el administrador solicita un límite de palabras (ej: "máximo 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras. Cuenta las palabras con exactitud antes de emitir la respuesta.
+MÁXIMA LIBERTAD Y CERO PLANTILLAS: Cumple fielmente la directiva del administrador sin forzar plantillas predefinidas.
 INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
 ${negativeConstraintNotice}
 ${variationDirective}
@@ -398,6 +402,8 @@ Devuelve ÚNICAMENTE un objeto JSON con:
 }`
         : `Eres un redactor y especialista en marketing para Travelgrin.
 Genera un título comercial, atractivo y de alta conversión cumpliendo rigurosamente la instrucción del administrador en idioma ${sourceLang}.
+REGLA ESTRICTA DE LÍMITE DE PALABRAS Y LONGITUD: Si el administrador solicita un límite de palabras (ej: "máximo 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras. Cuenta las palabras con exactitud antes de emitir la respuesta.
+MÁXIMA LIBERTAD Y CERO PLANTILLAS: Cumple fielmente la directiva del administrador sin forzar plantillas predefinidas.
 INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
 ${negativeConstraintNotice}
 ${variationDirective}
@@ -428,7 +434,7 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
             country,
           }, prompt);
         }
-      } else if (isBare || (wantsMarketing && titleRes.length < 35)) {
+      } else if (isBare || !titleRes) {
         titleRes = synthesizeMarketingTitle(entityLabel, {
           url: url || "",
           publisherName: entityLabel,
@@ -439,13 +445,17 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
           country,
         }, prompt);
       }
+      titleRes = enforceTitleConstraints(titleRes, prompt);
       const translations = parsed.titleI18n || {
         [sourceLang]: titleRes,
         ...(sourceLang === "es" ? { es: titleRes } : {}),
       };
-      if (omitName && translations) {
+      if (translations) {
         for (const lang of Object.keys(translations)) {
-          translations[lang] = cleanTitleOmitEntity(translations[lang], entityLabel, publisherName);
+          if (omitName) {
+            translations[lang] = cleanTitleOmitEntity(translations[lang], entityLabel, publisherName);
+          }
+          translations[lang] = enforceTitleConstraints(translations[lang] || titleRes, prompt);
           if (!translations[lang] || translations[lang].length < 8) {
             translations[lang] = titleRes;
           }
@@ -633,6 +643,7 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
         ? `Eres un redactor institucional de Travelgrin.
 Redacta 1 o 2 párrafos institucionales concisos sobre la entidad destacando su trayectoria, acreditación y presencia en ${city || country || "la región"}.
 INSTRUCCIÓN DEL ADMINISTRADOR: "${prompt}"
+REGLA DE ALEATORIEDAD: Redacta con un enfoque narrativo fresco y diferente (destacando a veces equipamiento/tecnología, a veces trayectoria y prestigio, a veces calidez humana y atención de su equipo multidisciplinario, o liderazgo regional). CERO PLANTILLAS RÍGIDAS.
 ${variationDirective}
 TEXTO ACTUAL: "${currentText}"
 DATOS DE LA ENTIDAD:
@@ -662,7 +673,10 @@ Devuelve UN JSON rápido con:
 }`;
 
       const parsed = await callAI(aiPrompt, "provider_info");
-      const infoRes = parsed.providerInfo || parsed.providerInfoI18n?.[sourceLang] || parsed.providerInfoI18n?.es || currentText;
+      let infoRes = parsed.providerInfo || parsed.providerInfoI18n?.[sourceLang] || parsed.providerInfoI18n?.es || currentText;
+      if (!infoRes || infoRes.includes("es un establecimiento y prestador de servicios") || infoRes.length < 20) {
+        infoRes = buildRichProviderInfo(entityName, city || "", country || "", undefined, mainDescription);
+      }
       const translations = parsed.providerInfoI18n || {
         [sourceLang]: infoRes,
         ...(sourceLang === "es" ? { es: infoRes } : {}),
