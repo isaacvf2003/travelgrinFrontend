@@ -25,6 +25,8 @@ export interface AiFieldRefineModalProps {
     scrapedParagraphs?: string[];
     scrapedTextContent?: string;
     rawPageTitle?: string;
+    mainDescription?: string;
+    previousBlocks?: Array<{ title: string; body: string }>;
   };
   onApply: (data: {
     resultText: string;
@@ -234,6 +236,8 @@ export default function AiFieldRefineModal({
           scrapedParagraphs: metadata.scrapedParagraphs,
           scrapedTextContent: metadata.scrapedTextContent,
           rawPageTitle: metadata.rawPageTitle,
+          mainDescription: metadata.mainDescription,
+          previousBlocks: metadata.previousBlocks,
         }),
       });
 
