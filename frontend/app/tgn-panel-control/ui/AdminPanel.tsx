@@ -3136,12 +3136,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     };
     setPProviderInfoI18n(providerInfoInit);
     let startYear = draft.providerStartYear || "";
-    if ((!startYear || startYear === "2010" || startYear === "2015") && /garrahan/i.test(`${draft.url || ""} ${draft.title || ""}`)) {
-      startYear = "1987";
-    }
-    if ((!startYear || startYear === "2010") && /immi\.legal/i.test(`${draft.url || ""}`)) {
-      startYear = "2022";
-    }
     setPProviderStartYear(startYear);
     setPProviderRating(draft.providerRating || "0");
     setPProviderReviewCount(draft.providerReviewCount ?? "0");
@@ -3183,7 +3177,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPHeadquarterExtras(
       headquarterRaw.slice(1).map((loc: any) => ({
         country: loc.country || primaryHq.country || effectiveCountry,
-        city: loc.city || "",
+        city: loc.city || loc.address || "",
         mapUrl: loc.mapUrl || "",
       }))
     );
@@ -5051,13 +5045,47 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   });
   const isLocationFilled = (loc: { country: string; city: string; mapUrl: string }) =>
     Boolean(loc.country || loc.city || loc.mapUrl);
+  const normalizeAddressFingerprint = (rawAddr?: string | null): string => {
+    if (!rawAddr || typeof rawAddr !== "string") return "";
+    let clean = rawAddr.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    clean = clean.replace(/https?:\/\/[^\s]+/gi, "");
+    clean = clean.replace(/\b(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja|timbre|bloque|edificio|torre|local|sector|puerta|c\.?p\.?|cp)\s*[^,.\n-]*/gi, " ");
+    clean = clean.replace(/\b(?:tel|telefono|cel|celular|whatsapp|fax|interno|int\.)\s*:?[^,.\n-]*/gi, " ");
+    clean = clean.replace(/[°º#"']/g, "");
+    clean = clean.replace(/[,;–—\-_/]+/g, " ");
+    clean = clean.replace(/\b(?:avenida|avda|av\.|av|calle|callejon|bv\.|bvd|boulevard|bulevar|pje\.|pje|pasaje|ruta\s+provincial|ruta\s+nacional|ruta|autopista|diagonal|lateral)\b/gi, " ");
+    clean = clean.replace(/\s+/g, " ").trim();
+    const numMatch = clean.match(/\b\d{1,5}\b/);
+    if (numMatch) {
+      const number = numMatch[0];
+      const idx = clean.indexOf(number);
+      let streetBefore = clean.slice(0, idx).trim();
+      if (!streetBefore || streetBefore.length < 2) {
+        streetBefore = clean.slice(idx + number.length).trim();
+      }
+      const words = streetBefore
+        .split(" ")
+        .filter((w) => w.length > 1 && !/^(?:de|del|la|las|los|el|y|e|en|al|n|no|num|numero)$/i.test(w))
+        .sort()
+        .join(" ");
+      return (words + " " + number).trim();
+    }
+    const words = clean
+      .split(" ")
+      .filter((w) => w.length > 2 && !/^(?:de|del|la|las|los|el|y|e|en|al|provincia|departamento|ciudad|argentina|chile)$/i.test(w))
+      .sort()
+      .join(" ");
+    return words;
+  };
+
   const uniqueLocations = <T extends { country: string; city: string; mapUrl: string }>(locations: T[]) => {
     const seen = new Set<string>();
     const result: T[] = [];
     locations.forEach((loc) => {
       const normalized = normalizeLocation(loc) as T;
       if (!isLocationFilled(normalized)) return;
-      const key = `${normalized.country.toLowerCase()}|${normalized.city.toLowerCase()}|${normalized.mapUrl.toLowerCase()}`;
+      const fp = normalizeAddressFingerprint(normalized.city);
+      const key = `${normalized.country.toLowerCase()}|${fp || normalized.city.toLowerCase()}`;
       if (seen.has(key)) return;
       seen.add(key);
       result.push(normalized);
