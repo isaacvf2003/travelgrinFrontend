@@ -355,6 +355,110 @@ export function enforceDescriptionParagraphCount(descHtml: string, prompt?: stri
   return result.slice(0, count).join("\n");
 }
 
+export function extractTitleWordLimit(prompt?: string): number | null {
+  if (!prompt) return null;
+  const p = prompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const spanishWordNumberMap: Record<string, number> = {
+    un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5,
+    seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12,
+    trece: 13, catorce: 14, quince: 15, dieciseis: 16, diecisiete: 17,
+    dieciocho: 18, diecinueve: 19, veinte: 20, veintiuno: 21, veintidos: 22,
+    veintitres: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26,
+    veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30,
+    cuarenta: 40, cincuenta: 50,
+  };
+
+  // 1. Prefix pattern: "(con un / de)? (maximo / hasta / menos de / no mas de / max / tope / limite / de) X palabras"
+  const prefixMatch = p.match(/\b(?:con\s+(?:un\s+)?)?(?:maximo|max|hasta|menos\s+de|no\s+mas\s+de|tope(?:\s+de)?|limite(?:\s+de)?|longitud(?:\s+maxima)?(?:\s+de)?|de)\s*(\d+)\s*palabras?\b/i);
+  if (prefixMatch && prefixMatch[1]) {
+    const val = parseInt(prefixMatch[1], 10);
+    if (val > 0 && val < 500) return val;
+  }
+
+  // 2. Suffix pattern: "X palabras (como / de)? (maximo / max / tope / limite)"
+  const suffixMatch = p.match(/\b(\d+)\s*palabras?\s*(?:como\s+|de\s+)?(?:maximo|max|tope|limite)\b/i);
+  if (suffixMatch && suffixMatch[1]) {
+    const val = parseInt(suffixMatch[1], 10);
+    if (val > 0 && val < 500) return val;
+  }
+
+  // 3. Simple count: "en X palabras", "de X palabras"
+  const simpleMatch = p.match(/\b(?:en|de)\s*(\d+)\s*palabras?\b/i);
+  if (simpleMatch && simpleMatch[1]) {
+    const val = parseInt(simpleMatch[1], 10);
+    if (val > 0 && val < 500) return val;
+  }
+
+  // 4. Word number pattern: "maximo veinticinco palabras", "hasta diez palabras"
+  const wordKeys = Object.keys(spanishWordNumberMap).join("|");
+  const wordRegex = new RegExp(`\\b(?:maximo|max|hasta|menos\\s+de|no\\s+mas\\s+de|tope|limite|de|en)\\s*(${wordKeys})\\s*palabras?\\b`, "i");
+  const wordMatch = p.match(wordRegex);
+  if (wordMatch && wordMatch[1]) {
+    const num = spanishWordNumberMap[wordMatch[1].toLowerCase()];
+    if (num) return num;
+  }
+
+  // 5. Word number suffix pattern: "veinticinco palabras como maximo"
+  const wordNumSuffixRegex = new RegExp(`\\b(${wordKeys})\\s*palabras?\\s*(?:como\\s+|de\\s+)?(?:maximo|max|tope|limite)\\b`, "i");
+  const wordNumSuffixMatch = p.match(wordNumSuffixRegex);
+  if (wordNumSuffixMatch && wordNumSuffixMatch[1]) {
+    const num = spanishWordNumberMap[wordNumSuffixMatch[1].toLowerCase()];
+    if (num) return num;
+  }
+
+  return null;
+}
+
+export function extractTitleCharLimit(prompt?: string): number | null {
+  if (!prompt) return null;
+  const p = prompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const match = p.match(/\b(?:con\s+(?:un\s+)?)?(?:maximo|max|hasta|menos\s+de|no\s+mas\s+de|tope(?:\s+de)?|limite(?:\s+de)?|longitud(?:\s+maxima)?(?:\s+de)?|de)\s*(\d+)\s*(?:caracteres?|letras?)\b/i);
+  if (match && match[1]) {
+    const val = parseInt(match[1], 10);
+    if (val > 0 && val < 1000) return val;
+  }
+  return null;
+}
+
+export function enforceTitleConstraints(title: string, prompt?: string): string {
+  if (!title) return "";
+  let clean = cleanTitleString(title);
+  if (!prompt) return clean;
+
+  const maxWords = extractTitleWordLimit(prompt);
+  if (maxWords && maxWords > 0) {
+    const words = clean.split(/\s+/).filter(Boolean);
+    if (words.length > maxWords) {
+      clean = words.slice(0, maxWords).join(" ");
+      // Clean up any trailing punctuation or dangling prepositions/determiners
+      for (let i = 0; i < 2; i++) {
+        clean = clean
+          .replace(/[\s,:;|\-–—.]+$/, "")
+          .replace(/\b(?:y|e|o|u|de|del|en|con|para|por|a|al|sin|sobre|hacia|desde|hasta|un|una|el|la|los|las|toda|todo|todas|todos)\s*$/i, "")
+          .replace(/[\s,:;|\-–—.]+$/, "")
+          .trim();
+      }
+    }
+  }
+
+  const maxChars = extractTitleCharLimit(prompt);
+  if (maxChars && maxChars > 0 && clean.length > maxChars) {
+    clean = clean.slice(0, maxChars);
+    const lastSpace = clean.lastIndexOf(" ");
+    if (lastSpace > maxChars * 0.7) {
+      clean = clean.slice(0, lastSpace);
+    }
+    clean = clean
+      .replace(/[\s,:;|\-–—.]+$/, "")
+      .replace(/\b(?:y|e|o|u|de|del|en|con|para|por|a|al|sin|sobre|hacia|desde|hasta|un|una|el|la|los|las)\s*$/i, "")
+      .replace(/[\s,:;|\-–—.]+$/, "")
+      .trim();
+  }
+
+  return clean;
+}
+
 export function synthesizeMarketingTitle(
   entityName: string,
   context: CleanScrapedContext,
@@ -368,8 +472,8 @@ export function synthesizeMarketingTitle(
   const quotedMatch = p.match(/["'«“]([^"'»”]{5,120})["'»”]/);
   if (quotedMatch && quotedMatch[1]) {
     const custom = cleanTitleString(quotedMatch[1]);
-    if (omitName) return cleanTitleOmitEntity(custom, entityName, context.publisherName);
-    return custom.toLowerCase().includes(entityName.toLowerCase()) ? custom : `${entityName} | ${custom}`;
+    const res = omitName ? cleanTitleOmitEntity(custom, entityName, context.publisherName) : (custom.toLowerCase().includes(entityName.toLowerCase()) ? custom : `${entityName} | ${custom}`);
+    return enforceTitleConstraints(res, prompt);
   }
 
   // 2. Extract best heading or service from actual scraped website
@@ -428,15 +532,16 @@ export function synthesizeMarketingTitle(
     }
   }
 
+  let finalRes = "";
   if (omitName) {
-    return cleanTitleOmitEntity(synthesized, entityName, context.publisherName);
+    finalRes = cleanTitleOmitEntity(synthesized, entityName, context.publisherName);
+  } else if (synthesized.toLowerCase().includes(entityName.toLowerCase())) {
+    finalRes = synthesized;
+  } else {
+    finalRes = `${entityName} | ${synthesized}`;
   }
 
-  if (synthesized.toLowerCase().includes(entityName.toLowerCase())) {
-    return synthesized;
-  }
-
-  return `${entityName} | ${synthesized}`;
+  return enforceTitleConstraints(finalRes, prompt);
 }
 
 export function buildRichProviderInfo(
@@ -467,35 +572,70 @@ export function buildRichProviderInfo(
   const isTourism = !isEdu && !isHealth && /hotel|hostel|turismo|alojam|posada|cabaña|resort/i.test(textCorpus);
   const isLegal = !isEdu && !isHealth && /traduct|abogad|legal|notari|escriban|jur[ií]dic/i.test(textCorpus);
 
+  // Helper to pick randomly from varied narrative angles
+  const pickRandom = (arr: string[]): string => arr[Math.floor(Math.random() * arr.length)];
+
   // 1. If website metaDescription or intro sentence describes the entity cleanly without templates
   if (extractedData?.metaDescription && extractedData.metaDescription.length > 35 && extractedData.metaDescription.length < 260) {
     const meta = extractedData.metaDescription.trim();
     if (!/cookies|javascript|sesi[oó]n|portal|ingres[oa]/i.test(meta) && (!isEdu || !/m[eé]dic|paciente|cl[ií]nic/i.test(meta))) {
-      return meta;
+      // 30% chance to use natural meta if good, otherwise vary with rich angles
+      if (Math.random() < 0.3) {
+        return meta;
+      }
     }
   }
 
-  // 2. Dynamic non-template descriptions tailored to the entity's real activity
+  // 2. Dynamic, non-template, randomized descriptions tailored to the entity's real activity
   if (isEdu) {
     const academicAreas = headings.length > 0 ? ` en áreas como ${headings.slice(0, 3).join(", ")}` : "";
-    return `${cleanName} es una institución de educación superior${locStr ? ` con sede en ${locStr}` : ""}, dedicada a la formación académica y profesional a través de carreras de grado, posgrados y programas de capacitación continua${academicAreas} en modalidades presencial y a distancia.`;
+    const eduAngles = [
+      `${cleanName} es una institución de educación superior${locStr ? ` con sede en ${locStr}` : ""}, dedicada a la formación académica y profesional a través de carreras de grado, posgrados y programas de capacitación continua${academicAreas}.`,
+      `Reconocida por su excelencia pedagógica${locStr ? ` en ${locStr}` : ""}, ${cleanName} ofrece una sólida oferta formativa en modalidades presencial y virtual, preparando profesionales líderes con visión de futuro.`,
+      `${cleanName} se destaca como polo de conocimiento e innovación académica${locStr ? ` en ${locStr}` : ""}, impulsando la investigación, el pensamiento crítico y programas de estudio actualizados${academicAreas}.`,
+      `Comprometida con la formación integral y el desarrollo profesional de sus estudiantes, ${cleanName} brinda carreras universitarias y cursos especializados con altos estándares académicos y moderna infraestructura.`,
+    ];
+    return pickRandom(eduAngles);
   }
 
   if (isHealth) {
     const healthAreas = headings.length > 0 ? ` en áreas como ${headings.slice(0, 3).join(", ")}` : "";
-    return `${cleanName} es una institución de salud${locStr ? ` con sede en ${locStr}` : ""}, dedicada a brindar atención médica de calidad, servicios asistenciales integrales y consultas diagnósticas especializadas${healthAreas}.`;
+    const healthAngles = [
+      `${cleanName} es una prestigiosa institución médica${locStr ? ` de ${locStr}` : ""}, equipada con tecnología de avanzada y servicios asistenciales integrales de alta complejidad${healthAreas}.`,
+      `Con una sólida trayectoria en el cuidado de la salud${locStr ? ` en ${locStr}` : ""}, ${cleanName} brinda atención médica especializada, diagnóstico clínico confiable y guardia permanente comprometida con el bienestar de la comunidad.`,
+      `${cleanName} se distingue por la excelencia de su equipo profesional y la calidez en el trato humano, ofreciendo prestaciones médicas integrales, consultas diagnósticas y tratamientos de vanguardia${healthAreas}.`,
+      `Referente en atención sanitaria integral${locStr ? ` en ${locStr}` : ""}, ${cleanName} cuenta con un calificado cuerpo médico multidisciplinario dedicado al cuidado preventivo y terapéutico de pacientes.`,
+      `Como centro asistencial y médico moderno${locStr ? ` con sede en ${locStr}` : ""}, ${cleanName} combina equipamiento de última generación, atención ambulatoria y servicios de internación enfocados en el cuidado de la salud.`,
+    ];
+    return pickRandom(healthAngles);
   }
 
   if (isTourism) {
-    return `${cleanName} es un referente en hospitalidad y turismo${locStr ? ` en ${locStr}` : ""}, orientado a brindar estadías confortables, atención personalizada y servicios integrales de alojamiento.`;
+    const tourismAngles = [
+      `${cleanName} es un referente en hospitalidad y turismo${locStr ? ` en ${locStr}` : ""}, orientado a brindar estadías confortables, calidez en el servicio y experiencias memorables.`,
+      `Ubicado estratégicamente${locStr ? ` en ${locStr}` : ""}, ${cleanName} ofrece modernas instalaciones, confort y atención personalizada pensada para el descanso y disfrute de sus visitantes.`,
+      `Con un estándar de excelencia en atención al huésped, ${cleanName} se distingue por sus cuidados ambientes y una propuesta de hospitalidad integral pensada para cada viajero.`,
+    ];
+    return pickRandom(tourismAngles);
   }
 
   if (isLegal) {
-    return `${cleanName} es un prestador de servicios profesionales${locStr ? ` con sede en ${locStr}` : ""}, enfocado en brindar asesoramiento técnico, soporte integral y soluciones a medida con los más altos estándares de excelencia.`;
+    const legalAngles = [
+      `${cleanName} es un prestador de servicios profesionales y consultoría${locStr ? ` con sede en ${locStr}` : ""}, enfocado en brindar asesoramiento técnico, soporte integral y soluciones a medida con los más altos estándares de excelencia.`,
+      `Con amplia trayectoria y solvencia técnica${locStr ? ` en ${locStr}` : ""}, ${cleanName} asesora a personas y organizaciones con rigor profesional, confidencialidad y ética.`,
+      `${cleanName} ofrece servicios de consultoría especializada${locStr ? ` en ${locStr}` : ""}, brindando acompañamiento integral, gestión eficiente y respuestas estratégicas personalizadas.`,
+    ];
+    return pickRandom(legalAngles);
   }
 
   const generalAreas = headings.length > 0 ? ` destacándose en ${headings.slice(0, 3).join(", ")}` : "";
-  return `${cleanName} es una entidad de referencia${locStr ? ` con base en ${locStr}` : ""}, orientada a brindar prestaciones y soluciones profesionales${generalAreas} con sólida trayectoria y atención personalizada.`;
+  const generalAngles = [
+    `${cleanName} es una entidad de referencia${locStr ? ` con base en ${locStr}` : ""}, orientada a brindar prestaciones y soluciones profesionales${generalAreas} con sólida trayectoria y atención personalizada.`,
+    `Dedicada a ofrecer respuestas confiables y atención personalizada, ${cleanName} se posiciona como una organización destacada${locStr ? ` en ${locStr}` : ""}.`,
+    `Con un equipo enfocado en la satisfacción y la excelencia operativa, ${cleanName} desarrolla prestaciones de calidad adaptadas a las necesidades reales de su comunidad.`,
+    `${cleanName} se distingue por su constante compromiso con la calidad y la innovación${locStr ? ` en ${locStr}` : ""}, brindando servicios especializados con atención personalizada.`,
+  ];
+  return pickRandom(generalAngles);
 }
 
 export interface ExtraDescriptionBlock {
@@ -1011,10 +1151,11 @@ Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exac
 
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: La instrucción del administrador es la regla NÚMERO UNO:
-   - Si el administrador pide especialista en marketing, conversión, llamar la atención o que sea "bastante largo", REDACTA UN TITULAR PUBLICITARIO EXTENSO, IMPACTANTE Y DE ALTA CONVERSIÓN (entre 55 y 120 caracteres) destacando la propuesta de valor, especialidad y prestigio de ${entityName}.
-     Ejemplo para centros de salud: "${entityName} | Centro Médico de Alta Complejidad: Guardia de Emergencias 24 Horas y Atención Especializada".
+   - Si el administrador solicita un límite de palabras o longitud (ej: "máximo 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras bajo ninguna circunstancia. Cuenta las palabras con exactitud antes de responder.
+   - Si el administrador pide cualquier estilo, tono, palabras clave o enfoque (incluso emojis, mayúsculas o estilo libre): ADÁPTATE 100% A LO QUE PIDE SIN USAR PLANTILLAS PREDEFINIDAS.
+   - Si el administrador pide especialista en marketing, conversión, llamar la atención o que sea "bastante largo", REDACTA UN TITULAR PUBLICITARIO EXTENSO, IMPACTANTE Y DE ALTA CONVERSIÓN destacando la propuesta de valor, especialidad y prestigio de ${entityName}.
    - ESTÁ TERMINANTEMENTE PROHIBIDO devolver únicamente el nombre de la institución a secas (ej: "${entityName}") o copiar textualmente el título de la web si se pidió marketing o impacto.
-2. CERO PLANTILLAS RÍGIDAS: Queda TERMINANTEMENTE PROHIBIDO usar fórmulas fijas, clichés o plantillas vacías. El titular debe ser 100% fresco, único y a medida basado en la actividad real comprobada de la entidad.
+2. CERO PLANTILLAS RÍGIDAS: Queda TERMINANTEMENTE PROHIBIDO usar fórmulas fijas, clichés o plantillas vacías. El titular debe ser 100% fresco, único y a medida basado en la actividad real comprobada de la entidad y en la directiva del administrador.
 3. REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre'), ESTÁ ESTRICTAMENTE PROHIBIDO incluir '${entityName}' o el nombre de la entidad en el título; genera únicamente la propuesta comercial o titular de alto impacto.
 4. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano.
 5. Fidelidad factual: Basa las especialidades y propuestas en los datos reales de la web de "${entityName}".
@@ -1084,9 +1225,11 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
       if (!cleanTitle || cleanTitle.length < 8) {
         cleanTitle = synthesizeMarketingTitle(entityName, context, prompt);
       }
-    } else if (!cleanTitle || isBareName || (wantsMarketingOrLong && cleanTitle.length < 35)) {
+    } else if (!cleanTitle || isBareName) {
       cleanTitle = synthesizeMarketingTitle(entityName, context, prompt);
     }
+
+    cleanTitle = enforceTitleConstraints(cleanTitle, prompt);
 
     console.log(`5. Normalized Title Output: "${cleanTitle}"`);
 
@@ -1096,6 +1239,8 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
       pt: "",
       it: "",
     };
+
+
 
     return {
       success: true,
@@ -1561,8 +1706,9 @@ REGLAS DE MÁXIMA PRIORIDAD:
    - Si el título de la página es un programa, evento, convocatoria o curso (por ejemplo: "Córdoba GovTech", "Programa Talento", "Becas 2024", etc.), identifica cuál es la institución o empresa responsable matriz.
 2. DIRECCIÓN FÍSICA VIGENTE VS HISTÓRICA:
    - Identifica la dirección operativa actual del pie de página (footer) o contacto oficial en "direccionVigente". NUNCA tomes direcciones de noticias viejas o artículos archivados del cuerpo.
-3. CERO PLANTILLAS GENÉRICAS:
-   - Prohibido terminantemente usar frases clichés vacías como "Institución y prestador de servicios en Córdoba". Describe la actividad concreta, trayectoria, funciones o propósito real del oferente.
+3. CERO PLANTILLAS GENÉRICAS Y ALEATORIEDAD OBLIGATORIA:
+   - Prohibido terminantemente usar frases clichés vacías como "Institución y prestador de servicios en Córdoba". Describe la actividad concreta, funciones o propósito real del oferente.
+   - VARIEDAD EN CADA SCRAPING: Cada perfil debe tener un enfoque diferente y aleatorio (en algunas ocasiones destaca su tecnología o equipamiento, en otras su trayectoria y prestigio profesional, en otras la calidez y atención de su equipo multidisciplinario, o su liderazgo regional).
 4. Concisión: Redacta 1 o 2 oraciones concisas y profesionales en tercera persona.
 5. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
@@ -2613,7 +2759,8 @@ Tu objetivo es auditar el sitio web y generar una publicación completa, atracti
 HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 1. AUTORIDAD EDITORIAL SUPREMA: Las instrucciones del administrador son la regla NÚMERO UNO:
    - TÍTULO: Si el administrador proporcionó una directiva para el título ("${titlePrompt}"), DEBES ADAPTARTE DIRECTAMENTE A LO QUE PIDIÓ (incluso si pide emojis, palabras clave de alto impacto o estilo libre). Si pidió un ángulo, enfoque o palabras clave específicas (ej: inscripciones, innovación, calidad, tecnología, etc.), ese ángulo DEBE SER EL CORAZÓN DEL TÍTULO redactado de manera 100% original, creativa y vendedora.
-     * CERO PLANTILLAS: ESTÁ TERMINANTEMENTE PROHIBIDO usar frases prearmadas, clichés o plantillas fijas. Redacta un titular original, único y fresco basado estrictamente en el contenido real de la página web y en el estilo pedido por el administrador.
+     * REGLA ESTRICTA DE LÍMITE DE PALABRAS Y LONGITUD: Si el administrador indica un límite de palabras (ej: "máximo 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras bajo ninguna circunstancia. Cuenta las palabras con exactitud antes de emitir la respuesta.
+     * MÁXIMA LIBERTAD Y CERO PLANTILLAS: El administrador puede pedir cualquier estilo, extensión, enfoque o instrucción en el prompt de título. Adáptate 100% a lo que pide sin recurrir a plantillas fijas. Redacta un titular original, único y fresco basado estrictamente en el contenido real de la página web y en el estilo pedido por el administrador.
      * PROHIBIDO COPIAR EL TÍTULO ORIGINAL: Si el administrador dio una instrucción de título, ESTÁ TERMINANTEMENTE PROHIBIDO devolver el título original de la web o una copia textual de la etiqueta title. Redacta un nuevo titular comercial según lo pedido.
      * REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA DE NOMBRE: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre', 'sin mencionar la institucion'), ESTÁ TERMINANTEMENTE PROHIBIDO incluir '${entityName}' o el nombre de la institución en el título. Genera ÚNICAMENTE el titular o eslogan publicitario/comercial de alto impacto, enfocado directamente en la propuesta de valor sin mencionar a la entidad.
      * Si NO pidió omitir el nombre, combina de forma natural y atractiva el nombre con la propuesta destacada sin fórmulas fijas.
@@ -2625,7 +2772,7 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
      * PREGUNTAS FRECUENTES Y CANTIDAD: Formula preguntas inteligentes y respuestas claras sobre los servicios del sitio en formato HTML. Respeta RIGUROSAMENTE la CANTIDAD de preguntas pedidas (ej: si pide "2 preguntas", genera EXACTAMENTE 2 preguntas y 2 respuestas, NI UNA MÁS NI UNA MENOS).
      * PROHIBIDO WIZARDS/BOTONES: ESTÁ ESTRICTAMENTE PROHIBIDO tomar botones o etiquetas de filtros/wizards de formularios de la web (como "¿Qué estás buscando?", "¿Cuál va a ser tu próximo paso?").
      * COLORES Y FORMATO: Si el administrador pide colores específicos (ej: "preguntas en rojo y su respuesta en negro" o "de azul el título"), APLICA EL ESTILO EN LÍNEA: <p><strong style="color: #dc2626;">¿Pregunta en rojo?</strong><br/><span style="color: #000000;">Respuesta en negro...</span></p>. Si pide emojis o íconos, inclúyelos libremente.
-   - INFORMACIÓN DEL OFERENTE ('providerInfo'): Resumen institucional conciso de 1 o 2 oraciones (máximo 40 palabras) pero MUY rico, concreto y personalizado. TOTALMENTE PROHIBIDO usar plantillas clichés vacías como "es un establecimiento y prestador de servicios en...". Describe qué hace la entidad, su especialidad, áreas asistenciales o académicas de excelencia, tomando aspectos clave de la descripción principal o del sitio web.
+   - INFORMACIÓN DEL OFERENTE ('providerInfo'): Resumen institucional conciso de 1 o 2 oraciones (máximo 40 palabras) pero MUY rico, concreto y personalizado. REGLA DE ALEATORIEDAD Y VARIEDAD: En cada scraping, redacta una descripción institucional única, fresca y con un enfoque narrativo diferente y aleatorio (a veces enfocado en la tecnología y equipamiento moderno, a veces en la trayectoria y prestigio, a veces en la calidez humana y atención de su equipo multidisciplinario, o en el liderazgo regional). TOTALMENTE PROHIBIDO usar plantillas clichés vacías como "es un establecimiento y prestador de servicios en...".
 2. CERO PLANTILLAS RÍGIDAS FIJAS: No uses esquemas estáticos repetitivos. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
 3. Fidelidad factual y Reputación en Google Maps:
    - Basa los textos en los servicios, ofertas, propuestas y datos reales de la web de "${entityName}".
@@ -2755,9 +2902,10 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         if (!cleanTitle || cleanTitle.length < 8) {
           cleanTitle = synthesizeMarketingTitle(entityName, context, titlePrompt);
         }
-      } else if (!cleanTitle || isBare || (wantsMarketing && cleanTitle.length < 35)) {
+      } else if (!cleanTitle || isBare) {
         cleanTitle = synthesizeMarketingTitle(entityName, context, titlePrompt);
       }
+      cleanTitle = enforceTitleConstraints(cleanTitle, titlePrompt);
     } else if (!cleanTitle) {
       cleanTitle = entityName;
     }
