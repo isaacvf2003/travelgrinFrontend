@@ -6,6 +6,7 @@ import {
   checkPromptOmitEntityName,
   cleanTitleOmitEntity,
   enforceDescriptionParagraphCount,
+  enforceParagraphWordLimit,
   synthesizeMarketingTitle,
   enforceTitleConstraints,
   buildRichProviderInfo,
@@ -381,7 +382,7 @@ REGLAS ESTRICTAS DE VARIACIÓN:
       const aiPrompt = autoTranslate
         ? `Eres un redactor y especialista en marketing para Travelgrin.
 Genera un título comercial, atractivo y de alta conversión cumpliendo rigurosamente la instrucción del administrador.
-REGLA ESTRICTA DE LÍMITE DE PALABRAS Y LONGITUD: Si el administrador solicita un límite de palabras (ej: "máximo 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras. Cuenta las palabras con exactitud antes de emitir la respuesta.
+REGLA ESTRICTA DE LÍMITE DE PALABRAS Y EXTENSIÓN: Si el administrador solicita un límite de palabras (ej: "máximo 25 palabras", "un límite de 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras. Cuenta las palabras con exactitud antes de emitir la respuesta. Además, redacta un titular completo, llamativo y atractivo que aproveche bien la extensión solicitada (ej: si pide hasta 25 palabras, aprovecha una extensión sustancial de 15 a 25 palabras; no devuelvas un título telegráfico de solo 5 palabras).
 MÁXIMA LIBERTAD Y CERO PLANTILLAS: Cumple fielmente la directiva del administrador sin forzar plantillas predefinidas.
 INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
 ${negativeConstraintNotice}
@@ -399,10 +400,10 @@ Devuelve ÚNICAMENTE un objeto JSON con:
     "pt": "Título em português",
     "it": "Titolo in italiano"
   }
-}`
+} `
         : `Eres un redactor y especialista en marketing para Travelgrin.
 Genera un título comercial, atractivo y de alta conversión cumpliendo rigurosamente la instrucción del administrador en idioma ${sourceLang}.
-REGLA ESTRICTA DE LÍMITE DE PALABRAS Y LONGITUD: Si el administrador solicita un límite de palabras (ej: "máximo 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras. Cuenta las palabras con exactitud antes de emitir la respuesta.
+REGLA ESTRICTA DE LÍMITE DE PALABRAS Y EXTENSIÓN: Si el administrador solicita un límite de palabras (ej: "máximo 25 palabras", "un límite de 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras. Cuenta las palabras con exactitud antes de emitir la respuesta. Además, redacta un titular completo, llamativo y atractivo que aproveche bien la extensión solicitada (ej: si pide hasta 25 palabras, aprovecha una extensión sustancial de 15 a 25 palabras; no devuelvas un título telegráfico de solo 5 palabras).
 MÁXIMA LIBERTAD Y CERO PLANTILLAS: Cumple fielmente la directiva del administrador sin forzar plantillas predefinidas.
 INSTRUCCIÓN DEL ADMINISTRADOR (MÁXIMA PRIORIDAD): "${prompt}"
 ${negativeConstraintNotice}
@@ -434,7 +435,7 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
             country,
           }, prompt);
         }
-      } else if (isBare || !titleRes) {
+      } else if (!titleRes || (isBare && !wantsMarketing)) {
         titleRes = synthesizeMarketingTitle(entityLabel, {
           url: url || "",
           publisherName: entityLabel,
@@ -482,8 +483,9 @@ ${contextFacts}
 
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: Cumple fielmente y al pie de la letra la instrucción del administrador:
-   - Si pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
-   - Si pide subtítulos en negrita o letras negras y su explicación, cada párrafo debe comenzar con <p><strong>Título del Párrafo:</strong> Explicación persuasiva y detallada...</p>.
+   - Si pide una cantidad exacta de párrafos (ej: "2 párrafos", "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
+   - Si pide subtítulos o títulos con su explicación o pide colores (ej: "con los títulos en letras azules y su explicación", "letras amarillo", etc.), aplica el estilo inline exacto pedido: azul (#0066cc), rojo (#dc2626), amarillo (#ca8a04). Cada párrafo debe comenzar con <p><strong style="color: ...">Título del Párrafo:</strong> Explicación detallada...</p>. Si no pide colores pero pide subtítulos, usa <p><strong>Subtítulo:</strong> Explicación...</p>.
+   - REGLA ESTRICTA DE LÍMITE DE PALABRAS EN CADA PÁRRAFO: Si el administrador solicita un límite de palabras en cada párrafo (ej: "máximo 50 palabras en cada párrafo", "un límite de 50 palabras", "hasta 50 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad en ningún párrafo. Además, DESARROLLA Y EXPLAYA el contenido con riqueza informativa y persuasión para acercarte a la extensión solicitada (entre 38 y 50 palabras por párrafo; NO escribas párrafos pobres o telegráficos de solo 15-20 palabras). Cuenta las palabras con exactitud antes de emitir la respuesta.
    - Si pide emojis o iconos, inclúyelos con total naturalidad en los subtítulos o texto según lo solicitado.
    - Si pide tono comercial, persuasivo o de conversión, aplícalo con fluidez.
 2. CERO PLANTILLAS RÍGIDAS: Prohibido usar plantillas fijas o hablar de clínicas/salud si la entidad es de otro rubro (ej: educación, hotelería, etc.). Redacción personalizada y basada estrictamente en la entidad real.
@@ -509,8 +511,8 @@ ${contextFacts}
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: Cumple fielmente y al pie de la letra la instrucción del administrador:
    - Si pide una cantidad exacta de párrafos (ej: "2 párrafos", "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
-   - Si pide subtítulos o títulos con su explicación (ej: "con los títulos en letras amarillo y su explicación"), cada párrafo debe comenzar con <p><strong style="color: #ca8a04;">Título del Párrafo:</strong> Explicación persuasiva y detallada con excelente SEO...</p>. Si pide subtítulos en negrita o letras negras, usa <p><strong>Subtítulo:</strong> Explicación...</p>.
-   - Si pide colores específicos en los títulos o texto, APLICA LOS ESTILOS INLINE correspondientes (<strong style="color: ...">).
+   - Si pide subtítulos o títulos con su explicación o pide colores (ej: "con los títulos en letras azules y su explicación", "letras amarillo", etc.), aplica el estilo inline exacto pedido: azul (#0066cc), rojo (#dc2626), amarillo (#ca8a04). Cada párrafo debe comenzar con <p><strong style="color: ...">Título del Párrafo:</strong> Explicación persuasiva y detallada con excelente SEO...</p>. Si no pide colores pero pide subtítulos, usa <p><strong>Subtítulo:</strong> Explicación...</p>.
+   - REGLA ESTRICTA DE LÍMITE DE PALABRAS EN CADA PÁRRAFO: Si el administrador solicita un límite de palabras en cada párrafo (ej: "máximo 50 palabras en cada párrafo", "un límite de 50 palabras", "hasta 50 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad en ningún párrafo. Además, DESARROLLA Y EXPLAYA el contenido con riqueza informativa y persuasión para acercarte a la extensión solicitada (entre 38 y 50 palabras por párrafo; NO escribas párrafos pobres o telegráficos de solo 15-20 palabras). Cuenta las palabras con exactitud antes de emitir la respuesta.
    - Si pide emojis o iconos, inclúyelos con total naturalidad en los subtítulos o texto según lo solicitado.
    - Si pide tono comercial, persuasivo, SEO o de conversión, aplícalo con fluidez.
 2. CERO PLANTILLAS RÍGIDAS: Prohibido usar plantillas fijas o hablar de clínicas/salud si la entidad es de otro rubro. Redacción personalizada, humana y directa.
@@ -524,6 +526,7 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
       let descRes = parsed.description || parsed.descriptionI18n?.[sourceLang] || parsed.descriptionI18n?.es || currentText;
       if (prompt && descRes) {
         descRes = enforceDescriptionParagraphCount(descRes, prompt);
+        descRes = enforceParagraphWordLimit(descRes, prompt);
         descRes = applyPromptColorStyles(descRes, prompt);
       }
       const translations = parsed.descriptionI18n || {
@@ -533,6 +536,7 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
       if (prompt && translations) {
         for (const lang of Object.keys(translations)) {
           translations[lang] = enforceDescriptionParagraphCount(translations[lang], prompt);
+          translations[lang] = enforceParagraphWordLimit(translations[lang], prompt);
           translations[lang] = applyPromptColorStyles(translations[lang], prompt);
         }
       }

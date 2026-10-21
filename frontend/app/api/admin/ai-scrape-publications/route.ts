@@ -20,6 +20,7 @@ import {
   checkPromptOmitEntityName,
   cleanTitleOmitEntity,
   enforceDescriptionParagraphCount,
+  enforceParagraphWordLimit,
   synthesizeMarketingTitle,
   enforceTitleConstraints,
 } from "@/app/lib/aiPublicationAgents";
@@ -108,6 +109,9 @@ export interface ScrapedPublication {
   scrapedParagraphs?: string[];
   scrapedTextContent?: string;
   rawPageTitle?: string;
+  customTitlePrompt?: string;
+  customDescriptionPrompt?: string;
+  customDescPrompt?: string;
 }
 
 function decodeHtmlEntities(str: string): string {
@@ -3678,14 +3682,17 @@ function generateImpactfulTitle(
   const isInstructionPrompt = /(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|act[uú]a|especialista|experto|copywriter|llamativ|impactante|conversi[oó]n|marketing|que\s+(?:llame|sea|tenga)|atenci[oó]n|vendedor|buen\s+seo|optimizado|persuasiv|venda)/i.test(pTrim);
 
   if (isInstructionPrompt) {
+    if (cleanName && cleanName.length >= 8 && !/login|inicio|untitled/i.test(cleanName)) {
+      return enforceTitleConstraints(formatTitle(cleanName), pTrim);
+    }
     if (candidateSlogan) {
-      return formatTitle(candidateSlogan);
+      return enforceTitleConstraints(formatTitle(candidateSlogan), pTrim);
     }
     const anyHeading = headings.find((h) => h.length > 12 && !/login|menu|buscar|inicio/i.test(h));
     if (anyHeading) {
-      return formatTitle(anyHeading);
+      return enforceTitleConstraints(formatTitle(anyHeading), pTrim);
     }
-    return formatTitle(cleanName);
+    return enforceTitleConstraints(formatTitle(cleanName), pTrim);
   }
 
   // 3. Extract the substantive request from the prompt itself (remove meta-instructions)
@@ -3699,19 +3706,20 @@ function generateImpactfulTitle(
   // If the user gave a descriptive subtitle (e.g. "Líder en educación superior"):
   const isGenericPromptWord = /^(?:impactante|llamativo|vendedor|comercial|marketing|atractivo|bueno|profesional|corto|largo|y\s+vendedor|y\s+llamativo|y\s+comercial)$/i.test(cleanPromptText);
   if (cleanPromptText.length >= 8 && !isGenericPromptWord) {
-    return formatTitle(cleanPromptText);
+    return enforceTitleConstraints(formatTitle(cleanPromptText), pTrim);
   }
 
   if (candidateSlogan) {
-    return formatTitle(candidateSlogan);
+    return enforceTitleConstraints(formatTitle(candidateSlogan), pTrim);
   }
 
   if (omitName) {
     const stripped = cleanTitleOmitEntity(cleanName, baseEntityName, publisherName);
-    return stripped.length >= 8 ? stripped : (candidateSlogan ? cleanTitleOmitEntity(candidateSlogan, baseEntityName, publisherName) : "Propuestas y Servicios");
+    const res = stripped.length >= 8 ? stripped : (candidateSlogan ? cleanTitleOmitEntity(candidateSlogan, baseEntityName, publisherName) : "Propuestas y Servicios");
+    return enforceTitleConstraints(res, pTrim);
   }
 
-  return cleanName;
+  return enforceTitleConstraints(cleanName, pTrim);
 }
 
 async function buildGroundedDescriptions(
@@ -4766,7 +4774,7 @@ ${customBlocks
 ======================================================================
 🎯 DIRECTIVA MAESTRA FIJA PARA EL TÍTULO ('title' y 'titleI18n'):
 "${customTitlePrompt.trim()}"
-REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del título (en tercera persona, tono profesional y representativo de la oferta real). REGLA ESTRICTA DE LÍMITE DE PALABRAS Y LONGITUD: Si el administrador indica un límite de palabras (ej: 'máximo 25 palabras', 'hasta 20 palabras', 'menos de 15 palabras', 'tope de 25 palabras'): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras bajo ninguna circunstancia. Cuenta las palabras con exactitud antes de emitir la respuesta. MÁXIMA LIBERTAD Y CERO PLANTILLAS: El administrador puede pedir cualquier estilo, extensión, enfoque o directiva en el título. Adáptate 100% a lo solicitado sin fórmulas fijas. ${checkPromptOmitEntityName(customTitlePrompt) ? "RESTRICCIÓN NEGATIVA OBLIGATORIA: El administrador ha solicitado explícitamente que el título NO contenga el nombre de la institución. ESTÁ TERMINANTEMENTE PROHIBIDO incluir el nombre del establecimiento u oferente en el título; genera únicamente el eslogan comercial o titular publicitario de alto impacto." : ""}
+REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del título (tono publicitario/comercial o profesional y representativo de la oferta real). REGLA ESTRICTA DE LÍMITE DE PALABRAS Y EXTENSIÓN: Si el administrador indica un límite de palabras (ej: 'máximo 25 palabras', 'un límite de 25 palabras', 'hasta 20 palabras', 'menos de 15 palabras', 'tope de 25 palabras'): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras bajo ninguna circunstancia. Cuenta las palabras con exactitud antes de emitir la respuesta. Además, redacta un titular completo, llamativo y atractivo que aproveche bien la extensión solicitada (ej: si pide hasta 25 palabras, aprovecha una extensión sustancial de 15 a 25 palabras; no devuelvas un título telegráfico de solo 5 palabras). MÁXIMA LIBERTAD Y CERO PLANTILLAS: El administrador puede pedir cualquier estilo, extensión, enfoque o directiva en el título. Adáptate 100% a lo solicitado sin fórmulas fijas ni copiar el título original crudo. ${checkPromptOmitEntityName(customTitlePrompt) ? "RESTRICCIÓN NEGATIVA OBLIGATORIA: El administrador ha solicitado explícitamente que el título NO contenga el nombre de la institución. ESTÁ TERMINANTEMENTE PROHIBIDO incluir el nombre del establecimiento u oferente en el título; genera únicamente el eslogan comercial o titular publicitario de alto impacto." : ""}
 ======================================================================
 `
     : "";
@@ -4776,7 +4784,7 @@ REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del t�
 ======================================================================
 🎯 DIRECTIVA MAESTRA FIJA PARA LA DESCRIPCIÓN PRINCIPAL ('description' y 'descriptionI18n'):
 "${customDescriptionPrompt.trim()}"
-REGLA ESTRICTA DE DESCRIPCIÓN: Aplica al 100% esta directiva en la estructura de párrafos <p>, tono en tercera persona y contenido de la descripción general. EVITA PLANTILLAS RÍGIDAS y redacta de forma natural basada exclusivamente en datos reales del sitio web.
+REGLA ESTRICTA DE DESCRIPCIÓN: Aplica al 100% esta directiva en la estructura de párrafos <p>, tono y contenido. Si el administrador pide una cantidad exacta de párrafos (ej: '2 párrafos', '5 párrafos'), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>. Si pide subtítulos y su explicación o pide colores (ej: 'letras azules', 'rojo', etc.), aplica el estilo inline exacto pedido: si pide azul usa style="color: #0066cc;", si pide rojo usa style="color: #dc2626;", si pide amarillo usa style="color: #ca8a04;". REGLA ESTRICTA DE LÍMITE DE PALABRAS EN CADA PÁRRAFO: Si el administrador pide un límite de palabras en cada párrafo (ej: 'máximo 50 palabras en cada párrafo', 'un límite de 50 palabras', 'hasta 50 palabras'): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad en ningún párrafo, desarrollando y explayando el contenido con riqueza informativa para acercarte a la extensión solicitada (38 a 50 palabras por párrafo; NO escribas párrafos telegráficos o pobres de solo 15-20 palabras). EVITA PLANTILLAS RÍGIDAS y redacta de forma natural basada exclusivamente en datos reales del sitio web.
 ======================================================================
 `
     : "";
@@ -5203,22 +5211,10 @@ async function formatPublicationResult(
       });
   }
 
-  const hasExecutiveSummary = /resumen ejecutivo/i.test(finalDescEs);
-  const hasWhoWeAre = /qui[eé]nes somos/i.test(finalDescEs);
-  const hasStory = /historia|trayectoria/i.test(finalDescEs);
-  const hasServices = /servicios? y prestaciones|prestaciones y áreas|servicios clave/i.test(finalDescEs);
+  // Check if AI description is valid and has content
+  const hasValidContent = finalDescEs.length >= 20 && (finalDescEs.includes("<p>") || finalDescEs.length >= 40);
 
-  const promptMismatch = Boolean(effectiveDescPrompt && (
-    (checkPromptIsExecutiveSummary(effectiveDescPrompt) && !hasExecutiveSummary) ||
-    (checkPromptIsWhoWeAre(effectiveDescPrompt) && !hasWhoWeAre) ||
-    (checkPromptIsStory(effectiveDescPrompt) && !hasStory) ||
-    (checkPromptIsServicesDetailed(effectiveDescPrompt) && !hasServices)
-  ));
-
-  // Check if AI description is valid, has HTML structure, and satisfies custom prompt
-  const hasValidContent = !promptMismatch && finalDescEs.length >= 25 && (finalDescEs.includes("<p>") || finalDescEs.length >= 60);
-
-  // If the AI description was missing, too short, lacks content, or failed the specific prompt, generate grounded descriptions
+  // If the AI description was completely missing or empty, generate grounded descriptions fallback
   if (!hasValidContent) {
     const fallbackDesc = await buildGroundedDescriptions(extractedData, title, primaryHq.city, primaryHq.country, effectiveDescPrompt);
     finalDescEs = fallbackDesc.es;
@@ -5234,6 +5230,8 @@ async function formatPublicationResult(
   }
 
   if (effectiveDescPrompt && finalDescEs) {
+    finalDescEs = enforceDescriptionParagraphCount(finalDescEs, effectiveDescPrompt);
+    finalDescEs = enforceParagraphWordLimit(finalDescEs, effectiveDescPrompt);
     finalDescEs = applyPromptColorStyles(finalDescEs, effectiveDescPrompt);
   }
 
@@ -5463,6 +5461,9 @@ async function formatPublicationResult(
     providerActivities: matchedActivities.length ? matchedActivities : ["Servicios profesionales y técnicos"],
     providerTypes: matchedTypes.length ? matchedTypes : ["Institución privada"],
     providerModalities: matchedModalities.length ? matchedModalities : ["Atención presencial", "Atención online"],
+    customTitlePrompt: (customTitlePrompt || customAdminPrompt || "").trim(),
+    customDescriptionPrompt: (customDescriptionPrompt || customAdminPrompt || "").trim(),
+    customDescPrompt: (customDescriptionPrompt || customAdminPrompt || "").trim(),
   };
 
   return enforceStrictTaxonomyGuardrails(
@@ -6137,6 +6138,7 @@ async function processUrlWithAI(
     let uDesc = unifiedRes.data.description;
     if (effectiveDescPrompt && uDesc) {
       uDesc = enforceDescriptionParagraphCount(uDesc, effectiveDescPrompt);
+      uDesc = enforceParagraphWordLimit(uDesc, effectiveDescPrompt);
       uDesc = applyPromptColorStyles(uDesc, effectiveDescPrompt);
     }
 
