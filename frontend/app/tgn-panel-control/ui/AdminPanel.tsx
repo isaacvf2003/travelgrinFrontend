@@ -3752,6 +3752,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           scrapedParagraphs: activeScrapedFactsRef.current.scrapedParagraphs || [],
           scrapedTextContent: activeScrapedFactsRef.current.scrapedTextContent || pDescription || currentVal || "",
           rawPageTitle: activeScrapedFactsRef.current.rawPageTitle || pTitle || "",
+          mainDescription: (pDescriptionI18n[sourceLang] || (sourceLang === "es" ? pDescription : "") || pDescriptionI18n.es || "").trim(),
+          previousBlocks: typeof blockIdx === "number"
+            ? pExtraDescriptions.slice(0, blockIdx).map((b) => ({
+                title: b.titleI18n?.[sourceLang] || b.titleI18n?.es || b.title || "",
+                body: b.bodyI18n?.[sourceLang] || b.bodyI18n?.es || b.body || "",
+              }))
+            : [],
         }),
       });
 
@@ -11361,6 +11368,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           scrapedParagraphs: activeScrapedFactsRef.current.scrapedParagraphs,
           scrapedTextContent: activeScrapedFactsRef.current.scrapedTextContent,
           rawPageTitle: activeScrapedFactsRef.current.rawPageTitle,
+          mainDescription: pDescriptionI18n.es || pDescription || "",
+          previousBlocks: typeof aiRefineState.blockIndex === "number"
+            ? pExtraDescriptions.slice(0, aiRefineState.blockIndex).map((b) => ({
+                title: b.titleI18n?.es || b.title || "",
+                body: b.bodyI18n?.es || b.body || "",
+              }))
+            : pExtraDescriptions.map((b) => ({
+                title: b.titleI18n?.es || b.title || "",
+                body: b.bodyI18n?.es || b.body || "",
+              })),
         }}
         onApply={handleApplyAiRefinement}
       />
