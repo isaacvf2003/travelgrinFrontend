@@ -21,6 +21,7 @@ import {
   cleanTitleOmitEntity,
   enforceDescriptionParagraphCount,
   synthesizeMarketingTitle,
+  enforceTitleConstraints,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
@@ -75,6 +76,7 @@ export interface ScrapedPublication {
   descriptionI18n: I18nRecord;
   extraDescriptions: ExtraDescriptionBlock[];
   publisherName: string;
+  providerInfo?: string;
   providerInfoI18n: I18nRecord;
   providerStartYear: string;
   providerRating: string;
@@ -4764,7 +4766,7 @@ ${customBlocks
 ======================================================================
 🎯 DIRECTIVA MAESTRA FIJA PARA EL TÍTULO ('title' y 'titleI18n'):
 "${customTitlePrompt.trim()}"
-REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del título (en tercera persona, tono profesional y representativo de la oferta real). ${checkPromptOmitEntityName(customTitlePrompt) ? "RESTRICCIÓN NEGATIVA OBLIGATORIA: El administrador ha solicitado explícitamente que el título NO contenga el nombre de la institución. ESTÁ TERMINANTEMENTE PROHIBIDO incluir el nombre del establecimiento u oferente en el título; genera únicamente el eslogan comercial o titular publicitario de alto impacto." : ""}
+REGLA ESTRICTA DE TÍTULO: Aplica al 100% esta directiva en la redacción del título (en tercera persona, tono profesional y representativo de la oferta real). REGLA ESTRICTA DE LÍMITE DE PALABRAS Y LONGITUD: Si el administrador indica un límite de palabras (ej: 'máximo 25 palabras', 'hasta 20 palabras', 'menos de 15 palabras', 'tope de 25 palabras'): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras bajo ninguna circunstancia. Cuenta las palabras con exactitud antes de emitir la respuesta. MÁXIMA LIBERTAD Y CERO PLANTILLAS: El administrador puede pedir cualquier estilo, extensión, enfoque o directiva en el título. Adáptate 100% a lo solicitado sin fórmulas fijas. ${checkPromptOmitEntityName(customTitlePrompt) ? "RESTRICCIÓN NEGATIVA OBLIGATORIA: El administrador ha solicitado explícitamente que el título NO contenga el nombre de la institución. ESTÁ TERMINANTEMENTE PROHIBIDO incluir el nombre del establecimiento u oferente en el título; genera únicamente el eslogan comercial o titular publicitario de alto impacto." : ""}
 ======================================================================
 `
     : "";
@@ -5363,7 +5365,7 @@ async function formatPublicationResult(
   }
 
   const titleI18n = {
-    es: cleanTitleString(title),
+    es: enforceTitleConstraints(cleanTitleString(title), customTitlePrompt),
     en: "",
     pt: "",
     it: "",
@@ -5410,10 +5412,16 @@ async function formatPublicationResult(
   const rawExtractedSocials = Array.isArray(extractedData.socialLinksExtracted) ? extractedData.socialLinksExtracted : [{ kind: "web", label: "Sitio Oficial", url: extractedData.url }];
   const combinedSocials = mergeSocialLinks(rawParsedSocials, rawExtractedSocials);
 
+  const finalTitle = enforceTitleConstraints(cleanTitleString(title), customTitlePrompt);
   const draftResult: ScrapedPublication = {
     url: extractedData.url,
-    title,
-    titleI18n,
+    title: finalTitle,
+    titleI18n: {
+      es: finalTitle,
+      en: "",
+      pt: "",
+      it: "",
+    },
     description: finalDescEs,
     descriptionI18n: {
       es: finalDescEs,
@@ -5427,6 +5435,7 @@ async function formatPublicationResult(
       bodyI18n: { es: blk.body, en: "", pt: "", it: "" },
     })),
     publisherName,
+    providerInfo: providerInfoI18n.es,
     providerInfoI18n,
     providerStartYear: startYear,
     providerRating: finalRating,
@@ -6093,13 +6102,12 @@ async function processUrlWithAI(
       effectiveTitlePrompt &&
       uTitle &&
       (uTitle.trim().toLowerCase() === cleanPublisher.toLowerCase() ||
-       (cleanContext.rawPageTitle && uTitle.trim().toLowerCase() === cleanTitleString(cleanContext.rawPageTitle).toLowerCase()) ||
-       (wantsMarketingTitle && uTitle.length < 35))
+       (cleanContext.rawPageTitle && uTitle.trim().toLowerCase() === cleanTitleString(cleanContext.rawPageTitle).toLowerCase()))
     );
 
     if (isBareEcho && canUseAI) {
       try {
-        console.log(`[AI Scraper] Unified title was echo or brief for prompt ("${uTitle}"). Invoking TitleAgent.`);
+        console.log(`[AI Scraper] Unified title was echo or bare publisher ("${uTitle}"). Invoking TitleAgent.`);
         const directTitleRes = await runTitleAgent(cleanContext, effectiveTitlePrompt);
         if (directTitleRes?.success && directTitleRes.data?.title) {
           uTitle = directTitleRes.data.title;
@@ -6111,8 +6119,9 @@ async function processUrlWithAI(
         console.warn(`[AI Scraper] Direct title agent invocation failed:`, tErr?.message);
         uTitle = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
       }
-    } else if (effectiveTitlePrompt && wantsMarketingTitle && uTitle.length < 35) {
-      uTitle = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
+    }
+    if (effectiveTitlePrompt && uTitle) {
+      uTitle = enforceTitleConstraints(uTitle, effectiveTitlePrompt);
     }
 
     titleAgentRes = {
@@ -6301,9 +6310,10 @@ async function processUrlWithAI(
       if (!titleVal || titleVal.length < 8) {
         titleVal = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
       }
-    } else if (titleVal.trim().toLowerCase() === cleanPublisher.toLowerCase() || (wantsMarketing && titleVal.length < 35)) {
+    } else if (titleVal.trim().toLowerCase() === cleanPublisher.toLowerCase() || !titleVal) {
       titleVal = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
     }
+    titleVal = enforceTitleConstraints(titleVal, effectiveTitlePrompt);
   }
 
   const titleI18nVal = { es: titleVal, en: "", pt: "", it: "" };
@@ -6391,6 +6401,8 @@ async function processUrlWithAI(
     descriptionI18n: descI18nVal,
     extraDescriptions,
     publisherName: cleanPublisher,
+    providerInfo: providerInfoI18nVal.es,
+    providerInfoI18n: providerInfoI18nVal,
     providerStartYear: (() => {
       const candidateYear = String(cleanContext.foundingYear || extracted.detectedFoundingYear || unifiedRes?.data?.detectedFoundingYear || "").trim();
       if (candidateYear && ["2024", "2025", "2026", "2027"].includes(candidateYear)) {
