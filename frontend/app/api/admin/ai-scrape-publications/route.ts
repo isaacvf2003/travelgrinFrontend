@@ -229,7 +229,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
   },
   "hitalianomza.com.ar": {
     name: "Hospital Italiano de Mendoza",
-    startYear: "1903",
+    startYear: "",
     primaryCity: "Mendoza",
     primaryCountry: "Argentina",
     activity: "Salud y asistencia social",
@@ -239,7 +239,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     rating: "2.6",
     reviewCount: "714",
     commentsUrl: "https://www.google.com/maps/place/Hospital+Italiano+de+Mendoza/@-32.8965929,-68.8238401,17z",
-    additionalCities: [],
+    additionalCities: ["Guaymallén", "Godoy Cruz", "San Martín"],
     socialLinks: [
       { kind: "web", label: "Página Oficial", url: "https://hitalianomza.com.ar" },
       { kind: "phone", label: "Central Telefónica y Turnos", url: "tel:08103333330" },
@@ -251,7 +251,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
   },
   "hitalianomza.com": {
     name: "Hospital Italiano de Mendoza",
-    startYear: "1903",
+    startYear: "",
     primaryCity: "Mendoza",
     primaryCountry: "Argentina",
     activity: "Salud y asistencia social",
@@ -261,7 +261,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     rating: "2.6",
     reviewCount: "714",
     commentsUrl: "https://www.google.com/maps/place/Hospital+Italiano+de+Mendoza/@-32.8965929,-68.8238401,17z",
-    additionalCities: [],
+    additionalCities: ["Guaymallén", "Godoy Cruz", "San Martín"],
     socialLinks: [
       { kind: "web", label: "Página Oficial", url: "https://hitalianomza.com" },
       { kind: "phone", label: "Central Telefónica y Turnos", url: "tel:08103333330" },
@@ -776,20 +776,9 @@ function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: stri
 }
 
 function extractFoundingYear(cleanHtml: string, textContent: string, url: string, title: string): string | null {
-  // 1. Check known institutions dictionary first
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-    for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
-      if (hostname.includes(domainKey) || url.toLowerCase().includes(domainKey)) {
-        return info.startYear;
-      }
-    }
-  } catch {}
-
-  const combined = `${title} ${textContent.slice(0, 15000)}`.toLowerCase();
   const currentYear = new Date().getFullYear();
 
-  // 2. Specific founding / creation / legislative patterns (strictly avoid website copyright dates)
+  // Strict, verified founding / creation patterns in the scraped website text
   const explicitPatterns = [
     // Legislative creation (Ley / Sanción / Promulgación / Boletín Oficial)
     /(?:ley\s*(?:n[°oº]?\s*[0-9.]+)?[\s\S]{0,60}?(?:sanci[oó]n|sancionada|promulgada|publicaci[oó]n|fecha)\s*:?\s*(?:el\s+)?(?:\d{1,2}[./-]\d{1,2}[./-])?)\b([12]\d{3})\b/i,
@@ -800,12 +789,10 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
     /(?:ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:del?\s+a[nñ]o|de|en)\s*)\b(1[89]\d{2}|20[0-2]\d)\b/i,
     /(?:personer[ií]a\s+jur[ií]dica(?:\s+n[°oº]?\s*[0-9.]+)?(?:\s+(?:del?\s+a[nñ]o|de|en))?)\s*([12]\d{3})\b/i,
 
-    // Foundation / Initiation / Historical opening
-    /(?:fundad[oa]|inaugurad[oa]|cread[oa]|establecid[oa]|fundaci[oó]n|origen|nacimiento|inicios?|abrió sus puertas|inici[oó] sus actividades|comenzó a funcionar|constituci[oó]n|constitu[ií]d[oa])\s*(?:en|de|el|hacia|en el año)?\s*([12]\d{3})/i,
-    /(?:fundad[oa]|cread[oa]|inaugurad[oa]|abrió sus puertas)\s+el\s+\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+([12]\d{3})/i,
-    /(?:en el año|desde el año|año de fundaci[oó]n:?|año de inauguraci[oó]n:?|año de creaci[oó]n:?|año de inicio:?)\s*([12]\d{3})/i,
-    /(?:desde|since|est\.|establ\.)\s*([12]\d{3})/i,
-    /(?:se\s+remonta\s+(?:a|al año))\s*([12]\d{3})/i,
+    // Explicit Foundation / Initiation / Historical opening
+    /(?:fundad[oa]|inaugurad[oa]|cread[oa]|establecid[oa]|fundaci[oó]n|inici[oó]\s+sus\s+actividades|abri[oó]\s+sus\s+puertas|constituci[oó]n|constitu[ií]d[oa])\s*(?:en|el|hacia|en el a[nñ]o)?\s*([12]\d{3})/i,
+    /(?:fundad[oa]|cread[oa]|inaugurad[oa]|abri[oó]\s+sus\s+puertas)\s+el\s+\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+([12]\d{3})/i,
+    /(?:a[nñ]o\s+de\s+fundaci[oó]n:?|a[nñ]o\s+de\s+inauguraci[oó]n:?|a[nñ]o\s+de\s+creaci[oó]n:?|a[nñ]o\s+de\s+inicio:?|fecha\s+de\s+fundaci[oó]n:?)\s*([12]\d{3})/i,
   ];
 
   for (const regex of explicitPatterns) {
@@ -820,23 +807,13 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
       const yr = m[1] || m[0].match(/([12]\d{3})/)?.[1];
       if (yr) {
         const num = Number(yr);
-        // Exclude recent copyright-like dates (current year or last 2 years) if no explicit historical founding keyword
-        if (num >= currentYear - 2 && !/fundad|cread|inaugurad|abrió|constitu/i.test(m[0])) {
+        if (num >= currentYear - 2 && !/fundad|cread|inaugurad|abrio|abrió|constitu/i.test(m[0])) {
           continue;
         }
         if (num >= 1600 && num <= currentYear) {
           return yr;
         }
       }
-    }
-  }
-
-  // 3. Years of experience pattern: "más de 25 años de trayectoria", "30 años de experiencia"
-  const experienceMatch = combined.match(/(?:hace|con más de|más de|cerca de|\+)\s*(\d{1,3})\s*años\s*(?:de\s+)?(?:trayectoria|historia|experiencia|educando|atención|presencia|cuidando)/i);
-  if (experienceMatch && experienceMatch[1]) {
-    const years = Number(experienceMatch[1]);
-    if (years >= 1 && years <= 150) {
-      return String(currentYear - years);
     }
   }
 
@@ -1071,7 +1048,6 @@ async function enrichWithLiveGoogleMapsAndSearch(
     const hostname = new URL(extracted.url).hostname.replace(/^www\./, "").toLowerCase();
     for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
       if (hostname === domainKey || hostname.endsWith(`.${domainKey}`) || extracted.url.toLowerCase().includes(domainKey)) {
-        if (info.startYear && !extracted.detectedFoundingYear) extracted.detectedFoundingYear = info.startYear;
         if (info.primaryCity && !extracted.detectedCity) extracted.detectedCity = info.primaryCity;
         if (info.primaryCountry && !extracted.detectedCountry) extracted.detectedCountry = info.primaryCountry;
         if (info.commentsUrl && !extracted.detectedCommentsUrl) extracted.detectedCommentsUrl = info.commentsUrl;
@@ -1236,37 +1212,13 @@ async function enrichWithLiveGoogleMapsAndSearch(
       }
     }
 
-    // Check for founding year in Google Maps place info / knowledge snippet
-    if (!extracted.detectedFoundingYear) {
-      const currentYear = new Date().getFullYear();
-      const mFound = text.match(/(?:fundaci[oó]n|fundad[oa]|inaugurad[oa]|inauguraci[oó]n|abierto desde|desde el a[nñ]o|apertura|inici[oó]|cread[oa]|sancionad[oa]|personer[ií]a)\s*:?\s*(?:en|el|del)?\s*(1[6-9]\d{2}|20[0-2]\d)\b/i) ||
-                     text.match(/(?:desde|since|est\.|establ\.)\s*(1[6-9]\d{2}|20[0-2]\d)\b/i);
-      if (mFound && mFound[1]) {
-        const numYr = parseInt(mFound[1], 10);
-        if (!isNaN(numYr) && numYr >= 1600 && numYr <= currentYear) {
-          extracted.detectedFoundingYear = String(numYr);
-        }
-      }
-
-      // Check for years in business pattern in Google Maps place listing (e.g. "X años en el sector", "hace X años")
-      const mYearsInBiz = text.match(/(?:hace|m[aá]s de|\+)?\s*(\d{1,3})\s*a[nñ]os\s*(?:en el sector|de experiencia|de trayectoria|abierto)/i);
-      if (!extracted.detectedFoundingYear && mYearsInBiz && mYearsInBiz[1]) {
-        const yrs = parseInt(mYearsInBiz[1], 10);
-        if (!isNaN(yrs) && yrs >= 1 && yrs <= 150) {
-          extracted.detectedFoundingYear = String(currentYear - yrs);
-        }
-      }
-    }
-
-    if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0" && extracted.detectedFoundingYear) break;
+    if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") break;
   }
 
-  // Fast targeted Search fallback (timeout 1200ms) only if founding year or ratings are still completely missing
-  if ((!extracted.detectedRating || !extracted.detectedFoundingYear) && cleanName) {
+  // Fast targeted Search fallback (timeout 1200ms) only if ratings/reviews of the primary headquarters are still missing
+  if ((!extracted.detectedRating || !extracted.detectedReviewCount || extracted.detectedReviewCount === "0") && cleanName) {
     try {
-      const webQuery = !extracted.detectedFoundingYear
-        ? `"${officialFullName || cleanName}" ("fundación" OR "fundado en" OR "inicio de actividades" OR "creada por ley" OR "historia" OR "Google Maps")`
-        : `"${officialFullName || cleanName}" ("sede central" OR "${city}") "Google Maps"`;
+      const webQuery = `"${officialFullName || cleanName}" ("sede central" OR "${city}") "Google Maps"`;
       const searchUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(webQuery)}`;
       const res = await fetchWithTimeout(
         searchUrl,
@@ -1306,16 +1258,6 @@ async function enrichWithLiveGoogleMapsAndSearch(
             if (isThousand) numCount = numCount * 1000;
             const parsedCount = Math.round(numCount);
             if (!isNaN(parsedCount) && parsedCount > 0) extracted.detectedReviewCount = String(parsedCount);
-          }
-        }
-        if (!extracted.detectedFoundingYear) {
-          const currentYear = new Date().getFullYear();
-          const startYearMatch = plainText.match(/(?:fundad[oa]|fundaci[oó]n|inaugurad[oa]|inauguraci[oó]n|cread[oa]|inicio\s+de\s+actividades|desde|apertura)\s*(?:en|de|el)?\s*([12]\d{3})/i);
-          if (startYearMatch && startYearMatch[1]) {
-            const numYr = parseInt(startYearMatch[1], 10);
-            if (!isNaN(numYr) && numYr >= 1600 && numYr <= currentYear) {
-              extracted.detectedFoundingYear = String(numYr);
-            }
           }
         }
       }
@@ -1587,14 +1529,13 @@ function detectAllLocationsAndHeadquarters(allText: string, url: string, title: 
 
   const primary = cityMatches[0];
   const primaryKey = (primary?.city || "").toLowerCase();
-  const subdistricts = METRO_SUBDISTRICTS_MAP[primaryKey] || [];
 
   const additional = cityMatches
     .slice(1)
     .map((c) => c.city)
     .filter((c) => {
       const cKey = c.toLowerCase();
-      return cKey !== primaryKey && !subdistricts.includes(cKey);
+      return cKey !== primaryKey;
     });
 
   return {
@@ -1613,12 +1554,42 @@ function detectCityAndProvince(allText: string, url: string, title = ""): { city
   };
 }
 
-const METRO_SUBDISTRICTS_MAP: Record<string, string[]> = {
-  "mendoza": ["san josé", "san jose", "guaymallén", "guaymallen", "godoy cruz", "las heras", "luján de cuyo", "lujan de cuyo", "maipú", "maipu"],
-  "buenos aires": ["palermo", "belgrano", "recoleta", "caballito", "puerto madero", "san telmo", "almagro", "villa crespo", "núñez", "nunez", "caba", "ciudad autónoma de buenos aires", "ciudad autonoma de buenos aires"],
-  "córdoba": ["nueva córdoba", "nueva cordoba", "cerro de las rosas", "alta córdoba", "alta cordoba", "general paz", "alberdi"],
-  "rosario": ["pichincha", "arroyito", "echesortu", "fisherton"],
-};
+function normalizeAddressFingerprint(rawAddr?: string | null): string {
+  if (!rawAddr || typeof rawAddr !== "string") return "";
+  let clean = rawAddr.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  clean = clean.replace(/https?:\/\/[^\s]+/gi, "");
+  clean = clean.replace(/\b(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja|timbre|bloque|edificio|torre|local|sector|puerta|c\.?p\.?|cp)\s*[^,.\n-]*/gi, " ");
+  clean = clean.replace(/\b(?:tel|telefono|cel|celular|whatsapp|fax|interno|int\.)\s*:?[^,.\n-]*/gi, " ");
+  clean = clean.replace(/[°º#"']/g, "");
+  clean = clean.replace(/[,;–—\-_/]+/g, " ");
+  clean = clean.replace(/\b(?:avenida|avda|av\.|av|calle|callejon|bv\.|bvd|boulevard|bulevar|pje\.|pje|pasaje|ruta\s+provincial|ruta\s+nacional|ruta|autopista|diagonal|lateral)\b/gi, " ");
+  clean = clean.replace(/\s+/g, " ").trim();
+
+  // If there is a street number (e.g. 1070), the street name is before the number!
+  const numMatch = clean.match(/\b\d{1,5}\b/);
+  if (numMatch) {
+    const number = numMatch[0];
+    const idx = clean.indexOf(number);
+    let streetBefore = clean.slice(0, idx).trim();
+    if (!streetBefore || streetBefore.length < 2) {
+      streetBefore = clean.slice(idx + number.length).trim();
+    }
+    const words = streetBefore
+      .split(" ")
+      .filter((w) => w.length > 1 && !/^(?:de|del|la|las|los|el|y|e|en|al|n|no|num|numero)$/i.test(w))
+      .sort()
+      .join(" ");
+    return (words + " " + number).trim();
+  }
+
+  // If no number, just sort significant words
+  const words = clean
+    .split(" ")
+    .filter((w) => w.length > 2 && !/^(?:de|del|la|las|los|el|y|e|en|al|provincia|departamento|ciudad|argentina|chile)$/i.test(w))
+    .sort()
+    .join(" ");
+  return words;
+}
 
 function resolveHeadquarterLocations(
   rawLocations: any[] | undefined,
@@ -1629,77 +1600,102 @@ function resolveHeadquarterLocations(
   detectedMapsUrl: string,
   allText: string,
   additionalCities: string[] = [],
-  primaryAddress?: string
+  primaryAddress?: string,
+  additionalAddresses: string[] = []
 ): Array<{ country: string; city: string; address?: string; mapUrl: string }> {
   const finalCity = city || "Buenos Aires";
   const finalCountry = country || "Argentina";
-  const primaryKey = finalCity.toLowerCase();
-  const subdistricts = METRO_SUBDISTRICTS_MAP[primaryKey] || [];
+  const seenFingerprints = new Set<string>();
+  const seenCityNames = new Set<string>();
+  const result: Array<{ country: string; city: string; address?: string; mapUrl: string }> = [];
 
-  // If rawLocations is provided from AI with multiple valid entries
-  if (Array.isArray(rawLocations) && rawLocations.length > 0) {
-    const seenCities = new Set<string>();
-    const validLocs: Array<{ country: string; city: string; address?: string; mapUrl: string }> = [];
+  const addLocation = (loc: { country?: string; city?: string; address?: string; mapUrl?: string }, isPrimary: boolean = false) => {
+    const locCountry = String(loc.country || finalCountry).trim();
+    const locCity = String(loc.city || finalCity).trim();
+    const locAddress = String(loc.address || "").trim();
 
-    for (const loc of rawLocations) {
-      if (!loc || typeof loc !== "object") continue;
-      const locCountry = String(loc.country || finalCountry).trim();
-      const locCity = String(loc.city || finalCity).trim();
-      const locAddress = String(loc.address || "").trim();
+    const addrFp = normalizeAddressFingerprint(locAddress);
+    const cityFp = normalizeAddressFingerprint(locCity);
 
-      const locCityKey = locCity.toLowerCase();
-      if (seenCities.has(locCityKey)) continue;
-      if (seenCities.size > 0 && subdistricts.includes(locCityKey)) continue;
-      if (locCityKey === primaryKey && seenCities.has(primaryKey)) continue;
+    // If this entry has NO address, but we already have a sede in this city/district, skip duplicate bare city!
+    if (!addrFp && cityFp && seenCityNames.has(cityFp)) {
+      return;
+    }
 
-      seenCities.add(locCityKey);
+    const fp = addrFp ? `${locCountry.toLowerCase()}|${addrFp}` : (cityFp ? `${locCountry.toLowerCase()}|${cityFp}` : "");
 
-      let mapUrl = String(loc.mapUrl || "").trim();
-      if (!mapUrl) {
+    if (fp) {
+      if (seenFingerprints.has(fp)) return;
+      seenFingerprints.add(fp);
+    }
+
+    if (cityFp) {
+      seenCityNames.add(cityFp);
+    }
+
+    let mapUrl = String(loc.mapUrl || "").trim();
+    if (!mapUrl) {
+      if (isPrimary && detectedMapsUrl) {
+        mapUrl = detectedMapsUrl;
+      } else {
         const cleanAddr = cleanAddressForSearch(locAddress);
         const query = [publisherName || title, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
         mapUrl = buildGoogleMapsUrl(query);
-      } else {
-        mapUrl = buildGoogleMapsUrl(mapUrl);
       }
-      validLocs.push({
-        country: locCountry,
-        city: locCity,
-        address: locAddress || undefined,
-        mapUrl,
-      });
+    } else {
+      mapUrl = buildGoogleMapsUrl(mapUrl);
     }
 
-    if (validLocs.length > 0) {
-      return validLocs;
+    result.push({
+      country: locCountry,
+      city: locCity,
+      address: locAddress || undefined,
+      mapUrl,
+    });
+  };
+
+  // 1. Primary location ALWAYS comes first
+  const initialPrimary = (Array.isArray(rawLocations) && rawLocations[0]) || {};
+  addLocation({
+    country: initialPrimary.country || finalCountry,
+    city: initialPrimary.city || finalCity,
+    address: initialPrimary.address || primaryAddress || undefined,
+    mapUrl: initialPrimary.mapUrl || detectedMapsUrl,
+  }, true);
+
+  // 2. Additional locations from rawLocations (e.g. AI detected)
+  if (Array.isArray(rawLocations) && rawLocations.length > 1) {
+    for (let i = 1; i < rawLocations.length; i++) {
+      const loc = rawLocations[i];
+      if (!loc || typeof loc !== "object") continue;
+      addLocation(loc);
     }
   }
 
-  // Build primary location
-  const primaryMapUrl = detectedMapsUrl || buildGoogleMapsUrl(`${publisherName || title}, ${finalCity}, ${finalCountry}`);
-  const result: Array<{ country: string; city: string; address?: string; mapUrl: string }> = [
-    {
-      country: finalCountry,
-      city: finalCity,
-      address: primaryAddress || undefined,
-      mapUrl: primaryMapUrl,
-    },
-  ];
-
-  // Append any detected additional cities/sedes
-  if (Array.isArray(additionalCities) && additionalCities.length > 0) {
-    additionalCities.forEach((addCity) => {
-      if (!addCity) return;
-      const addCityKey = addCity.toLowerCase();
-      if (addCityKey === primaryKey || subdistricts.includes(addCityKey)) return;
-      const mapUrl = buildGoogleMapsUrl(`${publisherName || title}, ${addCity}, ${finalCountry}`);
-      result.push({
+  // 3. Additional physical addresses extracted from HTML / JSON-LD / footer
+  if (Array.isArray(additionalAddresses)) {
+    for (const addr of additionalAddresses) {
+      if (!addr || typeof addr !== "string") continue;
+      const cleanAddr = addr.trim();
+      if (!cleanAddr) continue;
+      const matchedCity = additionalCities.find((c) => new RegExp(`\\b${c}\\b`, "i").test(cleanAddr)) || finalCity;
+      addLocation({
         country: finalCountry,
-        city: addCity,
-        address: undefined,
-        mapUrl,
+        city: matchedCity,
+        address: cleanAddr,
       });
-    });
+    }
+  }
+
+  // 4. Additional cities from text analysis
+  if (Array.isArray(additionalCities)) {
+    for (const addCity of additionalCities) {
+      if (!addCity || typeof addCity !== "string") continue;
+      addLocation({
+        country: finalCountry,
+        city: addCity.trim(),
+      });
+    }
   }
 
   return result;
@@ -1875,7 +1871,21 @@ function extractImagesAndLogosFromHtml(
   return { images: uniquePhotos, logo: resolvedLogo };
 }
 
-function extractAddressFromHtml(html: string, textContent: string): string | null {
+function extractAllAddressesFromHtml(html: string, textContent: string): string[] {
+  const addresses: string[] = [];
+  const seenFp = new Set<string>();
+
+  const addUnique = (addr: string | null | undefined) => {
+    if (!addr || typeof addr !== "string") return;
+    const clean = addr.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    if (clean.length < 6 || clean.length > 120) return;
+    if (/^(?:todos los derechos|copyright|aviso legal|pol[ií]tica|horario|atenci[oó]n)/i.test(clean)) return;
+    const fp = normalizeAddressFingerprint(clean);
+    if (!fp || seenFp.has(fp)) return;
+    seenFp.add(fp);
+    addresses.push(clean);
+  };
+
   // 1. JSON-LD Address
   const scriptRegex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match;
@@ -1885,12 +1895,18 @@ function extractAddressFromHtml(html: string, textContent: string): string | nul
       const items = Array.isArray(data) ? data : [data];
       for (const item of items) {
         if (!item || typeof item !== "object") continue;
-        const addr = item.address;
-        if (addr) {
-          if (typeof addr === "string" && addr.trim().length > 3) return addr.trim();
-          if (typeof addr === "object") {
+        const candidateAddrs = [
+          item.address,
+          item.location?.address,
+          ...(Array.isArray(item.department) ? item.department.map((d: any) => d.address) : []),
+          ...(Array.isArray(item.subOrganization) ? item.subOrganization.map((s: any) => s.address) : []),
+        ];
+        for (const addr of candidateAddrs) {
+          if (!addr) continue;
+          if (typeof addr === "string") addUnique(addr);
+          else if (typeof addr === "object") {
             const parts = [addr.streetAddress, addr.addressLocality, addr.addressRegion, addr.postalCode].filter(Boolean);
-            if (parts.length) return parts.join(", ").trim();
+            if (parts.length) addUnique(parts.join(", "));
           }
         }
       }
@@ -1898,39 +1914,36 @@ function extractAddressFromHtml(html: string, textContent: string): string | nul
   }
 
   // 2. Microdata
-  const itempropMatch =
-    html.match(/<meta[^>]*?itemprop=["']streetAddress["'][^>]*?content=["']([^"']+)["']/i) ||
-    html.match(/itemprop=["']streetAddress["'][^>]*>([^<]+)</i) ||
-    html.match(/itemprop=["']address["'][^>]*>([^<]+)</i);
-  if (itempropMatch && itempropMatch[1] && itempropMatch[1].trim().length > 3) {
-    return itempropMatch[1].trim();
+  const itempropMatches = [
+    ...(html.matchAll(/<meta[^>]*?itemprop=["']streetAddress["'][^>]*?content=["']([^"']+)["']/gi) || []),
+    ...(html.matchAll(/itemprop=["']streetAddress["'][^>]*>([^<]+)</gi) || []),
+    ...(html.matchAll(/itemprop=["']address["'][^>]*>([^<]+)</gi) || []),
+  ];
+  for (const im of itempropMatches) {
+    if (im && im[1]) addUnique(im[1]);
   }
 
-  // 3. PRIORITY: Check FOOTER and CONTACT sections first!
-  // Footers and contact blocks contain the CURRENT official physical headquarters,
-  // preventing stale historical addresses mentioned in old news notes or body articles.
+  // 3. PRIORITY: Check FOOTER and CONTACT sections first
   const footerAndContactBlocks: string[] = [];
   const footerMatch = html.match(/<footer\b[^>]*>([\s\S]*?)<\/footer>/i);
   if (footerMatch && footerMatch[1]) footerAndContactBlocks.push(footerMatch[1]);
 
-  const contactSections = html.match(/<(?:div|section|aside)\b[^>]*?(?:class|id)=["'][^"']*(?:footer|contacto|contact|ubicacion|location|direccion)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|section|aside)>/gi);
+  const contactSections = html.match(/<(?:div|section|aside)\b[^>]*?(?:class|id)=["'][^"']*(?:footer|contacto|contact|ubicacion|location|direccion|sede|sucursal)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|section|aside)>/gi);
   if (contactSections) {
     contactSections.forEach((cs) => footerAndContactBlocks.push(cs));
   }
 
-  const standardAddressRegex = /(?:Av\.|Avenida|Calle|Bv\.|Boulevard|Pje\.|Pasaje|Ruta|Autopista|Diagonal|Lateral|Acceso)\s+(?:de\s+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9\s.,°º#-]{2,60}\b\d{1,5}\b(?:\s+(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja)\s*[^,.\n<]{1,25})?/i;
-  // Latin American street pattern: "Nombre de Calle 123" without prefix (e.g. "Rosario de Santa Fe 231 piso 5°")
-  const latinAddressRegex = /\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+(?:de\s+|del\s+|san\s+|santa\s+|de\s+la\s+|los\s+|las\s+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9]+){1,4})\s+(\d{1,5})\b(?:\s*(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja)[^,.\n<]{0,25})?/i;
+  const standardAddressRegex = /(?:Av\.|Avenida|Calle|Bv\.|Boulevard|Pje\.|Pasaje|Ruta|Autopista|Diagonal|Lateral|Acceso)\s+(?:de\s+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9\s.,°º#-]{2,60}\b\d{1,5}\b(?:\s+(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja)\s*[^,.\n<]{1,25})?/gi;
+  const latinAddressRegex = /\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+(?:de\s+|del\s+|san\s+|santa\s+|de\s+la\s+|los\s+|las\s+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9]+){1,4})\s+(\d{1,5})\b(?:\s*(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja)[^,.\n<]{0,25})?/gi;
 
   for (const block of footerAndContactBlocks) {
     const cleanBlock = block
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
       .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ");
 
-    const mPrefix = cleanBlock.match(standardAddressRegex);
-    if (mPrefix) {
-      const res = mPrefix[0].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-      if (res.length >= 8 && !/^(?:todos los derechos|copyright)/i.test(res)) return res;
+    let mPrefix;
+    while ((mPrefix = standardAddressRegex.exec(cleanBlock)) !== null) {
+      addUnique(mPrefix[0]);
     }
 
     const textLines = cleanBlock
@@ -1946,20 +1959,25 @@ function extractAddressFromHtml(html: string, textContent: string): string | nul
     for (const line of textLines) {
       if (/copyright|derechos|diseño|desarrollo|powered|todos los/i.test(line)) continue;
       if (/^(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|horario|tel|cel|whatsapp|\+?\d)/i.test(line)) continue;
-      const mLatin = line.match(latinAddressRegex);
-      if (mLatin) {
-        return mLatin[0].trim();
+      let mLatin;
+      while ((mLatin = latinAddressRegex.exec(line)) !== null) {
+        addUnique(mLatin[0]);
       }
     }
   }
 
   // 4. Fallback: Check standard prefix address in whole HTML / textContent
-  const m = html.match(standardAddressRegex) || textContent.match(standardAddressRegex);
-  if (m) {
-    return m[0].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  let mWhole;
+  while ((mWhole = standardAddressRegex.exec(html)) !== null) {
+    addUnique(mWhole[0]);
   }
 
-  return null;
+  return addresses;
+}
+
+function extractAddressFromHtml(html: string, textContent: string): string | null {
+  const all = extractAllAddressesFromHtml(html, textContent);
+  return all[0] || null;
 }
 
 function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
@@ -2074,7 +2092,8 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
   }
 
   const detectedFoundingYear = extractFoundingYear(cleanHtml, textContent, sourceUrl, pageTitle);
-  const detectedAddress = extractAddressFromHtml(html, textContent);
+  const detectedAllAddresses = extractAllAddressesFromHtml(html, textContent);
+  const detectedAddress = detectedAllAddresses[0] || null;
   const locInfo = detectAllLocationsAndHeadquarters(textContent, sourceUrl, pageTitle);
   const ratingInfo = extractRatingAndReviewsFromHtml(
     html,
@@ -2191,6 +2210,7 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
     htmlContent: cleanHtml.slice(0, 30000),
     detectedFoundingYear,
     detectedAddress,
+    detectedAllAddresses,
     detectedCity: locInfo.primaryCity,
     detectedCountry: locInfo.primaryCountry,
     detectedMapsUrl,
@@ -2367,10 +2387,11 @@ async function fetchPageContent(url: string) {
                   }
                 }
 
-                if (!extracted.detectedAddress) {
-                  const addr = extractAddressFromHtml(subHtml, subText);
-                  if (addr) {
-                    extracted.detectedAddress = addr;
+                const subAddrs = extractAllAddressesFromHtml(subHtml, subText);
+                if (subAddrs.length) {
+                  extracted.detectedAllAddresses = Array.from(new Set([...(extracted.detectedAllAddresses || []), ...subAddrs]));
+                  if (!extracted.detectedAddress) {
+                    extracted.detectedAddress = subAddrs[0];
                   }
                 }
               }
@@ -2452,7 +2473,7 @@ async function fetchPageContent(url: string) {
     description: known ? `Sitio web oficial de ${known.name} en ${known.primaryCity}, ${known.primaryCountry}.` : `Sitio web oficial de ${host}`,
     textContent: known ? `${known.name} - ${known.category} - ${known.activity}. Sede en ${known.primaryCity}, ${known.primaryCountry}. ${formattedUrl}` : `Sitio web oficial: ${formattedUrl}`,
     htmlContent: "",
-    detectedFoundingYear: known?.startYear || null,
+    detectedFoundingYear: null,
     detectedMapsUrl: known?.commentsUrl || "",
     detectedLogo: fallbackLogo,
     detectedSiteName: fallbackTitle,
@@ -5088,7 +5109,9 @@ async function formatPublicationResult(
     country,
     extractedData.detectedMapsUrl,
     allText,
-    locInfo.additionalCities
+    locInfo.additionalCities,
+    extractedData.detectedAddress,
+    extractedData.detectedAllAddresses || []
   );
   const primaryHq = headquarterLocations[0] || {
     city: city || "Buenos Aires",
@@ -5105,13 +5128,18 @@ async function formatPublicationResult(
 
   let startYear =
     extractedData.detectedFoundingYear ||
-    (parsed.providerStartYear && !["2010", "2015", "2024", "2025", "2026", "2027"].includes(String(parsed.providerStartYear).trim()) ? String(parsed.providerStartYear).trim() : "") ||
     extractFoundingYear("", allText, extractedData.url, titleClean) ||
     "";
 
-  if (startYear && ["2024", "2025", "2026", "2027"].includes(startYear.trim())) {
-    if (!/fundad|cread|inaugurad|abrió|constitu/i.test(allText)) {
+  if (startYear) {
+    const yr = startYear.trim();
+    if (!allText.includes(yr)) {
       startYear = "";
+    } else {
+      const foundingRegex = new RegExp(`(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)\\b[\\s\\S]{0,50}\\b${yr}\\b|\\b${yr}\\b[\\s\\S]{0,50}(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)`, "i");
+      if (!foundingRegex.test(allText)) {
+        startYear = "";
+      }
     }
   }
 
@@ -5914,7 +5942,7 @@ function enforceStrictTaxonomyGuardrails(
   }
 
   // 5. Ensure headquarter locations has additional branches if multiple were detected
-  if (locInfo.additionalCities.length > 0 && (!publication.headquarterLocations || publication.headquarterLocations.length <= 1)) {
+  if ((locInfo.additionalCities.length > 0 || (extractedData.detectedAllAddresses && extractedData.detectedAllAddresses.length > 1)) && (!publication.headquarterLocations || publication.headquarterLocations.length <= 1)) {
     publication.headquarterLocations = resolveHeadquarterLocations(
       publication.headquarterLocations,
       titleClean,
@@ -5923,7 +5951,9 @@ function enforceStrictTaxonomyGuardrails(
       locInfo.primaryCountry,
       extractedData.detectedMapsUrl,
       allText,
-      locInfo.additionalCities
+      locInfo.additionalCities,
+      extractedData.detectedAddress,
+      extractedData.detectedAllAddresses || []
     );
   }
 
@@ -5998,7 +6028,8 @@ async function processUrlWithAI(
     extracted.detectedMapsUrl,
     extracted.textContent,
     locInfo.additionalCities,
-    extracted.detectedAddress
+    extracted.detectedAddress,
+    extracted.detectedAllAddresses || []
   );
 
   // Run Google Maps & search enrichment concurrently with AI execution
@@ -6166,19 +6197,36 @@ async function processUrlWithAI(
       data: unifiedRes.data.taxonomyData,
     };
 
-    if (unifiedRes.data.detectedRating && unifiedRes.data.detectedRating !== "0") {
-      cleanContext.rating = unifiedRes.data.detectedRating;
-      extracted.detectedRating = unifiedRes.data.detectedRating;
+    // Real Google Maps scraped metrics strictly take priority; AI only provides fallback if scraping had no rating/reviews
+    if (!extracted.detectedRating || extracted.detectedRating === "0") {
+      if (unifiedRes.data.detectedRating && unifiedRes.data.detectedRating !== "0") {
+        cleanContext.rating = unifiedRes.data.detectedRating;
+        extracted.detectedRating = unifiedRes.data.detectedRating;
+      }
+    } else {
+      cleanContext.rating = extracted.detectedRating;
     }
-    if (unifiedRes.data.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0") {
-      cleanContext.reviewCount = unifiedRes.data.detectedReviewCount;
-      extracted.detectedReviewCount = unifiedRes.data.detectedReviewCount;
+
+    if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
+      if (unifiedRes.data.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0") {
+        cleanContext.reviewCount = unifiedRes.data.detectedReviewCount;
+        extracted.detectedReviewCount = unifiedRes.data.detectedReviewCount;
+      }
+    } else {
+      cleanContext.reviewCount = extracted.detectedReviewCount;
     }
+
     if (unifiedRes.data.detectedFoundingYear) {
-      cleanContext.foundingYear = unifiedRes.data.detectedFoundingYear;
-      extracted.detectedFoundingYear = unifiedRes.data.detectedFoundingYear;
+      const yrCandidate = String(unifiedRes.data.detectedFoundingYear).trim();
+      const textCorpus = `${extracted.textContent || ""} ${extracted.htmlContent || ""}`;
+      const foundingRegex = new RegExp(`(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)\\b[\\s\\S]{0,50}\\b${yrCandidate}\\b|\\b${yrCandidate}\\b[\\s\\S]{0,50}(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)`, "i");
+      if (textCorpus.includes(yrCandidate) && foundingRegex.test(textCorpus)) {
+        cleanContext.foundingYear = yrCandidate;
+        extracted.detectedFoundingYear = yrCandidate;
+      }
     }
-    if (unifiedRes.data.detectedCommentsUrl) {
+
+    if (unifiedRes.data.detectedCommentsUrl && (!extracted.detectedCommentsUrl || !extracted.detectedCommentsUrl.includes("maps"))) {
       cleanContext.commentsUrl = unifiedRes.data.detectedCommentsUrl;
       extracted.detectedCommentsUrl = unifiedRes.data.detectedCommentsUrl;
     }
@@ -6339,7 +6387,8 @@ async function processUrlWithAI(
     extracted.detectedMapsUrl,
     extracted.textContent,
     locInfo.additionalCities,
-    extracted.detectedAddress
+    extracted.detectedAddress,
+    extracted.detectedAllAddresses || []
   );
 
   const primaryHq = headquarterLocations[0] || {
@@ -6405,16 +6454,20 @@ async function processUrlWithAI(
     providerInfo: providerInfoI18nVal.es,
     providerInfoI18n: providerInfoI18nVal,
     providerStartYear: (() => {
-      const candidateYear = String(cleanContext.foundingYear || extracted.detectedFoundingYear || unifiedRes?.data?.detectedFoundingYear || "").trim();
-      if (candidateYear && ["2024", "2025", "2026", "2027"].includes(candidateYear)) {
-        if (!/fundad|cread|inaugurad|abrió|constitu/i.test(extracted.textContent || "")) {
-          return "";
-        }
-      }
+      const candidateYear = String(cleanContext.foundingYear || extracted.detectedFoundingYear || "").trim();
+      if (!candidateYear) return "";
+      const textCorpus = `${extracted.textContent || ""} ${extracted.htmlContent || ""}`;
+      if (!textCorpus.includes(candidateYear)) return "";
+      const foundingRegex = new RegExp(`(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)\\b[\\s\\S]{0,50}\\b${candidateYear}\\b|\\b${candidateYear}\\b[\\s\\S]{0,50}(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)`, "i");
+      if (!foundingRegex.test(textCorpus)) return "";
       return candidateYear;
     })(),
-    providerRating: cleanContext.rating || extracted.detectedRating || unifiedRes?.data?.detectedRating || "0",
-    providerReviewCount: cleanContext.reviewCount || extracted.detectedReviewCount || unifiedRes?.data?.detectedReviewCount || "0",
+    providerRating: (extracted.detectedRating && extracted.detectedRating !== "0")
+      ? extracted.detectedRating
+      : ((cleanContext.rating && cleanContext.rating !== "0") ? cleanContext.rating : (unifiedRes?.data?.detectedRating || "0")),
+    providerReviewCount: (extracted.detectedReviewCount && extracted.detectedReviewCount !== "0")
+      ? extracted.detectedReviewCount
+      : ((cleanContext.reviewCount && cleanContext.reviewCount !== "0") ? cleanContext.reviewCount : (unifiedRes?.data?.detectedReviewCount || "0")),
     providerCommentsUrl: extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || primaryHq.mapUrl,
     providerLogo: cleanContext.logo || "",
     country: primaryHq.country,
