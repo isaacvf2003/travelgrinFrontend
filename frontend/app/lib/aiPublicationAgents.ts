@@ -2843,9 +2843,9 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 2. CERO PLANTILLAS RÍGIDAS FIJAS: No uses esquemas estáticos repetitivos. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
 3. Fidelidad factual y Reputación en Google Maps:
    - Basa los textos en los servicios, ofertas, propuestas y datos reales de la web de "${entityName}".
-   - 'detectedFoundingYear': Año real y verdadero en que se fundó la institución o comenzó sus actividades históricas (ej: "1987", "1969", "1903", "2022"). TOTALMENTE PROHIBIDO tomar el año de copyright del pie de página de la web (como "2024", "2025" o "2026"), ya que eso es solo la fecha técnica del sitio web y NO el año de origen de la entidad. Si no hay año histórico verídico comprobado, devuelve "".
-   - 'detectedRating': Calificación numérica real de 1.0 a 5.0 (ej: "4.8", "2.6", "4.5", "5.0") que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). Si hay múltiples sedes, toma OBLIGATORIAMENTE la de la sede principal. Si no posee ficha en Google Maps o no hay datos, pon "0".
-   - 'detectedReviewCount': Cantidad exacta de reseñas / opiniones de usuarios que tiene en Google Maps en esa sede principal (ej: "714", "142", "26"). Si no posee, pon "0".
+   - 'detectedFoundingYear': Año real y verdadero en que se fundó la institución o comenzó sus actividades históricas SOLO si se menciona explícitamente en el texto del sitio web analizado (ej: "1987", "1969", "1903", "2022"). NUNCA inventes, calcules ni estimes años. Si el sitio web no menciona explícitamente el año de fundación o inicio de actividades, DEBES DEVOLVER UNA CADENA VACÍA "". TOTALMENTE PROHIBIDO tomar el año de copyright del pie de página de la web (como "2024", "2025" o "2026").
+   - 'detectedRating': Calificación numérica exacta de 1.0 a 5.0 (ej: "4.8", "2.6", "4.5", "5.0") que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). Si hay múltiples sedes, toma OBLIGATORIAMENTE la de la sede principal oficial. Si no posee ficha en Google Maps o no hay datos exactos, pon "0".
+   - 'detectedReviewCount': Cantidad exacta de reseñas / opiniones de usuarios que tiene en Google Maps en esa sede principal (ej: "714", "142", "26"). Si no posee o no hay datos exactos, pon "0".
    - 'detectedCommentsUrl': Enlace directo o de búsqueda a las opiniones en Google Maps de su sede principal.
 4. CLASIFICACIÓN TAXONÓMICA DINÁMICA Y SELECCIÓN MÚLTIPLE:
    - El administrador crea los bloques con taxonomías: actividad, modalidad, tipos, categoria, idiomas.
@@ -2872,7 +2872,7 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
   "providerInfo": "Resumen institucional conciso y rico en español de 1 o 2 oraciones (tomando lo mejor de la descripción sin plantillas genéricas)",
   "detectedPublisherName": "Nombre oficial completo de la entidad (resolviendo siglas si aplica)",
   "detectedAddress": "Dirección física vigente del pie de página o contacto",
-  "detectedFoundingYear": "2022",
+  "detectedFoundingYear": "",
   "detectedRating": "4.8",
   "detectedReviewCount": "35",
   "detectedCommentsUrl": "https://www.google.com/maps/search/?api=1&query=...",
@@ -3205,7 +3205,8 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     let detectedFoundingYear = parsed.detectedFoundingYear ? String(parsed.detectedFoundingYear).trim() : undefined;
     if (detectedFoundingYear) {
       const yrNum = parseInt(detectedFoundingYear, 10);
-      if (isNaN(yrNum) || yrNum < 1600 || yrNum > new Date().getFullYear()) {
+      const textCorpus = `${context.mainText || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.rawPageTitle || ""}`;
+      if (isNaN(yrNum) || yrNum < 1600 || yrNum > new Date().getFullYear() || !textCorpus.includes(detectedFoundingYear)) {
         detectedFoundingYear = undefined;
       }
     }
