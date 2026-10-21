@@ -5,6 +5,8 @@ import {
   applyPromptColorStyles,
   checkPromptOmitEntityName,
   cleanTitleOmitEntity,
+  enforceDescriptionParagraphCount,
+  synthesizeMarketingTitle,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60;
@@ -410,11 +412,32 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
 
       const parsed = await callAI(aiPrompt, "title");
       let titleRes = parsed.title || parsed.titleI18n?.[sourceLang] || parsed.titleI18n?.es || currentTitle || currentText;
+      const wantsMarketing = /(?:marketing|conversi[oó]n|llamativ|atenci[oó]n|bastante\s+largo|largo|impactante|vendedor)/i.test(prompt);
+      const isBare = titleRes.trim().toLowerCase() === entityLabel.toLowerCase();
+
       if (omitName) {
         titleRes = cleanTitleOmitEntity(titleRes, entityLabel, publisherName);
         if (!titleRes || titleRes.length < 8) {
-          titleRes = cleanTitleOmitEntity(currentText || currentTitle || "", entityLabel, publisherName) || "Propuestas y Servicios";
+          titleRes = synthesizeMarketingTitle(entityLabel, {
+            url: url || "",
+            publisherName: entityLabel,
+            headings: scrapedHeadings,
+            paragraphs: scrapedParagraphs,
+            mainText: scrapedTextContent,
+            city,
+            country,
+          }, prompt);
         }
+      } else if (isBare || (wantsMarketing && titleRes.length < 35)) {
+        titleRes = synthesizeMarketingTitle(entityLabel, {
+          url: url || "",
+          publisherName: entityLabel,
+          headings: scrapedHeadings,
+          paragraphs: scrapedParagraphs,
+          mainText: scrapedTextContent,
+          city,
+          country,
+        }, prompt);
       }
       const translations = parsed.titleI18n || {
         [sourceLang]: titleRes,
@@ -490,6 +513,7 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
       const parsed = await callAI(aiPrompt, "description");
       let descRes = parsed.description || parsed.descriptionI18n?.[sourceLang] || parsed.descriptionI18n?.es || currentText;
       if (prompt && descRes) {
+        descRes = enforceDescriptionParagraphCount(descRes, prompt);
         descRes = applyPromptColorStyles(descRes, prompt);
       }
       const translations = parsed.descriptionI18n || {
@@ -498,6 +522,7 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
       };
       if (prompt && translations) {
         for (const lang of Object.keys(translations)) {
+          translations[lang] = enforceDescriptionParagraphCount(translations[lang], prompt);
           translations[lang] = applyPromptColorStyles(translations[lang], prompt);
         }
       }
