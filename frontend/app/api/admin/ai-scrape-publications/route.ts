@@ -15,6 +15,7 @@ import {
   detectPromptColors,
   applyPromptColorStyles,
   enforceFaqCountAndFilter,
+  extractRequestedCount,
   buildRichProviderInfo,
 } from "@/app/lib/aiPublicationAgents";
 
@@ -2023,14 +2024,14 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
     .replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, " ")
     .replace(/<dialog\b[^<]*(?:(?!<\/dialog>)<[^<]*)*<\/dialog>/gi, " ")
     .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, " ")
-    .replace(/<(?:div|section|ul|ol)\b[^>]*?(?:class|id)=["'][^"']*(?:intranet|webmail|portal[-_]empleado|banner-cookie|modal|dropdown|nav-item|menu-item|breadcrumbs?)[^"']*["'][^>]*>[\s\S]*?<\/(?:div|section|ul|ol)>/gi, " ");
+    .replace(/<(?:div|section|ul|ol)\b[^>]*?(?:class|id)=["'][^"']*(?:intranet|webmail|portal[-_]empleado|banner-cookie|modal|dropdown|nav-item|menu-item|breadcrumbs?|wizard|step|stepper|quiz|finder|buscador-carreras|filtro-carrera)[^"']*["'][^>]*>[\s\S]*?<\/(?:div|section|ul|ol)>/gi, " ");
 
   const mainMatch = contentHtml.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i) ||
                     contentHtml.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i) ||
                     contentHtml.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
   const targetHtml = mainMatch ? mainMatch[1] : contentHtml;
 
-  const JUNK_LINE_REGEX = /^(?:portal del empleado|webmail|intranet|gde|iniciar sesi[oó]n|acceder|login|olvid[eé] mi contrase[ñn]a|pol[ií]tica de privacidad|t[eé]rminos y condiciones|aviso legal|mapa del sitio|sitemap|todos los derechos reservados|copyright\s*©?.*)\s*$/i;
+  const JUNK_LINE_REGEX = /^(?:portal del empleado|webmail|intranet|gde|iniciar sesi[oó]n|acceder|login|olvid[eé] mi contrase[ñn]a|pol[ií]tica de privacidad|t[eé]rminos y condiciones|aviso legal|mapa del sitio|sitemap|todos los derechos reservados|copyright\s*©?.*|¿qu[eé] est[aá]s buscando\??|¿en qu[eé] momento.*|¿cu[aá]l va a ser tu pr[oó]ximo paso\??|tipo de formaci[oó]n.*|de \d+ a \d+ a[ñn]os)\s*$/i;
 
   let textContent = decodeHtmlEntities(
     targetHtml
@@ -3699,8 +3700,7 @@ async function buildGroundedDescriptions(
   customAdminPrompt?: string
 ): Promise<I18nRecord> {
   const prompt = (customAdminPrompt || "").trim();
-  const wantsIcons = /con\s+emojis?|usar\s+emojis?|incluir\s+emojis?/i.test(prompt);
-  const omitIcons = checkPromptOmitIcons(prompt) || (prompt.length > 0 && !wantsIcons);
+  const omitIcons = checkPromptOmitIcons(prompt);
 
   const cleanTitle = title || cleanTitleString(extractedData.title) || "";
   const baseEntityName = cleanTitle.split(/\s*[-–—|]\s*/)[0].trim() || cleanTitle;
@@ -3740,104 +3740,33 @@ async function buildGroundedDescriptions(
   const isGastro = !isHealth && !isEdu && /restaurante|bar|gastronom|cocina|parrilla|caf[eé]/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`);
   const isLegal = !isHealth && !isEdu && /traduct|abogad|legal|notari|escriban|jur[ií]dic/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`);
 
+  // Dynamic paragraphs built from actual scraped content - NO hardcoded medical/clinic templates!
   const paragraphs: string[] = [];
 
-  if (targetParagraphCount === 5 || (targetParagraphCount >= 4 && wantsBoldTitles)) {
-    if (isEdu) {
-      paragraphs.push(
-        `<p><strong>Presentación y Liderazgo Académico:</strong> ${baseEntityName} se posiciona como una destacada institución de educación superior${locationText ? ` en ${locationText}` : ""}, orientada a la formación profesional integral, la innovación pedagógica y la excelencia académica de sus estudiantes.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Propuesta Académica y Carreras de Grado:</strong> Brinda una amplia y actualizada oferta de carreras universitarias, posgrados, diplomaturas y programas de formación continua adaptados a las demandas del entorno productivo y profesional.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Modalidades de Aprendizaje y Tecnología Educativa:</strong> Integra modalidades presenciales y virtuales con plataformas digitales de vanguardia, facilitando trayectorias educativas flexibles, dinámicas y orientadas a la práctica real.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Cuerpo Docente y Desarrollo Profesional:</strong> Cuenta con un cuerpo de profesores y especialistas de reconocida trayectoria, enfocados en el acompañamiento pedagógico, el liderazgo y la inserción laboral de sus egresados.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Admisiones, Consultas y Canales Oficiales:</strong> Estudiantes y postulantes pueden consultar planes de estudio, aranceles e inscripciones a través de su sitio oficial ${siteUrl} y sus centros de atención directa.</p>`
-      );
-    } else if (isHealth) {
-      paragraphs.push(
-        `<p><strong>Presentación y Excelencia Asistencial:</strong> ${baseEntityName} se consolida como una institución prestadora de salud de referencia${locationText ? ` en ${locationText}` : ""}, orientada a brindar cobertura integral, atención médica especializada y soluciones asistenciales con altos estándares de calidad y seguridad.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Servicio de Emergencias y Guardia Médica:</strong> ${emergencyText ? escapeHtml(emergencyText) + "." : `Dispone de un moderno servicio de emergencias médicas con guardia activa las 24 horas, salas de atención inmediata y tecnología para asistir cuadros críticos con celeridad.`}</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Especialidades Médicas y Prestaciones de Vanguardia:</strong> Su infraestructura clínica abarca un amplio abanico de áreas especializadas, incluyendo consultorios externos, diagnóstico por imágenes, cirugías e internación adaptada a cada paciente.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Cuerpo Profesional y Calidad Humana:</strong> El equipo médico y asistencial combina sólida trayectoria científica y vocación de servicio, garantizando un acompañamiento cálido, ético y empático en cada etapa de la atención.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Gestión de Turnos, Consultas y Canales Oficiales:</strong> Pacientes y familias pueden consultar prestaciones, solicitar turnos online y coordinar atención personalizada a través de su sitio oficial ${siteUrl} y sus líneas de contacto.</p>`
-      );
-    } else if (isTourism) {
-      paragraphs.push(
-        `<p><strong>Presentación y Experiencia de Hospedaje:</strong> ${baseEntityName} es un referente en hospitalidad y turismo${locationText ? ` en ${locationText}` : ""}, ofreciendo estadías confortables y atención personalizada para viajes de descanso o negocios.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Instalaciones y Confort:</strong> Habitaciones equipadas, áreas comunes modernas y servicios diseñados para brindar la máxima comodidad y una estancia placentera.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Servicios Exclusivos y Gastronomía:</strong> Desayuno, conectividad de alta velocidad y asesoramiento turístico para disfrutar de las mejores atracciones de la zona.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Atención Personalizada y Hospitalidad:</strong> Personal altamente capacitado y comprometido con la calidez en el trato y el bienestar de cada huésped.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Reservas y Canales Oficiales:</strong> Tarifas vigentes, disponibilidad y reservas directas a través de su plataforma oficial ${siteUrl}.</p>`
-      );
-    } else {
-      paragraphs.push(
-        `<p><strong>Perfil y Trayectoria Institucional:</strong> ${baseEntityName} se destaca${locationText ? ` en ${locationText}` : ""} por su trayectoria profesional, brindando servicios de alta calidad con estándares de excelencia y confiabilidad.</p>`
-      );
-      if (cleanSummary && cleanSummary !== baseEntityName) {
-        paragraphs.push(`<p><strong>Propuesta y Alcance:</strong> ${cleanSummary}</p>`);
-      } else {
-        paragraphs.push(`<p><strong>Servicios y Especialidades:</strong> Prestaciones integrales en ${escapeHtml(servicesListStr)}, orientadas a satisfacer las necesidades de cada usuario.</p>`);
-      }
-      paragraphs.push(
-        `<p><strong>Infraestructura y Recursos:</strong> Moderna infraestructura y herramientas técnicas enfocadas en brindar soluciones ágiles y seguras.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Compromiso y Equipo Profesional:</strong> Profesionales capacitados y con amplia vocación de servicio al cliente.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Atención y Canales Oficiales:</strong> Consultas y gestión directa a través de su sitio web oficial ${siteUrl}.</p>`
-      );
+  const cleanParas = (extractedData.textContent || "")
+    .split("\n\n")
+    .map((p: string) => cleanJunkTextPhrases(p.trim()))
+    .filter((p: string) => p.length >= 40 && !p.includes("•") && !/cookie|login|iniciar sesi|portal/i.test(p));
+
+  if (targetParagraphCount > 0 && wantsBoldTitles) {
+    for (let i = 0; i < targetParagraphCount; i++) {
+      const heading = headingsList[i] || (i === 0 ? "Presentación Institucional" : i === 1 ? "Propuesta y Servicios" : i === 2 ? "Metodología y Alcance" : i === 3 ? "Equipo y Calidad" : "Contacto y Canales Oficiales");
+      const bodyContent = cleanParas[i] || (i === 0 ? `${baseEntityName} ofrece servicios y propuestas destacadas${locationText ? ` en ${locationText}` : ""}, con trayectoria y compromiso profesional.` : i === targetParagraphCount - 1 ? `Consultas, información y canales de atención disponibles en su sitio oficial ${siteUrl}.` : `Brinda prestaciones orientadas a la excelencia, adaptadas a las necesidades de cada usuario con respaldo institucional.`);
+      paragraphs.push(`<p><strong>${heading}:</strong> ${bodyContent}</p>`);
+    }
+  } else if (targetParagraphCount > 0) {
+    for (let i = 0; i < targetParagraphCount; i++) {
+      const bodyContent = cleanParas[i] || (i === 0 ? `${baseEntityName} brinda una propuesta integral y de alta calidad${locationText ? ` en ${locationText}` : ""}.` : i === targetParagraphCount - 1 ? `Podés consultar más detalles y contactarte a través de su sitio oficial ${siteUrl}.` : `Servicios y prestaciones enfocadas en satisfacer los más altos estándares de excelencia.`);
+      paragraphs.push(`<p>${bodyContent}</p>`);
     }
   } else if (wantsBoldTitles) {
-    if (isEdu) {
-      paragraphs.push(
-        `<p><strong>Liderazgo y Propuesta Académica:</strong> ${baseEntityName} ofrece formación universitaria de excelencia${locationText ? ` en ${locationText}` : ""}, con carreras oficiales y modalidades flexibles.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Programas y Titulaciones:</strong> Carreras de grado, posgrados y cursos con actualización continua y orientación profesional.</p>`
-      );
-      paragraphs.push(
-        `<p><strong>Admisiones y Consultas:</strong> Información sobre inscripciones y programas disponible en su sitio web ${siteUrl}.</p>`
-      );
-    } else {
-      paragraphs.push(
-        `<p><strong>Perfil y Trayectoria Institucional:</strong> ${baseEntityName} ofrece servicios y atención especializada${locationText ? ` en ${locationText}` : ""}, respaldada por su experiencia y profesionalismo.</p>`
-      );
-      if (emergencyText && isHealth) {
-        paragraphs.push(
-          `<p><strong>Atención y Guardia Especializada:</strong> ${escapeHtml(emergencyText)}.</p>`
-        );
-      } else if (headingsList.length > 0) {
-        paragraphs.push(
-          `<p><strong>Servicios y Prestaciones Clave:</strong> Prestaciones integrales en ${escapeHtml(headingsList.slice(0, 4).join(", "))}.</p>`
-        );
-      }
-      paragraphs.push(
-        `<p><strong>Canales Oficiales y Gestión Directa:</strong> Consultas y soporte institucional a través de su portal oficial ${siteUrl}.</p>`
-      );
+    paragraphs.push(`<p><strong>Presentación Institucional:</strong> ${baseEntityName} ofrece servicios de excelencia${locationText ? ` en ${locationText}` : ""}, orientados a la calidad y la atención profesional.</p>`);
+    if (headingsList.length > 0) {
+      paragraphs.push(`<p><strong>Prestaciones Principales:</strong> Cobertura y especialidades en ${escapeHtml(headingsList.slice(0, 4).join(", "))}.</p>`);
+    } else if (cleanSummary && cleanSummary !== baseEntityName) {
+      paragraphs.push(`<p><strong>Propuesta y Alcance:</strong> ${cleanSummary}</p>`);
     }
+    paragraphs.push(`<p><strong>Canales Oficiales y Contacto:</strong> Información y gestión directa a través de su sitio oficial ${siteUrl}.</p>`);
   } else {
     paragraphs.push(
       `<p>${baseEntityName} es una entidad de referencia${locationText ? ` ubicada en ${locationText}` : ""}, dedicada a proporcionar servicios de calidad con estándares profesionales de primer nivel.</p>`
@@ -3889,9 +3818,7 @@ async function buildGroundedCustomBlock(
 
     if (isFaq) {
       // Determine requested count from prompt (e.g. "2 preguntas en rojo y su respuesta en negro")
-      const countMatch = blockPrompt.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?)\b/i) ||
-        blockPrompt.match(/\b(1\d|[2-9])\b/);
-      const requestedCount = countMatch ? Math.min(Math.max(parseInt(countMatch[1] || countMatch[0], 10), 1), 15) : 10;
+      const requestedCount = extractRequestedCount(blockPrompt) || 10;
 
       const sectorCorpus = `${cleanEntityName} ${textContent} ${extractedData?.url || ""}`.toLowerCase();
       const isExplicitEdu = /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${cleanEntityName} ${extractedData?.url || ""}`);
@@ -6012,7 +5939,7 @@ async function processUrlWithAI(
       includeScoreScout,
     });
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("AI generation timeout")), 14000)
+      setTimeout(() => reject(new Error("AI generation timeout")), 35000)
     );
     const [resUnified] = await Promise.all([
       Promise.race([aiPromise, timeoutPromise]),

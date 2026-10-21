@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 
+import {
+  enforceFaqCountAndFilter,
+  applyPromptColorStyles,
+} from "@/app/lib/aiPublicationAgents";
+
 export const maxDuration = 60;
 
 type FieldType = "title" | "description" | "provider_info" | "extra_block" | "new_extra_block";
@@ -23,6 +28,8 @@ interface RefineFieldRequest {
   scrapedParagraphs?: string[];
   scrapedTextContent?: string;
   rawPageTitle?: string;
+  mainDescription?: string;
+  previousBlocks?: Array<{ title: string; body: string }>;
 }
 
 function extractJson(text: string): any {
@@ -239,6 +246,8 @@ export async function POST(req: Request) {
       scrapedParagraphs = [],
       scrapedTextContent = "",
       rawPageTitle = "",
+      mainDescription = "",
+      previousBlocks = [],
     } = body;
 
     if (!prompt || !prompt.trim()) {
@@ -416,10 +425,11 @@ ${contextFacts}
 
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: Cumple fielmente y al pie de la letra la instrucción del administrador:
-   - Si pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS.
-   - Si pide subtítulos en negrita o letras negras y su explicación, cada párrafo debe comenzar con <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>.
+   - Si pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
+   - Si pide subtítulos en negrita o letras negras y su explicación, cada párrafo debe comenzar con <p><strong>Título del Párrafo:</strong> Explicación persuasiva y detallada...</p>.
+   - Si pide emojis o iconos, inclúyelos con total naturalidad en los subtítulos o texto según lo solicitado.
    - Si pide tono comercial, persuasivo o de conversión, aplícalo con fluidez.
-2. CERO PLANTILLAS RÍGIDAS: La redacción debe ser fresca y personalizada a los servicios de la entidad.
+2. CERO PLANTILLAS RÍGIDAS: Prohibido usar plantillas fijas o hablar de clínicas/salud si la entidad es de otro rubro (ej: educación, hotelería, etc.). Redacción personalizada y basada estrictamente en la entidad real.
 3. Formato HTML limpio: Estructura en párrafos <p>...</p>.
 Devuelve ÚNICAMENTE un objeto JSON con:
 {
@@ -442,9 +452,10 @@ ${contextFacts}
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: Cumple fielmente y al pie de la letra la instrucción del administrador:
    - Si pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
-   - Si pide subtítulos en negrita o letras negras y su explicación, cada párrafo debe comenzar con <p><strong>Título del Párrafo</strong><br/>Explicación persuasiva y detallada...</p>.
+   - Si pide subtítulos en negrita o letras negras y su explicación, cada párrafo debe comenzar con <p><strong>Título del Párrafo:</strong> Explicación persuasiva y detallada...</p>.
+   - Si pide emojis o iconos, inclúyelos con total naturalidad en los subtítulos o texto según lo solicitado.
    - Si pide tono comercial, persuasivo o de conversión, aplícalo con fluidez.
-2. CERO PLANTILLAS RÍGIDAS: Redacción personalizada, humana y directa.
+2. CERO PLANTILLAS RÍGIDAS: Prohibido usar plantillas fijas o hablar de clínicas/salud si la entidad es de otro rubro. Redacción personalizada, humana y directa.
 3. Formato HTML limpio: Estructura en párrafos <p>...</p>.
 Devuelve ÚNICAMENTE un objeto JSON rápido con:
 {
@@ -469,6 +480,26 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
     if (fieldType === "extra_block" || fieldType === "new_extra_block") {
       const blockTitle = currentTitle || "Información Adicional";
 
+      const previousBlocksSummary = Array.isArray(previousBlocks) && previousBlocks.length > 0
+        ? previousBlocks.map((b, idx) => `Bloque previo ${idx + 1} [${b.title}]: ${b.body ? b.body.replace(/<[^>]+>/g, " ").slice(0, 500) : "Sin contenido"}`).join("\n")
+        : "";
+
+      const extraContextPrompt = [
+        mainDescription ? `DESCRIPCIÓN PRINCIPAL DE LA PUBLICACIÓN (CONTEXTO GENERAL):\n${mainDescription.replace(/<[^>]+>/g, " ").slice(0, 1200)}` : "",
+        previousBlocksSummary ? `BLOQUES PREVIOS YA GENERADOS EN LA PUBLICACIÓN:\n${previousBlocksSummary}` : "",
+      ].filter(Boolean).join("\n\n");
+
+      const editorialRules = `
+REGLAS SUPREMAS DE REDACCIÓN:
+1. AUTORIDAD EDITORIAL SUPREMA: Cumple rigurosamente TODO lo que el usuario pida en su instrucción por más inusual o específico que sea:
+   - Si pide considerar, mirar o coordinar con la información del bloque anterior o de la descripción principal, UTILIZA ESPECÍFICAMENTE el contexto provisto abajo para responder coherentemente sin contradecirte.
+   - Si el usuario pide iconos, emojis, viñetas, colores, preguntas, o estilos particulares, INCLÚYELOS EXACTAMENTE como se solicita.
+   - Si el prompt del usuario únicamente especifica formato o colores (ej: "2 preguntas en rojo y su respuesta en negro") sin especificar el tema, EL TEMA DEL BLOQUE ESTÁ RIGUROSAMENTE DEFINIDO POR EL TÍTULO DEL BLOQUE ("${blockTitle}").
+   - Si pide una cantidad exacta (ej: 2 preguntas, 3 subtítulos, etc.), REDACTA EXACTAMENTE ESA CANTIDAD.
+   - Si se solicitaron colores específicos (ej: preguntas en rojo, respuestas en negro), aplica los estilos inline directamente: <strong style="color: #dc2626;">¿Pregunta?</strong><br/><span style="color: #000000;">Respuesta</span>.
+2. CERO PLANTILLAS RÍGIDAS: Adapta la información a la entidad real y al título del bloque; prohibido inventar contenido clínico para entidades no médicas.
+3. Formato HTML limpio en párrafos <p>...</p>.`;
+
       const aiPrompt = autoTranslate
         ? `Eres un redactor profesional de bloques de contenido para Travelgrin.
 Tu tarea es redactar el contenido para el bloque titulado "${blockTitle}" CUMPLIENDO ESTRICTAMENTE LA INSTRUCCIÓN DEL ADMINISTRADOR.
@@ -478,11 +509,10 @@ ${variationDirective}
 CONTENIDO ACTUAL PREVIO A REEMPLAZAR: "${currentText}"
 DATOS DE REFERENCIA DE LA ENTIDAD:
 ${contextFacts}
+${extraContextPrompt ? `\nCONTEXTO DE DESCRIPCIÓN Y BLOQUES ANTERIORES:\n${extraContextPrompt}\n` : ""}
+${editorialRules}
 
-REGLAS:
-1. Cumple al 100% la instrucción del administrador (cantidad de preguntas si es FAQ, formato, negritas, estilos).
-2. Si es Preguntas Frecuentes, genera formato <p><strong>¿Pregunta...?</strong><br/>Respuesta detallada...</p>.
-3. Devuelve ÚNICAMENTE un objeto JSON con:
+Devuelve ÚNICAMENTE un objeto JSON con:
 {
   "title": "${blockTitle}",
   "body": "Contenido enriquecido en HTML <p>...",
@@ -497,11 +527,10 @@ ${variationDirective}
 CONTENIDO ACTUAL PREVIO A REEMPLAZAR: "${currentText}"
 DATOS DE REFERENCIA DE LA ENTIDAD:
 ${contextFacts}
+${extraContextPrompt ? `\nCONTEXTO DE DESCRIPCIÓN Y BLOQUES ANTERIORES:\n${extraContextPrompt}\n` : ""}
+${editorialRules}
 
-REGLAS:
-1. Cumple al 100% la instrucción del administrador (cantidad de preguntas si es FAQ, formato, negritas, estilos).
-2. Si es Preguntas Frecuentes, genera formato <p><strong>¿Pregunta...?</strong><br/>Respuesta detallada...</p>.
-3. Devuelve ÚNICAMENTE un objeto JSON rápido con:
+Devuelve ÚNICAMENTE un objeto JSON rápido con:
 {
   "title": "${blockTitle}",
   "body": "Contenido enriquecido en párrafos HTML <p>..."
@@ -509,7 +538,13 @@ REGLAS:
 
       const parsed = await callAI(aiPrompt, fieldType);
       const resolvedTitle = parsed.title || blockTitle;
-      const resolvedBody = parsed.body || parsed.bodyI18n?.[sourceLang] || parsed.bodyI18n?.es || "";
+      let resolvedBody = parsed.body || parsed.bodyI18n?.[sourceLang] || parsed.bodyI18n?.es || "";
+
+      // Post-process with count enforcement and color styling to guarantee exact user parameters
+      if (resolvedBody) {
+        resolvedBody = enforceFaqCountAndFilter(resolvedBody, prompt);
+        resolvedBody = applyPromptColorStyles(resolvedBody, prompt);
+      }
 
       const tI18n = parsed.titleI18n || {
         [sourceLang]: resolvedTitle,
