@@ -129,6 +129,14 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
     purpura: "#9333ea",
     naranja: "#ea580c",
     naranjas: "#ea580c",
+    amarillo: "#ca8a04",
+    amarillos: "#ca8a04",
+    amarilla: "#ca8a04",
+    amarillas: "#ca8a04",
+    dorado: "#d97706",
+    dorados: "#d97706",
+    dorada: "#d97706",
+    doradas: "#d97706",
     negro: "#000000",
     negros: "#000000",
     negra: "#000000",
@@ -139,13 +147,14 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
     blancos: "#ffffff",
   };
 
-  const COLOR_NAMES_PATTERN = "rojo|rojos|roja|rojas|azul|azules|celeste|celestes|verde|verdes|violeta|violetas|morado|morados|p[uú]rpura|purpura|naranja|naranjas|negro|negros|negra|negras|gris|grises|blanco|blancos";
+  const COLOR_NAMES_PATTERN = "rojo|rojos|roja|rojas|azul|azules|celeste|celestes|verde|verdes|violeta|violetas|morado|morados|p[uú]rpura|purpura|naranja|naranjas|amarillo|amarillos|amarilla|amarillas|dorado|dorados|dorada|doradas|negro|negros|negra|negras|gris|grises|blanco|blancos";
 
   // Specific question/title target match:
   const titleColorMatch =
-    p.match(new RegExp(`(?:preguntas?|t[ií]tulos?)\\s+(?:en|de|con)?\\s*(?:color|letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})`, "i")) ||
-    p.match(new RegExp(`(?:letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})\\s+(?:para|en)\\s+(?:las?\\s+preguntas?|el\\s+t[ií]tulo|los\\s+t[ií]tulos?)`, "i")) ||
-    p.match(new RegExp(`(?:en|de|con)\\s+(?:color\\s+)?(${COLOR_NAMES_PATTERN})\\s+(?:para\\s+)?(?:el\\s+t[ií]tulo|las?\\s+preguntas?)`, "i"));
+    p.match(new RegExp(`(?:preguntas?|t[ií]tulos?|subt[ií]tulos?)\\s+(?:en|de|con)?\\s*(?:color|letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})`, "i")) ||
+    p.match(new RegExp(`(?:letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})\\s+(?:para|en)\\s+(?:las?\\s+preguntas?|el\\s+t[ií]tulo|los\\s+t[ií]tulos?|subt[ií]tulos?)`, "i")) ||
+    p.match(new RegExp(`(?:en|de|con)\\s+(?:color\\s+)?(${COLOR_NAMES_PATTERN})\\s+(?:para\\s+)?(?:el\\s+t[ií]tulo|los\\s+t[ií]tulos?|las?\\s+preguntas?|subt[ií]tulos?)`, "i")) ||
+    p.match(new RegExp(`(?:t[ií]tulos?|subt[ií]tulos?)\\s+en\\s+letras?\\s+(${COLOR_NAMES_PATTERN})`, "i"));
 
   if (titleColorMatch && titleColorMatch[1]) {
     titleColor = colorMap[titleColorMatch[1].toLowerCase()];
@@ -154,8 +163,8 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
   // Specific answer/body target match:
   const bodyColorMatch =
     p.match(new RegExp(`(?:respuestas?|su\\s+respuesta|cuerpo|texto|explicaci[oó]n)\\s+(?:en|de|con)?\\s*(?:color|letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})`, "i")) ||
-    p.match(new RegExp(`(?:letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})\\s+(?:para|en)\\s+(?:las?\\s+respuestas?|el\\s+cuerpo|el\\s+texto)`, "i")) ||
-    p.match(new RegExp(`(?:en|de|con)\\s+(?:color\\s+)?(${COLOR_NAMES_PATTERN})\\s+(?:para\\s+)?(?:la\\s+respuesta|las?\\s+respuestas?|el\\s+texto|el\\s+cuerpo)`, "i"));
+    p.match(new RegExp(`(?:letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})\\s+(?:para|en)\\s+(?:las?\\s+respuestas?|el\\s+cuerpo|el\\s+texto|la\\s+explicaci[oó]n)`, "i")) ||
+    p.match(new RegExp(`(?:en|de|con)\\s+(?:color\\s+)?(${COLOR_NAMES_PATTERN})\\s+(?:para\\s+)?(?:la\\s+respuesta|las?\\s+respuestas?|el\\s+texto|el\\s+cuerpo|la\\s+explicaci[oó]n)`, "i"));
 
   if (bodyColorMatch && bodyColorMatch[1]) {
     bodyColor = colorMap[bodyColorMatch[1].toLowerCase()];
@@ -165,6 +174,7 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
   if (!titleColor) {
     if (/\b(?:de\s+)?azul(?:es)?\b|color\s+azul|en\s+azul|celeste/i.test(p)) titleColor = "#0066cc";
     else if (/\brojo[as]?\b|color\s+rojo|en\s+rojo/i.test(p)) titleColor = "#dc2626";
+    else if (/\bamarill[oas]?\b|color\s+amarillo|en\s+amarillo|dorad[oas]?/i.test(p)) titleColor = "#ca8a04";
     else if (/\bverde[s]?\b|color\s+verde|en\s+verde/i.test(p)) titleColor = "#16a34a";
     else if (/\bvioleta[s]?\b|morado|p[uú]rpura/i.test(p)) titleColor = "#9333ea";
     else if (/\bnaranja\b/i.test(p)) titleColor = "#ea580c";
@@ -174,6 +184,7 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
     if (/(?:respuesta|texto|cuerpo|letras?)\s+(?:en\s+|de\s+)?negr[oas]+/i.test(p) || /\ben\s+negr[oas]+/i.test(p)) bodyColor = "#000000";
     else if (/(?:respuesta|texto)\s+(?:en\s+|de\s+)?azul/i.test(p)) bodyColor = "#0066cc";
     else if (/(?:respuesta|texto)\s+(?:en\s+|de\s+)?rojo/i.test(p)) bodyColor = "#dc2626";
+    else if (/(?:respuesta|texto)\s+(?:en\s+|de\s+)?amarill[oas]/i.test(p)) bodyColor = "#ca8a04";
   }
 
   return { titleColor, bodyColor };
@@ -186,7 +197,7 @@ export function applyPromptColorStyles(html: string, prompt?: string): string {
 
   let res = html;
 
-  // 1. Title/Question Color Styling
+  // 1. Title/Question/Heading Color Styling
   if (titleColor) {
     if (/<(strong|b)[\s>]/i.test(res)) {
       res = res.replace(/<(strong|b)(?:\s+style="([^"]*)")?>(.*?)<\/\1>/gi, (match, tag, existingStyle, content) => {
@@ -201,12 +212,18 @@ export function applyPromptColorStyles(html: string, prompt?: string): string {
     }
   }
 
-  // 2. Body/Answer Color Styling
+  // 2. Body/Answer/Explanation Color Styling
   if (bodyColor) {
     if (/<br\s*\/?>/i.test(res)) {
       res = res.replace(/(<p[^>]*>[\s\S]*?<br\s*\/?>)([\s\S]*?)(<\/p>)/gi, (match, before, answer, after) => {
         const cleanAnswer = answer.replace(/<span\s+style="color\s*:\s*[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, "$1").trim();
         return `${before}<span style="color: ${bodyColor};">${cleanAnswer}</span>${after}`;
+      });
+    } else if (/<(?:strong|b)[\s>]/i.test(res)) {
+      res = res.replace(/(<p[^>]*>[\s\S]*?<\/(?:strong|b)>)([\s\S]*?)(<\/p>)/gi, (match, before, answer, after) => {
+        if (!answer.trim()) return match;
+        const cleanAnswer = answer.replace(/<span\s+style="color\s*:\s*[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, "$1").trim();
+        return `${before} <span style="color: ${bodyColor};">${cleanAnswer}</span>${after}`;
       });
     } else {
       res = res.replace(/(<p[^>]*>)([\s\S]*?)(<\/p>)/gi, (match, before, content, after) => {
@@ -605,19 +622,19 @@ async function executeModelCall(
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(12000),
+            signal: AbortSignal.timeout(25000),
             body: JSON.stringify(payload),
           }
         );
 
         if (res.status === 429) {
-          await new Promise((r) => setTimeout(r, 300));
+          await new Promise((r) => setTimeout(r, 600));
           res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(6000),
+              signal: AbortSignal.timeout(15000),
               body: JSON.stringify(payload),
             }
           );
@@ -633,7 +650,7 @@ async function executeModelCall(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(2500),
+              signal: AbortSignal.timeout(15000),
               body: JSON.stringify(fallbackPayload),
             }
           );
@@ -664,10 +681,13 @@ async function executeModelCall(
       }
     }
 
-    // 2. Probar candidatos ultrarrápidos (gemini-1.5-flash primero por máxima compatibilidad y cuota)
+    // 2. Probar candidatos ultrarrápidos (gemini-2.5-flash primero por máxima velocidad y disponibilidad)
     const candidateModels = [
-      "gemini-1.5-flash",
+      "gemini-2.5-flash",
       "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-1.5-flash-8b",
+      "gemini-1.5-pro",
     ];
 
     let lastErr: any = null;
@@ -711,7 +731,7 @@ async function executeModelCall(
             response_format: { type: "json_object" },
             temperature: 0.75,
           }),
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(15000),
         });
         if (res.ok) {
           const json = await res.json();
@@ -801,7 +821,7 @@ Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exac
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL SUPREMA: La instrucción del administrador es la regla NÚMERO UNO. Si pide marketing, llamada a la atención, palabras clave, estilo llamativo o enfoque específico, CÚMPLELO AL 100%. NUNCA devuelvas solo el nombre seco de la entidad si se pidió un título comercial o llamativo.
+1. AUTORIDAD EDITORIAL SUPREMA: La instrucción del administrador es la regla NÚMERO UNO. Si pide marketing, llamada a la atención, emojis, título largo o corto, palabras clave, estilo llamativo o enfoque específico, CÚMPLELO AL 100%. NUNCA devuelvas solo el nombre seco de la entidad si se pidió un título comercial o llamativo.
 2. CERO PLANTILLAS: Queda TERMINANTEMENTE PROHIBIDO usar plantillas, frases enlatadas o títulos prefabricados. Genera un título 100% original, fresco y a medida para este sitio y para la instrucción recibida.
 3. REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre'), ESTÁ ESTRICTAMENTE PROHIBIDO incluir '${entityName}' o el nombre de la institución en el título; genera únicamente el eslogan comercial, propuesta o titular de alto impacto.
 4. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano durante el scraping.
@@ -955,10 +975,11 @@ Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato:
 
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: La directiva del administrador es la regla NÚMERO UNO:
-   - Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
-   - Si el administrador pide subtítulos o títulos en negrita/letras negras con su explicación, escribe cada párrafo con su subtítulo en negrita (<p><strong>Subtítulo</strong><br/>Explicación persuasiva y detallada...</p>).
-   - Si el administrador pide tono de marketing, enfoque de conversión, empatía, o incluir emojis o íconos, APLÍCALO AL 100% sin censurar ni alterar lo pedido.
-2. CERO PLANTILLAS RÍGIDAS: Cada publicación debe redactarse a medida según la actividad real de la entidad. Si la entidad es una universidad o centro educativo, habla de su propuesta académica, carreras, campus y admisiones; JAMÁS menciones hospitales, emergencias o guardias médicas a menos que sea un hospital clínico prestador de salud.
+   - Si el administrador pide una cantidad exacta de párrafos (ej: "2 párrafos", "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
+   - Si el administrador pide subtítulos o títulos con su explicación (ej: "con los títulos en letras amarillo y su explicación"), escribe cada párrafo con su subtítulo: <p><strong style="color: #ca8a04;">Título del Párrafo:</strong> Explicación persuasiva y detallada con excelente SEO...</p>. Si pide subtítulos en negrita o letras negras, usa <p><strong>Subtítulo:</strong> Explicación...</p>.
+   - Si pide colores específicos en los títulos o texto (ej: amarillo, rojo, azul, etc.), APLICA LOS ESTILOS INLINE correspondientes (<strong style="color: ...">).
+   - Si el administrador pide tono de marketing, enfoque de conversión, SEO, empatía, o incluir emojis o íconos, APLÍCALO AL 100% sin censurar ni alterar lo pedido.
+2. CERO PLANTILLAS RÍGIDAS: Queda TERMINANTEMENTE PROHIBIDO usar plantillas fijas o esquemas prearmados. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
 3. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano durante el scraping.
 4. Formato HTML limpio: Estructura el texto en etiquetas <p>...</p>, <strong>...</strong>, <br/>.
 5. Fidelidad factual: Basa el contenido en los servicios, infraestructura, propuestas y datos reales de "${entityName}".
@@ -1028,6 +1049,10 @@ GENERA LA DESCRIPCIÓN CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`
         .join("\n");
     }
 
+    if (prompt) {
+      descHtml = applyPromptColorStyles(descHtml, prompt);
+    }
+
     console.log(`5. Normalized Description Output:\n${descHtml}`);
 
     const dI18n: I18nRecord = {
@@ -1068,7 +1093,10 @@ GENERA LA DESCRIPCIÓN CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`
     }
     paragraphs.push(`<p><strong>Información Oficial y Canales de Atención:</strong> Asesoramiento, consultas y gestión directa a través de su sitio oficial.</p>`);
 
-    const fallbackDesc = paragraphs.join("\n");
+    let fallbackDesc = paragraphs.join("\n");
+    if (prompt) {
+      fallbackDesc = applyPromptColorStyles(fallbackDesc, prompt);
+    }
     return {
       success: true,
       data: {
@@ -2399,7 +2427,7 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
      * REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA DE NOMBRE: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre', 'sin mencionar la institucion'), ESTÁ TERMINANTEMENTE PROHIBIDO incluir '${entityName}' o el nombre de la institución en el título. Genera ÚNICAMENTE el titular o eslogan publicitario/comercial de alto impacto, enfocado directamente en la propuesta de valor sin mencionar a la entidad.
      * Si NO pidió omitir el nombre, combina de forma natural y atractiva el nombre con la propuesta destacada sin fórmulas fijas.
      * JAMÁS devuelvas las palabras de la instrucción como parte del título (ej: si pide "Especialista en marketing y haz un título...", NO escribas "Especialista en marketing..." en el título). NUNCA devuelvas solo el nombre seco si se pidió impacto.
-   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>. Si pide subtítulos/títulos en negrita o letras negras y su explicación, estructura cada párrafo como <p><strong>Título del Párrafo:</strong> Explicación persuasiva y detallada con excelente SEO...</p>. CADA PÁRRAFO DEBE TENER UN CONTENIDO ÚNICO Y DIFERENTE (Misión/Propuesta, Carreras y Títulos Oficiales, Modalidades Flexibles, Innovación y Salida Laboral, Admisiones y Vías Oficiales). ESTÁ TOTALMENTE PROHIBIDO REPETIR ORACIONES O FRASES GENÉRICAS ENTRE PÁRRAFOS. Si pide emojis, íconos o estilo específico, aplícalo libremente. Si la entidad es una universidad o institución educativa, habla EXCLUSIVAMENTE de su propuesta académica, carreras, modalidades de cursado, campus y admisiones; JAMÁS menciones hospitales, emergencias o guardias médicas a menos que sea un hospital clínico prestador de salud.
+   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "2 párrafos", "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>. Si pide subtítulos/títulos con su explicación o con colores (ej: "con los títulos en letras amarillo y su explicación"), estructura cada párrafo con estilos inline: <p><strong style="color: #ca8a04;">Título del Párrafo:</strong> Explicación persuasiva y detallada con excelente SEO...</p>. Si pide subtítulos en negrita o letras negras, usa <p><strong>Subtítulo:</strong> Explicación...</p>. CADA PÁRRAFO DEBE TENER UN CONTENIDO ÚNICO Y DIFERENTE. ESTÁ TOTALMENTE PROHIBIDO REPETIR ORACIONES O FRASES GENÉRICAS ENTRE PÁRRAFOS. Si pide emojis, íconos o estilo específico, aplícalo libremente. CERO PLANTILLAS RÍGIDAS. Si la entidad es una universidad o institución educativa, habla EXCLUSIVAMENTE de su propuesta académica, carreras, campus y admisiones; JAMÁS menciones hospitales a menos que sea un centro de salud.
    - BLOQUES PERSONALIZADOS: Genera cada bloque solicitado en el array "customBlocks".
      * TÍTULO TEMÁTICO: El Título del bloque define la temática central si el prompt solo especifica formato, estilo o colores (ej: si el título es "Preguntas Frecuentes", el contenido DEBE ser de preguntas frecuentes sobre los servicios y ofertas reales del sitio).
      * CONTEXTO Y CONTINUIDAD: Si el administrador pide tener en cuenta la descripción o bloques anteriores, revísalos e integra la información manteniendo total coherencia.
@@ -2557,6 +2585,9 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     }
     if (!rawDesc || rawDesc.length < 10) {
       throw new Error("Descripción unificada vacía o inválida.");
+    }
+    if (descPrompt && rawDesc) {
+      rawDesc = applyPromptColorStyles(rawDesc, descPrompt);
     }
     const descriptionI18n: I18nRecord = {
       es: rawDesc,
