@@ -2355,6 +2355,7 @@ export async function runUnifiedPublicationAgent(
   const { context, taxonomies } = input;
   const cleanName = cleanTitleString(context.publisherName || context.rawPageTitle || "Establecimiento");
   const entityName = cleanName.split(/\s*[-–—|]\s*/)[0].trim() || cleanName;
+  const cleanPublisher = cleanTitleString(context.publisherName || entityName);
   const locationText = [context.city, context.country].filter(Boolean).join(", ");
   const titlePrompt = (input.customTitlePrompt || "").trim();
   const descPrompt = (input.customDescriptionPrompt || "").trim();
@@ -2394,6 +2395,7 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 1. AUTORIDAD EDITORIAL SUPREMA: Las instrucciones del administrador son la regla NÚMERO UNO:
    - TÍTULO: Si el administrador proporcionó una directiva para el título ("${titlePrompt}"), DEBES ADAPTARTE DIRECTAMENTE A LO QUE PIDIÓ (incluso si pide emojis, palabras clave de alto impacto o estilo libre). Si pidió un ángulo, enfoque o palabras clave específicas (ej: inscripciones, innovación, calidad, tecnología, etc.), ese ángulo DEBE SER EL CORAZÓN DEL TÍTULO redactado de manera 100% original, creativa y vendedora.
      * CERO PLANTILLAS: ESTÁ TERMINANTEMENTE PROHIBIDO usar frases prearmadas, clichés o plantillas fijas. Redacta un titular original, único y fresco basado estrictamente en el contenido real de la página web y en el estilo pedido por el administrador.
+     * PROHIBIDO COPIAR EL TÍTULO ORIGINAL: Si el administrador dio una instrucción de título, ESTÁ TERMINANTEMENTE PROHIBIDO devolver el título original de la web o una copia textual de la etiqueta title. Redacta un nuevo titular comercial según lo pedido.
      * REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA DE NOMBRE: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre', 'sin mencionar la institucion'), ESTÁ TERMINANTEMENTE PROHIBIDO incluir '${entityName}' o el nombre de la institución en el título. Genera ÚNICAMENTE el titular o eslogan publicitario/comercial de alto impacto, enfocado directamente en la propuesta de valor sin mencionar a la entidad.
      * Si NO pidió omitir el nombre, combina de forma natural y atractiva el nombre con la propuesta destacada sin fórmulas fijas.
      * JAMÁS devuelvas las palabras de la instrucción como parte del título (ej: si pide "Especialista en marketing y haz un título...", NO escribas "Especialista en marketing..." en el título). NUNCA devuelvas solo el nombre seco si se pidió impacto.
@@ -2457,6 +2459,7 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 1. DIRECTIVA PARA EL TÍTULO:
 "${titlePrompt || "Crear un título claro, comercial, atractivo y representativo que presente al establecimiento y su propuesta principal."}"
 ${omitUnifiedTitleName ? "\n--> REGLA CRÍTICA OBLIGATORIA: El administrador ha exigido que el título NO contenga el nombre de la institución. ESTÁ TERMINANTEMENTE PROHIBIDO poner '" + entityName + "' en el título; genera únicamente el eslogan publicitario o titular comercial de alto impacto.\n" : ""}
+${titlePrompt ? "\n--> REGLA OBLIGATORIA: Redacta un titular publicitario y comercial nuevo acorde a esta directiva. ESTÁ TOTALMENTE PROHIBIDO copiar textualmente el 'Título original de la web' o devolver solo el nombre.\n" : ""}
 2. DIRECTIVA PARA LA DESCRIPCIÓN PRINCIPAL:
 "${descPrompt || "Escribir una descripción profesional en párrafos HTML <p> explicando qué ofrece, su alcance y vías oficiales."}"
 ${customBlocksDirective}
@@ -2501,6 +2504,30 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       rawTitle = "";
     }
     let cleanTitle = cleanTitleString(rawTitle);
+
+    // Si el usuario dio un prompt de título pero el modelo devolvió textualmente el título crudo de la web o el nombre:
+    const rawWebTitle = cleanTitleString(context.rawPageTitle || "");
+    const isModelEcho = Boolean(
+      titlePrompt &&
+      cleanTitle &&
+      rawWebTitle &&
+      (cleanTitle.toLowerCase() === rawWebTitle.toLowerCase() ||
+       cleanTitle.toLowerCase() === entityName.toLowerCase() ||
+       cleanTitle.toLowerCase() === cleanPublisher.toLowerCase())
+    );
+
+    if (isModelEcho) {
+      console.log(`[UnifiedPublicationAgent] El modelo unificado devolvió el título web crudo (${cleanTitle}). Invocando Agente de Título dedicado con prompt: "${titlePrompt}"`);
+      try {
+        const dedicatedTitleRes = await runTitleAgent(context, titlePrompt);
+        if (dedicatedTitleRes?.success && dedicatedTitleRes.data?.title) {
+          cleanTitle = dedicatedTitleRes.data.title;
+        }
+      } catch (err: any) {
+        console.warn(`[UnifiedPublicationAgent] Fallback a runTitleAgent falló:`, err?.message);
+      }
+    }
+
     if (omitUnifiedTitleName) {
       cleanTitle = cleanTitleOmitEntity(cleanTitle, entityName, cleanPublisher);
       if (!cleanTitle || cleanTitle.length < 8) {
