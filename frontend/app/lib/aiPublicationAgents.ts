@@ -277,6 +277,168 @@ export function enforceFaqCountAndFilter(html: string, prompt?: string): string 
   return pBlocks.slice(0, requestedCount).join("\n");
 }
 
+export function extractParagraphCount(prompt?: string): number | null {
+  if (!prompt) return null;
+  const p = prompt.toLowerCase();
+  const wordMap: Record<string, number> = {
+    un: 1, una: 1, uno: 1,
+    dos: 2,
+    tres: 3,
+    cuatro: 4,
+    cinco: 5,
+    seis: 6,
+    siete: 7,
+    ocho: 8,
+    nueve: 9,
+    diez: 10,
+  };
+  const wordMatch = p.match(/\b(un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*p[aá]rrafos?\b/i);
+  if (wordMatch && wordMatch[1] && wordMap[wordMatch[1]]) {
+    return wordMap[wordMatch[1]];
+  }
+  const digitMatch = p.match(/\b(\d+)\s*p[aá]rrafos?\b/i);
+  if (digitMatch && digitMatch[1]) {
+    return parseInt(digitMatch[1], 10);
+  }
+  return null;
+}
+
+export function enforceDescriptionParagraphCount(descHtml: string, prompt?: string): string {
+  if (!descHtml) return "";
+  const count = extractParagraphCount(prompt);
+  if (!count || count <= 0) return descHtml;
+
+  let paragraphs: string[] = Array.from(descHtml.match(/<p[\s\S]*?<\/p>/gi) || []);
+  if (paragraphs.length === 0) {
+    paragraphs = descHtml
+      .split(/\n\s*\n+/)
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) => `<p>${p}</p>`);
+  }
+
+  if (paragraphs.length === count) {
+    return paragraphs.join("\n");
+  }
+
+  if (paragraphs.length > count) {
+    return paragraphs.slice(0, count).join("\n");
+  }
+
+  const result = [...paragraphs];
+  while (result.length < count) {
+    let longestIdx = 0;
+    let maxLen = 0;
+    result.forEach((p, idx) => {
+      const len = p.replace(/<[^>]+>/g, "").length;
+      if (len > maxLen) {
+        maxLen = len;
+        longestIdx = idx;
+      }
+    });
+
+    if (maxLen < 60) break;
+
+    const targetP = result[longestIdx];
+    const innerContent = targetP.replace(/^<p[^>]*>|<\/p>$/gi, "").trim();
+    const sentences = innerContent.split(/(?<=[.?!])\s+/);
+    if (sentences.length >= 2) {
+      const mid = Math.ceil(sentences.length / 2);
+      const firstPart = sentences.slice(0, mid).join(" ");
+      const secondPart = sentences.slice(mid).join(" ");
+      result.splice(longestIdx, 1, `<p>${firstPart}</p>`, `<p>${secondPart}</p>`);
+    } else {
+      break;
+    }
+  }
+
+  return result.slice(0, count).join("\n");
+}
+
+export function synthesizeMarketingTitle(
+  entityName: string,
+  context: CleanScrapedContext,
+  prompt?: string
+): string {
+  const p = (prompt || "").trim();
+  const omitName = checkPromptOmitEntityName(p);
+  const locationText = [context.city, context.country].filter(Boolean).join(", ") || context.city || "";
+
+  // 1. Explicit quotes in prompt
+  const quotedMatch = p.match(/["'«“]([^"'»”]{5,120})["'»”]/);
+  if (quotedMatch && quotedMatch[1]) {
+    const custom = cleanTitleString(quotedMatch[1]);
+    if (omitName) return cleanTitleOmitEntity(custom, entityName, context.publisherName);
+    return custom.toLowerCase().includes(entityName.toLowerCase()) ? custom : `${entityName} | ${custom}`;
+  }
+
+  // 2. Extract best heading or service from actual scraped website
+  const allHeadings = (context.headings || [])
+    .map((h) => cleanTitleString(h))
+    .filter((h) => h.length > 10 && h.length < 85 && !/¿|\?|menu|login|buscar|inicio|cookies|sesi[oó]n|bienvenidos?|error/i.test(h));
+
+  const allServices = (context.servicesList || [])
+    .map((s) => cleanTitleString(s))
+    .filter((s) => s.length > 5 && s.length < 80);
+
+  let highlight = allHeadings.find((h) => !h.toLowerCase().includes(entityName.toLowerCase())) ||
+                  allServices.find((s) => !s.toLowerCase().includes(entityName.toLowerCase())) ||
+                  "";
+
+  if (!highlight && context.metaDescription && context.metaDescription.length > 15) {
+    const metaSentences = context.metaDescription.split(/[.;]\s+/).map((s) => cleanTitleString(s)).filter((s) => s.length > 15 && s.length < 80);
+    if (metaSentences.length > 0) {
+      highlight = metaSentences[0];
+    }
+  }
+
+  const corpus = `${entityName} ${context.url || ""} ${context.rawPageTitle || ""} ${(context.headings || []).join(" ")} ${(context.paragraphs || []).join(" ")}`.toLowerCase();
+  const isHealth = /hospital|sanatorio|cl[ií]nica|centro\s+m[eé]dico|m[eé]dic|salud|guardia|urgencias/i.test(corpus);
+  const isEdu = !isHealth && /universidad|facultad|instituto|colegio|campus|educaci|carrera|estudio/i.test(corpus);
+  const isTourism = !isHealth && !isEdu && /hotel|hostel|turismo|alojam|resort|posada|cabaña/i.test(corpus);
+
+  let sectorLead = "";
+  if (isHealth) {
+    sectorLead = "Centro Médico de Excelencia y Urgencias";
+  } else if (isEdu) {
+    sectorLead = "Institución Académica y Formación Superior";
+  } else if (isTourism) {
+    sectorLead = "Experiencias de Hospitalidad y Turismo";
+  } else {
+    sectorLead = "Servicios y Prestaciones Profesionales";
+  }
+
+  const wantsLong = /(?:bastante\s+largo|largo|extenso|amplio|completo)/i.test(p);
+
+  let synthesized = "";
+  if (highlight) {
+    if (highlight.length > 35) {
+      synthesized = highlight;
+    } else {
+      synthesized = `${sectorLead}: ${highlight}`;
+    }
+  } else {
+    synthesized = `${sectorLead}${locationText ? ` en ${locationText}` : ""}`;
+  }
+
+  if (wantsLong && synthesized.length < 55) {
+    const secondaryService = allServices[0] || (locationText ? `en ${locationText}` : "");
+    if (secondaryService && !synthesized.toLowerCase().includes(secondaryService.toLowerCase())) {
+      synthesized = `${synthesized} | Atención Integral ${secondaryService}`;
+    }
+  }
+
+  if (omitName) {
+    return cleanTitleOmitEntity(synthesized, entityName, context.publisherName);
+  }
+
+  if (synthesized.toLowerCase().includes(entityName.toLowerCase())) {
+    return synthesized;
+  }
+
+  return `${entityName} | ${synthesized}`;
+}
+
 export function buildRichProviderInfo(
   publisherName: string,
   city: string,
@@ -681,9 +843,8 @@ async function executeModelCall(
       }
     }
 
-    // 2. Probar candidatos ultrarrápidos (gemini-2.5-flash primero por máxima velocidad y disponibilidad)
+    // 2. Probar candidatos estables (gemini-2.0-flash y gemini-1.5-flash primero)
     const candidateModels = [
-      "gemini-2.5-flash",
       "gemini-2.0-flash",
       "gemini-1.5-flash",
       "gemini-1.5-flash-8b",
@@ -706,6 +867,33 @@ async function executeModelCall(
         lastErr = e;
       }
     }
+
+    // 3. Descubrimiento dinámico de modelos vía ListModels si los fijos no responden
+    try {
+      const listRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
+        { signal: AbortSignal.timeout(6000) }
+      );
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const availableModels = (listData.models || [])
+          .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+          .map((m: any) => m.name.replace(/^models\//, ""))
+          .filter((m: string) => m.includes("gemini"));
+
+        for (const model of availableModels) {
+          try {
+            const result = await callModel(model);
+            if (result) {
+              cachedWorkingGeminiModel = model;
+              return result;
+            }
+          } catch (e: any) {
+            lastErr = e;
+          }
+        }
+      }
+    } catch {}
 
     throw lastErr || new Error(`Gemini no pudo responder: ${errorsList.join(" | ")}`);
   };
@@ -812,20 +1000,24 @@ REGLAS MANDATORIAS DE REFORMULACIÓN:
     : "";
 
   const omitName = checkPromptOmitEntityName(prompt);
+  const wantsMarketingOrLong = /(?:marketing|conversi[oó]n|llamativ|atenci[oó]n|bastante\s+largo|largo|impactante|vendedor)/i.test(prompt);
 
-  const systemPrompt = `Eres un redactor y especialista en marketing para Travelgrin.
-Tu objetivo primordial es generar un TÍTULO COMERCIAL IMPACTANTE Y DE ALTA CONVERSIÓN cumpliendo rigurosamente la directiva editorial del administrador.
+  const systemPrompt = `Eres un director creativo y especialista en marketing, conversión y copywriting publicitario para Travelgrin.
+Tu objetivo primordial es generar un TÍTULO PUBLICITARIO Y COMERCIAL DE ALTO IMPACTO cumpliendo rigurosamente la directiva editorial del administrador.
 Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exacto:
 {
   "title": "Título comercial y de impacto en español"
 }
 
 REGLAS DE MÁXIMA PRIORIDAD:
-1. AUTORIDAD EDITORIAL SUPREMA: La instrucción del administrador es la regla NÚMERO UNO. Si pide marketing, llamada a la atención, emojis, título largo o corto, palabras clave, estilo llamativo o enfoque específico, CÚMPLELO AL 100%. NUNCA devuelvas solo el nombre seco de la entidad si se pidió un título comercial o llamativo.
-2. CERO PLANTILLAS: Queda TERMINANTEMENTE PROHIBIDO usar plantillas, frases enlatadas o títulos prefabricados. Genera un título 100% original, fresco y a medida para este sitio y para la instrucción recibida.
-3. REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre'), ESTÁ ESTRICTAMENTE PROHIBIDO incluir '${entityName}' o el nombre de la institución en el título; genera únicamente el eslogan comercial, propuesta o titular de alto impacto.
-4. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano durante el scraping.
-5. Fidelidad factual: Si no se pidió omitir el nombre, presenta a "${entityName}" destacando su propuesta de valor según los datos provistos de la web.
+1. AUTORIDAD EDITORIAL SUPREMA: La instrucción del administrador es la regla NÚMERO UNO:
+   - Si el administrador pide especialista en marketing, conversión, llamar la atención o que sea "bastante largo", REDACTA UN TITULAR PUBLICITARIO EXTENSO, IMPACTANTE Y DE ALTA CONVERSIÓN (entre 55 y 120 caracteres) destacando la propuesta de valor, especialidad y prestigio de ${entityName}.
+     Ejemplo para centros de salud: "${entityName} | Centro Médico de Alta Complejidad: Guardia de Emergencias 24 Horas y Atención Especializada".
+   - ESTÁ TERMINANTEMENTE PROHIBIDO devolver únicamente el nombre de la institución a secas (ej: "${entityName}") o copiar textualmente el título de la web si se pidió marketing o impacto.
+2. CERO PLANTILLAS RÍGIDAS: Queda TERMINANTEMENTE PROHIBIDO usar fórmulas fijas, clichés o plantillas vacías. El titular debe ser 100% fresco, único y a medida basado en la actividad real comprobada de la entidad.
+3. REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre'), ESTÁ ESTRICTAMENTE PROHIBIDO incluir '${entityName}' o el nombre de la entidad en el título; genera únicamente la propuesta comercial o titular de alto impacto.
+4. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano.
+5. Fidelidad factual: Basa las especialidades y propuestas en los datos reales de la web de "${entityName}".
 6. Formato estricto: Devuelve únicamente el objeto JSON sin texto fuera del JSON.`;
 
   const userPrompt = `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR (MÁXIMA PRIORIDAD) ===
@@ -834,9 +1026,9 @@ ${omitName ? "\n--> REGLA CRÍTICA OBLIGATORIA: El administrador ha solicitado e
 === DATOS REALES DE REFERENCIA DEL SITIO WEB ===
 - Nombre oficial: "${entityName}"
 - Ubicación: "${locationText || "No informada"}"
-- Encabezados principales: ${(context.headings || []).slice(0, 8).join(" | ") || "N/A"}
-- Servicios detectados: ${(context.servicesList || []).slice(0, 6).join(" | ") || "N/A"}
-- Resumen y párrafos de la web: "${(context.metaDescription || context.paragraphs?.slice(0, 3).join(" ") || context.mainText?.slice(0, 500) || "").slice(0, 600)}"
+- Encabezados principales: ${(context.headings || []).slice(0, 10).join(" | ") || "N/A"}
+- Servicios detectados: ${(context.servicesList || []).slice(0, 8).join(" | ") || "N/A"}
+- Resumen y párrafos de la web: "${(context.metaDescription || context.paragraphs?.slice(0, 3).join(" ") || context.mainText?.slice(0, 600) || "").slice(0, 800)}"
 
 GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
 
@@ -850,7 +1042,7 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
       userPrompt,
       context.apiKey,
       context.provider || "auto",
-      300
+      500
     );
 
     console.log(`3. Provider Used: ${providerUsed}`);
@@ -884,24 +1076,16 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
       }
     }
 
-    if (!rawTitle || rawTitle.length < 2) {
-      const liveHeading = (context.headings || []).find((h) => h && h.length > 12 && h.length < 90 && !checkPromptOmitEntityName(h) && !h.toLowerCase().includes(entityName.toLowerCase()) && !/¿|\?|menu|login|buscar|inicio/i.test(h));
-      if (omitName) {
-        rawTitle = liveHeading || (context.metaDescription && context.metaDescription.length > 15 ? context.metaDescription.slice(0, 80) : "Propuesta y Servicios");
-      } else {
-        rawTitle = liveHeading ? `${entityName} | ${liveHeading}` : (context.rawPageTitle || entityName);
-      }
-    }
-
     let cleanTitle = cleanTitleString(rawTitle);
+    const isBareName = cleanTitle.trim().toLowerCase() === entityName.toLowerCase();
+
     if (omitName) {
       cleanTitle = cleanTitleOmitEntity(cleanTitle, entityName, context.publisherName);
       if (!cleanTitle || cleanTitle.length < 8) {
-        const liveFallback = (context.headings || []).find((h) => h && h.length > 12 && h.length < 90 && !checkPromptOmitEntityName(h) && !h.toLowerCase().includes(entityName.toLowerCase()) && !/¿|\?|menu|login|buscar|inicio/i.test(h));
-        cleanTitle = liveFallback ? cleanTitleOmitEntity(liveFallback, entityName, context.publisherName) : (context.metaDescription?.slice(0, 80) || "Propuesta y Servicios");
+        cleanTitle = synthesizeMarketingTitle(entityName, context, prompt);
       }
-    } else if (!cleanTitle) {
-      cleanTitle = entityName;
+    } else if (!cleanTitle || isBareName || (wantsMarketingOrLong && cleanTitle.length < 35)) {
+      cleanTitle = synthesizeMarketingTitle(entityName, context, prompt);
     }
 
     console.log(`5. Normalized Title Output: "${cleanTitle}"`);
@@ -925,10 +1109,7 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
     };
   } catch (err: any) {
     console.warn(`[AI-AGENT-DEBUG: TitleAgent] ERROR: ${err.message}`);
-    const liveCatch = (context.headings || []).find((h) => h && h.length > 12 && h.length < 90 && !checkPromptOmitEntityName(h) && !h.toLowerCase().includes(entityName.toLowerCase()) && !/¿|\?|menu|login|buscar|inicio/i.test(h));
-    const fallbackTitle = omitName
-      ? (liveCatch ? cleanTitleOmitEntity(liveCatch, entityName, context.publisherName) : "Propuesta y Servicios")
-      : (cleanTitleString(context.rawPageTitle || `Servicios de ${entityName}`) || entityName);
+    const fallbackTitle = synthesizeMarketingTitle(entityName, context, prompt);
     return {
       success: true,
       data: {
@@ -937,7 +1118,7 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
       },
       estado: "ok",
       evidencias: [entityName],
-      providerUsed: "fallback",
+      providerUsed: "synthesizer",
     };
   }
 }
@@ -1050,6 +1231,7 @@ GENERA LA DESCRIPCIÓN CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`
     }
 
     if (prompt) {
+      descHtml = enforceDescriptionParagraphCount(descHtml, prompt);
       descHtml = applyPromptColorStyles(descHtml, prompt);
     }
 
@@ -1074,27 +1256,36 @@ GENERA LA DESCRIPCIÓN CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`
     };
   } catch (err: any) {
     console.warn(`[AI-AGENT-DEBUG: DescriptionAgent] ERROR: ${err.message}`);
-    const pList = (context.paragraphs || []).filter((p) => p && p.length > 25).slice(0, 5);
     const headings = (context.headings || []).filter((h) => h && h.length > 3 && h.length < 80).slice(0, 6);
     const services = (context.servicesList || []).slice(0, 5);
     const locationText = [context.city, context.country].filter(Boolean).join(", ");
+    const reqCount = extractParagraphCount(prompt) || 2;
     
     const paragraphs: string[] = [];
-    paragraphs.push(`<p><strong>${entityName}</strong>${locationText ? ` con sede en ${locationText}` : ""} ofrece soluciones y servicios de excelencia en su actividad principal.</p>`);
-    if (context.metaDescription && context.metaDescription.length > 20) {
-      paragraphs.push(`<p><strong>Propuesta y Alcance:</strong> ${context.metaDescription}</p>`);
+    const leadHighlights = services.length ? services.slice(0, 3).join(", ") : headings.slice(0, 3).join(", ");
+    paragraphs.push(`<p><strong>${entityName}</strong>${locationText ? ` con sede en ${locationText}` : ""} ofrece soluciones y servicios de excelencia en su actividad principal${leadHighlights ? `, destacándose en ${leadHighlights}` : ""}.</p>`);
+
+    if (reqCount === 1) {
+      // Just 1 paragraph
+    } else if (reqCount === 2) {
+      // Exactly 2 paragraphs!
+      const secDetail = context.metaDescription || (headings.length > 1 ? headings.slice(1, 4).join(" | ") : "Atención personalizada y servicios integrales");
+      paragraphs.push(`<p><strong>Propuesta y Canales de Atención:</strong> ${secDetail}. Asesoramiento, consultas y gestión directa a través de su sitio oficial.</p>`);
+    } else {
+      // 3 or more paragraphs
+      if (context.metaDescription && context.metaDescription.length > 20) {
+        paragraphs.push(`<p><strong>Propuesta y Alcance:</strong> ${context.metaDescription}</p>`);
+      }
+      if (headings.length > 0 || services.length > 0) {
+        const highlights = services.length ? services.join(", ") : headings.join(", ");
+        paragraphs.push(`<p><strong>Servicios y Especialidades:</strong> Entre sus principales áreas destacadas se encuentran: ${highlights}.</p>`);
+      }
+      paragraphs.push(`<p><strong>Información Oficial y Canales de Atención:</strong> Asesoramiento, consultas y gestión directa a través de su sitio oficial.</p>`);
     }
-    if (headings.length > 0 || services.length > 0) {
-      const highlights = services.length ? services.join(", ") : headings.join(", ");
-      paragraphs.push(`<p><strong>Servicios y Especialidades:</strong> Entre sus principales áreas destacadas se encuentran: ${highlights}.</p>`);
-    }
-    for (const p of pList.slice(0, 2)) {
-      paragraphs.push(`<p>${p}</p>`);
-    }
-    paragraphs.push(`<p><strong>Información Oficial y Canales de Atención:</strong> Asesoramiento, consultas y gestión directa a través de su sitio oficial.</p>`);
 
     let fallbackDesc = paragraphs.join("\n");
     if (prompt) {
+      fallbackDesc = enforceDescriptionParagraphCount(fallbackDesc, prompt);
       fallbackDesc = applyPromptColorStyles(fallbackDesc, prompt);
     }
     return {
@@ -1105,7 +1296,7 @@ GENERA LA DESCRIPCIÓN CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`
       },
       estado: "ok",
       evidencias: [entityName],
-      providerUsed: "fallback",
+      providerUsed: "synthesizer",
     };
   }
 }
@@ -2556,12 +2747,16 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       }
     }
 
-    if (omitUnifiedTitleName) {
-      cleanTitle = cleanTitleOmitEntity(cleanTitle, entityName, cleanPublisher);
-      if (!cleanTitle || cleanTitle.length < 8) {
-        const liveCandidate = (context.headings || []).find((h) => h && h.length > 12 && h.length < 90 && !checkPromptOmitEntityName(h) && !h.toLowerCase().includes(entityName.toLowerCase()) && !/¿|\?|menu|login|buscar|inicio/i.test(h)) ||
-          (context.metaDescription && context.metaDescription.length > 15 ? context.metaDescription.slice(0, 80) : "");
-        cleanTitle = liveCandidate ? cleanTitleOmitEntity(liveCandidate, entityName, cleanPublisher) : cleanTitle;
+    if (titlePrompt) {
+      const wantsMarketing = /(?:marketing|conversi[oó]n|llamativ|atenci[oó]n|bastante\s+largo|largo|impactante|vendedor)/i.test(titlePrompt);
+      const isBare = cleanTitle.trim().toLowerCase() === entityName.toLowerCase() || cleanTitle.trim().toLowerCase() === cleanPublisher.toLowerCase();
+      if (omitUnifiedTitleName) {
+        cleanTitle = cleanTitleOmitEntity(cleanTitle, entityName, cleanPublisher);
+        if (!cleanTitle || cleanTitle.length < 8) {
+          cleanTitle = synthesizeMarketingTitle(entityName, context, titlePrompt);
+        }
+      } else if (!cleanTitle || isBare || (wantsMarketing && cleanTitle.length < 35)) {
+        cleanTitle = synthesizeMarketingTitle(entityName, context, titlePrompt);
       }
     } else if (!cleanTitle) {
       cleanTitle = entityName;
@@ -2587,6 +2782,7 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       throw new Error("Descripción unificada vacía o inválida.");
     }
     if (descPrompt && rawDesc) {
+      rawDesc = enforceDescriptionParagraphCount(rawDesc, descPrompt);
       rawDesc = applyPromptColorStyles(rawDesc, descPrompt);
     }
     const descriptionI18n: I18nRecord = {
