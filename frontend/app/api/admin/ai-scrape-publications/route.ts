@@ -5229,6 +5229,10 @@ async function formatPublicationResult(
     finalDescEs = finalDescEs.replace(/sede en Buenos Aires(?:,\s*Argentina)?/gi, `sede en ${locText}`);
   }
 
+  if (effectiveDescPrompt && finalDescEs) {
+    finalDescEs = applyPromptColorStyles(finalDescEs, effectiveDescPrompt);
+  }
+
   const finalDescEn = rawDescEn || "";
   const finalDescPt = rawDescPt || "";
   const finalDescIt = rawDescIt || "";
@@ -6046,15 +6050,17 @@ async function processUrlWithAI(
   const extraDescriptions: ExtraDescriptionBlock[] = [];
 
   const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
+  const effectiveDescPrompt = (customDescriptionPrompt || "").trim() || (customAdminPrompt || "").trim();
 
   let unifiedRes: any = null;
   let titleDedicatedRes: any = null;
+  let descDedicatedRes: any = null;
 
   try {
     const aiPromise = runUnifiedPublicationAgent({
       context: cleanContext,
       customTitlePrompt: effectiveTitlePrompt,
-      customDescriptionPrompt,
+      customDescriptionPrompt: effectiveDescPrompt,
       customBlocks,
       taxonomies,
       includeScoreScout,
@@ -6070,16 +6076,27 @@ async function processUrlWithAI(
         })
       : Promise.resolve(null);
 
+    // Si el usuario proporcionó una directiva para la descripción principal, ejecutamos el Agente de Descripción dedicado
+    // en paralelo con el unificado para garantizar que cumpla al 100% las exigencias (párrafos, títulos en amarillo, SEO, etc.)
+    const descPromise = (canUseAI && effectiveDescPrompt)
+      ? runDescriptionAgent(cleanContext, effectiveDescPrompt).catch((err) => {
+          console.warn(`[AI Scraper] Dedicated description agent error:`, err?.message);
+          return null;
+        })
+      : Promise.resolve(null);
+
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("AI generation timeout")), 35000)
     );
-    const [resUnified, resTitleDedicated] = await Promise.all([
+    const [resUnified, resTitleDedicated, resDescDedicated] = await Promise.all([
       Promise.race([aiPromise, timeoutPromise]),
       titlePromise,
+      descPromise,
       enrichPromise,
     ]);
     unifiedRes = resUnified;
     titleDedicatedRes = resTitleDedicated;
+    descDedicatedRes = resDescDedicated;
   } catch (uErr: any) {
     console.warn(`[AI Scraper] Unified agent skipped (${uErr?.message})`);
   }
@@ -6090,6 +6107,14 @@ async function processUrlWithAI(
     titleAgentRes = titleDedicatedRes;
     if (titleDedicatedRes.providerUsed && titleDedicatedRes.providerUsed !== "none") {
       providersUsed.add(titleDedicatedRes.providerUsed);
+    }
+  }
+
+  // Si el Agente de Descripción dedicado respondió con éxito, su descripción tiene prioridad absoluta
+  if (descDedicatedRes && descDedicatedRes.success && descDedicatedRes.data?.description) {
+    descAgentRes = descDedicatedRes;
+    if (descDedicatedRes.providerUsed && descDedicatedRes.providerUsed !== "none") {
+      providersUsed.add(descDedicatedRes.providerUsed);
     }
   }
 
@@ -6106,13 +6131,15 @@ async function processUrlWithAI(
         },
       };
     }
-    descAgentRes = {
-      success: true,
-      data: {
-        description: unifiedRes.data.description,
-        descriptionI18n: unifiedRes.data.descriptionI18n,
-      },
-    };
+    if (!descAgentRes) {
+      descAgentRes = {
+        success: true,
+        data: {
+          description: unifiedRes.data.description,
+          descriptionI18n: unifiedRes.data.descriptionI18n,
+        },
+      };
+    }
     providerInfoRes = {
       success: true,
       data: {
@@ -6178,10 +6205,41 @@ async function processUrlWithAI(
       customDescriptionPrompt,
       includeScoreScout
     );
+
+    // Asegurar título y descripción por IA si el administrador proporcionó directivas
     if (titleDedicatedRes && titleDedicatedRes.success && titleDedicatedRes.data?.title) {
       fallbackPub.title = titleDedicatedRes.data.title;
       fallbackPub.titleI18n = { es: titleDedicatedRes.data.title, en: "", pt: "", it: "" };
+    } else if (canUseAI && effectiveTitlePrompt) {
+      try {
+        const titleFallback = await runTitleAgent(cleanContext, effectiveTitlePrompt);
+        if (titleFallback?.success && titleFallback.data?.title) {
+          fallbackPub.title = titleFallback.data.title;
+          fallbackPub.titleI18n = { es: titleFallback.data.title, en: "", pt: "", it: "" };
+        }
+      } catch {}
     }
+
+    if (descDedicatedRes && descDedicatedRes.success && descDedicatedRes.data?.description) {
+      fallbackPub.description = descDedicatedRes.data.description;
+      fallbackPub.descriptionI18n = descDedicatedRes.data.descriptionI18n || { es: descDedicatedRes.data.description, en: "", pt: "", it: "" };
+    } else if (canUseAI && effectiveDescPrompt) {
+      try {
+        const descFallback = await runDescriptionAgent(cleanContext, effectiveDescPrompt);
+        if (descFallback?.success && descFallback.data?.description) {
+          fallbackPub.description = descFallback.data.description;
+          fallbackPub.descriptionI18n = descFallback.data.descriptionI18n || { es: descFallback.data.description, en: "", pt: "", it: "" };
+        }
+      } catch {}
+    }
+
+    if (fallbackPub.description && effectiveDescPrompt) {
+      fallbackPub.description = applyPromptColorStyles(fallbackPub.description, effectiveDescPrompt);
+      if (fallbackPub.descriptionI18n) {
+        fallbackPub.descriptionI18n.es = fallbackPub.description;
+      }
+    }
+
     return {
       publication: enforceStrictTaxonomyGuardrails(fallbackPub, extracted, taxonomies),
       providerUsed: "extractor",
@@ -6228,8 +6286,16 @@ async function processUrlWithAI(
     }
   }
   const titleI18nVal = { es: titleVal, en: "", pt: "", it: "" };
-  const descVal = descAgentRes?.data?.description || extracted.description || "";
-  const descI18nVal = descAgentRes?.data?.descriptionI18n || { es: descVal, en: "", pt: "", it: "" };
+  let descVal = descAgentRes?.data?.description || extracted.description || "";
+  if (effectiveDescPrompt && descVal) {
+    descVal = applyPromptColorStyles(descVal, effectiveDescPrompt);
+  }
+  const descI18nVal = descAgentRes?.data?.descriptionI18n
+    ? {
+        ...descAgentRes.data.descriptionI18n,
+        es: descVal,
+      }
+    : { es: descVal, en: "", pt: "", it: "" };
 
   const headquarterLocations = resolveHeadquarterLocations(
     undefined,

@@ -475,10 +475,11 @@ ${contextFacts}
 
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: Cumple fielmente y al pie de la letra la instrucción del administrador:
-   - Si pide una cantidad exacta de párrafos (ej: "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
-   - Si pide subtítulos en negrita o letras negras y su explicación, cada párrafo debe comenzar con <p><strong>Título del Párrafo:</strong> Explicación persuasiva y detallada...</p>.
+   - Si pide una cantidad exacta de párrafos (ej: "2 párrafos", "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
+   - Si pide subtítulos o títulos con su explicación (ej: "con los títulos en letras amarillo y su explicación"), cada párrafo debe comenzar con <p><strong style="color: #ca8a04;">Título del Párrafo:</strong> Explicación persuasiva y detallada con excelente SEO...</p>. Si pide subtítulos en negrita o letras negras, usa <p><strong>Subtítulo:</strong> Explicación...</p>.
+   - Si pide colores específicos en los títulos o texto, APLICA LOS ESTILOS INLINE correspondientes (<strong style="color: ...">).
    - Si pide emojis o iconos, inclúyelos con total naturalidad en los subtítulos o texto según lo solicitado.
-   - Si pide tono comercial, persuasivo o de conversión, aplícalo con fluidez.
+   - Si pide tono comercial, persuasivo, SEO o de conversión, aplícalo con fluidez.
 2. CERO PLANTILLAS RÍGIDAS: Prohibido usar plantillas fijas o hablar de clínicas/salud si la entidad es de otro rubro. Redacción personalizada, humana y directa.
 3. Formato HTML limpio: Estructura en párrafos <p>...</p>.
 Devuelve ÚNICAMENTE un objeto JSON rápido con:
@@ -487,11 +488,19 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
 }`;
 
       const parsed = await callAI(aiPrompt, "description");
-      const descRes = parsed.description || parsed.descriptionI18n?.[sourceLang] || parsed.descriptionI18n?.es || currentText;
+      let descRes = parsed.description || parsed.descriptionI18n?.[sourceLang] || parsed.descriptionI18n?.es || currentText;
+      if (prompt && descRes) {
+        descRes = applyPromptColorStyles(descRes, prompt);
+      }
       const translations = parsed.descriptionI18n || {
         [sourceLang]: descRes,
         ...(sourceLang === "es" ? { es: descRes } : {}),
       };
+      if (prompt && translations) {
+        for (const lang of Object.keys(translations)) {
+          translations[lang] = applyPromptColorStyles(translations[lang], prompt);
+        }
+      }
 
       return NextResponse.json({
         success: true,
