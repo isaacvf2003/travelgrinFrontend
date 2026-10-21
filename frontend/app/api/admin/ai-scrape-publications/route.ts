@@ -3650,9 +3650,7 @@ function generateImpactfulTitle(
     if (omitName) {
       const stripped = cleanTitleOmitEntity(cleanSlogan, baseEntityName, publisherName);
       if (stripped.length >= 8) return stripped;
-      if (isExplicitEdu) return "Carreras Universitarias, Cursado Online y Título Oficial";
-      if (isHealth) return "Servicios Médicos, Guardia y Especialidades Clínicas";
-      return candidateSlogan || "Servicios Profesionales de Excelencia y Alta Calidad";
+      return candidateSlogan ? cleanTitleOmitEntity(candidateSlogan, baseEntityName, publisherName) : (cleanName ? cleanTitleOmitEntity(cleanName, baseEntityName, publisherName) : "Propuestas y Servicios");
     }
     if (cleanSlogan.toLowerCase().includes(baseEntityName.toLowerCase())) {
       return cleanSlogan;
@@ -3676,16 +3674,14 @@ function generateImpactfulTitle(
   const isInstructionPrompt = /(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|act[uú]a|especialista|experto|copywriter|llamativ|impactante|conversi[oó]n|marketing|que\s+(?:llame|sea|tenga)|atenci[oó]n|vendedor|buen\s+seo|optimizado|persuasiv|venda)/i.test(pTrim);
 
   if (isInstructionPrompt) {
-    if (isExplicitEdu) {
-      return formatTitle("Carreras Universitarias, Cursado Online y Título Oficial");
-    }
-    if (isHealth) {
-      return formatTitle("Servicios Médicos, Guardia y Especialidades Clínicas");
-    }
     if (candidateSlogan) {
       return formatTitle(candidateSlogan);
     }
-    return formatTitle("Servicios Profesionales de Alta Calidad");
+    const anyHeading = headings.find((h) => h.length > 12 && !/login|menu|buscar|inicio/i.test(h));
+    if (anyHeading) {
+      return formatTitle(anyHeading);
+    }
+    return formatTitle(cleanName);
   }
 
   // 3. Extract the substantive request from the prompt itself (remove meta-instructions)
@@ -3706,16 +3702,9 @@ function generateImpactfulTitle(
     return formatTitle(candidateSlogan);
   }
 
-  if (isExplicitEdu) {
-    return formatTitle("Propuesta Académica y Formación Universitaria");
-  }
-  if (isHealth) {
-    return formatTitle("Servicios Médicos y Especialidades Clínicas");
-  }
-
   if (omitName) {
     const stripped = cleanTitleOmitEntity(cleanName, baseEntityName, publisherName);
-    return stripped.length >= 8 ? stripped : "Propuestas y Servicios Oficiales";
+    return stripped.length >= 8 ? stripped : (candidateSlogan ? cleanTitleOmitEntity(candidateSlogan, baseEntityName, publisherName) : "Propuestas y Servicios");
   }
 
   return cleanName;
@@ -5123,7 +5112,12 @@ async function formatPublicationResult(
 
   const effectiveTitlePrompt = (customTitlePrompt || "").trim() || (customAdminPrompt || "").trim();
   if (effectiveTitlePrompt) {
-    title = generateImpactfulTitle(title, sectorClassification?.sector || "general", effectiveTitlePrompt, city, allText, publisherName);
+    if (checkPromptOmitEntityName(effectiveTitlePrompt)) {
+      title = cleanTitleOmitEntity(title, publisherName || titleClean, publisherName);
+    }
+    if (!title || title.length < 8) {
+      title = generateImpactfulTitle(title, sectorClassification?.sector || "general", effectiveTitlePrompt, city, allText, publisherName);
+    }
   }
 
   // Use fuzzy matching against canonical DB options

@@ -413,7 +413,7 @@ Devuelve ÚNICAMENTE un objeto JSON rápido con:
       if (omitName) {
         titleRes = cleanTitleOmitEntity(titleRes, entityLabel, publisherName);
         if (!titleRes || titleRes.length < 8) {
-          titleRes = "Carreras Universitarias, Cursado Online y Título Oficial";
+          titleRes = cleanTitleOmitEntity(currentText || currentTitle || "", entityLabel, publisherName) || "Propuestas y Servicios";
         }
       }
       const translations = parsed.titleI18n || {
