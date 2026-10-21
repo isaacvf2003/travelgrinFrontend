@@ -340,6 +340,9 @@ export default function AiScraperModal({
         providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
         images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
         status: pub.status || "active",
+        customTitlePrompt: (pub as any).customTitlePrompt || customTitlePrompt.trim() || undefined,
+        customDescPrompt: (pub as any).customDescPrompt || (pub as any).customDescriptionPrompt || customDescPrompt.trim() || undefined,
+        customDescriptionPrompt: (pub as any).customDescriptionPrompt || (pub as any).customDescPrompt || customDescPrompt.trim() || undefined,
       }));
     };
 
