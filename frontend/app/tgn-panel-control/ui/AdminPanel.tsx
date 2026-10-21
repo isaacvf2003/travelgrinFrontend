@@ -3127,12 +3127,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     });
     setPExtraDescriptions(extraDescInit);
 
-    const provEs = draft.providerInfoI18n?.es || "";
+    const provEs = draft.providerInfoI18n?.es || (draft as any).providerInfo || "";
     const providerInfoInit = {
       es: provEs,
-      en: "",
-      pt: "",
-      it: "",
+      en: draft.providerInfoI18n?.en || "",
+      pt: draft.providerInfoI18n?.pt || "",
+      it: draft.providerInfoI18n?.it || "",
     };
     setPProviderInfoI18n(providerInfoInit);
     let startYear = draft.providerStartYear || "";
