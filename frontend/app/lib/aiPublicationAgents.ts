@@ -306,53 +306,151 @@ export function extractParagraphCount(prompt?: string): number | null {
 export function enforceDescriptionParagraphCount(descHtml: string, prompt?: string): string {
   if (!descHtml) return "";
   const count = extractParagraphCount(prompt);
-  if (!count || count <= 0) return descHtml;
+  let resHtml = descHtml;
 
-  let paragraphs: string[] = Array.from(descHtml.match(/<p[\s\S]*?<\/p>/gi) || []);
-  if (paragraphs.length === 0) {
-    paragraphs = descHtml
-      .split(/\n\s*\n+/)
-      .map((p) => p.trim())
-      .filter(Boolean)
-      .map((p) => `<p>${p}</p>`);
-  }
+  if (count && count > 0) {
+    let paragraphs: string[] = Array.from(descHtml.match(/<p[\s\S]*?<\/p>/gi) || []);
+    if (paragraphs.length === 0) {
+      paragraphs = descHtml
+        .split(/\n\s*\n+/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .map((p) => `<p>${p}</p>`);
+    }
 
-  if (paragraphs.length === count) {
-    return paragraphs.join("\n");
-  }
+    if (paragraphs.length > count) {
+      resHtml = paragraphs.slice(0, count).join("\n");
+    } else if (paragraphs.length < count) {
+      const result = [...paragraphs];
+      while (result.length < count) {
+        let longestIdx = 0;
+        let maxLen = 0;
+        result.forEach((p, idx) => {
+          const len = p.replace(/<[^>]+>/g, "").length;
+          if (len > maxLen) {
+            maxLen = len;
+            longestIdx = idx;
+          }
+        });
 
-  if (paragraphs.length > count) {
-    return paragraphs.slice(0, count).join("\n");
-  }
+        if (maxLen < 60) break;
 
-  const result = [...paragraphs];
-  while (result.length < count) {
-    let longestIdx = 0;
-    let maxLen = 0;
-    result.forEach((p, idx) => {
-      const len = p.replace(/<[^>]+>/g, "").length;
-      if (len > maxLen) {
-        maxLen = len;
-        longestIdx = idx;
+        const targetP = result[longestIdx];
+        const innerContent = targetP.replace(/^<p[^>]*>|<\/p>$/gi, "").trim();
+        const sentences = innerContent.split(/(?<=[.?!])\s+/);
+        if (sentences.length >= 2) {
+          const mid = Math.ceil(sentences.length / 2);
+          const firstPart = sentences.slice(0, mid).join(" ");
+          const secondPart = sentences.slice(mid).join(" ");
+          result.splice(longestIdx, 1, `<p>${firstPart}</p>`, `<p>${secondPart}</p>`);
+        } else {
+          break;
+        }
       }
-    });
-
-    if (maxLen < 60) break;
-
-    const targetP = result[longestIdx];
-    const innerContent = targetP.replace(/^<p[^>]*>|<\/p>$/gi, "").trim();
-    const sentences = innerContent.split(/(?<=[.?!])\s+/);
-    if (sentences.length >= 2) {
-      const mid = Math.ceil(sentences.length / 2);
-      const firstPart = sentences.slice(0, mid).join(" ");
-      const secondPart = sentences.slice(mid).join(" ");
-      result.splice(longestIdx, 1, `<p>${firstPart}</p>`, `<p>${secondPart}</p>`);
+      resHtml = result.slice(0, count).join("\n");
     } else {
-      break;
+      resHtml = paragraphs.join("\n");
     }
   }
 
-  return result.slice(0, count).join("\n");
+  // Always enforce word limit across paragraphs
+  return enforceParagraphWordLimit(resHtml, prompt);
+}
+
+export function extractParagraphWordLimit(prompt?: string): number | null {
+  if (!prompt) return null;
+  const p = prompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const spanishWordNumberMap: Record<string, number> = {
+    cinco: 5, diez: 10, quince: 15, veinte: 20, veinticinco: 25,
+    treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60,
+    setenta: 70, ochenta: 80, noventa: 90, cien: 100,
+  };
+
+  // 1. Explicit paragraph context pattern: "(con un / un)? (maximo / limite / hasta / tope / menos de / no mas de) X palabras (en / por / cada) parrafo"
+  const pContextMatch =
+    p.match(/\b(?:(?:con\s+)?(?:un\s+)?|de\s+)?(?:maximo(?:\s+de)?|limite(?:\s+de)?|hasta|tope(?:\s+de)?|menos(?:\s+de)?|no\s+mas\s+de)\s*(\d{1,3})\s*palabras?\s*(?:en\s+|por\s+)?(?:cada\s+)?p[aá]rrafo/i) ||
+    p.match(/p[aá]rrafos?\s*(?:con\s+|de\s+)?(?:(?:un\s+)?(?:maximo(?:\s+de)?|limite(?:\s+de)?|hasta|tope(?:\s+de)?|menos(?:\s+de)?|no\s+mas\s+de))?\s*(\d{1,3})\s*palabras/i) ||
+    p.match(/\b(\d{1,3})\s*palabras?\s*(?:como\s+|de\s+)?(?:maximo|limite|tope)?\s*(?:en\s+|por\s+)?(?:cada\s+)?p[aá]rrafo/i);
+
+  if (pContextMatch && pContextMatch[1]) {
+    const num = parseInt(pContextMatch[1], 10);
+    if (num >= 5 && num <= 400) return num;
+  }
+
+  // 2. Word number with paragraph context: e.g. "cincuenta palabras en cada parrafo"
+  const wordKeys = Object.keys(spanishWordNumberMap).join("|");
+  const wordRegex = new RegExp(`\\b(?:(?:con\\s+)?(?:un\\s+)?|de\\s+)?(?:maximo(?:\\s+de)?|limite(?:\\s+de)?|hasta|tope(?:\\s+de)?|menos(?:\\s+de)?|de)?\\s*(${wordKeys})\\s*palabras?\\s*(?:en\\s+|por\\s+)?(?:cada\\s+)?p[aá]rrafo`, "i");
+  const wordMatch = p.match(wordRegex);
+  if (wordMatch && wordMatch[1]) {
+    const num = spanishWordNumberMap[wordMatch[1].toLowerCase()];
+    if (num) return num;
+  }
+
+  // 3. General word limit in prompt (e.g. "con un maximo de 50 palabras", "un limite de 50 palabras", "maximo 50 palabras"):
+  const generalMatch =
+    p.match(/\b(?:(?:con\s+)?(?:un\s+)?|de\s+)?(?:maximo(?:\s+de)?|limite(?:\s+de)?|hasta|tope(?:\s+de)?|menos(?:\s+de)?|no\s+mas\s+de)\s*(\d{1,3})\s*palabras?\b/i) ||
+    p.match(/\b(\d{1,3})\s*palabras?\s*(?:como\s+|de\s+)?(?:maximo|limite|tope)\b/i);
+
+  if (generalMatch && generalMatch[1]) {
+    const num = parseInt(generalMatch[1], 10);
+    if (num >= 5 && num <= 400) return num;
+  }
+
+  const generalWordRegex = new RegExp(`\\b(?:(?:con\\s+)?(?:un\\s+)?|de\\s+)?(?:maximo(?:\\s+de)?|limite(?:\\s+de)?|hasta|tope(?:\\s+de)?|menos(?:\\s+de)?|de)?\\s*(${wordKeys})\\s*palabras?\\b`, "i");
+  const generalWordMatch = p.match(generalWordRegex);
+  if (generalWordMatch && generalWordMatch[1]) {
+    const num = spanishWordNumberMap[generalWordMatch[1].toLowerCase()];
+    if (num) return num;
+  }
+
+  return null;
+}
+
+export function enforceParagraphWordLimit(html: string, prompt?: string): string {
+  if (!html) return "";
+  const maxWords = extractParagraphWordLimit(prompt);
+  if (!maxWords || maxWords <= 0) return html;
+
+  return html.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (match, attrs, inner) => {
+    // Check inner text words
+    const plainText = inner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const words = plainText.split(/\s+/).filter(Boolean);
+    if (words.length <= maxWords) return match;
+
+    // Check if there is a heading like <strong ...>...</strong> or <b ...>...</b> or <span ...>...</span>
+    const headingMatch = inner.match(/^(\s*<(?:strong|b|span)(?:\s+style="[^"]*")?[^>]*>[\s\S]*?<\/(?:strong|b|span)>\s*[:\-–]?\s*)([\s\S]*)$/i);
+    if (headingMatch) {
+      const headingTag = headingMatch[1].trim();
+      const headingPlain = headingTag.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      const headingWordCount = headingPlain.split(/\s+/).filter(Boolean).length;
+      const remainingWords = Math.max(3, maxWords - headingWordCount);
+
+      const restPlain = headingMatch[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      const restWords = restPlain.split(/\s+/).filter(Boolean);
+      let trimmedRest = restWords.slice(0, remainingWords).join(" ");
+      trimmedRest = trimmedRest
+        .replace(/[\s,:;|\-–—.]+$/, "")
+        .replace(/\b(?:y|e|o|u|de|del|en|con|para|por|a|al|sin|sobre|hacia|desde|hasta|un|una|el|la|los|las|sus|su)\s*$/i, "")
+        .replace(/[\s,:;|\-–—.]+$/, "")
+        .trim();
+      if (trimmedRest && !trimmedRest.endsWith(".")) {
+        trimmedRest += ".";
+      }
+      return `<p${attrs}>${headingTag} ${trimmedRest}</p>`;
+    }
+
+    let trimmed = words.slice(0, maxWords).join(" ");
+    trimmed = trimmed
+      .replace(/[\s,:;|\-–—.]+$/, "")
+      .replace(/\b(?:y|e|o|u|de|del|en|con|para|por|a|al|sin|sobre|hacia|desde|hasta|un|una|el|la|los|las|sus|su)\s*$/i, "")
+      .replace(/[\s,:;|\-–—.]+$/, "")
+      .trim();
+    if (trimmed && !trimmed.endsWith(".")) {
+      trimmed += ".";
+    }
+    return `<p${attrs}>${trimmed}</p>`;
+  });
 }
 
 export function extractTitleWordLimit(prompt?: string): number | null {
@@ -366,11 +464,12 @@ export function extractTitleWordLimit(prompt?: string): number | null {
     dieciocho: 18, diecinueve: 19, veinte: 20, veintiuno: 21, veintidos: 22,
     veintitres: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26,
     veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30,
-    cuarenta: 40, cincuenta: 50,
+    cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80,
+    noventa: 90, cien: 100,
   };
 
-  // 1. Prefix pattern: "(con un / de)? (maximo / hasta / menos de / no mas de / max / tope / limite / de) X palabras"
-  const prefixMatch = p.match(/\b(?:con\s+(?:un\s+)?)?(?:maximo|max|hasta|menos\s+de|no\s+mas\s+de|tope(?:\s+de)?|limite(?:\s+de)?|longitud(?:\s+maxima)?(?:\s+de)?|de)\s*(\d+)\s*palabras?\b/i);
+  // 1. Prefix pattern: "(con un / un / con / de)? (maximo / hasta / menos de / no mas de / max / tope / limite / de) X palabras"
+  const prefixMatch = p.match(/\b(?:(?:con\s+)?(?:un\s+)?|de\s+)?(?:maximo|max|hasta|menos\s+de|no\s+mas\s+de|tope(?:\s+de)?|limite(?:\s+de)?|longitud(?:\s+maxima)?(?:\s+de)?|de\s+hasta)\s*(\d+)\s*palabras?\b/i);
   if (prefixMatch && prefixMatch[1]) {
     const val = parseInt(prefixMatch[1], 10);
     if (val > 0 && val < 500) return val;
@@ -383,23 +482,22 @@ export function extractTitleWordLimit(prompt?: string): number | null {
     if (val > 0 && val < 500) return val;
   }
 
-  // 3. Simple count: "en X palabras", "de X palabras"
-  const simpleMatch = p.match(/\b(?:en|de)\s*(\d+)\s*palabras?\b/i);
+  // 3. Simple count: "(en / de / con) X palabras"
+  const simpleMatch = p.match(/\b(?:en|de|con)\s*(\d+)\s*palabras?\b/i);
   if (simpleMatch && simpleMatch[1]) {
     const val = parseInt(simpleMatch[1], 10);
     if (val > 0 && val < 500) return val;
   }
 
-  // 4. Word number pattern: "maximo veinticinco palabras", "hasta diez palabras"
+  // 4. Word number patterns:
   const wordKeys = Object.keys(spanishWordNumberMap).join("|");
-  const wordRegex = new RegExp(`\\b(?:maximo|max|hasta|menos\\s+de|no\\s+mas\\s+de|tope|limite|de|en)\\s*(${wordKeys})\\s*palabras?\\b`, "i");
+  const wordRegex = new RegExp(`\\b(?:(?:con\\s+)?(?:un\\s+)?|de\\s+)?(?:maximo|max|hasta|menos\\s+de|no\\s+mas\\s+de|tope(?:\\s+de)?|limite(?:\\s+de)?|de|en|con)\\s*(${wordKeys})\\s*palabras?\\b`, "i");
   const wordMatch = p.match(wordRegex);
   if (wordMatch && wordMatch[1]) {
     const num = spanishWordNumberMap[wordMatch[1].toLowerCase()];
     if (num) return num;
   }
 
-  // 5. Word number suffix pattern: "veinticinco palabras como maximo"
   const wordNumSuffixRegex = new RegExp(`\\b(${wordKeys})\\s*palabras?\\s*(?:como\\s+|de\\s+)?(?:maximo|max|tope|limite)\\b`, "i");
   const wordNumSuffixMatch = p.match(wordNumSuffixRegex);
   if (wordNumSuffixMatch && wordNumSuffixMatch[1]) {
@@ -1118,10 +1216,10 @@ Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato exac
 }
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: La instrucción del administrador es la regla NÚMERO UNO:
-   - Si el administrador solicita un límite de palabras o longitud (ej: "máximo 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras bajo ninguna circunstancia. Cuenta las palabras con exactitud antes de responder.
-   - Si el administrador pide cualquier estilo, tono, palabras clave o enfoque (incluso emojis, mayúsculas o estilo libre): ADÁPTATE 100% A LO QUE PIDE SIN USAR PLANTILLAS PREDEFINIDAS.
-   - Si el administrador pide especialista en marketing, conversión, llamar la atención o que sea "bastante largo", REDACTA UN TITULAR PUBLICITARIO EXTENSO, IMPACTANTE Y DE ALTA CONVERSIÓN destacando la propuesta de valor, especialidad y prestigio de ${entityName}.
-   - ESTÁ TERMINANTEMENTE PROHIBIDO devolver únicamente el nombre de la institución a secas (ej: "${entityName}") o copiar textualmente el título de la web si se pidió marketing o impacto.
+   - REGLA ESTRICTA DE LÍMITE DE PALABRAS Y EXTENSIÓN: Si el administrador indica un límite de palabras (ej: "máximo 25 palabras", "un límite de 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras bajo ninguna circunstancia. Cuenta las palabras con exactitud antes de emitir la respuesta. Además, redacta un titular completo, llamativo y atractivo que aproveche bien la extensión solicitada (ej: si pide hasta 25 palabras, aprovecha una extensión sustancial de 15 a 25 palabras; no devuelvas un título de solo 5 palabras).
+   - MÁXIMA LIBERTAD Y CERO PLANTILLAS: Adáptate 100% a lo que pide el administrador sin recurrir a plantillas fijas, clichés o frases hechas. Redacta un titular original, único y fresco basado estrictamente en el contenido real de la página web y en el estilo pedido por el administrador.
+   - Si el administrador pide especialista en marketing, conversión, llamar la atención o estilo publicitario, redacta un titular creativo de alto impacto. Si NO pidió omitir el nombre, puedes integrar el nombre si encaja naturalmente, pero el gancho comercial y la instrucción del usuario son prioritarios.
+   - ESTÁ TERMINANTEMENTE PROHIBIDO devolver únicamente el nombre de la institución a secas (ej: "${entityName}") o copiar textualmente el encabezado o etiqueta title cruda de la web si se pidió marketing o impacto.
 2. CERO PLANTILLAS RÍGIDAS: Queda TERMINANTEMENTE PROHIBIDO usar fórmulas fijas, clichés o plantillas vacías. El titular debe ser 100% fresco, único y a medida basado en la actividad real comprobada de la entidad y en la directiva del administrador.
 3. REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre'), ESTÁ ESTRICTAMENTE PROHIBIDO incluir '${entityName}' o el nombre de la entidad en el título; genera únicamente la propuesta comercial o titular de alto impacto.
 4. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano.
@@ -1185,14 +1283,13 @@ GENERA EL TÍTULO CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`;
     }
 
     let cleanTitle = cleanTitleString(rawTitle);
-    const isBareName = cleanTitle.trim().toLowerCase() === entityName.toLowerCase();
 
     if (omitName) {
       cleanTitle = cleanTitleOmitEntity(cleanTitle, entityName, context.publisherName);
-      if (!cleanTitle || cleanTitle.length < 8) {
-        cleanTitle = synthesizeMarketingTitle(entityName, context, prompt);
-      }
-    } else if (!cleanTitle || isBareName) {
+    }
+
+    // Only fallback if the model returned nothing valid
+    if (!cleanTitle) {
       cleanTitle = synthesizeMarketingTitle(entityName, context, prompt);
     }
 
@@ -1269,8 +1366,8 @@ Tu tarea es devolver EXCLUSIVAMENTE un objeto JSON válido con este formato:
 REGLAS DE MÁXIMA PRIORIDAD:
 1. AUTORIDAD EDITORIAL SUPREMA: La directiva del administrador es la regla NÚMERO UNO:
    - Si el administrador pide una cantidad exacta de párrafos (ej: "2 párrafos", "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>.
-   - Si el administrador pide subtítulos o títulos con su explicación (ej: "con los títulos en letras amarillo y su explicación"), escribe cada párrafo con su subtítulo: <p><strong style="color: #ca8a04;">Título del Párrafo:</strong> Explicación persuasiva y detallada con excelente SEO...</p>. Si pide subtítulos en negrita o letras negras, usa <p><strong>Subtítulo:</strong> Explicación...</p>.
-   - Si pide colores específicos en los títulos o texto (ej: amarillo, rojo, azul, etc.), APLICA LOS ESTILOS INLINE correspondientes (<strong style="color: ...">).
+   - FORMATO, SUBTÍTULOS Y COLORES EXACTOS: Si el administrador pide subtítulos con su explicación o pide colores (ej: "con los títulos en letras azules y su explicación", "letras rojas", etc.), aplica el estilo inline EXACTO pedido: si pide azul usa <p><strong style="color: #0066cc;">Subtítulo:</strong> Explicación persuasiva...</p>, si pide rojo usa style="color: #dc2626;", si pide amarillo usa style="color: #ca8a04;". Si no especifica color pero pide subtítulos, usa <p><strong>Subtítulo:</strong> Explicación...</p>.
+   - REGLA ESTRICTA DE LÍMITE DE PALABRAS Y DESARROLLO DE CONTENIDO: Si el administrador pide un límite de palabras por párrafo (ej: "con un máximo de 50 palabras en cada párrafo", "un límite de 50 palabras", "hasta 50 palabras"): DESARROLLA Y EXPLAYA el contenido de cada párrafo con información real, clara, descriptiva y persuasiva para aproximarte al límite solicitado (ej: entre 40 y 50 palabras por párrafo), de modo que sea un párrafo bien desarrollado y sustancial. NUNCA devuelvas párrafos mínimos o telegráficos de 15 o 20 palabras si el límite es 50 palabras. Y NUNCA SUPERES bajo ninguna circunstancia la cantidad máxima de palabras fijada por el administrador en ningún párrafo.
    - Si el administrador pide tono de marketing, enfoque de conversión, SEO, empatía, o incluir emojis o íconos, APLÍCALO AL 100% sin censurar ni alterar lo pedido.
 2. CERO PLANTILLAS RÍGIDAS: Queda TERMINANTEMENTE PROHIBIDO usar plantillas fijas o esquemas prearmados. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
 3. REGLA DE IDIOMA: Redacta EXCLUSIVAMENTE en ESPAÑOL. No traduzcas a inglés, portugués ni italiano durante el scraping.
@@ -1344,6 +1441,7 @@ GENERA LA DESCRIPCIÓN CUMPLIENDO ESTRICTAMENTE LA DIRECTIVA DEL ADMINISTRADOR.`
 
     if (prompt) {
       descHtml = enforceDescriptionParagraphCount(descHtml, prompt);
+      descHtml = enforceParagraphWordLimit(descHtml, prompt);
       descHtml = applyPromptColorStyles(descHtml, prompt);
     }
 
@@ -2726,13 +2824,15 @@ Tu objetivo es auditar el sitio web y generar una publicación completa, atracti
 HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 1. AUTORIDAD EDITORIAL SUPREMA: Las instrucciones del administrador son la regla NÚMERO UNO:
    - TÍTULO: Si el administrador proporcionó una directiva para el título ("${titlePrompt}"), DEBES ADAPTARTE DIRECTAMENTE A LO QUE PIDIÓ (incluso si pide emojis, palabras clave de alto impacto o estilo libre). Si pidió un ángulo, enfoque o palabras clave específicas (ej: inscripciones, innovación, calidad, tecnología, etc.), ese ángulo DEBE SER EL CORAZÓN DEL TÍTULO redactado de manera 100% original, creativa y vendedora.
-     * REGLA ESTRICTA DE LÍMITE DE PALABRAS Y LONGITUD: Si el administrador indica un límite de palabras (ej: "máximo 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras bajo ninguna circunstancia. Cuenta las palabras con exactitud antes de emitir la respuesta.
+     * REGLA ESTRICTA DE LÍMITE DE PALABRAS Y EXTENSIÓN: Si el administrador indica un límite de palabras (ej: "máximo 25 palabras", "un límite de 25 palabras", "hasta 20 palabras", "menos de 15 palabras", "tope de 25 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad de palabras bajo ninguna circunstancia. Cuenta las palabras con exactitud antes de emitir la respuesta. Además, redacta un titular completo, llamativo y atractivo que aproveche bien la extensión solicitada (ej: si pide hasta 25 palabras, aprovecha una extensión sustancial de 15 a 25 palabras; no devuelvas un título telegráfico de solo 5 palabras).
      * MÁXIMA LIBERTAD Y CERO PLANTILLAS: El administrador puede pedir cualquier estilo, extensión, enfoque o instrucción en el prompt de título. Adáptate 100% a lo que pide sin recurrir a plantillas fijas. Redacta un titular original, único y fresco basado estrictamente en el contenido real de la página web y en el estilo pedido por el administrador.
      * PROHIBIDO COPIAR EL TÍTULO ORIGINAL: Si el administrador dio una instrucción de título, ESTÁ TERMINANTEMENTE PROHIBIDO devolver el título original de la web o una copia textual de la etiqueta title. Redacta un nuevo titular comercial según lo pedido.
      * REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA DE NOMBRE: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre', 'sin mencionar la institucion'), ESTÁ TERMINANTEMENTE PROHIBIDO incluir '${entityName}' o el nombre de la institución en el título. Genera ÚNICAMENTE el titular o eslogan publicitario/comercial de alto impacto, enfocado directamente en la propuesta de valor sin mencionar a la entidad.
-     * Si NO pidió omitir el nombre, combina de forma natural y atractiva el nombre con la propuesta destacada sin fórmulas fijas.
+     * Si NO pidió omitir el nombre, puedes integrar el nombre de la institución si encaja armónicamente con la propuesta atractiva de valor, o enfocar el titular comercialmente según lo pedido.
      * JAMÁS devuelvas las palabras de la instrucción como parte del título (ej: si pide "Especialista en marketing y haz un título...", NO escribas "Especialista en marketing..." en el título). NUNCA devuelvas solo el nombre seco si se pidió impacto.
-   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "2 párrafos", "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>. Si pide subtítulos/títulos con su explicación o con colores (ej: "con los títulos en letras amarillo y su explicación"), estructura cada párrafo con estilos inline: <p><strong style="color: #ca8a04;">Título del Párrafo:</strong> Explicación persuasiva y detallada con excelente SEO...</p>. Si pide subtítulos en negrita o letras negras, usa <p><strong>Subtítulo:</strong> Explicación...</p>. CADA PÁRRAFO DEBE TENER UN CONTENIDO ÚNICO Y DIFERENTE. ESTÁ TOTALMENTE PROHIBIDO REPETIR ORACIONES O FRASES GENÉRICAS ENTRE PÁRRAFOS. Si pide emojis, íconos o estilo específico, aplícalo libremente. CERO PLANTILLAS RÍGIDAS. Si la entidad es una universidad o institución educativa, habla EXCLUSIVAMENTE de su propuesta académica, carreras, campus y admisiones; JAMÁS menciones hospitales a menos que sea un centro de salud.
+   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "2 párrafos", "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>. FORMATO, SUBTÍTULOS Y COLORES EXACTOS: Si el administrador pide subtítulos con su explicación o pide colores (ej: "letras azules", "rojo", etc.), aplica el estilo inline EXACTO pedido: si pide azul usa style="color: #0066cc;", si pide rojo usa style="color: #dc2626;", si pide amarillo usa style="color: #ca8a04;". Si no pide color, usa <p><strong>Subtítulo:</strong> Explicación...</p>.
+     * REGLA ESTRICTA DE LÍMITE DE PALABRAS EN CADA PÁRRAFO: Si el administrador pide un límite de palabras en cada párrafo (ej: "máximo 50 palabras en cada párrafo", "un límite de 50 palabras", "hasta 50 palabras", "menos de 50 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad en ningún párrafo. Además, DESARROLLA Y EXPLAYA el contenido con riqueza de vocabulario para acercarte al límite solicitado (ej: si pide hasta 50 palabras por párrafo, redacta párrafos sustanciales y explicativos de entre 38 y 50 palabras cada uno; NO escribas párrafos telegráficos o pobres de solo 15-20 palabras). Cuenta las palabras con exactitud antes de emitir la respuesta.
+     * CADA PÁRRAFO DEBE TENER UN CONTENIDO ÚNICO Y DIFERENTE. ESTÁ TOTALMENTE PROHIBIDO REPETIR ORACIONES O FRASES GENÉRICAS ENTRE PÁRRAFOS. Si pide emojis, íconos o estilo específico, aplícalo libremente. CERO PLANTILLAS RÍGIDAS. Si la entidad es una universidad o institución educativa, habla EXCLUSIVAMENTE de su propuesta académica, carreras, campus y admisiones; JAMÁS menciones hospitales a menos que sea un centro de salud.
    - BLOQUES PERSONALIZADOS: Genera cada bloque solicitado en el array "customBlocks".
      * TÍTULO TEMÁTICO: El Título del bloque define la temática central si el prompt solo especifica formato, estilo o colores (ej: si el título es "Preguntas Frecuentes", el contenido DEBE ser de preguntas frecuentes sobre los servicios y ofertas reales del sitio).
      * CONTEXTO Y CONTINUIDAD: Si el administrador pide tener en cuenta la descripción o bloques anteriores, revísalos e integra la información manteniendo total coherencia.
@@ -2898,6 +2998,7 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     }
     if (descPrompt && rawDesc) {
       rawDesc = enforceDescriptionParagraphCount(rawDesc, descPrompt);
+      rawDesc = enforceParagraphWordLimit(rawDesc, descPrompt);
       rawDesc = applyPromptColorStyles(rawDesc, descPrompt);
     }
     const descriptionI18n: I18nRecord = {
