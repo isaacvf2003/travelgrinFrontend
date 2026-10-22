@@ -790,8 +790,7 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
     /(?:personer[ií]a\s+jur[ií]dica(?:\s+n[°oº]?\s*[0-9.]+)?(?:\s+(?:del?\s+a[nñ]o|de|en))?)\s*([12]\d{3})\b/i,
 
     // Explicit Foundation / Initiation / Historical opening
-    /(?:fundad[oa]|inaugurad[oa]|cread[oa]|establecid[oa]|fundaci[oó]n|inici[oó]\s+sus\s+actividades|abri[oó]\s+sus\s+puertas|constituci[oó]n|constitu[ií]d[oa])\s*(?:en|el|hacia|en el a[nñ]o)?\s*([12]\d{3})/i,
-    /(?:fundad[oa]|cread[oa]|inaugurad[oa]|abri[oó]\s+sus\s+puertas)\s+el\s+\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+([12]\d{3})/i,
+    /(?:fundad[oa]|fundaci[oó]n|cread[oa]|creaci[oó]n|inaugurad[oa]|inauguraci[oó]n|apertura|establecid[oa]|inici[oó]\s+sus\s+actividades|abri[oó]\s+sus\s+puertas|constituci[oó]n|constitu[ií]d[oa])\s*(?:,\s*|\s+)?(?:el\s+)?(?:\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+|en\s+(?:el\s+a[nñ]o\s+)?|hacia\s+|el\s+)?\b([12]\d{3})\b/i,
     /(?:a[nñ]o\s+de\s+fundaci[oó]n:?|a[nñ]o\s+de\s+inauguraci[oó]n:?|a[nñ]o\s+de\s+creaci[oó]n:?|a[nñ]o\s+de\s+inicio:?|fecha\s+de\s+fundaci[oó]n:?)\s*([12]\d{3})/i,
   ];
 
@@ -815,6 +814,134 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
         }
       }
     }
+  }
+
+  return null;
+}
+
+async function fetchExternalFoundingYear(cleanName?: string | null, city?: string | null): Promise<string | null> {
+  if (!cleanName || cleanName.length < 3) return null;
+  const currentYear = new Date().getFullYear();
+
+  // Clean entity name for search (remove slogans, acronym expansions or pipe taglines)
+  const queryName = cleanName
+    .replace(/\s*[-–—|:].*$/, "")
+    .replace(/\b(s\.?a\.?|s\.?r\.?l\.?|oficial|sitio oficial|home|inicio|web)\b/gi, "")
+    .trim();
+
+  if (!queryName || queryName.length < 3) return null;
+
+  // Distinctive words in entity name for grounding check
+  const stopWords = new Set(["de", "del", "la", "el", "los", "las", "en", "y", "e", "para", "por", "con", "sin", "un", "una", "san", "santa"]);
+  const distinctiveWords = queryName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 2 && !stopWords.has(w));
+
+  const explicitPatterns = [
+    /(?:fundad[oa]|fundaci[oó]n|cread[oa]|creaci[oó]n|inaugurad[oa]|inauguraci[oó]n|apertura|inici[oó]\s+sus\s+actividades|abri[oó]\s+sus\s+puertas)(?:,\s*|\s+)(?:el\s+)?(?:\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+|en\s+(?:el\s+a[nñ]o\s+)?|hacia\s+|el\s+)?\b([12]\d{3})\b/i,
+    /(?:a[nñ]o\s+de\s+fundaci[oó]n:?|a[nñ]o\s+de\s+inauguraci[oó]n:?|a[nñ]o\s+de\s+creaci[oó]n:?|a[nñ]o\s+de\s+inicio:?|fecha\s+de\s+fundaci[oó]n:?)\s*([12]\d{3})/i,
+    /(?:cread[oa]\s+(?:mediante|por|seg[uú]n)\s+ley\s*(?:n[°oº]?\s*[0-9.]+)?(?:\s+(?:de|del|en|sancionada\s+en))?)\s*([12]\d{3})\b/i,
+    /(?:cread[oa]\s+por\s+decreto\s*(?:n[°oº]?\s*[0-9.]+)?(?:\s+(?:de|del|en))?)\s*([12]\d{3})\b/i,
+  ];
+
+  function matchesDistinctiveWords(text: string): boolean {
+    if (distinctiveWords.length === 0) return true;
+    const normalizedText = text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    const matched = distinctiveWords.filter((w) => normalizedText.includes(w));
+    const minRequired = distinctiveWords.length === 1 ? 1 : Math.min(2, Math.ceil(distinctiveWords.length * 0.6));
+    return matched.length >= minRequired;
+  }
+
+  // 1. Try Wikipedia Search API
+  try {
+    const wikiUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(queryName)}&utf8=&format=json`;
+    const res = await fetch(wikiUrl, {
+      headers: { "User-Agent": "TravelGrinScraper/1.0 (admin@travelgrin.com)" },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const hits = data.query?.search || [];
+      for (const hit of hits.slice(0, 3)) {
+        const fullHitText = `${hit.title} ${hit.snippet || ""}`.replace(/<[^>]+>/g, " ");
+        if (!matchesDistinctiveWords(fullHitText)) continue;
+
+        for (const pat of explicitPatterns) {
+          const m = fullHitText.match(pat);
+          if (m && m[1]) {
+            const num = parseInt(m[1], 10);
+            if (num >= 1600 && num <= currentYear - 1 && num !== 2010 && num !== 2015) {
+              return String(num);
+            }
+          }
+        }
+      }
+
+      if (hits.length > 0 && matchesDistinctiveWords(hits[0].title)) {
+        const topTitle = hits[0].title;
+        const pageUrl = `https://es.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(topTitle)}&format=json`;
+        const pageRes = await fetch(pageUrl, {
+          headers: { "User-Agent": "TravelGrinScraper/1.0 (admin@travelgrin.com)" },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (pageRes.ok) {
+          const pageData = await pageRes.json();
+          const pages = pageData.query?.pages || {};
+          for (const pid in pages) {
+            const extract = pages[pid]?.extract || "";
+            for (const pat of explicitPatterns) {
+              const m = extract.match(pat);
+              if (m && m[1]) {
+                const num = parseInt(m[1], 10);
+                if (num >= 1600 && num <= currentYear - 1 && num !== 2010 && num !== 2015) {
+                  return String(num);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // Wikipedia non-fatal timeout
+  }
+
+  // 2. Try DuckDuckGo Lite / HTML Search
+  try {
+    const searchQuery = `"${queryName}" fundacion`;
+    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
+    const res = await fetch(ddgUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "es-ES,es;q=0.9",
+      },
+      signal: AbortSignal.timeout(3500),
+    });
+    if (res.ok) {
+      const html = await res.text();
+      const snippetMatches = html.match(/<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi) || [];
+      for (const rawSnippet of snippetMatches.slice(0, 4)) {
+        const plainSnippet = rawSnippet.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
+        if (!matchesDistinctiveWords(plainSnippet)) continue;
+        for (const pat of explicitPatterns) {
+          const m = plainSnippet.match(pat);
+          if (m && m[1]) {
+            const num = parseInt(m[1], 10);
+            if (num >= 1600 && num <= currentYear - 1 && num !== 2010 && num !== 2015) {
+              return String(num);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // DDG non-fatal timeout
   }
 
   return null;
@@ -1073,6 +1200,15 @@ async function enrichWithLiveGoogleMapsAndSearch(
   const mainAddress = cleanAddressForSearch(rawAddress);
   const city = locInfoInput?.primaryCity || hqLoc?.city || extracted.detectedCity || "";
   const country = locInfoInput?.primaryCountry || hqLoc?.country || extracted.detectedCountry || "";
+
+  if (!extracted.detectedFoundingYear) {
+    try {
+      const extYr = await fetchExternalFoundingYear(officialFullName || cleanName, city);
+      if (extYr) {
+        extracted.detectedFoundingYear = extYr;
+      }
+    } catch {}
+  }
 
   const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
@@ -2394,6 +2530,14 @@ async function fetchPageContent(url: string) {
                     extracted.detectedAddress = subAddrs[0];
                   }
                 }
+              }
+              if (!extracted.detectedFoundingYear) {
+                try {
+                  const extYr = await fetchExternalFoundingYear(extracted.title, extracted.detectedCity);
+                  if (extYr) {
+                    extracted.detectedFoundingYear = extYr;
+                  }
+                } catch {}
               }
             }
           }
@@ -5126,20 +5270,24 @@ async function formatPublicationResult(
     primaryHq.mapUrl ||
     buildGoogleMapsUrl(`${publisherName || title}, ${primaryHq.city}, ${primaryHq.country}`);
 
-  let startYear =
-    extractedData.detectedFoundingYear ||
-    extractFoundingYear("", allText, extractedData.url, titleClean) ||
-    "";
+  let startYear = extractedData.detectedFoundingYear || "";
+  if (!startYear) {
+    startYear = extractFoundingYear("", allText, extractedData.url, titleClean) || "";
+  }
+  if (!startYear && (publisherName || titleClean)) {
+    try {
+      startYear = (await fetchExternalFoundingYear(publisherName || titleClean, primaryHq.city)) || "";
+    } catch {}
+  }
 
   if (startYear) {
     const yr = startYear.trim();
-    if (!allText.includes(yr)) {
+    const yrNum = parseInt(yr, 10);
+    const currYr = new Date().getFullYear();
+    if (isNaN(yrNum) || yrNum < 1600 || yrNum > currYr - 1 || yrNum === 2010 || yrNum === 2015) {
       startYear = "";
     } else {
-      const foundingRegex = new RegExp(`(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)\\b[\\s\\S]{0,50}\\b${yr}\\b|\\b${yr}\\b[\\s\\S]{0,50}(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)`, "i");
-      if (!foundingRegex.test(allText)) {
-        startYear = "";
-      }
+      startYear = String(yrNum);
     }
   }
 
@@ -5907,12 +6055,21 @@ function enforceStrictTaxonomyGuardrails(
   if (extractedData.detectedFoundingYear && (!publication.providerStartYear || publication.providerStartYear === "2015" || publication.providerStartYear === "2010" || publication.providerStartYear === "2024" || publication.providerStartYear === "2025" || publication.providerStartYear === "2026")) {
     publication.providerStartYear = extractedData.detectedFoundingYear;
   }
-  if ((!publication.providerStartYear || publication.providerStartYear === "2015" || publication.providerStartYear === "2010") && !allText.includes(publication.providerStartYear)) {
+  if (!publication.providerStartYear || publication.providerStartYear === "2010" || publication.providerStartYear === "2015") {
     const calcYear = extractFoundingYear("", allText, publication.url, titleClean);
     if (calcYear) {
       publication.providerStartYear = calcYear;
-    } else if (publication.providerStartYear === "2010" || publication.providerStartYear === "2015") {
+    } else {
       publication.providerStartYear = "";
+    }
+  }
+  if (publication.providerStartYear) {
+    const yrNum = parseInt(publication.providerStartYear, 10);
+    const currYr = new Date().getFullYear();
+    if (isNaN(yrNum) || yrNum < 1600 || yrNum > currYr - 1 || yrNum === 2010 || yrNum === 2015) {
+      publication.providerStartYear = "";
+    } else {
+      publication.providerStartYear = String(yrNum);
     }
   }
 
@@ -6220,10 +6377,12 @@ async function processUrlWithAI(
       const yrCandidate = String(unifiedRes.data.detectedFoundingYear).trim();
       const textCorpus = `${extracted.textContent || ""} ${extracted.htmlContent || ""}`;
       const foundingRegex = new RegExp(`(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)\\b[\\s\\S]{0,50}\\b${yrCandidate}\\b|\\b${yrCandidate}\\b[\\s\\S]{0,50}(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)`, "i");
-      if (textCorpus.includes(yrCandidate) && foundingRegex.test(textCorpus)) {
+      if ((textCorpus.includes(yrCandidate) && foundingRegex.test(textCorpus)) || yrCandidate === extracted.detectedFoundingYear) {
         cleanContext.foundingYear = yrCandidate;
         extracted.detectedFoundingYear = yrCandidate;
       }
+    } else if (extracted.detectedFoundingYear && !cleanContext.foundingYear) {
+      cleanContext.foundingYear = extracted.detectedFoundingYear;
     }
 
     if (unifiedRes.data.detectedCommentsUrl && (!extracted.detectedCommentsUrl || !extracted.detectedCommentsUrl.includes("maps"))) {
@@ -6454,13 +6613,14 @@ async function processUrlWithAI(
     providerInfo: providerInfoI18nVal.es,
     providerInfoI18n: providerInfoI18nVal,
     providerStartYear: (() => {
-      const candidateYear = String(cleanContext.foundingYear || extracted.detectedFoundingYear || "").trim();
+      let candidateYear = String(cleanContext.foundingYear || extracted.detectedFoundingYear || "").trim();
       if (!candidateYear) return "";
-      const textCorpus = `${extracted.textContent || ""} ${extracted.htmlContent || ""}`;
-      if (!textCorpus.includes(candidateYear)) return "";
-      const foundingRegex = new RegExp(`(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)\\b[\\s\\S]{0,50}\\b${candidateYear}\\b|\\b${candidateYear}\\b[\\s\\S]{0,50}(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)`, "i");
-      if (!foundingRegex.test(textCorpus)) return "";
-      return candidateYear;
+      const yrNum = parseInt(candidateYear, 10);
+      const currYr = new Date().getFullYear();
+      if (isNaN(yrNum) || yrNum < 1600 || yrNum > currYr - 1 || yrNum === 2010 || yrNum === 2015) {
+        return "";
+      }
+      return String(yrNum);
     })(),
     providerRating: (extracted.detectedRating && extracted.detectedRating !== "0")
       ? extracted.detectedRating
