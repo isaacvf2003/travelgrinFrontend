@@ -2881,7 +2881,7 @@ function mapToCanonicalTaxonomy(selectedItems: any[], dbPool: string[], fallback
     }
 
     // 3. Token match with word boundaries and stop words
-    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
+    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
     const tokenMatch = poolWithNorm.find((p) =>
       itemTokens.some((t) => {
         const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -4316,7 +4316,7 @@ function classifySectorAndTaxonomy(
       continue;
     }
 
-    const pTokens = pNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
+    const pTokens = pNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
 
     let parentScore = 0;
     if (titleNorm.includes(pNorm)) parentScore += 40;
@@ -4332,6 +4332,14 @@ function classifySectorAndTaxonomy(
       } catch {}
     }
 
+    if (isSportsOrFitness) {
+      if (/deporte|fitness|gimnasio|bienestar|recreaci|actividad\s+f[ií]sica/i.test(pNorm)) {
+        parentScore += 160;
+      }
+      if (/explorando\s*opciones|servicio\s*especializado|requisitos?\s*previos?/i.test(pNorm)) {
+        parentScore = -150;
+      }
+    }
     if (isOngEntity && isOngMatch(parent.name)) {
       parentScore += 120;
     }
@@ -4366,7 +4374,7 @@ function classifySectorAndTaxonomy(
         continue;
       }
 
-      const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
+      const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
 
       let subScore = 0;
       if (titleNorm.includes(sNorm)) subScore += 50;
@@ -4382,6 +4390,14 @@ function classifySectorAndTaxonomy(
         } catch {}
       }
 
+      if (isSportsOrFitness) {
+        if (/deporte|fitness|gimnasio|bienestar|recreaci|actividad\s+f[ií]sica/i.test(sNorm)) {
+          subScore += 140;
+        }
+        if (/explorando\s*opciones|servicio\s*especializado|requisitos?\s*previos?/i.test(sNorm)) {
+          subScore = -150;
+        }
+      }
       if (isOngEntity && isOngMatch(sub)) {
         subScore += 100;
       }
@@ -4413,7 +4429,8 @@ function classifySectorAndTaxonomy(
       const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(sNorm)) return false;
       if (isEducationalEntity && /visa|migra/i.test(sNorm)) return false;
-      const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
+      if (isSportsOrFitness && /explorando\s*opciones|servicio\s*especializado|requisitos?\s*previos?/i.test(sNorm)) return false;
+      const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
       const hasTextMatch = titleNorm.includes(sNorm) || urlNorm.includes(sNorm.replace(/\s+/g, "")) || sTokens.some((tok) => titleNorm.includes(tok) || lowerCorpus.includes(tok));
       const hasEduMatch = isEducationalEntity && isStudentEduMatch(sub);
       const hasHealthMatch = isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(sNorm);
@@ -5615,23 +5632,20 @@ function enforceStrictTaxonomyGuardrails(
 
   // 1. Strict sector guardrails ONLY for taxonomy classification
   if (!publication.categorySelections || publication.categorySelections.length === 0 || publication.categorySelections[0] === "General") {
-    publication.category = classified.category;
-    publication.subcategory = classified.subcategory;
-    publication.categorySelections = classified.categorySelections;
-    publication.subcategorySelections = classified.subcategorySelections;
-    publication.providerActivities = classified.providerActivities;
-    publication.providerTypes = classified.providerTypes;
-    publication.providerModalities = classified.providerModalities;
+    publication.category = classified.category || "";
+    publication.subcategory = classified.subcategory || "";
+    publication.categorySelections = classified.categorySelections || [];
+    publication.subcategorySelections = classified.subcategorySelections || [];
   }
 
   if (!publication.providerActivities || publication.providerActivities.length === 0) {
-    publication.providerActivities = classified.providerActivities;
+    publication.providerActivities = classified.providerActivities || [];
   }
   if (!publication.providerTypes || publication.providerTypes.length === 0) {
-    publication.providerTypes = classified.providerTypes;
+    publication.providerTypes = classified.providerTypes || [];
   }
   if (!publication.providerModalities || publication.providerModalities.length === 0) {
-    publication.providerModalities = classified.providerModalities;
+    publication.providerModalities = classified.providerModalities || [];
   }
 
   // Strict sanitization: Ensure providerActivities NEVER contains any option from providerTypes
@@ -6013,6 +6027,20 @@ function enforceStrictTaxonomyGuardrails(
           publication.providerTypes = [pubType, ...publication.providerTypes.filter((t: string) => !/privad|empresa/i.test(t))];
         }
       }
+    }
+
+    // 4. Purge false onboarding / meta categories for gyms and sports establishments
+    if (Array.isArray(publication.categorySelections)) {
+      publication.categorySelections = publication.categorySelections.filter(
+        (c) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(c)
+      );
+      publication.category = publication.categorySelections[0] || "";
+    }
+    if (Array.isArray(publication.subcategorySelections)) {
+      publication.subcategorySelections = publication.subcategorySelections.filter(
+        (s) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(s)
+      );
+      publication.subcategory = publication.subcategorySelections[0] || "";
     }
   }
 
