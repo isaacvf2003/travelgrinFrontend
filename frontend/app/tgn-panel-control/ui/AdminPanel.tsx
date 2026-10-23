@@ -3314,7 +3314,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
 
       // 4. Token match
-      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3);
+      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
       const tokenRoot = allRootsWithNorm.find((r) => tokens.some((tok) => r.norm.includes(tok)));
       if (tokenRoot) {
         resolvedCategoryRoots.add(tokenRoot.original);
@@ -3396,12 +3396,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           if (rawInputSubcategories.some((s) => s.toLowerCase().includes(childNorm) || childNorm.includes(s.toLowerCase()))) {
             resolvedSubcategories.add(child.description);
-          } else if (/educaci|estudio/i.test(rootName) && /universidad/i.test(childNorm)) {
-            resolvedSubcategories.add(child.description);
-          } else if (/salud|m[eé]dic/i.test(rootName) && /especialidad|m[eé]dic/i.test(childNorm)) {
-            resolvedSubcategories.add(child.description);
-          } else if (/alojamiento/i.test(rootName) && /hotel|hostel/i.test(childNorm)) {
-            resolvedSubcategories.add(child.description);
           }
         }
       }
@@ -3434,14 +3428,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       /\b(gimnasio|gym|fitness|crossfit|natatorio|nataci[oó]n|aquagym|pileta|hockey|polideportivo|club\s+deportivo|musculaci[oó]n)\b/i.test(draftTextFull) ||
       /gimnasio|gym|fitness/i.test(draft.url || "");
 
-    if (isSportsGymDraft) {
-      const hasCompetition = /\b(competitivo|competitiva|competencia|torneo|liga|promocionales|campeonato|federad[oa]s?)\b/i.test(draftTextFull);
-      if (hasCompetition) {
-        const compRoot = allRootsWithNorm.find((r) => /competencia|evento|feria/i.test(r.norm));
-        if (compRoot) resolvedCategoryRoots.add(compRoot.original);
-      }
-    }
-
     const finalCatSel = Array.from(resolvedCategoryRoots);
     const finalSubcatSel = Array.from(resolvedSubcategories);
 
@@ -3459,9 +3445,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     for (const rawAct of rawActivities) {
       const actNorm = rawAct.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const escapedAct = actNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const match = actividadRoots.find((r) => {
         const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        return rNorm === actNorm || rNorm.includes(actNorm) || actNorm.includes(rNorm);
+        const escapedR = rNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return (
+          rNorm === actNorm ||
+          new RegExp(`\\b${escapedAct}\\b`, "i").test(rNorm) ||
+          new RegExp(`\\b${escapedR}\\b`, "i").test(actNorm)
+        );
       });
       if (match) {
         resolvedActivities.add(match.description);
