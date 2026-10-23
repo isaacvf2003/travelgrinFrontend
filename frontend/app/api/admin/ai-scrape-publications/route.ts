@@ -2866,16 +2866,28 @@ function mapToCanonicalTaxonomy(selectedItems: any[], dbPool: string[], fallback
       continue;
     }
 
-    // 2. Substring match (either direction)
-    const substring = poolWithNorm.find((p) => p.norm.includes(itemNorm) || itemNorm.includes(p.norm));
+    // 2. Substring match (either direction) with strict word boundaries to avoid matching "cultura" in "agricultura"
+    const escapedItem = itemNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const substring = poolWithNorm.find((p) => {
+      const escapedP = p.norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return (
+        new RegExp(`\\b${escapedItem}\\b`, "i").test(p.norm) ||
+        new RegExp(`\\b${escapedP}\\b`, "i").test(itemNorm)
+      );
+    });
     if (substring) {
       matched.add(substring.original);
       continue;
     }
 
-    // 3. Token match
-    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length > 3);
-    const tokenMatch = poolWithNorm.find((p) => itemTokens.some((t) => p.norm.includes(t)));
+    // 3. Token match with word boundaries and stop words
+    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
+    const tokenMatch = poolWithNorm.find((p) =>
+      itemTokens.some((t) => {
+        const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`\\b${escaped}\\b`, "i").test(p.norm);
+      })
+    );
     if (tokenMatch) {
       matched.add(tokenMatch.original);
     }
@@ -2885,7 +2897,16 @@ function mapToCanonicalTaxonomy(selectedItems: any[], dbPool: string[], fallback
   if (matched.size === 0 && fallbackKeywords.length) {
     for (const kw of fallbackKeywords) {
       const kwNorm = kw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      const match = poolWithNorm.find((p) => p.norm.includes(kwNorm) || kwNorm.includes(p.norm));
+      if (!kwNorm) continue;
+      const escapedKw = kwNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const match = poolWithNorm.find((p) => {
+        const escapedP = p.norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return (
+          p.norm === kwNorm ||
+          new RegExp(`\\b${escapedKw}\\b`, "i").test(p.norm) ||
+          new RegExp(`\\b${escapedP}\\b`, "i").test(kwNorm)
+        );
+      });
       if (match) {
         matched.add(match.original);
       }
@@ -4295,7 +4316,7 @@ function classifySectorAndTaxonomy(
       continue;
     }
 
-    const pTokens = pNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
+    const pTokens = pNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
 
     let parentScore = 0;
     if (titleNorm.includes(pNorm)) parentScore += 40;
@@ -4345,7 +4366,7 @@ function classifySectorAndTaxonomy(
         continue;
       }
 
-      const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
+      const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
 
       let subScore = 0;
       if (titleNorm.includes(sNorm)) subScore += 50;
@@ -4392,7 +4413,7 @@ function classifySectorAndTaxonomy(
       const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(sNorm)) return false;
       if (isEducationalEntity && /visa|migra/i.test(sNorm)) return false;
-      const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
+      const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
       const hasTextMatch = titleNorm.includes(sNorm) || urlNorm.includes(sNorm.replace(/\s+/g, "")) || sTokens.some((tok) => titleNorm.includes(tok) || lowerCorpus.includes(tok));
       const hasEduMatch = isEducationalEntity && isStudentEduMatch(sub);
       const hasHealthMatch = isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|obra\s*social|prepaga/i.test(sNorm);
@@ -4576,8 +4597,6 @@ function classifySectorAndTaxonomy(
     const eduAct = actsToEvaluate.find((a) => /educaci|formaci|ensenan/i.test(a));
     if (eduAct) {
       selectedActivities = [eduAct];
-    } else if (actsToEvaluate.length > 0) {
-      selectedActivities = [actsToEvaluate[0]];
     }
   } else if (isSportsOrFitness) {
     const sportsAct = actsToEvaluate.find((a) => /deporte|fitness|gimnasio|bienestar|actividad\s+f[ií]sica|recreaci/i.test(a)) ||
@@ -4586,8 +4605,6 @@ function classifySectorAndTaxonomy(
       selectedActivities = [sportsAct];
     } else if (scoredActs.length > 0 && scoredActs[0].score > 0) {
       selectedActivities = [scoredActs[0].name];
-    } else if (actsToEvaluate.length > 0) {
-      selectedActivities = [actsToEvaluate[0]];
     }
   } else {
     if (scoredActs.length > 0 && scoredActs[0].score > 0) {
@@ -4595,23 +4612,6 @@ function classifySectorAndTaxonomy(
       if (scoredActs[1] && scoredActs[1].score >= 35 && scoredActs[1].score >= scoredActs[0].score * 0.65) {
         selectedActivities.push(scoredActs[1].name);
       }
-    } else if (actsToEvaluate.length > 0) {
-      selectedActivities.push(actsToEvaluate[0]);
-    }
-  }
-
-  // Sports & gym category recognition
-  if (isSportsOrFitness) {
-    const isCompetitive = /\b(competitivo|competitiva|competencia|torneo|liga|promocionales|campeonato)\b/i.test(lowerCorpus);
-    if (isCompetitive) {
-      const compCat = parentCategoriesList.find((p) => /competencia|evento|feria/i.test(p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
-      if (compCat && !selectedCategories.includes(compCat.name)) {
-        selectedCategories.push(compCat.name);
-      }
-    }
-    const servCat = parentCategoriesList.find((p) => /servicio especializado|programa|curso/i.test(p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
-    if (servCat && !selectedCategories.includes(servCat.name)) {
-      selectedCategories.push(servCat.name);
     }
   }
 
@@ -5265,13 +5265,9 @@ async function formatPublicationResult(
   // Never assign blind fallbacks like validCats[0] or static templates!
   if (!matchedActivities.length && sectorClassification.providerActivities?.length) {
     matchedActivities = sectorClassification.providerActivities;
-  } else if (!matchedActivities.length && validActs.length > 0) {
-    matchedActivities = [validActs[0]];
   }
   if (!matchedTypes.length && sectorClassification.providerTypes?.length) {
     matchedTypes = sectorClassification.providerTypes;
-  } else if (!matchedTypes.length && validTypes.length > 0) {
-    matchedTypes = [validTypes[0]];
   }
   if (!matchedModalities.length && sectorClassification.providerModalities?.length) {
     matchedModalities = sectorClassification.providerModalities;
@@ -5578,7 +5574,7 @@ async function formatPublicationResult(
     subcategory: matchedSubcatSelections[0] || "",
     categorySelections: matchedCatSelections,
     subcategorySelections: matchedSubcatSelections,
-    providerActivities: matchedActivities.length ? matchedActivities : (taxonomies?.activities?.length ? [taxonomies.activities[0]] : []),
+    providerActivities: matchedActivities.length ? matchedActivities : [],
     providerTypes: matchedTypes.length ? matchedTypes : (taxonomies?.types?.length ? [taxonomies.types[0]] : []),
     providerModalities: matchedModalities.length ? matchedModalities : (taxonomies?.modalities?.length ? taxonomies.modalities.slice(0, 2) : []),
     customTitlePrompt: (customTitlePrompt || customAdminPrompt || "").trim(),
@@ -5642,7 +5638,7 @@ function enforceStrictTaxonomyGuardrails(
   if (Array.isArray(publication.providerActivities) && taxonomies?.types?.length) {
     publication.providerActivities = publication.providerActivities.filter((a: string) => !taxonomies.types.includes(a));
     if (publication.providerActivities.length === 0) {
-      publication.providerActivities = classified.providerActivities?.length ? classified.providerActivities : (taxonomies?.activities?.length ? [taxonomies.activities[0]] : []);
+      publication.providerActivities = classified.providerActivities?.length ? classified.providerActivities : [];
     }
   }
 
@@ -6015,19 +6011,6 @@ function enforceStrictTaxonomyGuardrails(
         if (!Array.isArray(publication.providerTypes)) publication.providerTypes = [];
         if (!publication.providerTypes.includes(pubType)) {
           publication.providerTypes = [pubType, ...publication.providerTypes.filter((t: string) => !/privad|empresa/i.test(t))];
-        }
-      }
-    }
-
-    // 4. Categories: competition, tournaments, competitive teams
-    const hasCompetitiveOfferings = /\b(competitivo|competitiva|competencia|torneo|liga|promocionales|campeonato|federad[oa]s?)\b/i.test(allText);
-    if (hasCompetitiveOfferings && taxonomies) {
-      const compCat = allValidCatalogCategories.find((c) => /competencia|evento|feria/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
-      if (compCat) {
-        if (!Array.isArray(publication.categorySelections)) publication.categorySelections = [];
-        if (!publication.categorySelections.includes(compCat)) {
-          publication.categorySelections.push(compCat);
-          publication.category = publication.categorySelections[0] || compCat;
         }
       }
     }
