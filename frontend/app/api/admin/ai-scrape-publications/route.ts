@@ -964,10 +964,11 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
 
 function cleanAddressForSearch(addr?: string | null): string {
   if (!addr) return "";
-  let clean = addr
+  let clean = decodeHtmlEntities(addr)
     .replace(/\s+(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja|timbre|bloque)[^,.\n]*/gi, "")
     .replace(/,\s*(?:barrio|b°|bº|b\.|zona|localidad|partido|depto|dto|provincia|c\.?p\.?)[^,.\n]*/gi, "")
     .replace(/\s+(?:barrio|b°|bº|b\.|zona)[^,.\n]*/gi, "")
+    .replace(/\s*(?:whatsapp|wa\.me|tel[ée]fono|tel|cel|celular|contacto|horarios?|abierto|lunes|martes|mi[ée]rcoles|jueves|viernes|s[aá]bado|domingo|\+?\d{2,4}[-\s]?\d{3,4}[-\s]?\d{3,4})[\s\S]*/gi, "")
     .replace(/[°º#"']/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -1228,12 +1229,17 @@ async function enrichWithLiveGoogleMapsAndSearch(
 
   const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+  let cleanBrand = decodeHtmlEntities(officialFullName || cleanName || "");
+  cleanBrand = cleanBrand
+    .replace(/\s*[-–—|]\s*(?:Ciudad de\s+)?(?:Mendoza|Buenos Aires|CABA|Rosario|C[oó]rdoba|Salta|Santa Fe|Mar del Plata|Neuqu[eé]n|San Juan|Argentina)[^–—|]*$/i, "")
+    .replace(/\s*[-–—|]\s*(?:Sitio\s*Oficial|Portal\s*Oficial|Web\s*Oficial|Municipalidad).*$/i, "")
+    .trim() || cleanName;
+
   // Targeted queries executed in parallel for exact Sede Principal match
   const candidateQueries = [
-    mainAddress && city ? `${officialFullName || cleanName} ${mainAddress} ${city}` : null,
-    city ? `${officialFullName || cleanName} ${city}` : null,
-    mainAddress ? `${cleanName} ${mainAddress}` : null,
-    `${cleanName} reviews`,
+    cleanBrand && city ? `${cleanBrand} ${city}` : null,
+    cleanBrand && mainAddress && city ? `${cleanBrand} ${mainAddress} ${city}` : null,
+    cleanBrand && mainAddress ? `${cleanBrand} ${mainAddress}` : null,
     officialFullName || cleanName,
   ].filter(Boolean) as string[];
 
@@ -1253,31 +1259,15 @@ async function enrichWithLiveGoogleMapsAndSearch(
       );
       if (gRes.ok) {
         const gHtml = await gRes.text();
-        const mDirect = gHtml.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null/);
+        const mDirect = gHtml.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null/) ||
+                        gHtml.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{2,7})\]/) ||
+                        gHtml.match(/(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/);
         if (mDirect) {
           const numRating = parseFloat(mDirect[1]);
           const numReviews = parseInt(mDirect[2], 10);
-          if (!(numRating === 1 && numReviews === 1)) {
-            if (!isNaN(numRating) && numRating >= 1 && numRating <= 5 && (!extracted.detectedRating || extracted.detectedRating === "0" || extracted.detectedRating === "1.0")) {
-              extracted.detectedRating = numRating.toFixed(1);
-            }
-            if (!isNaN(numReviews) && numReviews > 0 && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0" || extracted.detectedReviewCount === "1")) {
-              extracted.detectedReviewCount = String(numReviews);
-            }
-          }
-        }
-        if (!extracted.detectedRating || extracted.detectedRating === "0" || extracted.detectedRating === "1.0") {
-          const starMatch = gHtml.match(/([1-5][.,]\d)\s*(?:estrellas?|stars?|⭐|★)/i) ||
-                            gHtml.match(/aria-label=["']([1-5][.,]\d)\s*(?:estrellas?|stars?)/i);
-          if (starMatch && starMatch[1]) {
-            const num = parseFloat(starMatch[1].replace(",", "."));
-            if (!isNaN(num) && num >= 1 && num <= 5 && num !== 1) extracted.detectedRating = num.toFixed(1);
-          }
-        }
-        if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0" || extracted.detectedReviewCount === "1") {
-          const revMatch = gHtml.match(/(\d{1,7})\s*(?:reseñas|reviews|opiniones|comentarios)/i);
-          if (revMatch && revMatch[1]) {
-            extracted.detectedReviewCount = revMatch[1];
+          if (!(numRating === 1 && numReviews === 1) && numReviews > 1 && numRating >= 1 && numRating <= 5) {
+            extracted.detectedRating = numRating.toFixed(1);
+            extracted.detectedReviewCount = String(numReviews);
           }
         }
       }
@@ -1289,7 +1279,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     return;
   }
 
-  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 2);
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 3);
 
   const searchPromises = uniqueQueries.map(async (q) => {
     try {
@@ -1320,26 +1310,23 @@ async function enrichWithLiveGoogleMapsAndSearch(
     const text = res.value;
 
     // Check for direct place rating/review match
-    const m1 = text.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null,null,\["https?:/);
-    const m2 = text.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{2,7})\]/);
-    const m3 = text.match(/(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/);
-    const mDirect = m1 || m2 || m3;
+    const mDirect = text.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null/) ||
+                    text.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null,null,\["https?:/) ||
+                    text.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{2,7})\]/) ||
+                    text.match(/(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/);
 
     if (mDirect) {
       const numRating = parseFloat(mDirect[1]);
       const numReviews = parseInt(mDirect[2], 10);
-      if (!(numRating === 1 && numReviews === 1)) {
-        if (!isNaN(numRating) && numRating >= 1 && numRating <= 5 && (!extracted.detectedRating || extracted.detectedRating === "0" || extracted.detectedRating === "1.0")) {
-          extracted.detectedRating = numRating.toFixed(1);
+      if (!(numRating === 1 && numReviews === 1) && numReviews > 1 && numRating >= 1 && numRating <= 5) {
+        extracted.detectedRating = numRating.toFixed(1);
+        extracted.detectedReviewCount = String(numReviews);
+        if (!extracted.detectedCommentsUrl) {
+          const placeQuery = `${cleanBrand}${city ? ', ' + city : ''}`;
+          extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
+          if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
         }
-        if (!isNaN(numReviews) && numReviews > 0 && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0" || extracted.detectedReviewCount === "1")) {
-          extracted.detectedReviewCount = String(numReviews);
-        }
-      }
-      if (!extracted.detectedCommentsUrl) {
-        const placeQuery = (officialFullName || cleanName) + (mainAddress ? `, ${mainAddress}` : "") + (city ? `, ${city}` : "");
-        extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
-        if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+        break;
       }
     }
 
@@ -2718,7 +2705,8 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       if (bType && !["", "default", "predeterminado", "inherit"].includes(bType)) return bType;
       const labelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       if (labelNorm.includes("actividad") || labelNorm.includes("sector")) return "actividad";
-      if (labelNorm.includes("tipo") || labelNorm.includes("perfil")) return "tipo";
+      if (labelNorm.includes("soluci") || labelNorm.includes("publicaci") || labelNorm.includes("recurso") || labelNorm.includes("propiedad")) return "categoria";
+      if (/\b(?:tipo\s+de\s+(?:oferente|perfil|entidad|instituci[oó]n|proveedor)|perfil)\b/i.test(labelNorm) || labelNorm === "tipo" || labelNorm === "tipos") return "tipo";
       if (labelNorm.includes("modalidad")) return "modalidad";
       if (labelNorm.includes("prestacion")) return "prestacion";
       if (labelNorm.includes("idioma")) return "idiomas";
@@ -4246,12 +4234,18 @@ function classifySectorAndTaxonomy(
   const isPublicEntity = isGovDomain || isGovText;
 
   // Semantic entity classifications:
-  const isMediaOrSportsOrEntertainment =
-    /\b(deportv|televisi[oó]n|streaming|transmisi[oó]n|transmisiones|canal de tv|deportes?|f[uú]tbol|automovilismo|boxeo|tenis|b[aá]squet|torneo|liga profesional|espect[aá]culos?|teatro|cine)\b/i.test(lowerCorpus) ||
-    /deportv|tv|deporte|streaming/i.test(urlNorm);
+  const isSportsOrFitness =
+    /\b(gimnasio|gym|fitness|crossfit|natatorio|nataci[oó]n|aquagym|pileta\s+climatizada|hockey|canchas?|deportes?|deportivo|deportiva|club\s+deportivo|polideportivo|entrenamiento\s+f[ií]sico|musculaci[oó]n|actividades\s+deportivas|promocionales|equipo\s+competitivo)\b/i.test(lowerCorpus) ||
+    /\b(gimnasio|gym|fitness|deporte|club)\b/i.test(urlNorm);
+
+  const isMediaOrStreaming =
+    !isSportsOrFitness &&
+    (/\b(deportv|televisi[oó]n|canal\s+de\s+tv|streaming|transmisi[oó]n|transmisiones|noticiero|prensa|periodismo|radio)\b/i.test(lowerCorpus) ||
+    /deportv|tv|streaming/i.test(urlNorm));
 
   const isEducationalEntity =
-    !isMediaOrSportsOrEntertainment &&
+    !isMediaOrStreaming &&
+    !isSportsOrFitness &&
     (/\b(universidad|facultad|carrera universitaria|carreras universitarias|licenciatura|tecnicatura|alumnos?|estudiantes?|vida estudiantil|campus universitario|matricula academica|aranceles academicos|inscripciones a carreras|ingreso universitario|becas de estudio|docentes? universitarios?|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(lowerCorpus) ||
     /\.edu(?:\.[a-z]{2})?/i.test(url) ||
     /uncuyo|uba\.ar|utn\.edu|austral\.edu|siglo21|uesiglo21/i.test(url));
@@ -4261,6 +4255,7 @@ function classifySectorAndTaxonomy(
     /\b(hospital|clinica|sanatorio)\b/i.test(urlNorm);
 
   const isHealthEntity =
+    !isSportsOrFitness &&
     (!isEducationalEntity || isHospitalOrClinic) &&
     (/\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(lowerCorpus) ||
     /osep|hospital|clinica|sanatorio|salud/i.test(url));
@@ -4268,6 +4263,7 @@ function classifySectorAndTaxonomy(
   const isLegalOrConsulting =
     !isEducationalEntity &&
     !isHealthEntity &&
+    !isSportsOrFitness &&
     (/\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|allende|brea|cbi|immi)\b/i.test(lowerCorpus) ||
     /abogados|legal|estudio|immi/i.test(urlNorm));
 
@@ -4276,13 +4272,15 @@ function classifySectorAndTaxonomy(
     /\b(moda|fashion|indumentaria|ropa)\b/i.test(urlNorm);
 
   const isEntertainmentOrCulture =
-    isMediaOrSportsOrEntertainment ||
-    /\b(entretenimiento|espectaculo|espectaculos|teatro|cine|musica|cultural|cultura|concierto|conciertos|show|shows|produccion\s+audiovisual|streaming|eventos\s+culturales|festival|festivales|deportes?|television|canal)\b/i.test(lowerCorpus) ||
-    /\b(entretenimiento|teatro|cine|cultura|musica|deporte|deportv)\b/i.test(urlNorm);
+    !isSportsOrFitness &&
+    (isMediaOrStreaming ||
+    /\b(entretenimiento|espectaculo|espectaculos|teatro|cine|musica|cultural|cultura|concierto|conciertos|show|shows|produccion\s+audiovisual|eventos\s+culturales|festival|festivales)\b/i.test(lowerCorpus) ||
+    /\b(entretenimiento|teatro|cine|cultura|musica)\b/i.test(urlNorm));
 
   const isBusinessOrChamber =
-    /\b(amcham|c[aá]mara\s+de\s+comercio|asociaci[oó]n\s+empresaria|red\s+de\s+negocios|networking|coworking|workplace|negocios|empresarial|empresarios|comercio\s+exterior|c[aá]mara\s+argentino|inversi[oó]n|inversiones|membresias?)\b/i.test(lowerCorpus) ||
-    /amcham|workplace/i.test(urlNorm);
+    !isSportsOrFitness &&
+    (/\b(amcham|c[aá]mara\s+de\s+comercio|asociaci[oó]n\s+empresaria|red\s+de\s+negocios|networking|coworking|workplace|negocios|empresarial|empresarios|comercio\s+exterior|c[aá]mara\s+argentino|inversi[oó]n|inversiones|membresias?)\b/i.test(lowerCorpus) ||
+    /amcham|workplace/i.test(urlNorm));
 
   const isTourismEntity =
     !isEducationalEntity &&
@@ -4550,6 +4548,23 @@ function classifySectorAndTaxonomy(
     if (isHealthEntity && /salud|asistencia|social|medic/i.test(aNorm)) {
       actScore += 120;
     }
+    if (isSportsOrFitness) {
+      if (/deporte|fitness|gimnasio|bienestar|recreaci/i.test(aNorm)) {
+        actScore += 160;
+      }
+      if (/agricultura|ganaderia|pesca/i.test(aNorm)) {
+        actScore = -150;
+      }
+      if (/medio|cultura|entretenimiento/i.test(aNorm)) {
+        actScore = -150;
+      }
+      if (/industria|mineria|construcci/i.test(aNorm)) {
+        actScore = -150;
+      }
+    }
+    if (isHealthEntity && /salud|asistencia|social|medic/i.test(aNorm)) {
+      actScore += 120;
+    }
     if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
       actScore += 140;
     }
@@ -4594,6 +4609,15 @@ function classifySectorAndTaxonomy(
     // UNIVERSITIES AND EDUCATIONAL ENTITIES: Strictly and solely education and training!
     const eduAct = actsToEvaluate.find((a) => /educaci|formaci|ensenan/i.test(a));
     selectedActivities = [eduAct || "Educación y formación"];
+  } else if (isSportsOrFitness) {
+    const sportsAct = actsToEvaluate.find((a) => /deporte|fitness|gimnasio|bienestar|recreaci/i.test(a));
+    if (sportsAct) {
+      selectedActivities = [sportsAct];
+    } else if (scoredActs.length > 0 && scoredActs[0].score > 0) {
+      selectedActivities = [scoredActs[0].name];
+    } else {
+      selectedActivities = [actsToEvaluate[0] || "Deportes, fitness y bienestar"];
+    }
   } else {
     if (scoredActs.length > 0 && scoredActs[0].score > 0) {
       selectedActivities.push(scoredActs[0].name);
@@ -4602,6 +4626,21 @@ function classifySectorAndTaxonomy(
       }
     } else if (actsToEvaluate.length > 0) {
       selectedActivities.push(actsToEvaluate[0]);
+    }
+  }
+
+  // Sports & gym category recognition
+  if (isSportsOrFitness) {
+    const isCompetitive = /\b(competitivo|competitiva|competencia|torneo|liga|promocionales|campeonato)\b/i.test(lowerCorpus);
+    if (isCompetitive) {
+      const compCat = parentCategoriesList.find((p) => /competencia|evento|feria/i.test(p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+      if (compCat && !selectedCategories.includes(compCat.name)) {
+        selectedCategories.push(compCat.name);
+      }
+    }
+    const servCat = parentCategoriesList.find((p) => /servicio especializado|programa|curso/i.test(p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+    if (servCat && !selectedCategories.includes(servCat.name)) {
+      selectedCategories.push(servCat.name);
     }
   }
 
@@ -4631,18 +4670,17 @@ function classifySectorAndTaxonomy(
   const onlineMod = validMods.find((m) => /online|virtual|remoto|distancia/i.test(m));
   const tramitesMod = validMods.find((m) => /gesti[oó]n|tr[aá]mite/i.test(m));
 
-  const hasOnlineMention = /online|virtual|remoto|a distancia|zoom|meet|plataforma|app|web|portal|turnos/i.test(lowerCorpus);
-  const hasPresencialMention = /sede|sedes|sucursal|sucursales|consultorio|consultorios|campus|ubicacion|direccion|atencion presencial|visitanos|delegacion|delegaciones/i.test(lowerCorpus);
-  const hasTramitesMention = /tr[aá]mite|tr[aá]mites|gesti[oó]n|afiliaci[oó]n|afiliaciones|coseguro|coseguros|autorizaci[oó]n|autorizaciones/i.test(lowerCorpus);
+  const hasOnlineMention = /online|virtual|remoto|a distancia|zoom|meet|plataforma|app/i.test(lowerCorpus) && !isSportsOrFitness;
+  const hasPresencialMention = /sede|sedes|sucursal|sucursales|consultorio|consultorios|campus|ubicacion|direccion|atencion presencial|visitanos|delegacion|gimnasio|complejo|cancha|piscina|pileta|instalaciones/i.test(lowerCorpus) || isSportsOrFitness;
+  const hasTramitesMention = /tr[aá]mite|tr[aá]mites|gesti[oó]n|afiliaci[oó]n|afiliaciones|coseguro|coseguros|autorizaci[oó]n|autorizaciones/i.test(lowerCorpus) && !isSportsOrFitness;
 
   if (hasPresencialMention && presencialMod) chosenMods.push(presencialMod);
   if (hasOnlineMention && onlineMod) chosenMods.push(onlineMod);
   if (hasTramitesMention && tramitesMod) chosenMods.push(tramitesMod);
   if (chosenMods.length === 0) {
     if (presencialMod) chosenMods.push(presencialMod);
-    if (onlineMod) chosenMods.push(onlineMod);
   }
-  const finalMods = chosenMods.length > 0 ? chosenMods : (validMods.length ? validMods.slice(0, 2) : ["Atención presencial", "Atención online"]);
+  const finalMods = chosenMods.length > 0 ? chosenMods : (presencialMod ? [presencialMod] : ["Atención presencial"]);
 
   return {
     sector: /salud|hospital|m[eé]dic/i.test(bestAct) ? "health" : /educaci/i.test(bestAct) ? "education" : "general",
@@ -5759,8 +5797,13 @@ function enforceStrictTaxonomyGuardrails(
     }
   }
 
-  // Health & Healthcare intelligence: strictly exclude educational entities that are not hospitals/clinics
+  const isSportsOrGym =
+    /\b(gimnasio|gym|fitness|crossfit|natatorio|nataci[oó]n|aquagym|pileta\s+climatizada|hockey|polideportivo|club\s+deportivo|entrenamiento\s+f[ií]sico|musculaci[oó]n)\b/i.test(allText) ||
+    /gimnasio|gym|fitness/i.test(publication.url);
+
+  // Health & Healthcare intelligence: strictly exclude educational entities and sports/gym establishments
   const isHealth =
+    !isSportsOrGym &&
     (!isEducational || isHospitalOrClinic) &&
     (/\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(allText) ||
     /osep|hospital|clinica|sanatorio|salud/i.test(publication.url));
@@ -5936,8 +5979,9 @@ function enforceStrictTaxonomyGuardrails(
 
   // Entertainment & Culture intelligence
   const isEntertainmentGuard =
-    /\b(entretenimiento|espectaculo|espectaculos|teatro|cine|musica|cultural|cultura|concierto|conciertos|show|shows|produccion\s+audiovisual|streaming|eventos\s+culturales|festival|festivales)\b/i.test(allText) ||
-    /\b(entretenimiento|teatro|cine|cultura|musica)\b/i.test(publication.url);
+    !isSportsOrGym &&
+    (/\b(entretenimiento|espectaculo|espectaculos|teatro|cine|musica|cultural|cultura|concierto|conciertos|show|shows|produccion\s+audiovisual|streaming|eventos\s+culturales|festival|festivales)\b/i.test(allText) ||
+    /\b(entretenimiento|teatro|cine|cultura|musica)\b/i.test(publication.url));
 
   if (isEntertainmentGuard && taxonomies) {
     const entAct = taxonomies.activities?.find((a: string) => /medio|cultura|entretenimiento/i.test(a));
@@ -5953,6 +5997,53 @@ function enforceStrictTaxonomyGuardrails(
       if (!publication.categorySelections.includes(entCat)) {
         publication.categorySelections = [entCat, ...publication.categorySelections.slice(0, 4)];
         publication.category = entCat;
+      }
+    }
+  }
+
+  // Sports & Gym intelligence: strictly enforce sports activity, presencial modality, and competition category
+  if (isSportsOrGym) {
+    // 1. Purge polluting activities (agriculture, media, healthcare, mining)
+    if (Array.isArray(publication.providerActivities)) {
+      publication.providerActivities = publication.providerActivities.filter(
+        (a) => !/agricultura|ganader|pesca|medio|cultura|entretenimiento|salud|asistencia\s+social|miner|construcci|inmobiliari/i.test(a)
+      );
+      const sportsAct = taxonomies?.activities?.find((a: string) => /deporte|fitness|bienestar|gimnasio/i.test(a));
+      if (sportsAct && !publication.providerActivities.includes(sportsAct)) {
+        publication.providerActivities = [sportsAct, ...publication.providerActivities];
+      }
+      if (publication.providerActivities.length === 0) {
+        publication.providerActivities = [sportsAct || "Deportes, fitness y bienestar"];
+      }
+    }
+
+    // 2. Modalities: physical facilities must have Atención presencial, remove false online/tramite
+    if (Array.isArray(publication.providerModalities)) {
+      publication.providerModalities = publication.providerModalities.filter(
+        (m) => !/gesti[oó]n|tr[aá]mite/i.test(m)
+      );
+      const hasOnlineClasses = /clases?\s+online|clases?\s+virtuales|entrenamiento\s+a\s+distancia|app\s+de\s+entrenamiento/i.test(allText);
+      if (!hasOnlineClasses) {
+        publication.providerModalities = publication.providerModalities.filter(
+          (m) => !/online|virtual|remoto|distancia/i.test(m)
+        );
+      }
+      const presMod = taxonomies?.modalities?.find((m: string) => /presencial/i.test(m)) || "Atención presencial";
+      if (!publication.providerModalities.includes(presMod)) {
+        publication.providerModalities.unshift(presMod);
+      }
+    }
+
+    // 3. Categories: competition, tournaments, competitive teams
+    const hasCompetitiveOfferings = /\b(competitivo|competitiva|competencia|torneo|liga|promocionales|campeonato|federad[oa]s?)\b/i.test(allText);
+    if (hasCompetitiveOfferings && taxonomies) {
+      const compCat = allValidCatalogCategories.find((c) => /competencia|evento|feria/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+      if (compCat) {
+        if (!Array.isArray(publication.categorySelections)) publication.categorySelections = [];
+        if (!publication.categorySelections.includes(compCat)) {
+          publication.categorySelections.push(compCat);
+          publication.category = publication.categorySelections[0] || compCat;
+        }
       }
     }
   }
@@ -6191,6 +6282,12 @@ async function processUrlWithAI(
   let descDedicatedRes: any = null;
 
   try {
+    await enrichPromise;
+    cleanContext.rating = extracted.detectedRating || "0";
+    cleanContext.reviewCount = extracted.detectedReviewCount || "0";
+    cleanContext.commentsUrl = extracted.detectedCommentsUrl;
+    cleanContext.foundingYear = extracted.detectedFoundingYear;
+
     const aiPromise = runUnifiedPublicationAgent({
       context: cleanContext,
       customTitlePrompt: effectiveTitlePrompt,
@@ -6203,15 +6300,10 @@ async function processUrlWithAI(
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("AI generation timeout")), 18000)
     );
-    const [resUnified] = await Promise.all([
-      Promise.race([aiPromise, timeoutPromise]),
-      enrichPromise,
-    ]);
-    unifiedRes = resUnified;
+    unifiedRes = await Promise.race([aiPromise, timeoutPromise]);
   } catch (uErr: any) {
     console.warn(`[AI Scraper] Unified agent skipped (${uErr?.message})`);
   }
-  await enrichPromise;
 
   if (unifiedRes && unifiedRes.success && unifiedRes.data) {
     if (unifiedRes.providerUsed && unifiedRes.providerUsed !== "none") {
@@ -6275,23 +6367,19 @@ async function processUrlWithAI(
       data: unifiedRes.data.taxonomyData,
     };
 
-    // Real Google Maps scraped metrics strictly take priority; AI only provides fallback if scraping had no rating/reviews
-    if (!extracted.detectedRating || extracted.detectedRating === "0") {
-      if (unifiedRes.data.detectedRating && unifiedRes.data.detectedRating !== "0") {
-        cleanContext.rating = unifiedRes.data.detectedRating;
-        extracted.detectedRating = unifiedRes.data.detectedRating;
-      }
-    } else {
+    // Real Google Maps scraped metrics strictly take priority; never allow fake hallucinations
+    if (extracted.detectedRating && extracted.detectedRating !== "0") {
       cleanContext.rating = extracted.detectedRating;
+    } else {
+      cleanContext.rating = "0";
+      extracted.detectedRating = "0";
     }
 
-    if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
-      if (unifiedRes.data.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0") {
-        cleanContext.reviewCount = unifiedRes.data.detectedReviewCount;
-        extracted.detectedReviewCount = unifiedRes.data.detectedReviewCount;
-      }
-    } else {
+    if (extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") {
       cleanContext.reviewCount = extracted.detectedReviewCount;
+    } else {
+      cleanContext.reviewCount = "0";
+      extracted.detectedReviewCount = "0";
     }
 
     if (unifiedRes.data.detectedFoundingYear) {
@@ -6545,10 +6633,10 @@ async function processUrlWithAI(
     })(),
     providerRating: (extracted.detectedRating && extracted.detectedRating !== "0")
       ? extracted.detectedRating
-      : ((cleanContext.rating && cleanContext.rating !== "0") ? cleanContext.rating : (unifiedRes?.data?.detectedRating || "0")),
+      : ((cleanContext.rating && cleanContext.rating !== "0") ? cleanContext.rating : "0"),
     providerReviewCount: (extracted.detectedReviewCount && extracted.detectedReviewCount !== "0")
       ? extracted.detectedReviewCount
-      : ((cleanContext.reviewCount && cleanContext.reviewCount !== "0") ? cleanContext.reviewCount : (unifiedRes?.data?.detectedReviewCount || "0")),
+      : ((cleanContext.reviewCount && cleanContext.reviewCount !== "0") ? cleanContext.reviewCount : "0"),
     providerCommentsUrl: extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || primaryHq.mapUrl,
     providerLogo: cleanContext.logo || "",
     country: primaryHq.country,
