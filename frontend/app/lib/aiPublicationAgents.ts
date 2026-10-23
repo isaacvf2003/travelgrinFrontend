@@ -1971,65 +1971,25 @@ REGLAS CRÍTICAS Y OBLIGATORIAS:
    - 'category': La categoría principal (primer elemento de 'categorySelections').
    - 'subcategory': La subcategoría principal (primer elemento de 'subcategorySelections' o "" si no aplica ninguna).
 3. SECTOR DE QUIEN OFRECE / ACTIVIDAD ('providerActivities'):
-   - Selecciona 1 o más actividades ÚNICAMENTE de la lista 'ACTIVIDADES DISPONIBLES EN BD' (correspondiente a la actividad o sector económico real del sitio web, ej. si es universidad -> Educación y formación; si es software/tech -> Tecnología, software e información; si es clínica/salud -> Salud y asistencia social; si es legal/consultoría -> Servicios profesionales y técnicos; si es turismo -> Hostelería, alojamiento y turismo; etc.).
+   - Selecciona 1 o más actividades ÚNICAMENTE de la lista 'SECCIÓN ACTIVIDADES' del catálogo de abajo (correspondiente a la actividad o sector económico real del sitio web). Si ninguna opción del catálogo aplica, devuelve array vacío []. NUNCA inventes nombres de actividad.
    - PROHIBIDO TERMINANTEMENTE colocar tipos de oferente como "Empresa", "Institución privada" u "Organismo público" en actividades. "Empresa" NO es una actividad; es un tipo de perfil.
 4. QUIÉN LO OFRECE / TIPO DE OFERENTE ('providerTypes'):
-   - Selecciona de la lista 'TIPOS DE PERFIL DISPONIBLES EN BD' (ej: "Empresa", "Institución privada", "Organismo público", "Profesional independiente", etc.) analizando quién es el propietario o responsable del sitio web.
+   - Selecciona ÚNICAMENTE de la lista 'SECCIÓN TIPO DE OFERENTE' del catálogo de abajo analizando quién es el propietario o responsable del sitio web. Si ninguna opción del catálogo aplica, devuelve array vacío [].
 5. MODALIDADES DE ATENCIÓN ('providerModalities'):
-   - Selecciona de la lista 'MODALIDADES DISPONIBLES EN BD' (ej: "Atención presencial", "Atención online", etc.) según cómo ofrece o presta sus servicios el sitio web (si tiene sedes físicas, oficinas o campus -> "Atención presencial"; si ofrece portal online, plataforma, trámites a distancia o contacto web -> "Atención online"; o ambas).
+   - Selecciona ÚNICAMENTE de la lista 'SECCIÓN MODALIDAD' del catálogo de abajo según cómo ofrece o presta sus servicios el sitio web. Si ninguna opción del catálogo aplica, devuelve array vacío [].
 8. PREVENCIÓN ESTRICTA DE FALSAS ONGs (REGLA MANDATORIA):
    - NUNCA clasifiques un sitio web como "ONG", "Fundación", "Organización sin fines de lucro" o tipo "ONG" a menos que demuestre explícitamente personería jurídica y condición estatutaria de entidad sin fines de lucro (ej. dominio .org no comercial con misión social comprobada).
-   - Las universidades (como Universidad Siglo 21, UBA, etc.), empresas comerciales, startups, plataformas digitales, comercios, clínicas y academias privadas NO SON ONGs. Está TERMINANTEMENTE PROHIBIDO asignarles categorías, subcategorías o tipos de perfil de ONG.
+   - Las universidades, empresas comerciales, startups, plataformas digitales, comercios, clínicas y academias privadas NO SON ONGs. Está TERMINANTEMENTE PROHIBIDO asignarles categorías, subcategorías o tipos de perfil de ONG.
 
-9. INTELIGENCIA SEMÁNTICA PARA UNIVERSIDADES, EDUCACIÓN Y ESTUDIANTES (MANDATORIA):
-   - Si la entidad analizada es una UNIVERSIDAD, FACULTAD, INSTITUTO SUPERIOR O COLEGIO (por ejemplo, "Universidad Siglo 21", universidades nacionales o privadas, campus, facultades, carreras universitarias):
-     a) Es una institución de educación orientada a ESTUDIANTES y carreras profesionales.
-     b) Si en el catálogo existen categorías o subcategorías que mencionen "Estudiantes", "Para estudiantes", "Universidades", "Educación", "Cursos", "Carreras", "Formación", "Vida universitaria", "Posgrados" o afines, DEBES seleccionarlas en 'categorySelections' y 'subcategorySelections'.
-     c) Su actividad económica debe ser de educación (ej. "Educación y formación", "Educación").
-     d) Su tipo de oferente debe ser "Institución privada" (para universidades privadas como Siglo 21) u "Organismo público" (para universidades estatales/nacionales). NUNCA ONG.
-
-10. INTELIGENCIA SEMÁNTICA PARA SALUD, OBRAS SOCIALES Y HOSPITALES (MANDATORIA):
-   - Si la entidad analizada es una OBRA SOCIAL, HOSPITAL, CLÍNICA, SANATORIO, PREPAGA O CENTRO MÉDICO (por ejemplo, "OSEP Mendoza", hospitales, sanatorios, centros de diagnóstico o salud):
-     a) Su actividad económica ('providerActivities') DEBE ser 'Salud y asistencia social' (o la opción de salud disponible en BD).
-     b) Si es obra social de empleados públicos u hospital público (ej: OSEP): su tipo de oferente ('providerTypes') DEBE ser 'Organismo público'. Si es clínica privada: 'Institución privada'. NUNCA ONG.
-     c) En categorías ('categorySelections') y subcategorías: selecciona todas las opciones del catálogo que mejor definan lo que ofrece (ej: 'Servicio especializado', 'Funcionario público' si es obra social pública, 'Profesional', y cualquier categoría o subcategoría de salud, medicina o trámites que el administrador haya creado en el catálogo).
-
-11. COMPRENSIÓN DINÁMICA DE NUEVAS TAXONOMÍAS CREADAS POR EL ADMINISTRADOR:
-   - El catálogo es completamente dinámico y el administrador puede crear nuevas categorías, subcategorías o actividades en cualquier momento.
-   - Analiza semánticamente el concepto de CADA opción disponible en las listas abajo y selecciona todas las que coincidan genuinamente con el sitio analizado. NUNCA uses plantillas fijas.
-
-12. ENTENDIMIENTO PROFUNDO DE BLOQUES Y TAXONOMÍAS DEL ADMINISTRADOR:
-   - El administrador de Travelgrin crea BLOQUES con nombres específicos (ej: 'Actividad', 'Tipo de Perfil', 'Modalidad en que ofrece sus servicios', 'Categorías y subcategorías', etc.) y les asigna un tipo de taxonomía.
-   - Además, dentro de un bloque pueden existir categorías con una taxonomía diferente (por ejemplo, una categoría con taxonomía 'actividad' o 'tipo').
-   - Analiza la información de CADA bloque con sus categorías y subcategorías creadas por el admin (SIN USAR PLANTILLAS).
-   - Relaciona los títulos de los bloques y las categorías para entender exactamente a qué se refiere cada una.
-   - Selecciona ÚNICAMENTE lo que corresponda de forma REAL y EXACTA al sitio web escrapeado:
-     a) 'providerActivities': La actividad o sector económico REAL de la organización (ej: si es una universidad -> 'Educación y formación'; si es estudio jurídico / legal -> 'Servicios profesionales y técnicos' o afín; si es cámara de comercio / red de negocios -> 'Actividades de asociaciones y organizaciones' o 'Servicios empresariales'; si es hospital / salud -> 'Salud y asistencia social').
-     b) 'providerTypes': El tipo de perfil REAL según lo que es la entidad (ej: si es privada comercial -> 'Institución privada' o 'Empresa'; si es estatal -> 'Organismo público'; etc.).
-     c) 'providerModalities': Las modalidades de atención REALES ('Atención presencial' si tiene ubicación física, sedes o campus; 'Atención online' si opera digitalmente, turnos o plataforma; o ambas).
-     d) 'categorySelections' y 'subcategorySelections': Las categorías y subcategorías que correspondan al contenido y propuesta de la web.
-   - NUNCA inventes 'General' como categoría ni como subcategoría a menos que exista explícitamente en el catálogo. Si no hay subcategorías que apliquen, devuelve array vacío [].
-
-13. DIRECTIVAS ESPECÍFICAS DE CLASIFICACIÓN FACTUAL POR SECTOR:
-   a) MODA, INDUMENTARIA Y TEXTIL:
-      - Si la entidad o web ofrece moda, ropa, calzado, indumentaria, accesorios de moda, diseño textil, colecciones de temporada o alta costura:
-        * 'providerActivities': DEBE ser 'Moda y diseño' (o la opción de moda/diseño disponible en BD).
-        * 'categorySelections': Selecciona la/s categoría/s del catálogo que correspondan a moda, indumentaria, diseño o compras.
-   b) MEDIOS, CULTURA Y ENTRETENIMIENTO:
-      - Si la entidad ofrece espectáculos, teatro, cine, conciertos, música, eventos culturales o recreativos, festivales, arte, producción audiovisual o entretenimiento nocturno:
-        * 'providerActivities': DEBE ser 'Medios, cultura y entretenimiento' (o 'Arte, cultura y entretenimiento' según BD).
-        * 'categorySelections': Selecciona la/s categoría/s de entretenimiento, cultura o eventos del catálogo.
-   c) ASESORAMIENTO LEGAL, VISAS, CIUDADANÍA Y TRÁMITES MIGRATORIOS (ej: consultoras legales, CBI, estudios jurídicos):
-        * 'providerActivities': DEBE ser 'Servicios profesionales y técnicos'.
-        * PROHIBIDO TERMINANTEMENTE colocar 'Bienes raíces' a una consultora legal o de inmigración (incluso si tramitan residencia por inversión). 'Bienes raíces' es ÚNICAMENTE para agencias inmobiliarias y venta/alquiler de propiedades.
-        * 'categorySelections': 'Gestiones migratorias y visas' (o la categoría migratoria/legal correspondiente).
-        * 'subcategorySelections': 'Residencia y ciudadanía', 'Visas de entrada', 'Permisos de trabajo', etc. según corresponda a lo que ofrece la web.
-   d) BIENES RAÍCES / INMOBILIARIA:
-      - Solo seleccionar 'Bienes raíces' si la web es de una empresa inmobiliaria, broker o desarrolladora de inmuebles cuya actividad central sea comprar, vender o alquilar propiedades o lotes.
-   e) TECNOLOGÍA Y DIGITAL:
-      - 'providerActivities': 'Tecnologías de la información y comunicación' (o 'Tecnología, software e información').
-   f) TURISMO Y ALOJAMIENTO:
-      - 'providerActivities': 'Hostelería, alojamiento y turismo'.
+9. COMPRENSIÓN DINÁMICA DE BLOQUES Y TAXONOMÍAS DEL ADMINISTRADOR:
+   - El administrador crea BLOQUES y les asigna un tipo de taxonomía (actividad, tipo, modalidad, categoría, idiomas).
+   - Cada bloque contiene categorías y subcategorías creadas por el admin (SIN PLANTILLAS FIJAS).
+   - Analiza la información de CADA bloque con sus opciones correspondientes y clasifica con máxima precisión:
+     a) 'providerActivities': Opciones pertenecientes a bloques/categorías de actividad del catálogo que coincidan genuinamente con la entidad (o [] si ninguna aplica).
+     b) 'providerTypes': Opciones pertenecientes a bloques/categorías de tipo del catálogo (o [] si ninguna aplica).
+     c) 'providerModalities': Opciones pertenecientes a bloques/categorías de modalidad del catálogo (o [] si ninguna aplica).
+     d) 'categorySelections' y 'subcategorySelections': Opciones pertenecientes a los bloques de categorías del catálogo (o [] si ninguna aplica).
+   - ESTÁ TERMINANTEMENTE PROHIBIDO inventar opciones o categorías fuera del catálogo oficial suministrado. Si no hay opciones aplicables, devuelve array vacío [].
 
 ${buildTaxonomyCatalogPromptSection(taxonomies)}
 
@@ -2661,7 +2621,7 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("");
 
   lines.push("1. SECCIÓN ACTIVIDADES ('providerActivities' - Array de strings):");
-  lines.push("Examina los bloques de actividad y selecciona ÚNICAMENTE la/s actividad/es reales de la base de datos que definan el núcleo de la entidad:");
+  lines.push("Examina los bloques de actividad y selecciona ÚNICAMENTE la/s actividad/es reales creadas en el catálogo que definan el núcleo de la entidad:");
   if (actBlocks.length > 0) {
     actBlocks.forEach((b) => {
       lines.push(`  Bloque: "${b.blockName}"`);
@@ -2672,12 +2632,12 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   } else if (allActOptions.size > 0) {
     allActOptions.forEach((a) => lines.push(`   - "${a}"`));
   } else {
-    lines.push('   - "Servicios profesionales y técnicos"');
+    lines.push('   (No hay actividades definidas en el catálogo. Si no aplica ninguna, devuelve array vacío [])');
   }
   lines.push("");
 
   lines.push("2. SECCIÓN TIPO DE OFERENTE / PERFIL ('providerTypes' - Array de strings):");
-  lines.push("Examina los bloques de tipo y selecciona el/los perfiles según la naturaleza legal comprobada:");
+  lines.push("Examina los bloques de tipo y selecciona el/los perfiles según las opciones creadas en el catálogo:");
   if (typeBlocks.length > 0) {
     typeBlocks.forEach((b) => {
       lines.push(`  Bloque: "${b.blockName}"`);
@@ -2688,12 +2648,12 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   } else if (allTypeOptions.size > 0) {
     allTypeOptions.forEach((t) => lines.push(`   - "${t}"`));
   } else {
-    lines.push('   - "Institución privada", "Organismo público", "ONG", "Empresa"');
+    lines.push('   (No hay tipos definidos en el catálogo. Si no aplica ninguno, devuelve array vacío [])');
   }
   lines.push("");
 
   lines.push("3. SECCIÓN MODALIDAD DE SERVICIO ('providerModalities' - Array de strings):");
-  lines.push("Examina los bloques de modalidad y selecciona las modalidades comprobadas que ofrece la web (ej: [\"Atención presencial\", \"Atención online\"]):");
+  lines.push("Examina los bloques de modalidad y selecciona las modalidades reales del catálogo que ofrezca la web:");
   if (modBlocks.length > 0) {
     modBlocks.forEach((b) => {
       lines.push(`  Bloque: "${b.blockName}"`);
@@ -2704,7 +2664,7 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   } else if (allModOptions.size > 0) {
     allModOptions.forEach((m) => lines.push(`   - "${m}"`));
   } else {
-    lines.push('   - "Atención presencial", "Atención online"');
+    lines.push('   (No hay modalidades definidas en el catálogo. Si no aplica ninguna, devuelve array vacío [])');
   }
   lines.push("");
 
@@ -2713,12 +2673,10 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("");
   lines.push("*** REGLA SUPREMA DE EXACTITUD Y CERO ALUCINACIONES ***:");
   lines.push("1. El catálogo de categorías y subcategorías es ESTRICTAMENTE CERRADO y administrado por el usuario.");
-  lines.push("2. Examina CADA BLOQUE disponible en el catálogo de abajo (ej: 'TIPO DE SOLUCIÓN', 'TIPO DE PUBLICACIÓN', 'REQUISITOS', etc.) y selecciona TODAS las opciones que apliquen a los servicios reales de la web analizada:");
-  lines.push("   - Si la entidad organiza competencias, torneos, ligas, exhibiciones o equipos competitivos, debes seleccionar 'Evento, feria o competencia' en el bloque correspondiente.");
-  lines.push("   - Si ofrece programas, cursos, clases o entrenamientos específicos, selecciona 'Curso o formación', 'Programa' o 'Servicio especializado'.");
-  lines.push("   - En 'providerActivities', si la entidad es un centro deportivo o gimnasio, selecciona actividades de deportes, fitness o bienestar; jamás elijas agricultura ni medios de comunicación.");
-  lines.push("   - En 'providerModalities', si la entidad es un local físico (gimnasio, club, consultorio, centro de salud, etc.), la modalidad OBLIGATORIA es 'Atención presencial'.");
-  lines.push("   - ESTÁ TERMINANTEMENTE PROHIBIDO crear o inventar nombres de categorías o subcategorías que no existan en la lista de abajo.");
+  lines.push("2. Examina CADA BLOQUE disponible en el catálogo de abajo y selecciona TODAS las opciones que apliquen a los servicios reales de la web analizada:");
+  lines.push("   - Selecciona ÚNICAMENTE categorías y subcategorías que existan explícitamente en el catálogo oficial de abajo.");
+  lines.push("   - ESTÁ TERMINANTEMENTE PROHIBIDO crear o inventar nombres de categorías, actividades o subcategorías que no existan en la lista.");
+  lines.push("   - Si ninguna subcategoría aplica a los servicios de la web, devuelve array vacío [] en 'subcategorySelections'.");
   lines.push("");
   lines.push("Estructura de Bloques de Categorías disponibles:");
   if (catBlocks.length > 0) {
@@ -2857,11 +2815,11 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 4. CLASIFICACIÓN TAXONÓMICA DINÁMICA Y SELECCIÓN MÚLTIPLE:
    - El administrador crea los bloques con taxonomías: actividad, modalidad, tipos, categoria, idiomas.
    - PUEDES SELECCIONAR MÁS DE UNA OPCIÓN en cada sección si la web analizada legítimamente corresponde o abarca varias.
-   - 'providerActivities': Selecciona en array las actividades nucleares centrales (ej: si es un centro deportivo o gimnasio -> "Deportes, fitness y bienestar"; si es una universidad -> "Educación y formación"; si es un hospital -> "Salud y asistencia social"). ESTÁ ESTRICTAMENTE PROHIBIDO seleccionar agricultura, ganadería o medios para centros deportivos o gimnasios.
-   - 'providerTypes': Array de tipos según la naturaleza legal o de dominio (.edu.ar / organismo estatal o municipal -> "Organismo público"; empresa privada -> "Institución privada" o "Empresa", etc.).
-   - 'providerModalities': Array de modalidades comprobadas en la web. Si es un establecimiento físico (gimnasio, club, consultorio, complejo, sede), la modalidad OBLIGATORIA es "Atención presencial". NO marques "Atención online" a menos que ofrezca clases virtuales a distancia reales. NO selecciones "Incluye gestión o trámite" a menos que sea una oficina de gestiones burocráticas o consulares.
-   - 'categorySelections': Array con las categorías de los bloques de categoría que apliquen a lo que ofrece la web. Si ofrece competencias, torneos, ligas, natación competitiva o deportes competitivos, selecciona 'Evento, feria o competencia' en el bloque correspondiente (ej: TIPO DE SOLUCIÓN). Si ofrece clases o programas de entrenamiento, selecciona 'Servicio especializado', 'Curso o formación' o 'Programa'.
-   - 'subcategorySelections': Array con las subcategorías específicas correspondientes.
+   - 'providerActivities': Selecciona en array las actividades nucleares centrales EXCLUSIVAMENTE de la sección ACTIVIDADES del catálogo de abajo. Si ninguna actividad del catálogo aplica, devuelve array vacío []. NUNCA inventes nombres de actividad.
+   - 'providerTypes': Array de tipos EXCLUSIVAMENTE de la sección TIPO DE OFERENTE del catálogo de abajo. Si ninguno aplica, devuelve array vacío [].
+   - 'providerModalities': Array de modalidades EXCLUSIVAMENTE de la sección MODALIDAD del catálogo de abajo según cómo preste sus servicios la web. Si ninguna aplica, devuelve array vacío [].
+   - 'categorySelections': Array con las categorías de los bloques de categoría del catálogo de abajo que apliquen a lo que ofrece la web. NUNCA inventes categorías ni subcategorías.
+   - 'subcategorySelections': Array con las subcategorías específicas hijas del catálogo de abajo (o array vacío [] si ninguna aplica).
    - 'languages': Array con los idiomas comprobados de atención en la web.
 5. REGLA DE IDIOMA Y TRADUCCIÓN (ESTRICTA):
    - Redacta TODOS los campos (título, descripción principal, bloques personalizados e información del proveedor) EXCLUSIVAMENTE en ESPAÑOL.
