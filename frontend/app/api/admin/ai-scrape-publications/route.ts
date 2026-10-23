@@ -4248,6 +4248,7 @@ function classifySectorAndTaxonomy(
     !isEducationalEntity &&
     !isHealthEntity &&
     !isLegalOrConsulting &&
+    !isSportsOrFitness &&
     /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(lowerCorpus);
 
   const isTechEntity =
@@ -4511,16 +4512,20 @@ function classifySectorAndTaxonomy(
       actScore += 120;
     }
     if (isSportsOrFitness) {
-      if (/deporte|fitness|gimnasio|bienestar|recreaci/i.test(aNorm)) {
+      if (/deporte|fitness|gimnasio|bienestar|recreaci|actividad\s+f[ií]sica/i.test(aNorm)) {
         actScore += 160;
+      }
+      // If no dedicated sports activity exists in DB, culture/entertainment/recreation is the natural fit:
+      if (/medio|cultura|entretenimiento|ocio|espectaculo/i.test(aNorm)) {
+        actScore += 120;
       }
       if (/agricultura|ganaderia|pesca/i.test(aNorm)) {
         actScore = -150;
       }
-      if (/medio|cultura|entretenimiento/i.test(aNorm)) {
+      if (/industria|mineria|construcci|manufactura/i.test(aNorm)) {
         actScore = -150;
       }
-      if (/industria|mineria|construcci/i.test(aNorm)) {
+      if (/hosteler|turism|alojam/i.test(aNorm)) {
         actScore = -150;
       }
     }
@@ -4575,7 +4580,8 @@ function classifySectorAndTaxonomy(
       selectedActivities = [actsToEvaluate[0]];
     }
   } else if (isSportsOrFitness) {
-    const sportsAct = actsToEvaluate.find((a) => /deporte|fitness|gimnasio|bienestar|recreaci/i.test(a));
+    const sportsAct = actsToEvaluate.find((a) => /deporte|fitness|gimnasio|bienestar|actividad\s+f[ií]sica|recreaci/i.test(a)) ||
+                      actsToEvaluate.find((a) => /cultura|entretenimiento|espect[aá]culo|medio/i.test(a));
     if (sportsAct) {
       selectedActivities = [sportsAct];
     } else if (scoredActs.length > 0 && scoredActs[0].score > 0) {
@@ -5967,12 +5973,13 @@ function enforceStrictTaxonomyGuardrails(
 
   // Sports & Gym intelligence: strictly enforce sports activity, presencial modality, and competition category
   if (isSportsOrGym) {
-    // 1. Purge polluting activities (agriculture, media, healthcare, mining)
+    // 1. Purge polluting activities (agriculture, hospitality, healthcare, mining, manufacturing)
     if (Array.isArray(publication.providerActivities)) {
       publication.providerActivities = publication.providerActivities.filter(
-        (a) => !/agricultura|ganader|pesca|medio|cultura|entretenimiento|salud|asistencia\s+social|miner|construcci|inmobiliari/i.test(a)
+        (a) => !/agricultura|ganader|pesca|salud|asistencia\s+social|miner|construcci|inmobiliari|hosteler|turism|alojam|manufactura/i.test(a)
       );
-      const sportsAct = taxonomies?.activities?.find((a: string) => /deporte|fitness|bienestar|gimnasio/i.test(a));
+      const sportsAct = taxonomies?.activities?.find((a: string) => /deporte|fitness|bienestar|gimnasio|actividad\s+f[ií]sica|recreaci/i.test(a)) ||
+                        taxonomies?.activities?.find((a: string) => /cultura|entretenimiento|medio/i.test(a));
       if (sportsAct && !publication.providerActivities.includes(sportsAct)) {
         publication.providerActivities = [sportsAct, ...publication.providerActivities];
       }
@@ -5998,7 +6005,21 @@ function enforceStrictTaxonomyGuardrails(
       }
     }
 
-    // 3. Categories: competition, tournaments, competitive teams
+    // 3. Types: municipal or public sports entities
+    const isMunicipalOrGov = /\b(municipal|municipalidad|comuna|gobierno|estatal|p[uú]blico)\b/i.test(
+      `${publication.title} ${publication.publisherName || ""} ${publication.url || ""}`
+    );
+    if (isMunicipalOrGov && taxonomies?.types?.length) {
+      const pubType = taxonomies.types.find((t: string) => /p[uú]blic|estatal|gobiern|municipal/i.test(t));
+      if (pubType) {
+        if (!Array.isArray(publication.providerTypes)) publication.providerTypes = [];
+        if (!publication.providerTypes.includes(pubType)) {
+          publication.providerTypes = [pubType, ...publication.providerTypes.filter((t: string) => !/privad|empresa/i.test(t))];
+        }
+      }
+    }
+
+    // 4. Categories: competition, tournaments, competitive teams
     const hasCompetitiveOfferings = /\b(competitivo|competitiva|competencia|torneo|liga|promocionales|campeonato|federad[oa]s?)\b/i.test(allText);
     if (hasCompetitiveOfferings && taxonomies) {
       const compCat = allValidCatalogCategories.find((c) => /competencia|evento|feria/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
