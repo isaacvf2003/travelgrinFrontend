@@ -990,19 +990,19 @@ async function executeModelCall(
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(25000),
+            signal: AbortSignal.timeout(8500),
             body: JSON.stringify(payload),
           }
         );
 
         if (res.status === 429) {
-          await new Promise((r) => setTimeout(r, 600));
+          await new Promise((r) => setTimeout(r, 400));
           res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(15000),
+              signal: AbortSignal.timeout(5000),
               body: JSON.stringify(payload),
             }
           );
@@ -1018,7 +1018,7 @@ async function executeModelCall(
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(15000),
+              signal: AbortSignal.timeout(5000),
               body: JSON.stringify(fallbackPayload),
             }
           );
@@ -2923,7 +2923,7 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       userPrompt,
       context.apiKey,
       context.provider || "auto",
-      3500
+      2200
     );
 
     const parsed = extractJson(rawText);
