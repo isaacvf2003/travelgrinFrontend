@@ -2623,10 +2623,16 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
 
   const norm = (s: any) => String(s || "").trim().toLowerCase();
   const actBlocks = blocks.filter((b) => norm(b.blockTaxonomy) === "actividad" || norm(b.blockName).includes("actividad") || norm(b.blockName).includes("sector"));
-  const typeBlocks = blocks.filter((b) => ["tipo", "tipos"].includes(norm(b.blockTaxonomy)) || norm(b.blockName).includes("tipo") || norm(b.blockName).includes("perfil"));
+  const typeBlocks = blocks.filter((b) => {
+    const bTax = norm(b.blockTaxonomy);
+    const bName = norm(b.blockName);
+    if (bName.includes("soluci") || bName.includes("publicaci") || bName.includes("recurso")) return false;
+    if (["tipo", "tipos"].includes(bTax)) return true;
+    return /\b(?:tipo\s+de\s+(?:oferente|perfil|entidad|instituci[oó]n|proveedor)|perfil)\b/i.test(bName) || bName === "tipo" || bName === "tipos";
+  });
   const modBlocks = blocks.filter((b) => norm(b.blockTaxonomy) === "modalidad" || norm(b.blockName).includes("modalidad"));
-  const catBlocks = blocks.filter((b) => !actBlocks.includes(b) && !typeBlocks.includes(b) && !modBlocks.includes(b) && (["", "categoria", "default", "predeterminado", "inherit"].includes(norm(b.blockTaxonomy)) || norm(b.blockName).includes("categor") || norm(b.blockName).includes("propuesta") || norm(b.blockName).includes("publicaci")));
-  const otherBlocks = blocks.filter((b) => !actBlocks.includes(b) && !typeBlocks.includes(b) && !modBlocks.includes(b) && !catBlocks.includes(b));
+  const catBlocks = blocks.filter((b) => !actBlocks.includes(b) && !typeBlocks.includes(b) && !modBlocks.includes(b));
+  const otherBlocks: typeof blocks = [];
 
   const allActOptions = new Set<string>();
   actBlocks.forEach((b) => (b.parentCategories || []).forEach((c) => { if (c.name) allActOptions.add(c.name); }));
@@ -2707,11 +2713,12 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("");
   lines.push("*** REGLA SUPREMA DE EXACTITUD Y CERO ALUCINACIONES ***:");
   lines.push("1. El catálogo de categorías y subcategorías es ESTRICTAMENTE CERRADO y administrado por el usuario.");
-  lines.push("2. Si el sitio web escrapeado pertenece a un rubro para el cual el administrador NO ha creado una categoría o subcategoría en las opciones de abajo (por ejemplo, si la web es de un canal de televisión, streaming o deportes, y NO existe una categoría en el catálogo):");
-  lines.push("   - DEBES DEVOLVER: 'categorySelections': [], 'subcategorySelections': [], 'category': '', 'subcategory': ''.");
-  lines.push("   - ESTÁ TERMINANTEMENTE PROHIBIDO crear o inventar nombres de categorías o subcategorías que no existan en la lista (ej: NUNCA inventes 'Entretenimiento y Medios', 'Deportes', 'Televisión y Streaming', etc.).");
-  lines.push("   - NUNCA fuerces una categoría no relacionada (como 'Curso o formación' o 'Estudiante') si la web no es de esa área.");
-  lines.push("   - ÚNICAMENTE selecciona categorías o subcategorías si coinciden genuinamente y existen en las opciones de abajo.");
+  lines.push("2. Examina CADA BLOQUE disponible en el catálogo de abajo (ej: 'TIPO DE SOLUCIÓN', 'TIPO DE PUBLICACIÓN', 'REQUISITOS', etc.) y selecciona TODAS las opciones que apliquen a los servicios reales de la web analizada:");
+  lines.push("   - Si la entidad organiza competencias, torneos, ligas, exhibiciones o equipos competitivos, debes seleccionar 'Evento, feria o competencia' en el bloque correspondiente.");
+  lines.push("   - Si ofrece programas, cursos, clases o entrenamientos específicos, selecciona 'Curso o formación', 'Programa' o 'Servicio especializado'.");
+  lines.push("   - En 'providerActivities', si la entidad es un centro deportivo o gimnasio, selecciona actividades de deportes, fitness o bienestar; jamás elijas agricultura ni medios de comunicación.");
+  lines.push("   - En 'providerModalities', si la entidad es un local físico (gimnasio, club, consultorio, centro de salud, etc.), la modalidad OBLIGATORIA es 'Atención presencial'.");
+  lines.push("   - ESTÁ TERMINANTEMENTE PROHIBIDO crear o inventar nombres de categorías o subcategorías que no existan en la lista de abajo.");
   lines.push("");
   lines.push("Estructura de Bloques de Categorías disponibles:");
   if (catBlocks.length > 0) {
@@ -2844,16 +2851,16 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 3. Fidelidad factual y Reputación en Google Maps:
    - Basa los textos en los servicios, ofertas, propuestas y datos reales de la web de "${entityName}".
    - 'detectedFoundingYear': Año real y verdadero en que se fundó la institución o comenzó sus actividades históricas SOLO si se menciona explícitamente en el texto del sitio web analizado o si es un hecho institucional histórico comprobado (ej: "1987", "1969", "1903", "1995", "1821"). NUNCA inventes, calcules ni estimes años arbitrarios. Si no existe un año real de fundación comprobado en la web o registro institucional verificado, DEBES DEVOLVER UNA CADENA VACÍA "". TOTALMENTE PROHIBIDO tomar el año de copyright del pie de página de la web (como "2024", "2025" o "2026").
-   - 'detectedRating': Calificación numérica exacta de 1.0 a 5.0 (ej: "4.8", "2.6", "4.5", "5.0") que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). Si hay múltiples sedes, toma OBLIGATORIAMENTE la de la sede principal oficial. Si no posee ficha en Google Maps o no hay datos exactos, pon "0".
-   - 'detectedReviewCount': Cantidad exacta de reseñas / opiniones de usuarios que tiene en Google Maps en esa sede principal (ej: "714", "142", "26"). Si no posee o no hay datos exactos, pon "0".
+   - 'detectedRating': Calificación numérica exacta de 1.0 a 5.0 que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL. Si ya viene informada en los datos reales de referencia ("Calificación verificada"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA NI INVENTAR (ej: "4.3"). Si no posee o no hay datos, pon "0". NUNCA inventes números ficticios.
+   - 'detectedReviewCount': Cantidad exacta de reseñas / opiniones en Google Maps de esa sede principal. Si ya viene informada en los datos reales de referencia ("Reseñas verificadas"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA NI INVENTAR (ej: si tiene 776, pon "776"). Si no posee o no hay datos, pon "0". NUNCA inventes números redondos ficticios como 500 o 200.
    - 'detectedCommentsUrl': Enlace directo o de búsqueda a las opiniones en Google Maps de su sede principal.
 4. CLASIFICACIÓN TAXONÓMICA DINÁMICA Y SELECCIÓN MÚLTIPLE:
    - El administrador crea los bloques con taxonomías: actividad, modalidad, tipos, categoria, idiomas.
    - PUEDES SELECCIONAR MÁS DE UNA OPCIÓN en cada sección si la web analizada legítimamente corresponde o abarca varias.
-   - 'providerActivities': Selecciona en array las actividades nucleares centrales (ej: en universidades públicas o privadas -> "Educación y formación"; no selecciones agricultura solo por una facultad de agronomía; si una empresa ofrece múltiples actividades centrales reales, selecciona todas).
-   - 'providerTypes': Array de tipos según la naturaleza legal o de dominio (.edu.ar / universidad pública -> "Organismo público"; empresa privada -> "Institución privada" o "Empresa", etc.).
-   - 'providerModalities': Array de modalidades comprobadas en la web (ej: ["Atención presencial", "Atención online"]).
-   - 'categorySelections': Array con las categorías padre de los bloques de taxonomía categoría que apliquen a lo que ofrece la web.
+   - 'providerActivities': Selecciona en array las actividades nucleares centrales (ej: si es un centro deportivo o gimnasio -> "Deportes, fitness y bienestar"; si es una universidad -> "Educación y formación"; si es un hospital -> "Salud y asistencia social"). ESTÁ ESTRICTAMENTE PROHIBIDO seleccionar agricultura, ganadería o medios para centros deportivos o gimnasios.
+   - 'providerTypes': Array de tipos según la naturaleza legal o de dominio (.edu.ar / organismo estatal o municipal -> "Organismo público"; empresa privada -> "Institución privada" o "Empresa", etc.).
+   - 'providerModalities': Array de modalidades comprobadas en la web. Si es un establecimiento físico (gimnasio, club, consultorio, complejo, sede), la modalidad OBLIGATORIA es "Atención presencial". NO marques "Atención online" a menos que ofrezca clases virtuales a distancia reales. NO selecciones "Incluye gestión o trámite" a menos que sea una oficina de gestiones burocráticas o consulares.
+   - 'categorySelections': Array con las categorías de los bloques de categoría que apliquen a lo que ofrece la web. Si ofrece competencias, torneos, ligas, natación competitiva o deportes competitivos, selecciona 'Evento, feria o competencia' en el bloque correspondiente (ej: TIPO DE SOLUCIÓN). Si ofrece clases o programas de entrenamiento, selecciona 'Servicio especializado', 'Curso o formación' o 'Programa'.
    - 'subcategorySelections': Array con las subcategorías específicas correspondientes.
    - 'languages': Array con los idiomas comprobados de atención en la web.
 5. REGLA DE IDIOMA Y TRADUCCIÓN (ESTRICTA):
@@ -2903,6 +2910,8 @@ ${customBlocksDirective}
 - Título original de la web: "${context.rawPageTitle || entityName}"
 - Meta descripción de la web: "${context.metaDescription || "N/A"}"
 - Ubicación: "${locationText || "No informada"}"
+- Dirección física detectada: "${context.address || "No informada"}"
+- Google Maps (Sede Principal): Calificación verificada: "${context.rating && context.rating !== "0" ? context.rating : "No disponible"}" | Reseñas verificadas: "${context.reviewCount && context.reviewCount !== "0" ? context.reviewCount : "No disponible"}" | Link: "${context.commentsUrl || "N/A"}"
 - Encabezados principales del sitio: ${(context.headings || []).slice(0, 12).join(" | ") || "N/A"}
 - Servicios detectados: ${(context.servicesList || []).slice(0, 10).join(" | ") || "N/A"}
 - Párrafos de texto extraídos de la web:
@@ -3215,15 +3224,19 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       }
     }
 
-    let detectedRating = parsed.detectedRating ? String(parsed.detectedRating).trim() : undefined;
+    let detectedRating = (context.rating && context.rating !== "0")
+      ? context.rating
+      : (parsed.detectedRating ? String(parsed.detectedRating).trim() : undefined);
     if (detectedRating && !isNaN(parseFloat(detectedRating))) {
       const rNum = parseFloat(detectedRating);
       if (rNum >= 1 && rNum <= 5) detectedRating = rNum.toFixed(1);
       else if (rNum === 0) detectedRating = "0";
     }
 
-    let detectedReviewCount = parsed.detectedReviewCount ? String(parsed.detectedReviewCount).replace(/[^0-9]/g, "").trim() : undefined;
-    let detectedCommentsUrl = parsed.detectedCommentsUrl ? String(parsed.detectedCommentsUrl).trim() : undefined;
+    let detectedReviewCount = (context.reviewCount && context.reviewCount !== "0")
+      ? context.reviewCount
+      : (parsed.detectedReviewCount ? String(parsed.detectedReviewCount).replace(/[^0-9]/g, "").trim() : undefined);
+    let detectedCommentsUrl = context.commentsUrl || (parsed.detectedCommentsUrl ? String(parsed.detectedCommentsUrl).trim() : undefined);
 
     return {
       success: true,
