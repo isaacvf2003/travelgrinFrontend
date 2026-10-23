@@ -3487,7 +3487,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         const entAct = actividadRoots.find((r) => /arte|cultura|entretenimiento|recreaci/i.test(r.description.toLowerCase()));
         if (entAct) resolvedActivities.add(entAct.description);
       } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
-        const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar/i.test(r.description.toLowerCase()));
+        const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar|actividad\s+f[ií]sica|recreaci/i.test(r.description.toLowerCase())) ||
+                          actividadRoots.find((r) => /cultura|entretenimiento|espect[aá]culo|medio/i.test(r.description.toLowerCase()));
         if (sportsAct) resolvedActivities.add(sportsAct.description);
       } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
         const gastroAct = actividadRoots.find((r) => /gastronom|restauraci|hosteler/i.test(r.description.toLowerCase()));
@@ -3514,10 +3515,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
 
     if (isEduDraft) {
-      resolvedActivities.delete("Hostelería, alojamiento y turismo");
-      resolvedActivities.delete("Servicios profesionales y técnicos");
-      resolvedActivities.delete("Agricultura, ganadería y pesca");
-      resolvedActivities.delete("Comercio y automotriz");
+      for (const act of Array.from(resolvedActivities)) {
+        if (/hosteler|turism|alojam|profesional|tecnic|agricult|ganader|pesca|comercio/i.test(act)) {
+          resolvedActivities.delete(act);
+        }
+      }
       const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
       if (eduAct) resolvedActivities.add(eduAct.description);
     }
@@ -3526,20 +3528,23 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       `${draft.title} ${draft.publisherName || ""} ${draft.url || ""} ${draft.description || ""}`.toLowerCase()
     );
     if (isLegalConsultingDraft) {
-      resolvedActivities.delete("Bienes raíces");
-      resolvedActivities.delete("Servicios inmobiliarios y bienes raíces");
+      for (const act of Array.from(resolvedActivities)) {
+        if (/inmobiliari|bienes\s*ra[ií]ces/i.test(act)) {
+          resolvedActivities.delete(act);
+        }
+      }
       const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
       if (profAct) resolvedActivities.add(profAct.description);
     }
 
     if (isSportsGymDraft) {
-      resolvedActivities.delete("Salud y asistencia social");
-      resolvedActivities.delete("Medios, cultura y entretenimiento");
-      resolvedActivities.delete("Agricultura, ganadería y pesca");
-      resolvedActivities.delete("Industria, minería y construcción");
-      resolvedActivities.delete("Servicios inmobiliarios y bienes raíces");
-      resolvedActivities.delete("Comercio y automotriz");
-      const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar|gimnasio/i.test(r.description.toLowerCase()));
+      for (const act of Array.from(resolvedActivities)) {
+        if (/hosteler|turism|alojam|agricult|ganader|pesca|miner|construcci|inmobiliari|salud\s+y|asistencia\s+social|manufactura/i.test(act)) {
+          resolvedActivities.delete(act);
+        }
+      }
+      const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar|gimnasio|actividad\s+f[ií]sica|recreaci/i.test(r.description.toLowerCase())) ||
+                        actividadRoots.find((r) => /cultura|entretenimiento|espect[aá]culo|medio/i.test(r.description.toLowerCase()));
       if (sportsAct) {
         resolvedActivities.add(sportsAct.description);
       }
@@ -3568,27 +3573,31 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     const isPublicGov =
       /\b(\.gov|\.gob|\.mil)\b/i.test(draft.url || "") ||
-      /\b(organismo p[uú]blico|hospital p[uú]blico|hospital nacional|samic|ministerio|secretar[ií]a|municipalidad|gobierno|universidad nacional|nacional de)\b/i.test(`${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase());
+      /\b(organismo p[uú]blico|hospital p[uú]blico|hospital nacional|samic|ministerio|secretar[ií]a|municipalidad|municipal|comunal|gobierno|universidad nacional|nacional de|ciudad de)\b/i.test(`${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase());
 
     if (isPublicGov) {
-      resolvedTypes.delete("Institución privada");
-      resolvedTypes.delete("Agencia");
-      resolvedTypes.delete("Profesional independiente");
-      const pubType = tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description.toLowerCase()));
+      for (const t of Array.from(resolvedTypes)) {
+        if (/privad|agencia|empresa|profesional independiente/i.test(t)) {
+          resolvedTypes.delete(t);
+        }
+      }
+      const pubType = tipoRoots.find((r) => /p[uú]blico|estatal|gobiern|municipal/i.test(r.description.toLowerCase()));
       if (pubType) resolvedTypes.add(pubType.description);
     }
 
     if (isOngDraft) {
-      resolvedTypes.delete("Institución privada");
-      resolvedTypes.delete("Empresa");
-      resolvedTypes.delete("Profesional independiente");
+      for (const t of Array.from(resolvedTypes)) {
+        if (/privad|empresa|profesional independiente/i.test(t)) {
+          resolvedTypes.delete(t);
+        }
+      }
       const ongType = tipoRoots.find((r) => /\b(?:ong|sin fines de lucro|fundaci|asociaci)\b/i.test(r.description.toLowerCase()));
       if (ongType) resolvedTypes.add(ongType.description);
     }
 
     if (resolvedTypes.size === 0 && tipoRoots.length > 0) {
       const defaultMatch = isPublicGov
-        ? (tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description.toLowerCase())) || tipoRoots[0])
+        ? (tipoRoots.find((r) => /p[uú]blico|estatal|gobiern|municipal/i.test(r.description.toLowerCase())) || tipoRoots[0])
         : isOngDraft
         ? (tipoRoots.find((r) => /\b(?:ong|sin fines de lucro|fundaci|asociaci)\b/i.test(r.description.toLowerCase())) || tipoRoots[0])
         : (tipoRoots.find((r) => /privad|empresa/i.test(r.description.toLowerCase())) || tipoRoots[0]);
@@ -3608,8 +3617,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (!onlineClasses) {
         filteredMods = filteredMods.filter((m: string) => !/online|virtual|remoto|distancia/i.test(m));
       }
-      const presMod = modalidadRoots.find((r) => /presencial/i.test(r.description.toLowerCase()))?.description || "Atención presencial";
-      if (!filteredMods.includes(presMod)) {
+      const presMod = modalidadRoots.find((r) => /presencial/i.test(r.description.toLowerCase()))?.description;
+      if (presMod && !filteredMods.includes(presMod)) {
         filteredMods.unshift(presMod);
       }
       setPProviderModalities(filteredMods);
