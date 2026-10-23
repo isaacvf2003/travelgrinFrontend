@@ -4424,10 +4424,10 @@ function classifySectorAndTaxonomy(
     if (totalParentScore > highestParentScore && totalParentScore >= 15) {
       highestParentScore = totalParentScore;
       bestParent = parent.name;
-      bestSub = bestSubForThisParent || (parent.subcategories.length ? parent.subcategories[0] : "");
+      bestSub = bestSubForThisParent || "";
     }
 
-    const fallbackSubForParent = bestSubForThisParent || (parent.subcategories.length ? parent.subcategories[0] : "");
+    const fallbackSubForParent = bestSubForThisParent || "";
     if (totalParentScore > 0) {
       scoredParents.push({
         name: parent.name,
