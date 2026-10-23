@@ -1912,7 +1912,7 @@ function matchToCatalogPool(items: string[], pool: string[]): string[] {
       matched.add(substring.original);
       continue;
     }
-    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
+    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
     const tokenMatch = poolWithNorm.find((p) =>
       itemTokens.some((t) => {
         const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -2210,7 +2210,7 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       const scoredCats: { cat: string; score: number }[] = [];
       for (const catName of nonOngPool) {
         const cNorm = catName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
+        const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
         let score = 0;
 
         // Hard negative constraint: If entity is medical/health, NEVER match visa/migration categories!
@@ -2219,6 +2219,10 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
         }
         // If entity is university/education, NEVER match visa/migration categories
         if (isEducationalEntity && /visa|migra/i.test(cNorm)) {
+          continue;
+        }
+        // Gym/Sports: never match false onboarding or generic categories
+        if (isSportsOrGym && /explorando\s*opciones|servicio\s*especializado|requisitos?\s*previos?/i.test(cNorm)) {
           continue;
         }
 
@@ -2235,7 +2239,8 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
           if (matchedNode && Array.isArray(matchedNode.subcategories)) {
             for (const sub of matchedNode.subcategories) {
               const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-              const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
+              if (isSportsOrGym && /explorando\s*opciones|servicio\s*especializado|requisitos?\s*previos?/i.test(sNorm)) continue;
+              const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
               if (fullTextCorpus.includes(sNorm)) score += 35;
               for (const tok of sTokens) {
                 const escapedTok = tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -2268,7 +2273,7 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
     }
 
     // Never output "General" if not explicitly part of the categories pool in DB
-    const finalCategories = matchedCats.filter((c) => c !== "General" || categoriesPool.includes("General"));
+    let finalCategories = matchedCats.filter((c) => c !== "General" || categoriesPool.includes("General"));
     const finalCat = finalCategories[0] || "";
 
     // Collect all valid subcategories belonging to any of the selected categories
@@ -2378,6 +2383,8 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       if (cleanActivities.length === 0 && sportsAct) {
         cleanActivities = [sportsAct];
       }
+      finalCategories = finalCategories.filter((c) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(c));
+      matchedSubs = matchedSubs.filter((s) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(s));
     }
 
     if (isLegalOrConsulting) {
@@ -2433,8 +2440,6 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
         if (scoredActsList[1] && scoredActsList[1].score >= 25 && scoredActsList[1].score >= scoredActsList[0].score * 0.6) {
           cleanActivities.push(scoredActsList[1].act);
         }
-      } else if (poolToUse[0]) {
-        cleanActivities.push(poolToUse[0]);
       }
     }
 
@@ -2527,9 +2532,9 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
         subcategory: finalSub,
         categorySelections: finalCategories,
         subcategorySelections: matchedSubs,
-        providerActivities: cleanActivities.length ? cleanActivities : (activitiesPool.filter((a) => !typesPool.includes(a)).slice(0, 1)),
-        providerTypes: matchedTypes.length ? matchedTypes : (typesPool.slice(0, 1)),
-        providerModalities: matchedModalities.length ? matchedModalities : (modalitiesPool.slice(0, 2)),
+        providerActivities: cleanActivities,
+        providerTypes: matchedTypes,
+        providerModalities: matchedModalities,
         prestaciones: matchedPrestaciones,
         languages: matchedLanguages.length ? matchedLanguages : ["Español"],
       },
@@ -3105,7 +3110,7 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     const rawSubs = Array.isArray(parsed.subcategorySelections) && parsed.subcategorySelections.length > 0
       ? parsed.subcategorySelections
       : (parsed.subcategory ? [parsed.subcategory] : []);
-    const matchedSubs = matchToCatalogPool(rawSubs, subPool);
+    let matchedSubs = matchToCatalogPool(rawSubs, subPool);
 
     const rawActs = Array.isArray(parsed.providerActivities) && parsed.providerActivities.length > 0
       ? parsed.providerActivities
@@ -3198,6 +3203,8 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       if (finalMatchedActs.length === 0 && sportsAct) {
         finalMatchedActs = [sportsAct];
       }
+      finalMatchedCats = finalMatchedCats.filter((c) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(c));
+      matchedSubs = matchedSubs.filter((s) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(s));
       const presMod = modalitiesPool.find((m) => /presencial/i.test(m));
       if (presMod && !matchedModalities.includes(presMod)) {
         matchedModalities.unshift(presMod);
