@@ -3469,50 +3469,47 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
 
     // Only fallback if draft provided NO activities at all
-    if (resolvedActivities.size === 0) {
+    if (resolvedActivities.size === 0 && actividadRoots.length > 0) {
       const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
       if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
         const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(eduAct ? eduAct.description : "Educación y formación");
+        if (eduAct) resolvedActivities.add(eduAct.description);
       } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|pediatr[ií]a|m[eé]dic/i.test(titleContext)) {
         const healthAct = actividadRoots.find((r) => /salud|asistencia/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(healthAct ? healthAct.description : "Salud y asistencia social");
+        if (healthAct) resolvedActivities.add(healthAct.description);
       } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
         const autoAct = actividadRoots.find((r) => /automotriz|reparaci|mantenimiento|transporte|comercio/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(autoAct ? autoAct.description : "Comercio y automotriz");
+        if (autoAct) resolvedActivities.add(autoAct.description);
       } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
         const miningAct = actividadRoots.find((r) => /miner|industria|construcci|energ/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(miningAct ? miningAct.description : "Industria, minería y construcción");
+        if (miningAct) resolvedActivities.add(miningAct.description);
       } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
         const entAct = actividadRoots.find((r) => /arte|cultura|entretenimiento|recreaci/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(entAct ? entAct.description : "Arte, cultura y entretenimiento");
+        if (entAct) resolvedActivities.add(entAct.description);
       } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
         const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(sportsAct ? sportsAct.description : "Deportes, fitness y bienestar");
+        if (sportsAct) resolvedActivities.add(sportsAct.description);
       } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
         const gastroAct = actividadRoots.find((r) => /gastronom|restauraci|hosteler/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(gastroAct ? gastroAct.description : "Gastronomía y restauración");
+        if (gastroAct) resolvedActivities.add(gastroAct.description);
       } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
         const techAct = actividadRoots.find((r) => /tecnolog|software|informaci/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(techAct ? techAct.description : "Tecnología, software e información");
+        if (techAct) resolvedActivities.add(techAct.description);
       } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
         const realAct = actividadRoots.find((r) => /inmobiliari|bienes ra[ií]ces/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(realAct ? realAct.description : "Servicios inmobiliarios y bienes raíces");
+        if (realAct) resolvedActivities.add(realAct.description);
       } else if (/hotel|hostel|alojamiento|turismo|posada|resort/i.test(titleContext)) {
         const tourAct = actividadRoots.find((r) => /hosteler|turismo|alojamiento/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(tourAct ? tourAct.description : "Hostelería, alojamiento y turismo");
+        if (tourAct) resolvedActivities.add(tourAct.description);
       } else if (/moda|indumentaria|ropa|textil|prendas|calzado/i.test(titleContext)) {
         const fashionAct = actividadRoots.find((r) => /moda|dise[ñn]o/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(fashionAct ? fashionAct.description : "Moda y diseño");
+        if (fashionAct) resolvedActivities.add(fashionAct.description);
       } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi|entretenimiento|concierto|festival|cultura|audiovisual/i.test(titleContext)) {
         const entAct = actividadRoots.find((r) => /medio|cultura|entretenimiento/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(entAct ? entAct.description : "Medios, cultura y entretenimiento");
+        if (entAct) resolvedActivities.add(entAct.description);
       } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra|cbi|immi/i.test(titleContext)) {
         const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
-      } else {
-        const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
+        if (profAct) resolvedActivities.add(profAct.description);
       }
     }
 
@@ -3523,7 +3520,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       resolvedActivities.delete("Comercio y automotriz");
       const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
       if (eduAct) resolvedActivities.add(eduAct.description);
-      else resolvedActivities.add("Educación y formación");
     }
 
     const isLegalConsultingDraft = !isEduDraft && /abogad|estudio jur[ií]dico|notar|escriban|visas?|migra|consultor[ií]a legal|cbi|immi/i.test(
@@ -3546,8 +3542,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar|gimnasio/i.test(r.description.toLowerCase()));
       if (sportsAct) {
         resolvedActivities.add(sportsAct.description);
-      } else if (resolvedActivities.size === 0) {
-        resolvedActivities.add("Deportes, fitness y bienestar");
       }
     }
 
@@ -3569,8 +3563,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       });
       if (match) {
         resolvedTypes.add(match.description);
-      } else if (rawType.trim()) {
-        resolvedTypes.add(rawType.trim());
       }
     }
 
@@ -3584,7 +3576,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       resolvedTypes.delete("Profesional independiente");
       const pubType = tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description.toLowerCase()));
       if (pubType) resolvedTypes.add(pubType.description);
-      else resolvedTypes.add("Organismo público");
     }
 
     if (isOngDraft) {
@@ -3593,11 +3584,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       resolvedTypes.delete("Profesional independiente");
       const ongType = tipoRoots.find((r) => /\b(?:ong|sin fines de lucro|fundaci|asociaci)\b/i.test(r.description.toLowerCase()));
       if (ongType) resolvedTypes.add(ongType.description);
-      else resolvedTypes.add("ONG");
     }
 
-    if (resolvedTypes.size === 0) {
-      resolvedTypes.add(isPublicGov ? "Organismo público" : isOngDraft ? "ONG" : "Institución privada");
+    if (resolvedTypes.size === 0 && tipoRoots.length > 0) {
+      const defaultMatch = isPublicGov
+        ? (tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description.toLowerCase())) || tipoRoots[0])
+        : isOngDraft
+        ? (tipoRoots.find((r) => /\b(?:ong|sin fines de lucro|fundaci|asociaci)\b/i.test(r.description.toLowerCase())) || tipoRoots[0])
+        : (tipoRoots.find((r) => /privad|empresa/i.test(r.description.toLowerCase())) || tipoRoots[0]);
+      if (defaultMatch) resolvedTypes.add(defaultMatch.description);
     }
 
     const typeSel = Array.from(resolvedTypes);
