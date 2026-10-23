@@ -3314,7 +3314,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
 
       // 4. Token match
-      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
+      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
       const tokenRoot = allRootsWithNorm.find((r) => tokens.some((tok) => r.norm.includes(tok)));
       if (tokenRoot) {
         resolvedCategoryRoots.add(tokenRoot.original);
@@ -3427,6 +3427,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const isSportsGymDraft =
       /\b(gimnasio|gym|fitness|crossfit|natatorio|nataci[oó]n|aquagym|pileta|hockey|polideportivo|club\s+deportivo|musculaci[oó]n)\b/i.test(draftTextFull) ||
       /gimnasio|gym|fitness/i.test(draft.url || "");
+
+    if (isSportsGymDraft) {
+      for (const cat of Array.from(resolvedCategoryRoots)) {
+        if (/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(cat)) {
+          resolvedCategoryRoots.delete(cat);
+        }
+      }
+      for (const sub of Array.from(resolvedSubcategories)) {
+        if (/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(sub)) {
+          resolvedSubcategories.delete(sub);
+        }
+      }
+    }
 
     const finalCatSel = Array.from(resolvedCategoryRoots);
     const finalSubcatSel = Array.from(resolvedSubcategories);
