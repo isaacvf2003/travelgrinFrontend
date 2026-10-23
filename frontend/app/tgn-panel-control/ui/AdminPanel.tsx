@@ -3429,6 +3429,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (ongCat) resolvedCategoryRoots.add(ongCat.original);
     }
 
+    const draftTextFull = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""} ${draft.description || ""}`.toLowerCase();
+    const isSportsGymDraft =
+      /\b(gimnasio|gym|fitness|crossfit|natatorio|nataci[oó]n|aquagym|pileta|hockey|polideportivo|club\s+deportivo|musculaci[oó]n)\b/i.test(draftTextFull) ||
+      /gimnasio|gym|fitness/i.test(draft.url || "");
+
+    if (isSportsGymDraft) {
+      const hasCompetition = /\b(competitivo|competitiva|competencia|torneo|liga|promocionales|campeonato|federad[oa]s?)\b/i.test(draftTextFull);
+      if (hasCompetition) {
+        const compRoot = allRootsWithNorm.find((r) => /competencia|evento|feria/i.test(r.norm));
+        if (compRoot) resolvedCategoryRoots.add(compRoot.original);
+      }
+    }
+
     const finalCatSel = Array.from(resolvedCategoryRoots);
     const finalSubcatSel = Array.from(resolvedSubcategories);
 
@@ -3523,6 +3536,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       if (profAct) resolvedActivities.add(profAct.description);
     }
 
+    if (isSportsGymDraft) {
+      resolvedActivities.delete("Salud y asistencia social");
+      resolvedActivities.delete("Medios, cultura y entretenimiento");
+      resolvedActivities.delete("Agricultura, ganadería y pesca");
+      resolvedActivities.delete("Industria, minería y construcción");
+      resolvedActivities.delete("Servicios inmobiliarios y bienes raíces");
+      resolvedActivities.delete("Comercio y automotriz");
+      const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar|gimnasio/i.test(r.description.toLowerCase()));
+      if (sportsAct) {
+        resolvedActivities.add(sportsAct.description);
+      } else if (resolvedActivities.size === 0) {
+        resolvedActivities.add("Deportes, fitness y bienestar");
+      }
+    }
+
     const actSel = Array.from(resolvedActivities);
     setPProviderActivities(actSel);
     setPProviderActivity(actSel[0] || "");
@@ -3576,8 +3604,23 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPProviderTypes(typeSel);
     setPProviderType(typeSel[0] || "");
 
-    const modSel = draft.providerModalities?.length ? draft.providerModalities : [];
-    setPProviderModalities(modSel);
+    const modSel = draft.providerModalities?.length ? [...draft.providerModalities] : [];
+    if (isSportsGymDraft) {
+      const onlineClasses = /clases?\s+online|clases?\s+virtuales|entrenamiento\s+a\s+distancia|app\s+de\s+entrenamiento/i.test(
+        `${draft.title} ${draft.description || ""}`.toLowerCase()
+      );
+      let filteredMods = modSel.filter((m: string) => !/gesti[oó]n|tr[aá]mite/i.test(m));
+      if (!onlineClasses) {
+        filteredMods = filteredMods.filter((m: string) => !/online|virtual|remoto|distancia/i.test(m));
+      }
+      const presMod = modalidadRoots.find((r) => /presencial/i.test(r.description.toLowerCase()))?.description || "Atención presencial";
+      if (!filteredMods.includes(presMod)) {
+        filteredMods.unshift(presMod);
+      }
+      setPProviderModalities(filteredMods);
+    } else {
+      setPProviderModalities(modSel);
+    }
 
     if (draft.images && draft.images.length) {
       setPImageUrls(draft.images.join("\n"));
