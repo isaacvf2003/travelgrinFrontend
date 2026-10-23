@@ -1899,13 +1899,26 @@ function matchToCatalogPool(items: string[], pool: string[]): string[] {
       matched.add(exact.original);
       continue;
     }
-    const substring = poolWithNorm.find((p) => p.norm.includes(itemNorm) || itemNorm.includes(p.norm));
+    // Strict word-boundary matching: never match a partial word like "cultura" inside "agricultura"!
+    const escapedItem = itemNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const substring = poolWithNorm.find((p) => {
+      const escapedP = p.norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return (
+        new RegExp(`\\b${escapedItem}\\b`, "i").test(p.norm) ||
+        new RegExp(`\\b${escapedP}\\b`, "i").test(itemNorm)
+      );
+    });
     if (substring) {
       matched.add(substring.original);
       continue;
     }
-    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length > 3);
-    const tokenMatch = poolWithNorm.find((p) => itemTokens.some((t) => p.norm.includes(t)));
+    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
+    const tokenMatch = poolWithNorm.find((p) =>
+      itemTokens.some((t) => {
+        const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`\\b${escaped}\\b`, "i").test(p.norm);
+      })
+    );
     if (tokenMatch) {
       matched.add(tokenMatch.original);
     }
@@ -2197,7 +2210,7 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       const scoredCats: { cat: string; score: number }[] = [];
       for (const catName of nonOngPool) {
         const cNorm = catName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general/i.test(t));
+        const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|centros|servicios|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
         let score = 0;
 
         // Hard negative constraint: If entity is medical/health, NEVER match visa/migration categories!
@@ -2211,7 +2224,8 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
 
         if (fullTextCorpus.includes(cNorm)) score += 50;
         for (const tok of cTokens) {
-          if (fullTextCorpus.includes(tok)) score += 15;
+          const escapedTok = tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          if (new RegExp(`\\b${escapedTok}\\b`, "i").test(fullTextCorpus)) score += 15;
         }
 
         // Check child subcategories belonging to this category in the categoryTree
@@ -2221,10 +2235,11 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
           if (matchedNode && Array.isArray(matchedNode.subcategories)) {
             for (const sub of matchedNode.subcategories) {
               const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-              const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general/i.test(t));
+              const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|general|opciones|requisitos|previos|explorando|paso|nivel|inicio|bienvenida/i.test(t));
               if (fullTextCorpus.includes(sNorm)) score += 35;
               for (const tok of sTokens) {
-                if (fullTextCorpus.includes(tok)) score += 10;
+                const escapedTok = tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                if (new RegExp(`\\b${escapedTok}\\b`, "i").test(fullTextCorpus)) score += 10;
               }
             }
           }
