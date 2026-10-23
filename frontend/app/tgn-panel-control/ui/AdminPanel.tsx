@@ -3341,50 +3341,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    // 1. Resolve Category Roots and Subcategories
-    if (resolvedCategoryRoots.size === 0) {
-      const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
-      if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
-        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
-        if (eduRoot) resolvedCategoryRoots.add(eduRoot.original);
-      } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|policl[ií]nico|maternidad/i.test(titleContext)) {
-        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
-        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
-      } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
-        const autoRoot = allRootsWithNorm.find((r) => /auto|veh[ií]cul|transporte|comercio/i.test(r.norm));
-        if (autoRoot) resolvedCategoryRoots.add(autoRoot.original);
-      } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
-        const miningRoot = allRootsWithNorm.find((r) => /industria|miner|energ|construcci/i.test(r.norm));
-        if (miningRoot) resolvedCategoryRoots.add(miningRoot.original);
-      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
-        const entRoot = allRootsWithNorm.find((r) => /entretenimiento|cultura|arte|espect[aá]culo/i.test(r.norm));
-        if (entRoot) resolvedCategoryRoots.add(entRoot.original);
-      } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
-        const sportsRoot = allRootsWithNorm.find((r) => /deporte|fitness|gimnasio/i.test(r.norm));
-        if (sportsRoot) resolvedCategoryRoots.add(sportsRoot.original);
-      } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
-        const gastroRoot = allRootsWithNorm.find((r) => /gastronom|restaurante/i.test(r.norm));
-        if (gastroRoot) resolvedCategoryRoots.add(gastroRoot.original);
-      } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
-        const techRoot = allRootsWithNorm.find((r) => /tecnolog|software|digital/i.test(r.norm));
-        if (techRoot) resolvedCategoryRoots.add(techRoot.original);
-      } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
-        const realRoot = allRootsWithNorm.find((r) => /inmobiliari|propiedad|bienes/i.test(r.norm));
-        if (realRoot) resolvedCategoryRoots.add(realRoot.original);
-      } else if (/hotel|hostel|alojamiento|posada|cabaña|resort|hospedaje/i.test(titleContext)) {
-        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
-        if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
-      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra|cbi|immi/i.test(titleContext)) {
-        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
-        if (legalRoot) resolvedCategoryRoots.add(legalRoot.original);
-      } else if (/moda|indumentaria|ropa|textil|prendas|vestido|calzado/i.test(titleContext)) {
-        const fashionRoot = allRootsWithNorm.find((r) => /moda|dise[ñn]o|indumentaria|textil/i.test(r.norm));
-        if (fashionRoot) resolvedCategoryRoots.add(fashionRoot.original);
-      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi|entretenimiento|concierto|festival|cultura/i.test(titleContext)) {
-        const entRoot = allRootsWithNorm.find((r) => /entretenimiento|cultura|arte|espect[aá]culo|medio/i.test(r.norm));
-        if (entRoot) resolvedCategoryRoots.add(entRoot.original);
-      }
-    }
+
 
     // If subcategories were not resolved yet, automatically pick matching children from resolved roots
     if (resolvedSubcategories.size === 0 && resolvedCategoryRoots.size > 0) {
@@ -3430,12 +3387,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     if (isSportsGymDraft) {
       for (const cat of Array.from(resolvedCategoryRoots)) {
-        if (/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(cat)) {
+        if (/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos|migra|visas?|residencia|ciudadan/i.test(cat)) {
           resolvedCategoryRoots.delete(cat);
         }
       }
       for (const sub of Array.from(resolvedSubcategories)) {
-        if (/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(sub)) {
+        if (/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos|migra|visas?|residencia|ciudadan/i.test(sub)) {
           resolvedSubcategories.delete(sub);
         }
       }
@@ -3473,52 +3430,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    // Only fallback if draft provided NO activities at all
-    if (resolvedActivities.size === 0 && actividadRoots.length > 0) {
-      const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
-      if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
-        const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
-        if (eduAct) resolvedActivities.add(eduAct.description);
-      } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|pediatr[ií]a|m[eé]dic/i.test(titleContext)) {
-        const healthAct = actividadRoots.find((r) => /salud|asistencia/i.test(r.description.toLowerCase()));
-        if (healthAct) resolvedActivities.add(healthAct.description);
-      } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
-        const autoAct = actividadRoots.find((r) => /automotriz|reparaci|mantenimiento|transporte|comercio/i.test(r.description.toLowerCase()));
-        if (autoAct) resolvedActivities.add(autoAct.description);
-      } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
-        const miningAct = actividadRoots.find((r) => /miner|industria|construcci|energ/i.test(r.description.toLowerCase()));
-        if (miningAct) resolvedActivities.add(miningAct.description);
-      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
-        const entAct = actividadRoots.find((r) => /arte|cultura|entretenimiento|recreaci/i.test(r.description.toLowerCase()));
-        if (entAct) resolvedActivities.add(entAct.description);
-      } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
-        const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar|actividad\s+f[ií]sica|recreaci/i.test(r.description.toLowerCase())) ||
-                          actividadRoots.find((r) => /cultura|entretenimiento|espect[aá]culo|medio/i.test(r.description.toLowerCase()));
-        if (sportsAct) resolvedActivities.add(sportsAct.description);
-      } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
-        const gastroAct = actividadRoots.find((r) => /gastronom|restauraci|hosteler/i.test(r.description.toLowerCase()));
-        if (gastroAct) resolvedActivities.add(gastroAct.description);
-      } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
-        const techAct = actividadRoots.find((r) => /tecnolog|software|informaci/i.test(r.description.toLowerCase()));
-        if (techAct) resolvedActivities.add(techAct.description);
-      } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
-        const realAct = actividadRoots.find((r) => /inmobiliari|bienes ra[ií]ces/i.test(r.description.toLowerCase()));
-        if (realAct) resolvedActivities.add(realAct.description);
-      } else if (/hotel|hostel|alojamiento|turismo|posada|resort/i.test(titleContext)) {
-        const tourAct = actividadRoots.find((r) => /hosteler|turismo|alojamiento/i.test(r.description.toLowerCase()));
-        if (tourAct) resolvedActivities.add(tourAct.description);
-      } else if (/moda|indumentaria|ropa|textil|prendas|calzado/i.test(titleContext)) {
-        const fashionAct = actividadRoots.find((r) => /moda|dise[ñn]o/i.test(r.description.toLowerCase()));
-        if (fashionAct) resolvedActivities.add(fashionAct.description);
-      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi|entretenimiento|concierto|festival|cultura|audiovisual/i.test(titleContext)) {
-        const entAct = actividadRoots.find((r) => /medio|cultura|entretenimiento/i.test(r.description.toLowerCase()));
-        if (entAct) resolvedActivities.add(entAct.description);
-      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra|cbi|immi/i.test(titleContext)) {
-        const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
-        if (profAct) resolvedActivities.add(profAct.description);
-      }
-    }
-
     if (isEduDraft) {
       for (const act of Array.from(resolvedActivities)) {
         if (/hosteler|turism|alojam|profesional|tecnic|agricult|ganader|pesca|comercio/i.test(act)) {
@@ -3548,8 +3459,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           resolvedActivities.delete(act);
         }
       }
-      const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar|gimnasio|actividad\s+f[ií]sica|recreaci/i.test(r.description.toLowerCase())) ||
-                        actividadRoots.find((r) => /cultura|entretenimiento|espect[aá]culo|medio/i.test(r.description.toLowerCase()));
+      const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar|gimnasio|actividad\s+f[ií]sica/i.test(r.description.toLowerCase()));
       if (sportsAct) {
         resolvedActivities.add(sportsAct.description);
       }
@@ -4988,27 +4898,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    if (mappedCategories.length === 0 && (pTitle || pProviderActivities.length || pProviderActivity || pDescription)) {
-      const sectorContext = `${pTitle} ${pPublisherName} ${pProviderActivities.join(" ")} ${pProviderActivity} ${pDescription}`.toLowerCase();
-      const isEdu = /universidad|facultad|carrera|colegio|instituto superior|educaci|posgrado|maestr[ií]a|diplomatura|pregrado|instituto de educaci/i.test(sectorContext);
-      const isLegal = /abogad|estudio jur[ií]dico|notar|escriban|abogac|defensor|derecho/i.test(sectorContext);
-      const isTourism = /hotel|hostel|hospedaje|alojamiento|posada|cabaña|resort/i.test(sectorContext);
-      const isHealth = !isEdu && /hospital|cl[ií]nica|sanatorio|m[eé]dic|odontol|psicol|obra social|salud/i.test(sectorContext);
 
-      if (isEdu) {
-        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
-        if (eduRoot) mappedCategories.push(eduRoot.original);
-      } else if (isLegal) {
-        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
-        if (legalRoot) mappedCategories.push(legalRoot.original);
-      } else if (isTourism) {
-        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
-        if (hotelRoot) mappedCategories.push(hotelRoot.original);
-      } else if (isHealth) {
-        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
-        if (healthRoot) mappedCategories.push(healthRoot.original);
-      }
-    }
 
     const categoriesChanged = mappedCategories.length !== pCategorySelections.length || mappedCategories.some((v, i) => v !== pCategorySelections[i]);
     if (categoriesChanged) {
