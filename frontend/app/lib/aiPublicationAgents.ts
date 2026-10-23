@@ -2094,10 +2094,15 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       /\b(inmobiliaria|inmobiliario|bienes raices|alquiler de propiedades|venta de casas|inmuebles|real estate|desarrollos inmobiliarios|lotes|terrenos)\b/i.test(fullTextCorpus) &&
       !isLegalOrConsulting;
 
+    const isSportsOrGym =
+      /\b(gimnasio|gym|fitness|crossfit|calistenia|musculacion|entrenamiento\s+funcional|complejo\s+deportivo|polideportivo|club\s+deportivo|natatorio|pileta\s+climatizada|artes\s+marciales|boxeo|padel|paddle|tenis|futbol|hockey|rugby|basket|baloncesto|voleibol|atletismo|deporte|deportes|deportivo|deportiva|acondicionamiento\s+fisico)\b/i.test(fullTextCorpus) ||
+      /\b(gimnasio|gym|fitness|deporte|deportes|deportivo|polideportivo)\b/i.test(context.url || "");
+
     const isTourismEntity =
       !isEducationalEntity &&
       !isHealthEntity &&
       !isLegalOrConsulting &&
+      !isSportsOrGym &&
       /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(fullTextCorpus);
 
     const isTechEntity =
@@ -2348,6 +2353,18 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       }
     }
 
+    if (isSportsOrGym) {
+      cleanActivities = cleanActivities.filter((a) => !/hosteler|turism|alojam|agricult|ganader|pesca|miner|construcci|inmobiliari|manufactura/i.test(a));
+      const sportsAct = activitiesPool.find((a) => /deporte|fitness|bienestar|gimnasio|actividad\s+f[ií]sica|recreaci/i.test(a)) ||
+                        activitiesPool.find((a) => /cultura|entretenimiento|medio/i.test(a));
+      if (sportsAct && !cleanActivities.includes(sportsAct)) {
+        cleanActivities = [sportsAct, ...cleanActivities];
+      }
+      if (cleanActivities.length === 0 && sportsAct) {
+        cleanActivities = [sportsAct];
+      }
+    }
+
     if (isLegalOrConsulting) {
       const legalAct = activitiesPool.find((a) => /profesional|tecnico|legal|consult|jurid/i.test(a));
       if (legalAct && !cleanActivities.includes(legalAct)) {
@@ -2430,6 +2447,18 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       if (chosenType) matchedTypes.push(chosenType);
     }
 
+    if (isSportsOrGym) {
+      const isMunicipalOrGov = /\b(municipal|municipalidad|comuna|gobierno|estatal|p[uú]blico)\b/i.test(
+        `${context.rawPageTitle || ""} ${context.publisherName || ""} ${context.url || ""}`
+      );
+      if (isMunicipalOrGov) {
+        const pubType = typesPool.find((t) => /p[uú]blic|estatal|gobiern|municipal/i.test(t));
+        if (pubType && !matchedTypes.includes(pubType)) {
+          matchedTypes = [pubType, ...matchedTypes.filter((t) => !/privad|empresa/i.test(t))];
+        }
+      }
+    }
+
     const matchedModalities = matchToCatalogPool(
       Array.isArray(parsed.providerModalities) ? parsed.providerModalities : [parsed.providerModalities],
       modalitiesPool
@@ -2445,6 +2474,13 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       if (matchedModalities.length === 0) {
         if (presencial) matchedModalities.push(presencial);
         if (online) matchedModalities.push(online);
+      }
+    }
+
+    if (isSportsOrGym) {
+      const presMod = modalitiesPool.find((m) => /presencial/i.test(m));
+      if (presMod && !matchedModalities.includes(presMod)) {
+        matchedModalities.unshift(presMod);
       }
     }
 
@@ -3130,6 +3166,35 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       const ongCat = catPool.find((c: string) => /\b(?:ong|voluntari|ayuda social|donaci|comunitari)\b/i.test(c));
       if (ongCat && !finalMatchedCats.includes(ongCat)) {
         finalMatchedCats = [ongCat, ...finalMatchedCats];
+      }
+    }
+
+    const isSportsOrGymUnified =
+      /\b(gimnasio|gym|fitness|crossfit|calistenia|musculacion|entrenamiento\s+funcional|complejo\s+deportivo|polideportivo|club\s+deportivo|natatorio|pileta\s+climatizada|artes\s+marciales|boxeo|padel|paddle|tenis|futbol|hockey|rugby|basket|baloncesto|voleibol|atletismo|deporte|deportes|deportivo|deportiva|acondicionamiento\s+fisico)\b/i.test(fullTextCorpus) ||
+      /\b(gimnasio|gym|fitness|deporte|deportes|deportivo|polideportivo)\b/i.test(context.url || "");
+
+    if (isSportsOrGymUnified) {
+      finalMatchedActs = finalMatchedActs.filter((a) => !/hosteler|turism|alojam|agricult|ganader|pesca|miner|construcci|inmobiliari|manufactura/i.test(a));
+      const sportsAct = activitiesPool.find((a) => /deporte|fitness|bienestar|gimnasio|actividad\s+f[ií]sica|recreaci/i.test(a)) ||
+                        activitiesPool.find((a) => /cultura|entretenimiento|medio/i.test(a));
+      if (sportsAct && !finalMatchedActs.includes(sportsAct)) {
+        finalMatchedActs = [sportsAct, ...finalMatchedActs];
+      }
+      if (finalMatchedActs.length === 0 && sportsAct) {
+        finalMatchedActs = [sportsAct];
+      }
+      const presMod = modalitiesPool.find((m) => /presencial/i.test(m));
+      if (presMod && !matchedModalities.includes(presMod)) {
+        matchedModalities.unshift(presMod);
+      }
+      const isMunicipalOrGov = /\b(municipal|municipalidad|comuna|gobierno|estatal|p[uú]blico)\b/i.test(
+        `${context.rawPageTitle || ""} ${context.publisherName || ""} ${context.url || ""}`
+      );
+      if (isMunicipalOrGov) {
+        const pubType = typesPool.find((t) => /p[uú]blic|estatal|gobiern|municipal/i.test(t));
+        if (pubType && !finalMatchedTypes.includes(pubType)) {
+          finalMatchedTypes = [pubType, ...finalMatchedTypes.filter((t) => !/privad|empresa/i.test(t))];
+        }
       }
     }
 
