@@ -26,6 +26,7 @@ import {
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
+export const dynamic = "force-dynamic";
 
 async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms: number = 4000): Promise<Response> {
   const controller = new AbortController();
@@ -819,6 +820,8 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
   return null;
 }
 
+const externalFoundingCache = new Map<string, string | null>();
+
 async function fetchExternalFoundingYear(cleanName?: string | null, city?: string | null): Promise<string | null> {
   if (!cleanName || cleanName.length < 3) return null;
   const currentYear = new Date().getFullYear();
@@ -830,6 +833,11 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
     .trim();
 
   if (!queryName || queryName.length < 3) return null;
+
+  const cacheKey = queryName.toLowerCase();
+  if (externalFoundingCache.has(cacheKey)) {
+    return externalFoundingCache.get(cacheKey) || null;
+  }
 
   // Distinctive words in entity name for grounding check
   const stopWords = new Set(["de", "del", "la", "el", "los", "las", "en", "y", "e", "para", "por", "con", "sin", "un", "una", "san", "santa"]);
@@ -858,12 +866,12 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
     return matched.length >= minRequired;
   }
 
-  // 1. Try Wikipedia Search API
+  // 1. Try Wikipedia Search API (Fast timeout: 1200ms)
   try {
     const wikiUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(queryName)}&utf8=&format=json`;
     const res = await fetch(wikiUrl, {
       headers: { "User-Agent": "TravelGrinScraper/1.0 (admin@travelgrin.com)" },
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(1200),
     });
     if (res.ok) {
       const data = await res.json();
@@ -877,7 +885,9 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
           if (m && m[1]) {
             const num = parseInt(m[1], 10);
             if (num >= 1600 && num <= currentYear - 1 && num !== 2010 && num !== 2015) {
-              return String(num);
+              const resYr = String(num);
+              externalFoundingCache.set(cacheKey, resYr);
+              return resYr;
             }
           }
         }
@@ -888,7 +898,7 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
         const pageUrl = `https://es.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(topTitle)}&format=json`;
         const pageRes = await fetch(pageUrl, {
           headers: { "User-Agent": "TravelGrinScraper/1.0 (admin@travelgrin.com)" },
-          signal: AbortSignal.timeout(3000),
+          signal: AbortSignal.timeout(1200),
         });
         if (pageRes.ok) {
           const pageData = await pageRes.json();
@@ -900,7 +910,9 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
               if (m && m[1]) {
                 const num = parseInt(m[1], 10);
                 if (num >= 1600 && num <= currentYear - 1 && num !== 2010 && num !== 2015) {
-                  return String(num);
+                  const resYr = String(num);
+                  externalFoundingCache.set(cacheKey, resYr);
+                  return resYr;
                 }
               }
             }
@@ -912,7 +924,7 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
     // Wikipedia non-fatal timeout
   }
 
-  // 2. Try DuckDuckGo Lite / HTML Search
+  // 2. Try DuckDuckGo Lite / HTML Search (Fast timeout: 1500ms)
   try {
     const searchQuery = `"${queryName}" fundacion`;
     const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
@@ -921,7 +933,7 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept-Language": "es-ES,es;q=0.9",
       },
-      signal: AbortSignal.timeout(3500),
+      signal: AbortSignal.timeout(1500),
     });
     if (res.ok) {
       const html = await res.text();
@@ -934,7 +946,9 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
           if (m && m[1]) {
             const num = parseInt(m[1], 10);
             if (num >= 1600 && num <= currentYear - 1 && num !== 2010 && num !== 2015) {
-              return String(num);
+              const resYr = String(num);
+              externalFoundingCache.set(cacheKey, resYr);
+              return resYr;
             }
           }
         }
@@ -944,6 +958,7 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
     // DDG non-fatal timeout
   }
 
+  externalFoundingCache.set(cacheKey, null);
   return null;
 }
 
@@ -1201,25 +1216,23 @@ async function enrichWithLiveGoogleMapsAndSearch(
   const city = locInfoInput?.primaryCity || hqLoc?.city || extracted.detectedCity || "";
   const country = locInfoInput?.primaryCountry || hqLoc?.country || extracted.detectedCountry || "";
 
-  if (!extracted.detectedFoundingYear) {
-    try {
-      const extYr = await fetchExternalFoundingYear(officialFullName || cleanName, city);
-      if (extYr) {
-        extracted.detectedFoundingYear = extYr;
-      }
-    } catch {}
-  }
+  // Run external founding year lookup concurrently with Maps searches
+  const foundingPromise = (!extracted.detectedFoundingYear && !extracted._foundingChecked)
+    ? fetchExternalFoundingYear(officialFullName || cleanName, city).then((yr) => {
+        extracted._foundingChecked = true;
+        if (yr) {
+          extracted.detectedFoundingYear = yr;
+        }
+      }).catch(() => {})
+    : Promise.resolve();
 
   const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
   // Targeted queries executed in parallel for exact Sede Principal match
   const candidateQueries = [
     mainAddress && city ? `${officialFullName || cleanName} ${mainAddress} ${city}` : null,
-    city ? `${officialFullName || cleanName} sede central ${city}` : null,
-    `${officialFullName || cleanName} sede central`,
-    mainAddress ? `${cleanName} ${mainAddress}` : null,
     city ? `${officialFullName || cleanName} ${city}` : null,
-    city ? `${cleanName} ${city}` : null,
+    mainAddress ? `${cleanName} ${mainAddress}` : null,
     `${cleanName} reviews`,
     officialFullName || cleanName,
   ].filter(Boolean) as string[];
@@ -1236,7 +1249,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
           },
           redirect: "follow",
         },
-        2000
+        1600
       );
       if (gRes.ok) {
         const gHtml = await gRes.text();
@@ -1244,7 +1257,6 @@ async function enrichWithLiveGoogleMapsAndSearch(
         if (mDirect) {
           const numRating = parseFloat(mDirect[1]);
           const numReviews = parseInt(mDirect[2], 10);
-          // Discard Google protobuf dummy state [null, 1, 1], null
           if (!(numRating === 1 && numReviews === 1)) {
             if (!isNaN(numRating) && numRating >= 1 && numRating <= 5 && (!extracted.detectedRating || extracted.detectedRating === "0" || extracted.detectedRating === "1.0")) {
               extracted.detectedRating = numRating.toFixed(1);
@@ -1273,10 +1285,11 @@ async function enrichWithLiveGoogleMapsAndSearch(
   }
 
   if (extracted.detectedCommentsUrl && extracted.detectedRating && extracted.detectedRating !== "0") {
+    await foundingPromise;
     return;
   }
 
-  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 3);
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 2);
 
   const searchPromises = uniqueQueries.map(async (q) => {
     try {
@@ -1289,7 +1302,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        2200
+        1600
       );
       if (!gmapsRes.ok) return null;
       return await gmapsRes.text();
@@ -1298,7 +1311,10 @@ async function enrichWithLiveGoogleMapsAndSearch(
     }
   });
 
-  const results = await Promise.allSettled(searchPromises);
+  const [results] = await Promise.all([
+    Promise.allSettled(searchPromises),
+    foundingPromise,
+  ]);
   for (const res of results) {
     if (res.status !== "fulfilled" || !res.value) continue;
     const text = res.value;
@@ -2458,88 +2474,6 @@ async function fetchPageContent(url: string) {
         if ((extracted.textContent && extracted.textContent.length > 25) || (extracted.title && extracted.title.length > 3)) {
           if (!extracted.textContent || extracted.textContent.length < 80) {
             extracted.textContent = [extracted.title, extracted.description, extracted.textContent].filter(Boolean).join(" - ");
-          }
-          // If founding year or address wasn't detected on landing page, inspect candidate institutional subpages
-          if (!extracted.detectedFoundingYear || !extracted.detectedAddress) {
-            const subpageCandidates: string[] = [];
-            const linkRegex = /<a\b[^>]*href=["']([^"'#\s]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-            let lm;
-            while ((lm = linkRegex.exec(html)) !== null) {
-              const href = lm[1].trim();
-              const anchorText = lm[2].replace(/<[^>]+>/g, "").trim();
-              const combined = `${href} ${anchorText}`.toLowerCase();
-
-              if (
-                /(?:ley[-_0-9]*|quienes[-_]?somos|acerca[-_]?de|about[-_]?us|about|nosotros|historia|history|institucional|creacion|origen|contacto|contact)\b/i.test(combined)
-              ) {
-                const absUrl = makeUrlAbsolute(href, activeUrl);
-                try {
-                  const p1 = new URL(activeUrl);
-                  const p2 = new URL(absUrl);
-                  if (p1.hostname === p2.hostname && p1.pathname !== p2.pathname && !subpageCandidates.includes(absUrl)) {
-                    subpageCandidates.push(absUrl);
-                  }
-                } catch {}
-              }
-            }
-
-            if (subpageCandidates.length > 0) {
-              subpageCandidates.sort((a, b) => {
-                const score = (u: string) => {
-                  if (/ley/i.test(u)) return 4;
-                  if (/historia|origen|creacion/i.test(u)) return 3;
-                  if (/quienes|nosotros|acerca/i.test(u)) return 2;
-                  if (/institucional/i.test(u)) return 1;
-                  return 0;
-                };
-                return score(b) - score(a);
-              });
-
-              const topCandidates = subpageCandidates.slice(0, 1);
-              const subPromises = topCandidates.map(async (subUrl) => {
-                try {
-                  const subRes = await fetch(subUrl, {
-                    headers: { "User-Agent": userAgents[0] },
-                    signal: AbortSignal.timeout(1800),
-                  });
-                  if (!subRes.ok) return null;
-                  const subHtml = await subRes.text();
-                  return { subUrl, subHtml };
-                } catch {
-                  return null;
-                }
-              });
-
-              const subResults = await Promise.allSettled(subPromises);
-              for (const item of subResults) {
-                if (item.status !== "fulfilled" || !item.value) continue;
-                const { subUrl, subHtml } = item.value;
-                const subText = subHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-
-                if (!extracted.detectedFoundingYear) {
-                  const yr = extractFoundingYear(subHtml, subText, subUrl, extracted.title);
-                  if (yr) {
-                    extracted.detectedFoundingYear = yr;
-                  }
-                }
-
-                const subAddrs = extractAllAddressesFromHtml(subHtml, subText);
-                if (subAddrs.length) {
-                  extracted.detectedAllAddresses = Array.from(new Set([...(extracted.detectedAllAddresses || []), ...subAddrs]));
-                  if (!extracted.detectedAddress) {
-                    extracted.detectedAddress = subAddrs[0];
-                  }
-                }
-              }
-              if (!extracted.detectedFoundingYear) {
-                try {
-                  const extYr = await fetchExternalFoundingYear(extracted.title, extracted.detectedCity);
-                  if (extYr) {
-                    extracted.detectedFoundingYear = extYr;
-                  }
-                } catch {}
-              }
-            }
           }
           return { url: activeUrl, ...extracted };
         }
@@ -6267,7 +6201,7 @@ async function processUrlWithAI(
     });
 
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("AI generation timeout")), 35000)
+      setTimeout(() => reject(new Error("AI generation timeout")), 18000)
     );
     const [resUnified] = await Promise.all([
       Promise.race([aiPromise, timeoutPromise]),
@@ -6286,7 +6220,6 @@ async function processUrlWithAI(
 
     // Title refinement from unified output if needed
     let uTitle = unifiedRes.data.title;
-    const wantsMarketingTitle = Boolean(effectiveTitlePrompt && /(?:marketing|conversi[oó]n|llamativ|atenci[oó]n|bastante\s+largo|largo|impactante|vendedor)/i.test(effectiveTitlePrompt));
     const isBareEcho = Boolean(
       effectiveTitlePrompt &&
       uTitle &&
@@ -6294,20 +6227,8 @@ async function processUrlWithAI(
        (cleanContext.rawPageTitle && uTitle.trim().toLowerCase() === cleanTitleString(cleanContext.rawPageTitle).toLowerCase()))
     );
 
-    if (isBareEcho && canUseAI) {
-      try {
-        console.log(`[AI Scraper] Unified title was echo or bare publisher ("${uTitle}"). Invoking TitleAgent.`);
-        const directTitleRes = await runTitleAgent(cleanContext, effectiveTitlePrompt);
-        if (directTitleRes?.success && directTitleRes.data?.title) {
-          uTitle = directTitleRes.data.title;
-          if (directTitleRes.providerUsed && directTitleRes.providerUsed !== "none") {
-            providersUsed.add(directTitleRes.providerUsed);
-          }
-        }
-      } catch (tErr: any) {
-        console.warn(`[AI Scraper] Direct title agent invocation failed:`, tErr?.message);
-        uTitle = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
-      }
+    if (isBareEcho) {
+      uTitle = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
     }
     if (effectiveTitlePrompt && uTitle) {
       uTitle = enforceTitleConstraints(uTitle, effectiveTitlePrompt);
