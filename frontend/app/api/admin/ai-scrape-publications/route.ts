@@ -2666,7 +2666,7 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       const catId = String(category?.id ?? "");
       if (!catId || seen.has(catId)) return "categoria";
       seen.add(catId);
-      const ownType = normalizeType(category?.taxonomyType);
+      const ownType = normalizeType(category?.taxonomyType || category?.typeForm);
       if (ownType && !["", "default", "predeterminado", "inherit"].includes(ownType)) return ownType;
       if (category?.parentId) {
         const parent = categoryById.get(String(category.parentId));
@@ -2675,7 +2675,7 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       const blockId = resolveCategoryBlockId(category);
       if (blockId) {
         const block = filterGroupById.get(blockId);
-        const blockType = normalizeType(block?.taxonomyType);
+        const blockType = normalizeType(block?.taxonomyType || block?.typeForm);
         if (blockType && !["", "default", "predeterminado", "inherit"].includes(blockType)) return blockType;
 
         const blockLabelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -2701,7 +2701,7 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
     });
 
     const resolveBlockTaxonomy = (block: any): string => {
-      const bType = normalizeType(block?.taxonomyType);
+      const bType = normalizeType(block?.taxonomyType || block?.typeForm);
       if (bType && !["", "default", "predeterminado", "inherit"].includes(bType)) return bType;
       const labelNorm = String(block?.label ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       if (labelNorm.includes("actividad") || labelNorm.includes("sector")) return "actividad";
@@ -2805,49 +2805,18 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       ? languages
       : ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"];
 
-    const defaultActivities = [
-      "Servicios profesionales y técnicos",
-      "Salud y asistencia social",
-      "Educación y formación",
-      "Hostelería, alojamiento y turismo",
-      "Gastronomía y restauración",
-      "Tecnología, software e información",
-      "Comercio y automotriz",
-      "Arte, cultura y entretenimiento",
-      "Deportes, fitness y bienestar",
-      "Servicios inmobiliarios y bienes raíces"
-    ];
-
-    const defaultTypes = [
-      "Institución privada",
-      "Organismo público",
-      "Profesional independiente",
-      "Empresa"
-    ];
-
-    const defaultModalities = [
-      "Atención presencial",
-      "Atención online",
-      "Gestión y trámites"
-    ];
-
     const cleanTypes = Array.from(new Set(types.filter(Boolean)));
-    const finalTypes = cleanTypes.length > 0 ? cleanTypes : defaultTypes;
-
     // Strict mutual exclusion: No type (e.g. Empresa, Institución privada) may ever appear in activities!
-    const cleanActivities = Array.from(new Set(activities.filter(Boolean))).filter((a) => !finalTypes.includes(a));
-    const finalActivities = cleanActivities.length > 0 ? cleanActivities : defaultActivities;
-
+    const cleanActivities = Array.from(new Set(activities.filter(Boolean))).filter((a) => !cleanTypes.includes(a));
     const cleanModalities = Array.from(new Set(modalities.filter(Boolean)));
-    const finalModalities = cleanModalities.length > 0 ? cleanModalities : defaultModalities;
 
     return {
       categoryTree,
       categories: Array.from(new Set(allMainCatNames.filter(Boolean))),
       subcategories: Array.from(new Set(allSubCatNames.filter(Boolean))),
-      activities: finalActivities,
-      types: finalTypes,
-      modalities: finalModalities,
+      activities: cleanActivities,
+      types: cleanTypes,
+      modalities: cleanModalities,
       prestaciones: Array.from(new Set(prestaciones.filter(Boolean))),
       languages: Array.from(new Set(canonicalLanguages.filter(Boolean))),
     };
@@ -2857,16 +2826,9 @@ async function getAvailableSystemTaxonomies(clientCategories?: any[], clientFilt
       categoryTree: [],
       categories: [],
       subcategories: [],
-      activities: [
-        "Servicios profesionales y técnicos",
-        "Salud y asistencia social",
-        "Educación y formación",
-        "Hostelería, alojamiento y turismo",
-        "Gastronomía y restauración",
-        "Tecnología, software e información"
-      ],
-      types: ["Institución privada", "Organismo público", "Profesional independiente", "Empresa"],
-      modalities: ["Atención presencial", "Atención online", "Gestión y trámites"],
+      activities: [],
+      types: [],
+      modalities: [],
       prestaciones: [],
       languages: ["Español", "Inglés", "Portugués", "Italiano", "Alemán", "Francés"],
     };
@@ -4606,17 +4568,20 @@ function classifySectorAndTaxonomy(
   let selectedActivities: string[] = [];
 
   if (isEducationalEntity) {
-    // UNIVERSITIES AND EDUCATIONAL ENTITIES: Strictly and solely education and training!
     const eduAct = actsToEvaluate.find((a) => /educaci|formaci|ensenan/i.test(a));
-    selectedActivities = [eduAct || "Educación y formación"];
+    if (eduAct) {
+      selectedActivities = [eduAct];
+    } else if (actsToEvaluate.length > 0) {
+      selectedActivities = [actsToEvaluate[0]];
+    }
   } else if (isSportsOrFitness) {
     const sportsAct = actsToEvaluate.find((a) => /deporte|fitness|gimnasio|bienestar|recreaci/i.test(a));
     if (sportsAct) {
       selectedActivities = [sportsAct];
     } else if (scoredActs.length > 0 && scoredActs[0].score > 0) {
       selectedActivities = [scoredActs[0].name];
-    } else {
-      selectedActivities = [actsToEvaluate[0] || "Deportes, fitness y bienestar"];
+    } else if (actsToEvaluate.length > 0) {
+      selectedActivities = [actsToEvaluate[0]];
     }
   } else {
     if (scoredActs.length > 0 && scoredActs[0].score > 0) {
@@ -4645,23 +4610,24 @@ function classifySectorAndTaxonomy(
   }
 
   // 5. Dynamic Type Resolution across validTypes
-  let bestType = validTypes[0] || "Institución privada";
+  let bestType = validTypes[0] || "";
   const selectedTypes: string[] = [];
 
   if (isPublicEntity) {
     const pub = validTypes.find((t) => /p[uú]blico|estatal/i.test(t));
     if (pub) bestType = pub;
-    else bestType = "Organismo público";
-    selectedTypes.push(bestType);
+    else if (validTypes.length > 0) bestType = validTypes[0];
+    if (bestType) selectedTypes.push(bestType);
   } else if (isOngEntity) {
     const ongType = validTypes.find((t) => /\b(?:ong|sin fines de lucro|fundaci|asociaci)\b/i.test(t));
     if (ongType) bestType = ongType;
-    else bestType = "ONG";
-    selectedTypes.push(bestType);
+    else if (validTypes.length > 0) bestType = validTypes[0];
+    if (bestType) selectedTypes.push(bestType);
   } else {
     const priv = validTypes.find((t) => /privada|empresa/i.test(t));
     if (priv) bestType = priv;
-    selectedTypes.push(bestType);
+    else if (validTypes.length > 0) bestType = validTypes[0];
+    if (bestType) selectedTypes.push(bestType);
   }
 
   // 6. Dynamic Modalities across validMods
@@ -4680,7 +4646,7 @@ function classifySectorAndTaxonomy(
   if (chosenMods.length === 0) {
     if (presencialMod) chosenMods.push(presencialMod);
   }
-  const finalMods = chosenMods.length > 0 ? chosenMods : (presencialMod ? [presencialMod] : ["Atención presencial"]);
+  const finalMods = chosenMods.length > 0 ? chosenMods : (presencialMod ? [presencialMod] : (validMods.length > 0 ? [validMods[0]] : []));
 
   return {
     sector: /salud|hospital|m[eé]dic/i.test(bestAct) ? "health" : /educaci/i.test(bestAct) ? "education" : "general",
@@ -4689,7 +4655,7 @@ function classifySectorAndTaxonomy(
     categorySelections: selectedCategories,
     subcategorySelections: selectedSubcategories,
     providerActivities: selectedActivities,
-    providerTypes: selectedTypes.length ? selectedTypes : [bestType],
+    providerTypes: selectedTypes.length ? selectedTypes : (bestType ? [bestType] : []),
     providerModalities: finalMods,
   };
 }
@@ -5606,9 +5572,9 @@ async function formatPublicationResult(
     subcategory: matchedSubcatSelections[0] || "",
     categorySelections: matchedCatSelections,
     subcategorySelections: matchedSubcatSelections,
-    providerActivities: matchedActivities.length ? matchedActivities : ["Servicios profesionales y técnicos"],
-    providerTypes: matchedTypes.length ? matchedTypes : ["Institución privada"],
-    providerModalities: matchedModalities.length ? matchedModalities : ["Atención presencial", "Atención online"],
+    providerActivities: matchedActivities.length ? matchedActivities : (taxonomies?.activities?.length ? [taxonomies.activities[0]] : []),
+    providerTypes: matchedTypes.length ? matchedTypes : (taxonomies?.types?.length ? [taxonomies.types[0]] : []),
+    providerModalities: matchedModalities.length ? matchedModalities : (taxonomies?.modalities?.length ? taxonomies.modalities.slice(0, 2) : []),
     customTitlePrompt: (customTitlePrompt || customAdminPrompt || "").trim(),
     customDescriptionPrompt: (customDescriptionPrompt || customAdminPrompt || "").trim(),
     customDescPrompt: (customDescriptionPrompt || customAdminPrompt || "").trim(),
@@ -5787,13 +5753,11 @@ function enforceStrictTaxonomyGuardrails(
     }
 
     const validActs: string[] = taxonomies.activities || [];
-    const eduAct = validActs.find((a) => /educaci|formaci/i.test(a));
-    if (eduAct) {
-      if (!Array.isArray(publication.providerActivities)) {
-        publication.providerActivities = [eduAct];
-      } else if (!publication.providerActivities.includes(eduAct)) {
-        publication.providerActivities = [eduAct, ...publication.providerActivities];
-      }
+    const eduAct = taxonomies?.activities?.find((a: string) => /educaci|formaci/i.test(a));
+    if (eduAct && !publication.providerActivities.includes(eduAct)) {
+      publication.providerActivities = [eduAct, ...publication.providerActivities];
+    } else if (publication.providerActivities.length === 0 && eduAct) {
+      publication.providerActivities = [eduAct];
     }
   }
 
@@ -5926,8 +5890,8 @@ function enforceStrictTaxonomyGuardrails(
       if (eduAct && !publication.providerActivities.includes(eduAct)) {
         publication.providerActivities = [eduAct, ...publication.providerActivities];
       }
-      if (publication.providerActivities.length === 0) {
-        publication.providerActivities = [eduAct || "Educación y formación"];
+      if (publication.providerActivities.length === 0 && eduAct) {
+        publication.providerActivities = [eduAct];
       }
     }
 
@@ -6012,8 +5976,8 @@ function enforceStrictTaxonomyGuardrails(
       if (sportsAct && !publication.providerActivities.includes(sportsAct)) {
         publication.providerActivities = [sportsAct, ...publication.providerActivities];
       }
-      if (publication.providerActivities.length === 0) {
-        publication.providerActivities = [sportsAct || "Deportes, fitness y bienestar"];
+      if (publication.providerActivities.length === 0 && sportsAct) {
+        publication.providerActivities = [sportsAct];
       }
     }
 
@@ -6028,8 +5992,8 @@ function enforceStrictTaxonomyGuardrails(
           (m) => !/online|virtual|remoto|distancia/i.test(m)
         );
       }
-      const presMod = taxonomies?.modalities?.find((m: string) => /presencial/i.test(m)) || "Atención presencial";
-      if (!publication.providerModalities.includes(presMod)) {
+      const presMod = taxonomies?.modalities?.find((m: string) => /presencial/i.test(m));
+      if (presMod && !publication.providerModalities.includes(presMod)) {
         publication.providerModalities.unshift(presMod);
       }
     }
@@ -6151,21 +6115,21 @@ function enforceStrictTaxonomyGuardrails(
     if (taxonomies?.activities?.length) {
       publication.providerActivities = [taxonomies.activities[0]];
     } else {
-      publication.providerActivities = ["Servicios profesionales y técnicos"];
+      publication.providerActivities = [];
     }
   }
   if (!publication.providerTypes || publication.providerTypes.length === 0) {
     if (taxonomies?.types?.length) {
       publication.providerTypes = [taxonomies.types[0]];
     } else {
-      publication.providerTypes = ["Institución privada"];
+      publication.providerTypes = [];
     }
   }
   if (!publication.providerModalities || publication.providerModalities.length === 0) {
     if (taxonomies?.modalities?.length) {
       publication.providerModalities = taxonomies.modalities.slice(0, 2);
     } else {
-      publication.providerModalities = ["Atención presencial", "Atención online"];
+      publication.providerModalities = [];
     }
   }
   if (!publication.categorySelections || publication.categorySelections.length === 0) {
