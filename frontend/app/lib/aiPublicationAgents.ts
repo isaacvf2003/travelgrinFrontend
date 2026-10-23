@@ -1894,6 +1894,9 @@ function matchToCatalogPool(items: string[], pool: string[]): string[] {
   for (const item of items) {
     const itemNorm = String(item || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     if (!itemNorm) continue;
+    // Ignorar frases de relleno o placeholders
+    if (/^(?:categoria|actividad|tipo|modalidad|ninguna|ninguno|n\/?a|vacio|sin\s*categoria|sin\s*datos)$/i.test(itemNorm)) continue;
+
     const exact = poolWithNorm.find((p) => p.norm === itemNorm);
     if (exact) {
       matched.add(exact.original);
@@ -1912,15 +1915,22 @@ function matchToCatalogPool(items: string[], pool: string[]): string[] {
       matched.add(substring.original);
       continue;
     }
-    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
-    const tokenMatch = poolWithNorm.find((p) =>
-      itemTokens.some((t) => {
-        const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return new RegExp(`\\b${escaped}\\b`, "i").test(p.norm);
-      })
-    );
-    if (tokenMatch) {
-      matched.add(tokenMatch.original);
+    // Token matching: requerir tokens distintivos (longitud >= 5 y no palabras genéricas)
+    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length >= 5 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas|gestiones|tramites)$/i.test(t));
+    if (itemTokens.length > 0) {
+      const tokenMatch = poolWithNorm.find((p) => {
+        const poolTokens = p.norm.split(/\s+/).filter((t) => t.length >= 5);
+        return itemTokens.some((t) => {
+          const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          return new RegExp(`\\b${escaped}\\b`, "i").test(p.norm);
+        }) && poolTokens.some((pt) => {
+          const escapedPt = pt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          return new RegExp(`\\b${escapedPt}\\b`, "i").test(itemNorm);
+        });
+      });
+      if (tokenMatch) {
+        matched.add(tokenMatch.original);
+      }
     }
   }
   return Array.from(matched);
@@ -2672,12 +2682,17 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("CATÁLOGO OFICIAL Y CERRADO DE BLOQUES Y CATEGORÍAS (DEFINIDO POR EL ADMINISTRADOR):");
   lines.push("El administrador define y clasifica los bloques del sistema según su tipo de filtro/taxonomía.");
   lines.push("Cada categoría y subcategoría ha sido creada por el administrador. Todo es 100% dinámico.");
-  lines.push("REGLA FUNDAMENTAL DE EXACTITUD ESTRICTA (CERO ALUCINACIONES / CERO CATEGORÍAS INVENTADAS):");
-  lines.push("PUEDES Y DEBES SELECCIONAR MÁS DE UNA OPCIÓN cuando el sitio web analizado genuinamente abarque varias, pero DEBES ELEGIR EXCLUSIVAMENTE OPCIONES QUE EXISTAN EN ESTE CATÁLOGO.");
+  lines.push("");
+  lines.push("REGLA FUNDAMENTAL DE EXACTITUD ESTRICTA Y PERTINENCIA SEMÁNTICA (CERO ALUCINACIONES / CERO PLANTILLAS):");
+  lines.push("1. RECONOCIMIENTO PREVIO DEL SITIO: Determina primero la identidad, sector y núcleo real de servicios de la web analizada a partir del título, encabezados y contenido extraído (ej: si es un gimnasio o club deportivo, hospital o centro de salud, estudio de abogados, universidad, escuela, hotel, etc.).");
+  lines.push("2. PERTINENCIA ESTRICTA: Selecciona ÚNICAMENTE opciones del catálogo cuya temática y sector coincidan GENUINA Y DIRECTAMENTE con ese núcleo.");
+  lines.push("3. PROHIBIDO VINCULAR CATEGORÍAS NO AFINES POR PALABRAS AISLADAS: Si una página de deportes o gimnasio menciona 'trámites' o 'gestiones' en su menú municipal, ESTÁ TERMINANTEMENTE PROHIBIDO seleccionar 'Gestiones migratorias y Visas' o ramas legales. De igual modo, jamás asignes 'Agricultura, ganadería y pesca' a un gimnasio, hospital, escuela o estudio jurídico.");
+  lines.push("4. SI NINGUNA OPCIÓN DEL CATÁLOGO APLICA: Si el catálogo administrado por el usuario no contiene categorías afines para la web analizada, DEBES DEVOLVER ARRAY VACÍO [] en 'categorySelections' y 'subcategorySelections' (y cadena vacía '' en 'category' y 'subcategory'). NUNCA fuerces ni asignes la primera opción del catálogo.");
+  lines.push("5. PUEDES SELECCIONAR MÁS DE UNA OPCIÓN cuando el sitio web analizado genuinamente abarque varias opciones válidas del catálogo.");
   lines.push("");
 
   lines.push("1. SECCIÓN ACTIVIDADES ('providerActivities' - Array de strings):");
-  lines.push("Examina los bloques de actividad y selecciona ÚNICAMENTE la/s actividad/es reales creadas en el catálogo que definan el núcleo de la entidad:");
+  lines.push("Examina los bloques de actividad y selecciona ÚNICAMENTE la/s actividad/es reales creadas en el catálogo que definan el núcleo económico de la entidad (o [] si ninguna aplica):");
   if (actBlocks.length > 0) {
     actBlocks.forEach((b) => {
       lines.push(`  Bloque: "${b.blockName}"`);
@@ -2693,7 +2708,7 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("");
 
   lines.push("2. SECCIÓN TIPO DE OFERENTE / PERFIL ('providerTypes' - Array de strings):");
-  lines.push("Examina los bloques de tipo y selecciona el/los perfiles según las opciones creadas en el catálogo:");
+  lines.push("Examina los bloques de tipo y selecciona el/los perfiles según las opciones creadas en el catálogo (ej: Organismo público para entes estatales/municipales, Institución privada/Empresa para privados):");
   if (typeBlocks.length > 0) {
     typeBlocks.forEach((b) => {
       lines.push(`  Bloque: "${b.blockName}"`);
@@ -2729,10 +2744,10 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("");
   lines.push("*** REGLA SUPREMA DE EXACTITUD Y CERO ALUCINACIONES ***:");
   lines.push("1. El catálogo de categorías y subcategorías es ESTRICTAMENTE CERRADO y administrado por el usuario.");
-  lines.push("2. Examina CADA BLOQUE disponible en el catálogo de abajo y selecciona TODAS las opciones que apliquen a los servicios reales de la web analizada:");
+  lines.push("2. Examina CADA BLOQUE disponible en el catálogo de abajo y selecciona TODAS las opciones que apliquen DIRECTAMENTE a los servicios reales de la web analizada:");
   lines.push("   - Selecciona ÚNICAMENTE categorías y subcategorías que existan explícitamente en el catálogo oficial de abajo.");
   lines.push("   - ESTÁ TERMINANTEMENTE PROHIBIDO crear o inventar nombres de categorías, actividades o subcategorías que no existan en la lista.");
-  lines.push("   - Si ninguna subcategoría aplica a los servicios de la web, devuelve array vacío [] en 'subcategorySelections'.");
+  lines.push("   - Si ninguna categoría o subcategoría aplica a los servicios reales de la web analizada, devuelve array vacío [] en 'categorySelections' y 'subcategorySelections'. NUNCA fuerces categorías de otros rubros.");
   lines.push("");
   lines.push("Estructura de Bloques de Categorías disponibles:");
   if (catBlocks.length > 0) {
@@ -2868,14 +2883,14 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
    - 'detectedRating': Calificación numérica exacta de 1.0 a 5.0 que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL. Si ya viene informada en los datos reales de referencia ("Calificación verificada"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA NI INVENTAR (ej: "4.3"). Si no posee o no hay datos, pon "0". NUNCA inventes números ficticios.
    - 'detectedReviewCount': Cantidad exacta de reseñas / opiniones en Google Maps de esa sede principal. Si ya viene informada en los datos reales de referencia ("Reseñas verificadas"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA NI INVENTAR (ej: si tiene 776, pon "776"). Si no posee o no hay datos, pon "0". NUNCA inventes números redondos ficticios como 500 o 200.
    - 'detectedCommentsUrl': Enlace directo o de búsqueda a las opiniones en Google Maps de su sede principal.
-4. CLASIFICACIÓN TAXONÓMICA DINÁMICA Y SELECCIÓN MÚLTIPLE:
+4. CLASIFICACIÓN TAXONÓMICA DINÁMICA Y FIDELIDAD AL CONTENIDO RASPADO (CERO PLANTILLAS):
    - El administrador crea los bloques con taxonomías: actividad, modalidad, tipos, categoria, idiomas.
-   - PUEDES SELECCIONAR MÁS DE UNA OPCIÓN en cada sección si la web analizada legítimamente corresponde o abarca varias.
-   - 'providerActivities': Selecciona en array las actividades nucleares centrales EXCLUSIVAMENTE de la sección ACTIVIDADES del catálogo de abajo. Si ninguna actividad del catálogo aplica, devuelve array vacío []. NUNCA inventes nombres de actividad.
-   - 'providerTypes': Array de tipos EXCLUSIVAMENTE de la sección TIPO DE OFERENTE del catálogo de abajo. Si ninguno aplica, devuelve array vacío [].
-   - 'providerModalities': Array de modalidades EXCLUSIVAMENTE de la sección MODALIDAD del catálogo de abajo según cómo preste sus servicios la web. Si ninguna aplica, devuelve array vacío [].
-   - 'categorySelections': Array con las categorías de los bloques de categoría del catálogo de abajo que apliquen a lo que ofrece la web. NUNCA inventes categorías ni subcategorías.
-   - 'subcategorySelections': Array con las subcategorías específicas hijas del catálogo de abajo (o array vacío [] si ninguna aplica).
+   - Basa la categorización en lo que la página web REALMENTE hace y ofrece según el scraping.
+   - 'providerActivities': Selecciona en array las actividades nucleares centrales EXCLUSIVAMENTE de la sección ACTIVIDADES del catálogo de abajo que definan el sector económico real. Si ninguna actividad del catálogo aplica, devuelve array vacío []. NUNCA inventes nombres ni selecciones actividades no afines (como agricultura para deportes, etc.).
+   - 'providerTypes': Array de tipos EXCLUSIVAMENTE de la sección TIPO DE OFERENTE del catálogo de abajo que concuerden con la entidad (ej: "Organismo público" para entes municipales/estatales, "Empresa" o "Institución privada" para negocios privados, "ONG" para fundaciones). Si ninguno aplica, devuelve array vacío [].
+   - 'providerModalities': Array de modalidades EXCLUSIVAMENTE de la sección MODALIDAD del catálogo según cómo preste sus servicios la web ("Atención presencial", "Atención online", etc.).
+   - 'categorySelections': Array con las categorías de los bloques de categoría del catálogo que correspondan DIRECTAMENTE a los servicios de la web. Si ninguna categoría del catálogo coincide con la temática real del sitio, devuelve array vacío []. NUNCA pongas categorías no relacionadas como "Gestiones migratorias y Visas" en sitios deportivos o de salud.
+   - 'subcategorySelections': Array con las subcategorías específicas hijas del catálogo que apliquen (o array vacío [] si ninguna aplica).
    - 'languages': Array con los idiomas comprobados de atención en la web.
 5. REGLA DE IDIOMA Y TRADUCCIÓN (ESTRICTA):
    - Redacta TODOS los campos (título, descripción principal, bloques personalizados e información del proveedor) EXCLUSIVAMENTE en ESPAÑOL.
@@ -2897,14 +2912,14 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
   "detectedRating": "4.8",
   "detectedReviewCount": "35",
   "detectedCommentsUrl": "https://www.google.com/maps/search/?api=1&query=...",
-  "category": "Primera categoría principal del catálogo",
-  "subcategory": "Primera subcategoría principal del catálogo",
-  "categorySelections": ["Categoría 1", "Categoría 2 (si aplica)"],
-  "subcategorySelections": ["Subcategoría 1", "Subcategoría 2 (si aplica)"],
-  "providerActivities": ["Actividad 1", "Actividad 2 (si aplica)"],
-  "providerTypes": ["Tipo 1"],
-  "providerModalities": ["Atención presencial", "Atención online"],
-  "languages": ["Español", "Inglés"]
+  "category": "Nombre de la categoría principal afín seleccionada (o \"\" si ninguna aplica)",
+  "subcategory": "Nombre de la subcategoría afín seleccionada (o \"\" si ninguna aplica)",
+  "categorySelections": ["Categoría coincidente 1 (o [] si ninguna categoría del catálogo aplica)"],
+  "subcategorySelections": ["Subcategoría coincidente 1 (o [] si ninguna subcategoría del catálogo aplica)"],
+  "providerActivities": ["Actividad económica correspondiente (o [] si ninguna aplica)"],
+  "providerTypes": ["Tipo de entidad correspondiente (o [] si ninguno aplica)"],
+  "providerModalities": ["Atención presencial (o las modalidades que apliquen)"],
+  "languages": ["Español"]
 }`;
 
   const omitUnifiedTitleName = checkPromptOmitEntityName(titlePrompt);
@@ -3203,8 +3218,8 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       if (finalMatchedActs.length === 0 && sportsAct) {
         finalMatchedActs = [sportsAct];
       }
-      finalMatchedCats = finalMatchedCats.filter((c) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(c));
-      matchedSubs = matchedSubs.filter((s) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(s));
+      finalMatchedCats = finalMatchedCats.filter((c) => !/visa|migra|residencia|ciudadan|pasaporte|explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(c));
+      matchedSubs = matchedSubs.filter((s) => !/visa|migra|residencia|ciudadan|pasaporte|explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(s));
       const presMod = modalitiesPool.find((m) => /presencial/i.test(m));
       if (presMod && !matchedModalities.includes(presMod)) {
         matchedModalities.unshift(presMod);
