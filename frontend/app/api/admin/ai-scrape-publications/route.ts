@@ -569,7 +569,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     reviewCount: "159",
     address: "Bartolomé Mitre 1411, C1037 CABA",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Bartolom%C3%A9+Mitre+1411%2C+Buenos+Aires%2C+Argentina",
-    additionalCities: ["Lanús", "San Isidro"],
+    additionalCities: ["Lanús", "San Isidro", "Mendoza", "Córdoba", "Rosario"],
     headquarterLocations: [
       {
         country: "Argentina",
@@ -591,9 +591,21 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
       },
       {
         country: "Argentina",
-        city: "Buenos Aires",
-        address: "Sarmiento 4564, C1197 CABA",
-        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Sarmiento+4564%2C+Buenos+Aires%2C+Argentina",
+        city: "Mendoza",
+        address: "Sede Mendoza",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Mendoza%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Córdoba",
+        address: "Sede Córdoba",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+C%C3%B3rdoba%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Rosario",
+        address: "Sede Rosario",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Rosario%2C+Argentina",
       },
     ],
   },
@@ -610,7 +622,7 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     reviewCount: "159",
     address: "Bartolomé Mitre 1411, C1037 CABA",
     commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Bartolom%C3%A9+Mitre+1411%2C+Buenos+Aires%2C+Argentina",
-    additionalCities: ["Lanús", "San Isidro"],
+    additionalCities: ["Lanús", "San Isidro", "Mendoza", "Córdoba", "Rosario"],
     headquarterLocations: [
       {
         country: "Argentina",
@@ -632,9 +644,21 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
       },
       {
         country: "Argentina",
-        city: "Buenos Aires",
-        address: "Sarmiento 4564, C1197 CABA",
-        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Sarmiento+4564%2C+Buenos+Aires%2C+Argentina",
+        city: "Mendoza",
+        address: "Sede Mendoza",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Mendoza%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Córdoba",
+        address: "Sede Córdoba",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+C%C3%B3rdoba%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Rosario",
+        address: "Sede Rosario",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Rosario%2C+Argentina",
       },
     ],
   },
@@ -1167,8 +1191,9 @@ function cleanAddressForSearch(addr?: string | null): string {
     .replace(/\s+/g, " ")
     .trim();
   const commaParts = clean.split(",");
-  if (commaParts.length > 1 && /\d+/.test(commaParts[0])) {
-    clean = commaParts[0].trim();
+  const streetPart = commaParts.find((p) => /\b\d{1,5}\b/.test(p));
+  if (streetPart) {
+    clean = streetPart.trim();
   }
   if (!isValidPhysicalStreetAddress(clean)) return "";
   return clean;
@@ -1393,9 +1418,6 @@ async function enrichWithLiveGoogleMapsAndSearch(
         if (info.rating) extracted.detectedRating = info.rating;
         if (info.reviewCount) extracted.detectedReviewCount = info.reviewCount;
         if (info.address) extracted.detectedAddress = info.address;
-        if (info.headquarterLocations && info.headquarterLocations.length > 0) {
-          extracted.headquarterLocations = info.headquarterLocations;
-        }
         break;
       }
     }
@@ -1637,9 +1659,6 @@ async function enrichWithLiveGoogleMapsAndSearch(
         if (info.address && !extracted.detectedAddress) {
           extracted.detectedAddress = info.address;
         }
-        if (info.headquarterLocations && (!extracted.headquarterLocations || extracted.headquarterLocations.length <= 1)) {
-          extracted.headquarterLocations = info.headquarterLocations;
-        }
         break;
       }
     }
@@ -1657,18 +1676,6 @@ function detectAllLocationsAndHeadquarters(allText: string, url: string, title: 
     hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
   } catch {
     hostname = url.toLowerCase();
-  }
-
-  // 1. Check known institutions map first
-  for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
-    if (hostname.includes(domainKey) || url.toLowerCase().includes(domainKey)) {
-      return {
-        primaryCity: info.primaryCity,
-        primaryCountry: info.primaryCountry,
-        additionalCities: info.additionalCities || [],
-        detectedCountries: [info.primaryCountry],
-      };
-    }
   }
 
   const titleLower = title.toLowerCase();
@@ -1996,8 +2003,12 @@ function resolveHeadquarterLocations(
           const cleanAddr = cleanAddressForSearch(locAddress);
           const query = [cleanEntityName, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
           existing.mapUrl = buildGoogleMapsUrl(query);
+          return;
+        } else if (addrFp && existing.address && normalizeAddressFingerprint(existing.address) === addrFp) {
+          return;
+        } else if (!locAddress) {
+          return;
         }
-        return;
       }
     }
 
@@ -2066,13 +2077,23 @@ function resolveHeadquarterLocations(
     }
   }
 
-  // 3. Additional physical addresses extracted from HTML / JSON-LD / footer
+  // 3. Additional physical addresses extracted from HTML / JSON-LD / footer / subpages
   if (Array.isArray(additionalAddresses)) {
     for (const addr of additionalAddresses) {
       if (!addr || typeof addr !== "string") continue;
       const cleanAddr = addr.trim();
       if (!cleanAddr) continue;
-      const matchedCity = additionalCities.find((c) => new RegExp(`\\b${escapeRegExp(c)}\\b`, "i").test(cleanAddr)) || finalCity;
+      let matchedCity = additionalCities.find((c) => new RegExp(`\\b${escapeRegExp(c)}\\b`, "i").test(cleanAddr));
+      if (!matchedCity) {
+        const parts = cleanAddr.split(",").map((p) => p.trim());
+        if (parts.length >= 2) {
+          const candidate = parts.slice(1).find((p) => p && !/\d+/.test(p) && !/argentina/i.test(p) && p.length > 2 && p.length < 30);
+          if (candidate) {
+            matchedCity = candidate.replace(/^(?:Ciudad de|Pdo\.|Partido de|Dpto\.|Provincia de)\s+/i, "").trim();
+          }
+        }
+      }
+      matchedCity = matchedCity || finalCity;
       addLocation({
         country: finalCountry,
         city: matchedCity,
@@ -2311,6 +2332,16 @@ function extractAllAddressesFromHtml(html: string, textContent: string): string[
           }
         }
       }
+    } catch {}
+  }
+
+  // 1b. JavaScript / Map marker JSON address objects (e.g. "address": "Calle 123, Ciudad, Argentina")
+  const rawAddrRegex = /"address"\s*:\s*"([^"]{6,120})"/gi;
+  let mRaw;
+  while ((mRaw = rawAddrRegex.exec(html)) !== null) {
+    try {
+      const decoded = mRaw[1].replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16))).trim();
+      addUnique(decoded);
     } catch {}
   }
 
@@ -2628,6 +2659,87 @@ function extractTextAndMetaFromHtml(html: string, sourceUrl: string) {
   };
 }
 
+async function discoverAndFetchSedesSubpages(
+  mainUrl: string,
+  mainHtml: string,
+  userAgents: string[]
+): Promise<{ sedesText: string; sedesAddresses: string[]; discoveredUrls: string[] }> {
+  const result = { sedesText: "", sedesAddresses: [] as string[], discoveredUrls: [] as string[] };
+  let base: URL;
+  try {
+    base = new URL(mainUrl);
+  } catch {
+    return result;
+  }
+
+  const linkRegex = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const foundUrls = new Set<string>();
+  let m;
+  while ((m = linkRegex.exec(mainHtml)) !== null) {
+    const rawHref = m[1].trim();
+    const linkText = m[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (!rawHref || rawHref.startsWith("#") || rawHref.startsWith("javascript:") || rawHref.startsWith("mailto:") || rawHref.startsWith("tel:")) {
+      continue;
+    }
+    const isSedesHref = /(?:sedes?|campus|sucursales?|delegaciones?|donde-estamos|centros?|filiales?|puntos?-de-atencion|ubicacion(?:es)?)\b/i.test(rawHref);
+    const isSedesText = /^(?:sedes?|campus|nuestras\s+sedes|sucursales?|delegaciones?|d[oó]nde\s+estamos|filiales?|centros?\s+de\s+atenci[oó]n|puntos\s+de\s+atenci[oó]n|contacto)\b/i.test(linkText);
+
+    if (isSedesHref || isSedesText) {
+      try {
+        const resolved = new URL(rawHref, mainUrl);
+        if (resolved.hostname === base.hostname && resolved.href !== mainUrl) {
+          if (!resolved.pathname.includes("/noticias/") && !resolved.pathname.includes("/blog/") && !resolved.pathname.includes("/eventos/")) {
+            foundUrls.add(resolved.href);
+          }
+        }
+      } catch {}
+    }
+  }
+
+  const candidateUrls = Array.from(foundUrls).slice(0, 2);
+  result.discoveredUrls = candidateUrls;
+  if (candidateUrls.length === 0) return result;
+
+  const addrSet = new Set<string>();
+  let extraText = "";
+
+  for (const subUrl of candidateUrls) {
+    try {
+      const subRes = await fetch(subUrl, {
+        headers: {
+          "User-Agent": userAgents[0] || "Mozilla/5.0",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+        },
+        redirect: "follow",
+        signal: AbortSignal.timeout(2500),
+      });
+      if (subRes.ok) {
+        const subHtml = await subRes.text();
+        if (subHtml && subHtml.length > 200) {
+          const subAddrs = extractAllAddressesFromHtml(subHtml, "");
+          for (const a of subAddrs) {
+            addrSet.add(a);
+          }
+          const cleanSub = subHtml
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
+            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+          if (cleanSub) {
+            extraText += " " + cleanSub.slice(0, 3500);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  result.sedesAddresses = Array.from(addrSet);
+  result.sedesText = extraText.trim();
+  return result;
+}
+
 async function fetchPageContent(url: string) {
   let formattedUrl = url.trim();
   if (!/^https?:\/\//i.test(formattedUrl)) {
@@ -2723,6 +2835,23 @@ async function fetchPageContent(url: string) {
 
       if (html && html.length > 200) {
         const extracted = extractTextAndMetaFromHtml(html, activeUrl);
+
+        // Dynamically discover and fetch sedes/branches subpages
+        try {
+          const sedesData = await discoverAndFetchSedesSubpages(activeUrl, html, userAgents);
+          if (sedesData.sedesAddresses.length > 0) {
+            const mergedAddrs = Array.from(new Set([...(extracted.detectedAllAddresses || []), ...sedesData.sedesAddresses]));
+            extracted.detectedAllAddresses = mergedAddrs;
+            if (!extracted.detectedAddress && mergedAddrs[0]) {
+              extracted.detectedAddress = mergedAddrs[0];
+            }
+          }
+          if (sedesData.sedesText) {
+            (extracted as any).sedesText = sedesData.sedesText;
+            extracted.textContent = (extracted.textContent + "\n\n" + sedesData.sedesText).slice(0, 36000);
+          }
+        } catch {}
+
         if ((extracted.textContent && extracted.textContent.length > 25) || (extracted.title && extracted.title.length > 3)) {
           if (!extracted.textContent || extracted.textContent.length < 80) {
             extracted.textContent = [extracted.title, extracted.description, extracted.textContent].filter(Boolean).join(" - ");
@@ -6263,6 +6392,9 @@ async function processUrlWithAI(
     city: locInfo.primaryCity,
     country: locInfo.primaryCountry,
     address: extracted.detectedAddress,
+    additionalCities: locInfo.additionalCities,
+    additionalAddresses: extracted.detectedAllAddresses || [],
+    sedesContext: (extracted as any).sedesText,
     foundingYear: extracted.detectedFoundingYear,
     rating: extracted.detectedRating,
     reviewCount: extracted.detectedReviewCount,
