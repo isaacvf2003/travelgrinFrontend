@@ -1199,6 +1199,123 @@ function cleanAddressForSearch(addr?: string | null): string {
   return clean;
 }
 
+const ARGENTINE_AND_REGIONAL_CITIES: string[] = [
+  "Buenos Aires", "CABA", "Capital Federal",
+  "Córdoba", "Río Cuarto", "Villa María", "San Francisco", "Villa Carlos Paz",
+  "Rosario", "Santa Fe", "Rafaela", "Venado Tuerto", "San Lorenzo", "Reconquista",
+  "Mendoza", "San Rafael", "Godoy Cruz", "Guaymallén", "Las Heras", "Maipú", "Luján de Cuyo", "General Alvear", "Malargüe", "Tunuyán",
+  "San Juan", "Rawson",
+  "San Luis", "Villa Mercedes", "Merlo",
+  "San Miguel de Tucumán", "Tucumán", "Yerba Buena", "Concepción",
+  "Salta", "Cafayate", "Orán", "Tartagal",
+  "San Salvador de Jujuy", "Jujuy", "Palpalá",
+  "Santiago del Estero", "La Banda",
+  "Catamarca", "San Fernando del Valle de Catamarca",
+  "La Rioja", "Chilecito",
+  "Posadas", "Puerto Iguazú", "Oberá", "Misiones",
+  "Corrientes", "Goya", "Paso de los Libres",
+  "Resistencia", "Presidencia Roque Sáenz Peña", "Chaco",
+  "Formosa",
+  "Paraná", "Concordia", "Gualeguaychú", "Entre Ríos",
+  "Neuquén", "San Martín de los Andes", "Villa La Angostura", "Zapala", "Cutral Có",
+  "San Carlos de Bariloche", "Bariloche", "General Roca", "Cipolletti", "Viedma", "Río Negro",
+  "Comodoro Rivadavia", "Puerto Madryn", "Trelew", "Esquel", "Chubut",
+  "Río Gallegos", "Caleta Olivia", "El Calafate", "Santa Cruz",
+  "Ushuaia", "Río Grande", "Tierra del Fuego",
+  "Santa Rosa", "General Pico", "La Pampa",
+  "La Plata", "Mar del Plata", "Bahía Blanca", "Tandil", "Pilar", "Escobar", "Tigre", "San Isidro", "Vicente López", "San Nicolás", "Pergamino", "Junín", "Zárate", "Campana", "Olavarría", "Morón", "Lanús", "Avellaneda", "Quilmes"
+];
+
+function parseAddressComponents(
+  rawAddress?: string | null,
+  defaultCity = "Buenos Aires",
+  defaultCountry = "Argentina"
+): { street: string; city: string; province?: string; country: string } {
+  if (!rawAddress || typeof rawAddress !== "string") {
+    return { street: "", city: defaultCity, country: defaultCountry };
+  }
+
+  const clean = rawAddress
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const parts = clean.split(",").map((p) => p.trim()).filter(Boolean);
+  const streetPartIndex = parts.findIndex((p) => /\b\d{1,5}\b/.test(p));
+
+  let street = "";
+  if (streetPartIndex !== -1) {
+    street = parts[streetPartIndex];
+  } else if (parts[0] && /\b\d{1,5}\b/.test(parts[0])) {
+    street = parts[0];
+  } else if (parts[0] && !ARGENTINE_AND_REGIONAL_CITIES.some((c) => new RegExp(`^${escapeRegExp(c)}$`, "i").test(parts[0]))) {
+    street = parts[0];
+  }
+
+  // Locality / City extraction: Look strictly in parts AFTER the street part to avoid confusing streets named after cities
+  const remainingParts = streetPartIndex !== -1 ? parts.slice(streetPartIndex + 1) : parts.slice(1);
+
+  let detectedCity = "";
+  let detectedProvince = "";
+  let detectedCountry = defaultCountry;
+
+  for (const part of remainingParts) {
+    if (/argentina/i.test(part)) {
+      detectedCountry = "Argentina";
+      continue;
+    }
+    if (/chile/i.test(part)) {
+      detectedCountry = "Chile";
+      continue;
+    }
+    if (/uruguay/i.test(part)) {
+      detectedCountry = "Uruguay";
+      continue;
+    }
+
+    const cleanedPart = part
+      .replace(/^[A-Z]?\d{4}[A-Z]{0,3}\s*/i, "")
+      .replace(/^(?:Ciudad de|Pdo\.|Partido de|Dpto\.|Provincia de)\s+/i, "")
+      .trim();
+    if (!cleanedPart || /\d{3,}/.test(cleanedPart)) continue;
+
+    const matched = ARGENTINE_AND_REGIONAL_CITIES.find(
+      (pc) => new RegExp(`^${escapeRegExp(pc)}$|\\b${escapeRegExp(pc)}\\b`, "i").test(cleanedPart)
+    );
+
+    if (matched) {
+      if (!detectedCity) {
+        detectedCity = matched;
+      } else if (!detectedProvince && matched.toLowerCase() !== detectedCity.toLowerCase()) {
+        detectedProvince = matched;
+      }
+    } else if (!detectedCity && cleanedPart.length >= 3 && cleanedPart.length <= 25 && !/\d/.test(cleanedPart)) {
+      detectedCity = cleanedPart;
+    }
+  }
+
+  if (!detectedCity && remainingParts.length > 0) {
+    const trailingText = remainingParts.join(" ");
+    const matched = ARGENTINE_AND_REGIONAL_CITIES.find(
+      (pc) => new RegExp(`\\b${escapeRegExp(pc)}\\b`, "i").test(trailingText)
+    );
+    if (matched) detectedCity = matched;
+  }
+
+  detectedCity = detectedCity || defaultCity;
+
+  if (/^(?:caba|capital federal|ciudad aut[oó]noma de buenos aires)$/i.test(detectedCity)) {
+    detectedCity = "Buenos Aires";
+  }
+
+  return {
+    street: street.trim(),
+    city: detectedCity.trim(),
+    province: detectedProvince ? detectedProvince.trim() : undefined,
+    country: detectedCountry.trim(),
+  };
+}
+
 function findOfficialOrganizationName(html: string, cleanTitle: string, rawSiteName?: string): string {
   const isAcronym = /^[A-Z0-9]{2,8}$/.test(cleanTitle.replace(/\s+/g, ""));
 
@@ -1686,7 +1803,12 @@ function detectAllLocationsAndHeadquarters(allText: string, url: string, title: 
 
   const checkCity = (cityName: string, country: string, regex: RegExp, domainKeywords: string[] = []) => {
     let count = 0;
-    const matches = lower.match(regex);
+    // Exclude occurrences where the city name is part of a street address (e.g. "Calle Corrientes 36", "Buenos Aires 123", "Córdoba 1551")
+    const textWithoutStreets = lower.replace(
+      new RegExp(`(?:calle|av\\.|avenida|bv\\.|pje\\.|pasaje)?\\s*${regex.source}\\s+\\d{1,5}\\b`, "gi"),
+      " "
+    );
+    const matches = textWithoutStreets.match(regex);
     if (matches && matches.length > 0) {
       count += matches.length;
     }
@@ -1976,19 +2098,82 @@ function resolveHeadquarterLocations(
   const seenCityNames = new Set<string>();
   const result: Array<{ country: string; city: string; address?: string; mapUrl: string }> = [];
 
-  const addLocation = (loc: { country?: string; city?: string; address?: string; mapUrl?: string }, isPrimary: boolean = false) => {
-    const locCountry = String(loc.country || finalCountry).trim();
-    const locCity = String(loc.city || finalCity).trim();
-    let locAddress = String(loc.address || "").trim();
+  const matchAddressForCity = (targetCity: string): string | undefined => {
+    if (!targetCity || !Array.isArray(additionalAddresses) || additionalAddresses.length === 0) return undefined;
+    const targetFp = normalizeAddressFingerprint(targetCity);
+    const targetNorm = targetCity.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-    // If no address was provided, try to match an address from additionalAddresses that mentions this city
-    if (!locAddress && Array.isArray(additionalAddresses) && additionalAddresses.length > 0) {
-      const cityEscaped = escapeRegExp(locCity);
-      const matched = additionalAddresses.find((a) => typeof a === "string" && new RegExp(`\\b${cityEscaped}\\b`, "i").test(a));
-      if (matched) locAddress = matched.trim();
+    // 1. Check parsed city from each address
+    for (const raw of additionalAddresses) {
+      if (typeof raw !== "string") continue;
+      const p = parseAddressComponents(raw, "", "");
+      if (p.city && normalizeAddressFingerprint(p.city) === targetFp) {
+        return raw;
+      }
     }
 
-    const addrFp = normalizeAddressFingerprint(locAddress);
+    // 2. Secondary check: word match with accent tolerance
+    for (const raw of additionalAddresses) {
+      if (typeof raw !== "string") continue;
+      const rawNorm = raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(targetNorm)}(?:[^a-z0-9]|$)`, "i").test(rawNorm)) {
+        return raw;
+      }
+    }
+    return undefined;
+  };
+
+  const addLocation = (
+    loc: { country?: string; city?: string; address?: string; mapUrl?: string },
+    isPrimary: boolean = false
+  ) => {
+    let locCountry = String(loc.country || finalCountry).trim();
+    let locCity = String(loc.city || "").trim();
+    let locAddress = String(loc.address || "").trim();
+
+    let parsedStreet = "";
+    let parsedCity = "";
+    let parsedProvince: string | undefined = undefined;
+    let parsedCountry = locCountry;
+
+    if (locAddress) {
+      const parsed = parseAddressComponents(locAddress, locCity || finalCity, locCountry);
+      parsedStreet = parsed.street;
+      parsedCity = parsed.city;
+      parsedProvince = parsed.province;
+      parsedCountry = parsed.country;
+
+      if (parsedCity && parsedCity !== finalCity) {
+        locCity = parsedCity;
+      } else if (!locCity) {
+        locCity = parsedCity || finalCity;
+      }
+      if (parsedCountry) {
+        locCountry = parsedCountry;
+      }
+    } else if (locCity) {
+      const matched = matchAddressForCity(locCity);
+      if (matched) {
+        locAddress = matched;
+        const parsed = parseAddressComponents(matched, locCity, locCountry);
+        parsedStreet = parsed.street;
+        parsedCity = parsed.city;
+        parsedProvince = parsed.province;
+        parsedCountry = parsed.country;
+        if (parsedCity && parsedCity !== finalCity) {
+          locCity = parsedCity;
+        }
+        if (parsedCountry) {
+          locCountry = parsedCountry;
+        }
+      }
+    }
+
+    if (!locCity) locCity = finalCity;
+    if (!locCountry) locCountry = finalCountry;
+
+    const effectiveStreet = parsedStreet || cleanAddressForSearch(locAddress);
+    const addrFp = normalizeAddressFingerprint(effectiveStreet);
     const cityFp = normalizeAddressFingerprint(locCity);
 
     // If we already have this city, enrich an existing bare city entry with the real street address
@@ -1998,22 +2183,26 @@ function resolveHeadquarterLocations(
                normalizeAddressFingerprint(r.city) === cityFp
       );
       if (existing) {
-        if (!existing.address && locAddress) {
-          existing.address = locAddress;
-          const cleanAddr = cleanAddressForSearch(locAddress);
-          const query = [cleanEntityName, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
-          existing.mapUrl = buildGoogleMapsUrl(query);
+        if (!existing.address && effectiveStreet) {
+          existing.address = effectiveStreet;
+          const qParts = [
+            cleanEntityName,
+            effectiveStreet,
+            locCity,
+            parsedProvince && parsedProvince.toLowerCase() !== locCity.toLowerCase() ? parsedProvince : undefined,
+            locCountry
+          ].filter(Boolean);
+          existing.mapUrl = buildGoogleMapsUrl(qParts.join(", "));
           return;
         } else if (addrFp && existing.address && normalizeAddressFingerprint(existing.address) === addrFp) {
           return;
-        } else if (!locAddress) {
+        } else if (!effectiveStreet) {
           return;
         }
       }
     }
 
-    const fp = addrFp ? `${locCountry.toLowerCase()}|${addrFp}` : (cityFp ? `${locCountry.toLowerCase()}|${cityFp}` : "");
-
+    const fp = addrFp ? `${locCountry.toLowerCase()}|${cityFp}|${addrFp}` : (cityFp ? `${locCountry.toLowerCase()}|${cityFp}` : "");
     if (fp) {
       if (seenFingerprints.has(fp)) return;
       seenFingerprints.add(fp);
@@ -2024,22 +2213,32 @@ function resolveHeadquarterLocations(
     }
 
     let mapUrl = String(loc.mapUrl || "").trim();
-    const cleanAddr = cleanAddressForSearch(locAddress);
-
-    // Always ensure the Google Maps URL includes the exact physical street address whenever an address is available
     const isGenericSearch = /^https?:\/\/(?:www\.)?google\.[a-z.]+\/maps\/search/i.test(mapUrl);
-    const hasAddressInUrl = Boolean(cleanAddr && mapUrl && mapUrl.toLowerCase().includes(encodeURIComponent(cleanAddr.slice(0, 8).toLowerCase())));
+    const hasAddressInUrl = Boolean(effectiveStreet && mapUrl && mapUrl.toLowerCase().includes(encodeURIComponent(effectiveStreet.slice(0, 8).toLowerCase())));
     const hasJunkInUrl = /lead%20enviado|origen%20de%20lead|calendario%20acad/i.test(mapUrl);
 
-    if (!mapUrl || hasJunkInUrl || (cleanAddr && isGenericSearch && !hasAddressInUrl)) {
-      if (cleanAddr) {
-        const query = [cleanEntityName, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
-        mapUrl = buildGoogleMapsUrl(query);
+    if (!mapUrl || hasJunkInUrl || (effectiveStreet && isGenericSearch && !hasAddressInUrl)) {
+      if (effectiveStreet) {
+        // Precise query with entity + street + city drops the exact pin marker on Google Maps
+        const queryParts = [
+          cleanEntityName,
+          effectiveStreet,
+          locCity,
+          parsedProvince && parsedProvince.toLowerCase() !== locCity.toLowerCase() ? parsedProvince : undefined,
+          locCountry
+        ].filter(Boolean);
+        mapUrl = buildGoogleMapsUrl(queryParts.join(", "));
       } else if (isPrimary && detectedMapsUrl && !isGenericSearch && !hasJunkInUrl) {
         mapUrl = detectedMapsUrl;
       } else {
-        const query = [cleanEntityName, locCity, locCountry].filter(Boolean).join(", ");
-        mapUrl = buildGoogleMapsUrl(query);
+        // If no street is available, query explicitly for the branch ("Sede [Entity], [City], [Country]")
+        // so Google Maps pinpoints the specific branch instead of showing competitor category search ads
+        const queryParts = [
+          `Sede ${cleanEntityName}`,
+          locCity,
+          locCountry
+        ].filter(Boolean);
+        mapUrl = buildGoogleMapsUrl(queryParts.join(", "));
       }
     } else {
       mapUrl = buildGoogleMapsUrl(mapUrl);
@@ -2048,14 +2247,17 @@ function resolveHeadquarterLocations(
     result.push({
       country: locCountry,
       city: locCity,
-      address: locAddress || undefined,
+      address: effectiveStreet || undefined,
       mapUrl,
     });
   };
 
   // 1. Primary location ALWAYS comes first
   const initialPrimary = (Array.isArray(rawLocations) && rawLocations[0]) || {};
-  const effectivePrimaryAddress = initialPrimary.address || primaryAddress || undefined;
+  let effectivePrimaryAddress = initialPrimary.address || primaryAddress || undefined;
+  if (!effectivePrimaryAddress && (initialPrimary.city || finalCity)) {
+    effectivePrimaryAddress = matchAddressForCity(initialPrimary.city || finalCity);
+  }
   addLocation({
     country: initialPrimary.country || finalCountry,
     city: initialPrimary.city || finalCity,
@@ -2069,9 +2271,8 @@ function resolveHeadquarterLocations(
       const loc = rawLocations[i];
       if (!loc || typeof loc !== "object") continue;
       let locAddr = loc.address;
-      if (!locAddr && loc.city && Array.isArray(additionalAddresses)) {
-        const matched = additionalAddresses.find((a) => typeof a === "string" && new RegExp(`\\b${escapeRegExp(loc.city)}\\b`, "i").test(a));
-        if (matched) locAddr = matched;
+      if (!locAddr && loc.city) {
+        locAddr = matchAddressForCity(loc.city);
       }
       addLocation({ ...loc, address: locAddr });
     }
@@ -2083,21 +2284,12 @@ function resolveHeadquarterLocations(
       if (!addr || typeof addr !== "string") continue;
       const cleanAddr = addr.trim();
       if (!cleanAddr) continue;
-      let matchedCity = additionalCities.find((c) => new RegExp(`\\b${escapeRegExp(c)}\\b`, "i").test(cleanAddr));
-      if (!matchedCity) {
-        const parts = cleanAddr.split(",").map((p) => p.trim());
-        if (parts.length >= 2) {
-          const candidate = parts.slice(1).find((p) => p && !/\d+/.test(p) && !/argentina/i.test(p) && p.length > 2 && p.length < 30);
-          if (candidate) {
-            matchedCity = candidate.replace(/^(?:Ciudad de|Pdo\.|Partido de|Dpto\.|Provincia de)\s+/i, "").trim();
-          }
-        }
-      }
-      matchedCity = matchedCity || finalCity;
+
+      const parsed = parseAddressComponents(cleanAddr, finalCity, finalCountry);
       addLocation({
-        country: finalCountry,
-        city: matchedCity,
-        address: cleanAddr,
+        country: parsed.country,
+        city: parsed.city,
+        address: parsed.street || cleanAddr,
       });
     }
   }
@@ -2107,10 +2299,7 @@ function resolveHeadquarterLocations(
     for (const addCity of additionalCities) {
       if (!addCity || typeof addCity !== "string") continue;
       const cTrim = addCity.trim();
-      let matchedAddr: string | undefined = undefined;
-      if (Array.isArray(additionalAddresses)) {
-        matchedAddr = additionalAddresses.find((a) => typeof a === "string" && new RegExp(`\\b${escapeRegExp(cTrim)}\\b`, "i").test(a));
-      }
+      const matchedAddr = matchAddressForCity(cTrim);
       addLocation({
         country: finalCountry,
         city: cTrim,
