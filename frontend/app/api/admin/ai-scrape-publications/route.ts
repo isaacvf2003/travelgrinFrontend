@@ -2590,7 +2590,17 @@ function extractAllAddressesFromHtml(html: string, textContent: string): string[
     }
   }
 
-  // 4. Fallback: Check standard prefix address in whole HTML / textContent
+  // 4. Venue / Location cards & boxes anywhere in HTML (e.g. mapofvenuesBoxCnt, sede-card, sucursal-item, cau-box)
+  const venueBoxRegex = /<(?:div|li|article|p)\b[^>]*?(?:class|id)=["'][^"']*(?:venue|sede|sucursal|cau|delegacion|filial|punto|boxCnt|location-card)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|li|article|p)>/gi;
+  let mV;
+  while ((mV = venueBoxRegex.exec(html)) !== null) {
+    const text = mV[1].replace(/<br\s*\/?>/gi, ", ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+    if (text.length >= 6 && text.length <= 150) {
+      addUnique(text);
+    }
+  }
+
+  // 5. Fallback: Check standard prefix address in whole HTML / textContent
   let mWhole;
   while ((mWhole = standardAddressRegex.exec(html)) !== null) {
     addUnique(mWhole[0]);
@@ -2885,14 +2895,27 @@ async function discoverAndFetchSedesSubpages(
     }
   }
 
-  const candidateUrls = Array.from(foundUrls).slice(0, 2);
+  // Score candidate URLs so directory pages (presencia, sedes, sucursales, centros, donde, filiales, delegaciones, puntos)
+  // are sorted to the top before single-campus links (e.g. campus-cordoba)
+  const scoredUrls = Array.from(foundUrls).map((u) => {
+    let score = 0;
+    const uLow = u.toLowerCase();
+    if (/(?:presencia|territorial|todas-las-sedes|nuestras-sedes|red-de-sedes|donde-estamos|sucursales|filiales|delegaciones|puntos)/i.test(uLow)) score += 50;
+    if (/(?:sedes?|centros?|campus|ubicacion)/i.test(uLow)) score += 20;
+    if (/(?:cau|atencion)/i.test(uLow)) score += 15;
+    if (/(?:campus-[a-z]+|sede-[a-z]+)/i.test(uLow) && !/(?:presencia|todas|red)/i.test(uLow)) score -= 10;
+    return { url: u, score };
+  });
+
+  scoredUrls.sort((a, b) => b.score - a.score);
+  const candidateUrls = scoredUrls.map((s) => s.url).slice(0, 4);
   result.discoveredUrls = candidateUrls;
   if (candidateUrls.length === 0) return result;
 
   const addrSet = new Set<string>();
   let extraText = "";
 
-  for (const subUrl of candidateUrls) {
+  const fetchPromises = candidateUrls.map(async (subUrl) => {
     try {
       const subRes = await fetch(subUrl, {
         headers: {
@@ -2901,7 +2924,7 @@ async function discoverAndFetchSedesSubpages(
           "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
         },
         redirect: "follow",
-        signal: AbortSignal.timeout(2500),
+        signal: AbortSignal.timeout(4000),
       });
       if (subRes.ok) {
         const subHtml = await subRes.text();
@@ -2917,12 +2940,14 @@ async function discoverAndFetchSedesSubpages(
             .replace(/\s+/g, " ")
             .trim();
           if (cleanSub) {
-            extraText += " " + cleanSub.slice(0, 3500);
+            extraText += " " + cleanSub.slice(0, 45000);
           }
         }
       }
     } catch {}
-  }
+  });
+
+  await Promise.allSettled(fetchPromises);
 
   result.sedesAddresses = Array.from(addrSet);
   result.sedesText = extraText.trim();
@@ -3037,7 +3062,7 @@ async function fetchPageContent(url: string) {
           }
           if (sedesData.sedesText) {
             (extracted as any).sedesText = sedesData.sedesText;
-            extracted.textContent = (extracted.textContent + "\n\n" + sedesData.sedesText).slice(0, 36000);
+            extracted.textContent = (extracted.textContent + "\n\n" + sedesData.sedesText).slice(0, 60000);
           }
         } catch {}
 
