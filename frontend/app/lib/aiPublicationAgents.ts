@@ -594,7 +594,30 @@ export function synthesizeMarketingTitle(
   }
 
   const rawTitleClean = cleanTitleString(context.rawPageTitle || "");
-  const baseTitle = highlight || (rawTitleClean && !rawTitleClean.toLowerCase().includes(entityName.toLowerCase()) ? rawTitleClean : "");
+  let baseTitle = highlight || (rawTitleClean && !rawTitleClean.toLowerCase().includes(entityName.toLowerCase()) ? rawTitleClean : "");
+
+  if (!baseTitle && p) {
+    const fullCorpus = `${context.rawPageTitle || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.mainText || ""}`.toLowerCase();
+    const isHospital = /hospital|sanatorio|cl[ií]nica|salud|m[eé]dico/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
+    const isEdu = !isHospital && /universidad|facultad|carrera|estudiant|posgrado/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
+    const isSports = /gimnasio|fitness|deporte|club/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
+    const isLegal = /abogad|jur[ií]dico|legal|notari/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
+    const isTourism = /hotel|hostel|turismo|alojam|posada/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
+
+    if (isHospital) {
+      baseTitle = "Atención Médica de Excelencia, Especialidades y Cuidado de la Salud";
+    } else if (isEdu) {
+      baseTitle = "Formación Profesional de Excelencia, Carreras e Innovación Académica";
+    } else if (isSports) {
+      baseTitle = "Entrenamiento Integral, Salud y Acondicionamiento Físico";
+    } else if (isLegal) {
+      baseTitle = "Asesoramiento Legal Integral y Soluciones Profesionales";
+    } else if (isTourism) {
+      baseTitle = "Hospitalidad, Confort y Experiencias de Primer Nivel";
+    } else {
+      baseTitle = "Propuestas de Valor, Servicios Integrales y Atención de Calidad";
+    }
+  }
 
   let finalRes = "";
   if (omitName) {
@@ -2121,8 +2144,9 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
 
     const isEducationalEntity =
       !isMediaOrSportsOrEntertainment &&
+      !isHealthEntity &&
       (/\b(universidad|facultad|carrera universitaria|carreras universitarias|licenciatura|tecnicatura|alumnos?|estudiantes?|vida estudiantil|campus universitario|matr[ií]cula acad[eé]mica|aranceles acad[eé]micos|inscripciones a carreras|ingreso universitario|becas de estudio|docentes? universitarios?|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
-      /\.edu(?:\.[a-z]{2})?/i.test(context.url || ""));
+      (/\.edu(?:\.[a-z]{2})?/i.test(context.url || "") && !isHealthEntity));
 
     const isLegalOrConsulting =
       /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|cbi argentina|allende|brea)\b/i.test(fullTextCorpus) ||
@@ -2182,56 +2206,14 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
 
     let matchedCats = matchToCatalogPool(rawCategories, categoriesPool);
 
-    // If educational entity, proactively ensure student/education categories from pool are included
-    if (isEducationalEntity) {
-      const studentCat = categoriesPool.find((c) => /\bestudiant\w*/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
-      if (studentCat && !matchedCats.includes(studentCat)) {
-        matchedCats = [studentCat, ...matchedCats];
-      }
-      const eduPoolCategories = categoriesPool.filter(isStudentEduMatch);
-      for (const eduCat of eduPoolCategories) {
-        if (!matchedCats.includes(eduCat)) {
-          matchedCats.push(eduCat);
-        }
-      }
-      if (studentCat && matchedCats.includes(studentCat)) {
-        matchedCats = matchedCats.filter((c) => !/^\s*profesional\s*$/i.test(c));
-      }
-    }
-
-    if (isAuthenticOng) {
-      const ongPoolCategories = categoriesPool.filter(isOngMatch);
-      for (const ongCat of ongPoolCategories) {
-        if (!matchedCats.includes(ongCat)) {
-          matchedCats.push(ongCat);
-        }
-      }
-    }
-
-    if (isLegalOrConsulting) {
-      const migraCat = categoriesPool.find((c) => /gesti[oó]n.*migra|visas/i.test(c));
-      if (migraCat && !matchedCats.includes(migraCat)) {
-        matchedCats.push(migraCat);
-      }
-    }
-
-    if (isFashionOrDesign) {
-      const fashionCat = categoriesPool.find((c) => /moda|dise[nñ]o|indumentaria|textil/i.test(c));
-      if (fashionCat && !matchedCats.includes(fashionCat)) {
-        matchedCats.push(fashionCat);
-      }
-    }
-
-    if (isEntertainmentOrCulture) {
-      const entCat = categoriesPool.find((c) => /entretenimiento|cultura|arte|espect[aá]culo/i.test(c));
-      if (entCat && !matchedCats.includes(entCat)) {
-        matchedCats.push(entCat);
-      }
-    }
-
     // Filter out ONG categories if not an authentic ONG
     if (!isAuthenticOng) {
       matchedCats = matchedCats.filter((c) => !isOngMatch(c));
+    }
+
+    // Safety guardrail: Medical and health entities must NEVER contain visa or migration categories
+    if (isHealthEntity) {
+      matchedCats = matchedCats.filter((c) => !/visa|migra|residencia|ciudadan|pasaporte/i.test(c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
     }
 
     const nonOngPool = isAuthenticOng ? categoriesPool : categoriesPool.filter((c) => !isOngMatch(c));
@@ -2374,13 +2356,6 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
 
     if (isEducationalEntity) {
       cleanActivities = cleanActivities.filter((a) => !/hosteler|turism|alojam|profesional|tecnic|agricult|ganader|pesca|miner|comercio/i.test(a));
-      const eduAct = activitiesPool.find((a) => /educaci|formaci|ensenan/i.test(a));
-      if (eduAct && !cleanActivities.includes(eduAct)) {
-        cleanActivities = [eduAct, ...cleanActivities];
-      }
-      if (cleanActivities.length === 0) {
-        cleanActivities = [eduAct || "Educación y formación"];
-      }
     }
 
     if (isHealthEntity) {
@@ -2488,10 +2463,10 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       matchedTypes = matchedTypes.filter((t) => !isOngMatch(t));
     }
 
-    if (isEducationalEntity && matchedTypes.length === 0) {
+    if (matchedTypes.length === 0 && typesPool.length > 0) {
       const isPublicGov =
         /\b(\.gov|\.gob|\.mil)\b/i.test(context.url || "") ||
-        /\b(universidad nacional|hospital publico|organismo publico|ministerio|gobierno)\b/i.test(fullTextCorpus);
+        /\b(uncuyo|uba|unlp|unc|utn|unr|universidad nacional|hospital publico|hospital nacional|hospital universitario|organismo publico|ministerio|gobierno|estatal)\b/i.test(fullTextCorpus);
       const chosenType = isPublicGov
         ? typesPool.find((t) => /p[uú]blico|estatal/i.test(t))
         : typesPool.find((t) => /privada|empresa/i.test(t));
