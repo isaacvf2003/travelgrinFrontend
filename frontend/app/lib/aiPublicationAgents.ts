@@ -2881,6 +2881,7 @@ export interface UnifiedPublicationOutput {
   detectedReviewCount?: string;
   detectedFoundingYear?: string;
   detectedCommentsUrl?: string;
+  headquarterLocations?: Array<{ country: string; city: string; address?: string; mapUrl: string }>;
   taxonomyData: TaxonomyAgentData;
   providerUsed: string;
 }
@@ -2947,12 +2948,19 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
      * COLORES Y FORMATO: Si el administrador pide colores específicos (ej: "preguntas en rojo y su respuesta en negro" o "de azul el título"), APLICA EL ESTILO EN LÍNEA: <p><strong style="color: #dc2626;">¿Pregunta en rojo?</strong><br/><span style="color: #000000;">Respuesta en negro...</span></p>. Si pide emojis o íconos, inclúyelos libremente.
    - INFORMACIÓN DEL OFERENTE ('providerInfo'): Resumen institucional conciso de 1 o 2 oraciones (máximo 40 palabras) pero MUY rico, concreto y personalizado. REGLA DE ALEATORIEDAD Y VARIEDAD: En cada scraping, redacta una descripción institucional única, fresca y con un enfoque narrativo diferente y aleatorio (a veces enfocado en la tecnología y equipamiento moderno, a veces en la trayectoria y prestigio, a veces en la calidez humana y atención de su equipo multidisciplinario, o en el liderazgo regional). TOTALMENTE PROHIBIDO usar plantillas clichés vacías como "es un establecimiento y prestador de servicios en...".
 2. CERO PLANTILLAS RÍGIDAS FIJAS: No uses esquemas estáticos repetitivos. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
-3. Fidelidad factual y Reputación en Google Maps:
+3. Fidelidad factual, Sedes y Reputación Real en Google Maps:
    - Basa los textos en los servicios, ofertas, propuestas y datos reales de la web de "${entityName}".
    - 'detectedFoundingYear': Año real y verdadero en que se fundó la institución o comenzó sus actividades históricas SOLO si se menciona explícitamente en el texto del sitio web analizado o si es un hecho institucional histórico comprobado (ej: "1987", "1969", "1903", "1995", "1821"). NUNCA inventes, calcules ni estimes años arbitrarios. Si no existe un año real de fundación comprobado en la web o registro institucional verificado, DEBES DEVOLVER UNA CADENA VACÍA "". TOTALMENTE PROHIBIDO tomar el año de copyright del pie de página de la web (como "2024", "2025" o "2026").
-   - 'detectedRating': Calificación numérica exacta de 1.0 a 5.0 que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL. Si ya viene informada en los datos reales de referencia ("Calificación verificada"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA NI INVENTAR (ej: "4.3"). Si no posee o no hay datos, pon "0". NUNCA inventes números ficticios.
-   - 'detectedReviewCount': Cantidad exacta de reseñas / opiniones en Google Maps de esa sede principal. Si ya viene informada en los datos reales de referencia ("Reseñas verificadas"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA NI INVENTAR (ej: si tiene 776, pon "776"). Si no posee o no hay datos, pon "0". NUNCA inventes números redondos ficticios como 500 o 200.
-   - 'detectedCommentsUrl': Enlace directo o de búsqueda a las opiniones en Google Maps de su sede principal.
+   - 'detectedRating': Calificación promedio numérica EXACTA de 1.0 a 5.0 que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). Si viene informada en los datos reales de referencia ("Calificación verificada"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA (ej: "4.0"). Si no viene informada pero conoces la valoración verídica en Google Maps de la sede principal de esta institución, indícala con exactitud. Si la institución realmente no posee ficha o no tiene valoraciones en Google Maps, pon "0". NUNCA inventes puntuaciones arbitrarias.
+   - 'detectedReviewCount': Cantidad EXACTA de reseñas / comentarios reales en Google Maps de esa sede principal. Si viene informada en los datos reales de referencia ("Reseñas verificadas"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA (ej: "1401", "776"). Si no viene informada pero conoces la cantidad de opiniones en Google Maps de su sede principal, indícala. Si realmente no posee comentarios en Google Maps, pon "0". NUNCA inventes números redondos ficticios como 500 o 200.
+   - 'detectedAddress': Dirección física EXACTA y completa de la SEDE PRINCIPAL según Google Maps (calle, número y ciudad, ej: "De los Latinos 8555, X5008 Córdoba").
+   - 'detectedCommentsUrl': Enlace directo a Google Maps de la ficha o reseñas de la sede principal con el nombre institucional y dirección exacta.
+   - 'headquarterLocations': Array con la sede principal y todas las sedes o delegaciones físicas adicionales detectadas (ej: Buenos Aires, Rosario, Mendoza, Salta, Neuquén, etc.).
+     Para CADA sede física:
+     * 'country': País (ej: "Argentina")
+     * 'city': Nombre de la ciudad de la sede (ej: "Córdoba", "Buenos Aires", "Rosario", "Mendoza", "Salta", "Neuquén")
+     * 'address': Dirección física EXACTA y verdadera de esa sede en Google Maps (calle y número real, ej: "De los Latinos 8555" para Córdoba, "Av. Córdoba 1551" para Buenos Aires, "Entre Ríos 465" para Rosario, etc.). Prohibido dejar vacío si la sede tiene dirección física conocida.
+     * 'mapUrl': URL directa de Google Maps con la búsqueda precisa incluyendo el nombre de la institución, dirección física exacta, ciudad y país: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(Nombre + ", " + Dirección + ", " + Ciudad + ", " + País).
 4. CLASIFICACIÓN TAXONÓMICA DINÁMICA Y FIDELIDAD AL CONTENIDO RASPADO (CERO PLANTILLAS):
    - El administrador crea los bloques con taxonomías: actividad, modalidad, tipos, categoria, idiomas.
    - Basa la categorización en lo que la página web REALMENTE hace y ofrece según el scraping.
@@ -2977,11 +2985,25 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
   ],
   "providerInfo": "Resumen institucional conciso y rico en español de 1 o 2 oraciones (tomando lo mejor de la descripción sin plantillas genéricas)",
   "detectedPublisherName": "Nombre oficial completo de la entidad (resolviendo siglas si aplica)",
-  "detectedAddress": "Dirección física vigente del pie de página o contacto",
+  "detectedAddress": "De los Latinos 8555, X5008 Córdoba",
   "detectedFoundingYear": "",
-  "detectedRating": "4.8",
-  "detectedReviewCount": "35",
+  "detectedRating": "4.0",
+  "detectedReviewCount": "1401",
   "detectedCommentsUrl": "https://www.google.com/maps/search/?api=1&query=...",
+  "headquarterLocations": [
+    {
+      "country": "Argentina",
+      "city": "Córdoba",
+      "address": "De los Latinos 8555",
+      "mapUrl": "https://www.google.com/maps/search/?api=1&query=Universidad%20Siglo%2021%2C%20De%20los%20Latinos%208555%2C%20C%C3%B3rdoba%2C%20Argentina"
+    },
+    {
+      "country": "Argentina",
+      "city": "Buenos Aires",
+      "address": "Av. Córdoba 1551",
+      "mapUrl": "https://www.google.com/maps/search/?api=1&query=Universidad%20Siglo%2021%2C%20Av.%20C%C3%B3rdoba%201551%2C%20Buenos%20Aires%2C%20Argentina"
+    }
+  ],
   "category": "Nombre de la categoría principal afín seleccionada (o \"\" si ninguna aplica)",
   "subcategory": "Nombre de la subcategoría afín seleccionada (o \"\" si ninguna aplica)",
   "categorySelections": ["Categoría coincidente 1 (o [] si ninguna categoría del catálogo aplica)"],
@@ -3338,6 +3360,28 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       : (parsed.detectedReviewCount ? String(parsed.detectedReviewCount).replace(/[^0-9]/g, "").trim() : undefined);
     let detectedCommentsUrl = context.commentsUrl || (parsed.detectedCommentsUrl ? String(parsed.detectedCommentsUrl).trim() : undefined);
 
+    const parsedHqLocations: Array<{ country: string; city: string; address?: string; mapUrl: string }> = [];
+    if (Array.isArray(parsed.headquarterLocations)) {
+      for (const rawLoc of parsed.headquarterLocations) {
+        if (!rawLoc || typeof rawLoc !== "object") continue;
+        const locCity = cleanTitleString(String(rawLoc.city || "").trim());
+        const locCountry = cleanTitleString(String(rawLoc.country || context.country || "Argentina").trim());
+        const locAddr = cleanTitleString(String(rawLoc.address || "").trim());
+        if (!locCity && !locAddr) continue;
+        let locMapUrl = String(rawLoc.mapUrl || "").trim();
+        if (!locMapUrl || !locMapUrl.startsWith("http")) {
+          const qParts = [cleanPublisher, locAddr, locCity, locCountry].filter(Boolean);
+          locMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(qParts.join(", "))}`;
+        }
+        parsedHqLocations.push({
+          country: locCountry || "Argentina",
+          city: locCity || context.city || "Buenos Aires",
+          address: locAddr || undefined,
+          mapUrl: locMapUrl,
+        });
+      }
+    }
+
     return {
       success: true,
       data: {
@@ -3356,6 +3400,7 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         detectedReviewCount,
         detectedFoundingYear,
         detectedCommentsUrl,
+        headquarterLocations: parsedHqLocations.length > 0 ? parsedHqLocations : undefined,
         taxonomyData,
         providerUsed,
       },
