@@ -756,6 +756,9 @@ export interface CleanScrapedContext {
   city?: string;
   country?: string;
   address?: string;
+  additionalCities?: string[];
+  additionalAddresses?: string[];
+  sedesContext?: string;
   foundingYear?: string;
   rating?: string;
   reviewCount?: string;
@@ -2955,12 +2958,15 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
    - 'detectedReviewCount': Cantidad EXACTA de reseñas / comentarios reales en Google Maps de esa sede principal. Si viene informada en los datos reales de referencia ("Reseñas verificadas"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA (ej: "1401", "776"). Si no viene informada pero conoces la cantidad de opiniones en Google Maps de su sede principal, indícala. Si realmente no posee comentarios en Google Maps, pon "0". NUNCA inventes números redondos ficticios como 500 o 200.
    - 'detectedAddress': Dirección física EXACTA y completa de la SEDE PRINCIPAL según Google Maps (calle, número y ciudad, ej: "De los Latinos 8555, X5008 Córdoba").
    - 'detectedCommentsUrl': Enlace directo a Google Maps de la ficha o reseñas de la sede principal con el nombre institucional y dirección exacta.
-   - 'headquarterLocations': Array con la sede principal y todas las sedes o delegaciones físicas adicionales detectadas (ej: Buenos Aires, Rosario, Mendoza, Salta, Neuquén, etc.).
-     Para CADA sede física:
+   - 'headquarterLocations': REGLA DE MÁXIMA CAPTURA DINÁMICA DE SEDES FÍSICAS (CAMPUS, SUCURSALES, DELEGACIONES, CENTROS REGIONALES):
+     Para CUALQUIER entidad analizada (universidad, instituto, hospital, centro de salud, empresa, comercio, etc.):
+     DEBES IDENTIFICAR Y LISTAR EN 'headquarterLocations' LA MAYOR CANTIDAD DE SEDES FÍSICAS POSIBLE de esta entidad.
+     Aprovecha todas las ciudades y direcciones físicas detectadas en los datos del scraping, así como el contenido del sitio web y tu conocimiento sobre la presencia real de la entidad.
+     Si la entidad cuenta con presencia física en múltiples ciudades o provincias (ej: Buenos Aires, Mendoza, Rosario, Córdoba, Salta, San Juan, Neuquén, La Plata, San Isidro, Lanús, Santa Fe, etc.), DEBES GENERAR UN ELEMENTO PARA CADA SEDE FÍSICA con:
      * 'country': País (ej: "Argentina")
-     * 'city': Nombre de la ciudad de la sede (ej: "Córdoba", "Buenos Aires", "Rosario", "Mendoza", "Salta", "Neuquén")
-     * 'address': Dirección física EXACTA y verdadera de esa sede en Google Maps (calle y número real, ej: "De los Latinos 8555" para Córdoba, "Av. Córdoba 1551" para Buenos Aires, "Entre Ríos 465" para Rosario, etc.). Prohibido dejar vacío si la sede tiene dirección física conocida.
-     * 'mapUrl': URL directa de Google Maps con la búsqueda precisa incluyendo el nombre de la institución, dirección física exacta, ciudad y país: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(Nombre + ", " + Dirección + ", " + Ciudad + ", " + País).
+     * 'city': Nombre de la ciudad de la sede (ej: "Mendoza", "Córdoba", "Rosario", "Buenos Aires", "San Juan", "Salta", "Neuquén", etc.)
+     * 'address': Dirección física real y exacta de esa sede en Google Maps (calle y número real). Si no se conoce la calle exacta de esa sede pero se conoce la ciudad o campus, pon el nombre del campus o dirección aproximada; si está informada en las direcciones detectadas del scraping, úsala con precisión.
+     * 'mapUrl': URL directa de Google Maps con la búsqueda precisa incluyendo el nombre de la institución, dirección física exacta, ciudad y país: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(Nombre + ", " + (Dirección ? Dirección + ", " : "") + Ciudad + ", " + País).
 4. CLASIFICACIÓN TAXONÓMICA DINÁMICA Y FIDELIDAD AL CONTENIDO RASPADO (CERO PLANTILLAS):
    - El administrador crea los bloques con taxonomías: actividad, modalidad, tipos, categoria, idiomas.
    - Basa la categorización en lo que la página web REALMENTE hace y ofrece según el scraping.
@@ -3030,9 +3036,10 @@ ${customBlocksDirective}
 - Nombre preliminar detectado: "${entityName}"
 - Título original de la web: "${context.rawPageTitle || entityName}"
 - Meta descripción de la web: "${context.metaDescription || "N/A"}"
-- Ubicación: "${locationText || "No informada"}"
-- Dirección física detectada: "${context.address || "No informada"}"
-- Google Maps (Sede Principal): Calificación verificada: "${context.rating && context.rating !== "0" ? context.rating : "No disponible"}" | Reseñas verificadas: "${context.reviewCount && context.reviewCount !== "0" ? context.reviewCount : "No disponible"}" | Link: "${context.commentsUrl || "N/A"}"
+- Ubicación principal detectada: "${locationText || "No informada"}"
+- Ciudades y provincias adicionales detectadas: "${(context.additionalCities || []).join(", ") || "Ninguna adicional identificada"}"
+- Direcciones físicas detectadas en el sitio: "${(context.additionalAddresses || []).slice(0, 15).join(" | ") || (context.address || "No informada")}"
+${context.sedesContext ? `- Sedes y campus detectados en el sitio: "${context.sedesContext.slice(0, 1500)}"\n` : ""}- Google Maps (Sede Principal): Calificación verificada: "${context.rating && context.rating !== "0" ? context.rating : "No disponible"}" | Reseñas verificadas: "${context.reviewCount && context.reviewCount !== "0" ? context.reviewCount : "No disponible"}" | Link: "${context.commentsUrl || "N/A"}"
 - Encabezados principales del sitio: ${(context.headings || []).slice(0, 12).join(" | ") || "N/A"}
 - Servicios detectados: ${(context.servicesList || []).slice(0, 10).join(" | ") || "N/A"}
 - Párrafos de texto extraídos de la web:
