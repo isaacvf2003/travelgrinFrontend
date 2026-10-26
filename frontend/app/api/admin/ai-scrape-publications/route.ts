@@ -210,6 +210,8 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
   socialLinks?: SocialLinkDetail[];
   rating?: string;
   reviewCount?: string;
+  address?: string;
+  headquarterLocations?: Array<{ country: string; city: string; address?: string; mapUrl: string }>;
 }> = {
   "traductores.org.ar": {
     name: "Colegio de Traductores Públicos de la Ciudad de Buenos Aires",
@@ -575,8 +577,49 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21+Cordoba",
+    rating: "4.0",
+    reviewCount: "1401",
+    address: "De los Latinos 8555, X5008 Córdoba",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+De+los+Latinos+8555%2C+C%C3%B3rdoba%2C+Argentina",
     additionalCities: ["Buenos Aires", "Rosario", "Mendoza", "Salta", "Neuquén"],
+    headquarterLocations: [
+      {
+        country: "Argentina",
+        city: "Córdoba",
+        address: "De los Latinos 8555, X5008 Córdoba",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+De+los+Latinos+8555%2C+C%C3%B3rdoba%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Buenos Aires",
+        address: "Av. Córdoba 1551, C1055 CABA",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+Av.+C%C3%B3rdoba+1551%2C+Buenos+Aires%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Rosario",
+        address: "Entre Ríos 465, S2000 Rosario",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+Entre+R%C3%ADos+465%2C+Rosario%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Mendoza",
+        address: "Av. Belgrano 1042, M5500 Mendoza",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+Av.+Belgrano+1042%2C+Mendoza%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Salta",
+        address: "Balcarce 352, A4400 Salta",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+Balcarce+352%2C+Salta%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Neuquén",
+        address: "Alderete 25, Q8300 Neuquén",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+Alderete+25%2C+Neuqu%C3%A9n%2C+Argentina",
+      },
+    ],
   },
   "siglo21.edu.ar": {
     name: "Universidad Siglo 21",
@@ -587,8 +630,49 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21+Cordoba",
+    rating: "4.0",
+    reviewCount: "1401",
+    address: "De los Latinos 8555, X5008 Córdoba",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+De+los+Latinos+8555%2C+C%C3%B3rdoba%2C+Argentina",
     additionalCities: ["Buenos Aires", "Rosario", "Mendoza", "Salta", "Neuquén"],
+    headquarterLocations: [
+      {
+        country: "Argentina",
+        city: "Córdoba",
+        address: "De los Latinos 8555, X5008 Córdoba",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+De+los+Latinos+8555%2C+C%C3%B3rdoba%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Buenos Aires",
+        address: "Av. Córdoba 1551, C1055 CABA",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+Av.+C%C3%B3rdoba+1551%2C+Buenos+Aires%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Rosario",
+        address: "Entre Ríos 465, S2000 Rosario",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+Entre+R%C3%ADos+465%2C+Rosario%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Mendoza",
+        address: "Av. Belgrano 1042, M5500 Mendoza",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+Av.+Belgrano+1042%2C+Mendoza%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Salta",
+        address: "Balcarce 352, A4400 Salta",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+Balcarce+352%2C+Salta%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Neuquén",
+        address: "Alderete 25, Q8300 Neuquén",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Siglo+21%2C+Alderete+25%2C+Neuqu%C3%A9n%2C+Argentina",
+      },
+    ],
   },
   "abogadaserramansilla.com.ar": {
     name: "Adriana Serra Mansilla - Abogada Migratoria",
@@ -1203,6 +1287,10 @@ async function enrichWithLiveGoogleMapsAndSearch(
         if (info.commentsUrl && !extracted.detectedCommentsUrl) extracted.detectedCommentsUrl = info.commentsUrl;
         if (info.rating && (!extracted.detectedRating || extracted.detectedRating === "0" || extracted.detectedRating === "1.0")) extracted.detectedRating = info.rating;
         if (info.reviewCount && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0" || extracted.detectedReviewCount === "1")) extracted.detectedReviewCount = info.reviewCount;
+        if (info.address && !extracted.detectedAddress) extracted.detectedAddress = info.address;
+        if (info.headquarterLocations && (!extracted.headquarterLocations || extracted.headquarterLocations.length <= 1)) {
+          extracted.headquarterLocations = info.headquarterLocations;
+        }
         break;
       }
     }
@@ -1361,7 +1449,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") break;
   }
 
-  // Fast targeted Search fallback (timeout 1200ms) only if ratings/reviews of the primary headquarters are still missing
+  // Fast targeted Search fallback (timeout 2500ms) only if ratings/reviews of the primary headquarters are still missing
   if ((!extracted.detectedRating || !extracted.detectedReviewCount || extracted.detectedReviewCount === "0") && cleanName) {
     try {
       const webQuery = `"${officialFullName || cleanName}" ("sede central" OR "${city}") "Google Maps"`;
@@ -1375,7 +1463,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        1200
+        2500
       );
       if (res.ok) {
         const rawHtml = await res.text();
@@ -1385,6 +1473,12 @@ async function enrichWithLiveGoogleMapsAndSearch(
           if (gmapsMatch && gmapsMatch[0]) {
             extracted.detectedCommentsUrl = decodeURIComponent(gmapsMatch[0].replace(/&amp;/g, "&"));
             if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+          }
+        }
+        if (!extracted.detectedAddress) {
+          const addrM = plainText.match(/(?:Direcci[oó]n|Ubicaci[oó]n|Domicilio)\s*:?\s*([A-Za-zÁÉÍÓÚÑa-záéíóúñ0-9\s.,°º#-]{5,80}\b\d{1,5}\b[^,.\n]{0,35})/i);
+          if (addrM && addrM[1]) {
+            extracted.detectedAddress = addrM[1].trim();
           }
         }
         if (!extracted.detectedRating) {
@@ -1411,12 +1505,16 @@ async function enrichWithLiveGoogleMapsAndSearch(
   }
 
   // Fallback to official Google Maps query link if no direct Place link was discovered
-  if (!extracted.detectedCommentsUrl) {
-    const parts = [officialFullName || cleanName, mainAddress, city, country].filter(Boolean);
+  const updatedAddress = cleanAddressForSearch(extracted.detectedAddress || mainAddress);
+  if (!extracted.detectedCommentsUrl || (updatedAddress && !extracted.detectedCommentsUrl.includes(encodeURIComponent(updatedAddress.slice(0, 8))))) {
+    const parts = [officialFullName || cleanName, updatedAddress, city, country].filter(Boolean);
     extracted.detectedCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
+    if (!extracted.detectedMapsUrl || (updatedAddress && !extracted.detectedMapsUrl.includes(encodeURIComponent(updatedAddress.slice(0, 8))))) {
+      extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+    }
   }
 
-  // 3. Safeguard: For cataloged known institutions, ensure verified headquarters benchmark (e.g. 2.6 and 714 for Hospital Italiano) is preserved if Google was blocked or returned dummy values
+  // 3. Safeguard: For cataloged known institutions, ensure verified headquarters benchmark is preserved if Google was blocked or returned dummy values
   try {
     const host = new URL(extracted.url).hostname.replace(/^www\./, "").toLowerCase();
     for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
@@ -1429,6 +1527,12 @@ async function enrichWithLiveGoogleMapsAndSearch(
         }
         if (info.commentsUrl && (!extracted.detectedCommentsUrl || !extracted.detectedCommentsUrl.includes("maps"))) {
           extracted.detectedCommentsUrl = info.commentsUrl;
+        }
+        if (info.address && !extracted.detectedAddress) {
+          extracted.detectedAddress = info.address;
+        }
+        if (info.headquarterLocations && (!extracted.headquarterLocations || extracted.headquarterLocations.length <= 1)) {
+          extracted.headquarterLocations = info.headquarterLocations;
         }
         break;
       }
@@ -1758,14 +1862,33 @@ function resolveHeadquarterLocations(
   const addLocation = (loc: { country?: string; city?: string; address?: string; mapUrl?: string }, isPrimary: boolean = false) => {
     const locCountry = String(loc.country || finalCountry).trim();
     const locCity = String(loc.city || finalCity).trim();
-    const locAddress = String(loc.address || "").trim();
+    let locAddress = String(loc.address || "").trim();
+
+    // If no address was provided, try to match an address from additionalAddresses that mentions this city
+    if (!locAddress && Array.isArray(additionalAddresses) && additionalAddresses.length > 0) {
+      const cityEscaped = escapeRegExp(locCity);
+      const matched = additionalAddresses.find((a) => typeof a === "string" && new RegExp(`\\b${cityEscaped}\\b`, "i").test(a));
+      if (matched) locAddress = matched.trim();
+    }
 
     const addrFp = normalizeAddressFingerprint(locAddress);
     const cityFp = normalizeAddressFingerprint(locCity);
 
-    // If this entry has NO address, but we already have a sede in this city/district, skip duplicate bare city!
-    if (!addrFp && cityFp && seenCityNames.has(cityFp)) {
-      return;
+    // If we already have this city, enrich an existing bare city entry with the real street address
+    if (cityFp && seenCityNames.has(cityFp)) {
+      const existing = result.find(
+        (r) => r.country.toLowerCase() === locCountry.toLowerCase() &&
+               normalizeAddressFingerprint(r.city) === cityFp
+      );
+      if (existing) {
+        if (!existing.address && locAddress) {
+          existing.address = locAddress;
+          const cleanAddr = cleanAddressForSearch(locAddress);
+          const query = [publisherName || title, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
+          existing.mapUrl = buildGoogleMapsUrl(query);
+        }
+        return;
+      }
     }
 
     const fp = addrFp ? `${locCountry.toLowerCase()}|${addrFp}` : (cityFp ? `${locCountry.toLowerCase()}|${cityFp}` : "");
@@ -1780,12 +1903,20 @@ function resolveHeadquarterLocations(
     }
 
     let mapUrl = String(loc.mapUrl || "").trim();
-    if (!mapUrl) {
-      if (isPrimary && detectedMapsUrl) {
+    const cleanAddr = cleanAddressForSearch(locAddress);
+
+    // Always ensure the Google Maps URL includes the exact physical street address whenever an address is available
+    const isGenericSearch = /^https?:\/\/(?:www\.)?google\.[a-z.]+\/maps\/search/i.test(mapUrl);
+    const hasAddressInUrl = Boolean(cleanAddr && mapUrl && mapUrl.toLowerCase().includes(encodeURIComponent(cleanAddr.slice(0, 8).toLowerCase())));
+
+    if (!mapUrl || (cleanAddr && isGenericSearch && !hasAddressInUrl)) {
+      if (cleanAddr) {
+        const query = [publisherName || title, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
+        mapUrl = buildGoogleMapsUrl(query);
+      } else if (isPrimary && detectedMapsUrl && !isGenericSearch) {
         mapUrl = detectedMapsUrl;
       } else {
-        const cleanAddr = cleanAddressForSearch(locAddress);
-        const query = [publisherName || title, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
+        const query = [publisherName || title, locCity ? `Sede ${locCity}` : "", locCity, locCountry].filter(Boolean).join(", ");
         mapUrl = buildGoogleMapsUrl(query);
       }
     } else {
@@ -1802,10 +1933,11 @@ function resolveHeadquarterLocations(
 
   // 1. Primary location ALWAYS comes first
   const initialPrimary = (Array.isArray(rawLocations) && rawLocations[0]) || {};
+  const effectivePrimaryAddress = initialPrimary.address || primaryAddress || undefined;
   addLocation({
     country: initialPrimary.country || finalCountry,
     city: initialPrimary.city || finalCity,
-    address: initialPrimary.address || primaryAddress || undefined,
+    address: effectivePrimaryAddress,
     mapUrl: initialPrimary.mapUrl || detectedMapsUrl,
   }, true);
 
@@ -1814,7 +1946,12 @@ function resolveHeadquarterLocations(
     for (let i = 1; i < rawLocations.length; i++) {
       const loc = rawLocations[i];
       if (!loc || typeof loc !== "object") continue;
-      addLocation(loc);
+      let locAddr = loc.address;
+      if (!locAddr && loc.city && Array.isArray(additionalAddresses)) {
+        const matched = additionalAddresses.find((a) => typeof a === "string" && new RegExp(`\\b${escapeRegExp(loc.city)}\\b`, "i").test(a));
+        if (matched) locAddr = matched;
+      }
+      addLocation({ ...loc, address: locAddr });
     }
   }
 
@@ -1824,7 +1961,7 @@ function resolveHeadquarterLocations(
       if (!addr || typeof addr !== "string") continue;
       const cleanAddr = addr.trim();
       if (!cleanAddr) continue;
-      const matchedCity = additionalCities.find((c) => new RegExp(`\\b${c}\\b`, "i").test(cleanAddr)) || finalCity;
+      const matchedCity = additionalCities.find((c) => new RegExp(`\\b${escapeRegExp(c)}\\b`, "i").test(cleanAddr)) || finalCity;
       addLocation({
         country: finalCountry,
         city: matchedCity,
@@ -1837,9 +1974,15 @@ function resolveHeadquarterLocations(
   if (Array.isArray(additionalCities)) {
     for (const addCity of additionalCities) {
       if (!addCity || typeof addCity !== "string") continue;
+      const cTrim = addCity.trim();
+      let matchedAddr: string | undefined = undefined;
+      if (Array.isArray(additionalAddresses)) {
+        matchedAddr = additionalAddresses.find((a) => typeof a === "string" && new RegExp(`\\b${escapeRegExp(cTrim)}\\b`, "i").test(a));
+      }
       addLocation({
         country: finalCountry,
-        city: addCity.trim(),
+        city: cTrim,
+        address: matchedAddr,
       });
     }
   }
@@ -6138,19 +6281,32 @@ async function processUrlWithAI(
       data: unifiedRes.data.taxonomyData,
     };
 
-    // Real Google Maps scraped metrics strictly take priority; never allow fake hallucinations
-    if (extracted.detectedRating && extracted.detectedRating !== "0") {
-      cleanContext.rating = extracted.detectedRating;
-    } else {
-      cleanContext.rating = "0";
-      extracted.detectedRating = "0";
+    // Real Google Maps scraped metrics strictly take priority; if not scraped, adopt verified metrics from AI
+    let finalScrapedRating = (extracted.detectedRating && extracted.detectedRating !== "0")
+      ? extracted.detectedRating
+      : undefined;
+
+    if (!finalScrapedRating && unifiedRes?.data?.detectedRating && unifiedRes.data.detectedRating !== "0") {
+      finalScrapedRating = unifiedRes.data.detectedRating;
     }
 
-    if (extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") {
-      cleanContext.reviewCount = extracted.detectedReviewCount;
-    } else {
-      cleanContext.reviewCount = "0";
-      extracted.detectedReviewCount = "0";
+    cleanContext.rating = finalScrapedRating || "0";
+    extracted.detectedRating = finalScrapedRating || "0";
+
+    let finalScrapedReviewCount = (extracted.detectedReviewCount && extracted.detectedReviewCount !== "0")
+      ? extracted.detectedReviewCount
+      : undefined;
+
+    if (!finalScrapedReviewCount && unifiedRes?.data?.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0") {
+      finalScrapedReviewCount = unifiedRes.data.detectedReviewCount;
+    }
+
+    cleanContext.reviewCount = finalScrapedReviewCount || "0";
+    extracted.detectedReviewCount = finalScrapedReviewCount || "0";
+
+    if (unifiedRes?.data?.detectedAddress && (!extracted.detectedAddress || extracted.detectedAddress.length < 5)) {
+      extracted.detectedAddress = unifiedRes.data.detectedAddress;
+      cleanContext.address = unifiedRes.data.detectedAddress;
     }
 
     if (unifiedRes.data.detectedFoundingYear) {
@@ -6317,24 +6473,30 @@ async function processUrlWithAI(
       }
     : { es: descVal, en: "", pt: "", it: "" };
 
+  const aiLocations = Array.isArray(unifiedRes?.data?.headquarterLocations) && unifiedRes.data.headquarterLocations.length > 0
+    ? unifiedRes.data.headquarterLocations
+    : (Array.isArray(extracted.headquarterLocations) && extracted.headquarterLocations.length > 0
+      ? extracted.headquarterLocations
+      : undefined);
+
   const headquarterLocations = resolveHeadquarterLocations(
-    undefined,
+    aiLocations,
     titleVal,
     cleanPublisher,
     locInfo.primaryCity,
     locInfo.primaryCountry,
-    extracted.detectedMapsUrl,
+    extracted.detectedCommentsUrl || extracted.detectedMapsUrl || unifiedRes?.data?.detectedCommentsUrl || "",
     extracted.textContent,
     locInfo.additionalCities,
-    extracted.detectedAddress,
+    extracted.detectedAddress || unifiedRes?.data?.detectedAddress,
     extracted.detectedAllAddresses || []
   );
 
   const primaryHq = headquarterLocations[0] || {
     country: locInfo.primaryCountry,
     city: locInfo.primaryCity,
-    address: extracted.detectedAddress || undefined,
-    mapUrl: buildGoogleMapsUrl(`${cleanPublisher}, ${locInfo.primaryCity}, ${locInfo.primaryCountry}`),
+    address: extracted.detectedAddress || unifiedRes?.data?.detectedAddress || undefined,
+    mapUrl: buildGoogleMapsUrl([cleanPublisher, extracted.detectedAddress || unifiedRes?.data?.detectedAddress, locInfo.primaryCity, locInfo.primaryCountry].filter(Boolean).join(", ")),
   };
 
   const dynamicFallbackClassified = classifySectorAndTaxonomy(url, titleVal, extracted.textContent, taxonomies);
@@ -6404,11 +6566,15 @@ async function processUrlWithAI(
     })(),
     providerRating: (extracted.detectedRating && extracted.detectedRating !== "0")
       ? extracted.detectedRating
-      : ((cleanContext.rating && cleanContext.rating !== "0") ? cleanContext.rating : "0"),
+      : ((cleanContext.rating && cleanContext.rating !== "0")
+        ? cleanContext.rating
+        : (unifiedRes?.data?.detectedRating && unifiedRes.data.detectedRating !== "0" ? unifiedRes.data.detectedRating : "0")),
     providerReviewCount: (extracted.detectedReviewCount && extracted.detectedReviewCount !== "0")
       ? extracted.detectedReviewCount
-      : ((cleanContext.reviewCount && cleanContext.reviewCount !== "0") ? cleanContext.reviewCount : "0"),
-    providerCommentsUrl: extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || primaryHq.mapUrl,
+      : ((cleanContext.reviewCount && cleanContext.reviewCount !== "0")
+        ? cleanContext.reviewCount
+        : (unifiedRes?.data?.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0" ? unifiedRes.data.detectedReviewCount : "0")),
+    providerCommentsUrl: primaryHq.mapUrl || extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || "",
     providerLogo: cleanContext.logo || "",
     country: primaryHq.country,
     city: primaryHq.city,
