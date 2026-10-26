@@ -565,8 +565,78 @@ const KNOWN_INSTITUTIONS_MAP: Record<string, {
     category: "Educación y centros de estudios",
     subcategory: "Universidad y posgrado",
     type: "Institución privada",
-    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy+Buenos+Aires",
-    additionalCities: [],
+    rating: "3.8",
+    reviewCount: "159",
+    address: "Bartolomé Mitre 1411, C1037 CABA",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Bartolom%C3%A9+Mitre+1411%2C+Buenos+Aires%2C+Argentina",
+    additionalCities: ["Lanús", "San Isidro"],
+    headquarterLocations: [
+      {
+        country: "Argentina",
+        city: "Buenos Aires",
+        address: "Bartolomé Mitre 1411, C1037 CABA",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Bartolom%C3%A9+Mitre+1411%2C+Buenos+Aires%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Lanús",
+        address: "Av. Hipólito Yrigoyen 4651, B1824 Lanús",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Av.+Hip%C3%B3lito+Yrigoyen+4651%2C+Lan%C3%BAs%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "San Isidro",
+        address: "Edison 3243, B1640 Martínez",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Argentina+John+F.+Kennedy%2C+Edison+3243%2C+Mart%C3%ADnez%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Buenos Aires",
+        address: "Sarmiento 4564, C1197 CABA",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Sarmiento+4564%2C+Buenos+Aires%2C+Argentina",
+      },
+    ],
+  },
+  "ukennedy.edu.ar": {
+    name: "Universidad Kennedy",
+    startYear: "1964",
+    primaryCity: "Buenos Aires",
+    primaryCountry: "Argentina",
+    activity: "Educación y formación",
+    category: "Educación y centros de estudios",
+    subcategory: "Universidad y posgrado",
+    type: "Institución privada",
+    rating: "3.8",
+    reviewCount: "159",
+    address: "Bartolomé Mitre 1411, C1037 CABA",
+    commentsUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Bartolom%C3%A9+Mitre+1411%2C+Buenos+Aires%2C+Argentina",
+    additionalCities: ["Lanús", "San Isidro"],
+    headquarterLocations: [
+      {
+        country: "Argentina",
+        city: "Buenos Aires",
+        address: "Bartolomé Mitre 1411, C1037 CABA",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Bartolom%C3%A9+Mitre+1411%2C+Buenos+Aires%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Lanús",
+        address: "Av. Hipólito Yrigoyen 4651, B1824 Lanús",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Av.+Hip%C3%B3lito+Yrigoyen+4651%2C+Lan%C3%BAs%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "San Isidro",
+        address: "Edison 3243, B1640 Martínez",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Argentina+John+F.+Kennedy%2C+Edison+3243%2C+Mart%C3%ADnez%2C+Argentina",
+      },
+      {
+        country: "Argentina",
+        city: "Buenos Aires",
+        address: "Sarmiento 4564, C1197 CABA",
+        mapUrl: "https://www.google.com/maps/search/?api=1&query=Universidad+Kennedy%2C+Sarmiento+4564%2C+Buenos+Aires%2C+Argentina",
+      },
+    ],
   },
   "21.edu.ar": {
     name: "Universidad Siglo 21",
@@ -738,7 +808,10 @@ function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: stri
 
   // 2. High-confidence explicit site name (og:site_name or Schema.org Organization)
   if (explicitSiteName && typeof explicitSiteName === "string") {
-    const cleanSite = explicitSiteName.replace(/<[^>]+>/g, "").trim();
+    let cleanSite = explicitSiteName.replace(/<[^>]+>/g, "").trim();
+    cleanSite = cleanSite
+      .replace(/^(?:lead\s+enviado|formulario\s+enviado|gracias(?:\s+por(?:\s+tu)?\s+consulta)?|consulta\s+enviada|solicitud\s+enviada|confirmaci[oó]n|contacto)\s*[-–—|:]\s*/i, "")
+      .trim();
     const GENERIC_NAMES = /^(?:Home|Inicio|Portada|Bienvenidos?|Principal|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Login|Acceso|Portal|Contacto|Novedades|Art[ií]culo)\b/i;
     if (cleanSite.length >= 2 && cleanSite.length < 55 && !GENERIC_NAMES.test(cleanSite)) {
       return cleanSite;
@@ -749,6 +822,10 @@ function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: stri
   text = text
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
+    .trim();
+
+  text = text
+    .replace(/^(?:lead\s+enviado|formulario\s+enviado|gracias(?:\s+por(?:\s+tu)?\s+consulta)?|consulta\s+enviada|solicitud\s+enviada|confirmaci[oó]n|contacto)\s*[-–—|:]\s*/i, "")
     .trim();
 
   text = text
@@ -769,7 +846,10 @@ function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: stri
     } catch {}
   }
 
-  const segments = text.split(/\s*[-–—|/]\s*/).map((s) => s.trim()).filter(Boolean);
+  const segments = text
+    .split(/\s*[-–—|/]\s*/)
+    .map((s) => s.trim())
+    .filter((s) => Boolean(s) && !/^(?:lead\s+enviado|formulario\s+enviado|gracias|consulta\s+enviada|solicitud\s+enviada|confirmaci[oó]n|contacto)$/i.test(s));
   if (segments.length > 1) {
     let resolvedSegment = "";
 
@@ -1053,8 +1133,27 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
   return null;
 }
 
+function isValidPhysicalStreetAddress(addr?: string | null): boolean {
+  if (!addr || typeof addr !== "string") return false;
+  const s = decodeHtmlEntities(addr).replace(/<[^>]+>/g, "").trim();
+  if (s.length < 6 || s.length > 120) return false;
+
+  const JUNK_TERMS = /\b(?:calendario|acad[eé]mico|ciclo(?:\s+lectivo)?|inscripci[oó]n(?:es)?|arancel(?:es)?|cuota(?:s)?|matr[ií]cula|licenciatura|carrera(?:s)?|posgrado|grado|materia(?:s)?|curso(?:s)?|diplomatura|programa(?:s)?|resoluci[oó]n|ley|decreto|art[ií]culo|a[ñn]o|desde|hasta|horario(?:s)?|atenci[oó]n|copyright|derechos|tel[eé]fono|conmutador|contacto|whatsapp|wsp|lead\s+enviado|gracias|formulario)\b/i;
+  if (JUNK_TERMS.test(s)) return false;
+
+  const hasPrefix = /\b(?:av\.|avenida|calle|bv\.|boulevard|bulevar|pje\.|pasaje|ruta(?:\s+provincial|\s+nacional)?|autopista|diagonal|lateral|acceso)\b/i.test(s);
+  const numMatch = s.match(/\b\d{1,5}\b/);
+  if (!numMatch) return false;
+
+  const num = parseInt(numMatch[0], 10);
+  if (!hasPrefix && num >= 1900 && num <= 2099) {
+    return false;
+  }
+  return true;
+}
+
 function cleanAddressForSearch(addr?: string | null): string {
-  if (!addr) return "";
+  if (!addr || !isValidPhysicalStreetAddress(addr)) return "";
   let clean = decodeHtmlEntities(addr)
     .replace(/\s+(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja|timbre|bloque)[^,.\n]*/gi, "")
     .replace(/,\s*(?:barrio|b°|bº|b\.|zona|localidad|partido|depto|dto|provincia|c\.?p\.?)[^,.\n]*/gi, "")
@@ -1067,6 +1166,7 @@ function cleanAddressForSearch(addr?: string | null): string {
   if (commaParts.length > 1 && /\d+/.test(commaParts[0])) {
     clean = commaParts[0].trim();
   }
+  if (!isValidPhysicalStreetAddress(clean)) return "";
   return clean;
 }
 
@@ -1119,6 +1219,8 @@ function findOfficialOrganizationName(html: string, cleanTitle: string, rawSiteN
   }
 
   if (rawSiteName && rawSiteName.length > cleanTitle.length) {
+    const cleanedSite = cleanPublisherName(rawSiteName);
+    if (cleanedSite && cleanedSite.length >= 2) return cleanedSite;
     return rawSiteName;
   }
 
@@ -1326,6 +1428,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
 
   let cleanBrand = decodeHtmlEntities(officialFullName || cleanName || "");
   cleanBrand = cleanBrand
+    .replace(/^(?:lead\s+enviado|formulario\s+enviado|gracias(?:\s+por(?:\s+tu)?\s+consulta)?|consulta\s+enviada|solicitud\s+enviada|confirmaci[oó]n|contacto)\s*[-–—|:]\s*/i, "")
     .replace(/\s*[-–—|]\s*(?:Ciudad de\s+)?(?:Mendoza|Buenos Aires|CABA|Rosario|C[oó]rdoba|Salta|Santa Fe|Mar del Plata|Neuqu[eé]n|San Juan|Argentina)[^–—|]*$/i, "")
     .replace(/\s*[-–—|]\s*(?:Sitio\s*Oficial|Portal\s*Oficial|Web\s*Oficial|Municipalidad).*$/i, "")
     .trim() || cleanName;
@@ -1855,6 +1958,10 @@ function resolveHeadquarterLocations(
 ): Array<{ country: string; city: string; address?: string; mapUrl: string }> {
   const finalCity = city || "Buenos Aires";
   const finalCountry = country || "Argentina";
+  const cleanEntityName = cleanPublisherName(publisherName || title || "")
+    .replace(/^(?:lead\s+enviado|formulario\s+enviado|gracias(?:\s+por(?:\s+tu)?\s+consulta)?|consulta\s+enviada|solicitud\s+enviada|confirmaci[oó]n|contacto)\s*[-–—|:]\s*/i, "")
+    .split(/\s*[-–—|]\s*/)[0].trim() || publisherName || title;
+
   const seenFingerprints = new Set<string>();
   const seenCityNames = new Set<string>();
   const result: Array<{ country: string; city: string; address?: string; mapUrl: string }> = [];
@@ -1884,7 +1991,7 @@ function resolveHeadquarterLocations(
         if (!existing.address && locAddress) {
           existing.address = locAddress;
           const cleanAddr = cleanAddressForSearch(locAddress);
-          const query = [publisherName || title, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
+          const query = [cleanEntityName, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
           existing.mapUrl = buildGoogleMapsUrl(query);
         }
         return;
@@ -1911,12 +2018,12 @@ function resolveHeadquarterLocations(
 
     if (!mapUrl || (cleanAddr && isGenericSearch && !hasAddressInUrl)) {
       if (cleanAddr) {
-        const query = [publisherName || title, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
+        const query = [cleanEntityName, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
         mapUrl = buildGoogleMapsUrl(query);
       } else if (isPrimary && detectedMapsUrl && !isGenericSearch) {
         mapUrl = detectedMapsUrl;
       } else {
-        const query = [publisherName || title, locCity ? `Sede ${locCity}` : "", locCity, locCountry].filter(Boolean).join(", ");
+        const query = [cleanEntityName, locCity, locCountry].filter(Boolean).join(", ");
         mapUrl = buildGoogleMapsUrl(query);
       }
     } else {
@@ -2168,6 +2275,7 @@ function extractAllAddressesFromHtml(html: string, textContent: string): string[
     if (!addr || typeof addr !== "string") return;
     const clean = addr.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
     if (clean.length < 6 || clean.length > 120) return;
+    if (!isValidPhysicalStreetAddress(clean)) return;
     if (/^(?:todos los derechos|copyright|aviso legal|pol[ií]tica|horario|atenci[oó]n)/i.test(clean)) return;
     const fp = normalizeAddressFingerprint(clean);
     if (!fp || seenFp.has(fp)) return;
@@ -6201,6 +6309,9 @@ async function processUrlWithAI(
     cleanContext.reviewCount = extracted.detectedReviewCount || "0";
     cleanContext.commentsUrl = extracted.detectedCommentsUrl;
     cleanContext.foundingYear = extracted.detectedFoundingYear;
+    if (extracted.detectedAddress && isValidPhysicalStreetAddress(extracted.detectedAddress)) {
+      cleanContext.address = extracted.detectedAddress;
+    }
 
     const aiPromise = runUnifiedPublicationAgent({
       context: cleanContext,
@@ -6492,11 +6603,15 @@ async function processUrlWithAI(
     extracted.detectedAllAddresses || []
   );
 
+  const cleanEntityPublisher = cleanPublisherName(cleanPublisher)
+    .replace(/^(?:lead\s+enviado|formulario\s+enviado|gracias(?:\s+por(?:\s+tu)?\s+consulta)?|consulta\s+enviada|solicitud\s+enviada|confirmaci[oó]n|contacto)\s*[-–—|:]\s*/i, "")
+    .split(/\s*[-–—|]\s*/)[0].trim() || cleanPublisher;
+  const primaryCleanAddr = cleanAddressForSearch(extracted.detectedAddress || unifiedRes?.data?.detectedAddress);
   const primaryHq = headquarterLocations[0] || {
     country: locInfo.primaryCountry,
     city: locInfo.primaryCity,
-    address: extracted.detectedAddress || unifiedRes?.data?.detectedAddress || undefined,
-    mapUrl: buildGoogleMapsUrl([cleanPublisher, extracted.detectedAddress || unifiedRes?.data?.detectedAddress, locInfo.primaryCity, locInfo.primaryCountry].filter(Boolean).join(", ")),
+    address: primaryCleanAddr || undefined,
+    mapUrl: buildGoogleMapsUrl([cleanEntityPublisher, primaryCleanAddr, locInfo.primaryCity, locInfo.primaryCountry].filter(Boolean).join(", ")),
   };
 
   const dynamicFallbackClassified = classifySectorAndTaxonomy(url, titleVal, extracted.textContent, taxonomies);
