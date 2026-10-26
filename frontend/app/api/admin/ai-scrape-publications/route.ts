@@ -2086,7 +2086,8 @@ function resolveHeadquarterLocations(
   allText: string,
   additionalCities: string[] = [],
   primaryAddress?: string,
-  additionalAddresses: string[] = []
+  additionalAddresses: string[] = [],
+  maxLocations: number = 15
 ): Array<{ country: string; city: string; address?: string; mapUrl: string }> {
   const finalCity = city || "Buenos Aires";
   const finalCountry = country || "Argentina";
@@ -2094,7 +2095,7 @@ function resolveHeadquarterLocations(
     .replace(/^(?:lead\s+enviado|formulario\s+enviado|gracias(?:\s+por(?:\s+tu)?\s+consulta)?|consulta\s+enviada|solicitud\s+enviada|confirmaci[oó]n|contacto)\s*[-–—|:]\s*/i, "")
     .split(/\s*[-–—|]\s*/)[0].trim() || publisherName || title;
 
-  const seenFingerprints = new Set<string>();
+  const seenStreetFingerprints = new Set<string>();
   const seenCityNames = new Set<string>();
   const result: Array<{ country: string; city: string; address?: string; mapUrl: string }> = [];
 
@@ -2103,7 +2104,21 @@ function resolveHeadquarterLocations(
     const targetFp = normalizeAddressFingerprint(targetCity);
     const targetNorm = targetCity.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-    // 1. Check parsed city from each address
+    // 1. PRIORITIZE: Check parsed city or province from addresses that HAVE a street number
+    for (const raw of additionalAddresses) {
+      if (typeof raw !== "string") continue;
+      const p = parseAddressComponents(raw, "", "");
+      if (p.street && /\b\d{1,5}\b/.test(p.street)) {
+        if (p.city && normalizeAddressFingerprint(p.city) === targetFp) return raw;
+        if (p.province && normalizeAddressFingerprint(p.province) === targetFp) return raw;
+        const partsAfter = raw.split(",").slice(1).map((x) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim());
+        if (partsAfter.some((pa) => pa === targetNorm || new RegExp(`^${escapeRegExp(targetNorm)}$`, "i").test(pa))) {
+          return raw;
+        }
+      }
+    }
+
+    // 2. Fallback: Any address parsing to target city
     for (const raw of additionalAddresses) {
       if (typeof raw !== "string") continue;
       const p = parseAddressComponents(raw, "", "");
@@ -2112,7 +2127,7 @@ function resolveHeadquarterLocations(
       }
     }
 
-    // 2. Secondary check: word match with accent tolerance
+    // 3. Fallback: word match with accent tolerance
     for (const raw of additionalAddresses) {
       if (typeof raw !== "string") continue;
       const rawNorm = raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -2127,6 +2142,9 @@ function resolveHeadquarterLocations(
     loc: { country?: string; city?: string; address?: string; mapUrl?: string },
     isPrimary: boolean = false
   ) => {
+    // Sane cap: Keep at most maxLocations representative headquarters across the country
+    if (!isPrimary && result.length >= maxLocations) return;
+
     let locCountry = String(loc.country || finalCountry).trim();
     let locCity = String(loc.city || "").trim();
     let locAddress = String(loc.address || "").trim();
@@ -2176,7 +2194,15 @@ function resolveHeadquarterLocations(
     const addrFp = normalizeAddressFingerprint(effectiveStreet);
     const cityFp = normalizeAddressFingerprint(locCity);
 
-    // If we already have this city, enrich an existing bare city entry with the real street address
+    // 1. DEDUPLICATION: If this exact physical street was already added anywhere in this country, SKIP IT!
+    if (addrFp) {
+      const streetGlobalKey = `${locCountry.toLowerCase()}|${addrFp}`;
+      if (seenStreetFingerprints.has(streetGlobalKey)) {
+        return; // Exact duplicate street address!
+      }
+    }
+
+    // 2. DEDUPLICATION: 1 representative sede per city/locality
     if (cityFp && seenCityNames.has(cityFp)) {
       const existing = result.find(
         (r) => r.country.toLowerCase() === locCountry.toLowerCase() &&
@@ -2193,21 +2219,16 @@ function resolveHeadquarterLocations(
             locCountry
           ].filter(Boolean);
           existing.mapUrl = buildGoogleMapsUrl(qParts.join(", "));
-          return;
-        } else if (addrFp && existing.address && normalizeAddressFingerprint(existing.address) === addrFp) {
-          return;
-        } else if (!effectiveStreet) {
+          if (addrFp) seenStreetFingerprints.add(`${locCountry.toLowerCase()}|${addrFp}`);
           return;
         }
+        return; // Already have a representative sede for this city!
       }
     }
 
-    const fp = addrFp ? `${locCountry.toLowerCase()}|${cityFp}|${addrFp}` : (cityFp ? `${locCountry.toLowerCase()}|${cityFp}` : "");
-    if (fp) {
-      if (seenFingerprints.has(fp)) return;
-      seenFingerprints.add(fp);
+    if (addrFp) {
+      seenStreetFingerprints.add(`${locCountry.toLowerCase()}|${addrFp}`);
     }
-
     if (cityFp) {
       seenCityNames.add(cityFp);
     }
