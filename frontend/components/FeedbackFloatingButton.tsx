@@ -160,7 +160,7 @@ export default function FeedbackFloatingButton() {
     }
   }
 
-  if (pathname?.startsWith("/tgn-panel-control")) return null;
+  if (pathname?.startsWith("/tgn-panel-control") || pathname?.startsWith("/admin")) return null;
 
   return (
     <>

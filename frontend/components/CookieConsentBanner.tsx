@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { Settings, ShieldCheck, X } from "lucide-react";
 
 export default function CookieConsentBanner() {
+  const pathname = usePathname();
+  const isAdminRoute = Boolean(
+    pathname?.startsWith("/tgn-panel-control") || pathname?.startsWith("/admin")
+  );
   const { locale } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -65,6 +70,7 @@ export default function CookieConsentBanner() {
   const currentText = texts[locale as keyof typeof texts] || texts.es;
 
   useEffect(() => {
+    if (isAdminRoute) return;
     // Verificar si el usuario ya decidió anteriormente
     const consent = localStorage.getItem("tg_cookie_consent");
     if (!consent) {
@@ -74,7 +80,7 @@ export default function CookieConsentBanner() {
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [isAdminRoute]);
 
   const updateGoogleConsent = (_analytics: boolean, _marketing: boolean) => {
     // Deshabilitado en entorno de pruebas
@@ -104,7 +110,7 @@ export default function CookieConsentBanner() {
     setIsVisible(false);
   };
 
-  if (!isVisible) return null;
+  if (isAdminRoute || !isVisible) return null;
 
   return (
     <div className="fixed bottom-6 right-6 left-6 md:left-auto md:max-w-md z-[9999] animate-fade-in-up">
