@@ -1138,10 +1138,14 @@ function isValidPhysicalStreetAddress(addr?: string | null): boolean {
   const s = decodeHtmlEntities(addr).replace(/<[^>]+>/g, "").trim();
   if (s.length < 6 || s.length > 120) return false;
 
-  const JUNK_TERMS = /\b(?:calendario|acad[eé]mico|ciclo(?:\s+lectivo)?|inscripci[oó]n(?:es)?|arancel(?:es)?|cuota(?:s)?|matr[ií]cula|licenciatura|carrera(?:s)?|posgrado|grado|materia(?:s)?|curso(?:s)?|diplomatura|programa(?:s)?|resoluci[oó]n|ley|decreto|art[ií]culo|a[ñn]o|desde|hasta|horario(?:s)?|atenci[oó]n|copyright|derechos|tel[eé]fono|conmutador|contacto|whatsapp|wsp|lead\s+enviado|gracias|formulario)\b/i;
+  const JUNK_TERMS = /\b(?:origen|lead|origen\s+de\s+lead|carga\s+de\s+leads|calendario|acad[eé]mico|ciclo(?:\s+lectivo)?|inscripci[oó]n(?:es)?|arancel(?:es)?|cuota(?:s)?|matr[ií]cula|licenciatura|carrera(?:s)?|posgrado|grado|materia(?:s)?|curso(?:s)?|diplomatura|programa(?:s)?|resoluci[oó]n|ley|decreto|art[ií]culo|a[ñn]o|desde|hasta|horario(?:s)?|atenci[oó]n|copyright|derechos|tel[eé]fono|conmutador|contacto|whatsapp|wsp|gracias|formulario)\b/i;
   if (JUNK_TERMS.test(s)) return false;
 
   const hasPrefix = /\b(?:av\.|avenida|calle|bv\.|boulevard|bulevar|pje\.|pasaje|ruta(?:\s+provincial|\s+nacional)?|autopista|diagonal|lateral|acceso)\b/i.test(s);
+  
+  // Reject toll-free and phone numbers (0800, 0810, 011, or any number starting with 0) unless standard street prefix exists
+  if (/\b0\d{2,4}\b/.test(s) && !hasPrefix) return false;
+
   const numMatch = s.match(/\b\d{1,5}\b/);
   if (!numMatch) return false;
 
@@ -1359,15 +1363,11 @@ function extractRatingAndReviewsFromHtml(
     }
   }
 
-  // 5. Comments URL: if Google Maps link is present in HTML, use it, otherwise build Google Maps place search URL
+  // 5. Comments URL: ONLY if an actual direct Google Maps place/link is present in HTML
   if (!commentsUrl) {
-    const gmapsMatch = html.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|maps\.app\.goo\.gl|goo\.gl\/maps)[^\s"'<>]+/i);
+    const gmapsMatch = html.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/place\/[^\s"'<>]+|maps\.app\.goo\.gl\/[^\s"'<>]+|goo\.gl\/maps\/[^\s"'<>]+)/i);
     if (gmapsMatch && gmapsMatch[0]) {
       commentsUrl = gmapsMatch[0];
-    } else if (title) {
-      const cleanAddr = cleanAddressForSearch(address);
-      const parts = [cleanTitleString(title), cleanAddr, city || "Buenos Aires", country || "Argentina"].filter(Boolean);
-      commentsUrl = buildGoogleMapsUrl(parts.join(", "));
     }
   }
 
@@ -1386,11 +1386,14 @@ async function enrichWithLiveGoogleMapsAndSearch(
       if (hostname === domainKey || hostname.endsWith(`.${domainKey}`) || extracted.url.toLowerCase().includes(domainKey)) {
         if (info.primaryCity && !extracted.detectedCity) extracted.detectedCity = info.primaryCity;
         if (info.primaryCountry && !extracted.detectedCountry) extracted.detectedCountry = info.primaryCountry;
-        if (info.commentsUrl && !extracted.detectedCommentsUrl) extracted.detectedCommentsUrl = info.commentsUrl;
-        if (info.rating && (!extracted.detectedRating || extracted.detectedRating === "0" || extracted.detectedRating === "1.0")) extracted.detectedRating = info.rating;
-        if (info.reviewCount && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0" || extracted.detectedReviewCount === "1")) extracted.detectedReviewCount = info.reviewCount;
-        if (info.address && !extracted.detectedAddress) extracted.detectedAddress = info.address;
-        if (info.headquarterLocations && (!extracted.headquarterLocations || extracted.headquarterLocations.length <= 1)) {
+        if (info.commentsUrl) {
+          extracted.detectedCommentsUrl = info.commentsUrl;
+          extracted.detectedMapsUrl = info.commentsUrl;
+        }
+        if (info.rating) extracted.detectedRating = info.rating;
+        if (info.reviewCount) extracted.detectedReviewCount = info.reviewCount;
+        if (info.address) extracted.detectedAddress = info.address;
+        if (info.headquarterLocations && info.headquarterLocations.length > 0) {
           extracted.headquarterLocations = info.headquarterLocations;
         }
         break;
@@ -2015,12 +2018,13 @@ function resolveHeadquarterLocations(
     // Always ensure the Google Maps URL includes the exact physical street address whenever an address is available
     const isGenericSearch = /^https?:\/\/(?:www\.)?google\.[a-z.]+\/maps\/search/i.test(mapUrl);
     const hasAddressInUrl = Boolean(cleanAddr && mapUrl && mapUrl.toLowerCase().includes(encodeURIComponent(cleanAddr.slice(0, 8).toLowerCase())));
+    const hasJunkInUrl = /lead%20enviado|origen%20de%20lead|calendario%20acad/i.test(mapUrl);
 
-    if (!mapUrl || (cleanAddr && isGenericSearch && !hasAddressInUrl)) {
+    if (!mapUrl || hasJunkInUrl || (cleanAddr && isGenericSearch && !hasAddressInUrl)) {
       if (cleanAddr) {
         const query = [cleanEntityName, cleanAddr, locCity, locCountry].filter(Boolean).join(", ");
         mapUrl = buildGoogleMapsUrl(query);
-      } else if (isPrimary && detectedMapsUrl && !isGenericSearch) {
+      } else if (isPrimary && detectedMapsUrl && !isGenericSearch && !hasJunkInUrl) {
         mapUrl = detectedMapsUrl;
       } else {
         const query = [cleanEntityName, locCity, locCountry].filter(Boolean).join(", ");
@@ -2336,7 +2340,10 @@ function extractAllAddressesFromHtml(html: string, textContent: string): string[
   for (const block of footerAndContactBlocks) {
     const cleanBlock = block
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ");
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ")
+      .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, " ")
+      .replace(/<select\b[^<]*(?:(?!<\/select>)<[^<]*)*<\/select>/gi, " ")
+      .replace(/<option\b[^<]*(?:(?!<\/option>)<[^<]*)*<\/option>/gi, " ");
 
     let mPrefix;
     while ((mPrefix = standardAddressRegex.exec(cleanBlock)) !== null) {
