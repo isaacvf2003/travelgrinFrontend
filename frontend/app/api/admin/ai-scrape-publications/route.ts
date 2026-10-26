@@ -4338,6 +4338,13 @@ function classifySectorAndTaxonomy(
     if ((isHealthEntity || isEducationalEntity || isSportsOrFitness) && /visa|migra|residencia|ciudadan|pasaporte/i.test(pNorm)) {
       continue;
     }
+    // Hard negative constraint: Health entities must NEVER match course, training, or job convocatoria categories!
+    if (isHealthEntity && /curso|formaci|capacitaci|convocatoria|empleo|beca/i.test(pNorm) && !/salud|medic|asistenc|hospital|clinica|sanatori|odontolog|farmaci/i.test(pNorm)) {
+      continue;
+    }
+    if (isHealthEntity && !/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga|guardia/i.test(pNorm)) {
+      continue;
+    }
     // Hard negative constraint: Do NOT match "Partner" or language categories on generic token hits
     if (/partner|ingles|idioma/i.test(pNorm) && !/alianza|convenio|aprender|curso\s*de\s*ingles|idiomas|language\s*school/i.test(lowerCorpus)) {
       continue;
@@ -4452,6 +4459,8 @@ function classifySectorAndTaxonomy(
     const matchingSubsForParent = parent.subcategories.filter((sub) => {
       const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       if ((isHealthEntity || isEducationalEntity || isSportsOrFitness) && /visa|migra|residencia|ciudadan|pasaporte/i.test(sNorm)) return false;
+      if (isHealthEntity && /curso|formaci|capacitaci|convocatoria|empleo|beca/i.test(sNorm) && !/salud|medic|asistenc|hospital|clinica|sanatori|odontolog|farmaci/i.test(sNorm)) return false;
+      if (isHealthEntity && !/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga|guardia/i.test(sNorm)) return false;
       if (isSportsOrFitness && /explorando\s*opciones|servicio\s*especializado|requisitos?\s*previos?/i.test(sNorm)) return false;
       const sTokens = sNorm.split(/\s+/).filter((t) => t.length >= 5 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas|gestiones|tramites)$/i.test(t));
       const hasTextMatch = titleNorm.includes(sNorm) || urlNorm.includes(sNorm.replace(/\s+/g, "")) || sTokens.some((tok) => titleNorm.includes(tok) || lowerCorpus.includes(tok));
@@ -4489,6 +4498,8 @@ function classifySectorAndTaxonomy(
       if (selectedCategories.length >= 4) break;
       const pNormCheck = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(pNormCheck)) continue;
+      if (isHealthEntity && /curso|formaci|capacitaci|convocatoria|empleo|beca/i.test(pNormCheck) && !/salud|medic|asistenc|hospital|clinica|sanatori|odontolog|farmaci/i.test(pNormCheck)) continue;
+      if (isHealthEntity && !/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga|guardia/i.test(pNormCheck)) continue;
       if (isEducationalEntity && /visa|migra/i.test(pNormCheck)) continue;
       // Multi-selection: Select top parent and subsequent parents if score is significant (at least 55% of top score and >= 35)
       if (selectedCategories.length === 0 || (p.score >= 35 && p.score >= topScore * 0.55)) {
@@ -4496,6 +4507,8 @@ function classifySectorAndTaxonomy(
         p.matchingSubs.forEach((s) => {
           const sNormCheck = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
           if (isHealthEntity && /visa|migra|residencia|ciudadan|pasaporte/i.test(sNormCheck)) return;
+          if (isHealthEntity && /curso|formaci|capacitaci|convocatoria|empleo|beca/i.test(sNormCheck) && !/salud|medic|asistenc|hospital|clinica|sanatori|odontolog|farmaci/i.test(sNormCheck)) return;
+          if (isHealthEntity && !/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga|guardia/i.test(sNormCheck)) return;
           if (!selectedSubcategories.includes(s)) {
             selectedSubcategories.push(s);
           }
@@ -4626,7 +4639,14 @@ function classifySectorAndTaxonomy(
   scoredActs.sort((a, b) => b.score - a.score);
   let selectedActivities: string[] = [];
 
-  if (isEducationalEntity) {
+  if (isHealthEntity) {
+    const healthAct = actsToEvaluate.find((a) => /salud|asistencia\s*social|medic/i.test(a));
+    if (healthAct) {
+      selectedActivities = [healthAct];
+    } else if (scoredActs.length > 0) {
+      selectedActivities = [scoredActs[0].name];
+    }
+  } else if (isEducationalEntity) {
     const eduAct = actsToEvaluate.find((a) => /educaci|formaci|ensenan/i.test(a));
     if (eduAct) {
       selectedActivities = [eduAct];
@@ -4674,15 +4694,16 @@ function classifySectorAndTaxonomy(
   const onlineMod = validMods.find((m) => /online|virtual|remoto|distancia/i.test(m));
   const tramitesMod = validMods.find((m) => /gesti[oó]n|tr[aá]mite/i.test(m));
 
-  const hasOnlineMention = /online|virtual|remoto|a distancia|zoom|meet|plataforma|app/i.test(lowerCorpus) && !isSportsOrFitness;
-  const hasPresencialMention = /sede|sedes|sucursal|sucursales|consultorio|consultorios|campus|ubicacion|direccion|atencion presencial|visitanos|delegacion|gimnasio|complejo|cancha|piscina|pileta|instalaciones/i.test(lowerCorpus) || isSportsOrFitness;
-  const hasTramitesMention = /tr[aá]mite|tr[aá]mites|gesti[oó]n|afiliaci[oó]n|afiliaciones|coseguro|coseguros|autorizaci[oó]n|autorizaciones/i.test(lowerCorpus) && !isSportsOrFitness;
+  const hasTelemedicine = /\b(telemedicina|teleconsulta|consulta\s+virtual|videoconsulta|atenci[oó]n\s+(?:m[eé]dica\s+)?virtual)\b/i.test(lowerCorpus);
+  const hasOnlineMention = !isHealthEntity && !isSportsOrFitness && /online|virtual|remoto|a distancia|zoom|meet/i.test(lowerCorpus);
+  const hasPresencialMention = /sede|sedes|sucursal|sucursales|consultorio|consultorios|campus|ubicacion|direccion|atencion presencial|visitanos|delegacion|gimnasio|complejo|cancha|piscina|pileta|instalaciones/i.test(lowerCorpus) || isSportsOrFitness || isHealthEntity;
+  const hasTramitesMention = /afiliaci[oó]n|afiliaciones|coseguro|coseguros|autorizaci[oó]n|autorizaciones/i.test(lowerCorpus) && !isSportsOrFitness && !isHealthEntity;
 
   if (hasPresencialMention && presencialMod) chosenMods.push(presencialMod);
-  if (hasOnlineMention && onlineMod) chosenMods.push(onlineMod);
+  if ((hasOnlineMention || hasTelemedicine) && onlineMod) chosenMods.push(onlineMod);
   if (hasTramitesMention && tramitesMod) chosenMods.push(tramitesMod);
-  if (chosenMods.length === 0) {
-    if (presencialMod) chosenMods.push(presencialMod);
+  if (chosenMods.length === 0 && presencialMod) {
+    chosenMods.push(presencialMod);
   }
   const finalMods = chosenMods.length > 0 ? chosenMods : (presencialMod ? [presencialMod] : (validMods.length > 0 ? [validMods[0]] : []));
 
@@ -4693,7 +4714,7 @@ function classifySectorAndTaxonomy(
     categorySelections: selectedCategories,
     subcategorySelections: selectedSubcategories,
     providerActivities: selectedActivities,
-    providerTypes: selectedTypes.length ? selectedTypes : (bestType ? [bestType] : []),
+    providerTypes: selectedTypes.length ? [selectedTypes[0]] : (bestType ? [bestType] : []),
     providerModalities: finalMods,
   };
 }
@@ -5304,7 +5325,8 @@ async function formatPublicationResult(
   if (!matchedModalities.length && sectorClassification.providerModalities?.length) {
     matchedModalities = sectorClassification.providerModalities;
   } else if (!matchedModalities.length) {
-    matchedModalities = ["Atención presencial", "Atención online"];
+    const pres = validMods.find((m: string) => /presencial/i.test(m));
+    matchedModalities = pres ? [pres] : (validMods.length > 0 ? [validMods[0]] : ["Atención presencial"]);
   }
 
   // Safely extract AI-generated description in any shape (object, string, array, Spanish aliases)
@@ -5708,6 +5730,75 @@ function enforceStrictTaxonomyGuardrails(
     publication.providerActivities = publication.providerActivities.filter((a: string) => !taxonomies.types.includes(a));
   }
 
+  const isHealthOrHospital =
+    /hospital|clinica|sanatorio|policlinico/i.test(publication.url) ||
+    /\b(hospital|clinica|sanatorio|centro\s+medico|consultorio\s+medico|guardia\s+medica|atencion\s+medica|pacientes?|asistencial|prestaciones\s+medicas|salud\s+y\s+asistencia)\b/i.test(allText);
+
+  if (isHealthOrHospital) {
+    // A. A hospital's activity is strictly healthcare; NEVER include education, training, tourism, etc.
+    if (Array.isArray(publication.providerActivities)) {
+      publication.providerActivities = publication.providerActivities.filter((a) => !/educaci|formaci|ensenan/i.test(a));
+      if (publication.providerActivities.length === 0 && taxonomies?.activities?.length) {
+        const healthAct = taxonomies.activities.find((a: string) => /salud|asistencia\s*social|medic/i.test(a));
+        if (healthAct) publication.providerActivities = [healthAct];
+      }
+    }
+
+    // B. A hospital is NOT a course, vocational training academy, or job board
+    if (Array.isArray(publication.categorySelections)) {
+      publication.categorySelections = publication.categorySelections.filter((c) => {
+        const cNorm = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|guardia|obra\s*social|prepaga/i.test(cNorm)) return true;
+        return false;
+      });
+      publication.category = publication.categorySelections[0] || "";
+    }
+
+    if (Array.isArray(publication.subcategorySelections)) {
+      publication.subcategorySelections = publication.subcategorySelections.filter((s) => {
+        const sNorm = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|guardia|obra\s*social|prepaga/i.test(sNorm)) return true;
+        return false;
+      });
+      publication.subcategory = publication.subcategorySelections[0] || "";
+    }
+
+    // C. Modalidad: Physical hospitals are Atención presencial unless explicit telemedicine is offered
+    const hasTelemedicine = /\b(telemedicina|teleconsulta|consulta\s+virtual|videoconsulta|atenci[oó]n\s+(?:m[eé]dica\s+)?virtual)\b/i.test(allText);
+    if (!hasTelemedicine && Array.isArray(publication.providerModalities)) {
+      publication.providerModalities = publication.providerModalities.filter((m) => !/online|virtual|remoto|distancia/i.test(m));
+      if (publication.providerModalities.length === 0 && taxonomies?.modalities?.length) {
+        const pres = taxonomies.modalities.find((m: string) => /presencial/i.test(m));
+        if (pres) publication.providerModalities = [pres];
+      }
+    }
+  }
+
+  // Strict Mutual Exclusivity for providerTypes: Organismo público vs Institución privada
+  if (Array.isArray(publication.providerTypes) && publication.providerTypes.length > 0) {
+    const isPublicGov =
+      /\b(\.gov|\.gob|\.mil)\b/i.test(publication.url) ||
+      /\b(uncuyo|uba|unlp|unc|utn|unr|universidad nacional|hospital publico|hospital nacional|hospital universitario|organismo publico|ministerio|gobierno|estatal|comuna|municipalidad)\b/i.test(allText);
+
+    if (isPublicGov) {
+      publication.providerTypes = publication.providerTypes.filter((t) => !/privad|empresa/i.test(t));
+      if (publication.providerTypes.length === 0 && taxonomies?.types?.length) {
+        const pub = taxonomies.types.find((t: string) => /p[uú]blic|estatal|gobiern/i.test(t));
+        if (pub) publication.providerTypes = [pub];
+      }
+    } else {
+      publication.providerTypes = publication.providerTypes.filter((t) => !/p[uú]blic|estatal|gobiern|municipal/i.test(t));
+      if (publication.providerTypes.length === 0 && taxonomies?.types?.length) {
+        const priv = taxonomies.types.find((t: string) => /privada|empresa/i.test(t));
+        if (priv) publication.providerTypes = [priv];
+      }
+    }
+    // Guarantee at most 1 primary provider type
+    if (publication.providerTypes.length > 1) {
+      publication.providerTypes = [publication.providerTypes[0]];
+    }
+  }
+
   // Negative sanity checks: Prevent absurd cross-rubro hallucinations without forcing arbitrary categories
   const isActuallyAgri = /\b(agricult|agronom|agropecu|ganader|cultivo|cosecha|pesca|pesquer|piscicultur)\b/i.test(allText);
   if (!isActuallyAgri && Array.isArray(publication.providerActivities)) {
@@ -5844,16 +5935,15 @@ function enforceStrictTaxonomyGuardrails(
   }
   if (!publication.providerModalities || publication.providerModalities.length === 0) {
     if (taxonomies?.modalities?.length) {
-      publication.providerModalities = taxonomies.modalities.slice(0, 2);
+      const pres = taxonomies.modalities.find((m: string) => /presencial/i.test(m));
+      publication.providerModalities = pres ? [pres] : [taxonomies.modalities[0]];
     } else {
       publication.providerModalities = [];
     }
   }
   if (!publication.categorySelections || publication.categorySelections.length === 0) {
-    if (taxonomies?.categories?.length) {
-      publication.categorySelections = [taxonomies.categories[0]];
-      publication.category = taxonomies.categories[0];
-    }
+    publication.categorySelections = [];
+    publication.category = "";
   }
 
   return publication;
