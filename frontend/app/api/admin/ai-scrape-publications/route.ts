@@ -3727,8 +3727,9 @@ function generateImpactfulTitle(
   const omitName = checkPromptOmitEntityName(pTrim);
 
   const allCorpus = `${corpusText || ""}`;
-  const isExplicitEdu = /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${baseEntityName} ${sector} ${allCorpus}`);
-  const isHealth = !isExplicitEdu && /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico/i.test(`${baseEntityName} ${sector} ${allCorpus}`);
+  const isHospitalOrClinic = /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico|policl[ií]nic/i.test(`${baseEntityName} ${sector} ${allCorpus}`);
+  const isExplicitEdu = !isHospitalOrClinic && /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${baseEntityName} ${sector} ${allCorpus}`);
+  const isHealth = isHospitalOrClinic || (!isExplicitEdu && /hospital|sanatorio|cl[ií]nica|salud|m[eé]dic/i.test(`${baseEntityName} ${sector} ${allCorpus}`));
 
   const headings = allCorpus
     .split(/\n+/)
@@ -3767,17 +3768,27 @@ function generateImpactfulTitle(
   const isInstructionPrompt = /(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|act[uú]a|especialista|experto|copywriter|llamativ|impactante|conversi[oó]n|marketing|que\s+(?:llame|sea|tenga)|atenci[oó]n|vendedor|buen\s+seo|optimizado|persuasiv|venda)/i.test(pTrim);
 
   if (isInstructionPrompt) {
-    if (cleanName && cleanName.length >= 8 && !/login|inicio|untitled/i.test(cleanName)) {
-      return enforceTitleConstraints(formatTitle(cleanName), pTrim);
-    }
     if (candidateSlogan) {
       return enforceTitleConstraints(formatTitle(candidateSlogan), pTrim);
     }
-    const anyHeading = headings.find((h) => h.length > 12 && !/login|menu|buscar|inicio/i.test(h));
+    const anyHeading = headings.find((h) => h.length > 12 && !/login|menu|buscar|inicio/i.test(h) && !h.toLowerCase().includes(baseEntityName.toLowerCase()));
     if (anyHeading) {
       return enforceTitleConstraints(formatTitle(anyHeading), pTrim);
     }
-    return enforceTitleConstraints(formatTitle(cleanName), pTrim);
+    // Sector-aware value proposition
+    let valueProp = "Servicios Integrales y Atención Profesional de Excelencia";
+    if (isHealth) {
+      valueProp = "Atención Médica de Excelencia, Especialidades y Cuidado Integral de la Salud";
+    } else if (isExplicitEdu) {
+      valueProp = "Formación Académica de Excelencia e Innovación Educativa";
+    } else if (/deporte|fitness|gimnasio/i.test(allCorpus)) {
+      valueProp = "Entrenamiento Integral, Salud y Acondicionamiento Físico";
+    } else if (/abogad|jur[ií]dico|legal/i.test(allCorpus)) {
+      valueProp = "Asesoramiento Legal Integral y Soluciones Profesionales";
+    } else if (/hotel|turismo|hospedaje/i.test(allCorpus)) {
+      valueProp = "Hospitalidad, Confort y Experiencias de Primer Nivel";
+    }
+    return enforceTitleConstraints(formatTitle(valueProp), pTrim);
   }
 
   // 3. Extract the substantive request from the prompt itself (remove meta-instructions)
@@ -3852,9 +3863,10 @@ async function buildGroundedDescriptions(
   const emergencyText = emergencyMatch ? emergencyMatch[0].trim().replace(/\s+/g, " ") : "";
 
   // Precise sector detection: never mix education with medical!
-  const isExplicitEdu = /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${baseEntityName} ${extractedData.url}`);
-  const isEdu = isExplicitEdu || /universidad|facultad|instituto|colegio|educaci[oó]n|carrera|alumno|estudiante|grado|posgrado|campus|licenciatura/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`);
-  const isHealth = !isExplicitEdu && !isEdu && /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico|policl[ií]nic|urgencias?\s+m[eé]dicas?/i.test(`${baseEntityName} ${extractedData.url}`);
+  const isHospitalOrClinic = /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico|policl[ií]nic|urgencias?\s+m[eé]dicas?|guardia\s+m[eé]dica/i.test(`${baseEntityName} ${extractedData.url}`);
+  const isExplicitEdu = !isHospitalOrClinic && /universidad|facultad|instituto\s+universitario|campus|\.edu(?:\.|$)/i.test(`${baseEntityName} ${extractedData.url}`);
+  const isEdu = !isHospitalOrClinic && (isExplicitEdu || /universidad|facultad|instituto|colegio|educaci[oó]n|carrera|alumno|estudiante|grado|posgrado|campus|licenciatura/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`));
+  const isHealth = isHospitalOrClinic || (!isEdu && /hospital|sanatorio|cl[ií]nica\s+m[eé]dica|centro\s+m[eé]dico|policl[ií]nic|urgencias?\s+m[eé]dicas?|salud|atencion medica/i.test(`${baseEntityName} ${extractedData.url} ${textCorpus}`));
   const isTourism = !isHealth && !isEdu && /hotel|hostel|turismo|alojam|posada|cabaña|resort|hospedaje/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`);
   const isGastro = !isHealth && !isEdu && /restaurante|bar|gastronom|cocina|parrilla|caf[eé]/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`);
   const isLegal = !isHealth && !isEdu && /traduct|abogad|legal|notari|escriban|jur[ií]dic/i.test(`${baseEntityName} ${textCorpus} ${extractedData.url}`);
@@ -4228,7 +4240,7 @@ function classifySectorAndTaxonomy(
 
   // 1. Public vs Private entity detection
   const isGovDomain = /\.gov(?:\.[a-z]{2})?|\.gob(?:\.[a-z]{2})?|\.mil(?:\.[a-z]{2})?/i.test(url);
-  const isGovText = /\b(organismo publico|hospital publico|hospital nacional|hospital de pediatria samic|universidad nacional|ente autarquico|ministerio|secretaria|gobierno de|municipalidad|poder judicial|obra social de empleados publicos|osep)\b/i.test(lowerCorpus);
+  const isGovText = /\b(uncuyo|uba|unlp|unc|utn|unr|organismo publico|hospital publico|hospital nacional|hospital universitario|hospital de pediatria samic|universidad nacional|ente autarquico|ministerio|secretaria|gobierno de|municipalidad|poder judicial|obra social de empleados publicos|osep)\b/i.test(lowerCorpus);
   const isPublicEntity = isGovDomain || isGovText;
 
   // Semantic entity classifications:
