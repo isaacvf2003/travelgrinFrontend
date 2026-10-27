@@ -3397,6 +3397,15 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         const locCountry = cleanTitleString(String(rawLoc.country || context.country || "Argentina").trim());
         const locAddr = cleanTitleString(String(rawLoc.address || "").trim());
         if (!locCity && !locAddr) continue;
+
+        // If this additional location has no address and its city matches the street name of an earlier location (e.g. "Rosario" when primary is "Rosario de Santa Fe 231"), skip it!
+        if (parsedHqLocations.length > 0 && !locAddr) {
+          const firstAddr = parsedHqLocations[0].address || context.address || "";
+          if (firstAddr && new RegExp(`\\b${escapeRegExp(locCity)}\\b`, "i").test(firstAddr)) {
+            continue;
+          }
+        }
+
         let locMapUrl = String(rawLoc.mapUrl || "").trim();
         const isVerifiedDirectMap = Boolean(context.commentsUrl && /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps\/place|\S*[?&]cid=)/i.test(context.commentsUrl));
         const isGenericSearch = /^https?:\/\/(?:www\.)?google\.[a-z.]+\/maps\/search/i.test(locMapUrl);
