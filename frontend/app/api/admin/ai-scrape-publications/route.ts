@@ -1260,16 +1260,40 @@ function parseAddressComponents(
   let detectedCountry = defaultCountry;
 
   for (const part of remainingParts) {
-    if (/argentina/i.test(part)) {
+    if (/\bargentina\b/i.test(part)) {
       detectedCountry = "Argentina";
       continue;
     }
-    if (/chile/i.test(part)) {
+    if (/\bchile\b/i.test(part) && !/\bchilecito\b/i.test(part)) {
       detectedCountry = "Chile";
       continue;
     }
-    if (/uruguay/i.test(part)) {
+    if (/\buruguay\b/i.test(part)) {
       detectedCountry = "Uruguay";
+      continue;
+    }
+    if (/\bbrasil\b|\bbrazil\b/i.test(part)) {
+      detectedCountry = "Brasil";
+      continue;
+    }
+    if (/\bcolombia\b/i.test(part)) {
+      detectedCountry = "Colombia";
+      continue;
+    }
+    if (/\bm[eé]xico\b/i.test(part)) {
+      detectedCountry = "México";
+      continue;
+    }
+    if (/\bper[uú]\b/i.test(part)) {
+      detectedCountry = "Perú";
+      continue;
+    }
+    if (/\bespaña\b|\bspain\b/i.test(part)) {
+      detectedCountry = "España";
+      continue;
+    }
+    if (/\bestados unidos\b|\busa\b/i.test(part)) {
+      detectedCountry = "Estados Unidos";
       continue;
     }
 
@@ -1278,6 +1302,9 @@ function parseAddressComponents(
       .replace(/^(?:Ciudad de|Pdo\.|Partido de|Dpto\.|Provincia de)\s+/i, "")
       .trim();
     if (!cleanedPart || /\d{3,}/.test(cleanedPart)) continue;
+
+    // Filter out neighborhoods/barrios/zones so they are never erroneously assigned as detectedCity
+    const isNeighborhood = /^(?:barrio|b°|bº|b[.]|zona|paraje|parque industrial|complejo)\b/i.test(cleanedPart);
 
     const matched = ARGENTINE_AND_REGIONAL_CITIES.find(
       (pc) => new RegExp(`^${escapeRegExp(pc)}$|\\b${escapeRegExp(pc)}\\b`, "i").test(cleanedPart)
@@ -1289,7 +1316,7 @@ function parseAddressComponents(
       } else if (!detectedProvince && matched.toLowerCase() !== detectedCity.toLowerCase()) {
         detectedProvince = matched;
       }
-    } else if (!detectedCity && cleanedPart.length >= 3 && cleanedPart.length <= 25 && !/\d/.test(cleanedPart)) {
+    } else if (!detectedCity && !isNeighborhood && cleanedPart.length >= 3 && cleanedPart.length <= 25 && !/\d/.test(cleanedPart)) {
       detectedCity = cleanedPart;
     }
   }
@@ -1306,6 +1333,11 @@ function parseAddressComponents(
 
   if (/^(?:caba|capital federal|ciudad aut[oó]noma de buenos aires)$/i.test(detectedCity)) {
     detectedCity = "Buenos Aires";
+  }
+
+  // Consistent Geographic Guarantee: If detected city is an Argentine city and defaultCountry is Argentina, guarantee country is Argentina
+  if (ARGENTINE_AND_REGIONAL_CITIES.some((ac) => new RegExp(`^${escapeRegExp(ac)}$`, "i").test(detectedCity)) && defaultCountry === "Argentina") {
+    detectedCountry = "Argentina";
   }
 
   return {
@@ -1505,6 +1537,31 @@ function extractRatingAndReviewsFromHtml(
     }
   }
 
+  // 4b. Check HTML star rating lists / testimonial widgets linking to Google Maps reviews
+  if (!rating || !reviewCount) {
+    const starLists = html.match(/<ul[^>]*class=["'][^"']*rating[^"']*["'][^>]*>([\s\S]*?)<\/ul>/gi) || [];
+    if (starLists.length > 0) {
+      let totalStars = 0;
+      let countWidgets = 0;
+      for (const sl of starLists) {
+        const starIcons = sl.match(/fa-star/g);
+        if (starIcons && starIcons.length >= 1 && starIcons.length <= 5) {
+          totalStars += starIcons.length;
+          countWidgets++;
+        }
+      }
+      if (countWidgets > 0) {
+        const avg = totalStars / countWidgets;
+        if (!rating && avg >= 1 && avg <= 5) {
+          rating = avg.toFixed(1);
+        }
+        if (!reviewCount) {
+          reviewCount = String(countWidgets);
+        }
+      }
+    }
+  }
+
   // 5. Comments URL: ONLY if an actual direct Google Maps place/link is present in HTML
   if (!commentsUrl) {
     const gmapsMatch = html.match(/https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/place\/[^\s"'<>]+|maps\.app\.goo\.gl\/[^\s"'<>]+|goo\.gl\/maps\/[^\s"'<>]+)/i);
@@ -1580,6 +1637,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     cleanBrand && city ? `${cleanBrand} ${city}` : null,
     cleanBrand && mainAddress && city ? `${cleanBrand} ${mainAddress} ${city}` : null,
     cleanBrand && mainAddress ? `${cleanBrand} ${mainAddress}` : null,
+    cleanBrand,
     officialFullName || cleanName,
   ].filter(Boolean) as string[];
 
@@ -1595,17 +1653,17 @@ async function enrichWithLiveGoogleMapsAndSearch(
           },
           redirect: "follow",
         },
-        1600
+        1800
       );
       if (gRes.ok) {
         const gHtml = await gRes.text();
         const mDirect = gHtml.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null/) ||
-                        gHtml.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{2,7})\]/) ||
+                        gHtml.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{1,7})\]/) ||
                         gHtml.match(/(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/);
         if (mDirect) {
           const numRating = parseFloat(mDirect[1]);
           const numReviews = parseInt(mDirect[2], 10);
-          if (!(numRating === 1 && numReviews === 1) && numReviews > 1 && numRating >= 1 && numRating <= 5) {
+          if (!(numRating === 1 && numReviews === 1) && numReviews >= 1 && numRating >= 1 && numRating <= 5) {
             extracted.detectedRating = numRating.toFixed(1);
             extracted.detectedReviewCount = String(numReviews);
           }
@@ -1619,7 +1677,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     return;
   }
 
-  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 3);
+  const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 4);
 
   const searchPromises = uniqueQueries.map(async (q) => {
     try {
@@ -1632,7 +1690,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
             "Accept-Language": "es-ES,es;q=0.9",
           },
         },
-        1600
+        1800
       );
       if (!gmapsRes.ok) return null;
       return await gmapsRes.text();
@@ -1658,7 +1716,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     if (mDirect) {
       const numRating = parseFloat(mDirect[1]);
       const numReviews = parseInt(mDirect[2], 10);
-      if (!(numRating === 1 && numReviews === 1) && numReviews > 1 && numRating >= 1 && numRating <= 5) {
+      if (!(numRating === 1 && numReviews === 1) && numReviews >= 1 && numRating >= 1 && numRating <= 5) {
         extracted.detectedRating = numRating.toFixed(1);
         extracted.detectedReviewCount = String(numReviews);
         if (!extracted.detectedCommentsUrl) {
@@ -1670,16 +1728,39 @@ async function enrichWithLiveGoogleMapsAndSearch(
       }
     }
 
+    // If Maps returns a specific place candidate profile title (e.g. ["Immi Legal Profile 2", ...]):
+    const placeNameMatch = text.match(/\["([^"]{3,60})",\[\[null/);
+    if (placeNameMatch && placeNameMatch[1] && placeNameMatch[1].toLowerCase() !== cleanBrand.toLowerCase()) {
+      try {
+        const placeGmapsUrl = "https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=" + encodeURIComponent(placeNameMatch[1].trim());
+        const placeRes = await fetchWithTimeout(placeGmapsUrl, { headers: { "User-Agent": userAgent, "Accept-Language": "es-ES,es;q=0.9" } }, 1500);
+        if (placeRes.ok) {
+          const placeText = await placeRes.text();
+          const mPlace = placeText.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null/) ||
+                         placeText.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{1,7})\]/);
+          if (mPlace) {
+            const pRating = parseFloat(mPlace[1]);
+            const pReviews = parseInt(mPlace[2], 10);
+            if (!(pRating === 1 && pReviews === 1) && pReviews >= 1 && pRating >= 1 && pRating <= 5) {
+              extracted.detectedRating = pRating.toFixed(1);
+              extracted.detectedReviewCount = String(pReviews);
+              break;
+            }
+          }
+        }
+      } catch {}
+    }
+
     // Secondary text extraction if direct array pattern was not present
     if (!extracted.detectedRating || extracted.detectedRating === "0" || extracted.detectedRating === "1.0") {
       const rMatch = text.match(/([1-5]\.\d)\s*(?:estrellas?|stars?|⭐|★)/i) ||
                      text.match(/aria-label=["']([1-5][.,]\d)\s*(?:estrellas?|stars?)/i);
       if (rMatch && rMatch[1]) {
         const num = parseFloat(rMatch[1].replace(",", "."));
-        if (!isNaN(num) && num >= 1 && num <= 5 && num !== 1) extracted.detectedRating = num.toFixed(1);
+        if (!isNaN(num) && num >= 1 && num <= 5) extracted.detectedRating = num.toFixed(1);
       }
     }
-    if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0" || extracted.detectedReviewCount === "1") {
+    if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
       const cMatch = text.match(/(?:\(\s*|[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews)\b/i);
       if (cMatch && cMatch[1]) {
         let countRaw = cMatch[1].replace(/,/g, ".");
@@ -1687,7 +1768,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
         let numCount = parseFloat(countRaw);
         if (isThousand) numCount = numCount * 1000;
         const parsedCount = Math.round(numCount);
-        if (!isNaN(parsedCount) && parsedCount > 1) extracted.detectedReviewCount = String(parsedCount);
+        if (!isNaN(parsedCount) && parsedCount >= 1) extracted.detectedReviewCount = String(parsedCount);
       }
     }
 
@@ -1918,7 +1999,12 @@ function detectAllLocationsAndHeadquarters(allText: string, url: string, title: 
   checkCity("Buenos Aires", "Argentina", /\bbuenos aires\b|\bcaba\b|\bcapital federal\b|\bciudad aut[oó]noma de buenos aires\b/gi, ["buenosaires", "caba.gob", "uba.ar"]);
 
   // Chile
-  checkCity("Santiago", "Chile", /santiago de chile|\bsantiago\b/gi, ["santiago", "uchile.cl", "uc.cl"]);
+  const isChileanContext = /\.cl\b/i.test(url) || (/\bchile\b/i.test(lower) && !/\bchilecito\b/i.test(lower));
+  if (isChileanContext) {
+    checkCity("Santiago", "Chile", /santiago de chile|\bsantiago\b(?!\s*del\s*estero)/gi, ["santiago", "uchile.cl", "uc.cl"]);
+  } else {
+    checkCity("Santiago", "Chile", /santiago de chile/gi, ["santiago", "uchile.cl", "uc.cl"]);
+  }
   checkCity("Valparaíso", "Chile", /valpara[ií]so\b/gi, ["valparaiso", "uv.cl", "pucv.cl"]);
   checkCity("Viña del Mar", "Chile", /viña del mar/gi, ["vinadelmar", "unab.cl"]);
   checkCity("Concepción", "Chile", /concepci[oó]n\b/gi, ["concepcion", "udec.cl"]);
@@ -1972,7 +2058,7 @@ function detectAllLocationsAndHeadquarters(allText: string, url: string, title: 
 
   // Country mentions in text
   if (/\bargentina\b|\.ar\b/i.test(lower)) detectedCountries.add("Argentina");
-  if (/\bchile\b|\.cl\b/i.test(lower)) detectedCountries.add("Chile");
+  if ((/\bchile\b|\.cl\b/i.test(lower)) && !/\bchilecito\b/i.test(lower)) detectedCountries.add("Chile");
   if (/\bbrasil\b|\bbrazil\b|\.br\b/i.test(lower)) detectedCountries.add("Brasil");
   if (/\buruguay\b|\.uy\b/i.test(lower)) detectedCountries.add("Uruguay");
   if (/\bcolombia\b|\.co\b/i.test(lower)) detectedCountries.add("Colombia");
@@ -2190,6 +2276,26 @@ function resolveHeadquarterLocations(
     if (!locCity) locCity = finalCity;
     if (!locCountry) locCountry = finalCountry;
 
+    // Discard bare neighborhood as a city name
+    if (/^(?:barrio|b°|bº|b[.]|zona|paraje)\b/i.test(locCity)) {
+      if (locAddress) {
+        const pParts = locAddress.split(",").map((p) => p.trim());
+        const candidateCity = pParts.find((p) => ARGENTINE_AND_REGIONAL_CITIES.some((ac) => new RegExp(`^${escapeRegExp(ac)}$`, "i").test(p)));
+        if (candidateCity) {
+          locCity = candidateCity;
+        } else {
+          return; // Skip invalid bare neighborhood entry
+        }
+      } else {
+        return;
+      }
+    }
+
+    // Geographic Country Consistency: If the city is in Argentina and finalCountry is Argentina, lock country to Argentina
+    if (ARGENTINE_AND_REGIONAL_CITIES.some((ac) => new RegExp(`^${escapeRegExp(ac)}$`, "i").test(locCity)) && finalCountry === "Argentina") {
+      locCountry = "Argentina";
+    }
+
     const effectiveStreet = parsedStreet || cleanAddressForSearch(locAddress);
     const addrFp = normalizeAddressFingerprint(effectiveStreet);
     const cityFp = normalizeAddressFingerprint(locCity);
@@ -2202,11 +2308,10 @@ function resolveHeadquarterLocations(
       }
     }
 
-    // 2. DEDUPLICATION: 1 representative sede per city/locality
+    // 2. DEDUPLICATION: 1 representative sede per city/locality (strictly compare cityFp across existing locations)
     if (cityFp && seenCityNames.has(cityFp)) {
       const existing = result.find(
-        (r) => r.country.toLowerCase() === locCountry.toLowerCase() &&
-               normalizeAddressFingerprint(r.city) === cityFp
+        (r) => normalizeAddressFingerprint(r.city) === cityFp
       );
       if (existing) {
         if (!existing.address && effectiveStreet) {
@@ -4899,7 +5004,7 @@ function classifySectorAndTaxonomy(
     !isEducationalEntity &&
     !isHealthEntity &&
     !isSportsOrFitness &&
-    (/\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|allende|brea|cbi|immi)\b/i.test(lowerCorpus) ||
+    (/\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|allende|brea|cbi|immi|immigration|citizenship|residency|visa\s*application|law\s*firm|attorney|lawyer)\b/i.test(lowerCorpus) ||
     /abogados|legal|estudio|immi/i.test(urlNorm));
 
   const isFashionOrDesign =
@@ -5009,8 +5114,12 @@ function classifySectorAndTaxonomy(
     if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|farmaci|obra\s*social|prepaga/i.test(pNorm)) {
       parentScore += 100;
     }
-    if (isLegalOrConsulting && /gestiones?\s*migratorias|visas?|residencia|ciudadan[ií]a|servicios?\s*profesionales/i.test(pNorm)) {
-      parentScore += 130;
+    if (isLegalOrConsulting) {
+      if (/migra|visa|residencia|ciudadan/i.test(pNorm)) {
+        parentScore += 160;
+      } else if (/servicios?\s*profesionales|legal|abogad/i.test(pNorm)) {
+        parentScore += 80;
+      }
     }
     if (isFashionOrDesign && /moda|dise[ñn]o|indumentaria|textil/i.test(pNorm)) {
       parentScore += 130;
@@ -6452,7 +6561,7 @@ function enforceStrictTaxonomyGuardrails(
     publication.providerActivities = publication.providerActivities.filter((a) => !/agricultura|ganader|pesca/i.test(a));
   }
 
-  const isActuallyMigration = /\b(visas?|migratori|migraci[oó]n|residencia\s*legal|ciudadan[ií]a\s*legal|tr[aá]mites?\s*consulares?)\b/i.test(allText);
+  const isActuallyMigration = /\b(visas?|migratori|migraci[oó]n|residencia\s*legal|ciudadan[ií]a\s*legal|tr[aá]mites?\s*consulares?|immigration|citizenship|residency|visa\s*application)\b/i.test(allText);
   if (!isActuallyMigration) {
     if (Array.isArray(publication.categorySelections)) {
       publication.categorySelections = publication.categorySelections.filter((c) => !/visa|migra|residencia\s*y\s*ciudadan/i.test(c));
@@ -6461,6 +6570,15 @@ function enforceStrictTaxonomyGuardrails(
     if (Array.isArray(publication.subcategorySelections)) {
       publication.subcategorySelections = publication.subcategorySelections.filter((s) => !/visa|migra|residencia\s*y\s*ciudadan/i.test(s));
       publication.subcategory = publication.subcategorySelections[0] || "";
+    }
+  } else {
+    // If genuine migration/visa entity and no category was selected or mapped, dynamically assign matching migration category from catalog
+    if ((!publication.categorySelections || publication.categorySelections.length === 0) && allValidCatalogCategories.length > 0) {
+      const migCat = allValidCatalogCategories.find((c) => /migra|visa|residencia|ciudadan/i.test(c));
+      if (migCat) {
+        publication.categorySelections = [migCat];
+        publication.category = migCat;
+      }
     }
   }
 
