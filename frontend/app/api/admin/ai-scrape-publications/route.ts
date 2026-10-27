@@ -1863,7 +1863,12 @@ async function enrichWithLiveGoogleMapsAndSearch(
   } catch {}
 }
 
-function detectAllLocationsAndHeadquarters(allText: string, url: string, title: string): {
+function detectAllLocationsAndHeadquarters(
+  allText: string,
+  url: string,
+  title: string,
+  primaryAddress?: string
+): {
   primaryCity: string;
   primaryCountry: string;
   additionalCities: string[];
@@ -1881,6 +1886,25 @@ function detectAllLocationsAndHeadquarters(allText: string, url: string, title: 
 
   const cityMatches: Array<{ city: string; country: string; count: number; hasHqMention: boolean }> = [];
   const detectedCountries = new Set<string>();
+
+  if (primaryAddress) {
+    const parsedAddr = parseAddressComponents(primaryAddress, "", "");
+    if (parsedAddr.city) {
+      const matchedCity = ARGENTINE_AND_REGIONAL_CITIES.find(
+        (ac) => ac.toLowerCase() === parsedAddr.city.toLowerCase() ||
+                normalizeAddressFingerprint(ac) === normalizeAddressFingerprint(parsedAddr.city)
+      );
+      if (matchedCity) {
+        cityMatches.push({
+          city: matchedCity,
+          country: parsedAddr.country || "Argentina",
+          count: 500,
+          hasHqMention: true,
+        });
+        detectedCountries.add(parsedAddr.country || "Argentina");
+      }
+    }
+  }
 
   const checkCity = (cityName: string, country: string, regex: RegExp, domainKeywords: string[] = []) => {
     let count = 0;
@@ -2339,30 +2363,34 @@ function resolveHeadquarterLocations(
 
     let mapUrl = String(loc.mapUrl || "").trim();
     const isGenericSearch = /^https?:\/\/(?:www\.)?google\.[a-z.]+\/maps\/search/i.test(mapUrl);
+    const isVerifiedDirectMap = (u: string) => Boolean(u && /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps\/place|\S*[?&]cid=)/i.test(u));
     const hasAddressInUrl = Boolean(effectiveStreet && mapUrl && mapUrl.toLowerCase().includes(encodeURIComponent(effectiveStreet.slice(0, 8).toLowerCase())));
-    const hasJunkInUrl = /lead%20enviado|origen%20de%20lead|calendario%20acad/i.test(mapUrl);
+    const hasJunkInUrl = /lead%20enviado|origen%20de%20lead|calendario%20acad|\bcbi\b/i.test(mapUrl);
 
-    if (!mapUrl || hasJunkInUrl || !isPrimary || (effectiveStreet && isGenericSearch && !hasAddressInUrl)) {
-      if (effectiveStreet) {
-        // Querying strictly with the street address, locality, province and country
-        // ensures Google Maps geocodes to the exact physical point and drops the red pin marker directly on the card!
-        const queryParts = [
-          effectiveStreet,
-          locCity,
-          parsedProvince && parsedProvince.toLowerCase() !== locCity.toLowerCase() ? parsedProvince : undefined,
-          locCountry
-        ].filter(Boolean);
-        mapUrl = buildGoogleMapsUrl(queryParts.join(", "));
-      } else if (isPrimary && detectedMapsUrl && !isGenericSearch && !hasJunkInUrl) {
-        mapUrl = detectedMapsUrl;
-      } else {
-        const queryParts = [
-          cleanEntityName,
-          locCity,
-          locCountry
-        ].filter(Boolean);
-        mapUrl = buildGoogleMapsUrl(queryParts.join(", "));
-      }
+    if (isPrimary && isVerifiedDirectMap(detectedMapsUrl) && (!effectiveStreet || !hasAddressInUrl)) {
+      // Primary location with a verified Google Maps place profile or shortlink: ALWAYS prioritize the real place!
+      mapUrl = detectedMapsUrl;
+    } else if (effectiveStreet) {
+      // Querying strictly with the street address, locality, province and country
+      // ensures Google Maps geocodes to the exact physical point and drops the red pin marker directly on the card!
+      const queryParts = [
+        effectiveStreet,
+        locCity,
+        parsedProvince && parsedProvince.toLowerCase() !== locCity.toLowerCase() ? parsedProvince : undefined,
+        locCountry
+      ].filter(Boolean);
+      mapUrl = buildGoogleMapsUrl(queryParts.join(", "));
+    } else if (isPrimary && isVerifiedDirectMap(detectedMapsUrl)) {
+      mapUrl = detectedMapsUrl;
+    } else if (!mapUrl || hasJunkInUrl || isGenericSearch) {
+      // If mapUrl is empty or generic search with hallucinated/unverified terms, rebuild cleanly with the official entity brand
+      const queryParts = [
+        cleanEntityName,
+        locCity,
+        parsedProvince && parsedProvince.toLowerCase() !== locCity.toLowerCase() ? parsedProvince : undefined,
+        locCountry
+      ].filter(Boolean);
+      mapUrl = buildGoogleMapsUrl(queryParts.join(", "));
     } else {
       mapUrl = buildGoogleMapsUrl(mapUrl);
     }
@@ -2381,11 +2409,16 @@ function resolveHeadquarterLocations(
   if (!effectivePrimaryAddress && (initialPrimary.city || finalCity)) {
     effectivePrimaryAddress = matchAddressForCity(initialPrimary.city || finalCity);
   }
+  const isDirectDetected = Boolean(detectedMapsUrl && /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps\/place|\S*[?&]cid=)/i.test(detectedMapsUrl));
+  const primaryMapCandidate = isDirectDetected
+    ? detectedMapsUrl
+    : (initialPrimary.mapUrl || detectedMapsUrl);
+
   addLocation({
     country: initialPrimary.country || finalCountry,
     city: initialPrimary.city || finalCity,
     address: effectivePrimaryAddress,
-    mapUrl: initialPrimary.mapUrl || detectedMapsUrl,
+    mapUrl: primaryMapCandidate,
   }, true);
 
   // 2. Additional locations from rawLocations (e.g. AI detected)
@@ -6728,7 +6761,7 @@ async function processUrlWithAI(
 ): Promise<{ publication: ScrapedPublication; providerUsed: string }> {
   // 1. Scrape web page & enrich with Google Maps/Places targeting headquarters
   const extracted: any = await fetchPageContent(url);
-  const locInfo = detectAllLocationsAndHeadquarters(extracted.textContent, extracted.url, extracted.title);
+  const locInfo = detectAllLocationsAndHeadquarters(extracted.textContent, extracted.url, extracted.title, extracted.detectedAddress);
   let cleanPublisher = cleanPublisherName(extracted.title, extracted.url, extracted.title, extracted.detectedSiteName);
   const officialFullName = findOfficialOrganizationName(extracted.htmlContent || "", cleanPublisher, extracted.detectedSiteName);
   if (officialFullName && officialFullName !== cleanPublisher && /^[A-Z0-9]{2,8}$/.test(cleanPublisher.replace(/\s+/g, ""))) {
@@ -6743,7 +6776,7 @@ async function processUrlWithAI(
     cleanPublisher,
     locInfo.primaryCity,
     locInfo.primaryCountry,
-    extracted.detectedMapsUrl,
+    extracted.detectedCommentsUrl || extracted.detectedMapsUrl,
     extracted.textContent,
     locInfo.additionalCities,
     extracted.detectedAddress,
@@ -7131,6 +7164,12 @@ async function processUrlWithAI(
     mapUrl: buildGoogleMapsUrl([cleanEntityPublisher, primaryCleanAddr, locInfo.primaryCity, locInfo.primaryCountry].filter(Boolean).join(", ")),
   };
 
+  const isDirectMap = (u?: string) => Boolean(u && /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps\/place|\S*[?&]cid=)/i.test(u));
+  const candidateDirectMap = [extracted.detectedCommentsUrl, extracted.detectedMapsUrl, unifiedRes?.data?.detectedCommentsUrl].find(isDirectMap);
+  if (candidateDirectMap && (!primaryHq.address || /^https?:\/\/(?:www\.)?google\.[a-z.]+\/maps\/search/i.test(primaryHq.mapUrl))) {
+    primaryHq.mapUrl = candidateDirectMap;
+  }
+
   const dynamicFallbackClassified = classifySectorAndTaxonomy(url, titleVal, extracted.textContent, taxonomies);
 
   const finalTaxonomyData = (taxonomyRes?.success && taxonomyRes?.data)
@@ -7206,7 +7245,7 @@ async function processUrlWithAI(
       : ((cleanContext.reviewCount && cleanContext.reviewCount !== "0")
         ? cleanContext.reviewCount
         : (unifiedRes?.data?.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0" ? unifiedRes.data.detectedReviewCount : "0")),
-    providerCommentsUrl: primaryHq.mapUrl || extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || "",
+    providerCommentsUrl: candidateDirectMap || primaryHq.mapUrl || extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || "",
     providerLogo: cleanContext.logo || "",
     country: primaryHq.country,
     city: primaryHq.city,
