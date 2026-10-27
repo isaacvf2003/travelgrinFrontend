@@ -1907,10 +1907,22 @@ function detectAllLocationsAndHeadquarters(
   }
 
   const checkCity = (cityName: string, country: string, regex: RegExp, domainKeywords: string[] = []) => {
+    // 1. If primaryAddress is provided, check if the city name is actually part of the physical street address (e.g. "Rosario" in "Rosario de Santa Fe 231")
+    if (primaryAddress) {
+      const pClean = primaryAddress.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const isPartOfPrimaryStreet = new RegExp(
+        `(?:calle|avda\\.?|av\\.?|avenida|bv\\.?|bvd\\.?|boulevard|bulevar|pje\\.?|pasaje)?\\s*${regex.source}(?:\\s+[a-z0-9]+){0,3}\\s+\\d{1,5}\\b`,
+        "i"
+      ).test(pClean);
+      if (isPartOfPrimaryStreet) {
+        return; // It's part of the physical street address of the headquarters, NOT a separate city!
+      }
+    }
+
     let count = 0;
-    // Exclude occurrences where the city name is part of a street address (e.g. "Calle Corrientes 36", "Buenos Aires 123", "Córdoba 1551")
+    // Exclude occurrences where the city name is part of a street address (e.g. "Calle Corrientes 36", "Buenos Aires 123", "Córdoba 1551", "Rosario de Santa Fe 231")
     const textWithoutStreets = lower.replace(
-      new RegExp(`(?:calle|av\\.|avenida|bv\\.|pje\\.|pasaje)?\\s*${regex.source}\\s+\\d{1,5}\\b`, "gi"),
+      new RegExp(`(?:calle|avda\\.?|av\\.?|avenida|bv\\.?|bvd\\.?|boulevard|bulevar|pje\\.?|pasaje|diagonal|ruta|autov[ií]a)?\\s*${regex.source}(?:\\s+(?:de\\s+|del\\s+|san\\s+|santa\\s+|de\\s+la\\s+|los\\s+|las\\s+|norte|sur|este|oeste)?[a-záéíóúñ0-9]+){0,3}\\s+\\d{1,5}\\b`, "gi"),
       " "
     );
     const matches = textWithoutStreets.match(regex);
@@ -1931,12 +1943,16 @@ function detectAllLocationsAndHeadquarters(
     }
 
     if (count > 0) {
-      detectedCountries.add(country);
       const hasHq =
         isDomainOrTitleHit ||
         new RegExp(`(?:sede central|campus principal|casa central|rectorado|sede principal|campus central|casa matriz|sucursal principal)[^.\\n]{0,60}${regex.source}`, "i").test(lower) ||
         new RegExp(`${regex.source}[^.\\n]{0,60}(?:sede central|campus principal|casa central|rectorado|sede principal|casa matriz)`, "i").test(lower);
-      cityMatches.push({ city: cityName, country, count, hasHqMention: hasHq });
+
+      // Require meaningful presence (more than 1 isolated mention, or explicit HQ declaration, or domain hit)
+      if (count > 1 || isDomainOrTitleHit || hasHq) {
+        detectedCountries.add(country);
+        cityMatches.push({ city: cityName, country, count, hasHqMention: hasHq });
+      }
     }
   };
 
@@ -2421,6 +2437,22 @@ function resolveHeadquarterLocations(
     mapUrl: primaryMapCandidate,
   }, true);
 
+  const isCityNameInAnyExistingStreet = (candidateCity: string): boolean => {
+    if (!candidateCity || typeof candidateCity !== "string") return false;
+    const cNorm = candidateCity.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (cNorm.length < 3) return false;
+    const cRegex = new RegExp(`\\b${escapeRegExp(cNorm)}\\b`, "i");
+
+    for (const existing of result) {
+      if (!existing.address) continue;
+      const streetNorm = existing.address.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (cRegex.test(streetNorm)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   // 2. Additional locations from rawLocations (e.g. AI detected)
   if (Array.isArray(rawLocations) && rawLocations.length > 1) {
     for (let i = 1; i < rawLocations.length; i++) {
@@ -2429,6 +2461,9 @@ function resolveHeadquarterLocations(
       let locAddr = loc.address;
       if (!locAddr && loc.city) {
         locAddr = matchAddressForCity(loc.city);
+      }
+      if (loc.city && isCityNameInAnyExistingStreet(loc.city) && !locAddr) {
+        continue;
       }
       addLocation({ ...loc, address: locAddr });
     }
@@ -2442,9 +2477,13 @@ function resolveHeadquarterLocations(
       if (!cleanAddr) continue;
 
       const parsed = parseAddressComponents(cleanAddr, finalCity, finalCountry);
+      let effectiveCity = parsed.city;
+      if (effectiveCity && parsed.street && new RegExp(`\\b${escapeRegExp(effectiveCity)}\\b`, "i").test(parsed.street)) {
+        effectiveCity = finalCity;
+      }
       addLocation({
         country: parsed.country,
-        city: parsed.city,
+        city: effectiveCity,
         address: parsed.street || cleanAddr,
       });
     }
@@ -2455,7 +2494,27 @@ function resolveHeadquarterLocations(
     for (const addCity of additionalCities) {
       if (!addCity || typeof addCity !== "string") continue;
       const cTrim = addCity.trim();
+
+      // If the candidate city name is part of the street address of an existing headquarters (e.g. "Rosario de Santa Fe 231" in Córdoba), skip it!
+      if (isCityNameInAnyExistingStreet(cTrim)) {
+        continue;
+      }
+
       const matchedAddr = matchAddressForCity(cTrim);
+      if (matchedAddr && isCityNameInAnyExistingStreet(cTrim)) {
+        continue;
+      }
+
+      // If there is no physical address for this city, strictly verify it has explicit branch evidence
+      if (!matchedAddr) {
+        const cNorm = cTrim.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const hasExplicitBranch = new RegExp(`(?:sede|campus|sucursal|delegaci[oó]n|filial|anexo|colegio|instituto)[^.\\n]{0,35}\\b${escapeRegExp(cNorm)}\\b`, "i").test(allText) ||
+                                  new RegExp(`\\b${escapeRegExp(cNorm)}\\b[^.\\n]{0,35}(?:sede|campus|sucursal|delegaci[oó]n|filial|anexo)`, "i").test(allText);
+        if (!hasExplicitBranch) {
+          continue; // Skip stray city mentions without physical address or explicit branch declaration!
+        }
+      }
+
       addLocation({
         country: finalCountry,
         city: cTrim,
