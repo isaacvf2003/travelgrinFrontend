@@ -892,11 +892,15 @@ export default function FeaturedPublicationsSection() {
                       className="object-cover"
                       sizes="(max-width: 1280px) 50vw, 25vw"
                       unoptimized
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
+                      }}
                     />
                   </div>
                   <div className="space-y-2 p-4">
                     <div className="flex flex-wrap gap-1">
-                      {item.featured ? (
+                      {pub.featured ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-[#00A9C6] px-2 py-0.5 text-[11px] font-semibold text-white">
                           <Star className="h-3 w-3 fill-current" /> Destacado
                         </span>
@@ -1155,6 +1159,10 @@ export default function FeaturedPublicationsSection() {
                           alt={title}
                           fill
                           className="object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
+                          }}
                         />
                       </div>
                       <div className="space-y-2 p-4">
