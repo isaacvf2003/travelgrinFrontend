@@ -2753,6 +2753,9 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("     * ESTÁ TERMINANTEMENTE PROHIBIDO clasificarlo en categorías como 'Curso o formación', 'Convocatoria', 'Empleo' o 'Becas'.");
   lines.push("     * En 'providerActivities', su actividad nuclear es ÚNICAMENTE 'Salud y asistencia social' (o la actividad médica afín del catálogo). ESTÁ TERMINANTEMENTE PROHIBIDO agregar 'Educación y formación' a un hospital.");
   lines.push("     * Si el catálogo del administrador no tiene una categoría de Salud/Atención médica, devuelve array vacío [] en 'categorySelections' y 'subcategorySelections'. NUNCA selecciones 'Curso o formación' ni 'Convocatoria'.");
+  lines.push("   - EN UNA UNIVERSIDAD, INSTITUTO UNIVERSITARIO O COLEGIO (ej: Universidad Siglo 21, UBA, UNCUYO):");
+  lines.push("     * Su actividad nuclear en 'providerActivities' es ÚNICAMENTE 'Educación y formación'.");
+  lines.push("     * ESTÁ TERMINANTEMENTE PROHIBIDO agregar 'Salud y asistencia social' a una universidad simplemente porque ofrezca carreras o titulaciones en Medicina, Enfermería, Nutrición o Psicología.");
   lines.push("5. MUTUA EXCLUSIVIDAD DE TIPO DE OFERENTE ('providerTypes'):");
   lines.push("   - Una entidad NUNCA puede ser 'Organismo público' e 'Institución privada' / 'Empresa' a la vez. Elige solo una según la naturaleza legal real.");
   lines.push("   - Si pertenece a una universidad pública nacional o ente estatal (ej: Hospital Universitario UNCUYO, UBA, etc.), su tipo es EXCLUSIVAMENTE 'Organismo público'. NUNCA incluyas 'Institución privada' ni 'Empresa'.");
@@ -3265,9 +3268,28 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       matchedSubs = matchedSubs.filter((s) => !/visa|migra|residencia\s*y\s*ciudadan/i.test(s));
     }
 
+    const isEducationalEntity =
+      /\b(universidad|instituto superior|colegio|facultad|instituto universitario|escuela)\b/i.test(
+        `${context.rawPageTitle || ""} ${context.url || ""}`
+      ) ||
+      (/\b(carreras? universitarias?|licenciaturas?|tecnicaturas?|alumnos?|estudiantes?|matricula academica|campus universitario)\b/i.test(fullTextNorm) &&
+       !/\b(hospital|clinica|sanatorio|policlinico)\b/i.test(`${context.rawPageTitle || ""} ${context.url || ""}`));
+
+    if (isEducationalEntity) {
+      finalMatchedActs = finalMatchedActs.filter((a) => !/salud|asistencia\s*social|medic|hosteler|turism|agricult|ganader/i.test(a));
+      const eduAct = activitiesPool.find((a) => /educaci|formaci|ensenan/i.test(a));
+      if (eduAct && !finalMatchedActs.includes(eduAct)) {
+        finalMatchedActs = [eduAct, ...finalMatchedActs];
+      }
+      if (eduAct && finalMatchedActs.length === 0) {
+        finalMatchedActs = [eduAct];
+      }
+    }
+
     const isHealthEntity =
-      /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextNorm) ||
-      /hospital|clinica|sanatorio|salud/i.test(context.url || "");
+      !isEducationalEntity &&
+      (/\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextNorm) ||
+      /hospital|clinica|sanatorio|salud/i.test(context.url || ""));
 
     if (isHealthEntity) {
       // 1. A hospital's activity is strictly health; never include education
@@ -3377,7 +3399,7 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         if (!locCity && !locAddr) continue;
         let locMapUrl = String(rawLoc.mapUrl || "").trim();
         if (!locMapUrl || !locMapUrl.startsWith("http")) {
-          const qParts = [cleanPublisher, locAddr, locCity, locCountry].filter(Boolean);
+          const qParts = locAddr ? [locAddr, locCity, locCountry].filter(Boolean) : [cleanPublisher, locCity, locCountry].filter(Boolean);
           locMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(qParts.join(", "))}`;
         }
         parsedHqLocations.push({
