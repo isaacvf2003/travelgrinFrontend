@@ -3432,7 +3432,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     if (isEduDraft) {
       for (const act of Array.from(resolvedActivities)) {
-        if (/hosteler|turism|alojam|profesional|tecnic|agricult|ganader|pesca|comercio/i.test(act)) {
+        if (/salud|asistencia\s*social|medic|hosteler|turism|alojam|profesional|tecnic|agricult|ganader|pesca|comercio/i.test(act)) {
           resolvedActivities.delete(act);
         }
       }
