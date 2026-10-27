@@ -2595,8 +2595,67 @@ function resolveHeadquarterLocations(
 }
 
 // Strictly excludes tiny tracking pixels, vector icons, badges, social network icons, payment badges.
-// NEVER excludes real photo words like banner, slider, slide, fachada, equipo, campus, servicio.
-const BAD_IMAGE_PATTERN = /(?:^|\/|[._-])(?:icon|badge|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|megaphone|pixel|spacer|1x1|transparent|fav-?icon|flaticon|fontawesome|app-store|google-play|visa|mastercard|amex|paypal|facebook|instagram|twitter|tiktok|youtube|whatsapp|linkedin)\b|\.svg$|\.svg\?/i;
+// Strictly excludes tiny tracking pixels, vector icons, badges, social network icons, payment badges, UI controls.
+// NEVER excludes real photo words like banner, slider, slide, fachada, equipo, campus, servicio, edificio, hospital.
+const BAD_IMAGE_PATTERN = new RegExp(
+  '(?:' +
+    // Path or name segments with icon/icons/icono/iconos
+    '(?:^|[/._-])(?:icons?|iconos?|ico|glyphs?|pictos?|pictograms?|pictogramas?|simbolos?|symbols?|vectores?|vectors?|cliparts?|illustrations?|ilustracions?|ilustraciones|drawings?|dibujos?|emojis?|stickers?|stamps?)[/._-]' +
+    '|[/._-](?:icons?|iconos?|ico|glyphs?|pictos?|pictograms?|pictogramas?|simbolos?|symbols?|vectores?|vectors?|cliparts?|illustrations?|ilustracions?|ilustraciones|drawings?|dibujos?|emojis?|stickers?|stamps?)\\.[a-z0-9]{3,4}(?:\\?|$)' +
+    // UI elements, controls and small assets
+    '|(?:^|[/._-])(?:badge|badges|button|buttons|boton|botones|btn|avatar|avatars|bullet|bullets|star|stars|rating|estrella|estrellas|check|tick|arrow|arrows|flecha|flechas|chevron|spinner|loader|loading|receipt|placeholder|megaphone|megafono|pixel|spacer|1x1|transparent|fav-?icon|flaticon|fontawesome|dashicons|material-icons|ionicons)[/._-]' +
+    '|[/._-](?:badge|badges|button|buttons|boton|botones|btn|avatar|avatars|bullet|bullets|star|stars|rating|estrella|estrellas|check|tick|arrow|arrows|flecha|flechas|chevron|spinner|loader|loading|receipt|placeholder|megaphone|megafono|pixel|spacer|1x1|transparent|fav-?icon|flaticon|fontawesome|dashicons|material-icons|ionicons)\\.[a-z0-9]{3,4}(?:\\?|$)' +
+    // Telephony, chat, contact and social icons
+    '|(?:^|[/._-])(?:app-store|google-play|visa|mastercard|amex|paypal|mercadopago|afip|data-fiscal|qr|qr-code|facebook|instagram|twitter|tiktok|youtube|whatsapp|linkedin|social|redes-sociales)[/._-]' +
+    '|[/._-](?:app-store|google-play|visa|mastercard|amex|paypal|mercadopago|afip|data-fiscal|qr|qr-code|facebook|instagram|twitter|tiktok|youtube|whatsapp|linkedin|social|redes-sociales)\\.[a-z0-9]{3,4}(?:\\?|$)' +
+    // Specific service/action icon words in medical/educational sites
+    '|(?:^|[/._-])(?:telemedicina|turnos|residencias|citas|chat|contacto|mail|correo|envelope|telefono|phone|call|ubicacion|location|marker|pin|map-pin|map_pin|mapa-?small|static-?map|map-?thumbnail|calendar|calendario|clock|reloj|user|usuario|paciente|patient|doctor-icon|med-icon|medical-icon|hospital-icon|school-icon|edu-icon)[/._-]' +
+    '|[/._-](?:telemedicina|turnos|residencias|citas|chat|contacto|mail|correo|envelope|telefono|phone|call|ubicacion|location|marker|pin|map-pin|map_pin|mapa-?small|static-?map|map-?thumbnail|calendar|calendario|clock|reloj|user|usuario|paciente|patient|doctor-icon|med-icon|medical-icon|hospital-icon|school-icon|edu-icon)\\.[a-z0-9]{3,4}(?:\\?|$)' +
+    // Third-party insurance / obra social badges
+    '|(?:^|[/._-])(?:iosfa|iosfared|pami|ioma|osde|swissmedical|galeno|medife|omint)[/._-]' +
+    '|[/._-](?:iosfa|iosfared|pami|ioma|osde|swissmedical|galeno|medife|omint)\\.[a-z0-9]{3,4}(?:\\?|$)' +
+    // Logos and shields should NOT be in the photos gallery (they go to logo)
+    '|(?:^|[/._-])(?:logo|logos|brand|brands|isologo|isologos|isotipo|isotipos|escudo|escudos|shield|shields|emblem|emblema|emblemas|sello|sellos)[/._-]' +
+    '|[/._-](?:logo|logos|brand|brands|isologo|isologos|isotipo|isotipos|escudo|escudos|shield|shields|emblem|emblema|emblemas|sello|sellos)\\.[a-z0-9]{3,4}(?:\\?|$)' +
+    // File formats: svg and ico are strictly vector/icons
+    '|\\.svg(?:\\?|$)|\\.ico(?:\\?|$)' +
+  ')',
+  'i'
+);
+
+function isExplicitIconOrTinyTag(attrs?: string): boolean {
+  if (!attrs) return false;
+  // Check width/height attributes
+  const wMatch = attrs.match(/\bwidth=["']?(\d+)/i);
+  const hMatch = attrs.match(/\bheight=["']?(\d+)/i);
+  if (wMatch && parseInt(wMatch[1], 10) <= 120 && hMatch && parseInt(hMatch[1], 10) <= 120) {
+    return true;
+  }
+  if (wMatch && parseInt(wMatch[1], 10) <= 64) return true;
+  if (hMatch && parseInt(hMatch[1], 10) <= 64) return true;
+
+  // Check inline style width / height
+  const styleMatch = attrs.match(/style=["']([^"']+)["']/i);
+  if (styleMatch) {
+    const s = styleMatch[1];
+    const sw = s.match(/(?:max-)?width\s*:\s*(\d+)px/i);
+    const sh = s.match(/(?:max-)?height\s*:\s*(\d+)px/i);
+    if (sw && parseInt(sw[1], 10) <= 120 && sh && parseInt(sh[1], 10) <= 120) return true;
+    if (sw && parseInt(sw[1], 10) <= 75) return true;
+    if (sh && parseInt(sh[1], 10) <= 75) return true;
+  }
+
+  // Check class or id for icon keywords
+  const classMatch = attrs.match(/\b(?:class|id)=["']([^"']+)["']/i);
+  if (classMatch) {
+    const c = classMatch[1];
+    if (/\b(?:icons?|iconos?|ico|badge|avatar|bullet|btn|nav-item|menu-icon|social|footer-social|emoji)\b/i.test(c)) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 function makeUrlAbsolute(urlStr: string, sourceUrl: string): string {
   if (!urlStr || typeof urlStr !== "string") return "";
@@ -2611,22 +2670,59 @@ function makeUrlAbsolute(urlStr: string, sourceUrl: string): string {
   }
 }
 
+function normalizeImageKey(u: string): string {
+  try {
+    const parsed = new URL(u);
+    return parsed.origin + parsed.pathname.toLowerCase();
+  } catch {
+    return u.toLowerCase();
+  }
+}
+
+function extractSrcsetBestUrl(srcsetString: string, baseUrl: string): string | null {
+  if (!srcsetString || typeof srcsetString !== "string") return null;
+  const candidates = srcsetString
+    .split(",")
+    .map((entry) => {
+      const parts = entry.trim().split(/\s+/);
+      const url = parts[0];
+      const descriptor = parts[1] || "";
+      let score = 1;
+      if (descriptor.endsWith("w")) {
+        score = parseInt(descriptor, 10) || 1;
+      } else if (descriptor.endsWith("x")) {
+        score = (parseFloat(descriptor) || 1) * 1000;
+      }
+      return { url, score };
+    })
+    .filter((c) => c.url && !c.url.startsWith("data:image"));
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.score - a.score);
+  return makeUrlAbsolute(candidates[0].url, baseUrl);
+}
+
 function isValidLogoUrl(urlStr: string): boolean {
   if (!urlStr || typeof urlStr !== "string") return false;
   const clean = urlStr.trim();
   if (!/^https?:\/\//i.test(clean)) return false;
   if (clean.length < 10) return false;
+  if (clean.startsWith("data:image")) return false;
   if (/(?:pixel|spacer|1x1|transparent|spinner|loader|receipt|button|star|check|arrow|app-store|google-play)\b/i.test(clean)) {
     return false;
   }
   return true;
 }
 
-function isValidRealPhoto(src: string): boolean {
+function isValidRealPhoto(src: string, attrs?: string): boolean {
   if (!src || typeof src !== "string") return false;
-  if (!/^https?:\/\//i.test(src)) return false;
-  if (BAD_IMAGE_PATTERN.test(src)) return false;
-  if (src.length < 12) return false;
+  const clean = src.trim();
+  if (!/^https?:\/\//i.test(clean)) return false;
+  if (clean.length < 12) return false;
+  if (clean.startsWith("data:image")) return false;
+  if (BAD_IMAGE_PATTERN.test(clean)) return false;
+  if (attrs && isExplicitIconOrTinyTag(attrs)) return false;
+  if (/\.(?:pdf|docx?|xlsx?|zip|rar|mp4|webm|avi|mp3|css|js|json)(?:\?|$)/i.test(clean)) return false;
   return true;
 }
 
@@ -2675,77 +2771,102 @@ function extractImagesAndLogosFromHtml(
 ): { images: string[]; logo: string } {
   const photos: string[] = [];
   const candidateLogos: string[] = [];
+  const seenFp = new Set<string>();
+
+  const addPhoto = (imgUrl: string, attrs: string = "") => {
+    if (!imgUrl) return;
+    const abs = makeUrlAbsolute(imgUrl, sourceUrl);
+    if (!abs || !isValidRealPhoto(abs, attrs)) return;
+    const fp = normalizeImageKey(abs);
+    if (seenFp.has(fp)) return;
+    seenFp.add(fp);
+    photos.push(abs);
+  };
+
+  const addLogo = (logoUrl: string) => {
+    if (!logoUrl) return;
+    const abs = makeUrlAbsolute(logoUrl, sourceUrl);
+    if (!abs || abs.startsWith("data:image") || abs.length < 10) return;
+    if (isValidLogoUrl(abs)) {
+      candidateLogos.push(abs);
+    }
+  };
 
   // 1. JSON-LD media
-  jsonLdLogos.forEach((l) => {
-    const abs = makeUrlAbsolute(l, sourceUrl);
-    if (isValidLogoUrl(abs)) candidateLogos.push(abs);
-  });
-  jsonLdImages.forEach((img) => {
-    const abs = makeUrlAbsolute(img, sourceUrl);
-    if (isValidRealPhoto(abs)) photos.push(abs);
-  });
+  jsonLdLogos.forEach((l) => addLogo(l));
+  jsonLdImages.forEach((img) => addPhoto(img));
 
-  // 2. OpenGraph and Twitter images
-  const ogImageMatch =
-    html.match(/<meta[^>]*?(?:property|name)=["'](?:og:image|twitter:image|twitter:image:src)["'][^>]*?content=["']([^"']+)["']/i) ||
-    html.match(/<meta[^>]*?content=["']([^"']+)["'][^>]*?(?:property|name)=["'](?:og:image|twitter:image|twitter:image:src)["']/i);
-  if (ogImageMatch && ogImageMatch[1]) {
-    const abs = makeUrlAbsolute(ogImageMatch[1], sourceUrl);
-    if (isValidRealPhoto(abs)) photos.push(abs);
+  // 2. OpenGraph and Twitter images (high quality editorial photos)
+  const ogMatches = [
+    ...html.matchAll(/<meta[^>]*?(?:property|name)=["'](?:og:image|og:image:url|og:image:secure_url|twitter:image|twitter:image:src)["'][^>]*?content=["']([^"']+)["']/gi),
+    ...html.matchAll(/<meta[^>]*?content=["']([^"']+)["'][^>]*?(?:property|name)=["'](?:og:image|og:image:url|og:image:secure_url|twitter:image|twitter:image:src)["']/gi)
+  ];
+  for (const m of ogMatches) {
+    if (m[1]) addPhoto(m[1]);
   }
 
   // 3. OpenGraph / Meta logo
   const ogLogoMatch =
     html.match(/<meta[^>]*?(?:name|property)=["'](?:og:logo|logo)["'][^>]*?content=["']([^"']+)["']/i) ||
     html.match(/<meta[^>]*?content=["']([^"']+)["'][^>]*?(?:name|property)=["'](?:og:logo|logo)["']/i);
-  if (ogLogoMatch && ogLogoMatch[1]) {
-    const abs = makeUrlAbsolute(ogLogoMatch[1], sourceUrl);
-    if (isValidLogoUrl(abs)) candidateLogos.push(abs);
-  }
+  if (ogLogoMatch && ogLogoMatch[1]) addLogo(ogLogoMatch[1]);
 
   // 4. Apple Touch Icon / High-res favicon link
   const touchIconMatch =
     html.match(/<link[^>]*?rel=["'](?:apple-touch-icon|apple-touch-icon-precomposed)["'][^>]*?href=["']([^"']+)["']/i) ||
     html.match(/<link[^>]*?href=["']([^"']+)["'][^>]*?rel=["'](?:apple-touch-icon|apple-touch-icon-precomposed)["']/i);
-  if (touchIconMatch && touchIconMatch[1]) {
-    const abs = makeUrlAbsolute(touchIconMatch[1], sourceUrl);
-    if (isValidLogoUrl(abs)) candidateLogos.push(abs);
-  }
+  if (touchIconMatch && touchIconMatch[1]) addLogo(touchIconMatch[1]);
 
-  // 5. Scrape HTML <img> tags (src, data-src, data-lazy-src, data-original)
+  // 5. Scrape HTML <img> tags with intelligent lazy-load priority
   const imgRegex = /<img\b([^>]+)>/gi;
   let match;
   while ((match = imgRegex.exec(html)) !== null) {
     const attrs = match[1];
-    const srcMatch = attrs.match(/(?:src|data-src|data-lazy-src|data-original)=["']([^"']+)["']/i);
-    if (!srcMatch || !srcMatch[1]) continue;
 
-    const rawSrc = srcMatch[1];
-    if (rawSrc.startsWith("data:image")) continue;
+    const isLogo = /logo|brand|isologo|isotipo|escudo|shield|emblem|sello/i.test(attrs);
 
-    const absSrc = makeUrlAbsolute(rawSrc, sourceUrl);
+    // Prioritize high-res / lazy sources over data-uri placeholder
+    const lazySrcMatch = attrs.match(/(?:data-src|data-lazy-src|data-original|data-full-url|data-large_image|data-zoom-image|data-img-url|data-hi-res-src)=["']([^"']+)["']/i);
+    const regularSrcMatch = attrs.match(/(?:src)=["']([^"']+)["']/i);
+    const srcsetMatch = attrs.match(/(?:data-srcset|srcset)=["']([^"']+)["']/i);
+
+    let resolvedCandidate: string | null = null;
+
+    if (lazySrcMatch && lazySrcMatch[1] && !lazySrcMatch[1].startsWith("data:image")) {
+      resolvedCandidate = lazySrcMatch[1];
+    } else if (srcsetMatch && srcsetMatch[1]) {
+      resolvedCandidate = extractSrcsetBestUrl(srcsetMatch[1], sourceUrl);
+    } else if (regularSrcMatch && regularSrcMatch[1] && !regularSrcMatch[1].startsWith("data:image")) {
+      resolvedCandidate = regularSrcMatch[1];
+    }
+
+    if (!resolvedCandidate) continue;
+
+    const absSrc = makeUrlAbsolute(resolvedCandidate, sourceUrl);
     if (!absSrc) continue;
 
-    const isLogo = /logo|brand|isologo|isotipo/i.test(attrs) || /logo|brand|isologo|isotipo/i.test(rawSrc);
-    if (isLogo && isValidLogoUrl(absSrc)) {
-      candidateLogos.push(absSrc);
+    if (isLogo || /logo|brand|isologo|isotipo|escudo|shield|emblem|sello/i.test(absSrc)) {
+      addLogo(absSrc);
       continue;
     }
 
-    if (isValidRealPhoto(absSrc)) {
-      photos.push(absSrc);
-    }
+    addPhoto(absSrc, attrs);
   }
 
   // 6. Scrape <picture><source srcset="...">
-  const sourceRegex = /<source\b[^>]*srcset=["']([^"'\s,]+)[^"']*["'][^>]*>/gi;
+  const sourceRegex = /<source\b[^>]*srcset=["']([^"']+)["'][^>]*>/gi;
   while ((match = sourceRegex.exec(html)) !== null) {
-    const rawSrc = match[1];
-    if (rawSrc.startsWith("data:image")) continue;
-    const absSrc = makeUrlAbsolute(rawSrc, sourceUrl);
-    if (isValidRealPhoto(absSrc)) {
-      photos.push(absSrc);
+    const best = extractSrcsetBestUrl(match[1], sourceUrl);
+    if (best) addPhoto(best);
+  }
+
+  // 7. Scrape background-image styles and data-bg
+  const bgRegex = /(?:background(?:-image)?\s*:\s*url\(\s*['"]?([^'")]+)['"]?\s*\)|data-(?:bg|background)(?:-image)?=["']([^"']+)["'])/gi;
+  let bgMatch;
+  while ((bgMatch = bgRegex.exec(html)) !== null) {
+    const bgUrl = bgMatch[1] || bgMatch[2];
+    if (bgUrl && !bgUrl.startsWith("data:image")) {
+      addPhoto(bgUrl);
     }
   }
 
@@ -2760,7 +2881,12 @@ function extractImagesAndLogosFromHtml(
     } catch {}
   }
 
-  const uniquePhotos = Array.from(new Set(photos)).slice(0, 8);
+  // Exclude the selected logo from photos so it doesn't duplicate in gallery
+  const filteredPhotos = resolvedLogo
+    ? photos.filter((p) => normalizeImageKey(p) !== normalizeImageKey(resolvedLogo))
+    : photos;
+
+  const uniquePhotos = filteredPhotos.slice(0, 8);
   return { images: uniquePhotos, logo: resolvedLogo };
 }
 
@@ -6873,6 +6999,26 @@ function enforceStrictTaxonomyGuardrails(
   if (!publication.categorySelections || publication.categorySelections.length === 0) {
     publication.categorySelections = [];
     publication.category = "";
+  }
+
+  // 8. Guarantee clean gallery images (real photos only, no icons, no badges, no duplicate URLs, no logo in images)
+  const candidateImages = Array.isArray(publication.images) && publication.images.length > 0
+    ? publication.images
+    : (Array.isArray(extractedData.images) ? extractedData.images : []);
+
+  if (candidateImages.length > 0) {
+    const seenImgKeys = new Set<string>();
+    const logoKey = publication.providerLogo ? normalizeImageKey(publication.providerLogo) : "";
+    publication.images = candidateImages.filter((img: string) => {
+      if (!img || typeof img !== "string" || !isValidRealPhoto(img)) return false;
+      const key = normalizeImageKey(img);
+      if (logoKey && key === logoKey) return false;
+      if (seenImgKeys.has(key)) return false;
+      seenImgKeys.add(key);
+      return true;
+    }).slice(0, 8);
+  } else {
+    publication.images = [];
   }
 
   return publication;
