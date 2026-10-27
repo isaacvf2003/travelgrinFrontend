@@ -2956,7 +2956,7 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
 2. CERO PLANTILLAS RÍGIDAS FIJAS: No uses esquemas estáticos repetitivos. Cada publicación debe redactarse a medida según la actividad real de la entidad y las instrucciones del administrador.
 3. Fidelidad factual, Sedes y Reputación Real en Google Maps:
    - Basa los textos en los servicios, ofertas, propuestas y datos reales de la web de "${entityName}".
-   - 'detectedFoundingYear': Año real y verdadero en que se fundó la institución o comenzó sus actividades históricas SOLO si se menciona explícitamente en el texto del sitio web analizado o si es un hecho institucional histórico comprobado (ej: "1987", "1969", "1903", "1995", "1821"). NUNCA inventes, calcules ni estimes años arbitrarios. Si no existe un año real de fundación comprobado en la web o registro institucional verificado, DEBES DEVOLVER UNA CADENA VACÍA "". TOTALMENTE PROHIBIDO tomar el año de copyright del pie de página de la web (como "2024", "2025" o "2026").
+   - 'detectedFoundingYear': Año real y verdadero en que se fundó la institución o comenzó sus actividades históricas SOLO si se menciona explícitamente en el texto del sitio web analizado o si es un hecho institucional histórico comprobado (ej: "1987", "1969", "1903", "1995", "1821"). Si no existe un año real de fundación comprobado en la web, Wikipedia ni registro institucional verificado, DEBES DEVOLVER OBLIGATORIAMENTE "0". TOTALMENTE PROHIBIDO inventar años y TOTALMENTE PROHIBIDO tomar el año de copyright del pie de página de la web (como "2024", "2025" o "2026").
    - 'detectedRating': Calificación promedio numérica EXACTA de 1.0 a 5.0 que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). Si viene informada en los datos reales de referencia ("Calificación verificada"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA (ej: "4.0"). Si no viene informada pero conoces la valoración verídica en Google Maps de la sede principal de esta institución, indícala con exactitud. Si la institución realmente no posee ficha o no tiene valoraciones en Google Maps, pon "0". NUNCA inventes puntuaciones arbitrarias.
    - 'detectedReviewCount': Cantidad EXACTA de reseñas / comentarios reales en Google Maps de esa sede principal. Si viene informada en los datos reales de referencia ("Reseñas verificadas"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA (ej: "1401", "776"). Si no viene informada pero conoces la cantidad de opiniones en Google Maps de su sede principal, indícala. Si realmente no posee comentarios en Google Maps, pon "0". NUNCA inventes números redondos ficticios como 500 o 200.
    - 'detectedAddress': Dirección física EXACTA y completa de la SEDE PRINCIPAL actual según Google Maps (calle, número y ciudad, ej: "Rosario de Sta. Fe 231 Piso 5, Córdoba"). NUNCA tomes direcciones antiguas o sedes históricas anteriores mencionadas en noticias o publicaciones viejas si la institución se mudó o tiene informada una dirección actual en Google Maps / pie de página.
@@ -2997,7 +2997,7 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
   "providerInfo": "Resumen institucional conciso y rico en español de 1 o 2 oraciones (tomando lo mejor de la descripción sin plantillas genéricas)",
   "detectedPublisherName": "Nombre oficial completo de la entidad (resolviendo siglas si aplica)",
   "detectedAddress": "De los Latinos 8555, X5008 Córdoba",
-  "detectedFoundingYear": "",
+  "detectedFoundingYear": "0",
   "detectedRating": "4.0",
   "detectedReviewCount": "1401",
   "detectedCommentsUrl": "https://www.google.com/maps/search/?api=1&query=...",
@@ -3364,17 +3364,17 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       languages: finalMatchedLangs.length ? finalMatchedLangs : ["Español"],
     };
 
-    let detectedFoundingYear = parsed.detectedFoundingYear ? String(parsed.detectedFoundingYear).trim() : undefined;
-    if (detectedFoundingYear) {
+    let detectedFoundingYear = parsed.detectedFoundingYear ? String(parsed.detectedFoundingYear).trim() : "0";
+    if (detectedFoundingYear && detectedFoundingYear !== "0") {
       const yrNum = parseInt(detectedFoundingYear, 10);
       const currYr = new Date().getFullYear();
-      const textCorpus = `${context.mainText || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.rawPageTitle || ""}`;
-      const isContextFounding = textCorpus.includes(detectedFoundingYear) || (Boolean(context.foundingYear) && context.foundingYear === detectedFoundingYear);
       if (isNaN(yrNum) || yrNum < 1600 || yrNum > currYr - 1 || yrNum === 2010 || yrNum === 2015) {
-        detectedFoundingYear = undefined;
-      } else if (!isContextFounding && !context.foundingYear) {
-        detectedFoundingYear = undefined;
+        detectedFoundingYear = "0";
+      } else {
+        detectedFoundingYear = String(yrNum);
       }
+    } else {
+      detectedFoundingYear = "0";
     }
 
     let detectedRating = (context.rating && context.rating !== "0")
