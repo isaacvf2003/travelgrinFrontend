@@ -985,6 +985,11 @@ function extractFoundingYear(cleanHtml: string, textContent: string, url: string
     /(?:ley\s*(?:n[°oº]?\s*[0-9.]+)?\s*(?:del?\s+a[nñ]o|de|en)\s*)\b(1[89]\d{2}|20[0-2]\d)\b/i,
     /(?:personer[ií]a\s+jur[ií]dica(?:\s+n[°oº]?\s*[0-9.]+)?(?:\s+(?:del?\s+a[nñ]o|de|en))?)\s*([12]\d{3})\b/i,
 
+    // Pre-year law / sanction patterns (e.g. "Desde el 26 de octubre de 1989, fecha en la que se sancionó la Ley")
+    /(?:desde\s+el\s+(?:\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+)?|en\s+)\b(1[6-9]\d{2}|20[0-2]\d)\b[,\s]+(?:fecha\s+en\s+la\s+que\s+se\s+sancion[oó]|fecha\s+de\s+creaci[oó]n|a[nñ]o\s+en\s+que\s+se\s+(?:sancion[oó]|cre[oó]|fund[oó]))/i,
+    /\b(1[6-9]\d{2}|20[0-2]\d)\b[,\s]+(?:se\s+sancion[oó]|sanci[oó]n\s+de|se\s+cre[oó]|se\s+fund[oó]|fecha\s+de\s+creaci[oó]n)/i,
+    /(?:desde|operando|trayectoria\s+desde|vigente\s+desde)\s+(?:el\s+)?(?:\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+)?\b(1[6-9]\d{2}|20[0-2]\d)\b/i,
+
     // Explicit Foundation / Initiation / Historical opening
     /(?:fundad[oa]|fundaci[oó]n|cread[oa]|creaci[oó]n|inaugurad[oa]|inauguraci[oó]n|apertura|establecid[oa]|inici[oó]\s+sus\s+actividades|abri[oó]\s+sus\s+puertas|constituci[oó]n|constitu[ií]d[oa])\s*(?:,\s*|\s+)?(?:el\s+)?(?:\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+|en\s+(?:el\s+a[nñ]o\s+)?|hacia\s+|el\s+)?\b([12]\d{3})\b/i,
     /(?:a[nñ]o\s+de\s+fundaci[oó]n:?|a[nñ]o\s+de\s+inauguraci[oó]n:?|a[nñ]o\s+de\s+creaci[oó]n:?|a[nñ]o\s+de\s+inicio:?|fecha\s+de\s+fundaci[oó]n:?)\s*([12]\d{3})/i,
@@ -1061,12 +1066,12 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
     return matched.length >= minRequired;
   }
 
-  // 1. Try Wikipedia Search API (Fast timeout: 1200ms)
+  // 1. Try Wikipedia Search API (Timeout: 2500ms)
   try {
     const wikiUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(queryName)}&utf8=&format=json`;
     const res = await fetch(wikiUrl, {
       headers: { "User-Agent": "TravelGrinScraper/1.0 (admin@travelgrin.com)" },
-      signal: AbortSignal.timeout(1200),
+      signal: AbortSignal.timeout(2500),
     });
     if (res.ok) {
       const data = await res.json();
@@ -1090,16 +1095,32 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
 
       if (hits.length > 0 && matchesDistinctiveWords(hits[0].title)) {
         const topTitle = hits[0].title;
-        const pageUrl = `https://es.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(topTitle)}&format=json`;
+        const pageUrl = `https://es.wikipedia.org/w/api.php?action=query&prop=extracts|revisions&rvprop=content&rvsection=0&exintro=1&explaintext=1&titles=${encodeURIComponent(topTitle)}&format=json`;
         const pageRes = await fetch(pageUrl, {
           headers: { "User-Agent": "TravelGrinScraper/1.0 (admin@travelgrin.com)" },
-          signal: AbortSignal.timeout(1200),
+          signal: AbortSignal.timeout(2500),
         });
         if (pageRes.ok) {
           const pageData = await pageRes.json();
           const pages = pageData.query?.pages || {};
           for (const pid in pages) {
             const extract = pages[pid]?.extract || "";
+            const revContent = pages[pid]?.revisions?.[0]?.["*"] || "";
+
+            // Check infobox fundacion/creacion
+            const mInfo = revContent.match(/(?:fundaci[oó]n|creaci[oó]n|apertura)\s*=\s*([^|\n]+)/i);
+            if (mInfo && mInfo[1]) {
+              const yrMatch = mInfo[1].match(/\b(1[6-9]\d{2}|20[0-2]\d)\b/);
+              if (yrMatch) {
+                const num = parseInt(yrMatch[1], 10);
+                if (num >= 1600 && num <= currentYear - 1 && num !== 2010 && num !== 2015) {
+                  const resYr = String(num);
+                  externalFoundingCache.set(cacheKey, resYr);
+                  return resYr;
+                }
+              }
+            }
+
             for (const pat of explicitPatterns) {
               const m = extract.match(pat);
               if (m && m[1]) {
@@ -1119,23 +1140,23 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
     // Wikipedia non-fatal timeout
   }
 
-  // 2. Try DuckDuckGo Lite / HTML Search (Fast timeout: 1500ms)
+  // 2. Try DuckDuckGo Lite Search (Timeout: 2500ms)
   try {
     const searchQuery = `"${queryName}" fundacion`;
-    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
+    const ddgUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(searchQuery)}`;
     const res = await fetch(ddgUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept-Language": "es-ES,es;q=0.9",
       },
-      signal: AbortSignal.timeout(1500),
+      signal: AbortSignal.timeout(2500),
     });
     if (res.ok) {
       const html = await res.text();
-      const snippetMatches = html.match(/<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi) || [];
-      for (const rawSnippet of snippetMatches.slice(0, 4)) {
+      const snippetMatches = html.match(/<td class=['"]result-snippet['"]>([\s\S]*?)<\/td>/gi) ||
+                             html.match(/<(?:a|div)\s+class=['"][^'"]*result__snippet[^'"]*['"]>([\s\S]*?)<\/(?:a|div)>/gi) || [];
+      for (const rawSnippet of snippetMatches.slice(0, 6)) {
         const plainSnippet = rawSnippet.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
-        if (!matchesDistinctiveWords(plainSnippet)) continue;
         for (const pat of explicitPatterns) {
           const m = plainSnippet.match(pat);
           if (m && m[1]) {
@@ -6158,10 +6179,12 @@ async function formatPublicationResult(
     const yrNum = parseInt(yr, 10);
     const currYr = new Date().getFullYear();
     if (isNaN(yrNum) || yrNum < 1600 || yrNum > currYr - 1 || yrNum === 2010 || yrNum === 2015) {
-      startYear = "";
+      startYear = "0";
     } else {
       startYear = String(yrNum);
     }
+  } else {
+    startYear = "0";
   }
 
   const sectorClassification = classifySectorAndTaxonomy(
@@ -6752,26 +6775,28 @@ function enforceStrictTaxonomyGuardrails(
     publication.languages = mergedLangs.join(", ");
   }
 
-  // 2. Guarantee valid founding year
-  if (extractedData.detectedFoundingYear && (!publication.providerStartYear || publication.providerStartYear === "2015" || publication.providerStartYear === "2010" || publication.providerStartYear === "2024" || publication.providerStartYear === "2025" || publication.providerStartYear === "2026")) {
+  // 2. Guarantee valid founding year (0 if unknown, never invent or use copyright/invalid years)
+  if (extractedData.detectedFoundingYear && extractedData.detectedFoundingYear !== "0") {
     publication.providerStartYear = extractedData.detectedFoundingYear;
   }
-  if (!publication.providerStartYear || publication.providerStartYear === "2010" || publication.providerStartYear === "2015") {
+  if (!publication.providerStartYear || publication.providerStartYear === "2010" || publication.providerStartYear === "2015" || publication.providerStartYear === "2024" || publication.providerStartYear === "2025" || publication.providerStartYear === "2026") {
     const calcYear = extractFoundingYear("", allText, publication.url, titleClean);
     if (calcYear) {
       publication.providerStartYear = calcYear;
     } else {
-      publication.providerStartYear = "";
+      publication.providerStartYear = "0";
     }
   }
-  if (publication.providerStartYear) {
+  if (publication.providerStartYear && publication.providerStartYear !== "0") {
     const yrNum = parseInt(publication.providerStartYear, 10);
     const currYr = new Date().getFullYear();
     if (isNaN(yrNum) || yrNum < 1600 || yrNum > currYr - 1 || yrNum === 2010 || yrNum === 2015) {
-      publication.providerStartYear = "";
+      publication.providerStartYear = "0";
     } else {
       publication.providerStartYear = String(yrNum);
     }
+  } else {
+    publication.providerStartYear = "0";
   }
 
   // 3. Guarantee accurate rating and review count from real Google Maps of the primary headquarters
@@ -7078,11 +7103,18 @@ async function processUrlWithAI(
 
     if (unifiedRes.data.detectedFoundingYear) {
       const yrCandidate = String(unifiedRes.data.detectedFoundingYear).trim();
-      const textCorpus = `${extracted.textContent || ""} ${extracted.htmlContent || ""}`;
-      const foundingRegex = new RegExp(`(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)\\b[\\s\\S]{0,50}\\b${yrCandidate}\\b|\\b${yrCandidate}\\b[\\s\\S]{0,50}(?:fundad[oa]|inaugurad[oa]|cread[oa]|inici[oó]|abrió|constitu[ií]d[oa]|ley)`, "i");
-      if ((textCorpus.includes(yrCandidate) && foundingRegex.test(textCorpus)) || yrCandidate === extracted.detectedFoundingYear) {
-        cleanContext.foundingYear = yrCandidate;
-        extracted.detectedFoundingYear = yrCandidate;
+      if (yrCandidate === "0") {
+        if (!extracted.detectedFoundingYear) {
+          cleanContext.foundingYear = "0";
+          extracted.detectedFoundingYear = "0";
+        }
+      } else {
+        const yrNum = parseInt(yrCandidate, 10);
+        const currYr = new Date().getFullYear();
+        if (!isNaN(yrNum) && yrNum >= 1600 && yrNum <= currYr - 1 && yrNum !== 2010 && yrNum !== 2015) {
+          cleanContext.foundingYear = String(yrNum);
+          extracted.detectedFoundingYear = String(yrNum);
+        }
       }
     } else if (extracted.detectedFoundingYear && !cleanContext.foundingYear) {
       cleanContext.foundingYear = extracted.detectedFoundingYear;
@@ -7333,11 +7365,11 @@ async function processUrlWithAI(
     providerInfoI18n: providerInfoI18nVal,
     providerStartYear: (() => {
       let candidateYear = String(cleanContext.foundingYear || extracted.detectedFoundingYear || "").trim();
-      if (!candidateYear) return "";
+      if (!candidateYear || candidateYear === "0") return "0";
       const yrNum = parseInt(candidateYear, 10);
       const currYr = new Date().getFullYear();
       if (isNaN(yrNum) || yrNum < 1600 || yrNum > currYr - 1 || yrNum === 2010 || yrNum === 2015) {
-        return "";
+        return "0";
       }
       return String(yrNum);
     })(),
