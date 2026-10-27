@@ -2212,7 +2212,6 @@ function resolveHeadquarterLocations(
         if (!existing.address && effectiveStreet) {
           existing.address = effectiveStreet;
           const qParts = [
-            cleanEntityName,
             effectiveStreet,
             locCity,
             parsedProvince && parsedProvince.toLowerCase() !== locCity.toLowerCase() ? parsedProvince : undefined,
@@ -2238,11 +2237,11 @@ function resolveHeadquarterLocations(
     const hasAddressInUrl = Boolean(effectiveStreet && mapUrl && mapUrl.toLowerCase().includes(encodeURIComponent(effectiveStreet.slice(0, 8).toLowerCase())));
     const hasJunkInUrl = /lead%20enviado|origen%20de%20lead|calendario%20acad/i.test(mapUrl);
 
-    if (!mapUrl || hasJunkInUrl || (effectiveStreet && isGenericSearch && !hasAddressInUrl)) {
+    if (!mapUrl || hasJunkInUrl || !isPrimary || (effectiveStreet && isGenericSearch && !hasAddressInUrl)) {
       if (effectiveStreet) {
-        // Precise query with entity + street + city drops the exact pin marker on Google Maps
+        // Querying strictly with the street address, locality, province and country
+        // ensures Google Maps geocodes to the exact physical point and drops the red pin marker directly on the card!
         const queryParts = [
-          cleanEntityName,
           effectiveStreet,
           locCity,
           parsedProvince && parsedProvince.toLowerCase() !== locCity.toLowerCase() ? parsedProvince : undefined,
@@ -2252,10 +2251,8 @@ function resolveHeadquarterLocations(
       } else if (isPrimary && detectedMapsUrl && !isGenericSearch && !hasJunkInUrl) {
         mapUrl = detectedMapsUrl;
       } else {
-        // If no street is available, query explicitly for the branch ("Sede [Entity], [City], [Country]")
-        // so Google Maps pinpoints the specific branch instead of showing competitor category search ads
         const queryParts = [
-          `Sede ${cleanEntityName}`,
+          cleanEntityName,
           locCity,
           locCountry
         ].filter(Boolean);
@@ -4875,18 +4872,25 @@ function classifySectorAndTaxonomy(
     (/\b(deportv|televisi[oó]n|canal\s+de\s+tv|streaming|transmisi[oó]n|transmisiones|noticiero|prensa|periodismo|radio)\b/i.test(lowerCorpus) ||
     /deportv|tv|streaming/i.test(urlNorm));
 
+  const isEduDeclared =
+    /\b(universidad|instituto superior|colegio|escuela|facultad|instituto universitario|campus universitario)\b/i.test(titleNorm) ||
+    /\b(universidad|instituto|colegio|escuela|facultad|campus)\b/i.test(urlNorm) ||
+    /\b(carrera universitaria|carreras universitarias|licenciatura|tecnicatura|alumnos?|estudiantes?|vida estudiantil|campus universitario|matricula academica|aranceles academicos|inscripciones a carreras|ingreso universitario|becas de estudio|docentes? universitarios?|profesorado|instituto superior|colegio|escuela|centro de estudios)\b/i.test(lowerCorpus);
+
   const isHospitalOrClinic =
-    /\b(hospital|clinica|sanatorio|centro\s+medico|consultorio\s+medico|policlinico|maternidad)\b/i.test(titleNorm) ||
+    (/\b(hospital|clinica|sanatorio|centro\s+medico|consultorio\s+medico|policlinico|maternidad)\b/i.test(titleNorm) ||
     /\b(hospital|clinica|sanatorio)\b/i.test(urlNorm) ||
-    /\b(hospital universitario|atencion medica|consultorios externos|guardia medica)\b/i.test(lowerCorpus);
+    (/\b(hospital universitario|consultorios externos|guardia medica)\b/i.test(lowerCorpus) && !/\b(carrera universitaria|licenciatura|matricula academica|ingreso universitario)\b/i.test(lowerCorpus))) &&
+    !/\b(universidad|instituto universitario)\b/i.test(titleNorm);
 
   const isEducationalEntity =
     !isMediaOrStreaming &&
     !isSportsOrFitness &&
     !isHospitalOrClinic &&
-    /\b(carrera universitaria|carreras universitarias|licenciatura|tecnicatura|alumnos?|estudiantes?|vida estudiantil|campus universitario|matricula academica|aranceles academicos|inscripciones a carreras|ingreso universitario|becas de estudio|docentes? universitarios?|profesorado|instituto superior|colegio|escuela|centro de estudios)\b/i.test(lowerCorpus);
+    isEduDeclared;
 
   const isHealthEntity =
+    !isEducationalEntity &&
     !isSportsOrFitness &&
     (isHospitalOrClinic ||
     /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(lowerCorpus));
@@ -5261,17 +5265,19 @@ function classifySectorAndTaxonomy(
   scoredActs.sort((a, b) => b.score - a.score);
   let selectedActivities: string[] = [];
 
-  if (isHealthEntity) {
+  if (isEducationalEntity) {
+    const eduAct = actsToEvaluate.find((a) => /educaci|formaci|ensenan/i.test(a));
+    if (eduAct) {
+      selectedActivities = [eduAct];
+    } else if (scoredActs.length > 0) {
+      selectedActivities = [scoredActs[0].name];
+    }
+  } else if (isHealthEntity) {
     const healthAct = actsToEvaluate.find((a) => /salud|asistencia\s*social|medic/i.test(a));
     if (healthAct) {
       selectedActivities = [healthAct];
     } else if (scoredActs.length > 0) {
       selectedActivities = [scoredActs[0].name];
-    }
-  } else if (isEducationalEntity) {
-    const eduAct = actsToEvaluate.find((a) => /educaci|formaci|ensenan/i.test(a));
-    if (eduAct) {
-      selectedActivities = [eduAct];
     }
   } else if (isSportsOrFitness) {
     const sportsAct = actsToEvaluate.find((a) => /deporte|fitness|gimnasio|bienestar|actividad\s+f[ií]sica/i.test(a));
@@ -5330,7 +5336,7 @@ function classifySectorAndTaxonomy(
   const finalMods = chosenMods.length > 0 ? chosenMods : (presencialMod ? [presencialMod] : (validMods.length > 0 ? [validMods[0]] : []));
 
   return {
-    sector: /salud|hospital|m[eé]dic/i.test(bestAct) ? "health" : /educaci/i.test(bestAct) ? "education" : "general",
+    sector: isEducationalEntity ? "education" : (/salud|hospital|m[eé]dic/i.test(bestAct) ? "health" : /educaci/i.test(bestAct) ? "education" : "general"),
     category: selectedCategories[0] || "",
     subcategory: selectedSubcategories[0] || "",
     categorySelections: selectedCategories,
@@ -6352,11 +6358,30 @@ function enforceStrictTaxonomyGuardrails(
     publication.providerActivities = publication.providerActivities.filter((a: string) => !taxonomies.types.includes(a));
   }
 
-  const isHealthOrHospital =
-    /hospital|clinica|sanatorio|policlinico/i.test(publication.url) ||
-    /\b(hospital|clinica|sanatorio|centro\s+medico|consultorio\s+medico|guardia\s+medica|atencion\s+medica|pacientes?|asistencial|prestaciones\s+medicas|salud\s+y\s+asistencia)\b/i.test(allText);
+  const isEducationalEntityGuard =
+    /\b(universidad|instituto superior|colegio|escuela|facultad|instituto universitario|campus universitario)\b/i.test(`${publication.title} ${publication.publisherName || ""} ${publication.url}`.toLowerCase()) ||
+    (/\b(carreras? universitarias?|licenciaturas?|tecnicaturas?|matricula academica|estudiantes?|alumnos?|vida estudiantil)\b/i.test(allText) &&
+     !/\b(hospital|clinica|sanatorio|policlinico)\b/i.test(`${publication.title} ${publication.publisherName || ""}`.toLowerCase()));
 
-  if (isHealthOrHospital) {
+  const isHealthOrHospital =
+    !isEducationalEntityGuard &&
+    (/hospital|clinica|sanatorio|policlinico/i.test(publication.url) ||
+     /\b(hospital|clinica|sanatorio|policlinico)\b/i.test(publication.title) ||
+     /\b(hospital|clinica|sanatorio|centro\s+medico|consultorio\s+medico|guardia\s+medica|atencion\s+medica|pacientes?|asistencial|prestaciones\s+medicas|salud\s+y\s+asistencia)\b/i.test(allText));
+
+  if (isEducationalEntityGuard) {
+    // A. An educational institution's core activity is strictly Education and Training. Never include Healthcare.
+    if (Array.isArray(publication.providerActivities)) {
+      publication.providerActivities = publication.providerActivities.filter((a) => !/salud|asistencia\s*social|medic|hosteler|turism|agricult|ganader/i.test(a));
+      const eduAct = taxonomies?.activities?.find((a: string) => /educaci|formaci|ensenan/i.test(a));
+      if (eduAct && !publication.providerActivities.includes(eduAct)) {
+        publication.providerActivities = [eduAct, ...publication.providerActivities];
+      }
+      if (publication.providerActivities.length === 0 && eduAct) {
+        publication.providerActivities = [eduAct];
+      }
+    }
+  } else if (isHealthOrHospital) {
     // A. A hospital's activity is strictly healthcare; NEVER include education, training, tourism, etc.
     if (Array.isArray(publication.providerActivities)) {
       publication.providerActivities = publication.providerActivities.filter((a) => !/educaci|formaci|ensenan/i.test(a));
