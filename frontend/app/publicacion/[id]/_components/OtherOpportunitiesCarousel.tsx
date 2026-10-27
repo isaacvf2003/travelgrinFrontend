@@ -79,7 +79,17 @@ export default function OtherOpportunitiesCarousel({ items }: { items: Publicati
                 className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50"
                 style={{ aspectRatio: "16/9" }}
               >
-                <Image src={cover} alt={String(p.title)} fill unoptimized className="object-cover" />
+                <Image
+                  src={cover}
+                  alt={String(p.title)}
+                  fill
+                  unoptimized
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = DEFAULT_PLACEHOLDER_IMAGE;
+                  }}
+                  className="object-cover"
+                />
               </div>
               <div className="mt-3 text-xs text-gray-500">
                 {p.country ? String(p.country) : ""}

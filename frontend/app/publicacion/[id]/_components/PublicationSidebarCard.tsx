@@ -19,6 +19,7 @@ type PublicationSidebarCardProps = {
   partner?: boolean;
   publisherName?: string | null;
   providerLogo?: string | null;
+  website?: string | null;
   languages?: string[];
   locationCity?: string | null;
   locationCountry?: string | null;
@@ -50,6 +51,7 @@ export default function PublicationSidebarCard({
   partner,
   publisherName,
   providerLogo,
+  website,
   languages = [],
   locationCity,
   locationCountry,
@@ -199,9 +201,10 @@ export default function PublicationSidebarCard({
                   src={providerLogo}
                   alt={publisherName ?? "Logo"}
                   className="h-full w-full object-contain rounded-full"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     const target = e.currentTarget;
-                    if (website) {
+                    if (website && !target.src.includes("google.com/s2/favicons")) {
                       try {
                         const host = new URL(website).hostname;
                         target.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;

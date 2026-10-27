@@ -23,6 +23,7 @@ type DetailSidebarProps = {
   website?: string | null;
   socialLinks?: Record<string, string> | null;
   publicationId: string;
+  isInactive?: boolean;
 };
 
 export default function DetailSidebar({
@@ -42,6 +43,7 @@ export default function DetailSidebar({
   website,
   socialLinks,
   publicationId,
+  isInactive = false,
 }: DetailSidebarProps) {
   const { t, locale } = useTranslation();
   const labelCategory = category ? pickI18nText(categoryI18n ?? null, locale, category) : "";
@@ -59,9 +61,10 @@ export default function DetailSidebar({
                 src={providerLogoUrl}
                 alt={publisherName ?? t("nombre_oferente")}
                 className="h-full w-full object-contain rounded-full"
+                referrerPolicy="no-referrer"
                 onError={(e) => {
                   const target = e.currentTarget;
-                  if (website) {
+                  if (website && !target.src.includes("google.com/s2/favicons")) {
                     try {
                       const host = new URL(website).hostname;
                       target.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;

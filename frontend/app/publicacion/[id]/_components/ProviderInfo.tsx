@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import RichText from "@/components/RichText";
@@ -19,6 +20,7 @@ type ProviderInfoProps = {
   logo?: string | null;
   headquartersInfo?: string | null;
   headquarterLocations?: Array<{ country: string; city: string; mapUrl: string }>;
+  website?: string | null;
 };
 
 const COUNTRY_FLAG_MAP: Record<string, string> = {
@@ -154,8 +156,30 @@ export default function ProviderInfo({
   logo,
   headquartersInfo,
   headquarterLocations = [],
+  website,
 }: ProviderInfoProps) {
   const { t, locale } = useTranslation();
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [currentLogo, setCurrentLogo] = useState(logo || "");
+
+  useEffect(() => {
+    setCurrentLogo(logo || "");
+    setLogoFailed(false);
+  }, [logo]);
+
+  const handleLogoError = () => {
+    if (!logoFailed && website) {
+      try {
+        const host = new URL(website).hostname.replace(/^www\./, "");
+        if (host) {
+          setCurrentLogo(`https://www.google.com/s2/favicons?domain=${host}&sz=128`);
+          setLogoFailed(true);
+          return;
+        }
+      } catch {}
+    }
+    setLogoFailed(true);
+  };
   const description = pickI18nText(value ?? null, locale, t("oferente_info_descripcion"));
   const safeRating = Number.isFinite(Number(rating)) && Number(rating) > 0 ? Number(rating) : null;
   const roundedRating = safeRating != null ? Math.round(safeRating * 2) / 2 : null;
@@ -182,10 +206,16 @@ export default function ProviderInfo({
   return (
     <div className="rounded-3xl border border-gray-200 bg-white p-5">
       <div className="flex items-center gap-3">
-        {logo ? (
+        {currentLogo && (!logoFailed || currentLogo.includes("google.com/s2/favicons")) ? (
           <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white p-0.5 shadow-2xs">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logo} alt={cleanName || t("oferente_info_titulo")} className="h-full w-full object-contain rounded-full" />
+            <img
+              src={currentLogo}
+              alt={cleanName || t("oferente_info_titulo")}
+              referrerPolicy="no-referrer"
+              onError={handleLogoError}
+              className="h-full w-full object-contain rounded-full"
+            />
           </div>
         ) : null}
         <div className="min-w-0">

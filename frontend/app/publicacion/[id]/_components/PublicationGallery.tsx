@@ -65,6 +65,7 @@ export default function PublicationGallery({ images, title }: PublicationGallery
           <img
             src="https://i.ibb.co/VmrmGrx/sin-foto.jpg"
             alt={title || "Travelgrin"}
+            referrerPolicy="no-referrer"
             className="h-full w-full object-cover object-center"
           />
         </div>
@@ -80,6 +81,7 @@ export default function PublicationGallery({ images, title }: PublicationGallery
           <img
             src={mainImage}
             alt={title}
+            referrerPolicy="no-referrer"
             onError={() => handleImageError(mainImage)}
             className="h-full w-full object-cover object-center"
           />
@@ -113,6 +115,7 @@ export default function PublicationGallery({ images, title }: PublicationGallery
               <img
                 src={src}
                 alt={`thumb-${idx + 1}`}
+                referrerPolicy="no-referrer"
                 onError={() => handleImageError(src)}
                 className="h-full w-full object-cover"
               />
@@ -134,6 +137,7 @@ export default function PublicationGallery({ images, title }: PublicationGallery
                 <img
                   src={src}
                   alt={`${title}-${idx + 1}`}
+                  referrerPolicy="no-referrer"
                   onError={() => handleImageError(src)}
                   className="h-full w-full object-cover object-center"
                 />
@@ -153,6 +157,7 @@ export default function PublicationGallery({ images, title }: PublicationGallery
             <img
               src={mainImage}
               alt={title}
+              referrerPolicy="no-referrer"
               onError={() => handleImageError(mainImage)}
               className="h-full w-full object-cover object-center"
             />

@@ -70,7 +70,17 @@ export default function OthersCarousel({ items }: { items: Publication[] }) {
               className="min-w-[260px] max-w-[260px] rounded-2xl border border-gray-200 bg-white p-3 hover:shadow-md transition-all"
             >
               <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50" style={{ aspectRatio: "16/9" }}>
-                <Image src={cover} alt={String(p.title)} fill unoptimized className="object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
+                <Image
+                  src={cover}
+                  alt={String(p.title)}
+                  fill
+                  unoptimized
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = DEFAULT_PLACEHOLDER_IMAGE;
+                  }}
+                  className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                />
               </div>
 
               <div className="mt-3 flex items-start justify-between gap-3">
