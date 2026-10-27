@@ -1719,6 +1719,27 @@ async function enrichWithLiveGoogleMapsAndSearch(
       if (!(numRating === 1 && numReviews === 1) && numReviews >= 1 && numRating >= 1 && numRating <= 5) {
         extracted.detectedRating = numRating.toFixed(1);
         extracted.detectedReviewCount = String(numReviews);
+
+        // 1. Extract hex CID and convert to direct decimal Google Maps CID profile link
+        const mCid = text.match(/0x[0-9a-f]+:(0x[0-9a-f]{10,})/i);
+        if (mCid && mCid[1]) {
+          try {
+            const decCid = BigInt(mCid[1]).toString(10);
+            extracted.detectedCommentsUrl = `https://maps.google.com/?cid=${decCid}`;
+            extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+          } catch {}
+        }
+
+        // 2. Extract verified physical address directly from Google Maps place response
+        const mAddr = text.match(/\["([^"]{5,80}\s+\d{1,5}[^"]*)",\s*"(?:[A-Z0-9\s,-]+)?"\]/i) ||
+                      text.match(/\["([^"]{5,80}\s+\d{1,5}\b[^"]*)"/i);
+        if (mAddr && mAddr[1] && !mAddr[1].startsWith("http")) {
+          const cleanGAddr = mAddr[1].trim();
+          if (isValidPhysicalStreetAddress(cleanGAddr)) {
+            extracted.detectedAddress = cleanGAddr;
+          }
+        }
+
         if (!extracted.detectedCommentsUrl) {
           const placeQuery = `${cleanBrand}${city ? ', ' + city : ''}`;
           extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
@@ -1744,6 +1765,24 @@ async function enrichWithLiveGoogleMapsAndSearch(
             if (!(pRating === 1 && pReviews === 1) && pReviews >= 1 && pRating >= 1 && pRating <= 5) {
               extracted.detectedRating = pRating.toFixed(1);
               extracted.detectedReviewCount = String(pReviews);
+
+              const mCid = placeText.match(/0x[0-9a-f]+:(0x[0-9a-f]{10,})/i);
+              if (mCid && mCid[1]) {
+                try {
+                  const decCid = BigInt(mCid[1]).toString(10);
+                  extracted.detectedCommentsUrl = `https://maps.google.com/?cid=${decCid}`;
+                  extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+                } catch {}
+              }
+
+              const mAddr = placeText.match(/\["([^"]{5,80}\s+\d{1,5}[^"]*)",\s*"(?:[A-Z0-9\s,-]+)?"\]/i) ||
+                            placeText.match(/\["([^"]{5,80}\s+\d{1,5}\b[^"]*)"/i);
+              if (mAddr && mAddr[1] && !mAddr[1].startsWith("http")) {
+                const cleanGAddr = mAddr[1].trim();
+                if (isValidPhysicalStreetAddress(cleanGAddr)) {
+                  extracted.detectedAddress = cleanGAddr;
+                }
+              }
               break;
             }
           }
@@ -1830,13 +1869,19 @@ async function enrichWithLiveGoogleMapsAndSearch(
     } catch {}
   }
 
-  // Fallback to official Google Maps query link if no direct Place link was discovered
-  const updatedAddress = cleanAddressForSearch(extracted.detectedAddress || mainAddress);
-  if (!extracted.detectedCommentsUrl || (updatedAddress && !extracted.detectedCommentsUrl.includes(encodeURIComponent(updatedAddress.slice(0, 8))))) {
-    const parts = [officialFullName || cleanName, updatedAddress, city, country].filter(Boolean);
-    extracted.detectedCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
-    if (!extracted.detectedMapsUrl || (updatedAddress && !extracted.detectedMapsUrl.includes(encodeURIComponent(updatedAddress.slice(0, 8))))) {
-      extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+  // Fallback to official Google Maps query link ONLY if no direct Place or verified CID link was discovered
+  const isDirectComments = Boolean(
+    extracted.detectedCommentsUrl &&
+    /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps\/place|\S*[?&]cid=)/i.test(extracted.detectedCommentsUrl)
+  );
+  if (!isDirectComments) {
+    const updatedAddress = cleanAddressForSearch(extracted.detectedAddress || mainAddress);
+    if (!extracted.detectedCommentsUrl || (updatedAddress && !extracted.detectedCommentsUrl.includes(encodeURIComponent(updatedAddress.slice(0, 8))))) {
+      const parts = [officialFullName || cleanName, updatedAddress, city, country].filter(Boolean);
+      extracted.detectedCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
+      if (!extracted.detectedMapsUrl || (updatedAddress && !extracted.detectedMapsUrl.includes(encodeURIComponent(updatedAddress.slice(0, 8))))) {
+        extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
+      }
     }
   }
 
@@ -2357,6 +2402,7 @@ function resolveHeadquarterLocations(
         if (!existing.address && effectiveStreet) {
           existing.address = effectiveStreet;
           const qParts = [
+            cleanEntityName,
             effectiveStreet,
             locCity,
             parsedProvince && parsedProvince.toLowerCase() !== locCity.toLowerCase() ? parsedProvince : undefined,
@@ -2383,21 +2429,20 @@ function resolveHeadquarterLocations(
     const hasAddressInUrl = Boolean(effectiveStreet && mapUrl && mapUrl.toLowerCase().includes(encodeURIComponent(effectiveStreet.slice(0, 8).toLowerCase())));
     const hasJunkInUrl = /lead%20enviado|origen%20de%20lead|calendario%20acad|\bcbi\b/i.test(mapUrl);
 
-    if (isPrimary && isVerifiedDirectMap(detectedMapsUrl) && (!effectiveStreet || !hasAddressInUrl)) {
-      // Primary location with a verified Google Maps place profile or shortlink: ALWAYS prioritize the real place!
+    if (isPrimary && isVerifiedDirectMap(detectedMapsUrl)) {
+      // Primary location with a verified Google Maps place profile or direct CID link: ALWAYS prioritize the real place!
       mapUrl = detectedMapsUrl;
     } else if (effectiveStreet) {
-      // Querying strictly with the street address, locality, province and country
-      // ensures Google Maps geocodes to the exact physical point and drops the red pin marker directly on the card!
+      // Querying with cleanEntityName, street address, locality, province and country
+      // ensures Google Maps NEVER resolves to a random street in another city or province!
       const queryParts = [
+        cleanEntityName,
         effectiveStreet,
         locCity,
         parsedProvince && parsedProvince.toLowerCase() !== locCity.toLowerCase() ? parsedProvince : undefined,
         locCountry
       ].filter(Boolean);
       mapUrl = buildGoogleMapsUrl(queryParts.join(", "));
-    } else if (isPrimary && isVerifiedDirectMap(detectedMapsUrl)) {
-      mapUrl = detectedMapsUrl;
     } else if (!mapUrl || hasJunkInUrl || isGenericSearch) {
       // If mapUrl is empty or generic search with hallucinated/unverified terms, rebuild cleanly with the official entity brand
       const queryParts = [
@@ -2419,9 +2464,9 @@ function resolveHeadquarterLocations(
     });
   };
 
-  // 1. Primary location ALWAYS comes first
+  // 1. Primary location ALWAYS comes first (prioritize verified primaryAddress from Google Maps / footer over historical blog posts)
   const initialPrimary = (Array.isArray(rawLocations) && rawLocations[0]) || {};
-  let effectivePrimaryAddress = initialPrimary.address || primaryAddress || undefined;
+  let effectivePrimaryAddress = primaryAddress || initialPrimary.address || undefined;
   if (!effectivePrimaryAddress && (initialPrimary.city || finalCity)) {
     effectivePrimaryAddress = matchAddressForCity(initialPrimary.city || finalCity);
   }
@@ -2462,8 +2507,10 @@ function resolveHeadquarterLocations(
       if (!locAddr && loc.city) {
         locAddr = matchAddressForCity(loc.city);
       }
-      if (loc.city && isCityNameInAnyExistingStreet(loc.city) && !locAddr) {
-        continue;
+      if (loc.city && isCityNameInAnyExistingStreet(loc.city)) {
+        if (!locAddr || isCityNameInAnyExistingStreet(locAddr)) {
+          continue;
+        }
       }
       addLocation({ ...loc, address: locAddr });
     }
@@ -7225,7 +7272,7 @@ async function processUrlWithAI(
 
   const isDirectMap = (u?: string) => Boolean(u && /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps\/place|\S*[?&]cid=)/i.test(u));
   const candidateDirectMap = [extracted.detectedCommentsUrl, extracted.detectedMapsUrl, unifiedRes?.data?.detectedCommentsUrl].find(isDirectMap);
-  if (candidateDirectMap && (!primaryHq.address || /^https?:\/\/(?:www\.)?google\.[a-z.]+\/maps\/search/i.test(primaryHq.mapUrl))) {
+  if (candidateDirectMap) {
     primaryHq.mapUrl = candidateDirectMap;
   }
 
