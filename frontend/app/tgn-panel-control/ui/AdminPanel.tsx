@@ -3135,7 +3135,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       it: draft.providerInfoI18n?.it || "",
     };
     setPProviderInfoI18n(providerInfoInit);
-    let startYear = draft.providerStartYear || "";
+    let startYear = draft.providerStartYear ? String(draft.providerStartYear).trim() : "0";
+    if (!startYear) startYear = "0";
     setPProviderStartYear(startYear);
     setPProviderRating(draft.providerRating || "0");
     setPProviderReviewCount(draft.providerReviewCount ?? "0");
