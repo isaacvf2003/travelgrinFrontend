@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { publicationPath } from "@/app/lib/publicationSlug";
 import { Compass, Share2 } from "lucide-react";
@@ -14,20 +14,32 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { getDisplayPrice, type PriceOverride } from "@/app/lib/currency";
 
-function pickImage(p: Publication) {
+function getCandidateImages(p: Publication, prestationImage?: string | null): string[] {
+  const list: string[] = [];
+  if (prestationImage && String(prestationImage).trim()) {
+    list.push(String(prestationImage).trim());
+  }
   const imgs = (p.images as any) ?? [];
-  if (Array.isArray(imgs) && imgs.length > 0) {
-    const first = imgs.find((entry: any) => String(entry ?? "").trim());
-    if (first) {
-      const str = String(first).trim();
-      try {
-        return encodeURI(decodeURI(str));
-      } catch {
-        return str.replace(/\s+/g, "%20");
+  if (Array.isArray(imgs)) {
+    for (const entry of imgs) {
+      const str = String(entry ?? "").trim();
+      if (str && !str.startsWith("data:image")) {
+        try {
+          const enc = encodeURI(decodeURI(str));
+          if (!list.includes(enc)) list.push(enc);
+        } catch {
+          const enc = str.replace(/\s+/g, "%20");
+          if (!list.includes(enc)) list.push(enc);
+        }
       }
     }
   }
-  return "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
+  list.push("https://i.ibb.co/VmrmGrx/sin-foto.jpg");
+  return list;
+}
+
+function pickImage(p: Publication) {
+  return getCandidateImages(p)[0] || "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
 }
 
 
@@ -385,7 +397,7 @@ function resolveCategoryTagText(
     const block = filterGroups.find((g) => g.id === matchedCategory!.blockId);
     if (block) {
       const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
-      const isVisible = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
+      const isVisible = (block as any).visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
       if (isVisible) {
         return pickI18nText(block.labelI18n ?? null, locale, block.label);
       }
@@ -440,7 +452,7 @@ function getVisibleBlockLabelForOption(
   const block = filterGroups.find((g) => g.id === f.filterOption.groupId);
   if (block) {
     const blockMeta = (typeof block.labelI18n === "object" && block.labelI18n !== null ? block.labelI18n : {}) as Record<string, unknown>;
-    const isVisible = block.visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
+    const isVisible = (block as any).visibleInCard === true || blockMeta.__visibleInCard === "true" || blockMeta.__visibleInCard === true;
     if (isVisible) {
       return pickI18nText(block.labelI18n ?? null, locale, block.label);
     }
@@ -483,7 +495,28 @@ export function PublicationCard({
   };
 
   const prestationResource = useMemo(() => pickPrestacionResourceData(item, locale), [item, locale]);
-  const img = useMemo(() => prestationResource?.image || pickImage(item), [item, prestationResource]);
+  const candidateImages = useMemo(
+    () => getCandidateImages(item, prestationResource?.image),
+    [item, prestationResource?.image]
+  );
+  const [imgIndex, setImgIndex] = useState(0);
+
+  useEffect(() => {
+    setImgIndex(0);
+  }, [item.id, candidateImages]);
+
+  const currentImg = candidateImages[imgIndex] || "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    if (imgIndex + 1 < candidateImages.length) {
+      setImgIndex((prev) => prev + 1);
+    } else {
+      const target = e.currentTarget;
+      if (!target.src.includes("sin-foto.jpg")) {
+        target.src = "https://i.ibb.co/VmrmGrx/sin-foto.jpg";
+      }
+    }
+  };
   const displayTitle = useMemo(() => prestationResource?.title || pickI18nText(item.titleI18n ?? null, locale, item.title), [item.titleI18n, item.title, locale, prestationResource]);
   const prestationSubtitle = useMemo(() => prestationResource?.subtitle?.trim() || "", [prestationResource]);
 
@@ -561,26 +594,26 @@ export function PublicationCard({
       ? resolveSubcategoryText(pickI18nText(item.subcategoryI18n ?? null, locale, item.subcategory), categories, locale)
       : null;
     const fieldSubcategoryLabels = fieldSubcategoryTags
-      .map((v) => resolveSubcategoryText(v, categories, locale))
+      .map((v: string) => resolveSubcategoryText(v, categories, locale))
       .filter(Boolean) as string[];
 
     const raw = (item.primaryGroupKey === "prestacion"
       ? [
           ...(Array.isArray((item as any)?.fields?.prestaciones)
-            ? (item as any).fields.prestaciones.map((value: any) => String(value ?? "").trim()).map((v) => resolveCategoryTagText(v, categories, filterGroups, locale))
+            ? (item as any).fields.prestaciones.map((value: any) => String(value ?? "").trim()).map((v: string) => resolveCategoryTagText(v, categories, filterGroups, locale))
             : []),
           ...fieldSubcategoryLabels,
-          ...fieldCategoryTags.map((v) => resolveCategoryTagText(v, categories, filterGroups, locale)),
+          ...fieldCategoryTags.map((v: string) => resolveCategoryTagText(v, categories, filterGroups, locale)),
           ...prestacionFilterTags,
         ]
       : [
           item.category
             ? resolveCategoryTagText(pickI18nText(item.categoryI18n ?? null, locale, item.category), categories, filterGroups, locale)
             : null,
-          ...fieldCategoryTags.map((v) => resolveCategoryTagText(v, categories, filterGroups, locale)),
+          ...fieldCategoryTags.map((v: string) => resolveCategoryTagText(v, categories, filterGroups, locale)),
           subcategoryLabel,
           ...fieldSubcategoryLabels,
-          ...(item.filterOptions ?? []).map((f) => getVisibleBlockLabelForOption(f, filterGroups, locale)),
+          ...(item.filterOptions ?? []).map((f: any) => getVisibleBlockLabelForOption(f, filterGroups, locale)),
         ]).filter(Boolean) as string[];
 
     const seen = new Set<string>();
@@ -634,14 +667,15 @@ export function PublicationCard({
         <div className="absolute inset-y-0 left-0 z-10 w-1.5 bg-gradient-to-b from-[#2C7BE5] to-[#1A4B8C]" />
       ) : null}
       <div className="flex flex-col md:flex-row md:items-stretch">
-        <div className="relative h-[220px] w-full bg-gray-100 md:h-auto md:w-[280px] md:min-h-[220px]">
-          <Image
-            src={img}
+        <div className="relative h-[220px] w-full bg-gray-100 md:h-auto md:w-[280px] md:min-h-[220px] overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={currentImg}
             alt={item.title}
-            fill
-            className="object-cover object-center"
-            sizes="(max-width: 768px) 100vw, 400px"
-            unoptimized
+            referrerPolicy="no-referrer"
+            onError={handleImageError}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover object-center"
           />
 
           <div className="absolute left-3 top-3 flex flex-wrap items-center gap-2">
@@ -746,7 +780,7 @@ export function PublicationCard({
                   toggle({
                     publicationId: item.id,
                     title: displayTitle,
-                    imageUrl: img,
+                    imageUrl: currentImg,
                     price: item.price,
                     currency: item.currency,
                     pricePeriod: (item as any).fields?.pricePeriod ?? null,
