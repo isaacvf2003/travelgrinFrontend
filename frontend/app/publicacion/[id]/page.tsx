@@ -782,6 +782,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
               partner={Boolean((item as any)?.partner ?? (item as any)?.fields?.partner)}
               publisherName={item.publisherName}
               providerLogo={providerLogo}
+              website={item.website || null}
               languages={languages}
               locationCity={primaryDestination.city || null}
               locationCountry={primaryDestination.country || null}
@@ -880,6 +881,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
               partner={Boolean((item as any)?.partner ?? (item as any)?.fields?.partner)}
               publisherName={item.publisherName}
               providerLogo={providerLogo}
+              website={item.website || null}
               languages={languages}
               locationCity={primaryDestination.city || null}
               locationCountry={primaryDestination.country || null}
@@ -916,6 +918,7 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
               providerTypeList={providerTypes}
               origin={providerOrigin}
               logo={providerLogo}
+              website={item.website || null}
               headquartersInfo={headquartersInfo}
               headquarterLocations={headquarterLocations}
             />
