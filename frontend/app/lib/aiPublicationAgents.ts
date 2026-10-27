@@ -3398,7 +3398,13 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         const locAddr = cleanTitleString(String(rawLoc.address || "").trim());
         if (!locCity && !locAddr) continue;
         let locMapUrl = String(rawLoc.mapUrl || "").trim();
-        if (!locMapUrl || !locMapUrl.startsWith("http")) {
+        const isVerifiedDirectMap = Boolean(context.commentsUrl && /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps\/place|\S*[?&]cid=)/i.test(context.commentsUrl));
+        const isGenericSearch = /^https?:\/\/(?:www\.)?google\.[a-z.]+\/maps\/search/i.test(locMapUrl);
+        const hasJunkInUrl = /lead%20enviado|origen%20de%20lead|calendario%20acad|\bcbi\b/i.test(locMapUrl);
+
+        if (parsedHqLocations.length === 0 && isVerifiedDirectMap && !locAddr) {
+          locMapUrl = context.commentsUrl!;
+        } else if (!locMapUrl || !locMapUrl.startsWith("http") || hasJunkInUrl || (isGenericSearch && !locMapUrl.toLowerCase().includes(encodeURIComponent(cleanPublisher.slice(0, 6).toLowerCase())))) {
           const qParts = locAddr ? [locAddr, locCity, locCountry].filter(Boolean) : [cleanPublisher, locCity, locCountry].filter(Boolean);
           locMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(qParts.join(", "))}`;
         }
