@@ -2959,12 +2959,14 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
    - 'detectedFoundingYear': Año real y verdadero en que se fundó la institución o comenzó sus actividades históricas SOLO si se menciona explícitamente en el texto del sitio web analizado o si es un hecho institucional histórico comprobado (ej: "1987", "1969", "1903", "1995", "1821"). NUNCA inventes, calcules ni estimes años arbitrarios. Si no existe un año real de fundación comprobado en la web o registro institucional verificado, DEBES DEVOLVER UNA CADENA VACÍA "". TOTALMENTE PROHIBIDO tomar el año de copyright del pie de página de la web (como "2024", "2025" o "2026").
    - 'detectedRating': Calificación promedio numérica EXACTA de 1.0 a 5.0 que tiene el establecimiento en Google Maps de su SEDE PRINCIPAL (Casa Central / Sede Matriz). Si viene informada en los datos reales de referencia ("Calificación verificada"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA (ej: "4.0"). Si no viene informada pero conoces la valoración verídica en Google Maps de la sede principal de esta institución, indícala con exactitud. Si la institución realmente no posee ficha o no tiene valoraciones en Google Maps, pon "0". NUNCA inventes puntuaciones arbitrarias.
    - 'detectedReviewCount': Cantidad EXACTA de reseñas / comentarios reales en Google Maps de esa sede principal. Si viene informada en los datos reales de referencia ("Reseñas verificadas"), DEVUÉLVELA EXACTAMENTE SIN CAMBIARLA (ej: "1401", "776"). Si no viene informada pero conoces la cantidad de opiniones en Google Maps de su sede principal, indícala. Si realmente no posee comentarios en Google Maps, pon "0". NUNCA inventes números redondos ficticios como 500 o 200.
-   - 'detectedAddress': Dirección física EXACTA y completa de la SEDE PRINCIPAL según Google Maps (calle, número y ciudad, ej: "De los Latinos 8555, X5008 Córdoba").
-   - 'detectedCommentsUrl': Enlace directo a Google Maps de la ficha o reseñas de la sede principal con el nombre institucional y dirección exacta.
+   - 'detectedAddress': Dirección física EXACTA y completa de la SEDE PRINCIPAL actual según Google Maps (calle, número y ciudad, ej: "Rosario de Sta. Fe 231 Piso 5, Córdoba"). NUNCA tomes direcciones antiguas o sedes históricas anteriores mencionadas en noticias o publicaciones viejas si la institución se mudó o tiene informada una dirección actual en Google Maps / pie de página.
+   - 'detectedCommentsUrl': Enlace directo a Google Maps de la ficha o reseñas de la sede principal (preferentemente enlace oficial o con CID verificado).
    - 'headquarterLocations': REGLA DE MÁXIMA CAPTURA DINÁMICA DE SEDES FÍSICAS (CAMPUS, SUCURSALES, DELEGACIONES, CENTROS REGIONALES):
      Para CUALQUIER entidad analizada (universidad, instituto, hospital, centro de salud, empresa, comercio, etc.):
      DEBES IDENTIFICAR Y LISTAR EN 'headquarterLocations' LA MAYOR CANTIDAD DE SEDES FÍSICAS POSIBLE de esta entidad.
      Aprovecha todas las ciudades y direcciones físicas detectadas en los datos del scraping, así como el contenido del sitio web y tu conocimiento sobre la presencia real de la entidad.
+     * REGLA ESTRICTA DE CALLES CON NOMBRES DE CIUDADES: Si el nombre de una calle contiene el nombre de una ciudad o prócer (ej: 'Rosario de Santa Fe 231' en Córdoba, 'Av. Córdoba 1551' en Buenos Aires, 'Calle Mendoza 350' en San Juan), ES UNA CALLE Y NUNCA UNA SEDE ADICIONAL. ESTÁ TERMINANTEMENTE PROHIBIDO crear una sede en 'Rosario' cuando la dirección es 'Rosario de Santa Fe' en Córdoba.
+     * REGLA DE SEDE PRINCIPAL EN CABEZA: El primer elemento de 'headquarterLocations' SIEMPRE debe ser la sede principal actual verificada (ej: en Córdoba con su dirección actual).
      Si la entidad cuenta con presencia física en múltiples ciudades o provincias (ej: Buenos Aires, Mendoza, Rosario, Córdoba, Salta, San Juan, Neuquén, La Plata, San Isidro, Lanús, Santa Fe, etc.), DEBES GENERAR UN ELEMENTO PARA CADA SEDE FÍSICA con:
      * 'country': País (ej: "Argentina")
      * 'city': Nombre de la ciudad de la sede (ej: "Mendoza", "Córdoba", "Rosario", "Buenos Aires", "San Juan", "Salta", "Neuquén", etc.)
@@ -3398,11 +3400,13 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         const locAddr = cleanTitleString(String(rawLoc.address || "").trim());
         if (!locCity && !locAddr) continue;
 
-        // If this additional location has no address and its city matches the street name of an earlier location (e.g. "Rosario" when primary is "Rosario de Santa Fe 231"), skip it!
-        if (parsedHqLocations.length > 0 && !locAddr) {
+        // If this additional location's city matches the street name of an earlier location (e.g. "Rosario" when primary is "Rosario de Santa Fe 231"), skip it!
+        if (parsedHqLocations.length > 0) {
           const firstAddr = parsedHqLocations[0].address || context.address || "";
           if (firstAddr && new RegExp(`\\b${escapeRegExp(locCity)}\\b`, "i").test(firstAddr)) {
-            continue;
+            if (!locAddr || new RegExp(`\\b${escapeRegExp(locCity)}\\b`, "i").test(locAddr)) {
+              continue;
+            }
           }
         }
 
@@ -3411,10 +3415,10 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         const isGenericSearch = /^https?:\/\/(?:www\.)?google\.[a-z.]+\/maps\/search/i.test(locMapUrl);
         const hasJunkInUrl = /lead%20enviado|origen%20de%20lead|calendario%20acad|\bcbi\b/i.test(locMapUrl);
 
-        if (parsedHqLocations.length === 0 && isVerifiedDirectMap && !locAddr) {
+        if (parsedHqLocations.length === 0 && isVerifiedDirectMap) {
           locMapUrl = context.commentsUrl!;
         } else if (!locMapUrl || !locMapUrl.startsWith("http") || hasJunkInUrl || (isGenericSearch && !locMapUrl.toLowerCase().includes(encodeURIComponent(cleanPublisher.slice(0, 6).toLowerCase())))) {
-          const qParts = locAddr ? [locAddr, locCity, locCountry].filter(Boolean) : [cleanPublisher, locCity, locCountry].filter(Boolean);
+          const qParts = [cleanPublisher, locAddr, locCity, locCountry].filter(Boolean);
           locMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(qParts.join(", "))}`;
         }
         parsedHqLocations.push({
