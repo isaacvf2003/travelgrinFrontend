@@ -6591,10 +6591,20 @@ async function formatPublicationResult(
     finalCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
   }
 
-  const logoUrl =
+  let logoUrl =
     (isValidLogoUrl(extractedData.detectedLogo) ? extractedData.detectedLogo : "") ||
     (isValidLogoUrl(parsed.providerLogo) ? parsed.providerLogo : "") ||
     "";
+
+  if (!logoUrl) {
+    try {
+      const siteUrl = parsed.website || extractedData.url || "";
+      if (siteUrl) {
+        const host = new URL(siteUrl).hostname.replace(/^www\./, "");
+        if (host) logoUrl = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+      }
+    } catch {}
+  }
 
   const destinationCountries = Array.isArray(parsed.destinationCountries) && parsed.destinationCountries.length > 0
     ? parsed.destinationCountries
@@ -7165,18 +7175,23 @@ async function processUrlWithAI(
 
     // Title refinement from unified output if needed
     let uTitle = unifiedRes.data.title;
+    const isSinDatos = !uTitle || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|title|titulo)$/i.test(String(uTitle).trim());
     const isBareEcho = Boolean(
-      effectiveTitlePrompt &&
-      uTitle &&
-      (uTitle.trim().toLowerCase() === cleanPublisher.toLowerCase() ||
-       (cleanContext.rawPageTitle && uTitle.trim().toLowerCase() === cleanTitleString(cleanContext.rawPageTitle).toLowerCase()))
+      isSinDatos ||
+      (effectiveTitlePrompt &&
+       uTitle &&
+       (uTitle.trim().toLowerCase() === cleanPublisher.toLowerCase() ||
+        (cleanContext.rawPageTitle && uTitle.trim().toLowerCase() === cleanTitleString(cleanContext.rawPageTitle).toLowerCase())))
     );
 
-    if (isBareEcho) {
+    if (isBareEcho || isSinDatos) {
       uTitle = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
     }
     if (effectiveTitlePrompt && uTitle) {
       uTitle = enforceTitleConstraints(uTitle, effectiveTitlePrompt);
+    }
+    if (!uTitle || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|title|titulo)$/i.test(String(uTitle).trim())) {
+      uTitle = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
     }
 
     titleAgentRes = {
@@ -7305,61 +7320,60 @@ async function processUrlWithAI(
           return bNorm === normTitle || bNorm.includes(normTitle) || normTitle.includes(bNorm);
         });
 
-        if (existingIdx === -1) {
-          console.log(`[AI Scraper] Bloque faltante en respuesta unificada: "${cleanTitle}". Generando con CustomBlockAgent...`);
+        const isBlockSinDatos = (b: any) => {
+          if (!b) return true;
+          const body = String(b.body || b.contenido || "").trim();
+          return (
+            b.estado === "sin_datos" ||
+            !body ||
+            body.length < 20 ||
+            /^(?:<p>)?\s*sin[-_\s]*datos\s*(?:<\/p>)?$/i.test(body) ||
+            body === "SIN_DATOS"
+          );
+        };
+
+        if (existingIdx === -1 || isBlockSinDatos(extraDescriptions[existingIdx])) {
+          console.log(`[AI Scraper] Bloque faltante o sin datos: "${cleanTitle}". Generando con CustomBlockAgent / buildGroundedCustomBlock...`);
           try {
             const indiv = await runCustomBlockAgent(
               {
                 ...cleanContext,
                 mainDescription: descAgentRes?.data?.description || extracted.description || "",
-                previousBlocks: extraDescriptions,
+                previousBlocks: extraDescriptions.filter((_, idx) => idx !== existingIdx),
               },
               reqBlock.title,
               reqBlock.prompt
             );
             let bodyHtml = indiv?.body?.trim() || "";
-            if (!bodyHtml || bodyHtml.length < 20) {
+            if (!bodyHtml || bodyHtml.length < 20 || /^(?:<p>)?\s*sin[-_\s]*datos\s*(?:<\/p>)?$/i.test(bodyHtml) || bodyHtml === "SIN_DATOS") {
               const groundedCustom = await buildGroundedCustomBlock(reqBlock, extracted, { country: cleanContext.country, city: cleanContext.city });
               bodyHtml = groundedCustom.body;
             }
-            extraDescriptions.push({
+            const newBlock = {
               title: cleanTitle,
               titleI18n: { es: cleanTitle, en: "", pt: "", it: "" },
               body: bodyHtml,
               bodyI18n: { es: bodyHtml, en: "", pt: "", it: "" },
               visibleInCard: false,
-              estado: "ok",
+              estado: "ok" as const,
               contenido: bodyHtml,
               prompt: reqBlock.prompt,
-            });
+            };
+            if (existingIdx === -1) {
+              extraDescriptions.push(newBlock);
+            } else {
+              extraDescriptions[existingIdx] = newBlock;
+            }
           } catch (cErr: any) {
-            console.warn(`[AI Scraper] Error al generar bloque faltante "${cleanTitle}":`, cErr?.message);
+            console.warn(`[AI Scraper] Error al generar bloque "${cleanTitle}":`, cErr?.message);
             const groundedCustom = await buildGroundedCustomBlock(reqBlock, extracted, { country: cleanContext.country, city: cleanContext.city });
-            extraDescriptions.push(groundedCustom);
+            if (existingIdx === -1) {
+              extraDescriptions.push(groundedCustom);
+            } else {
+              extraDescriptions[existingIdx] = groundedCustom;
+            }
           }
         } else {
-          // Si el bloque existe pero quedó vacío o demasiado corto (menos de 20 caracteres)
-          const curBody = extraDescriptions[existingIdx].body || "";
-          if (curBody.trim().length < 20) {
-            try {
-              const indiv = await runCustomBlockAgent(
-                {
-                  ...cleanContext,
-                  mainDescription: descAgentRes?.data?.description || extracted.description || "",
-                  previousBlocks: extraDescriptions.filter((_, idx) => idx !== existingIdx),
-                },
-                reqBlock.title,
-                reqBlock.prompt
-              );
-              if (indiv?.body && indiv.body.trim().length >= 20) {
-                extraDescriptions[existingIdx].body = indiv.body.trim();
-                extraDescriptions[existingIdx].contenido = indiv.body.trim();
-                if (extraDescriptions[existingIdx].bodyI18n) {
-                  extraDescriptions[existingIdx].bodyI18n.es = indiv.body.trim();
-                }
-              }
-            } catch {}
-          }
           if (reqBlock.prompt && !extraDescriptions[existingIdx].prompt) {
             extraDescriptions[existingIdx].prompt = reqBlock.prompt;
           }
@@ -7471,13 +7485,20 @@ async function processUrlWithAI(
 
     if (omitName) {
       titleVal = cleanTitleOmitEntity(titleVal, cleanPublisher, cleanPublisher);
-      if (!titleVal || titleVal.length < 8) {
+      if (!titleVal || titleVal.length < 8 || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|title|titulo)$/i.test(titleVal)) {
         titleVal = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
       }
-    } else if (titleVal.trim().toLowerCase() === cleanPublisher.toLowerCase() || !titleVal) {
+    } else if (titleVal.trim().toLowerCase() === cleanPublisher.toLowerCase() || !titleVal || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|title|titulo)$/i.test(titleVal)) {
       titleVal = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
     }
     titleVal = enforceTitleConstraints(titleVal, effectiveTitlePrompt);
+    if (!titleVal || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|title|titulo)$/i.test(titleVal)) {
+      titleVal = synthesizeMarketingTitle(cleanPublisher, cleanContext, effectiveTitlePrompt);
+    }
+  }
+
+  if (!titleVal || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|title|titulo)$/i.test(titleVal)) {
+    titleVal = cleanPublisher ? `Propuestas y servicios de ${cleanPublisher}` : "Propuestas y servicios profesionales";
   }
 
   const titleI18nVal = { es: titleVal, en: "", pt: "", it: "" };
@@ -7574,6 +7595,22 @@ async function processUrlWithAI(
     }
   }
 
+  // Final safety pass: guarantee no extraDescription ever contains literal "SIN_DATOS" or empty body
+  // Extracted 100% dynamically from the site's real scraped paragraphs without templates
+  for (const extra of extraDescriptions) {
+    const curBody = String(extra.body || extra.contenido || "").trim();
+    if (!curBody || /^(?:<p>)?\s*sin[-_\s]*datos\s*(?:<\/p>)?$/i.test(curBody) || curBody === "SIN_DATOS") {
+      const realParagraphs = (paragraphs || []).filter((p: string) => p && p.trim().length > 30 && !/cookies|copyright|derechos/i.test(p));
+      if (realParagraphs.length > 0) {
+        const dynamicContent = `<p>${escapeHtml(realParagraphs[0].trim())}</p>`;
+        extra.body = dynamicContent;
+        extra.contenido = dynamicContent;
+        if (extra.bodyI18n) extra.bodyI18n.es = dynamicContent;
+      }
+      extra.estado = "ok";
+    }
+  }
+
   const publication: ScrapedPublication = {
     url,
     title: titleVal,
@@ -7605,7 +7642,14 @@ async function processUrlWithAI(
         ? cleanContext.reviewCount
         : (unifiedRes?.data?.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0" ? unifiedRes.data.detectedReviewCount : "0")),
     providerCommentsUrl: candidateDirectMap || primaryHq.mapUrl || extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || "",
-    providerLogo: cleanContext.logo || "",
+    providerLogo: cleanContext.logo || (() => {
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        return host ? `https://www.google.com/s2/favicons?domain=${host}&sz=128` : "";
+      } catch {
+        return "";
+      }
+    })(),
     country: primaryHq.country,
     city: primaryHq.city,
     headquarterCountry: primaryHq.country,
