@@ -3060,15 +3060,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
       return res;
     };
-    const titleEs = cleanTitleStr(draft.title || "");
-    const titleI18nInit = {
-      es: titleEs,
-      en: "",
-      pt: "",
-      it: "",
-    };
-    setPTitle(titleEs);
-    setPTitleI18n(titleI18nInit);
+    let titleEs = cleanTitleStr(draft.title || "");
+    if (!titleEs || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|title|titulo)$/i.test(titleEs)) {
+      titleEs = "";
+    }
 
     let pubName = cleanTitleStr(draft.publisherName || draft.title || "");
     const GENERIC_PUB_REGEX = /^(?:home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal|sitio\s*oficial|p[aá]gina\s*(?:principal|oficial|de\s*inicio)?|web\s*oficial|portal(?:\s*oficial)?|login|acceso|contacto|novedades|art[ií]culo|untitled|sin\s*datos|no\s*disponible|n\/?a|oferente|establecimiento|empresa|instituci[oó]n)$/i;
@@ -3092,6 +3087,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
     setPPublisherName(pubName);
 
+    if (!titleEs) {
+      if (pubName) {
+        titleEs = `Propuestas y servicios de ${pubName}`;
+      } else if (draft.url) {
+        try {
+          const host = new URL(draft.url).hostname.replace(/^www\./, "");
+          titleEs = `Publicación de ${host}`;
+        } catch {
+          titleEs = "Propuestas y servicios";
+        }
+      } else {
+        titleEs = "Propuestas y servicios";
+      }
+    }
+    const titleI18nInit = {
+      es: titleEs,
+      en: "",
+      pt: "",
+      it: "",
+    };
+    setPTitle(titleEs);
+    setPTitleI18n(titleI18nInit);
+
     const descEs = draft.description || "";
     const descI18nInit = {
       es: descEs,
@@ -3104,7 +3122,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     const extraDescInit: ExtraDescription[] = (draft.extraDescriptions || []).map((d: any) => {
       const bTitleEs = d.titleI18n?.es || d.title || "";
-      const bBodyEs = d.bodyI18n?.es || d.body || "";
+      let bBodyEs = String(d.bodyI18n?.es || d.body || "").trim();
+      if (!bBodyEs || /^(?:<p>)?\s*sin[-_\s]*datos\s*(?:<\/p>)?$/i.test(bBodyEs) || bBodyEs === "SIN_DATOS") {
+        const realParas = (draft as any).scrapedParagraphs || activeScrapedFactsRef.current?.scrapedParagraphs;
+        if (Array.isArray(realParas) && realParas.length > 0) {
+          bBodyEs = `<p>${realParas[0].trim()}</p>`;
+        } else {
+          bBodyEs = "";
+        }
+      }
       return {
         title: bTitleEs,
         body: bBodyEs,
@@ -3141,8 +3167,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPProviderRating(draft.providerRating || "0");
     setPProviderReviewCount(draft.providerReviewCount ?? "0");
     setPProviderCommentsUrl(draft.providerCommentsUrl || "");
+
     const BAD_GFX = /(?:^|\/|[._-])(?:icons?|iconos?|ico|glyphs?|pictos?|pictograms?|pictogramas?|simbolos?|symbols?|vectores?|vectors?|cliparts?|illustrations?|ilustracions?|ilustraciones|drawings?|dibujos?|emojis?|stickers?|stamps?|badge|badges|button|buttons|boton|botones|btn|avatar|avatars|bullet|bullets|star|stars|rating|estrella|estrellas|check|tick|arrow|arrows|flecha|flechas|chevron|spinner|loader|loading|receipt|placeholder|megaphone|megafono|pixel|spacer|1x1|transparent|fav-?icon|flaticon|fontawesome|dashicons|material-icons|ionicons|app-store|google-play|visa|mastercard|amex|paypal|mercadopago|afip|data-fiscal|qr|qr-code|facebook|instagram|twitter|tiktok|youtube|whatsapp|linkedin|social|redes-sociales|telemedicina|turnos|residencias|citas|chat|contacto|mail|correo|envelope|telefono|phone|call|ubicacion|location|marker|pin|map-pin|map_pin|mapa-?small|static-?map|map-?thumbnail|calendar|calendario|clock|reloj|user|usuario|paciente|patient|doctor-icon|med-icon|medical-icon|hospital-icon|school-icon|edu-icon|iosfa|iosfared|pami|ioma|osde|swissmedical|galeno|medife|omint|logo|logos|brand|brands|isologo|isologos|isotipo|isotipos|escudo|escudos|shield|shields|emblem|emblema|emblemas|sello|sellos)(?:[/._-]|\.[a-z0-9]{3,4}(?:\?|$))|\.svg(?:\?|$|\b)|\.ico(?:\?|$|\b)/i;
-    const cleanLogo = draft.providerLogo && !BAD_GFX.test(draft.providerLogo) ? draft.providerLogo : "";
+    // For oferente logo, allow valid logos (including .svg, .ico, logo filename, favicons); only reject 1x1 pixels or spinners
+    const BAD_LOGO = /(?:^|\/|[._-])(?:pixel|spacer|1x1|transparent|spinner|loader|receipt|placeholder)(?:[/._-]|\.[a-z0-9]{3,4}(?:\?|$))/i;
+    let cleanLogo = draft.providerLogo && !BAD_LOGO.test(draft.providerLogo) ? draft.providerLogo.trim() : "";
+    if (!cleanLogo) {
+      try {
+        const siteUrl = draft.website || draft.url || "";
+        if (siteUrl) {
+          const host = new URL(siteUrl).hostname.replace(/^www\./, "");
+          if (host) cleanLogo = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+        }
+      } catch {}
+    }
     setPProviderLogo(cleanLogo);
     if (Array.isArray(draft.images)) {
       const cleanImages = draft.images.filter((img) => img && !BAD_GFX.test(img));
@@ -3315,7 +3353,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
 
       // 4. Token match
-      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
+      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|general|generales|explorando|explorar|paso|pasos|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas)$/i.test(t));
       const tokenRoot = allRootsWithNorm.find((r) => tokens.some((tok) => r.norm.includes(tok)));
       if (tokenRoot) {
         resolvedCategoryRoots.add(tokenRoot.original);
@@ -3388,12 +3426,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     if (isSportsGymDraft) {
       for (const cat of Array.from(resolvedCategoryRoots)) {
-        if (/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos|migra|visas?|residencia|ciudadan/i.test(cat)) {
+        if (/explorando\s*opciones|migra|visas?|residencia|ciudadan/i.test(cat)) {
           resolvedCategoryRoots.delete(cat);
         }
       }
       for (const sub of Array.from(resolvedSubcategories)) {
-        if (/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos|migra|visas?|residencia|ciudadan/i.test(sub)) {
+        if (/explorando\s*opciones|migra|visas?|residencia|ciudadan/i.test(sub)) {
           resolvedSubcategories.delete(sub);
         }
       }
@@ -4800,7 +4838,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     () =>
       validRoots.filter((root) => {
         const resolvedTaxonomyType = resolveCategoryTaxonomyType(root);
-        return resolvedTaxonomyType === "categoria";
+        return (
+          resolvedTaxonomyType === "categoria" ||
+          resolvedTaxonomyType === "filtro" ||
+          !["actividad", "modalidad", "idiomas", "prestacion", "prestaciones", "tipo", "tipos"].includes(resolvedTaxonomyType || "")
+        );
       }),
     [validRoots, categories, filterGroups]
   );
@@ -5280,7 +5322,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const pickerGroups = isPrestacionEditor ? linkedPublicationCategoryGroups : publicationCategoryGroups;
     const childIsSelectable = (child: Category) => {
       const taxonomyType = resolveCategoryTaxonomyType(child);
-      return isPrestacionEditor ? !["prestacion", "prestaciones"].includes(taxonomyType || "") : taxonomyType === "categoria";
+      return isPrestacionEditor
+        ? !["prestacion", "prestaciones"].includes(taxonomyType || "")
+        : taxonomyType === "categoria" ||
+            taxonomyType === "filtro" ||
+            !["actividad", "modalidad", "idiomas", "prestacion", "prestaciones", "tipo", "tipos"].includes(taxonomyType || "");
     };
 
     if (panel === "category") {
