@@ -822,7 +822,12 @@ export default async function PublicacionDetalle({ params, searchParams }: PageP
 
               {extraDescriptions.length ? (
                 <div className="mt-5 space-y-4">
-                  {extraDescriptions.map((desc: any, idx: number) => (
+                  {extraDescriptions
+                    .filter((desc: any) => {
+                      const rawBody = String(desc?.body || desc?.bodyI18n?.es || "").trim();
+                      return rawBody && !/^(?:<p>)?\s*sin[-_\s]*datos\s*(?:<\/p>)?$/i.test(rawBody) && rawBody !== "SIN_DATOS";
+                    })
+                    .map((desc: any, idx: number) => (
                     <div key={`${desc.title}-${idx}`} className="rounded-2xl border border-[#BDECF2] bg-[#EFFBFD] p-4">
                       {desc.title || desc.titleI18n ? (
                         <h3 className="text-xl font-semibold text-[#0B8FA3]">
