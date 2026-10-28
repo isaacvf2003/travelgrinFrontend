@@ -184,7 +184,19 @@ export default function ProviderInfo({
   const safeRating = Number.isFinite(Number(rating)) && Number(rating) > 0 ? Number(rating) : null;
   const roundedRating = safeRating != null ? Math.round(safeRating * 2) / 2 : null;
   const ratingLabel = safeRating != null ? Number(safeRating.toFixed(1)).toLocaleString(locale) : "0";
-  const commentCount = Number.isFinite(Number(reviewCount)) ? Number(reviewCount) : 0;
+  const commentCount = Number.isFinite(Number(reviewCount)) && Number(reviewCount) > 0 ? Number(reviewCount) : 0;
+  const hasRating = safeRating != null && safeRating > 0;
+  const hasComments = commentCount > 0;
+  const validCommentsUrl = commentsUrl && /^https?:\/\//i.test(commentsUrl) ? commentsUrl : null;
+  const showFeedbackRow = hasRating || hasComments;
+
+  const cleanStartYear = (() => {
+    if (!startYear) return null;
+    const str = String(startYear).trim();
+    if (!str || str === "0" || str === "0000" || Number(str) === 0 || isNaN(Number(str))) return null;
+    return str;
+  })();
+
   const stars = Array.from({ length: 5 }, (_, idx) => {
     if (roundedRating == null) return "empty";
     if (roundedRating >= idx + 1) return "full";
@@ -224,32 +236,38 @@ export default function ProviderInfo({
       </div>
       <RichText value={description} className="mt-1.5 text-base leading-7 text-gray-700" />
 
-      {(roundedRating != null || reviewCount != null || commentsUrl) ? (
+      {showFeedbackRow ? (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-[#2C3E50]">
-          <span className="font-semibold">{t("oferente_valoracion")}</span>
-          <div className="flex items-center gap-1">
-            {stars.map((s, idx) => (
-              <span key={`${s}-${idx}`} className={s === "full" ? "text-[#F4C542]" : s === "half" ? "text-[#F4C542]" : "text-gray-300"}>
-                ★
-              </span>
-            ))}
-          </div>
-          <span className="font-semibold text-slate-700">{ratingLabel}</span>
-          {commentsUrl ? (
-            <a className="text-[#2B7CAB] underline" href={commentsUrl} target="_blank" rel="noreferrer">
-              {t("oferente_comentarios")}: {commentCount}
-            </a>
-          ) : reviewCount != null ? (
-            <span>{t("oferente_comentarios")}: {commentCount}</span>
+          {hasRating ? (
+            <>
+              <span className="font-semibold">{t("oferente_valoracion")}</span>
+              <div className="flex items-center gap-1">
+                {stars.map((s, idx) => (
+                  <span key={`${s}-${idx}`} className={s === "full" ? "text-[#F4C542]" : s === "half" ? "text-[#F4C542]" : "text-gray-300"}>
+                    ★
+                  </span>
+                ))}
+              </div>
+              <span className="font-semibold text-slate-700">{ratingLabel}</span>
+            </>
+          ) : null}
+          {hasComments ? (
+            validCommentsUrl ? (
+              <a className="text-[#2B7CAB] underline" href={validCommentsUrl} target="_blank" rel="noreferrer">
+                {t("oferente_comentarios")}: {commentCount}
+              </a>
+            ) : (
+              <span>{t("oferente_comentarios")}: {commentCount}</span>
+            )
           ) : null}
         </div>
       ) : null}
 
-      {(startYear || activityDisplay || providerTypeDisplay || origin) ? (
+      {(cleanStartYear || activityDisplay || providerTypeDisplay || origin) ? (
         <div className="mt-3 space-y-1.5 text-sm text-[#2C3E50]">
-          {startYear ? (
+          {cleanStartYear ? (
             <div>
-              <span className="font-semibold">{t("oferente_inicio_actividad")}:</span> {startYear}
+              <span className="font-semibold">{t("oferente_inicio_actividad")}:</span> {cleanStartYear}
             </div>
           ) : null}
           {activityDisplay ? (
