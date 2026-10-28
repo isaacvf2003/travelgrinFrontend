@@ -23,6 +23,7 @@ import {
   enforceParagraphWordLimit,
   synthesizeMarketingTitle,
   enforceTitleConstraints,
+  cleanGenericBlockTitle,
 } from "@/app/lib/aiPublicationAgents";
 
 export const maxDuration = 60; // Allow long duration for AI scraping
@@ -6788,12 +6789,12 @@ function enforceStrictTaxonomyGuardrails(
       }
     }
 
-    // B. A hospital is NOT a course, vocational training academy, or job board
+    // B. A hospital is NOT a course, vocational training academy, or job board. Only discard conflicting educational/migration/agro categories, preserving multi-block categories (perfil, requisitos, tipo de propuesta, etc.)
     if (Array.isArray(publication.categorySelections)) {
       publication.categorySelections = publication.categorySelections.filter((c) => {
         const cNorm = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        if (/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|guardia|obra\s*social|prepaga/i.test(cNorm)) return true;
-        return false;
+        if (/educaci|carrera\s*universitaria|diplomatura|posgrado|licenciatura|agronom|agropecu|pesca|visas?\b|migratori/i.test(cNorm)) return false;
+        return true;
       });
       publication.category = publication.categorySelections[0] || "";
     }
@@ -6801,8 +6802,8 @@ function enforceStrictTaxonomyGuardrails(
     if (Array.isArray(publication.subcategorySelections)) {
       publication.subcategorySelections = publication.subcategorySelections.filter((s) => {
         const sNorm = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        if (/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|guardia|obra\s*social|prepaga/i.test(sNorm)) return true;
-        return false;
+        if (/educaci|carrera\s*universitaria|diplomatura|posgrado|licenciatura|agronom|agropecu|pesca|visas?\b|migratori/i.test(sNorm)) return false;
+        return true;
       });
       publication.subcategory = publication.subcategorySelections[0] || "";
     }
@@ -6870,23 +6871,23 @@ function enforceStrictTaxonomyGuardrails(
     }
   }
 
-  // Clean out arbitrary onboarding/meta category names if any
+  // Clean out arbitrary onboarding/test category names if any (strictly preserving valid catalog categories)
   if (Array.isArray(publication.categorySelections)) {
     publication.categorySelections = publication.categorySelections.filter(
-      (c) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(c)
+      (c) => !/explorando\s*opciones|^test\b|^prueba\b/i.test(c)
     );
     publication.category = publication.categorySelections[0] || "";
   }
   if (Array.isArray(publication.subcategorySelections)) {
     publication.subcategorySelections = publication.subcategorySelections.filter(
-      (s) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(s)
+      (s) => !/explorando\s*opciones|^test\b|^prueba\b/i.test(s)
     );
     publication.subcategory = publication.subcategorySelections[0] || "";
   }
 
   // Strict capping: allow up to 5 categories per publication
-  if (Array.isArray(publication.categorySelections) && publication.categorySelections.length > 5) {
-    publication.categorySelections = publication.categorySelections.slice(0, 5);
+  if (Array.isArray(publication.categorySelections) && publication.categorySelections.length > 15) {
+    publication.categorySelections = publication.categorySelections.slice(0, 15);
     publication.category = publication.categorySelections[0] || publication.category;
   }
 
@@ -7289,6 +7290,80 @@ async function processUrlWithAI(
     if (Array.isArray(unifiedRes.data.extraDescriptions)) {
       for (const cb of unifiedRes.data.extraDescriptions) {
         extraDescriptions.push(cb);
+      }
+    }
+
+    // Garantizar al 100% que TODOS los bloques opcionales configurados por el administrador existan y tengan contenido
+    if (Array.isArray(customBlocks) && customBlocks.length > 0) {
+      for (const reqBlock of customBlocks) {
+        if (!reqBlock.title || !reqBlock.title.trim()) continue;
+        const cleanTitle = cleanGenericBlockTitle(reqBlock.title, reqBlock.prompt).trim();
+        const normTitle = cleanTitle.toLowerCase();
+
+        const existingIdx = extraDescriptions.findIndex((b) => {
+          const bNorm = (b.title || "").toLowerCase().trim();
+          return bNorm === normTitle || bNorm.includes(normTitle) || normTitle.includes(bNorm);
+        });
+
+        if (existingIdx === -1) {
+          console.log(`[AI Scraper] Bloque faltante en respuesta unificada: "${cleanTitle}". Generando con CustomBlockAgent...`);
+          try {
+            const indiv = await runCustomBlockAgent(
+              {
+                ...cleanContext,
+                mainDescription: descAgentRes?.data?.description || extracted.description || "",
+                previousBlocks: extraDescriptions,
+              },
+              reqBlock.title,
+              reqBlock.prompt
+            );
+            let bodyHtml = indiv?.body?.trim() || "";
+            if (!bodyHtml || bodyHtml.length < 20) {
+              const groundedCustom = await buildGroundedCustomBlock(reqBlock, extracted, { country: cleanContext.country, city: cleanContext.city });
+              bodyHtml = groundedCustom.body;
+            }
+            extraDescriptions.push({
+              title: cleanTitle,
+              titleI18n: { es: cleanTitle, en: "", pt: "", it: "" },
+              body: bodyHtml,
+              bodyI18n: { es: bodyHtml, en: "", pt: "", it: "" },
+              visibleInCard: false,
+              estado: "ok",
+              contenido: bodyHtml,
+              prompt: reqBlock.prompt,
+            });
+          } catch (cErr: any) {
+            console.warn(`[AI Scraper] Error al generar bloque faltante "${cleanTitle}":`, cErr?.message);
+            const groundedCustom = await buildGroundedCustomBlock(reqBlock, extracted, { country: cleanContext.country, city: cleanContext.city });
+            extraDescriptions.push(groundedCustom);
+          }
+        } else {
+          // Si el bloque existe pero quedó vacío o demasiado corto (menos de 20 caracteres)
+          const curBody = extraDescriptions[existingIdx].body || "";
+          if (curBody.trim().length < 20) {
+            try {
+              const indiv = await runCustomBlockAgent(
+                {
+                  ...cleanContext,
+                  mainDescription: descAgentRes?.data?.description || extracted.description || "",
+                  previousBlocks: extraDescriptions.filter((_, idx) => idx !== existingIdx),
+                },
+                reqBlock.title,
+                reqBlock.prompt
+              );
+              if (indiv?.body && indiv.body.trim().length >= 20) {
+                extraDescriptions[existingIdx].body = indiv.body.trim();
+                extraDescriptions[existingIdx].contenido = indiv.body.trim();
+                if (extraDescriptions[existingIdx].bodyI18n) {
+                  extraDescriptions[existingIdx].bodyI18n.es = indiv.body.trim();
+                }
+              }
+            } catch {}
+          }
+          if (reqBlock.prompt && !extraDescriptions[existingIdx].prompt) {
+            extraDescriptions[existingIdx].prompt = reqBlock.prompt;
+          }
+        }
       }
     }
   } else {
