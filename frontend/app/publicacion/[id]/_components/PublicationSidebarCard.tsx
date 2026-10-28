@@ -74,7 +74,18 @@ export default function PublicationSidebarCard({
   const { toggle, has } = usePlan();
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const isSaved = publicationId ? has(publicationId) : false;
-  const titleLabel = title ? pickI18nText(titleI18n ?? null, locale, title) : "";
+  const rawTitleLabel = title ? pickI18nText(titleI18n ?? null, locale, title) : "";
+  const titleLabel = (!rawTitleLabel || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(rawTitleLabel.trim()))
+    ? (publisherName ? `Propuestas y servicios de ${publisherName.replace(/^Informaci[oó]n\s+de\s+/i, "").split(/\s*[-–—|]\s*/)[0].trim()}` : "")
+    : rawTitleLabel;
+  const effectiveLogo = providerLogo || (website ? (() => {
+    try {
+      const host = new URL(website).hostname.replace(/^www\./, "");
+      return host ? `https://www.google.com/s2/favicons?domain=${host}&sz=128` : null;
+    } catch {
+      return null;
+    }
+  })() : null);
   const rawCategoryLabels = categoryLabels.length
     ? categoryLabels
     : category
@@ -194,11 +205,11 @@ export default function PublicationSidebarCard({
           </div>
 
           <div className="mt-4 flex items-center gap-2.5 text-sm text-gray-600">
-            {providerLogo ? (
+            {effectiveLogo ? (
               <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white p-0.5 shadow-2xs">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={providerLogo}
+                  src={effectiveLogo}
                   alt={publisherName ?? "Logo"}
                   className="h-full w-full object-contain rounded-full"
                   referrerPolicy="no-referrer"
