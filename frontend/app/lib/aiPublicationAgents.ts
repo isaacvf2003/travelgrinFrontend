@@ -2816,14 +2816,16 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("");
 
   lines.push("4. SECCIÓN PROPUESTA O PUBLICACIÓN - CATEGORÍAS Y SUBCATEGORÍAS ('categorySelections' y 'subcategorySelections'):");
-  lines.push("Examina cada bloque de categoría, el nombre del bloque, el nombre de la categoría y las subcategorías.");
+  lines.push("El administrador ha creado MÚLTIPLES BLOQUES de categorías en el sistema (ejemplos: Perfil/Destinatario, Tipo de Propuesta, Requisitos, Duración, Categorías Temáticas, etc.).");
   lines.push("");
-  lines.push("*** REGLA SUPREMA DE EXACTITUD Y CERO ALUCINACIONES ***:");
+  lines.push("*** REGLA SUPREMA DE EVALUACIÓN MULTI-BLOQUE Y CERO ALUCINACIONES ***:");
   lines.push("1. El catálogo de categorías y subcategorías es ESTRICTAMENTE CERRADO y administrado por el usuario.");
-  lines.push("2. Examina CADA BLOQUE disponible en el catálogo de abajo y selecciona TODAS las opciones que apliquen DIRECTAMENTE a los servicios reales de la web analizada:");
-  lines.push("   - Selecciona ÚNICAMENTE categorías y subcategorías que existan explícitamente en el catálogo oficial de abajo.");
-  lines.push("   - ESTÁ TERMINANTEMENTE PROHIBIDO crear o inventar nombres de categorías, actividades o subcategorías que no existan en la lista.");
-  lines.push("   - Si ninguna categoría o subcategoría aplica a los servicios reales de la web analizada, devuelve array vacío [] en 'categorySelections' y 'subcategorySelections'. NUNCA fuerces categorías de otros rubros.");
+  lines.push("2. DEBES EXAMINAR CADA UNO DE LOS BLOQUES listados abajo (recorre bloque por bloque):");
+  lines.push("   - Para CADA BLOQUE que aplique a la entidad analizada, selecciona en 'categorySelections' todas las opciones que concuerden con los servicios, destinatarios, requisitos o propuestas reales del sitio web.");
+  lines.push("   - NO te limites a un solo bloque ni a una sola categoría temática: si en el bloque 'Perfil' aplica 'Estudiante' o 'Profesional', inclúyelo; si en 'Tipo de propuesta' aplica 'Servicio especializado' o 'Curso o formación', inclúyelo; si en 'Requisitos' aplica 'Requiere documentación', inclúyelo; y si en el bloque temático aplica una categoría de rubro (ej: 'Gestiones migratorias y visas'), inclúyela.");
+  lines.push("   - Si una categoría seleccionada posee subcategorías y alguna describe con exactitud el servicio, agrégala en 'subcategorySelections'.");
+  lines.push("   - ÚNICAMENTE selecciona opciones que existan explícitamente en el catálogo oficial de abajo. ESTÁ TERMINANTEMENTE PROHIBIDO inventar nombres.");
+  lines.push("   - CERO plantillas fijas: decide con base en lo que el sitio web realmente ofrece, requiere y comunica.");
   lines.push("");
   lines.push("Estructura de Bloques de Categorías disponibles:");
   if (catBlocks.length > 0) {
@@ -2978,7 +2980,7 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
    - 'providerActivities': Selecciona en array las actividades nucleares centrales EXCLUSIVAMENTE de la sección ACTIVIDADES del catálogo de abajo que definan el sector económico real. Si ninguna actividad del catálogo aplica, devuelve array vacío []. NUNCA inventes nombres ni selecciones actividades no afines (como agricultura para deportes, etc.).
    - 'providerTypes': Array de tipos EXCLUSIVAMENTE de la sección TIPO DE OFERENTE del catálogo de abajo que concuerden con la entidad (ej: "Organismo público" para entes municipales/estatales, "Empresa" o "Institución privada" para negocios privados, "ONG" para fundaciones). Si ninguno aplica, devuelve array vacío [].
    - 'providerModalities': Array de modalidades EXCLUSIVAMENTE de la sección MODALIDAD del catálogo según cómo preste sus servicios la web ("Atención presencial", "Atención online", etc.).
-   - 'categorySelections': Array con las categorías de los bloques de categoría del catálogo que correspondan DIRECTAMENTE a los servicios de la web. Si la entidad ofrece gestiones migratorias, trámites de visas, residencia o ciudadanía, SELECCIONA la categoría correspondiente del catálogo (ej: "Gestión de migración y visas" si existe en el catálogo). Si ninguna categoría del catálogo coincide con la temática real del sitio, devuelve array vacío []. NUNCA pongas categorías no relacionadas (como agronomía para deportes o salud para informática).
+   - 'categorySelections': Array con las categorías de los bloques de categoría del catálogo que correspondan a la web. ATENCIÓN: El catálogo cuenta con DIVERSOS BLOQUES DE CATEGORÍAS (ej: Temática, Mi perfil, Tipo de propuesta, Requisitos, Duración). DEBES EVALUAR CADA BLOQUE y seleccionar en 'categorySelections' la categoría adecuada para cada uno según lo que ofrece la entidad (ej: si ofrece cursos o servicios, selecciona la categoría temática aplicable, la opción de tipo de propuesta, los requisitos y el perfil destinatario). NO te limites a una sola categoría; selecciona la opción correcta de cada bloque sin inventar nombres que no estén en el catálogo. CERO ALUCINACIONES: solo selecciona opciones que concuerden con la realidad del sitio.
    - 'subcategorySelections': Array con las subcategorías específicas hijas del catálogo que apliquen (o array vacío [] si ninguna aplica).
    - 'languages': Array con los idiomas comprobados de atención en la web.
 5. REGLA DE IDIOMA Y TRADUCCIÓN (ESTRICTA):
@@ -3015,10 +3017,10 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
       "mapUrl": "https://www.google.com/maps/search/?api=1&query=Universidad%20Siglo%2021%2C%20Av.%20C%C3%B3rdoba%201551%2C%20Buenos%20Aires%2C%20Argentina"
     }
   ],
-  "category": "Nombre de la categoría principal afín seleccionada (o \"\" si ninguna aplica)",
+  "category": "Nombre de la primera categoría principal seleccionada (o \"\" si ninguna aplica)",
   "subcategory": "Nombre de la subcategoría afín seleccionada (o \"\" si ninguna aplica)",
-  "categorySelections": ["Categoría coincidente 1 (o [] si ninguna categoría del catálogo aplica)"],
-  "subcategorySelections": ["Subcategoría coincidente 1 (o [] si ninguna subcategoría del catálogo aplica)"],
+  "categorySelections": ["Categoría del bloque Temática", "Opción del bloque Tipo de propuesta", "Opción del bloque Requisitos", "Opción del bloque Mi perfil"],
+  "subcategorySelections": ["Subcategoría hija correspondiente si aplica (o [] si ninguna)"],
   "providerActivities": ["Actividad económica correspondiente (o [] si ninguna aplica)"],
   "providerTypes": ["Tipo de entidad correspondiente (o [] si ninguno aplica)"],
   "providerModalities": ["Atención presencial (o las modalidades que apliquen)"],
@@ -3065,7 +3067,7 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       userPrompt,
       context.apiKey,
       context.provider || "auto",
-      2200
+      4000
     );
 
     const parsed = extractJson(rawText);
@@ -3158,12 +3160,15 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     for (let i = 0; i < customBlocksList.length; i++) {
       const cb = customBlocksList[i];
       const bTitle = cleanGenericBlockTitle(cb.title, cb.prompt);
+      const normBTitle = bTitle.toLowerCase().trim();
+
+      // Encontrar por coincidencia de título exacta o inclusiva; evitar pisar con bloques dispares
       const matched =
-        parsedBlocks.find((pb: any) =>
-          pb &&
-          typeof pb.title === "string" &&
-          (pb.title.toLowerCase().includes(bTitle.toLowerCase()) || bTitle.toLowerCase().includes(pb.title.toLowerCase()))
-        ) || parsedBlocks[i];
+        parsedBlocks.find((pb: any) => {
+          if (!pb || typeof pb.title !== "string") return false;
+          const normPb = pb.title.toLowerCase().trim();
+          return normPb === normBTitle || normPb.includes(normBTitle) || normBTitle.includes(normPb);
+        }) || (parsedBlocks.length === customBlocksList.length ? parsedBlocks[i] : undefined);
 
       let bodyHtml = String(matched?.body || matched?.contenido || matched?.description || "").trim();
       if (!bodyHtml.includes("<p>") && bodyHtml) {
@@ -3175,13 +3180,34 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
           .join("\n");
       }
 
-      if (!bodyHtml || bodyHtml.length < 10) {
-        // Fallback a generación individual
+      // Si el bloque quedó vacío o el modelo no generó contenido sustancial (menos de 20 caracteres)
+      if (!bodyHtml || bodyHtml.length < 20) {
+        console.log(`[UnifiedPublicationAgent] Bloque personalizado "${bTitle}" no trajo resultado suficiente (${bodyHtml.length} chars). Invocando CustomBlockAgent con contexto previo...`);
         try {
-          const indiv = await runCustomBlockAgent(context, cb.title, cb.prompt);
-          bodyHtml = indiv.body;
-        } catch {
-          bodyHtml = `<p>Información detallada sobre ${bTitle} disponible en el sitio oficial.</p>`;
+          const indiv = await runCustomBlockAgent(
+            {
+              ...context,
+              mainDescription: rawDesc,
+              previousBlocks: extraDescriptions,
+            },
+            cb.title,
+            cb.prompt
+          );
+          if (indiv && indiv.body && indiv.body.trim().length >= 20) {
+            bodyHtml = indiv.body.trim();
+          }
+        } catch (indivErr: any) {
+          console.warn(`[UnifiedPublicationAgent] Error en fallback dedicado para "${bTitle}":`, indivErr?.message);
+        }
+      }
+
+      // Si aún así no hay contenido, extraer párrafos reales de la web sin usar plantillas fijas ni alucinaciones
+      if (!bodyHtml || bodyHtml.length < 20) {
+        const candidateParagraphs = (context.paragraphs || []).slice(0, 3).join(" ").trim();
+        if (candidateParagraphs && candidateParagraphs.length > 30) {
+          bodyHtml = `<p>${candidateParagraphs.slice(0, 400).trim()}</p>`;
+        } else {
+          bodyHtml = `<p>Información y servicios correspondientes a ${bTitle} proporcionados por ${entityName}.</p>`;
         }
       }
 
@@ -3303,16 +3329,20 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       if (healthAct) {
         finalMatchedActs = [healthAct];
       }
-      // 2. A hospital is NOT a course academy or job convocatoria. Only allow genuine health categories
+      // 2. A hospital is NOT a course academy or job convocatoria. Only filter out conflicting educational/migration/agriculture categories, preserving all multi-block categories (perfil, requisitos, tipo de propuesta, etc.)
       finalMatchedCats = finalMatchedCats.filter((c) => {
         const cNorm = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        if (/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|guardia|obra\s*social|prepaga/i.test(cNorm)) return true;
-        return false;
+        if (/educaci|carrera\s*universitaria|diplomatura|posgrado|licenciatura|agronom|agropecu|pesca|visas?\b|migratori/i.test(cNorm)) {
+          return false;
+        }
+        return true;
       });
       matchedSubs = matchedSubs.filter((s) => {
         const sNorm = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        if (/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|guardia|obra\s*social|prepaga/i.test(sNorm)) return true;
-        return false;
+        if (/educaci|carrera\s*universitaria|diplomatura|posgrado|licenciatura|agronom|agropecu|pesca|visas?\b|migratori/i.test(sNorm)) {
+          return false;
+        }
+        return true;
       });
     }
 
