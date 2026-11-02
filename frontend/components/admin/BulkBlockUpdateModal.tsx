@@ -7,9 +7,11 @@ import {
   Check,
   AlertCircle,
   RefreshCw,
+  RotateCw,
+  Pencil,
+  Languages,
   X,
   Search,
-  Eye,
   FileSpreadsheet,
   CheckCircle2,
   PenTool,
@@ -68,19 +70,22 @@ export default function BulkBlockUpdateModal({
   const [searchFilter, setSearchFilter] = useState("");
   const [onlyWithBlock, setOnlyWithBlock] = useState(true);
 
-  // Mode: "file" (Excel/Doc) or "prompt" (Instructions only)
-  const [sourceMode, setSourceMode] = useState<"file" | "prompt">("prompt");
+  // Mode: "prompt" (Instructions only) or "file" (Excel/Doc)
+  const [sourceMode, setSourceMode] = useState<"prompt" | "file">("prompt");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [updatePrompt, setUpdatePrompt] = useState("");
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0 });
+  const [saveStatusText, setSaveStatusText] = useState("");
   const [currentStep, setCurrentStep] = useState<"configure" | "preview" | "complete">("configure");
   const [previewResults, setPreviewResults] = useState<PreviewResultItem[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
   const [expandedPreviewIds, setExpandedPreviewIds] = useState<Set<string>>(new Set());
+  const [editingCardIds, setEditingCardIds] = useState<Set<string>>(new Set());
+  const [regeneratingPubId, setRegeneratingPubId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -200,8 +205,6 @@ export default function BulkBlockUpdateModal({
     setIsProcessing(true);
 
     try {
-      // Build selected publication context payloads directly from memory
-      // This completely avoids any SQLite / prisma server queries
       const targetPubs = publications
         .filter((p) => selectedPubIds.has(p.id))
         .map((p) => ({
@@ -262,6 +265,107 @@ export default function BulkBlockUpdateModal({
     }
   };
 
+  // REGENERATE A SINGLE PUBLICATION RESPONSE
+  const handleRegenerateSingle = async (pubId: string) => {
+    setRegeneratingPubId(pubId);
+    setErrorMsg("");
+
+    try {
+      const targetPub = publications.find((p) => p.id === pubId);
+      if (!targetPub) return;
+
+      const pubPayload = [
+        {
+          id: targetPub.id,
+          title: targetPub.title || "",
+          publisherName: targetPub.publisherName || "",
+          country: targetPub.country || "",
+          city: targetPub.city || "",
+          category: targetPub.category || "",
+          subcategory: targetPub.subcategory || "",
+          currentBody: getPubCurrentBlockBody(targetPub, targetBlockTitle),
+        },
+      ];
+
+      let res: Response;
+
+      if (sourceMode === "file" && uploadedFile) {
+        const formData = new FormData();
+        formData.append("targetBlockTitle", targetBlockTitle.trim());
+        formData.append("updatePrompt", updatePrompt.trim());
+        formData.append("file", uploadedFile);
+        formData.append("publications", JSON.stringify(pubPayload));
+
+        res = await fetch("/api/admin/document-block-update", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        const payload = {
+          targetBlockTitle: targetBlockTitle.trim(),
+          updatePrompt: updatePrompt.trim(),
+          documentText: "",
+          publications: pubPayload,
+        };
+
+        res = await fetch("/api/admin/document-block-update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "No se pudo regenerar la respuesta.");
+      }
+
+      const newResult = data.results?.[0];
+      if (newResult && newResult.success) {
+        setPreviewResults((prev) =>
+          prev.map((item) =>
+            item.publicationId === pubId
+              ? {
+                  ...item,
+                  updatedBodyHtml: newResult.updatedBodyHtml,
+                  blockTitle: newResult.blockTitle || item.blockTitle,
+                  evidencias: newResult.evidencias,
+                  providerUsed: newResult.providerUsed,
+                  success: true,
+                  error: undefined,
+                }
+              : item
+          )
+        );
+      } else {
+        throw new Error(newResult?.error || "Error al regenerar respuesta.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Error al regenerar la respuesta.");
+    } finally {
+      setRegeneratingPubId(null);
+    }
+  };
+
+  // TOGGLE EDIT CARD CONTENT
+  const handleToggleEditCard = (pubId: string) => {
+    setEditingCardIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(pubId)) {
+        next.delete(pubId);
+      } else {
+        next.add(pubId);
+      }
+      return next;
+    });
+  };
+
+  const handleUpdateCardBody = (pubId: string, newBody: string) => {
+    setPreviewResults((prev) =>
+      prev.map((item) => (item.publicationId === pubId ? { ...item, updatedBodyHtml: newBody } : item))
+    );
+  };
+
   const handleTogglePreviewSelect = (pubId: string) => {
     setPreviewResults((prev) =>
       prev.map((item) =>
@@ -276,7 +380,60 @@ export default function BulkBlockUpdateModal({
     );
   };
 
-  // APPLY APPROVED CHANGES DIRECTLY TO BACKEND
+  // MULTILANGUAGE TRANSLATION HELPER (Translates Title & Body to EN, PT, IT)
+  const translateBlockToAllLanguages = async (
+    title: string,
+    bodyHtml: string
+  ): Promise<{
+    titleI18n: Record<string, string>;
+    bodyI18n: Record<string, string>;
+  }> => {
+    const targetLangs = ["en", "pt", "it"];
+    const titleI18n: Record<string, string> = { es: title };
+    const bodyI18n: Record<string, string> = { es: bodyHtml };
+
+    try {
+      const [tRes, bRes] = await Promise.all([
+        fetch("/api/admin/translate-i18n", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: title, targetLangs, sourceLang: "es", isHtml: false }),
+        })
+          .then((r) => r.json())
+          .catch(() => null),
+        fetch("/api/admin/translate-i18n", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: bodyHtml, targetLangs, sourceLang: "es", isHtml: true }),
+        })
+          .then((r) => r.json())
+          .catch(() => null),
+      ]);
+
+      if (tRes?.translations) {
+        targetLangs.forEach((l) => {
+          if (tRes.translations[l]) titleI18n[l] = tRes.translations[l];
+        });
+      }
+      if (bRes?.translations) {
+        targetLangs.forEach((l) => {
+          if (bRes.translations[l]) bodyI18n[l] = bRes.translations[l];
+        });
+      }
+    } catch (e) {
+      console.warn("[BulkBlockUpdateModal] Translation warning:", e);
+    }
+
+    // Ensure fallback to Spanish if any language failed
+    targetLangs.forEach((l) => {
+      if (!titleI18n[l]) titleI18n[l] = title;
+      if (!bodyI18n[l]) bodyI18n[l] = bodyHtml;
+    });
+
+    return { titleI18n, bodyI18n };
+  };
+
+  // APPLY APPROVED CHANGES DIRECTLY TO BACKEND WITH MULTILANGUAGE
   const handleSaveApprovedChanges = async () => {
     const toSave = previewResults.filter((p) => p.selectedForSave && p.success && p.updatedBodyHtml);
     if (toSave.length === 0) {
@@ -294,6 +451,7 @@ export default function BulkBlockUpdateModal({
     for (let i = 0; i < toSave.length; i++) {
       const item = toSave[i];
       setSaveProgress({ current: i + 1, total: toSave.length });
+      setSaveStatusText(`Traduciendo a todos los idiomas (ES, EN, PT, IT) y guardando (${i + 1}/${toSave.length})...`);
 
       try {
         const originalPub = publications.find((p) => p.id === item.publicationId);
@@ -305,6 +463,10 @@ export default function BulkBlockUpdateModal({
           : [];
 
         const targetTitle = item.blockTitle.trim();
+
+        // 1. Translate title and body to all 4 languages (es, en, pt, it)
+        const { titleI18n, bodyI18n } = await translateBlockToAllLanguages(targetTitle, item.updatedBodyHtml);
+
         const existingIdx = extraDescriptions.findIndex(
           (d) => String(d?.title || "").trim().toLowerCase() === targetTitle.toLowerCase()
         );
@@ -316,19 +478,19 @@ export default function BulkBlockUpdateModal({
             body: item.updatedBodyHtml,
             titleI18n: {
               ...(extraDescriptions[existingIdx].titleI18n || {}),
-              es: targetTitle,
+              ...titleI18n,
             },
             bodyI18n: {
               ...(extraDescriptions[existingIdx].bodyI18n || {}),
-              es: item.updatedBodyHtml,
+              ...bodyI18n,
             },
           };
         } else {
           extraDescriptions.push({
             title: targetTitle,
             body: item.updatedBodyHtml,
-            titleI18n: { es: targetTitle },
-            bodyI18n: { es: item.updatedBodyHtml },
+            titleI18n,
+            bodyI18n,
             visibleInCard: false,
           });
         }
@@ -359,9 +521,10 @@ export default function BulkBlockUpdateModal({
     }
 
     setIsSaving(false);
+    setSaveStatusText("");
 
     if (successCount > 0) {
-      setSaveSuccessMsg(`Se actualizaron correctamente ${successCount} publicación(es)${failCount > 0 ? ` (${failCount} con error)` : ""}.`);
+      setSaveSuccessMsg(`Se actualizaron y tradujeron correctamente ${successCount} publicación(es) a todos los idiomas.`);
       setCurrentStep("complete");
       if (onPublicationsUpdated) {
         await onPublicationsUpdated();
@@ -376,6 +539,7 @@ export default function BulkBlockUpdateModal({
     setPreviewResults([]);
     setErrorMsg("");
     setSaveSuccessMsg("");
+    setEditingCardIds(new Set());
   };
 
   if (!isOpen) return null;
@@ -394,7 +558,7 @@ export default function BulkBlockUpdateModal({
                 Actualizador de Bloques Descriptivos
               </h2>
               <p className="text-xs text-slate-500">
-                Actualiza el contenido de bloques específicos en las publicaciones seleccionadas.
+                Actualiza el contenido de bloques específicos con soporte multilenguaje automático.
               </p>
             </div>
           </div>
@@ -436,7 +600,7 @@ export default function BulkBlockUpdateModal({
             >
               2
             </span>
-            Revisión de Cambios
+            Revisión y Ajustes
           </div>
           <span className="mx-3 text-slate-300">/</span>
           <div
@@ -451,7 +615,7 @@ export default function BulkBlockUpdateModal({
             >
               3
             </span>
-            Guardado
+            Guardado Multilenguaje
           </div>
         </div>
 
@@ -616,7 +780,7 @@ export default function BulkBlockUpdateModal({
                 </div>
               </div>
 
-              {/* Sección 3: Método de Actualización (2 OPCIONES LIMPIAS) */}
+              {/* Sección 3: Método de Actualización */}
               <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
@@ -712,7 +876,6 @@ export default function BulkBlockUpdateModal({
                       </div>
                     )}
 
-                    {/* Instrucción complementaria */}
                     <div>
                       <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
                         Instrucciones complementarias (opcional):
@@ -731,16 +894,20 @@ export default function BulkBlockUpdateModal({
             </div>
           )}
 
-          {/* STEP 2: PREVIEW */}
+          {/* STEP 2: PREVIEW & GRANULAR ACTIONS */}
           {currentStep === "preview" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900">
-                    Revisión de Cambios
+                    Revisión de Cambios Generados
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    Revisa las modificaciones generadas antes de guardarlas en el sistema.
+                  <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                    <span>Revisa, edita o regenera cada publicación antes de aplicar.</span>
+                    <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium text-slate-700">
+                      <Languages className="h-3 w-3 text-slate-600" />
+                      Multilenguaje (ES, EN, PT, IT) al guardar
+                    </span>
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -764,6 +931,9 @@ export default function BulkBlockUpdateModal({
               <div className="space-y-3">
                 {previewResults.map((item) => {
                   const isExpanded = expandedPreviewIds.has(item.publicationId);
+                  const isEditing = editingCardIds.has(item.publicationId);
+                  const isRegenerating = regeneratingPubId === item.publicationId;
+
                   return (
                     <div
                       key={item.publicationId}
@@ -779,7 +949,7 @@ export default function BulkBlockUpdateModal({
                         <div className="flex items-center gap-2.5 min-w-0">
                           <input
                             type="checkbox"
-                            disabled={!item.success}
+                            disabled={!item.success || isRegenerating}
                             checked={item.selectedForSave && item.success}
                             onChange={() => handleTogglePreviewSelect(item.publicationId)}
                             className="rounded border-slate-300 text-slate-900 focus:ring-slate-500 h-4 w-4"
@@ -803,13 +973,43 @@ export default function BulkBlockUpdateModal({
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {/* BOTÓN REGENERAR RESPUESTA */}
+                          <button
+                            type="button"
+                            disabled={isRegenerating}
+                            onClick={() => handleRegenerateSingle(item.publicationId)}
+                            title="Regenerar una nueva respuesta con la IA para esta publicación"
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition"
+                          >
+                            <RotateCw className={`h-3 w-3 text-slate-600 ${isRegenerating ? "animate-spin" : ""}`} />
+                            <span>{isRegenerating ? "Regenerando..." : "Regenerar"}</span>
+                          </button>
+
+                          {/* BOTÓN EDITAR TEXTO */}
+                          {item.success && (
+                            <button
+                              type="button"
+                              disabled={isRegenerating}
+                              onClick={() => handleToggleEditCard(item.publicationId)}
+                              title="Editar el contenido generado manualmente"
+                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition ${
+                                isEditing
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              <Pencil className="h-3 w-3" />
+                              <span>{isEditing ? "Guardar edición" : "Editar"}</span>
+                            </button>
+                          )}
+
                           {item.success ? (
                             <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
-                              Listo para aplicar
+                              Listo
                             </span>
                           ) : (
                             <span className="rounded bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-700">
-                              Error al procesar
+                              Error
                             </span>
                           )}
 
@@ -840,7 +1040,7 @@ export default function BulkBlockUpdateModal({
                               </div>
                               {item.originalBody ? (
                                 <div
-                                  className="text-slate-600 max-h-40 overflow-y-auto prose prose-xs"
+                                  className="text-slate-600 max-h-44 overflow-y-auto prose prose-xs"
                                   dangerouslySetInnerHTML={{ __html: item.originalBody }}
                                 />
                               ) : (
@@ -851,13 +1051,39 @@ export default function BulkBlockUpdateModal({
                             </div>
 
                             <div className="rounded-lg border border-slate-300 bg-white p-3">
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-800 mb-1.5">
-                                Nueva Versión
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-800 mb-1.5 flex items-center justify-between">
+                                <span>Nueva Versión</span>
+                                {isEditing ? (
+                                  <span className="text-[10px] font-normal text-emerald-700">Editando texto</span>
+                                ) : (
+                                  <span className="text-[10px] font-normal text-slate-400">Vista previa</span>
+                                )}
                               </div>
-                              <div
-                                className="text-slate-900 max-h-40 overflow-y-auto prose prose-xs"
-                                dangerouslySetInnerHTML={{ __html: item.updatedBodyHtml }}
-                              />
+
+                              {isEditing ? (
+                                <div className="space-y-1.5">
+                                  <textarea
+                                    rows={6}
+                                    value={item.updatedBodyHtml}
+                                    onChange={(e) => handleUpdateCardBody(item.publicationId, e.target.value)}
+                                    className="w-full rounded-md border border-slate-300 p-2 text-xs text-slate-900 focus:outline-none focus:border-slate-500 font-sans"
+                                  />
+                                  <div className="flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleEditCard(item.publicationId)}
+                                      className="rounded bg-slate-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-slate-800"
+                                    >
+                                      Listo
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  className="text-slate-900 max-h-44 overflow-y-auto prose prose-xs"
+                                  dangerouslySetInnerHTML={{ __html: item.updatedBodyHtml }}
+                                />
+                              )}
                             </div>
                           </div>
                         ) : (
@@ -881,6 +1107,10 @@ export default function BulkBlockUpdateModal({
               </div>
               <h3 className="text-base font-bold text-slate-900">Actualización completada</h3>
               <p className="text-xs text-slate-600 max-w-sm">{saveSuccessMsg}</p>
+              <div className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-700">
+                <Languages className="h-3.5 w-3.5 text-slate-600" />
+                Contenido traducido y guardado en Español, Inglés, Portugués e Italiano.
+              </div>
               <div className="pt-2 flex gap-2">
                 <button
                   type="button"
@@ -904,7 +1134,7 @@ export default function BulkBlockUpdateModal({
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-3.5">
           <div>
-            {currentStep === "preview" && (
+            {currentStep === "preview" && !isSaving && (
               <button
                 type="button"
                 onClick={() => setCurrentStep("configure")}
@@ -912,6 +1142,12 @@ export default function BulkBlockUpdateModal({
               >
                 ← Volver a Configurar
               </button>
+            )}
+            {isSaving && (
+              <span className="text-xs text-slate-600 flex items-center gap-1.5 animate-pulse">
+                <Languages className="h-3.5 w-3.5 text-slate-600" />
+                {saveStatusText || `Traduciendo y guardando (${saveProgress.current}/${saveProgress.total})...`}
+              </span>
             )}
           </div>
 
@@ -929,7 +1165,12 @@ export default function BulkBlockUpdateModal({
               <button
                 type="button"
                 onClick={handleGeneratePreviews}
-                disabled={isProcessing || selectedPubIds.size === 0 || (sourceMode === "prompt" && !updatePrompt.trim()) || (sourceMode === "file" && !uploadedFile && !updatePrompt.trim())}
+                disabled={
+                  isProcessing ||
+                  selectedPubIds.size === 0 ||
+                  (sourceMode === "prompt" && !updatePrompt.trim()) ||
+                  (sourceMode === "file" && !uploadedFile && !updatePrompt.trim())
+                }
                 className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition"
               >
                 {isProcessing ? (
@@ -938,9 +1179,7 @@ export default function BulkBlockUpdateModal({
                     Generando ({selectedPubIds.size})...
                   </>
                 ) : (
-                  <>
-                    Continuar a Previsualización ({selectedPubIds.size})
-                  </>
+                  <>Continuar a Previsualización ({selectedPubIds.size})</>
                 )}
               </button>
             )}
@@ -950,7 +1189,7 @@ export default function BulkBlockUpdateModal({
                 type="button"
                 onClick={handleSaveApprovedChanges}
                 disabled={isSaving || previewResults.filter((p) => p.selectedForSave && p.success).length === 0}
-                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition"
+                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition shadow-xs"
               >
                 {isSaving ? (
                   <>
@@ -960,7 +1199,7 @@ export default function BulkBlockUpdateModal({
                 ) : (
                   <>
                     <Check className="h-3.5 w-3.5" />
-                    Aplicar Cambios ({previewResults.filter((p) => p.selectedForSave && p.success).length})
+                    Aplicar Cambios Multilenguaje ({previewResults.filter((p) => p.selectedForSave && p.success).length})
                   </>
                 )}
               </button>
