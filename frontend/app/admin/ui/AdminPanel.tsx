@@ -2629,6 +2629,230 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPFieldsBase((prev) => ({ ...prev, providerLogoAsset: next }));
   }
 
+  const ensureMultilingualTranslations = async (input: {
+    title: string;
+    titleI18n?: Record<string, string>;
+    description: string;
+    descriptionI18n?: Record<string, string>;
+    providerInfoI18n?: Record<string, string>;
+    extraDescriptions?: Array<{
+      title?: string;
+      body?: string;
+      titleI18n?: Record<string, string>;
+      bodyI18n?: Record<string, string>;
+      visibleInCard?: boolean;
+      prompt?: string;
+      lang?: string;
+    }>;
+    socialLinksDetailed?: Array<{
+      kind: string;
+      label?: string;
+      labelI18n?: Record<string, string>;
+      url?: string;
+    }>;
+  }) => {
+    const customKey =
+      (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
+    const targetLangs = ["en", "pt", "it"];
+
+    const titleText = (input.titleI18n?.es || input.title || "").trim();
+    const descText = (input.descriptionI18n?.es || input.description || "").trim();
+    const providerText = (input.providerInfoI18n?.es || "").trim();
+
+    const titleI18n: Record<string, string> = { es: titleText, ...(input.titleI18n || {}) };
+    const descriptionI18n: Record<string, string> = { es: descText, ...(input.descriptionI18n || {}) };
+    const providerInfoI18n: Record<string, string> = { es: providerText, ...(input.providerInfoI18n || {}) };
+
+    const extraDescriptions = (input.extraDescriptions || []).map((b) => {
+      const bTitle = (b.titleI18n?.es || b.title || "").trim();
+      const bBody = (b.bodyI18n?.es || b.body || "").trim();
+      return {
+        ...b,
+        title: bTitle,
+        body: bBody,
+        titleI18n: { es: bTitle, ...(b.titleI18n || {}) },
+        bodyI18n: { es: bBody, ...(b.bodyI18n || {}) },
+      };
+    });
+
+    const socialLinksDetailed = (input.socialLinksDetailed || []).map((s) => ({
+      ...s,
+      labelI18n: { es: s.labelI18n?.es || s.label || "", ...(s.labelI18n || {}) },
+    }));
+
+    const promises: Promise<any>[] = [];
+
+    // Title missing
+    const missingTitleLangs = targetLangs.filter((l) => !titleI18n[l] || !titleI18n[l].trim());
+    if (titleText && missingTitleLangs.length > 0) {
+      promises.push(
+        fetch("/api/admin/translate-i18n", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: titleText,
+            targetLangs: missingTitleLangs,
+            sourceLang: "es",
+            isHtml: false,
+            apiKey: customKey,
+          }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.translations) {
+              Object.assign(titleI18n, data.translations);
+            }
+          })
+          .catch((err) => console.warn("[auto-translate] title error:", err))
+      );
+    }
+
+    // Description missing
+    const missingDescLangs = targetLangs.filter((l) => !descriptionI18n[l] || !descriptionI18n[l].trim());
+    if (descText && missingDescLangs.length > 0) {
+      promises.push(
+        fetch("/api/admin/translate-i18n", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: descText,
+            targetLangs: missingDescLangs,
+            sourceLang: "es",
+            isHtml: true,
+            apiKey: customKey,
+          }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.translations) {
+              Object.assign(descriptionI18n, data.translations);
+            }
+          })
+          .catch((err) => console.warn("[auto-translate] description error:", err))
+      );
+    }
+
+    // Provider Info missing
+    const missingProviderLangs = targetLangs.filter((l) => !providerInfoI18n[l] || !providerInfoI18n[l].trim());
+    if (providerText && missingProviderLangs.length > 0) {
+      promises.push(
+        fetch("/api/admin/translate-i18n", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: providerText,
+            targetLangs: missingProviderLangs,
+            sourceLang: "es",
+            isHtml: true,
+            apiKey: customKey,
+          }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.translations) {
+              Object.assign(providerInfoI18n, data.translations);
+            }
+          })
+          .catch((err) => console.warn("[auto-translate] providerInfo error:", err))
+      );
+    }
+
+    // Extra blocks missing
+    extraDescriptions.forEach((block) => {
+      const bTitle = (block.titleI18n?.es || block.title || "").trim();
+      const bBody = (block.bodyI18n?.es || block.body || "").trim();
+
+      const missingBlockTitleLangs = targetLangs.filter((l) => !block.titleI18n?.[l] || !block.titleI18n[l].trim());
+      const missingBlockBodyLangs = targetLangs.filter((l) => !block.bodyI18n?.[l] || !block.bodyI18n[l].trim());
+
+      if (bTitle && missingBlockTitleLangs.length > 0) {
+        promises.push(
+          fetch("/api/admin/translate-i18n", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: bTitle,
+              targetLangs: missingBlockTitleLangs,
+              sourceLang: "es",
+              isHtml: false,
+              apiKey: customKey,
+            }),
+          })
+            .then((r) => r.json())
+            .then((data) => {
+              if (data?.translations) {
+                block.titleI18n = { ...block.titleI18n, ...data.translations };
+              }
+            })
+            .catch((err) => console.warn("[auto-translate] block title error:", err))
+        );
+      }
+
+      if (bBody && missingBlockBodyLangs.length > 0) {
+        promises.push(
+          fetch("/api/admin/translate-i18n", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: bBody,
+              targetLangs: missingBlockBodyLangs,
+              sourceLang: "es",
+              isHtml: true,
+              apiKey: customKey,
+            }),
+          })
+            .then((r) => r.json())
+            .then((data) => {
+              if (data?.translations) {
+                block.bodyI18n = { ...block.bodyI18n, ...data.translations };
+              }
+            })
+            .catch((err) => console.warn("[auto-translate] block body error:", err))
+        );
+      }
+    });
+
+    // Social Links labels missing
+    socialLinksDetailed.forEach((sLink) => {
+      const linkLabel = (sLink.labelI18n?.es || sLink.label || "").trim();
+      const missingLinkLangs = targetLangs.filter((l) => !sLink.labelI18n?.[l] || !sLink.labelI18n[l].trim());
+      if (linkLabel && missingLinkLangs.length > 0) {
+        promises.push(
+          fetch("/api/admin/translate-i18n", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: linkLabel,
+              targetLangs: missingLinkLangs,
+              sourceLang: "es",
+              isHtml: false,
+              apiKey: customKey,
+            }),
+          })
+            .then((r) => r.json())
+            .then((data) => {
+              if (data?.translations) {
+                sLink.labelI18n = { ...sLink.labelI18n, ...data.translations };
+              }
+            })
+            .catch((err) => console.warn("[auto-translate] social link error:", err))
+        );
+      }
+    });
+
+    if (promises.length > 0) {
+      await Promise.all(promises);
+    }
+
+    return {
+      titleI18n,
+      descriptionI18n,
+      providerInfoI18n,
+      extraDescriptions,
+      socialLinksDetailed,
+    };
+  };
+
   async function createPublication() {
     if (savingPublication || publicationLockRef.current) return;
     publicationLockRef.current = true;
@@ -2659,8 +2883,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       publicationLockRef.current = false;
       return;
     }
-    setSaveMessage("");
+    setSaveMessage("🌐 Verificando y traduciendo a multilenguaje...");
     setSavingPublication(true);
+
+    const translatedData = await ensureMultilingualTranslations({
+      title,
+      titleI18n,
+      description,
+      descriptionI18n: pDescriptionI18n,
+      providerInfoI18n: pProviderInfoI18n,
+      extraDescriptions: pExtraDescriptions,
+      socialLinksDetailed: pSocialLinksDetailed,
+    });
+
+    setPTitleI18n(translatedData.titleI18n);
+    setPDescriptionI18n(translatedData.descriptionI18n);
+    setPExtraDescriptions(translatedData.extraDescriptions as any);
+    if (translatedData.socialLinksDetailed) {
+      setPSocialLinksDetailed(translatedData.socialLinksDetailed as any);
+    }
     const languages = pLanguages
       .split(",")
       .map((s) => s.trim())
@@ -2779,10 +3020,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     const payload = {
       title,
-      titleI18n,
+      titleI18n: translatedData.titleI18n,
       description,
       descriptionI18n: {
-        ...pDescriptionI18n,
+        ...translatedData.descriptionI18n,
         es: description,
       },
       publisherName: pPublisherName || null,
@@ -2819,7 +3060,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         partner: pPartner,
         providerEmail: pProviderEmail || null,
         locationAddress: pLocationAddress || null,
-        providerInfoI18n: Object.keys(pProviderInfoI18n).length ? pProviderInfoI18n : null,
+        providerInfoI18n: Object.keys(translatedData.providerInfoI18n).length ? translatedData.providerInfoI18n : null,
         providerRating: pProviderRating || null,
         providerReviewCount: pProviderReviewCount || null,
         providerCommentsUrl: pProviderCommentsUrl || null,
@@ -2882,16 +3123,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           : travelDestinations,
         headquarterLocations,
         tourismType: pTourismType,
-        extraDescriptions: pExtraDescriptions
+        extraDescriptions: (translatedData.extraDescriptions || [])
           .map((d) => {
-            const title = firstNonEmpty(d.titleI18n.es, d.titleI18n[pLang], d.title);
-            const body = firstNonEmpty(d.bodyI18n.es, d.bodyI18n[pLang], d.body);
+            const title = firstNonEmpty(d.titleI18n?.es, d.titleI18n?.[pLang], d.title);
+            const body = firstNonEmpty(d.bodyI18n?.es, d.bodyI18n?.[pLang], d.body);
             return {
               title,
               body,
-              titleI18n: { ...d.titleI18n, es: firstNonEmpty(d.titleI18n.es, title) },
-              bodyI18n: { ...d.bodyI18n, es: firstNonEmpty(d.bodyI18n.es, body) },
+              titleI18n: { ...(d.titleI18n || {}), es: firstNonEmpty(d.titleI18n?.es, title) },
+              bodyI18n: { ...(d.bodyI18n || {}), es: firstNonEmpty(d.bodyI18n?.es, body) },
               visibleInCard: booleanLike(d.visibleInCard),
+              prompt: d.prompt,
             };
           })
           .filter((d) => d.title || d.body),
@@ -2902,7 +3144,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       // dynamic groups via many-to-many
       filterOptionIds: Array.from(selectedGroupOptionIds),
     };
-    if (socialLinksDetailed.length) {
+    if (translatedData.socialLinksDetailed && translatedData.socialLinksDetailed.length) {
+      (payload.fields as Record<string, any>).socialLinksDetailed = translatedData.socialLinksDetailed;
+    } else if (socialLinksDetailed.length) {
       (payload.fields as Record<string, any>).socialLinksDetailed = socialLinksDetailed;
     }
     if (pStatus === "active") {
@@ -3531,11 +3775,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const handleApproveAiDraftDirectly = async (draft: ScrapedPublicationDraft): Promise<boolean> => {
     try {
+      const translatedData = await ensureMultilingualTranslations({
+        title: draft.titleI18n?.es || draft.title || "",
+        titleI18n: draft.titleI18n,
+        description: draft.descriptionI18n?.es || draft.description || "",
+        descriptionI18n: draft.descriptionI18n,
+        providerInfoI18n: draft.providerInfoI18n,
+        extraDescriptions: draft.extraDescriptions,
+        socialLinksDetailed: draft.socialLinksDetailed,
+      });
+
       const payload = {
         title: draft.title,
-        titleI18n: draft.titleI18n,
+        titleI18n: translatedData.titleI18n,
         description: draft.description,
-        descriptionI18n: draft.descriptionI18n,
+        descriptionI18n: translatedData.descriptionI18n,
         publisherName: draft.publisherName || null,
         status: "active",
         featured: false,
@@ -3553,13 +3807,20 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         fields: {
           locationAddress: draft.locationAddress || null,
           headquarterLocations: draft.headquarterLocations || [],
-          providerInfoI18n: draft.providerInfoI18n || null,
+          providerInfoI18n: Object.keys(translatedData.providerInfoI18n).length ? translatedData.providerInfoI18n : null,
           providerRating: draft.providerRating || null,
           providerReviewCount: draft.providerReviewCount || null,
           providerCommentsUrl: draft.providerCommentsUrl || null,
           providerStartYear: draft.providerStartYear || null,
-          extraDescriptions: draft.extraDescriptions || [],
-          socialLinksDetailed: draft.socialLinksDetailed || [],
+          extraDescriptions: (translatedData.extraDescriptions || []).map((d) => ({
+            title: d.titleI18n?.es || d.title,
+            body: d.bodyI18n?.es || d.body,
+            titleI18n: d.titleI18n,
+            bodyI18n: d.bodyI18n,
+            visibleInCard: booleanLike(d.visibleInCard),
+            prompt: d.prompt,
+          })),
+          socialLinksDetailed: translatedData.socialLinksDetailed || draft.socialLinksDetailed || [],
           providerLogo: draft.providerLogo || null,
           categorySelections: draft.categorySelections || (draft.category ? [draft.category] : []),
           subcategorySelections: draft.subcategorySelections || (draft.subcategory ? [draft.subcategory] : []),
@@ -3569,7 +3830,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         },
       };
 
-      const res = await fetch("/api/publications", {
+      const res = await fetch("/api/admin/publications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -9059,18 +9320,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 >
                   + Agregar bloque
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBulkDocInitialBlock("");
-                    if (editingId) setBulkDocInitialPubId(editingId);
-                    setBulkDocModalOpen(true);
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition shadow-sm"
-                >
-                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-                  Actualizar con Excel / Doc
-                </button>
               </div>
 
               {pExtraDescriptions.length ? (
@@ -9080,18 +9329,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBulkDocInitialBlock(desc.titleI18n?.es || desc.title || "");
-                              if (editingId) setBulkDocInitialPubId(editingId);
-                              setBulkDocModalOpen(true);
-                            }}
-                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 transition hover:bg-emerald-100"
-                          >
-                            <FileSpreadsheet className="h-3 w-3 text-emerald-600" />
-                            Actualizar con Excel / Doc
-                          </button>
                           <button
                             type="button"
                             disabled={translatingField === `extra-${idx}`}
