@@ -465,7 +465,7 @@ export default function BulkBlockUpdateModal({
         const targetTitle = item.blockTitle.trim();
 
         // 1. Translate title and body to all 4 languages (es, en, pt, it)
-        const { titleI18n, bodyI18n } = await translateBlockToAllLanguages(targetTitle, item.updatedBodyHtml);
+        const { titleI18n, bodyI18n } = await translateBlockToAllLanguages(targetTitle, item.updatedBodyHtml || "");
 
         const existingIdx = extraDescriptions.findIndex(
           (d) => String(d?.title || "").trim().toLowerCase() === targetTitle.toLowerCase()
