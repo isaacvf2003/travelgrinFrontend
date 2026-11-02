@@ -193,7 +193,9 @@ function buildGoogleMapsUrl(queryText: string): string {
   if (/^https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(trimmed)) {
     return trimmed;
   }
-  const clean = trimmed.replace(/\s+/g, " ");
+  // Strip any accidental domain suffixes (.com, .org, etc.) from brand queries
+  let clean = trimmed.replace(/\.(?:com|org|net|edu|gob|gov|io|co|es|mx|lat|ar|cl|uy|br)+/gi, "");
+  clean = clean.replace(/\s+/g, " ").trim();
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clean)}`;
 }
 
@@ -837,6 +839,10 @@ function cleanPublisherName(rawName: string, sourceUrl?: string, rawTitle?: stri
     cleanSite = cleanSite
       .replace(/^(?:lead\s+enviado|formulario\s+enviado|gracias(?:\s+por(?:\s+tu)?\s+consulta)?|consulta\s+enviada|solicitud\s+enviada|confirmaci[oó]n|contacto)\s*[-–—|:]\s*/i, "")
       .trim();
+    cleanSite = cleanSite.replace(/\.(?:com|org|net|edu|gob|gov|io|co|es|mx|lat|ar|cl|uy|br)+/gi, "").trim();
+    if (/^[a-z0-9]+$/i.test(cleanSite) && cleanSite.length > 2) {
+      cleanSite = cleanSite.charAt(0).toUpperCase() + cleanSite.slice(1);
+    }
     const GENERIC_NAMES = /^(?:Home|Inicio|Portada|Bienvenidos?|Principal|Sitio Oficial|Página Oficial|Web Oficial|Portal Oficial|Login|Acceso|Portal|Contacto|Novedades|Art[ií]culo)\b/i;
     if (cleanSite.length >= 2 && cleanSite.length < 55 && !GENERIC_NAMES.test(cleanSite)) {
       return cleanSite;
@@ -1653,12 +1659,17 @@ async function enrichWithLiveGoogleMapsAndSearch(
     .replace(/\s*[-–—|]\s*(?:Ciudad de\s+)?(?:Mendoza|Buenos Aires|CABA|Rosario|C[oó]rdoba|Salta|Santa Fe|Mar del Plata|Neuqu[eé]n|San Juan|Argentina)[^–—|]*$/i, "")
     .replace(/\s*[-–—|]\s*(?:Sitio\s*Oficial|Portal\s*Oficial|Web\s*Oficial|Municipalidad).*$/i, "")
     .trim() || cleanName;
+  cleanBrand = cleanBrand.replace(/\.(?:com|org|net|edu|gob|gov|io|co|es|mx|lat|ar|cl|uy|br)+/gi, "").trim();
+  if (/^[a-z0-9]+$/i.test(cleanBrand) && cleanBrand.length > 2) {
+    cleanBrand = cleanBrand.charAt(0).toUpperCase() + cleanBrand.slice(1);
+  }
 
   // Targeted queries executed in parallel for exact Sede Principal match
   const candidateQueries = [
     cleanBrand && city ? `${cleanBrand} ${city}` : null,
     cleanBrand && mainAddress && city ? `${cleanBrand} ${mainAddress} ${city}` : null,
     cleanBrand && mainAddress ? `${cleanBrand} ${mainAddress}` : null,
+    cleanBrand && country ? `${cleanBrand} ${country}` : null,
     cleanBrand,
     officialFullName || cleanName,
   ].filter(Boolean) as string[];
@@ -1703,6 +1714,42 @@ async function enrichWithLiveGoogleMapsAndSearch(
 
   const searchPromises = uniqueQueries.map(async (q) => {
     try {
+      // 1. Google Maps Search session: fetches initial HTML and pulls exact session pb link
+      const mapsSearchUrl = "https://www.google.com/maps/search/" + encodeURIComponent(q.trim()) + "?hl=es";
+      const mapsRes = await fetchWithTimeout(
+        mapsSearchUrl,
+        {
+          headers: {
+            "User-Agent": userAgent,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "es-ES,es;q=0.9",
+          },
+        },
+        2200
+      );
+      if (mapsRes.ok) {
+        const mapsHtml = await mapsRes.text();
+        const mPb = mapsHtml.match(/<link\s+href="(\/search\?tbm=map[^"]+)"/i);
+        if (mPb && mPb[1]) {
+          const pbUrl = "https://www.google.com" + mPb[1].replace(/&amp;/g, "&");
+          const pbRes = await fetchWithTimeout(
+            pbUrl,
+            {
+              headers: {
+                "User-Agent": userAgent,
+                "Accept-Language": "es-ES,es;q=0.9",
+              },
+            },
+            2200
+          );
+          if (pbRes.ok) {
+            const pbText = await pbRes.text();
+            if (pbText && pbText.length > 500) return pbText;
+          }
+        }
+      }
+
+      // 2. Direct Google Maps tbm=map query fallback
       const gmapsUrl = "https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=" + encodeURIComponent(q.trim());
       const gmapsRes = await fetchWithTimeout(
         gmapsUrl,
@@ -1729,16 +1776,66 @@ async function enrichWithLiveGoogleMapsAndSearch(
     if (res.status !== "fulfilled" || !res.value) continue;
     const text = res.value;
 
-    // Check for direct place rating/review match
+    // 1. Check for specific place matches with CIDs from Google Maps protobuf/data
+    const placeMatches = Array.from(text.matchAll(/"0x[0-9a-f]+:(0x[0-9a-f]{10,})","([^"]{2,100})"/gi));
+    if (placeMatches.length > 0) {
+      for (const pm of placeMatches) {
+        const hexCid = pm[1];
+        const placeName = pm[2];
+        const idx = pm.index || 0;
+        const chunk = text.slice(Math.max(0, idx - 800), Math.min(text.length, idx + 1200));
+
+        const rMatch = chunk.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{1,7})\]/) ||
+                       chunk.match(/,([1-5](?:\.\d+)?),(\d{1,7})\]/);
+
+        let pRating = "";
+        let pReviews = "";
+        if (rMatch) {
+          const nr = parseFloat(rMatch[1]);
+          const nc = parseInt(rMatch[2], 10);
+          if (!(nr === 1 && nc === 0) && !(nr === 1 && nc === 1) && nr >= 1 && nr <= 5) {
+            pRating = nr.toFixed(1);
+            pReviews = String(nc);
+          }
+        }
+
+        let decCid = "";
+        try {
+          decCid = BigInt(hexCid).toString(10);
+        } catch {}
+
+        if (decCid) {
+          const directUrl = `https://maps.google.com/?cid=${decCid}`;
+          if (pRating && pReviews && (!extracted.detectedRating || extracted.detectedRating === "0")) {
+            extracted.detectedRating = pRating;
+            extracted.detectedReviewCount = pReviews;
+            extracted.detectedCommentsUrl = directUrl;
+            extracted.detectedMapsUrl = directUrl;
+
+            const mAddr = chunk.match(/"([^"]{5,120}\b\d{1,5}\b[^"]*)"/i);
+            if (mAddr && !mAddr[1].startsWith("http") && mAddr[1] !== placeName && isValidPhysicalStreetAddress(mAddr[1])) {
+              extracted.detectedAddress = mAddr[1].trim();
+            }
+            break;
+          } else if (!extracted.detectedCommentsUrl) {
+            extracted.detectedCommentsUrl = directUrl;
+            extracted.detectedMapsUrl = directUrl;
+          }
+        }
+      }
+    }
+
+    // 2. Direct place rating/review match
     const mDirect = text.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null/) ||
                     text.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null,null,\["https?:/) ||
                     text.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{2,7})\]/) ||
-                    text.match(/(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/);
+                    text.match(/(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/) ||
+                    text.match(/["'](\d{1,7})\s*reseñas["'],(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/i);
 
     if (mDirect) {
       const numRating = parseFloat(mDirect[1]);
       const numReviews = parseInt(mDirect[2], 10);
-      if (!(numRating === 1 && numReviews === 1) && numReviews >= 1 && numRating >= 1 && numRating <= 5) {
+      if (!(numRating === 1 && numReviews === 0) && !(numRating === 1 && numReviews === 1) && numReviews >= 1 && numRating >= 1 && numRating <= 5) {
         extracted.detectedRating = numRating.toFixed(1);
         extracted.detectedReviewCount = String(numReviews);
 
@@ -1899,7 +1996,8 @@ async function enrichWithLiveGoogleMapsAndSearch(
   if (!isDirectComments) {
     const updatedAddress = cleanAddressForSearch(extracted.detectedAddress || mainAddress);
     if (!extracted.detectedCommentsUrl || (updatedAddress && !extracted.detectedCommentsUrl.includes(encodeURIComponent(updatedAddress.slice(0, 8))))) {
-      const parts = [officialFullName || cleanName, updatedAddress, city, country].filter(Boolean);
+      const searchCleanName = (officialFullName || cleanName || "").replace(/\.(?:com|org|net|edu|gob|gov|io|co|es|mx|lat|ar|cl|uy|br)+/gi, "").trim();
+      const parts = [searchCleanName, updatedAddress, city, country].filter(Boolean);
       extracted.detectedCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
       if (!extracted.detectedMapsUrl || (updatedAddress && !extracted.detectedMapsUrl.includes(encodeURIComponent(updatedAddress.slice(0, 8))))) {
         extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
@@ -7248,8 +7346,11 @@ async function processUrlWithAI(
       ? extracted.detectedRating
       : undefined;
 
-    if (!finalScrapedRating && unifiedRes?.data?.detectedRating && unifiedRes.data.detectedRating !== "0") {
-      finalScrapedRating = unifiedRes.data.detectedRating;
+    if (!finalScrapedRating) {
+      const uRating = unifiedRes?.data?.detectedRating || unifiedRes?.data?.providerRating || unifiedRes?.data?.rating;
+      if (uRating && uRating !== "0") {
+        finalScrapedRating = uRating;
+      }
     }
 
     cleanContext.rating = finalScrapedRating || "0";
@@ -7259,8 +7360,11 @@ async function processUrlWithAI(
       ? extracted.detectedReviewCount
       : undefined;
 
-    if (!finalScrapedReviewCount && unifiedRes?.data?.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0") {
-      finalScrapedReviewCount = unifiedRes.data.detectedReviewCount;
+    if (!finalScrapedReviewCount) {
+      const uReviews = unifiedRes?.data?.detectedReviewCount || unifiedRes?.data?.providerReviewCount || unifiedRes?.data?.reviewCount;
+      if (uReviews && uReviews !== "0") {
+        finalScrapedReviewCount = uReviews;
+      }
     }
 
     cleanContext.reviewCount = finalScrapedReviewCount || "0";
@@ -7290,9 +7394,10 @@ async function processUrlWithAI(
       cleanContext.foundingYear = extracted.detectedFoundingYear;
     }
 
-    if (unifiedRes.data.detectedCommentsUrl && (!extracted.detectedCommentsUrl || !extracted.detectedCommentsUrl.includes("maps"))) {
-      cleanContext.commentsUrl = unifiedRes.data.detectedCommentsUrl;
-      extracted.detectedCommentsUrl = unifiedRes.data.detectedCommentsUrl;
+    const uComments = unifiedRes?.data?.detectedCommentsUrl || unifiedRes?.data?.providerCommentsUrl || unifiedRes?.data?.commentsUrl;
+    if (uComments && (!extracted.detectedCommentsUrl || !extracted.detectedCommentsUrl.includes("maps"))) {
+      cleanContext.commentsUrl = uComments;
+      extracted.detectedCommentsUrl = uComments;
     }
 
     // Score Scout Block (si está habilitado)
@@ -7543,6 +7648,7 @@ async function processUrlWithAI(
 
   const cleanEntityPublisher = cleanPublisherName(cleanPublisher)
     .replace(/^(?:lead\s+enviado|formulario\s+enviado|gracias(?:\s+por(?:\s+tu)?\s+consulta)?|consulta\s+enviada|solicitud\s+enviada|confirmaci[oó]n|contacto)\s*[-–—|:]\s*/i, "")
+    .replace(/\.(?:com|org|net|edu|gob|gov|io|co|es|mx|lat|ar|cl|uy|br)+/gi, "")
     .split(/\s*[-–—|]\s*/)[0].trim() || cleanPublisher;
   const primaryCleanAddr = cleanAddressForSearch(extracted.detectedAddress || unifiedRes?.data?.detectedAddress);
   const primaryHq = headquarterLocations[0] || {
@@ -7553,7 +7659,7 @@ async function processUrlWithAI(
   };
 
   const isDirectMap = (u?: string) => Boolean(u && /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps\/place|\S*[?&]cid=)/i.test(u));
-  const candidateDirectMap = [extracted.detectedCommentsUrl, extracted.detectedMapsUrl, unifiedRes?.data?.detectedCommentsUrl].find(isDirectMap);
+  const candidateDirectMap = [extracted.detectedCommentsUrl, extracted.detectedMapsUrl, cleanContext.commentsUrl, unifiedRes?.data?.detectedCommentsUrl].find(isDirectMap);
   if (candidateDirectMap) {
     primaryHq.mapUrl = candidateDirectMap;
   }
@@ -7643,13 +7749,25 @@ async function processUrlWithAI(
       ? extracted.detectedRating
       : ((cleanContext.rating && cleanContext.rating !== "0")
         ? cleanContext.rating
-        : (unifiedRes?.data?.detectedRating && unifiedRes.data.detectedRating !== "0" ? unifiedRes.data.detectedRating : "0")),
+        : (unifiedRes?.data?.detectedRating && unifiedRes.data.detectedRating !== "0"
+          ? unifiedRes.data.detectedRating
+          : (unifiedRes?.data?.providerRating && unifiedRes.data.providerRating !== "0"
+            ? unifiedRes.data.providerRating
+            : (unifiedRes?.data?.rating && unifiedRes.data.rating !== "0"
+              ? unifiedRes.data.rating
+              : "0")))),
     providerReviewCount: (extracted.detectedReviewCount && extracted.detectedReviewCount !== "0")
       ? extracted.detectedReviewCount
       : ((cleanContext.reviewCount && cleanContext.reviewCount !== "0")
         ? cleanContext.reviewCount
-        : (unifiedRes?.data?.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0" ? unifiedRes.data.detectedReviewCount : "0")),
-    providerCommentsUrl: candidateDirectMap || primaryHq.mapUrl || extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || "",
+        : (unifiedRes?.data?.detectedReviewCount && unifiedRes.data.detectedReviewCount !== "0"
+          ? unifiedRes.data.detectedReviewCount
+          : (unifiedRes?.data?.providerReviewCount && unifiedRes.data.providerReviewCount !== "0"
+            ? unifiedRes.data.providerReviewCount
+            : (unifiedRes?.data?.reviewCount && unifiedRes.data.reviewCount !== "0"
+              ? unifiedRes.data.reviewCount
+              : "0")))),
+    providerCommentsUrl: candidateDirectMap || extracted.detectedCommentsUrl || cleanContext.commentsUrl || unifiedRes?.data?.detectedCommentsUrl || primaryHq.mapUrl || "",
     providerLogo: cleanContext.logo || (() => {
       try {
         const host = new URL(url).hostname.replace(/^www\./, "");
