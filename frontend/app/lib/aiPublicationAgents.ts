@@ -567,10 +567,14 @@ export function synthesizeMarketingTitle(
 
   // 1. Explicit quotes in prompt
   const quotedMatch = p.match(/["'«“]([^"'»”]{5,120})["'»”]/);
-  if (quotedMatch && quotedMatch[1]) {
+  if (quotedMatch && quotedMatch[1] && !/^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(quotedMatch[1].trim())) {
     const custom = cleanTitleString(quotedMatch[1]);
+    if (!custom || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo)$/i.test(custom)) {
+      // ignore
+    } else {
     const res = omitName ? cleanTitleOmitEntity(custom, entityName, context.publisherName) : (custom.toLowerCase().includes(entityName.toLowerCase()) ? custom : `${entityName} | ${custom}`);
     return enforceTitleConstraints(res, prompt);
+    }
   }
 
   // 2. Extract best heading or service from actual scraped website
@@ -971,7 +975,7 @@ let cachedWorkingGeminiModel: string | null = "gemini-2.0-flash";
 // ----------------------------------------------------------------------------
 // Provider Dispatcher (Gemini -> OpenAI -> Controlled Error)
 // ----------------------------------------------------------------------------
-async function executeModelCall(
+export async function executeModelCall(
   systemPrompt: string,
   userPrompt: string,
   apiKeyParam?: string,
@@ -1681,8 +1685,8 @@ GENERA EL CONTENIDO EN HTML DENTRO DEL JSON CUMPLIENDO ESTRICTAMENTE LA DIRECTIV
       }
     }
 
-    if (!bodyContent || bodyContent.length < 5) {
-      throw new Error("El modelo devolvió un bloque vacío.");
+    if (!bodyContent || bodyContent.length < 5 || /^(?:<p>)?\s*sin[-_\s]*datos\s*(?:<\/p>)?$/i.test(bodyContent.trim()) || bodyContent.trim() === "SIN_DATOS") {
+      throw new Error("El modelo devolvió un bloque sin datos.");
     }
 
     if (!bodyContent.includes("<p>")) {
@@ -3180,8 +3184,8 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
           .join("\n");
       }
 
-      // Si el bloque quedó vacío o el modelo no generó contenido sustancial (menos de 20 caracteres)
-      if (!bodyHtml || bodyHtml.length < 20) {
+      const isSinDatosBody = !bodyHtml || bodyHtml.length < 20 || /sin[-_\s]*datos/i.test(bodyHtml) || bodyHtml === "SIN_DATOS";
+      if (isSinDatosBody) {
         console.log(`[UnifiedPublicationAgent] Bloque personalizado "${bTitle}" no trajo resultado suficiente (${bodyHtml.length} chars). Invocando CustomBlockAgent con contexto previo...`);
         try {
           const indiv = await runCustomBlockAgent(
@@ -3201,8 +3205,8 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         }
       }
 
-      // Si aún así no hay contenido, extraer párrafos reales de la web sin usar plantillas fijas ni alucinaciones
-      if (!bodyHtml || bodyHtml.length < 20) {
+      const stillSinDatos = !bodyHtml || bodyHtml.length < 20 || /sin[-_\s]*datos/i.test(bodyHtml) || bodyHtml === "SIN_DATOS";
+      if (stillSinDatos) {
         const candidateParagraphs = (context.paragraphs || []).slice(0, 3).join(" ").trim();
         if (candidateParagraphs && candidateParagraphs.length > 30) {
           bodyHtml = `<p>${candidateParagraphs.slice(0, 400).trim()}</p>`;
