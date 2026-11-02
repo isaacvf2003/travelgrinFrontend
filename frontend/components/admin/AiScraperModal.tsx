@@ -1139,7 +1139,7 @@ export default function AiScraperModal({
                   disabled={savingAll}
                   className="h-9 rounded-xl border border-emerald-600 bg-emerald-50 px-4 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
                 >
-                  {savingAll ? "Guardando lote..." : "Aprobar y guardar todas"}
+                  {savingAll ? "Traduciendo y guardando..." : "Aprobar y guardar todas"}
                 </button>
               )}
             </div>
@@ -1245,7 +1245,7 @@ export default function AiScraperModal({
                           disabled={savingIndex === index}
                           className="rounded-lg bg-[#00A9C6] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50"
                         >
-                          {savingIndex === index ? "Guardando..." : "Aprobar y Guardar"}
+                          {savingIndex === index ? "Traduciendo y guardando..." : "Aprobar y Guardar"}
                         </button>
                       )}
 

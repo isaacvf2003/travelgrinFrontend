@@ -11,6 +11,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import AiScraperModal, { type ScrapedPublicationDraft } from "@/components/admin/AiScraperModal";
 import AiFieldRefineModal, { type RefineFieldType } from "@/components/AiFieldRefineModal";
 import BulkBlockUpdateModal from "@/components/admin/BulkBlockUpdateModal";
+import { ensurePublicationTranslations, isPublicationMissingTranslations } from "@/app/lib/publicationTranslationHelper";
 import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
@@ -2687,11 +2688,77 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
     setSaveMessage("");
     setSavingPublication(true);
+
+    // Si el usuario olvidó traducir previamente a multilenguaje (EN, PT, IT), traducir automáticamente antes de publicar
+    let effectiveTitleI18n = titleI18n;
+    let effectiveDescI18n = {
+      ...pDescriptionI18n,
+      es: description,
+    };
+    let effectiveProviderInfoI18n = pProviderInfoI18n;
+    let effectiveExtraDescriptions = pExtraDescriptions;
+    let effectiveSocialLinksDetailed = pSocialLinksDetailed;
+
+    if (
+      isPublicationMissingTranslations({
+        title,
+        titleI18n: effectiveTitleI18n,
+        description,
+        descriptionI18n: effectiveDescI18n,
+        providerInfoI18n: effectiveProviderInfoI18n,
+        extraDescriptions: effectiveExtraDescriptions,
+        socialLinksDetailed: effectiveSocialLinksDetailed,
+      })
+    ) {
+      setTranslatingAll(true);
+      setSaveMessage("🌐 Traduciendo automáticamente a multilenguaje (EN, PT, IT)...");
+      try {
+        const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
+        const translated = await ensurePublicationTranslations(
+          {
+            title,
+            titleI18n: effectiveTitleI18n,
+            description,
+            descriptionI18n: effectiveDescI18n,
+            providerInfoI18n: effectiveProviderInfoI18n,
+            extraDescriptions: effectiveExtraDescriptions,
+            socialLinksDetailed: effectiveSocialLinksDetailed,
+          },
+          { apiKey: customKey }
+        );
+
+        if (translated.titleI18n) {
+          effectiveTitleI18n = translated.titleI18n;
+          setPTitleI18n(translated.titleI18n);
+        }
+        if (translated.descriptionI18n) {
+          effectiveDescI18n = translated.descriptionI18n;
+          setPDescriptionI18n(translated.descriptionI18n);
+        }
+        if (translated.providerInfoI18n) {
+          effectiveProviderInfoI18n = translated.providerInfoI18n;
+          setPProviderInfoI18n(translated.providerInfoI18n);
+        }
+        if (translated.extraDescriptions) {
+          effectiveExtraDescriptions = translated.extraDescriptions as any;
+          setPExtraDescriptions(translated.extraDescriptions as any);
+        }
+        if (translated.socialLinksDetailed) {
+          effectiveSocialLinksDetailed = translated.socialLinksDetailed as any;
+          setPSocialLinksDetailed(translated.socialLinksDetailed as any);
+        }
+      } catch (transErr) {
+        console.warn("Auto-translation warning during save:", transErr);
+      } finally {
+        setTranslatingAll(false);
+      }
+    }
+
     const languages = pLanguages
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    const socialLinksDetailed = pSocialLinksDetailed
+    const socialLinksDetailed = effectiveSocialLinksDetailed
       .map((entry) => ({
         kind: String(entry.kind ?? "").trim(),
         label: String(entry.label ?? "").trim(),
@@ -2806,12 +2873,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     const payload = {
       title,
-      titleI18n,
+      titleI18n: effectiveTitleI18n,
       description,
-      descriptionI18n: {
-        ...pDescriptionI18n,
-        es: description,
-      },
+      descriptionI18n: effectiveDescI18n,
       publisherName: pPublisherName || null,
       status: pStatus,
       featured: pFeatured,
@@ -2846,7 +2910,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         partner: pPartner,
         providerEmail: pProviderEmail || null,
         locationAddress: pLocationAddress || null,
-        providerInfoI18n: Object.keys(pProviderInfoI18n).length ? pProviderInfoI18n : null,
+        providerInfoI18n: Object.keys(effectiveProviderInfoI18n).length ? effectiveProviderInfoI18n : null,
         providerRating: pProviderRating || null,
         providerReviewCount: pProviderReviewCount || null,
         providerCommentsUrl: pProviderCommentsUrl || null,
@@ -2909,15 +2973,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           : travelDestinations,
         headquarterLocations,
         tourismType: pTourismType,
-        extraDescriptions: pExtraDescriptions
+        extraDescriptions: effectiveExtraDescriptions
           .map((d) => {
-            const title = firstNonEmpty(d.titleI18n.es, d.titleI18n[pLang], d.title);
-            const body = firstNonEmpty(d.bodyI18n.es, d.bodyI18n[pLang], d.body);
+            const title = firstNonEmpty(d.titleI18n?.es, d.titleI18n?.[pLang], d.title);
+            const body = firstNonEmpty(d.bodyI18n?.es, d.bodyI18n?.[pLang], d.body);
             return {
               title,
               body,
-              titleI18n: { ...d.titleI18n, es: firstNonEmpty(d.titleI18n.es, title) },
-              bodyI18n: { ...d.bodyI18n, es: firstNonEmpty(d.bodyI18n.es, body) },
+              titleI18n: { ...d.titleI18n, es: firstNonEmpty(d.titleI18n?.es, title) },
+              bodyI18n: { ...d.bodyI18n, es: firstNonEmpty(d.bodyI18n?.es, body) },
               visibleInCard: booleanLike(d.visibleInCard),
             };
           })
@@ -3022,6 +3086,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       setPExpirationTime("");
       setPFilterOptionIds([]);
       setPTourismType("receptivo");
+      if (activeDraftQueueIndex !== null) {
+        try {
+          if (typeof window !== "undefined") {
+            const rawQueue = window.sessionStorage.getItem("tgn_ai_drafts_queue");
+            if (rawQueue) {
+              const q = JSON.parse(rawQueue);
+              if (Array.isArray(q) && activeDraftQueueIndex >= 0 && activeDraftQueueIndex < q.length) {
+                q.splice(activeDraftQueueIndex, 1);
+                if (q.length > 0) {
+                  window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(q));
+                } else {
+                  window.sessionStorage.removeItem("tgn_ai_drafts_queue");
+                }
+              }
+            }
+          }
+        } catch {}
+        setActiveDraftQueueIndex(null);
+      }
       await refresh();
       setPublicationTab("publicaciones");
       setPublicationSearch("");
@@ -3595,11 +3678,17 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const handleApproveAiDraftDirectly = async (draft: ScrapedPublicationDraft): Promise<boolean> => {
     try {
+      const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
+      // Traducir automáticamente a multilenguaje (EN, PT, IT) si faltaban traducciones en el borrador
+      const targetDraft = isPublicationMissingTranslations(draft as any)
+        ? await ensurePublicationTranslations(draft as any, { apiKey: customKey })
+        : draft;
+
       const matchedFilterOptionIds: string[] = [];
-      const draftActivities = draft.providerActivities || [];
-      const draftTypes = draft.providerTypes || [];
-      const draftModalities = draft.providerModalities || [];
-      const draftPrestaciones = (draft as any).prestaciones || [];
+      const draftActivities = targetDraft.providerActivities || [];
+      const draftTypes = targetDraft.providerTypes || [];
+      const draftModalities = targetDraft.providerModalities || [];
+      const draftPrestaciones = (targetDraft as any).prestaciones || [];
 
       filterGroups.forEach((group) => {
         (group.options || []).forEach((opt: any) => {
@@ -3615,41 +3704,41 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       });
 
       const payload = {
-        title: draft.title,
-        titleI18n: draft.titleI18n,
-        description: draft.description,
-        descriptionI18n: draft.descriptionI18n,
-        publisherName: draft.publisherName || null,
+        title: targetDraft.title,
+        titleI18n: targetDraft.titleI18n,
+        description: targetDraft.description,
+        descriptionI18n: targetDraft.descriptionI18n,
+        publisherName: targetDraft.publisherName || null,
         status: "active",
         featured: false,
-        category: draft.category || null,
-        subcategory: draft.subcategory || null,
+        category: targetDraft.category || null,
+        subcategory: targetDraft.subcategory || null,
         primaryGroupKey: "category",
-        country: draft.country || null,
-        city: draft.city || null,
-        currency: draft.currency || "USD",
-        price: draft.price || null,
-        pricePeriod: draft.pricePeriod || null,
-        languages: draft.languages ? draft.languages.split(",").map((s) => s.trim()).filter(Boolean) : null,
-        images: draft.images && draft.images.length ? draft.images : null,
-        website: draft.website || null,
+        country: targetDraft.country || null,
+        city: targetDraft.city || null,
+        currency: targetDraft.currency || "USD",
+        price: targetDraft.price || null,
+        pricePeriod: targetDraft.pricePeriod || null,
+        languages: targetDraft.languages ? targetDraft.languages.split(",").map((s) => s.trim()).filter(Boolean) : null,
+        images: targetDraft.images && targetDraft.images.length ? targetDraft.images : null,
+        website: targetDraft.website || null,
         filterOptionIds: matchedFilterOptionIds,
         fields: {
-          locationAddress: draft.locationAddress || null,
-          headquarterLocations: draft.headquarterLocations || [],
-          providerInfoI18n: draft.providerInfoI18n || null,
-          providerRating: draft.providerRating || null,
-          providerReviewCount: draft.providerReviewCount || null,
-          providerCommentsUrl: draft.providerCommentsUrl || null,
-          providerStartYear: draft.providerStartYear || null,
-          extraDescriptions: draft.extraDescriptions || [],
-          socialLinksDetailed: draft.socialLinksDetailed || [],
-          providerLogo: draft.providerLogo || null,
-          categorySelections: draft.categorySelections || (draft.category ? [draft.category] : []),
-          subcategorySelections: draft.subcategorySelections || (draft.subcategory ? [draft.subcategory] : []),
-          providerActivities: draft.providerActivities || [],
-          providerTypes: draft.providerTypes || [],
-          providerModalities: draft.providerModalities || [],
+          locationAddress: targetDraft.locationAddress || null,
+          headquarterLocations: targetDraft.headquarterLocations || [],
+          providerInfoI18n: targetDraft.providerInfoI18n || null,
+          providerRating: targetDraft.providerRating || null,
+          providerReviewCount: targetDraft.providerReviewCount || null,
+          providerCommentsUrl: targetDraft.providerCommentsUrl || null,
+          providerStartYear: targetDraft.providerStartYear || null,
+          extraDescriptions: targetDraft.extraDescriptions || [],
+          socialLinksDetailed: targetDraft.socialLinksDetailed || [],
+          providerLogo: targetDraft.providerLogo || null,
+          categorySelections: targetDraft.categorySelections || (targetDraft.category ? [targetDraft.category] : []),
+          subcategorySelections: targetDraft.subcategorySelections || (targetDraft.subcategory ? [targetDraft.subcategory] : []),
+          providerActivities: targetDraft.providerActivities || [],
+          providerTypes: targetDraft.providerTypes || [],
+          providerModalities: targetDraft.providerModalities || [],
         },
       };
 
@@ -3840,138 +3929,28 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const handleTranslateAllFields = async () => {
     if (translatingAll) return;
-    const sourceLang = pLang || "es";
-    const targetLangs = ["es", "en", "pt", "it"].filter((l) => l !== sourceLang);
-    const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
-
     setTranslatingAll(true);
     try {
-      const titleText = (pTitleI18n[sourceLang] || (sourceLang === "es" ? pTitle : "") || pTitleI18n.es || "").trim();
-      const descText = (pDescriptionI18n[sourceLang] || (sourceLang === "es" ? pDescription : "") || pDescriptionI18n.es || "").trim();
-      const providerText = (pProviderInfoI18n[sourceLang] || pProviderInfoI18n.es || "").trim();
+      const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
+      const translated = await ensurePublicationTranslations(
+        {
+          title: pTitle,
+          titleI18n: pTitleI18n,
+          description: pDescription,
+          descriptionI18n: pDescriptionI18n,
+          providerInfoI18n: pProviderInfoI18n,
+          extraDescriptions: pExtraDescriptions,
+          socialLinksDetailed: pSocialLinksDetailed,
+        },
+        { apiKey: customKey, force: true }
+      );
 
-      const promises: Promise<any>[] = [];
+      if (translated.titleI18n) setPTitleI18n(translated.titleI18n);
+      if (translated.descriptionI18n) setPDescriptionI18n(translated.descriptionI18n);
+      if (translated.providerInfoI18n) setPProviderInfoI18n(translated.providerInfoI18n);
+      if (translated.extraDescriptions) setPExtraDescriptions(translated.extraDescriptions as any);
+      if (translated.socialLinksDetailed) setPSocialLinksDetailed(translated.socialLinksDetailed as any);
 
-      if (titleText) {
-        promises.push(
-          fetch("/api/admin/translate-i18n", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: titleText, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
-          })
-            .then((r) => r.json())
-            .then((data) => {
-              if (data?.translations) {
-                setPTitleI18n((prev) => ({ ...prev, [sourceLang]: titleText, ...data.translations }));
-              }
-            })
-            .catch(console.error)
-        );
-      }
-
-      if (descText) {
-        promises.push(
-          fetch("/api/admin/translate-i18n", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: descText, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
-          })
-            .then((r) => r.json())
-            .then((data) => {
-              if (data?.translations) {
-                setPDescriptionI18n((prev) => ({ ...prev, [sourceLang]: descText, ...data.translations }));
-              }
-            })
-            .catch(console.error)
-        );
-      }
-
-      if (providerText) {
-        promises.push(
-          fetch("/api/admin/translate-i18n", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: providerText, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
-          })
-            .then((r) => r.json())
-            .then((data) => {
-              if (data?.translations) {
-                setPProviderInfoI18n((prev) => ({ ...prev, [sourceLang]: providerText, ...data.translations }));
-              }
-            })
-            .catch(console.error)
-        );
-      }
-
-      pExtraDescriptions.forEach((d, idx) => {
-        const bTitle = (d.titleI18n?.[sourceLang] || d.titleI18n?.es || d.title || "").trim();
-        const bBody = (d.bodyI18n?.[sourceLang] || d.bodyI18n?.es || d.body || "").trim();
-        if (bTitle || bBody) {
-          promises.push(
-            Promise.all([
-              bTitle
-                ? fetch("/api/admin/translate-i18n", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: bTitle, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
-                  }).then((r) => r.json())
-                : Promise.resolve(null),
-              bBody
-                ? fetch("/api/admin/translate-i18n", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: bBody, targetLangs, sourceLang, isHtml: true, apiKey: customKey }),
-                  }).then((r) => r.json())
-                : Promise.resolve(null),
-            ])
-              .then(([tData, bData]) => {
-                setPExtraDescriptions((prev) =>
-                  prev.map((item, i) => {
-                    if (i !== idx) return item;
-                    const nextT = { ...(item.titleI18n || {}), [sourceLang]: bTitle };
-                    if (tData?.translations) {
-                      Object.assign(nextT, tData.translations);
-                    }
-                    const nextB = { ...(item.bodyI18n || {}), [sourceLang]: bBody };
-                    if (bData?.translations) {
-                      Object.assign(nextB, bData.translations);
-                    }
-                    return { ...item, titleI18n: nextT, bodyI18n: nextB };
-                  })
-                );
-              })
-              .catch(console.error)
-          );
-        }
-      });
-
-      pSocialLinksDetailed.forEach((sLink, sIdx) => {
-        const linkLabel = (sLink.labelI18n?.[sourceLang] || sLink.label || "").trim();
-        if (linkLabel) {
-          promises.push(
-            fetch("/api/admin/translate-i18n", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: linkLabel, targetLangs, sourceLang, isHtml: false, apiKey: customKey }),
-            })
-              .then((r) => r.json())
-              .then((data) => {
-                if (data?.translations) {
-                  setPSocialLinksDetailed((prev) =>
-                    prev.map((item, i) => {
-                      if (i !== sIdx) return item;
-                      const nextL = { ...(item.labelI18n || {}), [sourceLang]: linkLabel, ...data.translations };
-                      return { ...item, labelI18n: nextL };
-                    })
-                  );
-                }
-              })
-              .catch(console.error)
-          );
-        }
-      });
-
-      await Promise.all(promises);
       setSaveMessage("🌐 ¡Toda la publicación fue traducida a EN, PT e IT con éxito!");
     } catch (err) {
       console.error("Error translating all fields:", err);
@@ -11079,7 +11058,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               disabled={savingPublication}
             >
               {savingPublication
-                ? "Guardando..."
+                ? (translatingAll ? "Traduciendo y publicando..." : "Guardando...")
                 : editingId
                   ? "Guardar cambios"
                   : activeDraftQueueIndex !== null

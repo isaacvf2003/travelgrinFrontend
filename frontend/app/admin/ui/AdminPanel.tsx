@@ -10,6 +10,7 @@ import CountryMultiSelect from "@/components/CountryMultiSelect";
 import RichTextEditor from "@/components/RichTextEditor";
 import AiScraperModal, { type ScrapedPublicationDraft } from "@/components/admin/AiScraperModal";
 import BulkBlockUpdateModal from "@/components/admin/BulkBlockUpdateModal";
+import { ensurePublicationTranslations, isPublicationMissingTranslations } from "@/app/lib/publicationTranslationHelper";
 import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
@@ -2661,14 +2662,78 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
     setSaveMessage("");
     setSavingPublication(true);
+
+    // Si el usuario olvidó traducir previamente a multilenguaje (EN, PT, IT), traducir automáticamente antes de publicar
+    let effectiveTitleI18n = titleI18n;
+    let effectiveDescI18n = {
+      ...pDescriptionI18n,
+      es: description,
+    };
+    let effectiveProviderInfoI18n = pProviderInfoI18n;
+    let effectiveExtraDescriptions = pExtraDescriptions;
+    let effectiveSocialLinksDetailed = pSocialLinksDetailed;
+
+    if (
+      isPublicationMissingTranslations({
+        title,
+        titleI18n: effectiveTitleI18n,
+        description,
+        descriptionI18n: effectiveDescI18n,
+        providerInfoI18n: effectiveProviderInfoI18n,
+        extraDescriptions: effectiveExtraDescriptions,
+        socialLinksDetailed: effectiveSocialLinksDetailed,
+      })
+    ) {
+      setSaveMessage("🌐 Traduciendo automáticamente a multilenguaje (EN, PT, IT)...");
+      try {
+        const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
+        const translated = await ensurePublicationTranslations(
+          {
+            title,
+            titleI18n: effectiveTitleI18n,
+            description,
+            descriptionI18n: effectiveDescI18n,
+            providerInfoI18n: effectiveProviderInfoI18n,
+            extraDescriptions: effectiveExtraDescriptions,
+            socialLinksDetailed: effectiveSocialLinksDetailed,
+          },
+          { apiKey: customKey }
+        );
+
+        if (translated.titleI18n) {
+          effectiveTitleI18n = translated.titleI18n;
+          setPTitleI18n(translated.titleI18n);
+        }
+        if (translated.descriptionI18n) {
+          effectiveDescI18n = translated.descriptionI18n;
+          setPDescriptionI18n(translated.descriptionI18n);
+        }
+        if (translated.providerInfoI18n) {
+          effectiveProviderInfoI18n = translated.providerInfoI18n;
+          setPProviderInfoI18n(translated.providerInfoI18n);
+        }
+        if (translated.extraDescriptions) {
+          effectiveExtraDescriptions = translated.extraDescriptions as any;
+          setPExtraDescriptions(translated.extraDescriptions as any);
+        }
+        if (translated.socialLinksDetailed) {
+          effectiveSocialLinksDetailed = translated.socialLinksDetailed as any;
+          setPSocialLinksDetailed(translated.socialLinksDetailed as any);
+        }
+      } catch (transErr) {
+        console.warn("Auto-translation warning during save:", transErr);
+      }
+    }
+
     const languages = pLanguages
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    const socialLinksDetailed = pSocialLinksDetailed
+    const socialLinksDetailed = effectiveSocialLinksDetailed
       .map((entry) => ({
         kind: String(entry.kind ?? "").trim(),
         label: String(entry.label ?? "").trim(),
+        labelI18n: entry.labelI18n || (entry.label ? { es: String(entry.label).trim() } : undefined),
         url: (() => {
           const rawUrl = String(entry.url ?? "").trim();
           const kind = String(entry.kind ?? "").trim().toLowerCase();
@@ -2779,12 +2844,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     const payload = {
       title,
-      titleI18n,
+      titleI18n: effectiveTitleI18n,
       description,
-      descriptionI18n: {
-        ...pDescriptionI18n,
-        es: description,
-      },
+      descriptionI18n: effectiveDescI18n,
       publisherName: pPublisherName || null,
       status: pStatus,
       featured: pFeatured,
@@ -2819,7 +2881,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         partner: pPartner,
         providerEmail: pProviderEmail || null,
         locationAddress: pLocationAddress || null,
-        providerInfoI18n: Object.keys(pProviderInfoI18n).length ? pProviderInfoI18n : null,
+        providerInfoI18n: Object.keys(effectiveProviderInfoI18n).length ? effectiveProviderInfoI18n : null,
         providerRating: pProviderRating || null,
         providerReviewCount: pProviderReviewCount || null,
         providerCommentsUrl: pProviderCommentsUrl || null,
@@ -2882,15 +2944,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           : travelDestinations,
         headquarterLocations,
         tourismType: pTourismType,
-        extraDescriptions: pExtraDescriptions
+        extraDescriptions: effectiveExtraDescriptions
           .map((d) => {
-            const title = firstNonEmpty(d.titleI18n.es, d.titleI18n[pLang], d.title);
-            const body = firstNonEmpty(d.bodyI18n.es, d.bodyI18n[pLang], d.body);
+            const title = firstNonEmpty(d.titleI18n?.es, d.titleI18n?.[pLang], d.title);
+            const body = firstNonEmpty(d.bodyI18n?.es, d.bodyI18n?.[pLang], d.body);
             return {
               title,
               body,
-              titleI18n: { ...d.titleI18n, es: firstNonEmpty(d.titleI18n.es, title) },
-              bodyI18n: { ...d.bodyI18n, es: firstNonEmpty(d.bodyI18n.es, body) },
+              titleI18n: { ...d.titleI18n, es: firstNonEmpty(d.titleI18n?.es, title) },
+              bodyI18n: { ...d.bodyI18n, es: firstNonEmpty(d.bodyI18n?.es, body) },
               visibleInCard: booleanLike(d.visibleInCard),
             };
           })
@@ -3531,41 +3593,46 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
   const handleApproveAiDraftDirectly = async (draft: ScrapedPublicationDraft): Promise<boolean> => {
     try {
+      const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
+      const targetDraft = isPublicationMissingTranslations(draft as any)
+        ? await ensurePublicationTranslations(draft as any, { apiKey: customKey })
+        : draft;
+
       const payload = {
-        title: draft.title,
-        titleI18n: draft.titleI18n,
-        description: draft.description,
-        descriptionI18n: draft.descriptionI18n,
-        publisherName: draft.publisherName || null,
+        title: targetDraft.title,
+        titleI18n: targetDraft.titleI18n,
+        description: targetDraft.description,
+        descriptionI18n: targetDraft.descriptionI18n,
+        publisherName: targetDraft.publisherName || null,
         status: "active",
         featured: false,
-        category: draft.category || null,
-        subcategory: draft.subcategory || null,
+        category: targetDraft.category || null,
+        subcategory: targetDraft.subcategory || null,
         primaryGroupKey: "category",
-        country: draft.country || null,
-        city: draft.city || null,
-        currency: draft.currency || "USD",
-        price: draft.price || null,
-        pricePeriod: draft.pricePeriod || null,
-        languages: draft.languages ? draft.languages.split(",").map((s) => s.trim()).filter(Boolean) : null,
-        images: draft.images && draft.images.length ? draft.images : null,
-        website: draft.website || null,
+        country: targetDraft.country || null,
+        city: targetDraft.city || null,
+        currency: targetDraft.currency || "USD",
+        price: targetDraft.price || null,
+        pricePeriod: targetDraft.pricePeriod || null,
+        languages: targetDraft.languages ? targetDraft.languages.split(",").map((s) => s.trim()).filter(Boolean) : null,
+        images: targetDraft.images && targetDraft.images.length ? targetDraft.images : null,
+        website: targetDraft.website || null,
         fields: {
-          locationAddress: draft.locationAddress || null,
-          headquarterLocations: draft.headquarterLocations || [],
-          providerInfoI18n: draft.providerInfoI18n || null,
-          providerRating: draft.providerRating || null,
-          providerReviewCount: draft.providerReviewCount || null,
-          providerCommentsUrl: draft.providerCommentsUrl || null,
-          providerStartYear: draft.providerStartYear || null,
-          extraDescriptions: draft.extraDescriptions || [],
-          socialLinksDetailed: draft.socialLinksDetailed || [],
-          providerLogo: draft.providerLogo || null,
-          categorySelections: draft.categorySelections || (draft.category ? [draft.category] : []),
-          subcategorySelections: draft.subcategorySelections || (draft.subcategory ? [draft.subcategory] : []),
-          providerActivities: draft.providerActivities || [],
-          providerTypes: draft.providerTypes || [],
-          providerModalities: draft.providerModalities || [],
+          locationAddress: targetDraft.locationAddress || null,
+          headquarterLocations: targetDraft.headquarterLocations || [],
+          providerInfoI18n: targetDraft.providerInfoI18n || null,
+          providerRating: targetDraft.providerRating || null,
+          providerReviewCount: targetDraft.providerReviewCount || null,
+          providerCommentsUrl: targetDraft.providerCommentsUrl || null,
+          providerStartYear: targetDraft.providerStartYear || null,
+          extraDescriptions: targetDraft.extraDescriptions || [],
+          socialLinksDetailed: targetDraft.socialLinksDetailed || [],
+          providerLogo: targetDraft.providerLogo || null,
+          categorySelections: targetDraft.categorySelections || (targetDraft.category ? [targetDraft.category] : []),
+          subcategorySelections: targetDraft.subcategorySelections || (targetDraft.subcategory ? [targetDraft.subcategory] : []),
+          providerActivities: targetDraft.providerActivities || [],
+          providerTypes: targetDraft.providerTypes || [],
+          providerModalities: targetDraft.providerModalities || [],
         },
       };
 
