@@ -2,13 +2,14 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, Trash2, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileSpreadsheet, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, Trash2, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
 import CountryMultiSelect from "@/components/CountryMultiSelect";
 import RichTextEditor from "@/components/RichTextEditor";
 import AiScraperModal, { type ScrapedPublicationDraft } from "@/components/admin/AiScraperModal";
+import BulkBlockUpdateModal from "@/components/admin/BulkBlockUpdateModal";
 import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
@@ -1407,6 +1408,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [passportCountrySearch, setPassportCountrySearch] = useState("");
   const [showPublicationEditor, setShowPublicationEditor] = useState(isNewPublicationPage);
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [bulkDocModalOpen, setBulkDocModalOpen] = useState(false);
+  const [bulkDocInitialBlock, setBulkDocInitialBlock] = useState("");
+  const [bulkDocInitialPubId, setBulkDocInitialPubId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const root = adminRootRef.current;
@@ -3022,7 +3026,48 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
       return res;
     };
-    const titleEs = cleanTitleStr(draft.title || "");
+    let titleEs = cleanTitleStr(draft.title || "");
+    if (!titleEs || /^(?:sin[-_\s]*datos|no[-_\s]*disponible|n\/?a|untitled|sin[-_\s]*t[ií]tulo|title|titulo)$/i.test(titleEs)) {
+      titleEs = "";
+    }
+
+    let pubName = cleanTitleStr(draft.publisherName || draft.title || "");
+    const GENERIC_PUB_REGEX = /^(?:home(?:\s*page)?|homepage|inicio|portada|bienvenidos?|principal|sitio\s*oficial|p[aá]gina\s*(?:principal|oficial|de\s*inicio)?|web\s*oficial|portal(?:\s*oficial)?|login|acceso|contacto|novedades|art[ií]culo|untitled|sin\s*datos|no\s*disponible|n\/?a|oferente|establecimiento|empresa|instituci[oó]n)$/i;
+    if (GENERIC_PUB_REGEX.test(pubName.trim())) {
+      if (draft.url) {
+        try {
+          const hostParts = new URL(draft.url).hostname.replace(/^www\./, "").split(".").filter((p) => !/^(?:com|org|net|edu|gob|gov|ar|cl|uy|br|io|co|es|mx|lat|app|dev)$/i.test(p));
+          if (hostParts.length > 0) {
+            pubName = hostParts
+              .map((part) => (part.length <= 4 && /^[a-z]+$/i.test(part) ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()))
+              .join(" ");
+          } else {
+            pubName = "";
+          }
+        } catch {
+          pubName = "";
+        }
+      } else {
+        pubName = "";
+      }
+    }
+    setPPublisherName(pubName);
+
+    if (!titleEs) {
+      if (pubName) {
+        titleEs = `Propuestas y servicios de ${pubName}`;
+      } else if (draft.url) {
+        try {
+          const host = new URL(draft.url).hostname.replace(/^www\./, "");
+          titleEs = `Publicación de ${host}`;
+        } catch {
+          titleEs = "Propuestas y servicios";
+        }
+      } else {
+        titleEs = "Propuestas y servicios";
+      }
+    }
+
     const titleI18nInit = {
       es: titleEs,
       en: cleanTitleStr(draft.titleI18n?.en || titleEs),
@@ -3032,9 +3077,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPTitle(titleEs);
     setPTitleI18n(titleI18nInit);
 
-    const pubName = cleanTitleStr(draft.publisherName || draft.title || "");
-    setPPublisherName(pubName);
-
     const descEs = draft.description || "";
     const descI18nInit = draft.descriptionI18n || { es: descEs };
     setPDescription(descEs);
@@ -3042,7 +3084,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     const extraDescInit: ExtraDescription[] = (draft.extraDescriptions || []).map((d: any) => {
       const titleEs = d.titleI18n?.es || d.title || "";
-      const bodyEs = d.bodyI18n?.es || d.body || "";
+      let bodyEs = String(d.bodyI18n?.es || d.body || "").trim();
+      if (!bodyEs || /^(?:<p>)?\s*sin[-_\s]*datos\s*(?:<\/p>)?$/i.test(bodyEs) || bodyEs === "SIN_DATOS") {
+        const realParas = (draft as any).scrapedParagraphs;
+        if (Array.isArray(realParas) && realParas.length > 0) {
+          bodyEs = `<p>${realParas[0].trim()}</p>`;
+        } else {
+          bodyEs = "";
+        }
+      }
       return {
         title: titleEs,
         body: bodyEs,
@@ -3122,16 +3172,29 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         })
         .catch((err) => console.error("[applyAiDraftToForm Auto-Translate Title Error]:", err));
     }
-    let startYear = draft.providerStartYear || "";
-    if ((!startYear || startYear === "2010" || startYear === "2015") && /garrahan/i.test(`${draft.url || ""} ${draft.title || ""}`)) {
+    let startYear = draft.providerStartYear ? String(draft.providerStartYear).trim() : "0";
+    if (!startYear) startYear = "0";
+    if ((startYear === "0" || startYear === "2010" || startYear === "2015") && /garrahan/i.test(`${draft.url || ""} ${draft.title || ""}`)) {
       startYear = "1987";
     }
     setPProviderStartYear(startYear);
     setPProviderRating(draft.providerRating || "0");
     setPProviderReviewCount(draft.providerReviewCount ?? "0");
     setPProviderCommentsUrl(draft.providerCommentsUrl || "");
-    const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
-    const cleanLogo = draft.providerLogo && !BAD_GFX.test(draft.providerLogo) ? draft.providerLogo : "";
+
+    const BAD_GFX = /(?:^|\/|[._-])(?:icons?|iconos?|ico|glyphs?|pictos?|pictograms?|pictogramas?|simbolos?|symbols?|vectores?|vectors?|cliparts?|illustrations?|ilustracions?|ilustraciones|drawings?|dibujos?|emojis?|stickers?|stamps?|badge|badges|button|buttons|boton|botones|btn|avatar|avatars|bullet|bullets|star|stars|rating|estrella|estrellas|check|tick|arrow|arrows|flecha|flechas|chevron|spinner|loader|loading|receipt|placeholder|megaphone|megafono|pixel|spacer|1x1|transparent|fav-?icon|flaticon|fontawesome|dashicons|material-icons|ionicons|app-store|google-play|visa|mastercard|amex|paypal|mercadopago|afip|data-fiscal|qr|qr-code|facebook|instagram|twitter|tiktok|youtube|whatsapp|linkedin|social|redes-sociales|telemedicina|turnos|residencias|citas|chat|contacto|mail|correo|envelope|telefono|phone|call|ubicacion|location|marker|pin|map-pin|map_pin|mapa-?small|static-?map|map-?thumbnail|calendar|calendario|clock|reloj|user|usuario|paciente|patient|doctor-icon|med-icon|medical-icon|hospital-icon|school-icon|edu-icon|iosfa|iosfared|pami|ioma|osde|swissmedical|galeno|medife|omint|logo|logos|brand|brands|isologo|isologos|isotipo|isotipos|escudo|escudos|shield|shields|emblem|emblema|emblemas|sello|sellos)(?:[/._-]|\.[a-z0-9]{3,4}(?:\?|$))|\.svg(?:\?|$|\b)|\.ico(?:\?|$|\b)/i;
+    // For oferente logo, allow valid logos (including .svg, .ico, logo filename, favicons); only reject 1x1 pixels or spinners
+    const BAD_LOGO = /(?:^|\/|[._-])(?:pixel|spacer|1x1|transparent|spinner|loader|receipt|placeholder)(?:[/._-]|\.[a-z0-9]{3,4}(?:\?|$))/i;
+    let cleanLogo = draft.providerLogo && !BAD_LOGO.test(draft.providerLogo) ? draft.providerLogo.trim() : "";
+    if (!cleanLogo) {
+      try {
+        const siteUrl = draft.website || draft.url || "";
+        if (siteUrl) {
+          const host = new URL(siteUrl).hostname.replace(/^www\./, "");
+          if (host) cleanLogo = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+        }
+      } catch {}
+    }
     setPProviderLogo(cleanLogo);
     if (Array.isArray(draft.images)) {
       const cleanImages = draft.images.filter((img) => img && !BAD_GFX.test(img));
@@ -3271,7 +3334,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
 
       // 4. Token match
-      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3);
+      const tokens = inputNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|general|generales|explorando|explorar|paso|pasos|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas)$/i.test(t));
       const tokenRoot = allRootsWithNorm.find((r) => tokens.some((tok) => r.norm.includes(tok)));
       if (tokenRoot) {
         resolvedCategoryRoots.add(tokenRoot.original);
@@ -3298,44 +3361,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    // 1. Resolve Category Roots and Subcategories
-    if (resolvedCategoryRoots.size === 0) {
-      const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
-      if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
-        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
-        if (eduRoot) resolvedCategoryRoots.add(eduRoot.original);
-      } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|policl[ií]nico|maternidad/i.test(titleContext)) {
-        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
-        if (healthRoot) resolvedCategoryRoots.add(healthRoot.original);
-      } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
-        const autoRoot = allRootsWithNorm.find((r) => /auto|veh[ií]cul|transporte|comercio/i.test(r.norm));
-        if (autoRoot) resolvedCategoryRoots.add(autoRoot.original);
-      } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
-        const miningRoot = allRootsWithNorm.find((r) => /industria|miner|energ|construcci/i.test(r.norm));
-        if (miningRoot) resolvedCategoryRoots.add(miningRoot.original);
-      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
-        const entRoot = allRootsWithNorm.find((r) => /entretenimiento|cultura|arte|espect[aá]culo/i.test(r.norm));
-        if (entRoot) resolvedCategoryRoots.add(entRoot.original);
-      } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
-        const sportsRoot = allRootsWithNorm.find((r) => /deporte|fitness|gimnasio/i.test(r.norm));
-        if (sportsRoot) resolvedCategoryRoots.add(sportsRoot.original);
-      } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
-        const gastroRoot = allRootsWithNorm.find((r) => /gastronom|restaurante/i.test(r.norm));
-        if (gastroRoot) resolvedCategoryRoots.add(gastroRoot.original);
-      } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
-        const techRoot = allRootsWithNorm.find((r) => /tecnolog|software|digital/i.test(r.norm));
-        if (techRoot) resolvedCategoryRoots.add(techRoot.original);
-      } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
-        const realRoot = allRootsWithNorm.find((r) => /inmobiliari|propiedad|bienes/i.test(r.norm));
-        if (realRoot) resolvedCategoryRoots.add(realRoot.original);
-      } else if (/hotel|hostel|alojamiento|posada|cabaña|resort|hospedaje/i.test(titleContext)) {
-        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
-        if (hotelRoot) resolvedCategoryRoots.add(hotelRoot.original);
-      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra/i.test(titleContext)) {
-        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
-        if (legalRoot) resolvedCategoryRoots.add(legalRoot.original);
-      }
-    }
+
 
     // If subcategories were not resolved yet, automatically pick matching children from resolved roots
     if (resolvedSubcategories.size === 0 && resolvedCategoryRoots.size > 0) {
@@ -3347,13 +3373,25 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           const childNorm = child.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
           if (rawInputSubcategories.some((s) => s.toLowerCase().includes(childNorm) || childNorm.includes(s.toLowerCase()))) {
             resolvedSubcategories.add(child.description);
-          } else if (/educaci|estudio/i.test(rootName) && /universidad/i.test(childNorm)) {
-            resolvedSubcategories.add(child.description);
-          } else if (/salud|m[eé]dic/i.test(rootName) && /especialidad|m[eé]dic/i.test(childNorm)) {
-            resolvedSubcategories.add(child.description);
-          } else if (/alojamiento/i.test(rootName) && /hotel|hostel/i.test(childNorm)) {
-            resolvedSubcategories.add(child.description);
           }
+        }
+      }
+    }
+
+
+    const isSportsGym = /gimnasio|gym|fitness|crossfit|calistenia|musculaci[oó]n|complejo\s+deportivo|polideportivo|club\s+deportivo|natatorio|pileta\s+climatizada|artes\s+marciales|boxeo|padel|paddle|tenis|futbol|deporte|deportes/i.test(
+      `${draft.title} ${draft.publisherName || ""} ${draft.url || ""} ${draft.description || ""}`.toLowerCase()
+    );
+
+    if (isSportsGym) {
+      for (const cat of Array.from(resolvedCategoryRoots)) {
+        if (/explorando\s*opciones|migra|visas?|residencia|ciudadan/i.test(cat)) {
+          resolvedCategoryRoots.delete(cat);
+        }
+      }
+      for (const sub of Array.from(resolvedSubcategories)) {
+        if (/explorando\s*opciones|migra|visas?|residencia|ciudadan/i.test(sub)) {
+          resolvedSubcategories.delete(sub);
         }
       }
     }
@@ -3361,10 +3399,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const finalCatSel = Array.from(resolvedCategoryRoots);
     const finalSubcatSel = Array.from(resolvedSubcategories);
 
-    setPCategorySelections(finalCatSel.length ? finalCatSel : (draft.categorySelections || []));
+    setPCategorySelections(finalCatSel);
     setPCategory(finalCatSel[0] || draft.category || "");
 
-    setPSubcategorySelections(finalSubcatSel.length ? finalSubcatSel : (draft.subcategorySelections || []));
+    setPSubcategorySelections(finalSubcatSel);
     setPSubcategory(finalSubcatSel[0] || draft.subcategory || "");
 
     // 2. Resolve Provider Activities directly against DB actividadRoots
@@ -3375,56 +3413,46 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     for (const rawAct of rawActivities) {
       const actNorm = rawAct.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const escapedAct = actNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const match = actividadRoots.find((r) => {
         const rNorm = r.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        return rNorm === actNorm || rNorm.includes(actNorm) || actNorm.includes(rNorm);
+        const escapedR = rNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return (
+          rNorm === actNorm ||
+          new RegExp(`\\b${escapedAct}\\b`, "i").test(rNorm) ||
+          new RegExp(`\\b${escapedR}\\b`, "i").test(actNorm)
+        );
       });
       if (match) {
         resolvedActivities.add(match.description);
-      } else if (rawAct.trim()) {
-        resolvedActivities.add(rawAct.trim());
       }
     }
 
-    // Only fallback if draft provided NO activities at all
-    if (resolvedActivities.size === 0) {
-      const titleContext = `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase();
-      if (/universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(titleContext)) {
-        const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(eduAct ? eduAct.description : "Educación y formación");
-      } else if (/hospital|sanatorio|cl[ií]nica|centro m[eé]dico|pediatr[ií]a|m[eé]dic/i.test(titleContext)) {
-        const healthAct = actividadRoots.find((r) => /salud|asistencia/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(healthAct ? healthAct.description : "Salud y asistencia social");
-      } else if (/auto|concesionari|taller|repuesto|motos|rent a car/i.test(titleContext)) {
-        const autoAct = actividadRoots.find((r) => /automotriz|reparaci|mantenimiento|transporte|comercio/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(autoAct ? autoAct.description : "Comercio y automotriz");
-      } else if (/miner|petrol|gas|energ|litio|siderurgia|construcci/i.test(titleContext)) {
-        const miningAct = actividadRoots.find((r) => /miner|industria|construcci|energ/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(miningAct ? miningAct.description : "Industria, minería y construcción");
-      } else if (/teatro|cine|espect[aá]culo|show|recital|evento|diversi/i.test(titleContext)) {
-        const entAct = actividadRoots.find((r) => /arte|cultura|entretenimiento|recreaci/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(entAct ? entAct.description : "Arte, cultura y entretenimiento");
-      } else if (/gimnasio|gym|fitness|crossfit|cancha|deporte|club/i.test(titleContext)) {
-        const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(sportsAct ? sportsAct.description : "Deportes, fitness y bienestar");
-      } else if (/restaurante|bar|caf|bodega|parrilla|pizz/i.test(titleContext)) {
-        const gastroAct = actividadRoots.find((r) => /gastronom|restauraci|hosteler/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(gastroAct ? gastroAct.description : "Gastronomía y restauración");
-      } else if (/software|app|digital|marketing|it|sistemas|dev/i.test(titleContext)) {
-        const techAct = actividadRoots.find((r) => /tecnolog|software|informaci/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(techAct ? techAct.description : "Tecnología, software e información");
-      } else if (/inmobiliari|propiedad|alquiler|bienes ra[ií]ces|coworking/i.test(titleContext)) {
-        const realAct = actividadRoots.find((r) => /inmobiliari|bienes ra[ií]ces/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(realAct ? realAct.description : "Servicios inmobiliarios y bienes raíces");
-      } else if (/hotel|hostel|alojamiento|turismo|posada|resort/i.test(titleContext)) {
-        const tourAct = actividadRoots.find((r) => /hosteler|turismo|alojamiento/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(tourAct ? tourAct.description : "Hostelería, alojamiento y turismo");
-      } else if (/abogad|estudio jur[ií]dico|notar|escriban|visas|migra/i.test(titleContext)) {
-        const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
-      } else {
-        const profAct = actividadRoots.find((r) => /profesionales|t[eé]cnicos/i.test(r.description.toLowerCase()));
-        resolvedActivities.add(profAct ? profAct.description : "Servicios profesionales y técnicos");
+    const isEduDraft =
+      !/\b(deportv|televisi[oó]n|streaming|canal de tv|deportes?|f[uú]tbol|automovilismo|tc|turismo carretera|noticias|radio)\b/i.test(`${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase()) &&
+      /universidad|facultad|instituto universitario|colegio|escuela|academia/i.test(
+        `${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase()
+      );
+
+    if (isEduDraft) {
+      for (const act of Array.from(resolvedActivities)) {
+        if (/salud|asistencia\s*social|medic|hosteler|turism|alojam|profesional|tecnic|agricult|ganader|pesca|comercio/i.test(act)) {
+          resolvedActivities.delete(act);
+        }
+      }
+      const eduAct = actividadRoots.find((r) => /educaci|formaci/i.test(r.description.toLowerCase()));
+      if (eduAct) resolvedActivities.add(eduAct.description);
+    }
+
+    if (isSportsGym) {
+      for (const act of Array.from(resolvedActivities)) {
+        if (/hosteler|turism|alojam|agricult|ganader|pesca|miner|construcci|inmobiliari|salud\s+y|asistencia\s+social|manufactura/i.test(act)) {
+          resolvedActivities.delete(act);
+        }
+      }
+      const sportsAct = actividadRoots.find((r) => /deporte|fitness|bienestar|gimnasio|actividad\s+f[ií]sica/i.test(r.description.toLowerCase()));
+      if (sportsAct) {
+        resolvedActivities.add(sportsAct.description);
       }
     }
 
@@ -3446,34 +3474,51 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       });
       if (match) {
         resolvedTypes.add(match.description);
-      } else if (rawType.trim()) {
-        resolvedTypes.add(rawType.trim());
       }
     }
 
     const isPublicGov =
       /\b(\.gov|\.gob|\.mil)\b/i.test(draft.url || "") ||
-      /\b(organismo p[uú]blico|hospital p[uú]blico|hospital nacional|samic|ministerio|secretar[ií]a|municipalidad|gobierno|universidad nacional|nacional de)\b/i.test(`${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase());
+      /\b(organismo p[uú]blico|hospital p[uú]blico|hospital nacional|samic|ministerio|secretar[ií]a|municipalidad|municipal|comunal|gobierno|universidad nacional|nacional de|ciudad de)\b/i.test(`${draft.title} ${draft.publisherName || ""} ${draft.url || ""}`.toLowerCase());
 
     if (isPublicGov) {
-      resolvedTypes.delete("Institución privada");
-      resolvedTypes.delete("Agencia");
-      resolvedTypes.delete("Profesional independiente");
-      const pubType = tipoRoots.find((r) => /p[uú]blico|estatal/i.test(r.description.toLowerCase()));
+      for (const t of Array.from(resolvedTypes)) {
+        if (/privad|agencia|empresa|profesional independiente/i.test(t)) {
+          resolvedTypes.delete(t);
+        }
+      }
+      const pubType = tipoRoots.find((r) => /p[uú]blico|estatal|gobiern|municipal/i.test(r.description.toLowerCase()));
       if (pubType) resolvedTypes.add(pubType.description);
-      else resolvedTypes.add("Organismo público");
     }
 
-    if (resolvedTypes.size === 0) {
-      resolvedTypes.add(isPublicGov ? "Organismo público" : "Institución privada");
+    if (resolvedTypes.size === 0 && tipoRoots.length > 0) {
+      const defaultMatch = isPublicGov
+        ? (tipoRoots.find((r) => /p[uú]blico|estatal|gobiern|municipal/i.test(r.description.toLowerCase())) || tipoRoots[0])
+        : (tipoRoots.find((r) => /privad|empresa/i.test(r.description.toLowerCase())) || tipoRoots[0]);
+      if (defaultMatch) resolvedTypes.add(defaultMatch.description);
     }
 
     const typeSel = Array.from(resolvedTypes);
     setPProviderTypes(typeSel);
     setPProviderType(typeSel[0] || "");
 
-    const modSel = draft.providerModalities?.length ? draft.providerModalities : [];
-    setPProviderModalities(modSel);
+    const modSel = draft.providerModalities?.length ? [...draft.providerModalities] : [];
+    if (isSportsGym) {
+      const onlineClasses = /clases?\s+online|clases?\s+virtuales|entrenamiento\s+a\s+distancia|app\s+de\s+entrenamiento/i.test(
+        `${draft.title} ${draft.description || ""}`.toLowerCase()
+      );
+      let filteredMods = modSel.filter((m: string) => !/gesti[oó]n|tr[aá]mite/i.test(m));
+      if (!onlineClasses) {
+        filteredMods = filteredMods.filter((m: string) => !/online|virtual|remoto|distancia/i.test(m));
+      }
+      const presMod = modalidadRoots.find((r) => /presencial/i.test(r.description.toLowerCase()))?.description;
+      if (presMod && !filteredMods.includes(presMod)) {
+        filteredMods.unshift(presMod);
+      }
+      setPProviderModalities(filteredMods);
+    } else {
+      setPProviderModalities(modSel);
+    }
 
     if (draft.images && draft.images.length) {
       setPImageUrls(draft.images.join("\n"));
@@ -4129,7 +4174,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     () =>
       validRoots.filter((root) => {
         const resolvedTaxonomyType = resolveCategoryTaxonomyType(root);
-        return resolvedTaxonomyType === "categoria";
+        return (
+          resolvedTaxonomyType === "categoria" ||
+          resolvedTaxonomyType === "filtro" ||
+          !["actividad", "modalidad", "idiomas", "prestacion", "prestaciones", "tipo", "tipos"].includes(resolvedTaxonomyType || "")
+        );
       }),
     [validRoots, categories, filterGroups]
   );
@@ -4228,27 +4277,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       }
     }
 
-    if (mappedCategories.length === 0 && (pTitle || pProviderActivities.length || pProviderActivity || pDescription)) {
-      const sectorContext = `${pTitle} ${pPublisherName} ${pProviderActivities.join(" ")} ${pProviderActivity} ${pDescription}`.toLowerCase();
-      const isEdu = /universidad|facultad|carrera|colegio|instituto superior|educaci|posgrado|maestr[ií]a|diplomatura|pregrado|instituto de educaci/i.test(sectorContext);
-      const isLegal = /abogad|estudio jur[ií]dico|notar|escriban|abogac|defensor|derecho/i.test(sectorContext);
-      const isTourism = /hotel|hostel|hospedaje|alojamiento|posada|cabaña|resort/i.test(sectorContext);
-      const isHealth = !isEdu && /hospital|cl[ií]nica|sanatorio|m[eé]dic|odontol|psicol|obra social|salud/i.test(sectorContext);
 
-      if (isEdu) {
-        const eduRoot = allRootsWithNorm.find((r) => /educaci|estudio|formaci/i.test(r.norm));
-        if (eduRoot) mappedCategories.push(eduRoot.original);
-      } else if (isLegal) {
-        const legalRoot = allRootsWithNorm.find((r) => /gesti|visa|migra|legal|profesional/i.test(r.norm));
-        if (legalRoot) mappedCategories.push(legalRoot.original);
-      } else if (isTourism) {
-        const hotelRoot = allRootsWithNorm.find((r) => /alojamiento|hotel|turismo/i.test(r.norm));
-        if (hotelRoot) mappedCategories.push(hotelRoot.original);
-      } else if (isHealth) {
-        const healthRoot = allRootsWithNorm.find((r) => /salud|m[eé]dic|bienestar|asistencia/i.test(r.norm));
-        if (healthRoot) mappedCategories.push(healthRoot.original);
-      }
-    }
 
     const categoriesChanged = mappedCategories.length !== pCategorySelections.length || mappedCategories.some((v, i) => v !== pCategorySelections[i]);
     if (categoriesChanged) {
@@ -4569,7 +4598,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const pickerGroups = isPrestacionEditor ? linkedPublicationCategoryGroups : publicationCategoryGroups;
     const childIsSelectable = (child: Category) => {
       const taxonomyType = resolveCategoryTaxonomyType(child);
-      return isPrestacionEditor ? !["prestacion", "prestaciones"].includes(taxonomyType || "") : taxonomyType === "categoria";
+      return isPrestacionEditor
+        ? !["prestacion", "prestaciones"].includes(taxonomyType || "")
+        : taxonomyType === "categoria" ||
+            taxonomyType === "filtro" ||
+            !["actividad", "modalidad", "idiomas", "prestacion", "prestaciones", "tipo", "tipos"].includes(taxonomyType || "");
     };
 
     if (panel === "category") {
@@ -9026,6 +9059,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 >
                   + Agregar bloque
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBulkDocInitialBlock("");
+                    if (editingId) setBulkDocInitialPubId(editingId);
+                    setBulkDocModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition shadow-sm"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                  Actualizar con Excel / Doc
+                </button>
               </div>
 
               {pExtraDescriptions.length ? (
@@ -9035,6 +9080,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
                         <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBulkDocInitialBlock(desc.titleI18n?.es || desc.title || "");
+                              if (editingId) setBulkDocInitialPubId(editingId);
+                              setBulkDocModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 transition hover:bg-emerald-100"
+                          >
+                            <FileSpreadsheet className="h-3 w-3 text-emerald-600" />
+                            Actualizar con Excel / Doc
+                          </button>
                           <button
                             type="button"
                             disabled={translatingField === `extra-${idx}`}
@@ -10352,6 +10409,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
                 <input value={publicationSearch} onChange={(event) => setPublicationSearch(event.target.value)} placeholder="Buscar..." className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200 sm:w-64" />
                 <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0095AE]">Generar con IA / Web Scraper</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBulkDocInitialBlock("");
+                    setBulkDocInitialPubId(undefined);
+                    setBulkDocModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl border border-emerald-500 bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 shadow-sm transition"
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                  Actualizar Bloque con Excel/Doc
+                </button>
                 <button type="button" onClick={openNewPublicationEditor} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Nueva</button>
               </div>
             </div>
@@ -10571,6 +10640,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         onClose={() => setAiModalOpen(false)}
         onSelectDraftToEdit={applyAiDraftToForm}
         onApproveDirectly={handleApproveAiDraftDirectly}
+      />
+      <BulkBlockUpdateModal
+        isOpen={bulkDocModalOpen}
+        onClose={() => setBulkDocModalOpen(false)}
+        publications={publications}
+        onPublicationsUpdated={refresh}
+        initialSelectedBlock={bulkDocInitialBlock}
+        initialSelectedPublicationId={bulkDocInitialPubId}
       />
     </div>
   );

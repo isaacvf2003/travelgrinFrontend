@@ -1,0 +1,5 @@
+# Ignore duplicate or non-production folders
+panel de control/
+ApiCountries-main/
+*.log
+*.tmp

@@ -1,0 +1,11 @@
+# Ignore heavy and unused folders during Vercel build
+backend/
+scratch/
+test_scraper_sim.js
+scratch_check_sites.js
+travelgrin definitivo/
+frontend/panel de control/
+frontend/ApiCountries-main/
+*.log
+*.tmp
+.git
