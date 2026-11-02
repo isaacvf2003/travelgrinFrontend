@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, RotateCw, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Building2, ChevronDown, ChevronRight, FileSpreadsheet, FileText, ImageIcon, Languages, MapPinned, MessageSquareMore, Plus, RotateCw, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { pickI18nText, type I18nRecord } from "@/app/lib/i18nContent";
 import { optimizeImageAssetList, uploadImageAsset, uploadRemoteImageAssetToCloudinary, type ImageAsset } from "@/app/lib/cloudinaryUpload";
@@ -10,6 +10,7 @@ import CountryMultiSelect from "@/components/CountryMultiSelect";
 import RichTextEditor from "@/components/RichTextEditor";
 import AiScraperModal, { type ScrapedPublicationDraft } from "@/components/admin/AiScraperModal";
 import AiFieldRefineModal, { type RefineFieldType } from "@/components/AiFieldRefineModal";
+import BulkBlockUpdateModal from "@/components/admin/BulkBlockUpdateModal";
 import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
@@ -1408,6 +1409,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [passportCountrySearch, setPassportCountrySearch] = useState("");
   const [showPublicationEditor, setShowPublicationEditor] = useState(isNewPublicationPage);
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [bulkDocModalOpen, setBulkDocModalOpen] = useState(false);
+  const [bulkDocInitialBlock, setBulkDocInitialBlock] = useState("");
+  const [bulkDocInitialPubId, setBulkDocInitialPubId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const root = adminRootRef.current;
@@ -9825,6 +9829,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   >
                     + Agregar bloque
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkDocInitialBlock("");
+                      if (editingId) setBulkDocInitialPubId(editingId);
+                      setBulkDocModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition shadow-sm"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                    Actualizar con Excel / Doc
+                  </button>
                 </div>
               </div>
 
@@ -9835,6 +9851,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
                         <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBulkDocInitialBlock(desc.titleI18n?.es || desc.title || "");
+                              if (editingId) setBulkDocInitialPubId(editingId);
+                              setBulkDocModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 transition hover:bg-emerald-100"
+                          >
+                            <FileSpreadsheet className="h-3 w-3 text-emerald-600" />
+                            Actualizar con Excel / Doc
+                          </button>
                           {!isManualForm ? (
                             <button
                               type="button"
@@ -11144,6 +11172,18 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </select>
                 <input value={publicationSearch} onChange={(event) => setPublicationSearch(event.target.value)} placeholder="Buscar..." className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200 sm:w-64" />
                 <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0095AE]">Generar con IA / Web Scraper</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBulkDocInitialBlock("");
+                    setBulkDocInitialPubId(undefined);
+                    setBulkDocModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl border border-emerald-500 bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 shadow-sm transition"
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                  Actualizar Bloque con Excel/Doc
+                </button>
                 <button type="button" onClick={openNewPublicationEditor} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Nueva</button>
               </div>
             </div>
@@ -11405,6 +11445,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         onApproveDirectly={handleApproveAiDraftDirectly}
         categories={categories}
         filterGroups={filterGroups}
+      />
+      <BulkBlockUpdateModal
+        isOpen={bulkDocModalOpen}
+        onClose={() => setBulkDocModalOpen(false)}
+        publications={publications}
+        onPublicationsUpdated={refresh}
+        initialSelectedBlock={bulkDocInitialBlock}
+        initialSelectedPublicationId={bulkDocInitialPubId}
       />
     </div>
   );
