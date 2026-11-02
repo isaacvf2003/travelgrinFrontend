@@ -3455,6 +3455,8 @@ async function fetchPageContent(url: string) {
             }
           }
         } catch {}
+      }
+
       const isWafBlock = /incapsula incident id|request unsuccessful|_incapsula_resource|attention required!\s*\|\s*cloudflare|cf-browser-verification|checking your browser before accessing|just a moment\.\.\.|access denied/i.test(html);
       if (isWafBlock) {
         console.warn(`[AI Scraper] WAF challenge/block detected on direct fetch for ${url}, switching to reader proxy`);
