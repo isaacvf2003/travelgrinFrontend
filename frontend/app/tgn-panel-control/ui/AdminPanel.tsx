@@ -16,6 +16,7 @@ import { type AdminSection } from "./AdminControlLayout";
 
 const LANGS = ["es", "en", "pt", "it"] as const;
 const IMAGE_FILE_ACCEPT = "image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,image/gif,image/avif,image/bmp,image/tiff,image/heic,image/heif";
+const PUBLICATIONS_PER_PAGE = 15;
 
 async function fileToUploadAsset(file: File) {
   return uploadImageAsset(file, { folder: "admin", maxSizeMB: 0.65, maxWidthOrHeight: 1600 });
@@ -1355,6 +1356,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   const [publicationTab, setPublicationTab] = useState<"publicaciones" | "denuncias">("publicaciones");
   const [publicationSearch, setPublicationSearch] = useState("");
   const [publicationTypeFilter, setPublicationTypeFilter] = useState<"todas" | "publicacion" | "prestacion">("todas");
+  const [publicationFeatureFilter, setPublicationFeatureFilter] = useState<"todas" | "destacadas" | "partner">("todas");
+  const [publicationCurrentPage, setPublicationCurrentPage] = useState<number>(1);
+  const publicationsListContainerRef = useRef<HTMLDivElement | null>(null);
   const [feedbackSearch, setFeedbackSearch] = useState("");
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
   const [promoCodeDraft, setPromoCodeDraft] = useState("");
@@ -7857,20 +7861,40 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       const matchesType =
         publicationTypeFilter === "todas"
           || (publicationTypeFilter === "prestacion" ? item.primaryGroupKey === "prestacion" : item.primaryGroupKey !== "prestacion");
-      return matchesSearch && matchesType;
+
+      const isFeatured = item.featured === true || Boolean((item.fields as any)?.featured);
+      const isPartner = Boolean((item.fields as any)?.partner) || Boolean((item as any).partner);
+      const matchesFeature =
+        publicationFeatureFilter === "todas"
+          || (publicationFeatureFilter === "destacadas" && isFeatured)
+          || (publicationFeatureFilter === "partner" && isPartner);
+
+      return matchesSearch && matchesType && matchesFeature;
     })
     .sort((a, b) => {
-      const rank = (item: Publication) => {
-        if (reviewableEditRequestByPublicationId.has(item.id)) return 0;
-        const fields = (item.fields as any) ?? {};
-        if (fields.needsAdminReview === true || String(fields.adminReviewReason ?? "").trim()) return 1;
-        return 2;
+      // Ordenar estrictamente desde la publicación más reciente creada hasta la más antigua
+      const getCreatedTime = (item: Publication) => {
+        if (item.createdAt) {
+          const t = new Date(item.createdAt).getTime();
+          if (!Number.isNaN(t) && t > 0) return t;
+        }
+        if ((item as any).updatedAt) {
+          const t = new Date((item as any).updatedAt).getTime();
+          if (!Number.isNaN(t) && t > 0) return t;
+        }
+        return 0;
       };
-      const rankDiff = rank(a) - rank(b);
-      if (rankDiff !== 0) return rankDiff;
-      const timeFor = (item: Publication) => new Date(String((item as any).updatedAt ?? item.createdAt ?? 0)).getTime();
-      return timeFor(b) - timeFor(a);
+      const timeDiff = getCreatedTime(b) - getCreatedTime(a);
+      if (timeDiff !== 0) return timeDiff;
+      return String(b.id || "").localeCompare(String(a.id || ""));
     });
+
+  const totalPublicationPages = Math.max(1, Math.ceil(filteredPublications.length / PUBLICATIONS_PER_PAGE));
+  const safePublicationPage = Math.min(Math.max(1, publicationCurrentPage), totalPublicationPages);
+  const paginatedPublications = filteredPublications.slice(
+    (safePublicationPage - 1) * PUBLICATIONS_PER_PAGE,
+    safePublicationPage * PUBLICATIONS_PER_PAGE
+  );
   const filteredReports = complaintReports.filter((item) => {
     const query = publicationSearch.toLowerCase().trim();
     if (!query) return true;
@@ -11109,23 +11133,95 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             <StatsChartCard title="Denuncias por período" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
           </div>
 
-          <div className="mt-8 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div ref={publicationsListContainerRef} className="mt-8 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
-                <button type="button" onClick={() => setPublicationTab("publicaciones")} className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "publicaciones" ? "bg-white shadow" : "text-slate-500"}`}>Publicaciones</button>
-                <button type="button" onClick={() => setPublicationTab("denuncias")} className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "denuncias" ? "bg-white shadow" : "text-slate-500"}`}>Denuncias</button>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
+                  <button type="button" onClick={() => { setPublicationTab("publicaciones"); setPublicationCurrentPage(1); }} className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "publicaciones" ? "bg-white shadow" : "text-slate-500"}`}>Publicaciones</button>
+                  <button type="button" onClick={() => setPublicationTab("denuncias")} className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "denuncias" ? "bg-white shadow" : "text-slate-500"}`}>Denuncias</button>
+                </div>
+
+                {publicationTab === "publicaciones" && (
+                  <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPublicationFeatureFilter("todas");
+                        setPublicationCurrentPage(1);
+                      }}
+                      className={`rounded-md px-2.5 py-1.5 font-semibold transition ${
+                        publicationFeatureFilter === "todas"
+                          ? "bg-white text-slate-800 shadow-xs"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      Todas ({publications.filter((p) => !isHomeHowPublication(p)).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPublicationFeatureFilter("partner");
+                        setPublicationCurrentPage(1);
+                      }}
+                      className={`rounded-md px-2.5 py-1.5 font-semibold transition inline-flex items-center gap-1 ${
+                        publicationFeatureFilter === "partner"
+                          ? "bg-cyan-600 text-white shadow-xs"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      <span>🤝 Solo Partner ({publications.filter((p) => !isHomeHowPublication(p) && (Boolean((p.fields as any)?.partner) || Boolean((p as any).partner))).length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPublicationFeatureFilter("destacadas");
+                        setPublicationCurrentPage(1);
+                      }}
+                      className={`rounded-md px-2.5 py-1.5 font-semibold transition inline-flex items-center gap-1 ${
+                        publicationFeatureFilter === "destacadas"
+                          ? "bg-amber-500 text-white shadow-xs"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      <span>⭐ Solo Destacadas ({publications.filter((p) => !isHomeHowPublication(p) && (p.featured === true || Boolean((p.fields as any)?.featured))).length})</span>
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="flex w-full gap-2 sm:w-auto">
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                <select
+                  value={publicationFeatureFilter}
+                  onChange={(event) => {
+                    setPublicationFeatureFilter(event.target.value as "todas" | "destacadas" | "partner");
+                    setPublicationCurrentPage(1);
+                  }}
+                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+                >
+                  <option value="todas">Todas (Partner y Destacadas)</option>
+                  <option value="partner">🤝 Solo Partner</option>
+                  <option value="destacadas">⭐ Solo Destacadas</option>
+                </select>
                 <select
                   value={publicationTypeFilter}
-                  onChange={(event) => setPublicationTypeFilter(event.target.value as "todas" | "publicacion" | "prestacion")}
+                  onChange={(event) => {
+                    setPublicationTypeFilter(event.target.value as "todas" | "publicacion" | "prestacion");
+                    setPublicationCurrentPage(1);
+                  }}
                   className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
                 >
-                  <option value="todas">Todas</option>
+                  <option value="todas">Todos los tipos</option>
                   <option value="publicacion">Publicaciones</option>
                   <option value="prestacion">Prestaciones</option>
                 </select>
-                <input value={publicationSearch} onChange={(event) => setPublicationSearch(event.target.value)} placeholder="Buscar..." className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200 sm:w-64" />
+                <input
+                  value={publicationSearch}
+                  onChange={(event) => {
+                    setPublicationSearch(event.target.value);
+                    setPublicationCurrentPage(1);
+                  }}
+                  placeholder="Buscar..."
+                  className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200 sm:w-64"
+                />
                 <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0095AE]">Generar con IA / Web Scraper</button>
                 <button
                   type="button"
@@ -11142,7 +11238,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <button type="button" onClick={openNewPublicationEditor} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Nueva</button>
               </div>
             </div>
-            <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "Últimas publicaciones"}</div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "Últimas publicaciones"}</div>
+              {publicationTab === "publicaciones" && filteredPublications.length > 0 && (
+                <div className="text-xs text-slate-500 font-medium">
+                  Mostrando {(safePublicationPage - 1) * PUBLICATIONS_PER_PAGE + 1} - {Math.min(safePublicationPage * PUBLICATIONS_PER_PAGE, filteredPublications.length)} de {filteredPublications.length} publicaciones
+                </div>
+              )}
+            </div>
             <div className="mt-3 space-y-3">
             {publicationTab === "denuncias" ? filteredReports.map((report) => {
               const isOpen = Boolean(expandedReports[report.id]);
@@ -11188,7 +11291,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   ) : null}
                 </div>
               );
-            }) : filteredPublications.map((p) => {
+            }) : paginatedPublications.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+                No se encontraron publicaciones con los filtros seleccionados.
+              </div>
+            ) : paginatedPublications.map((p) => {
               const publicationEditRequest = reviewableEditRequestByPublicationId.get(p.id);
               const publicationNeedsAdminReview = Boolean((p.fields as any)?.needsAdminReview) || Boolean(String((p.fields as any)?.adminReviewReason ?? "").trim());
               return (
@@ -11353,6 +11460,84 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               </div>
             )})}
             </div>
+
+            {publicationTab === "publicaciones" && totalPublicationPages > 1 ? (
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                <div className="text-xs text-slate-500 font-medium">
+                  Página <span className="font-bold text-slate-800">{safePublicationPage}</span> de{" "}
+                  <span className="font-bold text-slate-800">{totalPublicationPages}</span> · Mostrando{" "}
+                  {(safePublicationPage - 1) * PUBLICATIONS_PER_PAGE + 1} -{" "}
+                  {Math.min(safePublicationPage * PUBLICATIONS_PER_PAGE, filteredPublications.length)} de{" "}
+                  {filteredPublications.length} publicaciones
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={safePublicationPage <= 1}
+                    onClick={() => {
+                      setPublicationCurrentPage((p) => Math.max(1, p - 1));
+                      publicationsListContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    ← Anterior
+                  </button>
+
+                  {Array.from({ length: totalPublicationPages }, (_, i) => i + 1)
+                    .filter((pageNum) => {
+                      if (pageNum === 1 || pageNum === totalPublicationPages) return true;
+                      return Math.abs(pageNum - safePublicationPage) <= 2;
+                    })
+                    .reduce<Array<number | string>>((acc, pageNum, idx, arr) => {
+                      if (idx > 0 && pageNum - (arr[idx - 1] as number) > 1) {
+                        acc.push(`ellipsis-${pageNum}`);
+                      }
+                      acc.push(pageNum);
+                      return acc;
+                    }, [])
+                    .map((item) => {
+                      if (typeof item === "string") {
+                        return (
+                          <span key={item} className="px-1.5 text-xs text-slate-400">
+                            …
+                          </span>
+                        );
+                      }
+                      const isCurrent = item === safePublicationPage;
+                      return (
+                        <button
+                          key={`page-${item}`}
+                          type="button"
+                          onClick={() => {
+                            setPublicationCurrentPage(item);
+                            publicationsListContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }}
+                          className={`h-9 min-w-[36px] rounded-xl px-2 text-xs font-bold transition ${
+                            isCurrent
+                              ? "bg-[#00A9C6] text-white shadow-xs"
+                              : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      );
+                    })}
+
+                  <button
+                    type="button"
+                    disabled={safePublicationPage >= totalPublicationPages}
+                    onClick={() => {
+                      setPublicationCurrentPage((p) => Math.min(totalPublicationPages, p + 1));
+                      publicationsListContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    Siguiente →
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
           </>
           ) : null}
