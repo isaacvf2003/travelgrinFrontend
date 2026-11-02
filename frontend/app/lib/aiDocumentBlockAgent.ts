@@ -14,8 +14,8 @@ export interface PublicationContextForBlockUpdate {
 export interface DocumentBlockAgentInput {
   blockTitle: string;
   currentBody?: string;
-  documentContext: string;
-  documentFileName: string;
+  documentContext?: string;
+  documentFileName?: string;
   updatePrompt?: string;
   publication: PublicationContextForBlockUpdate;
   apiKeyParam?: string;
@@ -31,10 +31,11 @@ export interface DocumentBlockAgentOutput {
 }
 
 /**
- * Specialized AI Agent: Knowledge-Base & Document-Driven Block Updater.
- * Strictly grounds block content in the uploaded official document (Excel, CSV, regulations),
- * mapping laws, requirements, costs, and procedures directly to the specific publication.
- * CERO templates, CERO hallucinations.
+ * Specialized Content Block Updater Agent.
+ * Supports two operational modes:
+ * 1. Document-Driven Grounding: When official documents (Excel, CSV, laws) are uploaded.
+ * 2. Prompt-Driven Editorial Redaction: When updating or expanding blocks purely from administrator instructions.
+ * ZERO rigid templates, ZERO clichés, real context awareness.
  */
 export async function runDocumentBlockAgent(
   input: DocumentBlockAgentInput
@@ -42,67 +43,80 @@ export async function runDocumentBlockAgent(
   const {
     blockTitle,
     currentBody = "",
-    documentContext,
-    documentFileName,
+    documentContext = "",
+    documentFileName = "instrucciones_redaccion",
     updatePrompt = "",
     publication,
     apiKeyParam,
   } = input;
 
-  const cleanTitle = cleanGenericBlockTitle(blockTitle || "Requisitos y Trámites", updatePrompt);
+  const hasDocument = Boolean(documentContext && documentContext.trim().length > 0);
+  const cleanTitle = cleanGenericBlockTitle(blockTitle || "Orientación y Requisitos", updatePrompt);
   const entityName = publication.publisherName || publication.title || "El establecimiento";
   const destinationCountry = publication.country || "Argentina";
   const destinationCity = publication.city || "";
   const locationText = [destinationCity, destinationCountry].filter(Boolean).join(", ");
 
-  const systemPrompt = `Eres un asesor editorial y experto en normativas oficiales, trámites y contenidos para Travelgrin.
-Tu misión es redactar y actualizar con máxima fidelidad el bloque descriptivo "${cleanTitle}" para la publicación "${publication.title}" de la entidad "${entityName}" (${locationText}), BASÁNDOTE ESTRICTAMENTE EN EL DOCUMENTO OFICIAL ADJUNTO ("${documentFileName}").
+  const systemPrompt = hasDocument
+    ? `Eres un asesor editorial y redactor profesional para Travelgrin.
+Tu misión es redactar y actualizar con máxima fidelidad el bloque descriptivo "${cleanTitle}" para la publicación "${publication.title}" de la entidad "${entityName}" (${locationText}), BASÁNDOTE EN EL DOCUMENTO OFICIAL ADJUNTO ("${documentFileName}").
 
 Tu respuesta debe ser EXCLUSIVAMENTE un objeto JSON válido con este formato:
 {
   "title": "${cleanTitle}",
   "body": "<p>Contenido actualizado en formato HTML...</p>",
-  "evidencias": ["Fila/Dato del documento utilizado 1", "Fila/Dato del documento utilizado 2"]
+  "evidencias": ["Fila o dato concreto del documento utilizado 1", "Fila o dato del documento 2"]
 }
 
-REGLAS DE ORO DE FIDELIDAD FACTUAL (MÁXIMA PRIORIDAD):
-1. FIDELIDAD TOTAL AL DOCUMENTO (CERO ALUCINACIONES):
-   - Extrae los requisitos, trámites, visas, aranceles, plazos o normativas estrictamente del documento oficial adjunto.
-   - Aplica los datos que corresponden específicamente al país ("${destinationCountry}"), entidad ("${entityName}") o categoría ("${publication.category || ""}") de esta publicación.
-   - Si el documento no especifica un dato secundario, indica que se debe consultar con las autoridades o canales oficiales; NUNCA inventes leyes, números de decretos, plazos ni aranceles que no figuren en el documento.
+REGLAS DE REDACCIÓN:
+1. FIDELIDAD AL DOCUMENTO (CERO ALUCINACIONES):
+   - Extrae los requisitos, trámites, visas, aranceles, plazos o normativas estrictamente del documento adjunto.
+   - Aplica los datos que corresponden específicamente al país ("${destinationCountry}"), entidad ("${entityName}") o área ("${publication.category || ""}") de esta publicación.
+   - NUNCA inventes leyes ni números de decreto que no figuren en el documento.
+2. CERO PLANTILLAS Y CERO CLICHÉS:
+   - Queda PROHIBIDO usar plantillas acartonadas o frases de relleno ("En el mundo actual...", "A continuación...", "Es fundamental...").
+   - Redacta de forma clara, directa, humana y profesional para el viajero o postulante.
+3. DIRECTIVA DEL ADMINISTRADOR:
+   - Cumple fielmente con el enfoque o las directivas de estilo dadas por el administrador.
+4. FORMATO HTML LIMPIO:
+   - Usa etiquetas HTML limpias: <p>, <strong>, <ul>, <li>, <br/>.
+   - Extensión sustancial y clara: entre 2 a 4 párrafos legibles.`
+    : `Eres un redactor y editor especializado de Travelgrin.
+Tu misión es redactar y actualizar el bloque descriptivo "${cleanTitle}" para la publicación "${publication.title}" de "${entityName}" (${locationText}), SIGUIENDO LAS INSTRUCCIONES ESPECÍFICAS DEL ADMINISTRADOR.
 
-2. CERO PLANTILLAS RÍGIDAS Y CERO CLICHÉS:
-   - Queda TERMINANTEMENTE PROHIBIDO usar plantillas fijas, frases de relleno o clichés como "En el mundo actual...", "A continuación se detalla...", "Es fundamental tener en cuenta que...", o estructuras acartonadas.
-   - Redacta de forma clara, directa, humana y profesional, orientada al viajero o postulante extranjero.
+Tu respuesta debe ser EXCLUSIVAMENTE un objeto JSON válido con este formato:
+{
+  "title": "${cleanTitle}",
+  "body": "<p>Contenido actualizado en formato HTML...</p>",
+  "evidencias": ["Aspecto clave 1 abordado", "Aspecto clave 2 abordado"]
+}
 
-3. AUTORIDAD DE LA DIRECTIVA DEL ADMINISTRADOR:
-   - Si el administrador incluyó una directiva o prompt (ej: destacar estudiantes, enfatizar aranceles o estructurar con preguntas), CUMPLE fielmente con su enfoque editorial y de estilo.
+REGLAS DE REDACCIÓN:
+1. CUMPLIMIENTO DE INSTRUCCIONES DEL ADMINISTRADOR:
+   - Desarrolla y enriquece el bloque según lo solicitado en las instrucciones ("${updatePrompt}").
+   - Adapta el contenido a la realidad de la publicación ("${publication.title}"), en ${locationText}.
+2. CERO PLANTILLAS Y CERO FRASES CLICHÉ:
+   - Escribe con tono natural, profesional y útil para quien lee la publicación. Nada de introducciones vacías o textos genéricos de IA.
+3. FORMATO HTML:
+   - Estructura con <p>, <strong>, <ul>, <li> para que sea agradable de leer.
+   - Entre 2 a 4 párrafos claros con información de alto valor práctico.`;
 
-4. FORMATO HTML LIMPIO Y PROFESIONAL:
-   - Utiliza exclusivamente etiquetas HTML estándar: <p>, <strong>, <ul>, <li>, <br/>.
-   - Si la directiva pide colores específicos, aplícalos con estilos en línea (ej: <strong style="color: #0b8fa3;">...</strong>).
-   - Asegura párrafos legibles con buena jerarquía visual (encabezados en negrita o viñetas según corresponda).
+  const userPrompt = `=== INFORMACIÓN DE LA PUBLICACIÓN ===
+- Publicación: "${publication.title}"
+- Oferente / Entidad: "${entityName}"
+- Destino / País: "${locationText}"
+- Categoría: "${publication.category || "General"} ${publication.subcategory ? `> ${publication.subcategory}` : ""}"
+${publication.mainDescription ? `- Descripción general actual:\n"${publication.mainDescription.replace(/<[^>]+>/g, " ").slice(0, 400)}"\n` : ""}
 
-5. IDIOMA Y EXTENSIÓN:
-   - Idioma: Español neutro y profesional.
-   - Extensión sustancial y completa: normalmente de 2 a 4 párrafos o lista estructurada de requisitos claros.`;
-
-  const userPrompt = `=== CONTEXTO DE LA PUBLICACIÓN ESPECÍFICA ===
-- Título: "${publication.title}"
-- Entidad / Oferente: "${entityName}"
-- Ubicación / País de Destino: "${locationText}"
-- Categoría / Área: "${publication.category || "General"} ${publication.subcategory ? `> ${publication.subcategory}` : ""}"
-${publication.mainDescription ? `- Resumen de la propuesta: "${publication.mainDescription.replace(/<[^>]+>/g, " ").slice(0, 500)}"` : ""}
-
-=== BLOQUE A ACTUALIZAR ===
+=== BLOQUE OBJETIVO A ACTUALIZAR ===
 - Título del Bloque: "${cleanTitle}"
-${currentBody ? `- Contenido previo del bloque (para referencia de estilo o estructura anterior):\n${currentBody.replace(/<[^>]+>/g, " ").slice(0, 600)}\n` : ""}
-${updatePrompt ? `=== DIRECTIVA EDITORIAL DEL ADMINISTRADOR ===\n"${updatePrompt}"\n` : ""}
+${currentBody ? `- Texto anterior de este bloque (para mejorar o reemplazar):\n"${currentBody.replace(/<[^>]+>/g, " ").slice(0, 600)}"\n` : "(Este bloque aún no existía en esta publicación; redáctalo desde cero)"}
 
-=== DATOS DEL DOCUMENTO OFICIAL ADJUNTO ("${documentFileName}") ===
-${documentContext}
+${updatePrompt ? `=== INSTRUCCIONES DEL ADMINISTRADOR ===\n"${updatePrompt}"\n` : ""}
 
-Instrucción final: Devuelve el objeto JSON con "title", "body" (HTML) y "evidencias", aplicando las normativas reales del documento a la publicación de ${entityName} en ${destinationCountry}.`;
+${hasDocument ? `=== DATOS DEL DOCUMENTO ADJUNTO ("${documentFileName}") ===\n${documentContext}\n` : ""}
+
+Instrucción final: Devuelve el JSON con "title", "body" (HTML enriquecido) y "evidencias".`;
 
   try {
     const { rawText, providerUsed } = await executeModelCall(
@@ -127,7 +141,7 @@ Instrucción final: Devuelve el objeto JSON con "title", "body" (HTML) y "eviden
 
     let updatedBody = String(parsed.body || parsed.contenido || "").trim();
     if (!updatedBody || updatedBody.length < 20) {
-      throw new Error("El contenido generado por la IA es insuficiente.");
+      throw new Error("El contenido generado es insuficiente.");
     }
 
     if (!updatedBody.includes("<p>")) {
@@ -139,31 +153,30 @@ Instrucción final: Devuelve el objeto JSON con "title", "body" (HTML) y "eviden
         .join("\n");
     }
 
-    if (updatePrompt) {
-      updatedBody = applyPromptColorStyles(updatedBody, updatePrompt);
-    }
+    // Apply color directives if requested in updatePrompt
+    updatedBody = applyPromptColorStyles(updatedBody, updatePrompt);
 
-    const outputTitle = String(parsed.title || cleanTitle).trim();
+    const finalTitle = String(parsed.title || cleanTitle).trim();
     const evidencias = Array.isArray(parsed.evidencias)
       ? parsed.evidencias.map((e: any) => String(e).trim()).filter(Boolean)
-      : [documentFileName];
+      : [];
 
     return {
       success: true,
-      blockTitle: outputTitle,
+      blockTitle: finalTitle,
       updatedBodyHtml: updatedBody,
       evidencias,
       providerUsed,
     };
-  } catch (err: any) {
-    console.error(`[aiDocumentBlockAgent] Error updating block "${cleanTitle}":`, err?.message);
+  } catch (error: any) {
+    console.error("[runDocumentBlockAgent Error]:", error);
     return {
       success: false,
       blockTitle: cleanTitle,
-      updatedBodyHtml: currentBody,
+      updatedBodyHtml: "",
       evidencias: [],
       providerUsed: "none",
-      error: err?.message || "Error al procesar el documento con IA",
+      error: error?.message || "Error al procesar el bloque con el agente de contenido.",
     };
   }
 }

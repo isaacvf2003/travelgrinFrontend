@@ -2,21 +2,17 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import {
-  FileSpreadsheet,
+  FileText,
   Upload,
-  CheckCircle2,
+  Check,
   AlertCircle,
   RefreshCw,
   X,
   Search,
   Eye,
-  Sparkles,
-  Layers,
-  FileText,
-  Check,
-  ShieldCheck,
-  Database,
-  ArrowRight,
+  FileSpreadsheet,
+  CheckCircle2,
+  PenTool,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -30,6 +26,8 @@ export interface PublicationItem {
   category?: string | null;
   subcategory?: string | null;
   fields?: any;
+  filterOptions?: any[];
+  [key: string]: any;
 }
 
 interface BulkBlockUpdateModalProps {
@@ -69,17 +67,20 @@ export default function BulkBlockUpdateModal({
   const [selectedPubIds, setSelectedPubIds] = useState<Set<string>>(new Set());
   const [searchFilter, setSearchFilter] = useState("");
   const [onlyWithBlock, setOnlyWithBlock] = useState(true);
-  const [updatePrompt, setUpdatePrompt] = useState("");
+
+  // Mode: "file" (Excel/Doc) or "prompt" (Instructions only)
+  const [sourceMode, setSourceMode] = useState<"file" | "prompt">("prompt");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [customDocumentText, setCustomDocumentText] = useState("");
+  const [updatePrompt, setUpdatePrompt] = useState("");
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0 });
   const [currentStep, setCurrentStep] = useState<"configure" | "preview" | "complete">("configure");
   const [previewResults, setPreviewResults] = useState<PreviewResultItem[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
   const [expandedPreviewIds, setExpandedPreviewIds] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<"file" | "text">("file");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -96,7 +97,7 @@ export default function BulkBlockUpdateModal({
     }
   }, [isOpen, initialSelectedBlock, initialSelectedPublicationId]);
 
-  // Extract all distinct extraDescription titles existing across publications
+  // Extract distinct extraDescription titles existing across publications
   const existingBlocksCatalog = useMemo(() => {
     const map = new Map<string, number>();
     for (const pub of publications) {
@@ -111,14 +112,12 @@ export default function BulkBlockUpdateModal({
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   }, [publications]);
 
-  // Helper to check if a publication has the target block
   const pubHasTargetBlock = (pub: PublicationItem, blockName: string): boolean => {
     if (!blockName) return false;
     const extraDesc = Array.isArray(pub?.fields?.extraDescriptions) ? pub.fields.extraDescriptions : [];
     return extraDesc.some((d: any) => String(d?.title || "").trim().toLowerCase() === blockName.trim().toLowerCase());
   };
 
-  // Helper to get current block text
   const getPubCurrentBlockBody = (pub: PublicationItem, blockName: string): string => {
     if (!blockName) return "";
     const extraDesc = Array.isArray(pub?.fields?.extraDescriptions) ? pub.fields.extraDescriptions : [];
@@ -126,7 +125,7 @@ export default function BulkBlockUpdateModal({
     return found?.body || "";
   };
 
-  // Filtered publications according to selected block, search query, and toggle
+  // Filtered publications
   const filteredPublications = useMemo(() => {
     const q = searchFilter.toLowerCase().trim();
     return publications.filter((pub) => {
@@ -142,7 +141,6 @@ export default function BulkBlockUpdateModal({
     });
   }, [publications, targetBlockTitle, onlyWithBlock, searchFilter]);
 
-  // Select all / Deselect all
   const handleToggleSelectAll = () => {
     if (selectedPubIds.size === filteredPublications.length && filteredPublications.length > 0) {
       setSelectedPubIds(new Set());
@@ -161,7 +159,6 @@ export default function BulkBlockUpdateModal({
     setSelectedPubIds(next);
   };
 
-  // Handle file select
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -170,7 +167,6 @@ export default function BulkBlockUpdateModal({
     }
   };
 
-  // Handle Drag & Drop
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -181,45 +177,75 @@ export default function BulkBlockUpdateModal({
     }
   };
 
-  // Trigger preview generation
+  // GENERATE PREVIEWS
   const handleGeneratePreviews = async () => {
     setErrorMsg("");
     if (!targetBlockTitle.trim()) {
-      setErrorMsg("Debes especificar el título del bloque que deseas actualizar.");
+      setErrorMsg("Por favor, selecciona o escribe el título del bloque que deseas actualizar.");
       return;
     }
     if (selectedPubIds.size === 0) {
-      setErrorMsg("Debes seleccionar al menos una publicación para actualizar.");
+      setErrorMsg("Debes seleccionar al menos una publicación para aplicar la actualización.");
       return;
     }
-    if (!uploadedFile && !customDocumentText.trim() && !updatePrompt.trim()) {
-      setErrorMsg("Debes subir un archivo Excel/CSV/Documento o ingresar texto/instrucciones de actualización.");
+    if (sourceMode === "file" && !uploadedFile && !updatePrompt.trim()) {
+      setErrorMsg("Debes subir un archivo Excel/documento o agregar instrucciones de actualización.");
+      return;
+    }
+    if (sourceMode === "prompt" && !updatePrompt.trim()) {
+      setErrorMsg("Escribe las instrucciones de redacción para actualizar este bloque.");
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      const formData = new FormData();
-      formData.append("targetBlockTitle", targetBlockTitle.trim());
-      formData.append("updatePrompt", updatePrompt.trim());
-      formData.append("action", "preview");
-      formData.append("publicationIds", JSON.stringify(Array.from(selectedPubIds)));
+      // Build selected publication context payloads directly from memory
+      // This completely avoids any SQLite / prisma server queries
+      const targetPubs = publications
+        .filter((p) => selectedPubIds.has(p.id))
+        .map((p) => ({
+          id: p.id,
+          title: p.title || "",
+          publisherName: p.publisherName || "",
+          country: p.country || "",
+          city: p.city || "",
+          category: p.category || "",
+          subcategory: p.subcategory || "",
+          currentBody: getPubCurrentBlockBody(p, targetBlockTitle),
+        }));
 
-      if (uploadedFile) {
+      let res: Response;
+
+      if (sourceMode === "file" && uploadedFile) {
+        const formData = new FormData();
+        formData.append("targetBlockTitle", targetBlockTitle.trim());
+        formData.append("updatePrompt", updatePrompt.trim());
         formData.append("file", uploadedFile);
-      } else if (customDocumentText.trim()) {
-        formData.append("documentText", customDocumentText.trim());
-      }
+        formData.append("publications", JSON.stringify(targetPubs));
 
-      const res = await fetch("/api/admin/document-block-update", {
-        method: "POST",
-        body: formData,
-      });
+        res = await fetch("/api/admin/document-block-update", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        const payload = {
+          targetBlockTitle: targetBlockTitle.trim(),
+          updatePrompt: updatePrompt.trim(),
+          documentText: "",
+          publications: targetPubs,
+        };
+
+        res = await fetch("/api/admin/document-block-update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Error al procesar la actualización con el agente IA.");
+        throw new Error(data.error || "No se pudo procesar la actualización.");
       }
 
       const initialPreviews: PreviewResultItem[] = (data.results || []).map((r: any) => ({
@@ -230,13 +256,12 @@ export default function BulkBlockUpdateModal({
       setPreviewResults(initialPreviews);
       setCurrentStep("preview");
     } catch (err: any) {
-      setErrorMsg(err.message || "Ocurrió un error inesperado al procesar con el agente.");
+      setErrorMsg(err.message || "Ocurrió un error al generar el contenido.");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Toggle selection for saving a preview
   const handleTogglePreviewSelect = (pubId: string) => {
     setPreviewResults((prev) =>
       prev.map((item) =>
@@ -251,7 +276,7 @@ export default function BulkBlockUpdateModal({
     );
   };
 
-  // Apply approved previews to database
+  // APPLY APPROVED CHANGES DIRECTLY TO BACKEND
   const handleSaveApprovedChanges = async () => {
     const toSave = previewResults.filter((p) => p.selectedForSave && p.success && p.updatedBodyHtml);
     if (toSave.length === 0) {
@@ -261,41 +286,91 @@ export default function BulkBlockUpdateModal({
 
     setIsSaving(true);
     setErrorMsg("");
+    setSaveProgress({ current: 0, total: toSave.length });
 
-    try {
-      const payload = {
-        action: "save-approved",
-        approvedUpdates: toSave.map((p) => ({
-          publicationId: p.publicationId,
-          blockTitle: p.blockTitle,
-          updatedBodyHtml: p.updatedBodyHtml,
-        })),
-      };
+    let successCount = 0;
+    let failCount = 0;
 
-      const res = await fetch("/api/admin/document-block-update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    for (let i = 0; i < toSave.length; i++) {
+      const item = toSave[i];
+      setSaveProgress({ current: i + 1, total: toSave.length });
 
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Error al guardar los cambios en la base de datos.");
+      try {
+        const originalPub = publications.find((p) => p.id === item.publicationId);
+        if (!originalPub) continue;
+
+        const currentFields = (originalPub.fields as Record<string, any>) || {};
+        const extraDescriptions: any[] = Array.isArray(currentFields.extraDescriptions)
+          ? [...currentFields.extraDescriptions]
+          : [];
+
+        const targetTitle = item.blockTitle.trim();
+        const existingIdx = extraDescriptions.findIndex(
+          (d) => String(d?.title || "").trim().toLowerCase() === targetTitle.toLowerCase()
+        );
+
+        if (existingIdx >= 0) {
+          extraDescriptions[existingIdx] = {
+            ...extraDescriptions[existingIdx],
+            title: targetTitle,
+            body: item.updatedBodyHtml,
+            titleI18n: {
+              ...(extraDescriptions[existingIdx].titleI18n || {}),
+              es: targetTitle,
+            },
+            bodyI18n: {
+              ...(extraDescriptions[existingIdx].bodyI18n || {}),
+              es: item.updatedBodyHtml,
+            },
+          };
+        } else {
+          extraDescriptions.push({
+            title: targetTitle,
+            body: item.updatedBodyHtml,
+            titleI18n: { es: targetTitle },
+            bodyI18n: { es: item.updatedBodyHtml },
+            visibleInCard: false,
+          });
+        }
+
+        const updatePayload = {
+          ...originalPub,
+          fields: {
+            ...currentFields,
+            extraDescriptions,
+          },
+          filterOptionIds: (originalPub.filterOptions || []).map((fo: any) => fo.filterOptionId || fo.id),
+        };
+
+        const res = await fetch(`/api/admin/publications?id=${encodeURIComponent(item.publicationId)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatePayload),
+        });
+
+        if (res.ok) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (e) {
+        failCount++;
       }
+    }
 
-      setSaveSuccessMsg(`¡Éxito! Se actualizaron correctamente ${data.succeeded} publicaciones en Travelgrin.`);
+    setIsSaving(false);
+
+    if (successCount > 0) {
+      setSaveSuccessMsg(`Se actualizaron correctamente ${successCount} publicación(es)${failCount > 0 ? ` (${failCount} con error)` : ""}.`);
       setCurrentStep("complete");
       if (onPublicationsUpdated) {
         await onPublicationsUpdated();
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Error al aplicar los cambios.");
-    } finally {
-      setIsSaving(false);
+    } else {
+      setErrorMsg("No se pudieron guardar los cambios en la base de datos.");
     }
   };
 
-  // Reset modal state
   const handleReset = () => {
     setCurrentStep("configure");
     setPreviewResults([]);
@@ -306,112 +381,103 @@ export default function BulkBlockUpdateModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-5xl rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-emerald-50/70 via-teal-50/50 to-white px-6 py-4.5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden">
+        {/* Clean Header */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-600/20">
-              <FileSpreadsheet className="h-6 w-6" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
+              <FileText className="h-5 w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900">
-                  Actualizador de Bloques con Excel / Documentos
-                </h2>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                  Agente Oficial Grounded
-                </span>
-              </div>
+              <h2 className="text-base font-semibold text-slate-900">
+                Actualizador de Bloques Descriptivos
+              </h2>
               <p className="text-xs text-slate-500">
-                Sube resoluciones, leyes o tablas Excel para actualizar bloques descriptivos sin plantillas ni alucinaciones.
+                Actualiza el contenido de bloques específicos en las publicaciones seleccionadas.
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Navigation Step Breadcrumbs */}
-        <div className="flex items-center border-b border-slate-100 bg-slate-50/60 px-6 py-2.5 text-xs text-slate-600">
-          <button
-            type="button"
-            onClick={() => setCurrentStep("configure")}
-            className={`flex items-center gap-1.5 font-semibold ${
-              currentStep === "configure" ? "text-emerald-700" : "text-slate-500 hover:text-slate-800"
+        {/* Step Indicator */}
+        <div className="flex items-center border-b border-slate-100 bg-slate-50/70 px-6 py-2.5 text-xs">
+          <div
+            className={`flex items-center gap-1.5 font-medium ${
+              currentStep === "configure" ? "text-slate-900 font-semibold" : "text-slate-500"
             }`}
           >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] text-white">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] text-white">
               1
             </span>
             Configuración y Selección
-          </button>
-          <ArrowRight className="mx-3 h-3.5 w-3.5 text-slate-300" />
-          <span
-            className={`flex items-center gap-1.5 font-semibold ${
-              currentStep === "preview" ? "text-emerald-700" : "text-slate-400"
+          </div>
+          <span className="mx-3 text-slate-300">/</span>
+          <div
+            className={`flex items-center gap-1.5 font-medium ${
+              currentStep === "preview" ? "text-slate-900 font-semibold" : "text-slate-400"
             }`}
           >
             <span
               className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
                 currentStep === "preview"
-                  ? "bg-emerald-600 text-white"
+                  ? "bg-slate-900 text-white"
                   : currentStep === "complete"
-                  ? "bg-emerald-200 text-emerald-800"
-                  : "bg-slate-200 text-slate-500"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-slate-200 text-slate-600"
               }`}
             >
               2
             </span>
-            Previsualización & Aprobación IA
-          </span>
-          <ArrowRight className="mx-3 h-3.5 w-3.5 text-slate-300" />
-          <span
-            className={`flex items-center gap-1.5 font-semibold ${
-              currentStep === "complete" ? "text-emerald-700" : "text-slate-400"
+            Revisión de Cambios
+          </div>
+          <span className="mx-3 text-slate-300">/</span>
+          <div
+            className={`flex items-center gap-1.5 font-medium ${
+              currentStep === "complete" ? "text-emerald-700 font-semibold" : "text-slate-400"
             }`}
           >
             <span
               className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
-                currentStep === "complete" ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
+                currentStep === "complete" ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-600"
               }`}
             >
               3
             </span>
-            Confirmado y Aplicado
-          </span>
+            Guardado
+          </div>
         </div>
 
-        {/* Content Body */}
+        {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {errorMsg ? (
-            <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-sm text-rose-800">
-              <AlertCircle className="h-5 w-5 flex-shrink-0 text-rose-600 mt-0.5" />
-              <div className="flex-1 font-medium">{errorMsg}</div>
+          {errorMsg && (
+            <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50/70 p-3.5 text-xs text-rose-800">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 text-rose-600 mt-0.5" />
+              <div className="flex-1 font-medium leading-relaxed">{errorMsg}</div>
             </div>
-          ) : null}
+          )}
 
           {/* STEP 1: CONFIGURE */}
           {currentStep === "configure" && (
             <div className="space-y-6">
-              {/* Bloque Objetivo */}
-              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/40 p-5 space-y-3">
+              {/* Sección 1: Bloque Objetivo */}
+              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-emerald-600" />
-                    Paso 1: ¿Qué bloque descriptivo deseas actualizar?
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    1. Bloque descriptivo a actualizar
                   </label>
-                  <span className="text-xs text-slate-500">Selecciona uno existente o escribe uno nuevo</span>
+                  <span className="text-xs text-slate-400">Elige uno existente o escribe uno nuevo</span>
                 </div>
 
                 {existingBlocksCatalog.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1">
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
                     {existingBlocksCatalog.map(([title, count]) => {
                       const isSelected = targetBlockTitle.trim().toLowerCase() === title.trim().toLowerCase();
                       return (
@@ -419,16 +485,16 @@ export default function BulkBlockUpdateModal({
                           key={title}
                           type="button"
                           onClick={() => setTargetBlockTitle(title)}
-                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                             isSelected
-                              ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                              : "bg-white border border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/50"
+                              ? "bg-slate-900 text-white shadow-xs"
+                              : "bg-slate-100/80 text-slate-700 hover:bg-slate-200"
                           }`}
                         >
                           {title}
                           <span
                             className={`rounded-full px-1.5 py-0.2 text-[10px] ${
-                              isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                              isSelected ? "bg-white/20 text-white" : "bg-white text-slate-500"
                             }`}
                           >
                             {count}
@@ -439,38 +505,35 @@ export default function BulkBlockUpdateModal({
                   </div>
                 )}
 
-                <div className="relative mt-2">
-                  <input
-                    type="text"
-                    value={targetBlockTitle}
-                    onChange={(e) => setTargetBlockTitle(e.target.value)}
-                    placeholder="Ej: Requisitos Migratorios, Visas de Residencia, Información Práctica..."
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={targetBlockTitle}
+                  onChange={(e) => setTargetBlockTitle(e.target.value)}
+                  placeholder="Nombre del bloque (ej: Orientación, Requisitos, Información Práctica...)"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 focus:border-slate-500 focus:outline-none"
+                />
               </div>
 
-              {/* Paso 2: Selección de Publicaciones */}
-              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/40 p-5 space-y-3">
+              {/* Sección 2: Selección de Publicaciones */}
+              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <Database className="h-4 w-4 text-emerald-600" />
-                    Paso 2: Seleccionar publicaciones a las que se aplicará
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    2. Publicaciones destinatarias
                   </label>
                   <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer">
+                    <label className="flex items-center gap-1.5 text-xs font-normal text-slate-600 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={onlyWithBlock}
                         onChange={(e) => setOnlyWithBlock(e.target.checked)}
-                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
                       />
-                      Mostrar solo con el bloque existente
+                      Mostrar solo con este bloque
                     </label>
                     <button
                       type="button"
                       onClick={handleToggleSelectAll}
-                      className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline underline-offset-2"
+                      className="text-xs font-semibold text-slate-700 hover:text-slate-900 underline underline-offset-2"
                     >
                       {selectedPubIds.size === filteredPublications.length && filteredPublications.length > 0
                         ? "Deseleccionar todas"
@@ -479,75 +542,65 @@ export default function BulkBlockUpdateModal({
                   </div>
                 </div>
 
-                {/* Buscador */}
+                {/* Filtro de búsqueda */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="text"
                     value={searchFilter}
                     onChange={(e) => setSearchFilter(e.target.value)}
-                    placeholder="Filtrar publicaciones por título, oferente o país..."
-                    className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 py-2 text-xs text-slate-800 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                    placeholder="Filtrar por título, oferente o país..."
+                    className="w-full rounded-lg border border-slate-200 pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:border-slate-500 focus:outline-none"
                   />
                 </div>
 
-                {/* Tabla/Lista de Publicaciones */}
-                <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-inner">
+                {/* Lista de publicaciones */}
+                <div className="max-h-52 overflow-y-auto rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
                   {filteredPublications.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-slate-400">
-                      No se encontraron publicaciones que coincidan con el criterio seleccionado.
+                    <div className="p-4 text-center text-xs text-slate-400">
+                      No hay publicaciones que coincidan con el filtro.
                     </div>
                   ) : (
                     filteredPublications.map((pub) => {
                       const isSelected = selectedPubIds.has(pub.id);
                       const hasBlock = pubHasTargetBlock(pub, targetBlockTitle);
-                      const currentBody = getPubCurrentBlockBody(pub, targetBlockTitle);
 
                       return (
                         <div
                           key={pub.id}
                           onClick={() => handleTogglePub(pub.id)}
-                          className={`flex items-center justify-between p-3 text-xs transition cursor-pointer hover:bg-slate-50 ${
-                            isSelected ? "bg-emerald-50/50" : ""
+                          className={`flex items-center justify-between p-2.5 text-xs transition cursor-pointer hover:bg-slate-50 ${
+                            isSelected ? "bg-slate-50" : ""
                           }`}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={() => {}} // handled by parent div
-                              className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                              onChange={() => {}}
+                              className="rounded border-slate-300 text-slate-900 focus:ring-slate-500 h-3.5 w-3.5"
                             />
                             <div className="min-w-0">
-                              <div className="font-semibold text-slate-900 truncate">
-                                {pub.title}
-                              </div>
-                              <div className="text-[11px] text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
+                              <div className="font-medium text-slate-900 truncate">{pub.title}</div>
+                              <div className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
                                 {pub.publisherName ? <span>{pub.publisherName}</span> : null}
                                 {pub.country ? (
                                   <>
                                     <span>•</span>
-                                    <span className="font-medium text-slate-700">{pub.country}</span>
-                                  </>
-                                ) : null}
-                                {pub.category ? (
-                                  <>
-                                    <span>•</span>
-                                    <span className="text-slate-400">{pub.category}</span>
+                                    <span>{pub.country}</span>
                                   </>
                                 ) : null}
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                             {hasBlock ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                                <Check className="h-3 w-3" />
-                                Contiene bloque
+                              <span className="rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                                Bloque existente
                               </span>
                             ) : (
-                              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
                                 Sin este bloque
                               </span>
                             )}
@@ -558,45 +611,60 @@ export default function BulkBlockUpdateModal({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-slate-500 px-1">
-                  <span>
-                    Seleccionadas: <strong className="text-emerald-700 font-bold">{selectedPubIds.size}</strong> de{" "}
-                    {filteredPublications.length}
-                  </span>
+                <div className="text-[11px] text-slate-500">
+                  Seleccionadas: <strong className="text-slate-800">{selectedPubIds.size}</strong> de {filteredPublications.length}
                 </div>
               </div>
 
-              {/* Paso 3: Documento Oficial o Prompt */}
-              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/40 p-5 space-y-4">
+              {/* Sección 3: Método de Actualización (2 OPCIONES LIMPIAS) */}
+              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-emerald-600" />
-                    Paso 3: Fuente de Información Oficial (Excel, CSV o Documento)
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    3. Método de actualización
                   </label>
-                  <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+                  <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-100">
                     <button
                       type="button"
-                      onClick={() => setActiveTab("file")}
-                      className={`px-3 py-1 rounded-md font-medium transition ${
-                        activeTab === "file" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                      onClick={() => setSourceMode("prompt")}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition ${
+                        sourceMode === "prompt"
+                          ? "bg-white text-slate-900 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
-                      Subir Archivo (.xlsx / .csv / .pdf)
+                      <PenTool className="h-3.5 w-3.5" />
+                      Instrucciones de redacción
                     </button>
                     <button
                       type="button"
-                      onClick={() => setActiveTab("text")}
-                      className={`px-3 py-1 rounded-md font-medium transition ${
-                        activeTab === "text" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                      onClick={() => setSourceMode("file")}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition ${
+                        sourceMode === "file"
+                          ? "bg-white text-slate-900 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
-                      Pegar Texto Oficial
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      Subir archivo (Excel / Doc)
                     </button>
                   </div>
                 </div>
 
-                {activeTab === "file" ? (
-                  <div>
+                {sourceMode === "prompt" ? (
+                  <div className="space-y-2">
+                    <textarea
+                      rows={4}
+                      value={updatePrompt}
+                      onChange={(e) => setUpdatePrompt(e.target.value)}
+                      placeholder="Escribe las instrucciones para actualizar este bloque (ej: Mejora la orientación, añade recomendaciones prácticas de llegada, trámites esenciales y consejos de adaptación)..."
+                      className="w-full rounded-lg border border-slate-200 p-3 text-xs text-slate-900 focus:border-slate-500 focus:outline-none"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      El redactor enriquecerá y adaptará el bloque específicamente al destino y contexto de cada publicación seleccionada.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -606,15 +674,13 @@ export default function BulkBlockUpdateModal({
                     />
 
                     {uploadedFile ? (
-                      <div className="flex items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50/60 p-4">
+                      <div className="flex items-center justify-between rounded-lg border border-slate-300 bg-slate-50 p-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
-                            <FileSpreadsheet className="h-5 w-5" />
-                          </div>
+                          <FileSpreadsheet className="h-5 w-5 text-slate-700" />
                           <div>
-                            <div className="text-sm font-semibold text-emerald-950">{uploadedFile.name}</div>
-                            <div className="text-xs text-emerald-700">
-                              {(uploadedFile.size / 1024).toFixed(1)} KB • Documento cargado listo para procesar
+                            <div className="text-xs font-semibold text-slate-900">{uploadedFile.name}</div>
+                            <div className="text-[11px] text-slate-500">
+                              {(uploadedFile.size / 1024).toFixed(1)} KB • Archivo listo para procesar
                             </div>
                           </div>
                         </div>
@@ -624,7 +690,7 @@ export default function BulkBlockUpdateModal({
                             setUploadedFile(null);
                             if (fileInputRef.current) fileInputRef.current.value = "";
                           }}
-                          className="rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+                          className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                         >
                           Cambiar archivo
                         </button>
@@ -634,138 +700,115 @@ export default function BulkBlockUpdateModal({
                         onClick={() => fileInputRef.current?.click()}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={handleDrop}
-                        className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-6 transition cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/20"
+                        className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50/50 p-6 transition cursor-pointer hover:border-slate-400 hover:bg-slate-50"
                       >
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 mb-3">
-                          <Upload className="h-6 w-6" />
+                        <Upload className="h-6 w-6 text-slate-400 mb-2" />
+                        <div className="text-xs font-medium text-slate-700">
+                          Haz clic para subir o arrastra tu archivo aquí
                         </div>
-                        <div className="text-sm font-semibold text-slate-800">
-                          Haz clic para subir o arrastra tu archivo Excel / Documento aquí
-                        </div>
-                        <div className="text-xs text-slate-500 mt-1">
-                          Compatible con Excel (.xlsx, .xls), CSV, TXT, JSON o documentos oficiales
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          Formatos aceptados: .xlsx, .xls, .csv, .txt o .pdf
                         </div>
                       </div>
                     )}
-                  </div>
-                ) : (
-                  <div>
-                    <textarea
-                      rows={5}
-                      value={customDocumentText}
-                      onChange={(e) => setCustomDocumentText(e.target.value)}
-                      placeholder="Pega aquí extractos de normativas, tablas de requisitos, leyes migratorias o datos oficiales..."
-                      className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                    />
+
+                    {/* Instrucción complementaria */}
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
+                        Instrucciones complementarias (opcional):
+                      </label>
+                      <input
+                        type="text"
+                        value={updatePrompt}
+                        onChange={(e) => setUpdatePrompt(e.target.value)}
+                        placeholder="Ej: Dar prioridad a las normativas vigentes para extranjeros del Mercosur..."
+                        className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-900 focus:border-slate-500 focus:outline-none"
+                      />
+                    </div>
                   </div>
                 )}
-
-                {/* Prompt Adicional */}
-                <div>
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-                    Instrucciones específicas para el Agente IA (Opcional):
-                  </label>
-                  <input
-                    type="text"
-                    value={updatePrompt}
-                    onChange={(e) => setUpdatePrompt(e.target.value)}
-                    placeholder="Ej: Priorizar visados de trabajo y nómadas digitales, incluir costos en USD y tiempos estimados oficiales..."
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    El agente contextualizará automáticamente los datos oficiales según el país y la naturaleza de cada publicación seleccionada.
-                  </p>
-                </div>
               </div>
             </div>
           )}
 
-          {/* STEP 2: PREVIEW & GRANULAR APPROVAL */}
+          {/* STEP 2: PREVIEW */}
           {currentStep === "preview" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
-                    <Eye className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-emerald-950">
-                      Revisión de Cambios Generados por la IA
-                    </h3>
-                    <p className="text-xs text-emerald-800">
-                      Verifica el contenido antes de guardarlo en Travelgrin. Puedes desmarcar cualquiera que no desees aplicar.
-                    </p>
-                  </div>
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Revisión de Cambios
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Revisa las modificaciones generadas antes de guardarlas en el sistema.
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => handleToggleAllPreviews(true)}
-                    className="rounded-lg bg-white border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+                    className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                   >
                     Aprobar todas
                   </button>
                   <button
                     type="button"
                     onClick={() => handleToggleAllPreviews(false)}
-                    className="rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                    className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-50"
                   >
                     Desmarcar todas
                   </button>
                 </div>
               </div>
 
-              {/* Lista de Previews */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {previewResults.map((item) => {
                   const isExpanded = expandedPreviewIds.has(item.publicationId);
                   return (
                     <div
                       key={item.publicationId}
-                      className={`rounded-2xl border transition overflow-hidden ${
+                      className={`rounded-xl border transition ${
                         item.selectedForSave && item.success
-                          ? "border-emerald-300 bg-white shadow-sm"
+                          ? "border-slate-300 bg-white"
                           : !item.success
-                          ? "border-rose-200 bg-rose-50/30"
-                          : "border-slate-200 bg-slate-50/40 opacity-70"
+                          ? "border-rose-200 bg-rose-50/20"
+                          : "border-slate-200 bg-slate-50 opacity-60"
                       }`}
                     >
-                      {/* Header de la Publicación */}
-                      <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
-                        <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-between p-3.5 border-b border-slate-100">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <input
                             type="checkbox"
                             disabled={!item.success}
                             checked={item.selectedForSave && item.success}
                             onChange={() => handleTogglePreviewSelect(item.publicationId)}
-                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                            className="rounded border-slate-300 text-slate-900 focus:ring-slate-500 h-4 w-4"
                           />
-                          <div>
-                            <div className="font-bold text-sm text-slate-900">{item.publicationTitle}</div>
-                            <div className="text-xs text-slate-500 flex items-center gap-2">
-                              {item.publisherName && <span>{item.publisherName}</span>}
-                              {item.country && (
+                          <div className="min-w-0">
+                            <div className="font-semibold text-xs text-slate-900 truncate">
+                              {item.publicationTitle}
+                            </div>
+                            <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                              {item.country && <span>{item.country}</span>}
+                              {item.publisherName && (
                                 <>
                                   <span>•</span>
-                                  <span className="font-semibold text-slate-700">{item.country}</span>
+                                  <span>{item.publisherName}</span>
                                 </>
                               )}
                               <span>•</span>
-                              <span className="font-medium text-emerald-700">Bloque: {item.blockTitle}</span>
+                              <span className="font-medium text-slate-700">Bloque: {item.blockTitle}</span>
                             </div>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2">
                           {item.success ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                            <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
                               Listo para aplicar
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">
-                              <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
+                            <span className="rounded bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-700">
                               Error al procesar
                             </span>
                           )}
@@ -781,66 +824,45 @@ export default function BulkBlockUpdateModal({
                               }
                               setExpandedPreviewIds(next);
                             }}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                           >
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </button>
                         </div>
                       </div>
 
-                      {/* Cuerpo de Contenido */}
-                      <div className="p-4 space-y-3">
+                      <div className="p-3.5">
                         {item.success && item.updatedBodyHtml ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Original */}
-                            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                                Bloque Original
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                                Versión Anterior
                               </div>
                               {item.originalBody ? (
                                 <div
-                                  className="text-xs text-slate-700 max-h-48 overflow-y-auto prose prose-xs"
+                                  className="text-slate-600 max-h-40 overflow-y-auto prose prose-xs"
                                   dangerouslySetInnerHTML={{ __html: item.originalBody }}
                                 />
                               ) : (
-                                <div className="text-xs italic text-slate-400">
-                                  (Esta publicación no tenía este bloque previamente; se creará como nuevo).
+                                <div className="text-slate-400 italic">
+                                  (Bloque nuevo, no existía en esta publicación)
                                 </div>
                               )}
                             </div>
 
-                            {/* Nuevo Generado */}
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-3">
-                              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 mb-2 flex items-center justify-between">
-                                <span>Actualizado con Documento Oficial</span>
-                                <span className="font-normal text-[10px] text-emerald-600 lowercase">
-                                  {item.providerUsed || "IA Grounded"}
-                                </span>
+                            <div className="rounded-lg border border-slate-300 bg-white p-3">
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-800 mb-1.5">
+                                Nueva Versión
                               </div>
                               <div
-                                className="text-xs text-slate-900 max-h-48 overflow-y-auto prose prose-xs"
+                                className="text-slate-900 max-h-40 overflow-y-auto prose prose-xs"
                                 dangerouslySetInnerHTML={{ __html: item.updatedBodyHtml }}
                               />
                             </div>
                           </div>
                         ) : (
-                          <div className="p-3 text-xs text-rose-700 bg-rose-50 rounded-xl">
-                            {item.error || "No se pudo generar el contenido para esta publicación."}
-                          </div>
-                        )}
-
-                        {/* Evidencias del Documento Oficial */}
-                        {item.evidencias && item.evidencias.length > 0 && isExpanded && (
-                          <div className="pt-2 border-t border-slate-100">
-                            <div className="text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1.5">
-                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                              Evidencias oficiales encontradas en el documento:
-                            </div>
-                            <ul className="list-disc pl-5 text-[11px] text-slate-600 space-y-0.5">
-                              {item.evidencias.map((ev, i) => (
-                                <li key={i}>{ev}</li>
-                              ))}
-                            </ul>
+                          <div className="p-3 text-xs text-rose-700 bg-rose-50 rounded-lg">
+                            {item.error || "No se pudo generar el contenido."}
                           </div>
                         )}
                       </div>
@@ -853,24 +875,24 @@ export default function BulkBlockUpdateModal({
 
           {/* STEP 3: COMPLETED */}
           {currentStep === "complete" && (
-            <div className="flex flex-col items-center justify-center p-8 text-center space-y-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-100 text-emerald-600">
-                <CheckCircle2 className="h-10 w-10" />
+            <div className="flex flex-col items-center justify-center p-8 text-center space-y-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <CheckCircle2 className="h-7 w-7" />
               </div>
-              <h3 className="text-xl font-bold text-slate-900">¡Actualización Exitosa!</h3>
-              <p className="text-sm text-slate-600 max-w-md">{saveSuccessMsg}</p>
-              <div className="pt-4 flex gap-3">
+              <h3 className="text-base font-bold text-slate-900">Actualización completada</h3>
+              <p className="text-xs text-slate-600 max-w-sm">{saveSuccessMsg}</p>
+              <div className="pt-2 flex gap-2">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700"
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
                 >
                   Cerrar
                 </button>
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
                 >
                   Actualizar otro bloque
                 </button>
@@ -879,26 +901,26 @@ export default function BulkBlockUpdateModal({
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-3.5">
           <div>
             {currentStep === "preview" && (
               <button
                 type="button"
                 onClick={() => setCurrentStep("configure")}
-                className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+                className="text-xs font-medium text-slate-600 hover:text-slate-900"
               >
                 ← Volver a Configurar
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
               disabled={isProcessing || isSaving}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
               Cancelar
             </button>
@@ -907,18 +929,17 @@ export default function BulkBlockUpdateModal({
               <button
                 type="button"
                 onClick={handleGeneratePreviews}
-                disabled={isProcessing || selectedPubIds.size === 0 || (!uploadedFile && !customDocumentText.trim() && !updatePrompt.trim())}
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 disabled:opacity-50 transition"
+                disabled={isProcessing || selectedPubIds.size === 0 || (sourceMode === "prompt" && !updatePrompt.trim()) || (sourceMode === "file" && !uploadedFile && !updatePrompt.trim())}
+                className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition"
               >
                 {isProcessing ? (
                   <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Procesando con IA ({selectedPubIds.size} pubs)...
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    Generando ({selectedPubIds.size})...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4" />
-                    Generar Previsualizaciones ({selectedPubIds.size})
+                    Continuar a Previsualización ({selectedPubIds.size})
                   </>
                 )}
               </button>
@@ -929,17 +950,17 @@ export default function BulkBlockUpdateModal({
                 type="button"
                 onClick={handleSaveApprovedChanges}
                 disabled={isSaving || previewResults.filter((p) => p.selectedForSave && p.success).length === 0}
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 disabled:opacity-50 transition"
+                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition"
               >
                 {isSaving ? (
                   <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Guardando en Base de Datos...
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    Guardando ({saveProgress.current}/{saveProgress.total})...
                   </>
                 ) : (
                   <>
-                    <Database className="h-4 w-4" />
-                    Aplicar Cambios Aprobados ({previewResults.filter((p) => p.selectedForSave && p.success).length})
+                    <Check className="h-3.5 w-3.5" />
+                    Aplicar Cambios ({previewResults.filter((p) => p.selectedForSave && p.success).length})
                   </>
                 )}
               </button>

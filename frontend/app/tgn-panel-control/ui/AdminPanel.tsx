@@ -11179,10 +11179,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     setBulkDocInitialPubId(undefined);
                     setBulkDocModalOpen(true);
                   }}
-                  className="flex items-center gap-1.5 rounded-xl border border-emerald-500 bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 shadow-sm transition"
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-xs transition"
                 >
-                  <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                  Actualizar Bloque con Excel/Doc
+                  <FileSpreadsheet className="h-4 w-4 text-slate-600" />
+                  Actualizar Bloques (Excel / Prompt)
                 </button>
                 <button type="button" onClick={openNewPublicationEditor} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Nueva</button>
               </div>
