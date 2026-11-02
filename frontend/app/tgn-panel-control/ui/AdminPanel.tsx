@@ -3107,19 +3107,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
     const titleI18nInit = {
       es: titleEs,
-      en: "",
-      pt: "",
-      it: "",
+      en: draft.titleI18n?.en || "",
+      pt: draft.titleI18n?.pt || "",
+      it: draft.titleI18n?.it || "",
     };
     setPTitle(titleEs);
     setPTitleI18n(titleI18nInit);
 
-    const descEs = draft.description || "";
+    const descEs = draft.descriptionI18n?.es || draft.description || "";
     const descI18nInit = {
       es: descEs,
-      en: "",
-      pt: "",
-      it: "",
+      en: draft.descriptionI18n?.en || "",
+      pt: draft.descriptionI18n?.pt || "",
+      it: draft.descriptionI18n?.it || "",
     };
     setPDescription(descEs);
     setPDescriptionI18n(descI18nInit);
@@ -9829,18 +9829,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                   >
                     + Agregar bloque
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBulkDocInitialBlock("");
-                      if (editingId) setBulkDocInitialPubId(editingId);
-                      setBulkDocModalOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition shadow-sm"
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-                    Actualizar con Excel / Doc
-                  </button>
                 </div>
               </div>
 
@@ -9851,18 +9839,6 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBulkDocInitialBlock(desc.titleI18n?.es || desc.title || "");
-                              if (editingId) setBulkDocInitialPubId(editingId);
-                              setBulkDocModalOpen(true);
-                            }}
-                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 transition hover:bg-emerald-100"
-                          >
-                            <FileSpreadsheet className="h-3 w-3 text-emerald-600" />
-                            Actualizar con Excel / Doc
-                          </button>
                           {!isManualForm ? (
                             <button
                               type="button"

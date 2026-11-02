@@ -3455,6 +3455,10 @@ async function fetchPageContent(url: string) {
             }
           }
         } catch {}
+      const isWafBlock = /incapsula incident id|request unsuccessful|_incapsula_resource|attention required!\s*\|\s*cloudflare|cf-browser-verification|checking your browser before accessing|just a moment\.\.\.|access denied/i.test(html);
+      if (isWafBlock) {
+        console.warn(`[AI Scraper] WAF challenge/block detected on direct fetch for ${url}, switching to reader proxy`);
+        html = "";
       }
 
       if (html && html.length > 200) {
@@ -4233,6 +4237,8 @@ function cleanJunkTextPhrases(text: string): string {
   }
 
   return text
+    .replace(/request unsuccessful[.\s]*incapsula incident id:?\s*\d+[^\n.<>]*/gi, "")
+    .replace(/incapsula incident id:?\s*\d+/gi, "")
     .replace(/\b(?:leer\s+(?:nota|m[aá]s|noticia)|ver\s+(?:m[aá]s|detalle|publicaci[oó]n|nota)|conoc[eé]\s+m[aá]s|saber\s+m[aá]s|m[aá]s\s+informaci[oó]n|read\s+more|seguir\s+leyendo|ir\s+a\s+la\s+nota|haga?\s+clic\s+aqu[ií]|clic\s+aqu[ií]|click\s+here)\b\s*[»›→\.]*/gi, "")
     .replace(/[»›→]+/g, "")
     .replace(/[ \t]{2,}/g, " ")
