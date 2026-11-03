@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseUploadedDocument, filterDocumentForContext, type ParsedDocumentResult } from "@/app/lib/documentParser";
-import { runDocumentBlockAgent, type PublicationContextForBlockUpdate } from "@/app/lib/aiDocumentBlockAgent";
+import {
+  parseUploadedDocument,
+  extractPublicationSpecificContext,
+  type ParsedDocumentResult,
+} from "@/app/lib/documentParser";
+import { runDocumentBlockAgent } from "@/app/lib/aiDocumentBlockAgent";
 
 export const maxDuration = 120; // 2 minutes execution window for bulk processing
 
@@ -13,6 +17,7 @@ interface UpdateRequestItem {
   category?: string;
   subcategory?: string;
   currentBody?: string;
+  mainDescription?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -92,7 +97,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // PROCESS PUBLICATIONS WITH AGENT
+    // PROCESS PUBLICATIONS IN PARALLEL BATCHES OF 4
     const results: Array<{
       publicationId: string;
       publicationTitle: string;
@@ -107,74 +112,90 @@ export async function POST(req: NextRequest) {
       error?: string;
     }> = [];
 
-    for (const pub of targetPublications) {
-      try {
-        // If a parsed document is available and large, extract pertinent context
-        const contextDocText = parsedDoc
-          ? filterDocumentForContext(parsedDoc, {
-              country: pub.country,
-              city: pub.city,
-              publisherName: pub.publisherName,
+    const BATCH_SIZE = 4;
+    for (let i = 0; i < targetPublications.length; i += BATCH_SIZE) {
+      const batch = targetPublications.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (pub, bIdx) => {
+          try {
+            const pubMatch = parsedDoc
+              ? extractPublicationSpecificContext(parsedDoc, {
+                  title: pub.title,
+                  publisherName: pub.publisherName,
+                  country: pub.country,
+                  city: pub.city,
+                  blockTitle: targetBlockTitle,
+                  totalTargetPublications: targetPublications.length,
+                  publicationIndex: i + bIdx,
+                })
+              : {
+                  contextText: rawDocumentText,
+                  excelInstructions: "",
+                  matchedRowsText: [],
+                  hasExactPublicationMatch: false,
+                };
+
+            const agentOutput = await runDocumentBlockAgent({
               blockTitle: targetBlockTitle,
-            })
-          : rawDocumentText;
+              currentBody: pub.currentBody,
+              documentContext: pubMatch.contextText,
+              documentFileName,
+              updatePrompt,
+              excelInstructions: pubMatch.excelInstructions,
+              matchedRowsText: pubMatch.matchedRowsText,
+              publication: {
+                id: pub.id,
+                title: pub.title,
+                publisherName: pub.publisherName,
+                country: pub.country,
+                city: pub.city,
+                category: pub.category,
+                subcategory: pub.subcategory,
+                mainDescription: pub.mainDescription,
+              },
+              apiKeyParam: apiKey || undefined,
+            });
 
-        const agentOutput = await runDocumentBlockAgent({
-          blockTitle: targetBlockTitle,
-          currentBody: pub.currentBody,
-          documentContext: contextDocText,
-          documentFileName,
-          updatePrompt,
-          publication: {
-            id: pub.id,
-            title: pub.title,
-            publisherName: pub.publisherName,
-            country: pub.country,
-            city: pub.city,
-            category: pub.category,
-            subcategory: pub.subcategory,
-          },
-          apiKeyParam: apiKey || undefined,
-        });
+            if (!agentOutput.success) {
+              return {
+                publicationId: pub.id,
+                publicationTitle: pub.title,
+                publisherName: pub.publisherName,
+                country: pub.country,
+                originalBody: pub.currentBody,
+                blockTitle: targetBlockTitle,
+                success: false,
+                error: agentOutput.error || "No se pudo generar el contenido con el agente.",
+              };
+            }
 
-        if (!agentOutput.success) {
-          results.push({
-            publicationId: pub.id,
-            publicationTitle: pub.title,
-            publisherName: pub.publisherName,
-            country: pub.country,
-            originalBody: pub.currentBody,
-            blockTitle: targetBlockTitle,
-            success: false,
-            error: agentOutput.error || "No se pudo generar el contenido con el agente.",
-          });
-          continue;
-        }
-
-        results.push({
-          publicationId: pub.id,
-          publicationTitle: pub.title,
-          publisherName: pub.publisherName,
-          country: pub.country,
-          originalBody: pub.currentBody,
-          updatedBodyHtml: agentOutput.updatedBodyHtml,
-          blockTitle: agentOutput.blockTitle,
-          evidencias: agentOutput.evidencias,
-          providerUsed: agentOutput.providerUsed,
-          success: true,
-        });
-      } catch (err: any) {
-        results.push({
-          publicationId: pub.id,
-          publicationTitle: pub.title,
-          publisherName: pub.publisherName,
-          country: pub.country,
-          originalBody: pub.currentBody,
-          blockTitle: targetBlockTitle,
-          success: false,
-          error: err?.message || "Error al procesar esta publicación",
-        });
-      }
+            return {
+              publicationId: pub.id,
+              publicationTitle: pub.title,
+              publisherName: pub.publisherName,
+              country: pub.country,
+              originalBody: pub.currentBody,
+              updatedBodyHtml: agentOutput.updatedBodyHtml,
+              blockTitle: agentOutput.blockTitle,
+              evidencias: agentOutput.evidencias,
+              providerUsed: agentOutput.providerUsed,
+              success: true,
+            };
+          } catch (err: any) {
+            return {
+              publicationId: pub.id,
+              publicationTitle: pub.title,
+              publisherName: pub.publisherName,
+              country: pub.country,
+              originalBody: pub.currentBody,
+              blockTitle: targetBlockTitle,
+              success: false,
+              error: err?.message || "Error al procesar esta publicación",
+            };
+          }
+        })
+      );
+      results.push(...batchResults);
     }
 
     return NextResponse.json({
