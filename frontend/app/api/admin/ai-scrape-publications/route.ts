@@ -1187,22 +1187,34 @@ async function fetchExternalFoundingYear(cleanName?: string | null, city?: strin
 
 function isValidPhysicalStreetAddress(addr?: string | null): boolean {
   if (!addr || typeof addr !== "string") return false;
-  const s = decodeHtmlEntities(addr).replace(/<[^>]+>/g, "").trim();
-  if (s.length < 6 || s.length > 120) return false;
+  const s = decodeHtmlEntities(addr).replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  if (s.length < 6 || s.length > 140) return false;
 
-  const JUNK_TERMS = /\b(?:origen|lead|origen\s+de\s+lead|carga\s+de\s+leads|calendario|acad[eé]mico|ciclo(?:\s+lectivo)?|inscripci[oó]n(?:es)?|arancel(?:es)?|cuota(?:s)?|matr[ií]cula|licenciatura|carrera(?:s)?|posgrado|grado|materia(?:s)?|curso(?:s)?|diplomatura|programa(?:s)?|resoluci[oó]n|ley|decreto|art[ií]culo|a[ñn]o|desde|hasta|horario(?:s)?|atenci[oó]n|copyright|derechos|tel[eé]fono|conmutador|contacto|whatsapp|wsp|gracias|formulario)\b/i;
+  const JUNK_TERMS = /\b(?:origen|lead|origen\s+de\s+lead|carga\s+de\s+leads|calendario|acad[eé]mico|ciclo(?:\s+lectivo)?|inscripci[oó]n(?:es)?|arancel(?:es)?|cuota(?:s)?|matr[ií]cula|licenciatura|carrera(?:s)?|posgrado|grado|materia(?:s)?|curso(?:s)?|diplomatura|programa(?:s)?|resoluci[oó]n|ley|decreto|art[ií]culo|a[ñn]o|desde|hasta|horario(?:s)?|atenci[oó]n|copyright|derechos|tel[eé]fono|conmutador|internos?\s+telef[oó]nicos?|contacto|transparencia|whatsapp|wsp|gracias|formulario)\b/i;
   if (JUNK_TERMS.test(s)) return false;
 
-  const hasPrefix = /\b(?:av\.|avenida|calle|bv\.|boulevard|bulevar|pje\.|pasaje|ruta(?:\s+provincial|\s+nacional)?|autopista|diagonal|lateral|acceso)\b/i.test(s);
-  
+  // Reject dates, months, days of the week, and timestamps (e.g. "martes 03 de noviembre 2026 13:48")
+  if (/\b(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/i.test(s)) {
+    return false;
+  }
+  if (/\b\d{1,2}:\d{2}\b/.test(s)) return false;
+
+  // Accept verified campus / university / complex addresses (e.g. "Centro Universitario, M5500 Mendoza", "Ciudad Universitaria")
+  const hasCampusOrComplex = /\b(?:centro\s+universitario|ciudad\s+universitaria|campus(?:\s+universitario)?|parque\s+(?:gral\.?|general|industrial|tecnol[oó]gico|empresarial)|s\/n|km\.?\s*\d+)\b/i.test(s);
+  if (hasCampusOrComplex) return true;
+
+  const hasPrefix = /\b(?:av\.|avenida|calle|bv\.|boulevard|bulevar|pje\.|pasaje|ruta(?:\s+provincial|\s+nacional)?|autopista|diagonal|lateral|acceso|pte\.|pres\.|gral\.|tte\.|dr\.|ing\.)\b/i.test(s);
+
   // Reject toll-free and phone numbers (0800, 0810, 011, or any number starting with 0) unless standard street prefix exists
   if (/\b0\d{2,4}\b/.test(s) && !hasPrefix) return false;
 
-  const numMatch = s.match(/\b\d{1,5}\b/);
+  // Strip Argentine CPA / postal codes before checking for street number so a bare postal code isn't confused with a street number
+  const withoutPostal = s.replace(/\b[A-Z]\d{4}[A-Z]{0,3}\b/gi, " ").replace(/\b(?:cp|c\.p\.)\s*\d{4}\b/gi, " ");
+  const numMatch = withoutPostal.match(/\b\d{1,5}\b/);
   if (!numMatch) return false;
 
   const num = parseInt(numMatch[0], 10);
-  if (!hasPrefix && num >= 1900 && num <= 2099) {
+  if (!hasPrefix && num >= 1900 && num <= 2099 && withoutPostal.split(/\s+/).length <= 3) {
     return false;
   }
   return true;
@@ -1218,10 +1230,16 @@ function cleanAddressForSearch(addr?: string | null): string {
     .replace(/[°º#"']/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  const commaParts = clean.split(",");
-  const streetPart = commaParts.find((p) => /\b\d{1,5}\b/.test(p));
+  const commaParts = clean.split(",").map((p) => p.trim()).filter(Boolean);
+  const streetPart = commaParts.find((p) => {
+    const noPostal = p.replace(/\b[A-Z]\d{4}[A-Z]{0,3}\b/gi, "").trim();
+    return (
+      /\b\d{1,5}\b/.test(noPostal) ||
+      /\b(?:centro\s+universitario|ciudad\s+universitaria|campus(?:\s+universitario)?|parque\s+(?:gral\.?|general|industrial|tecnol[oó]gico)|av\.|avenida|calle|bv\.|boulevard|bulevar|pje\.|pasaje|ruta|diagonal|s\/n)\b/i.test(p)
+    );
+  });
   if (streetPart) {
-    clean = streetPart.trim();
+    clean = streetPart.replace(/\b[A-Z]\d{4}[A-Z]{0,3}\b/gi, "").replace(/\s+/g, " ").trim();
   }
   if (!isValidPhysicalStreetAddress(clean)) return "";
   return clean;
@@ -1231,7 +1249,7 @@ const ARGENTINE_AND_REGIONAL_CITIES: string[] = [
   "Buenos Aires", "CABA", "Capital Federal",
   "Córdoba", "Río Cuarto", "Villa María", "San Francisco", "Villa Carlos Paz",
   "Rosario", "Santa Fe", "Rafaela", "Venado Tuerto", "San Lorenzo", "Reconquista",
-  "Mendoza", "San Rafael", "Godoy Cruz", "Guaymallén", "Las Heras", "Maipú", "Luján de Cuyo", "General Alvear", "Malargüe", "Tunuyán",
+  "Mendoza", "San Rafael", "Godoy Cruz", "Guaymallén", "Las Heras", "Maipú", "Luján de Cuyo", "General Alvear", "Malargüe", "Tunuyán", "Tupungato", "Rivadavia", "San Martín",
   "San Juan", "Rawson",
   "San Luis", "Villa Mercedes", "Merlo",
   "San Miguel de Tucumán", "Tucumán", "Yerba Buena", "Concepción",
@@ -1269,67 +1287,120 @@ function parseAddressComponents(
     .trim();
 
   const parts = clean.split(",").map((p) => p.trim()).filter(Boolean);
-  const streetPartIndex = parts.findIndex((p) => /\b\d{1,5}\b/.test(p));
+
+  const isStreetCandidate = (part: string): boolean => {
+    const noPostal = part
+      .replace(/\b[A-Z]\d{4}[A-Z]{0,3}\b/gi, " ")
+      .replace(/\b(?:cp|c\.p\.)\s*\d{4}\b/gi, " ")
+      .trim();
+    const hasStreetPrefix = /\b(?:av\.|avenida|calle|bv\.|boulevard|bulevar|pje\.|pasaje|ruta(?:\s+provincial|\s+nacional)?|autopista|diagonal|lateral|acceso|peatonal|tte\.|gral\.|pte\.|pres\.)\b/i.test(part);
+    const hasCampus = /\b(?:centro\s+universitario|ciudad\s+universitaria|campus(?:\s+universitario)?|parque\s+(?:gral\.?|general|industrial|tecnol[oó]gico)|s\/n|km\.?\s*\d+)\b/i.test(part);
+    const hasHouseNumber = /\b\d{1,5}\b/.test(noPostal);
+    return hasStreetPrefix || hasCampus || hasHouseNumber;
+  };
+
+  // Find street part in ANY position (supports [Street, City], [City, Street], [Locality, Street, Province])
+  const streetPartIndex = parts.findIndex((p) => isStreetCandidate(p));
 
   let street = "";
   if (streetPartIndex !== -1) {
-    street = parts[streetPartIndex];
-  } else if (parts[0] && /\b\d{1,5}\b/.test(parts[0])) {
-    street = parts[0];
-  } else if (parts[0] && !ARGENTINE_AND_REGIONAL_CITIES.some((c) => new RegExp(`^${escapeRegExp(c)}$`, "i").test(parts[0]))) {
-    street = parts[0];
+    street = parts[streetPartIndex]
+      .replace(/^\b[A-Z]\d{4}[A-Z]{0,3}\b\s*/i, "")
+      .trim();
+  } else if (parts[0]) {
+    const p0Cleaned = parts[0]
+      .replace(/^[A-Z]?\d{4}[A-Z]{0,3}\s*/i, "")
+      .replace(/^(?:Ciudad de|Cdad\.\s*Aut[oó]noma de|Pdo\.|Partido de|Dpto\.|Provincia de)\s+/i, "")
+      .trim();
+    const isP0KnownCity = ARGENTINE_AND_REGIONAL_CITIES.some((c) => new RegExp(`^${escapeRegExp(c)}$`, "i").test(p0Cleaned));
+    if (!isP0KnownCity) {
+      street = parts[0];
+    } else if (parts[1]) {
+      street = parts[1];
+    }
   }
-
-  // Locality / City extraction: Look strictly in parts AFTER the street part to avoid confusing streets named after cities
-  const remainingParts = streetPartIndex !== -1 ? parts.slice(streetPartIndex + 1) : parts.slice(1);
 
   let detectedCity = "";
   let detectedProvince = "";
   let detectedCountry = defaultCountry;
+  let hasArgentineLocationInAddress = false;
 
-  for (const part of remainingParts) {
-    if (/\bargentina\b/i.test(part)) {
-      detectedCountry = "Argentina";
-      continue;
-    }
-    if (/\bchile\b/i.test(part) && !/\bchilecito\b/i.test(part)) {
-      detectedCountry = "Chile";
-      continue;
-    }
-    if (/\buruguay\b/i.test(part)) {
-      detectedCountry = "Uruguay";
-      continue;
-    }
-    if (/\bbrasil\b|\bbrazil\b/i.test(part)) {
-      detectedCountry = "Brasil";
-      continue;
-    }
-    if (/\bcolombia\b/i.test(part)) {
-      detectedCountry = "Colombia";
-      continue;
-    }
-    if (/\bm[eé]xico\b/i.test(part)) {
-      detectedCountry = "México";
-      continue;
-    }
-    if (/\bper[uú]\b/i.test(part)) {
-      detectedCountry = "Perú";
-      continue;
-    }
-    if (/\bespaña\b|\bspain\b/i.test(part)) {
-      detectedCountry = "España";
-      continue;
-    }
-    if (/\bestados unidos\b|\busa\b/i.test(part)) {
-      detectedCountry = "Estados Unidos";
-      continue;
-    }
+  // Inspect ALL parts (before and after street) for city, province, and explicit standalone country
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const isThisPartStreet = i === streetPartIndex || (street && part === street);
 
     const cleanedPart = part
-      .replace(/^[A-Z]?\d{4}[A-Z]{0,3}\s*/i, "")
-      .replace(/^(?:Ciudad de|Pdo\.|Partido de|Dpto\.|Provincia de)\s+/i, "")
+      .replace(/\b[A-Z]?\d{4}[A-Z]{0,3}\b/gi, " ")
+      .replace(/\b(?:cp|c\.p\.)\b/gi, " ")
+      .replace(/[/()-]/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/^(?:Ciudad de|Cdad\.\s*Aut[oó]noma de|Ciudad Aut[oó]noma de|Pdo\.|Partido de|Dpto\.|Departamento de|Provincia de)\s+/i, "")
       .trim();
-    if (!cleanedPart || /\d{3,}/.test(cleanedPart)) continue;
+
+    if (!cleanedPart) continue;
+
+    // 1. Check if this part is an explicit standalone country name (NEVER allow a street like "Perú 359" or "Av. España 120" to change the country!)
+    if (!isThisPartStreet && !/\d/.test(cleanedPart)) {
+      if (/^(?:rep[uú]blica\s+)?argentina$/i.test(cleanedPart)) {
+        detectedCountry = "Argentina";
+        hasArgentineLocationInAddress = true;
+        continue;
+      }
+      if (/^(?:rep[uú]blica\s+de\s+)?chile$/i.test(cleanedPart)) {
+        detectedCountry = "Chile";
+        continue;
+      }
+      if (/^(?:rep[uú]blica\s+oriental\s+del\s+)?uruguay$/i.test(cleanedPart)) {
+        detectedCountry = "Uruguay";
+        continue;
+      }
+      if (/^(?:rep[uú]blica\s+federativa\s+del\s+)?(?:brasil|brazil)$/i.test(cleanedPart)) {
+        detectedCountry = "Brasil";
+        continue;
+      }
+      if (/^(?:rep[uú]blica\s+de\s+)?colombia$/i.test(cleanedPart)) {
+        detectedCountry = "Colombia";
+        continue;
+      }
+      if (/^(?:estados\s+unidos\s+mexicanos|m[eé]xico)$/i.test(cleanedPart)) {
+        detectedCountry = "México";
+        continue;
+      }
+      if (/^(?:rep[uú]blica\s+del\s+)?per[uú]$/i.test(cleanedPart)) {
+        detectedCountry = "Perú";
+        continue;
+      }
+      if (/^(?:reino\s+de\s+)?(?:españa|spain)$/i.test(cleanedPart)) {
+        detectedCountry = "España";
+        continue;
+      }
+      if (/^(?:estados\s+unidos(?:\s+de\s+am[eé]rica)?|usa|united\s+states)$/i.test(cleanedPart)) {
+        detectedCountry = "Estados Unidos";
+        continue;
+      }
+    }
+
+    // If this part is the street itself, ONLY extract a city from it if the street part had a trailing postal code + city (e.g. "M5500 Mendoza")
+    if (isThisPartStreet) {
+      const postalCityMatch = part.match(/\b[A-Z]\d{4}[A-Z]{0,3}\s+([A-ZÁÉÍÓÚÑa-záéíóúñ.\s]{3,35})$/i);
+      if (postalCityMatch && postalCityMatch[1]) {
+        const tailCity = postalCityMatch[1]
+          .replace(/^(?:Ciudad de|Cdad\.\s*Aut[oó]noma de|Ciudad Aut[oó]noma de|Provincia de)\s+/i, "")
+          .trim();
+        const matchedTail = ARGENTINE_AND_REGIONAL_CITIES.find(
+          (pc) => new RegExp(`^${escapeRegExp(pc)}$|\\b${escapeRegExp(pc)}\\b`, "i").test(tailCity)
+        );
+        if (matchedTail) {
+          hasArgentineLocationInAddress = true;
+          if (!detectedCity) detectedCity = matchedTail;
+          street = part.slice(0, postalCityMatch.index).replace(/,\s*$/, "").trim() || street;
+        }
+      }
+      continue;
+    }
+
+    if (/\d{3,}/.test(cleanedPart)) continue;
 
     // Filter out neighborhoods/barrios/zones so they are never erroneously assigned as detectedCity
     const isNeighborhood = /^(?:barrio|b°|bº|b[.]|zona|paraje|parque industrial|complejo)\b/i.test(cleanedPart);
@@ -1339,32 +1410,40 @@ function parseAddressComponents(
     );
 
     if (matched) {
+      hasArgentineLocationInAddress = true;
       if (!detectedCity) {
         detectedCity = matched;
       } else if (!detectedProvince && matched.toLowerCase() !== detectedCity.toLowerCase()) {
         detectedProvince = matched;
       }
-    } else if (!detectedCity && !isNeighborhood && cleanedPart.length >= 3 && cleanedPart.length <= 25 && !/\d/.test(cleanedPart)) {
+    } else if (!detectedCity && !isNeighborhood && cleanedPart.length >= 3 && cleanedPart.length <= 28 && !/\d/.test(cleanedPart)) {
       detectedCity = cleanedPart;
     }
   }
 
-  if (!detectedCity && remainingParts.length > 0) {
-    const trailingText = remainingParts.join(" ");
+  if (!detectedCity && parts.length > 0) {
+    const nonStreetText = parts.filter((_, idx) => idx !== streetPartIndex).join(" ");
     const matched = ARGENTINE_AND_REGIONAL_CITIES.find(
-      (pc) => new RegExp(`\\b${escapeRegExp(pc)}\\b`, "i").test(trailingText)
+      (pc) => new RegExp(`\\b${escapeRegExp(pc)}\\b`, "i").test(nonStreetText)
     );
-    if (matched) detectedCity = matched;
+    if (matched) {
+      detectedCity = matched;
+      hasArgentineLocationInAddress = true;
+    }
   }
 
   detectedCity = detectedCity || defaultCity;
 
-  if (/^(?:caba|capital federal|ciudad aut[oó]noma de buenos aires)$/i.test(detectedCity)) {
+  if (/^(?:caba|capital federal|ciudad aut[oó]noma de buenos aires|cdad\.?\s*aut[oó]noma de buenos aires)$/i.test(detectedCity)) {
     detectedCity = "Buenos Aires";
+    hasArgentineLocationInAddress = true;
   }
 
-  // Consistent Geographic Guarantee: If detected city is an Argentine city and defaultCountry is Argentina, guarantee country is Argentina
-  if (ARGENTINE_AND_REGIONAL_CITIES.some((ac) => new RegExp(`^${escapeRegExp(ac)}$`, "i").test(detectedCity)) && defaultCountry === "Argentina") {
+  // Strict Geographic Guarantee: If any part of the address or detectedCity is an Argentine city/province (e.g. Buenos Aires, Mendoza, Córdoba), lock country to Argentina
+  if (
+    hasArgentineLocationInAddress ||
+    (ARGENTINE_AND_REGIONAL_CITIES.some((ac) => new RegExp(`^${escapeRegExp(ac)}$`, "i").test(detectedCity)) && defaultCountry === "Argentina")
+  ) {
     detectedCountry = "Argentina";
   }
 
@@ -1601,31 +1680,287 @@ function extractRatingAndReviewsFromHtml(
   return { rating, reviewCount, commentsUrl };
 }
 
+function isBareAdministrativePlaceName(name?: string | null): boolean {
+  if (!name || typeof name !== "string") return true;
+  const cleaned = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^(?:ciudad\s+de|cdad\.\s*autonoma\s+de|ciudad\s+autonoma\s+de|provincia\s+de|municipio\s+de|departamento\s+de|partido\s+de|gran)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned || cleaned.length < 2) return true;
+
+  const countries = new Set([
+    "argentina", "republica argentina", "chile", "uruguay", "brasil", "brazil",
+    "paraguay", "bolivia", "peru", "colombia", "venezuela", "ecuador", "mexico",
+    "espana", "spain", "estados unidos", "usa", "italia", "francia",
+  ]);
+  if (countries.has(cleaned)) return true;
+
+  for (const city of ARGENTINE_AND_REGIONAL_CITIES) {
+    const cNorm = city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (cleaned === cNorm) return true;
+  }
+
+  // Also reject comma-joined bare city+province/country like "Mendoza, Argentina" or "Buenos Aires, CABA"
+  if (cleaned.includes(",")) {
+    const segments = cleaned.split(",").map((s) => s.trim()).filter(Boolean);
+    if (segments.length > 0 && segments.every((seg) => isBareAdministrativePlaceName(seg))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+interface GoogleMapsPlaceCandidate {
+  placeName: string;
+  decCid: string;
+  mapUrl: string;
+  rating: string;
+  reviewCount: string;
+  reviewCountNum: number;
+  address: string;
+  score: number;
+}
+
+function extractGoogleMapsPlaceCandidates(
+  text: string,
+  cleanBrand: string,
+  officialFullName: string,
+  siteHost: string,
+  targetCity: string,
+  targetAddress: string
+): GoogleMapsPlaceCandidate[] {
+  if (!text || typeof text !== "string") return [];
+
+  const normStr = (s?: string | null) =>
+    String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const brandNorm = normStr(cleanBrand);
+  const fullNorm = normStr(officialFullName || cleanBrand);
+  const cityNorm = normStr(targetCity);
+  const addrFp = normalizeAddressFingerprint(targetAddress);
+  const hostClean = normStr(siteHost).replace(/^www\./, "");
+
+  const stopWords = new Set(["de", "del", "la", "las", "el", "los", "en", "y", "e", "para", "por", "con", "universidad", "instituto", "colegio", "hospital", "clinica", "sanatorio", "centro", "nacional", "provincial", "publica", "privada"]);
+  const brandTokens = Array.from(
+    new Set(
+      `${brandNorm} ${fullNorm}`
+        .split(/[^a-z0-9]+/)
+        .filter((w) => w.length >= 3 && !stopWords.has(w))
+    )
+  );
+
+  const regex = /"(0x[0-9a-f]+:(0x[0-9a-f]{10,}))","([^"]{2,140})"/gi;
+  const matches = Array.from(text.matchAll(regex));
+  const candidatesByCid = new Map<string, GoogleMapsPlaceCandidate>();
+
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const hexCid = m[2];
+    const rawPlaceName = decodeHtmlEntities(m[3].trim());
+
+    if (!rawPlaceName || isBareAdministrativePlaceName(rawPlaceName)) {
+      continue;
+    }
+
+    let decCid = "";
+    try {
+      decCid = BigInt(hexCid).toString(10);
+    } catch {
+      continue;
+    }
+    if (!decCid) continue;
+
+    const matchIdx = m.index || 0;
+    const prevEnd = i > 0 ? (matches[i - 1].index || 0) + matches[i - 1][0].length : Math.max(0, matchIdx - 700);
+    const nextStart = i + 1 < matches.length ? (matches[i + 1].index || text.length) : Math.min(text.length, matchIdx + 1200);
+
+    // Strictly bounded before/after slices so rating/address from an adjacent place NEVER leak into this place
+    const beforeSlice = text.slice(Math.max(prevEnd, matchIdx - 550), matchIdx);
+    const afterSlice = text.slice(matchIdx + m[0].length, Math.min(nextStart, matchIdx + m[0].length + 550));
+
+    const rMatches = Array.from(beforeSlice.matchAll(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{1,7})\]/g));
+    const rBest = rMatches.length > 0 ? rMatches[rMatches.length - 1] : null;
+
+    let rating = "";
+    let reviewCount = "";
+    let reviewCountNum = 0;
+    if (rBest) {
+      const nr = parseFloat(rBest[1]);
+      const nc = parseInt(rBest[2], 10);
+      if (!(nr === 1 && nc <= 1) && nr >= 1 && nr <= 5 && nc >= 1) {
+        rating = nr.toFixed(1);
+        reviewCount = String(nc);
+        reviewCountNum = nc;
+      }
+    }
+
+    // Extract Google Maps formatted address immediately following the place title & categories
+    let cleanAddr = "";
+    const addrMatch =
+      afterSlice.match(/"([^"]{8,180})"\s*,\s*null\s*,\s*null\s*,\s*null\s*,\s*null/) ||
+      afterSlice.match(/null,\["[^"]+"(?:,"[^"]+")*\],(?:"[^"]*",|null,){1,6}"([^"]{6,160})"/);
+
+    if (addrMatch && addrMatch[1] && !addrMatch[1].startsWith("http")) {
+      let rawAddr = decodeHtmlEntities(addrMatch[1].trim());
+      if (normStr(rawAddr).startsWith(normStr(rawPlaceName) + ",")) {
+        rawAddr = rawAddr.slice(rawPlaceName.length + 1).trim();
+      }
+      if (rawAddr && !isBareAdministrativePlaceName(rawAddr)) {
+        cleanAddr = rawAddr;
+      }
+    }
+
+    const pNorm = normStr(rawPlaceName);
+    let score = 0;
+
+    // 1. Exact or strong name match with the institution
+    if (pNorm === fullNorm || pNorm === brandNorm) {
+      score += 130;
+    } else if (
+      (fullNorm.length >= 4 && (pNorm.includes(fullNorm) || fullNorm.includes(pNorm))) ||
+      (brandNorm.length >= 3 && pNorm.includes(brandNorm))
+    ) {
+      score += 70;
+    } else if (brandTokens.length > 0) {
+      const matchedTokens = brandTokens.filter((t) => pNorm.includes(t));
+      if (matchedTokens.length > 0) {
+        score += Math.round((matchedTokens.length / brandTokens.length) * 55);
+      } else {
+        score -= 40;
+      }
+    }
+
+    // 2. Main headquarters / Rectorado / Sede Central bonus
+    if (/\b(?:sede\s+central|casa\s+central|sede\s+principal|rectorado|campus\s+central|casa\s+matriz)\b/i.test(pNorm)) {
+      score += 45;
+    }
+
+    // 3. Penalize minor sub-dependencies so they never beat the main institution headquarters
+    if (/\b(?:direccion\s+de\s+deportes|club\s+deportivo|gimnasio|comedor|buffet|kiosco|fotocopiadora|estacionamiento|parking|cajero|anexo|jardin\s+maternal|editorial|libreria|imprenta|centro\s+de\s+estudiantes|damu|odontologia)\b/i.test(pNorm)) {
+      score -= 110;
+    }
+    if (/^(?:facultad|escuela|colegio|instituto|departamento|secretaria)\s+de\b/i.test(pNorm) && /^universidad\b/i.test(fullNorm)) {
+      score -= 65;
+    }
+
+    // 4. Official website domain match in Google Maps place metadata
+    if (hostClean && hostClean.length >= 4 && beforeSlice.toLowerCase().includes(hostClean)) {
+      score += 150;
+    }
+
+    // 5. Physical address match with website footer/contact address
+    if (addrFp && cleanAddr) {
+      const candFp = normalizeAddressFingerprint(cleanAddr);
+      if (candFp && (candFp === addrFp || candFp.includes(addrFp) || addrFp.includes(candFp))) {
+        score += 90;
+      }
+    }
+
+    // 6. Target city match
+    if (cityNorm && (normStr(cleanAddr).includes(cityNorm) || pNorm.includes(cityNorm))) {
+      score += 40;
+    }
+
+    // 7. Review count tie-breaker (main headquarters typically has the highest review volume)
+    if (reviewCountNum > 0) {
+      score += Math.min(65, Math.log10(reviewCountNum + 1) * 18);
+    }
+
+    const candidate: GoogleMapsPlaceCandidate = {
+      placeName: rawPlaceName,
+      decCid,
+      mapUrl: `https://maps.google.com/?cid=${decCid}`,
+      rating,
+      reviewCount,
+      reviewCountNum,
+      address: cleanAddr,
+      score: Math.round(score),
+    };
+
+    const prev = candidatesByCid.get(decCid);
+    if (!prev || candidate.score > prev.score || (!prev.rating && candidate.rating)) {
+      candidatesByCid.set(decCid, candidate);
+    }
+  }
+
+  return Array.from(candidatesByCid.values()).sort((a, b) => b.score - a.score);
+}
+
+async function fetchGoogleMapsRawTextForQuery(q: string, userAgent: string): Promise<string | null> {
+  try {
+    const mapsSearchUrl = "https://www.google.com/maps/search/" + encodeURIComponent(q.trim()) + "?hl=es";
+    const mapsRes = await fetchWithTimeout(
+      mapsSearchUrl,
+      {
+        headers: {
+          "User-Agent": userAgent,
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "es-ES,es;q=0.9",
+        },
+      },
+      2200
+    );
+    if (mapsRes.ok) {
+      const mapsHtml = await mapsRes.text();
+      const mPb = mapsHtml.match(/<link\s+href="(\/search\?tbm=map[^"]+)"/i);
+      if (mPb && mPb[1]) {
+        const pbUrl = "https://www.google.com" + mPb[1].replace(/&amp;/g, "&");
+        const pbRes = await fetchWithTimeout(
+          pbUrl,
+          {
+            headers: {
+              "User-Agent": userAgent,
+              "Accept-Language": "es-ES,es;q=0.9",
+            },
+          },
+          2200
+        );
+        if (pbRes.ok) {
+          const pbText = await pbRes.text();
+          if (pbText && pbText.length > 500) return pbText;
+        }
+      }
+    }
+
+    const gmapsUrl = "https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=" + encodeURIComponent(q.trim());
+    const gmapsRes = await fetchWithTimeout(
+      gmapsUrl,
+      {
+        headers: {
+          "User-Agent": userAgent,
+          "Accept-Language": "es-ES,es;q=0.9",
+        },
+      },
+      1800
+    );
+    if (!gmapsRes.ok) return null;
+    return await gmapsRes.text();
+  } catch {
+    return null;
+  }
+}
+
 async function enrichWithLiveGoogleMapsAndSearch(
   extracted: any,
   cleanNameInput?: string,
   locInfoInput?: { primaryCity?: string; primaryCountry?: string; additionalCities?: string[] }
 ): Promise<void> {
-  // 1. Fallback location/founding metadata if present in catalog (NEVER hardcode ratings or reviews unless benchmark)
+  // 100% Dynamic Real-Time Google Maps & Web Search targeting the main headquarters (Sede Principal) and secondary sedes
+  let siteHost = "";
   try {
-    const hostname = new URL(extracted.url).hostname.replace(/^www\./, "").toLowerCase();
-    for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
-      if (hostname === domainKey || hostname.endsWith(`.${domainKey}`) || extracted.url.toLowerCase().includes(domainKey)) {
-        if (info.primaryCity && !extracted.detectedCity) extracted.detectedCity = info.primaryCity;
-        if (info.primaryCountry && !extracted.detectedCountry) extracted.detectedCountry = info.primaryCountry;
-        if (info.commentsUrl) {
-          extracted.detectedCommentsUrl = info.commentsUrl;
-          extracted.detectedMapsUrl = info.commentsUrl;
-        }
-        if (info.rating) extracted.detectedRating = info.rating;
-        if (info.reviewCount) extracted.detectedReviewCount = info.reviewCount;
-        if (info.address) extracted.detectedAddress = info.address;
-        break;
-      }
-    }
+    siteHost = new URL(extracted.url).hostname.replace(/^www\./, "").toLowerCase();
   } catch {}
 
-  // 2. Dynamic Real-Time Google Maps & Web Search targeting the main headquarters (Sede Principal)
   let cleanName = cleanNameInput || cleanPublisherName(cleanTitleString(extracted.title || ""), extracted.url, extracted.title, extracted.detectedSiteName);
   if (!cleanName || cleanName.length < 2 || cleanName.toLowerCase() === "oferente") return;
 
@@ -1668,13 +2003,13 @@ async function enrichWithLiveGoogleMapsAndSearch(
   const candidateQueries = [
     cleanBrand && city ? `${cleanBrand} ${city}` : null,
     cleanBrand && mainAddress && city ? `${cleanBrand} ${mainAddress} ${city}` : null,
+    officialFullName && officialFullName !== cleanBrand && city ? `${officialFullName} ${city}` : null,
     cleanBrand && mainAddress ? `${cleanBrand} ${mainAddress}` : null,
     cleanBrand && country ? `${cleanBrand} ${country}` : null,
     cleanBrand,
-    officialFullName || cleanName,
   ].filter(Boolean) as string[];
 
-  // 2.1 Si ya existe un link a Google Maps (shortlink o place), resolver y extraer rating y reseñas directamente
+  // If the website HTML already contained an explicit Google Maps link, inspect it using the strict candidate parser
   if (extracted.detectedCommentsUrl && /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.[a-z.]+\/maps)/i.test(extracted.detectedCommentsUrl)) {
     try {
       const gRes = await fetchWithTimeout(
@@ -1690,247 +2025,68 @@ async function enrichWithLiveGoogleMapsAndSearch(
       );
       if (gRes.ok) {
         const gHtml = await gRes.text();
-        const mDirect = gHtml.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null/) ||
-                        gHtml.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{1,7})\]/) ||
-                        gHtml.match(/(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/);
-        if (mDirect) {
-          const numRating = parseFloat(mDirect[1]);
-          const numReviews = parseInt(mDirect[2], 10);
-          if (!(numRating === 1 && numReviews === 1) && numReviews >= 1 && numRating >= 1 && numRating <= 5) {
-            extracted.detectedRating = numRating.toFixed(1);
-            extracted.detectedReviewCount = String(numReviews);
+        const directCands = extractGoogleMapsPlaceCandidates(gHtml, cleanBrand, officialFullName || cleanName, siteHost, city, mainAddress);
+        if (directCands.length > 0 && directCands[0].rating) {
+          extracted.detectedRating = directCands[0].rating;
+          extracted.detectedReviewCount = directCands[0].reviewCount;
+          extracted.detectedCommentsUrl = directCands[0].mapUrl;
+          extracted.detectedMapsUrl = directCands[0].mapUrl;
+          if (directCands[0].address && isValidPhysicalStreetAddress(directCands[0].address)) {
+            extracted.detectedAddress = directCands[0].address;
           }
         }
       }
     } catch {}
   }
 
-  if (extracted.detectedCommentsUrl && extracted.detectedRating && extracted.detectedRating !== "0") {
-    await foundingPromise;
-    return;
-  }
-
   const uniqueQueries = Array.from(new Set(candidateQueries)).slice(0, 4);
-
-  const searchPromises = uniqueQueries.map(async (q) => {
-    try {
-      // 1. Google Maps Search session: fetches initial HTML and pulls exact session pb link
-      const mapsSearchUrl = "https://www.google.com/maps/search/" + encodeURIComponent(q.trim()) + "?hl=es";
-      const mapsRes = await fetchWithTimeout(
-        mapsSearchUrl,
-        {
-          headers: {
-            "User-Agent": userAgent,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "es-ES,es;q=0.9",
-          },
-        },
-        2200
-      );
-      if (mapsRes.ok) {
-        const mapsHtml = await mapsRes.text();
-        const mPb = mapsHtml.match(/<link\s+href="(\/search\?tbm=map[^"]+)"/i);
-        if (mPb && mPb[1]) {
-          const pbUrl = "https://www.google.com" + mPb[1].replace(/&amp;/g, "&");
-          const pbRes = await fetchWithTimeout(
-            pbUrl,
-            {
-              headers: {
-                "User-Agent": userAgent,
-                "Accept-Language": "es-ES,es;q=0.9",
-              },
-            },
-            2200
-          );
-          if (pbRes.ok) {
-            const pbText = await pbRes.text();
-            if (pbText && pbText.length > 500) return pbText;
-          }
-        }
-      }
-
-      // 2. Direct Google Maps tbm=map query fallback
-      const gmapsUrl = "https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=" + encodeURIComponent(q.trim());
-      const gmapsRes = await fetchWithTimeout(
-        gmapsUrl,
-        {
-          headers: {
-            "User-Agent": userAgent,
-            "Accept-Language": "es-ES,es;q=0.9",
-          },
-        },
-        1800
-      );
-      if (!gmapsRes.ok) return null;
-      return await gmapsRes.text();
-    } catch {
-      return null;
-    }
-  });
+  const searchPromises = uniqueQueries.map((q) => fetchGoogleMapsRawTextForQuery(q, userAgent));
 
   const [results] = await Promise.all([
     Promise.allSettled(searchPromises),
     foundingPromise,
   ]);
+
+  const allPlaceCandidates = new Map<string, GoogleMapsPlaceCandidate>();
+
   for (const res of results) {
     if (res.status !== "fulfilled" || !res.value) continue;
     const text = res.value;
 
-    // 1. Check for specific place matches with CIDs from Google Maps protobuf/data
-    const placeMatches = Array.from(text.matchAll(/"0x[0-9a-f]+:(0x[0-9a-f]{10,})","([^"]{2,100})"/gi));
-    if (placeMatches.length > 0) {
-      for (const pm of placeMatches) {
-        const hexCid = pm[1];
-        const placeName = pm[2];
-        const idx = pm.index || 0;
-        const chunk = text.slice(Math.max(0, idx - 800), Math.min(text.length, idx + 1200));
+    const cands = extractGoogleMapsPlaceCandidates(
+      text,
+      cleanBrand,
+      officialFullName || cleanName,
+      siteHost,
+      city,
+      mainAddress
+    );
 
-        const rMatch = chunk.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{1,7})\]/) ||
-                       chunk.match(/,([1-5](?:\.\d+)?),(\d{1,7})\]/);
-
-        let pRating = "";
-        let pReviews = "";
-        if (rMatch) {
-          const nr = parseFloat(rMatch[1]);
-          const nc = parseInt(rMatch[2], 10);
-          if (!(nr === 1 && nc === 0) && !(nr === 1 && nc === 1) && nr >= 1 && nr <= 5) {
-            pRating = nr.toFixed(1);
-            pReviews = String(nc);
-          }
-        }
-
-        let decCid = "";
-        try {
-          decCid = BigInt(hexCid).toString(10);
-        } catch {}
-
-        if (decCid) {
-          const directUrl = `https://maps.google.com/?cid=${decCid}`;
-          if (pRating && pReviews && (!extracted.detectedRating || extracted.detectedRating === "0")) {
-            extracted.detectedRating = pRating;
-            extracted.detectedReviewCount = pReviews;
-            extracted.detectedCommentsUrl = directUrl;
-            extracted.detectedMapsUrl = directUrl;
-
-            const mAddr = chunk.match(/"([^"]{5,120}\b\d{1,5}\b[^"]*)"/i);
-            if (mAddr && !mAddr[1].startsWith("http") && mAddr[1] !== placeName && isValidPhysicalStreetAddress(mAddr[1])) {
-              extracted.detectedAddress = mAddr[1].trim();
-            }
-            break;
-          } else if (!extracted.detectedCommentsUrl) {
-            extracted.detectedCommentsUrl = directUrl;
-            extracted.detectedMapsUrl = directUrl;
-          }
-        }
+    for (const c of cands) {
+      const existing = allPlaceCandidates.get(c.decCid);
+      if (!existing || c.score > existing.score || (!existing.rating && c.rating)) {
+        allPlaceCandidates.set(c.decCid, c);
       }
     }
+  }
 
-    // 2. Direct place rating/review match
-    const mDirect = text.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null/) ||
-                    text.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null,null,\["https?:/) ||
-                    text.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{2,7})\]/) ||
-                    text.match(/(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/) ||
-                    text.match(/["'](\d{1,7})\s*reseñas["'],(?:null,){1,4}([1-5]\.\d+),(\d{1,7})\]/i);
+  const sortedCandidates = Array.from(allPlaceCandidates.values()).sort((a, b) => b.score - a.score);
+  const bestPlace = sortedCandidates.find((c) => c.rating && c.reviewCountNum > 0) || sortedCandidates[0];
 
-    if (mDirect) {
-      const numRating = parseFloat(mDirect[1]);
-      const numReviews = parseInt(mDirect[2], 10);
-      if (!(numRating === 1 && numReviews === 0) && !(numRating === 1 && numReviews === 1) && numReviews >= 1 && numRating >= 1 && numRating <= 5) {
-        extracted.detectedRating = numRating.toFixed(1);
-        extracted.detectedReviewCount = String(numReviews);
-
-        // 1. Extract hex CID and convert to direct decimal Google Maps CID profile link
-        const mCid = text.match(/0x[0-9a-f]+:(0x[0-9a-f]{10,})/i);
-        if (mCid && mCid[1]) {
-          try {
-            const decCid = BigInt(mCid[1]).toString(10);
-            extracted.detectedCommentsUrl = `https://maps.google.com/?cid=${decCid}`;
-            extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
-          } catch {}
-        }
-
-        // 2. Extract verified physical address directly from Google Maps place response
-        const mAddr = text.match(/\["([^"]{5,80}\s+\d{1,5}[^"]*)",\s*"(?:[A-Z0-9\s,-]+)?"\]/i) ||
-                      text.match(/\["([^"]{5,80}\s+\d{1,5}\b[^"]*)"/i);
-        if (mAddr && mAddr[1] && !mAddr[1].startsWith("http")) {
-          const cleanGAddr = mAddr[1].trim();
-          if (isValidPhysicalStreetAddress(cleanGAddr)) {
-            extracted.detectedAddress = cleanGAddr;
-          }
-        }
-
-        if (!extracted.detectedCommentsUrl) {
-          const placeQuery = `${cleanBrand}${city ? ', ' + city : ''}`;
-          extracted.detectedCommentsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
-          if (!extracted.detectedMapsUrl) extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
-        }
-        break;
-      }
+  if (bestPlace) {
+    if (bestPlace.rating && bestPlace.reviewCount) {
+      extracted.detectedRating = bestPlace.rating;
+      extracted.detectedReviewCount = bestPlace.reviewCount;
     }
+    extracted.detectedCommentsUrl = bestPlace.mapUrl;
+    extracted.detectedMapsUrl = bestPlace.mapUrl;
 
-    // If Maps returns a specific place candidate profile title (e.g. ["Immi Legal Profile 2", ...]):
-    const placeNameMatch = text.match(/\["([^"]{3,60})",\[\[null/);
-    if (placeNameMatch && placeNameMatch[1] && placeNameMatch[1].toLowerCase() !== cleanBrand.toLowerCase()) {
-      try {
-        const placeGmapsUrl = "https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=" + encodeURIComponent(placeNameMatch[1].trim());
-        const placeRes = await fetchWithTimeout(placeGmapsUrl, { headers: { "User-Agent": userAgent, "Accept-Language": "es-ES,es;q=0.9" } }, 1500);
-        if (placeRes.ok) {
-          const placeText = await placeRes.text();
-          const mPlace = placeText.match(/null,([1-5](?:\.\d+)?),(\d{1,7})\],null/) ||
-                         placeText.match(/(?:null,){1,4}([1-5](?:\.\d+)?),(\d{1,7})\]/);
-          if (mPlace) {
-            const pRating = parseFloat(mPlace[1]);
-            const pReviews = parseInt(mPlace[2], 10);
-            if (!(pRating === 1 && pReviews === 1) && pReviews >= 1 && pRating >= 1 && pRating <= 5) {
-              extracted.detectedRating = pRating.toFixed(1);
-              extracted.detectedReviewCount = String(pReviews);
-
-              const mCid = placeText.match(/0x[0-9a-f]+:(0x[0-9a-f]{10,})/i);
-              if (mCid && mCid[1]) {
-                try {
-                  const decCid = BigInt(mCid[1]).toString(10);
-                  extracted.detectedCommentsUrl = `https://maps.google.com/?cid=${decCid}`;
-                  extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
-                } catch {}
-              }
-
-              const mAddr = placeText.match(/\["([^"]{5,80}\s+\d{1,5}[^"]*)",\s*"(?:[A-Z0-9\s,-]+)?"\]/i) ||
-                            placeText.match(/\["([^"]{5,80}\s+\d{1,5}\b[^"]*)"/i);
-              if (mAddr && mAddr[1] && !mAddr[1].startsWith("http")) {
-                const cleanGAddr = mAddr[1].trim();
-                if (isValidPhysicalStreetAddress(cleanGAddr)) {
-                  extracted.detectedAddress = cleanGAddr;
-                }
-              }
-              break;
-            }
-          }
-        }
-      } catch {}
+    if (bestPlace.address && isValidPhysicalStreetAddress(bestPlace.address)) {
+      extracted.detectedAddress = bestPlace.address;
+      const parsedBest = parseAddressComponents(bestPlace.address, city || "Buenos Aires", country || "Argentina");
+      if (parsedBest.city) extracted.detectedCity = parsedBest.city;
+      if (parsedBest.country) extracted.detectedCountry = parsedBest.country;
     }
-
-    // Secondary text extraction if direct array pattern was not present
-    if (!extracted.detectedRating || extracted.detectedRating === "0" || extracted.detectedRating === "1.0") {
-      const rMatch = text.match(/([1-5]\.\d)\s*(?:estrellas?|stars?|⭐|★)/i) ||
-                     text.match(/aria-label=["']([1-5][.,]\d)\s*(?:estrellas?|stars?)/i);
-      if (rMatch && rMatch[1]) {
-        const num = parseFloat(rMatch[1].replace(",", "."));
-        if (!isNaN(num) && num >= 1 && num <= 5) extracted.detectedRating = num.toFixed(1);
-      }
-    }
-    if (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0") {
-      const cMatch = text.match(/(?:\(\s*|[·\-(]\s*|\b)([0-9.,]+)\s*(?:k|mil)?\s*(?:reseñas|opiniones|comentarios|votos|reviews)\b/i);
-      if (cMatch && cMatch[1]) {
-        let countRaw = cMatch[1].replace(/,/g, ".");
-        let isThousand = /k|mil/i.test(cMatch[0]);
-        let numCount = parseFloat(countRaw);
-        if (isThousand) numCount = numCount * 1000;
-        const parsedCount = Math.round(numCount);
-        if (!isNaN(parsedCount) && parsedCount >= 1) extracted.detectedReviewCount = String(parsedCount);
-      }
-    }
-
-    if (extracted.detectedRating && extracted.detectedReviewCount && extracted.detectedReviewCount !== "0") break;
   }
 
   // Fast targeted Search fallback (timeout 2500ms) only if ratings/reviews of the primary headquarters are still missing
@@ -1961,7 +2117,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
         }
         if (!extracted.detectedAddress) {
           const addrM = plainText.match(/(?:Direcci[oó]n|Ubicaci[oó]n|Domicilio)\s*:?\s*([A-Za-zÁÉÍÓÚÑa-záéíóúñ0-9\s.,°º#-]{5,80}\b\d{1,5}\b[^,.\n]{0,35})/i);
-          if (addrM && addrM[1]) {
+          if (addrM && addrM[1] && isValidPhysicalStreetAddress(addrM[1].trim())) {
             extracted.detectedAddress = addrM[1].trim();
           }
         }
@@ -1997,7 +2153,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     const updatedAddress = cleanAddressForSearch(extracted.detectedAddress || mainAddress);
     if (!extracted.detectedCommentsUrl || (updatedAddress && !extracted.detectedCommentsUrl.includes(encodeURIComponent(updatedAddress.slice(0, 8))))) {
       const searchCleanName = (officialFullName || cleanName || "").replace(/\.(?:com|org|net|edu|gob|gov|io|co|es|mx|lat|ar|cl|uy|br)+/gi, "").trim();
-      const parts = [searchCleanName, updatedAddress, city, country].filter(Boolean);
+      const parts = [searchCleanName, updatedAddress, extracted.detectedCity || city, extracted.detectedCountry || country].filter(Boolean);
       extracted.detectedCommentsUrl = buildGoogleMapsUrl(parts.join(", "));
       if (!extracted.detectedMapsUrl || (updatedAddress && !extracted.detectedMapsUrl.includes(encodeURIComponent(updatedAddress.slice(0, 8))))) {
         extracted.detectedMapsUrl = extracted.detectedCommentsUrl;
@@ -2005,27 +2161,41 @@ async function enrichWithLiveGoogleMapsAndSearch(
     }
   }
 
-  // 3. Safeguard: For cataloged known institutions, ensure verified headquarters benchmark is preserved if Google was blocked or returned dummy values
-  try {
-    const host = new URL(extracted.url).hostname.replace(/^www\./, "").toLowerCase();
-    for (const [domainKey, info] of Object.entries(KNOWN_INSTITUTIONS_MAP)) {
-      if (host === domainKey || host.endsWith(`.${domainKey}`) || extracted.url.toLowerCase().includes(domainKey)) {
-        if (info.rating && (!extracted.detectedRating || extracted.detectedRating === "0" || extracted.detectedRating === "1.0")) {
-          extracted.detectedRating = info.rating;
-        }
-        if (info.reviewCount && (!extracted.detectedReviewCount || extracted.detectedReviewCount === "0" || extracted.detectedReviewCount === "1")) {
-          extracted.detectedReviewCount = info.reviewCount;
-        }
-        if (info.commentsUrl && (!extracted.detectedCommentsUrl || !extracted.detectedCommentsUrl.includes("maps"))) {
-          extracted.detectedCommentsUrl = info.commentsUrl;
-        }
-        if (info.address && !extracted.detectedAddress) {
-          extracted.detectedAddress = info.address;
-        }
-        break;
-      }
+  // Re-sync headquarterLocations with the verified primary headquarters and resolve secondary sedes on Google Maps
+  if (Array.isArray(extracted.headquarterLocations) && extracted.headquarterLocations.length > 0) {
+    extracted.headquarterLocations[0] = {
+      ...extracted.headquarterLocations[0],
+      city: extracted.detectedCity || extracted.headquarterLocations[0].city || city,
+      country: extracted.detectedCountry || extracted.headquarterLocations[0].country || country,
+      address: cleanAddressForSearch(extracted.detectedAddress) || extracted.detectedAddress || extracted.headquarterLocations[0].address,
+      mapUrl: extracted.detectedMapsUrl || extracted.detectedCommentsUrl || extracted.headquarterLocations[0].mapUrl,
+    };
+
+    // Dynamically enrich up to 4 secondary sedes so their mapUrl also points to the exact Google Maps sede pin
+    const secondaryIndices = extracted.headquarterLocations
+      .map((_: any, idx: number) => idx)
+      .slice(1, 5);
+
+    if (secondaryIndices.length > 0) {
+      await Promise.allSettled(
+        secondaryIndices.map(async (idx: number) => {
+          const sec = extracted.headquarterLocations[idx];
+          if (!sec || !sec.city) return;
+          const secQuery = [cleanBrand, sec.address ? cleanAddressForSearch(sec.address) : "", sec.city, sec.country].filter(Boolean).join(" ");
+          const secText = await fetchGoogleMapsRawTextForQuery(secQuery, userAgent);
+          if (!secText) return;
+          const secCands = extractGoogleMapsPlaceCandidates(secText, cleanBrand, officialFullName || cleanName, siteHost, sec.city, sec.address || "");
+          if (secCands.length > 0 && secCands[0].score >= 50) {
+            sec.mapUrl = secCands[0].mapUrl;
+            if (!sec.address && secCands[0].address && isValidPhysicalStreetAddress(secCands[0].address)) {
+              const pSec = parseAddressComponents(secCands[0].address, sec.city, sec.country);
+              sec.address = pSec.street || secCands[0].address;
+            }
+          }
+        })
+      );
     }
-  } catch {}
+  }
 }
 
 function detectAllLocationsAndHeadquarters(
@@ -2203,8 +2373,20 @@ function detectAllLocationsAndHeadquarters(
   // Buenos Aires CABA (strict regex, no generic names)
   checkCity("Buenos Aires", "Argentina", /\bbuenos aires\b|\bcaba\b|\bcapital federal\b|\bciudad aut[oó]noma de buenos aires\b/gi, ["buenosaires", "caba.gob", "uba.ar"]);
 
+  // Strip street names that happen to be foreign country names (e.g. "Perú 359", "Av. España 1234", "Calle Chile 500", "Uruguay 750", "Brasil 1100", "Estados Unidos 800")
+  // before checking foreign country or city mentions in text
+  const lowerWithoutCountryStreets = lower
+    .replace(
+      /\b(?:calle|avda\.?|av\.?|avenida|bv\.?|bvd\.?|boulevard|bulevar|pje\.?|pasaje|diagonal|ruta|autopista)\s+(?:rep[uú]blica\s+(?:de\s+|del\s+|oriental\s+del\s+)?)?(?:chile|per[uú]|brasil|uruguay|paraguay|bolivia|colombia|venezuela|ecuador|m[eé]xico|españa|estados\s+unidos|italia|francia|santiago|lima|montevideo|bogot[aá]|madrid|barcelona)\b(?:\s+\d{1,5})?/gi,
+      " "
+    )
+    .replace(
+      /\b(?:chile|per[uú]|brasil|uruguay|paraguay|bolivia|colombia|venezuela|ecuador|m[eé]xico|españa|estados\s+unidos|italia|francia|santiago|lima|montevideo|bogot[aá]|madrid|barcelona)\s+\d{1,5}\b/gi,
+      " "
+    );
+
   // Chile
-  const isChileanContext = /\.cl\b/i.test(url) || (/\bchile\b/i.test(lower) && !/\bchilecito\b/i.test(lower));
+  const isChileanContext = /\.cl\b/i.test(url) || (/\bchile\b/i.test(lowerWithoutCountryStreets) && !/\bchilecito\b/i.test(lowerWithoutCountryStreets) && !/\.ar\b/i.test(url));
   if (isChileanContext) {
     checkCity("Santiago", "Chile", /santiago de chile|\bsantiago\b(?!\s*del\s*estero)/gi, ["santiago", "uchile.cl", "uc.cl"]);
   } else {
@@ -2261,22 +2443,22 @@ function detectAllLocationsAndHeadquarters(
   checkCity("Miami", "Estados Unidos", /\bmiami\b/gi, ["miami"]);
   checkCity("New York", "Estados Unidos", /new york|nueva york|\bnyc\b/gi, ["nyc", "newyork"]);
 
-  // Country mentions in text
-  if (/\bargentina\b|\.ar\b/i.test(lower)) detectedCountries.add("Argentina");
-  if ((/\bchile\b|\.cl\b/i.test(lower)) && !/\bchilecito\b/i.test(lower)) detectedCountries.add("Chile");
-  if (/\bbrasil\b|\bbrazil\b|\.br\b/i.test(lower)) detectedCountries.add("Brasil");
-  if (/\buruguay\b|\.uy\b/i.test(lower)) detectedCountries.add("Uruguay");
-  if (/\bcolombia\b|\.co\b/i.test(lower)) detectedCountries.add("Colombia");
-  if (/\bm[eé]xico\b|\.mx\b/i.test(lower)) detectedCountries.add("México");
-  if (/\bper[uú]\b|\.pe\b/i.test(lower)) detectedCountries.add("Perú");
-  if (/\bespaña\b|\bspain\b|\.es\b/i.test(lower)) detectedCountries.add("España");
-  if (/\bestados unidos\b|\busa\b|\bunited states\b/i.test(lower)) detectedCountries.add("Estados Unidos");
+  // Country mentions in text (strictly excluding street names like "Perú 359", "Av. España 123", "Calle Chile 456")
+  if (/\bargentina\b|\.ar\b/i.test(lowerWithoutCountryStreets)) detectedCountries.add("Argentina");
+  if ((/\bchile\b|\.cl\b/i.test(lowerWithoutCountryStreets)) && !/\bchilecito\b/i.test(lowerWithoutCountryStreets)) detectedCountries.add("Chile");
+  if (/\bbrasil\b|\bbrazil\b|\.br\b/i.test(lowerWithoutCountryStreets)) detectedCountries.add("Brasil");
+  if (/\buruguay\b|\.uy\b/i.test(lowerWithoutCountryStreets)) detectedCountries.add("Uruguay");
+  if (/\bcolombia\b|\.co\b/i.test(lowerWithoutCountryStreets)) detectedCountries.add("Colombia");
+  if (/\bm[eé]xico\b|\.mx\b/i.test(lowerWithoutCountryStreets)) detectedCountries.add("México");
+  if (/\bper[uú]\b|\.pe\b/i.test(lowerWithoutCountryStreets)) detectedCountries.add("Perú");
+  if (/\bespaña\b|\bspain\b|\.es\b/i.test(lowerWithoutCountryStreets)) detectedCountries.add("España");
+  if (/\bestados unidos\b|\busa\b|\bunited states\b/i.test(lowerWithoutCountryStreets)) detectedCountries.add("Estados Unidos");
 
   if (cityMatches.length === 0) {
-    const isArDomain = /\.ar\b/i.test(url) || /argentina/i.test(lower);
-    const isClDomain = /\.cl\b/i.test(url) || /chile/i.test(lower);
-    const isBrDomain = /\.br\b/i.test(url) || /brasil|brazil/i.test(lower);
-    const isUyDomain = /\.uy\b/i.test(url) || /uruguay/i.test(lower);
+    const isArDomain = /\.ar\b/i.test(url) || /argentina/i.test(lowerWithoutCountryStreets);
+    const isClDomain = /\.cl\b/i.test(url) || (!isArDomain && /chile/i.test(lowerWithoutCountryStreets));
+    const isBrDomain = /\.br\b/i.test(url) || (!isArDomain && /brasil|brazil/i.test(lowerWithoutCountryStreets));
+    const isUyDomain = /\.uy\b/i.test(url) || (!isArDomain && /uruguay/i.test(lowerWithoutCountryStreets));
 
     if (isClDomain) {
       return { primaryCity: "Santiago", primaryCountry: "Chile", additionalCities: [], detectedCountries: ["Chile"] };
@@ -2304,6 +2486,14 @@ function detectAllLocationsAndHeadquarters(
   });
 
   const primary = cityMatches[0];
+  let primaryCountry = primary.country;
+  if (
+    /\.ar\b/i.test(url) ||
+    ARGENTINE_AND_REGIONAL_CITIES.some((ac) => new RegExp(`^${escapeRegExp(ac)}$`, "i").test(primary.city))
+  ) {
+    primaryCountry = "Argentina";
+    detectedCountries.add("Argentina");
+  }
   const primaryKey = (primary?.city || "").toLowerCase();
 
   const additional = cityMatches
@@ -2316,7 +2506,7 @@ function detectAllLocationsAndHeadquarters(
 
   return {
     primaryCity: primary.city,
-    primaryCountry: primary.country,
+    primaryCountry,
     additionalCities: Array.from(new Set(additional)),
     detectedCountries: Array.from(detectedCountries),
   };
@@ -2552,6 +2742,9 @@ function resolveHeadquarterLocations(
     if (isPrimary && isVerifiedDirectMap(detectedMapsUrl)) {
       // Primary location with a verified Google Maps place profile or direct CID link: ALWAYS prioritize the real place!
       mapUrl = detectedMapsUrl;
+    } else if (isVerifiedDirectMap(mapUrl)) {
+      // Secondary location that already has a verified Google Maps place profile or direct CID link: preserve it!
+      mapUrl = mapUrl;
     } else if (effectiveStreet) {
       // Querying with cleanEntityName, street address, locality, province and country
       // ensures Google Maps NEVER resolves to a random street in another city or province!
@@ -3062,8 +3255,9 @@ function extractAllAddressesFromHtml(html: string, textContent: string): string[
     contactSections.forEach((cs) => footerAndContactBlocks.push(cs));
   }
 
-  const standardAddressRegex = /(?:Av\.|Avenida|Calle|Bv\.|Boulevard|Pje\.|Pasaje|Ruta|Autopista|Diagonal|Lateral|Acceso)\s+(?:de\s+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9\s.,°º#-]{2,60}\b\d{1,5}\b(?:\s+(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja)\s*[^,.\n<]{1,25})?/gi;
-  const latinAddressRegex = /\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+(?:de\s+|del\s+|san\s+|santa\s+|de\s+la\s+|los\s+|las\s+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9]+){1,4})\s+(\d{1,5})\b(?:\s*(?:piso|of\.|oficina|dpto|depto|pb|planta\s+baja)[^,.\n<]{0,25})?/gi;
+  const standardAddressRegex = /(?:Av\.|Avenida|Calle|Bv\.|Boulevard|Pje\.|Pasaje|Ruta|Autopista|Diagonal|Lateral|Acceso)[ \t]+(?:de[ \t]+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9 .,°º#-]{2,60}\b\d{1,5}\b(?:[ \t]+(?:piso|of\.|oficina|dpto|depto|pb|planta[ \t]+baja)[ \t]*[^,.\n<]{1,25})?/gi;
+  const campusAddressRegex = /\b(?:Centro\s+Universitario|Ciudad\s+Universitaria|Campus\s+Universitario)(?:\s*,\s*[A-ZÁÉÍÓÚÑa-záéíóúñ0-9\s.]{3,45})?/gi;
+  const latinAddressRegex = /\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:[ \t]+(?:de[ \t]+|del[ \t]+|san[ \t]+|santa[ \t]+|de[ \t]+la[ \t]+|los[ \t]+|las[ \t]+)?[A-ZÁÉÍÓÚÑa-záéíóúñ0-9]+){1,4})[ \t]+(\d{1,5})\b(?:[ \t]*(?:piso|of\.|oficina|dpto|depto|pb|planta[ \t]+baja)[^,.\n<]{0,25})?/gi;
 
   for (const block of footerAndContactBlocks) {
     const cleanBlock = block
@@ -3076,6 +3270,10 @@ function extractAllAddressesFromHtml(html: string, textContent: string): string[
     let mPrefix;
     while ((mPrefix = standardAddressRegex.exec(cleanBlock)) !== null) {
       addUnique(mPrefix[0]);
+    }
+    let mCampus;
+    while ((mCampus = campusAddressRegex.exec(cleanBlock)) !== null) {
+      addUnique(mCampus[0]);
     }
 
     const textLines = cleanBlock
@@ -7627,18 +7825,17 @@ async function processUrlWithAI(
       }
     : { es: descVal, en: "", pt: "", it: "" };
 
-  const aiLocations = Array.isArray(unifiedRes?.data?.headquarterLocations) && unifiedRes.data.headquarterLocations.length > 0
-    ? unifiedRes.data.headquarterLocations
-    : (Array.isArray(extracted.headquarterLocations) && extracted.headquarterLocations.length > 0
-      ? extracted.headquarterLocations
-      : undefined);
+  const rawAiLocs = Array.isArray(unifiedRes?.data?.headquarterLocations) ? unifiedRes.data.headquarterLocations : [];
+  const rawExtLocs = Array.isArray(extracted.headquarterLocations) ? extracted.headquarterLocations : [];
+  const combinedCandidateLocs = [...rawExtLocs, ...rawAiLocs];
+  const aiLocations = combinedCandidateLocs.length > 0 ? combinedCandidateLocs : undefined;
 
   const headquarterLocations = resolveHeadquarterLocations(
     aiLocations,
     titleVal,
     cleanPublisher,
-    locInfo.primaryCity,
-    locInfo.primaryCountry,
+    extracted.detectedCity || locInfo.primaryCity,
+    extracted.detectedCountry || locInfo.primaryCountry,
     extracted.detectedCommentsUrl || extracted.detectedMapsUrl || unifiedRes?.data?.detectedCommentsUrl || "",
     extracted.textContent,
     locInfo.additionalCities,
