@@ -441,7 +441,7 @@ export default function AiScraperModal({
       }));
     };
 
-    const processSingleUrlBatch = async (batch: string[]): Promise<ScrapedPublicationDraft[]> => {
+    const processSingleUrlBatch = async (batch: string[], attempt: number = 1): Promise<ScrapedPublicationDraft[]> => {
       const res = await fetch("/api/admin/ai-scrape-publications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -480,6 +480,9 @@ export default function AiScraperModal({
       }
 
       if (!res.ok || !data || !data.success) {
+        if ((res.status === 504 || res.status === 502) && attempt < 2) {
+          return processSingleUrlBatch(batch, attempt + 1);
+        }
         if (res.status === 504 || res.status === 502) {
           throw new Error("El servidor tardó demasiado en responder (Timeout). Por favor intenta nuevamente.");
         }
