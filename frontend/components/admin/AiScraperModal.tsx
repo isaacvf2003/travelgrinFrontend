@@ -96,7 +96,10 @@ export default function AiScraperModal({
   const [customTitlePrompt, setCustomTitlePrompt] = useState("");
   const [customDescPrompt, setCustomDescPrompt] = useState("");
   const includeScoreScout = false;
+  const [isTitlePromptOpen, setIsTitlePromptOpen] = useState(false);
+  const [isDescPromptOpen, setIsDescPromptOpen] = useState(false);
   const [isOptionalBlocksOpen, setIsOptionalBlocksOpen] = useState(false);
+  const [isAddBlockOpen, setIsAddBlockOpen] = useState(false);
   const [expandedBlockIndices, setExpandedBlockIndices] = useState<Set<number>>(new Set());
   const [editingBlocks, setEditingBlocks] = useState<Record<number, { title: string; prompt: string }>>({});
   const [customScraperBlocks, setCustomScraperBlocks] = useState<Array<{ title: string; prompt?: string }>>([]);
@@ -109,10 +112,13 @@ export default function AiScraperModal({
   const [newImageUrl, setNewImageUrl] = useState("");
   const [customLogoInput, setCustomLogoInput] = useState("");
 
-  // Reset collapsible optional blocks state whenever the modal is closed
+  // Reset collapsible prompts & optional blocks state whenever the modal is closed
   useEffect(() => {
     if (!isOpen) {
+      setIsTitlePromptOpen(false);
+      setIsDescPromptOpen(false);
       setIsOptionalBlocksOpen(false);
+      setIsAddBlockOpen(false);
       setExpandedBlockIndices(new Set());
       setEditingBlocks({});
     }
@@ -824,187 +830,262 @@ export default function AiScraperModal({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 1. Custom Title Prompt */}
-              <div className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                    <span>📌 Prompt para Título</span>
-                  </label>
-                  {customTitlePrompt ? (
-                    <button
-                      type="button"
-                      onClick={() => handleSaveTitlePrompt("")}
-                      className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer"
-                    >
-                      Restablecer
-                    </button>
-                  ) : null}
-                </div>
-                <p className="text-[11px] text-slate-500 leading-tight">
-                  Indicaciones para el estilo del título (ej: especialista de marketing, clientes extranjeros, tono empático).
-                </p>
-                <textarea
-                  rows={2}
-                  value={customTitlePrompt}
-                  onChange={(e) => handleSaveTitlePrompt(e.target.value)}
-                  placeholder="Ej: Actúa como especialista en marketing digital, orientado a clientes extranjeros, títulos llamativos y humanos..."
-                  className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
-                  disabled={isProcessing}
-                />
-                <div className="flex flex-wrap gap-1 pt-1 text-[10px]">
-                  {[
-                    "Especialista en marketing y conversión",
-                    "Enfoque clientes extranjeros",
-                    "Tono humano y cercano",
-                    "Nombre oficial con subtítulo destacado",
-                    "Corto, limpio y directo",
-                  ].map((sug) => (
-                    <button
-                      key={sug}
-                      type="button"
-                      onClick={() => handleSaveTitlePrompt(customTitlePrompt ? `${customTitlePrompt}. ${sug}` : sug)}
-                      className="rounded border border-cyan-100 bg-cyan-50/50 px-1.5 py-0.5 text-cyan-800 hover:bg-cyan-100 transition cursor-pointer"
-                    >
-                      + {sug}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 2. Custom Description Prompt */}
-              <div className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-3 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                    <span>📝 Prompt para Descripción Principal</span>
-                  </label>
-                  {customDescPrompt ? (
-                    <button
-                      type="button"
-                      onClick={() => handleSaveDescPrompt("")}
-                      className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer"
-                    >
-                      Restablecer
-                    </button>
-                  ) : null}
-                </div>
-                <p className="text-[11px] text-slate-500 leading-tight">
-                  Indicaciones de redacción (ej: estructura de servicios, tono empático, sin precios, sin emojis ni frases genéricas).
-                </p>
-                <textarea
-                  rows={2}
-                  value={customDescPrompt}
-                  onChange={(e) => handleSaveDescPrompt(e.target.value)}
-                  placeholder="Ej: Explicar servicio por servicio con detalle, redacción clara y profesional, sin precios ni aranceles..."
-                  className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
-                  disabled={isProcessing}
-                />
-                <div className="flex flex-wrap gap-1 pt-1 text-[10px]">
-                  {[
-                    "Sin precios ni aranceles",
-                    "Sin emojis ni viñetas genéricas",
-                    "Explicar cada servicio en detalle",
-                    "Resumen ejecutivo formal",
-                    "Enfocado en historia y trayectoria",
-                  ].map((sug) => (
-                    <button
-                      key={sug}
-                      type="button"
-                      onClick={() => handleSaveDescPrompt(customDescPrompt ? `${customDescPrompt}. ${sug}` : sug)}
-                      className="rounded border border-cyan-100 bg-cyan-50/50 px-1.5 py-0.5 text-cyan-800 hover:bg-cyan-100 transition cursor-pointer"
-                    >
-                      + {sug}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Bloques Opcionales de Descripción (Botón desplegable) */}
-            <div className="rounded-xl border border-purple-200 bg-white overflow-hidden shadow-xs">
-              <button
-                type="button"
-                onClick={() => setIsOptionalBlocksOpen((prev) => !prev)}
-                className="w-full flex items-center justify-between flex-wrap gap-2 p-3.5 text-left hover:bg-purple-50/60 transition cursor-pointer"
-              >
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
-                    <Bot className="h-4 w-4 text-purple-600" />
-                    Bloques Opcionales de Descripción
-                  </span>
-                  <span className="text-[11px] text-purple-700">
-                    (Se generan automáticamente debajo de la descripción principal)
-                  </span>
-                  <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800 border border-purple-200">
-                    {customScraperBlocks.length} {customScraperBlocks.length === 1 ? "bloque" : "bloques"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-700">
-                  <span>{isOptionalBlocksOpen ? "Ocultar bloques" : "Ver / Añadir bloques"}</span>
-                  {isOptionalBlocksOpen ? (
-                    <ChevronDown className="h-4 w-4 text-purple-700" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-purple-700" />
-                  )}
-                </div>
-              </button>
-
-              {isOptionalBlocksOpen && (
-                <div className="border-t border-purple-100 p-3.5 space-y-4 bg-purple-50/20">
-                  {/* PRIMERA POSICIÓN: Añadir nuevo bloque opcional */}
-                  <div className="rounded-xl border border-purple-200 bg-white p-3 space-y-2.5 shadow-2xs">
-                    <div className="flex items-center justify-between flex-wrap gap-1">
-                      <span className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
-                        <Plus className="h-3.5 w-3.5 text-[#00A9C6]" />
-                        Añadir nuevo bloque opcional
+            <div className="space-y-3">
+              {/* 1. Custom Title Prompt (Botón desplegable, uno debajo del otro) */}
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsTitlePromptOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between flex-wrap gap-2 p-3.5 text-left hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                      <span>📌 Prompt para Título</span>
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      (Estilo y enfoque del título principal)
+                    </span>
+                    {customTitlePrompt.trim() ? (
+                      <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#007D92] border border-cyan-200">
+                        Configurado
                       </span>
-                      <span className="text-[10px] text-slate-400">
-                        Definí el título y el prompt para que la IA extraiga o genere ese contenido
-                      </span>
-                    </div>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#007D92]">
+                    <span>{isTitlePromptOpen ? "Ocultar prompt" : "Ver / Editar prompt"}</span>
+                    {isTitlePromptOpen ? (
+                      <ChevronDown className="h-4 w-4 text-[#007D92]" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-[#007D92]" />
+                    )}
+                  </div>
+                </button>
 
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">
-                          Título del bloque:
-                        </label>
-                        <input
-                          type="text"
-                          value={newBlockTitleInput}
-                          onChange={(e) => setNewBlockTitleInput(e.target.value)}
-                          placeholder="Ej: Preguntas Frecuentes, Requisitos, Score Scout..."
-                          className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
-                          disabled={isProcessing}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">
-                          Prompt o instrucción para la IA:
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={newBlockPromptInput}
-                          onChange={(e) => setNewBlockPromptInput(e.target.value)}
-                          placeholder="Ej: Extraer 10 preguntas y respuestas frecuentes detalladas en formato claro..."
-                          className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
-                          disabled={isProcessing}
-                        />
-                      </div>
-
-                      <div className="flex justify-end">
+                {isTitlePromptOpen && (
+                  <div className="border-t border-slate-100 p-3.5 space-y-2 bg-slate-50/40">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-slate-500 leading-tight">
+                        Indicaciones para el estilo del título (ej: especialista de marketing, clientes extranjeros, tono empático).
+                      </p>
+                      {customTitlePrompt ? (
                         <button
                           type="button"
-                          onClick={() => handleAddCustomScraperBlock(newBlockTitleInput, newBlockPromptInput)}
-                          disabled={isProcessing || !newBlockTitleInput.trim()}
-                          className="h-8 px-3.5 rounded-lg bg-[#00A9C6] text-xs font-bold text-white hover:bg-[#0095AE] disabled:opacity-50 transition cursor-pointer inline-flex items-center gap-1 shadow-xs"
+                          onClick={() => handleSaveTitlePrompt("")}
+                          className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer shrink-0"
                         >
-                          <Plus className="h-3.5 w-3.5" />
-                          Añadir bloque
+                          Restablecer
                         </button>
-                      </div>
+                      ) : null}
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={customTitlePrompt}
+                      onChange={(e) => handleSaveTitlePrompt(e.target.value)}
+                      placeholder="Ej: Actúa como especialista en marketing digital, orientado a clientes extranjeros, títulos llamativos y humanos..."
+                      className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                      disabled={isProcessing}
+                    />
+                    <div className="flex flex-wrap gap-1 pt-0.5 text-[10px]">
+                      {[
+                        "Especialista en marketing y conversión",
+                        "Enfoque clientes extranjeros",
+                        "Tono humano y cercano",
+                        "Nombre oficial con subtítulo destacado",
+                        "Corto, limpio y directo",
+                      ].map((sug) => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => handleSaveTitlePrompt(customTitlePrompt ? `${customTitlePrompt}. ${sug}` : sug)}
+                          className="rounded border border-cyan-100 bg-cyan-50/50 px-1.5 py-0.5 text-cyan-800 hover:bg-cyan-100 transition cursor-pointer"
+                        >
+                          + {sug}
+                        </button>
+                      ))}
                     </div>
                   </div>
+                )}
+              </div>
+
+              {/* 2. Custom Description Prompt (Botón desplegable, debajo del Prompt para Título) */}
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsDescPromptOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between flex-wrap gap-2 p-3.5 text-left hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                      <span>📝 Prompt para Descripción Principal</span>
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      (Estructura y redacción de la descripción principal)
+                    </span>
+                    {customDescPrompt.trim() ? (
+                      <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#007D92] border border-cyan-200">
+                        Configurado
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#007D92]">
+                    <span>{isDescPromptOpen ? "Ocultar prompt" : "Ver / Editar prompt"}</span>
+                    {isDescPromptOpen ? (
+                      <ChevronDown className="h-4 w-4 text-[#007D92]" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-[#007D92]" />
+                    )}
+                  </div>
+                </button>
+
+                {isDescPromptOpen && (
+                  <div className="border-t border-slate-100 p-3.5 space-y-2 bg-slate-50/40">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-slate-500 leading-tight">
+                        Indicaciones de redacción (ej: estructura de servicios, tono empático, sin precios, sin emojis ni frases genéricas).
+                      </p>
+                      {customDescPrompt ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSaveDescPrompt("")}
+                          className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer shrink-0"
+                        >
+                          Restablecer
+                        </button>
+                      ) : null}
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={customDescPrompt}
+                      onChange={(e) => handleSaveDescPrompt(e.target.value)}
+                      placeholder="Ej: Explicar servicio por servicio con detalle, redacción clara y profesional, sin precios ni aranceles..."
+                      className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                      disabled={isProcessing}
+                    />
+                    <div className="flex flex-wrap gap-1 pt-0.5 text-[10px]">
+                      {[
+                        "Sin precios ni aranceles",
+                        "Sin emojis ni viñetas genéricas",
+                        "Explicar cada servicio en detalle",
+                        "Resumen ejecutivo formal",
+                        "Enfocado en historia y trayectoria",
+                      ].map((sug) => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => handleSaveDescPrompt(customDescPrompt ? `${customDescPrompt}. ${sug}` : sug)}
+                          className="rounded border border-cyan-100 bg-cyan-50/50 px-1.5 py-0.5 text-cyan-800 hover:bg-cyan-100 transition cursor-pointer"
+                        >
+                          + {sug}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Bloques Opcionales de Descripción (Botón desplegable, debajo de Descripción Principal) */}
+              <div className="rounded-xl border border-purple-200 bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsOptionalBlocksOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between flex-wrap gap-2 p-3.5 text-left hover:bg-purple-50/60 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
+                      <Bot className="h-4 w-4 text-purple-600" />
+                      Bloques Opcionales de Descripción
+                    </span>
+                    <span className="text-[11px] text-purple-700">
+                      (Se generan automáticamente debajo de la descripción principal)
+                    </span>
+                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800 border border-purple-200">
+                      {customScraperBlocks.length} {customScraperBlocks.length === 1 ? "bloque" : "bloques"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-700">
+                    <span>{isOptionalBlocksOpen ? "Ocultar bloques" : "Ver / Añadir bloques"}</span>
+                    {isOptionalBlocksOpen ? (
+                      <ChevronDown className="h-4 w-4 text-purple-700" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-purple-700" />
+                    )}
+                  </div>
+                </button>
+
+                {isOptionalBlocksOpen && (
+                  <div className="border-t border-purple-100 p-3.5 space-y-3 bg-purple-50/20">
+                    {/* PRIMERA POSICIÓN: Añadir nuevo bloque opcional (TAMBIÉN DESPLEGABLE) */}
+                    <div className="rounded-xl border border-purple-200 bg-white overflow-hidden shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddBlockOpen((prev) => !prev)}
+                        className="w-full flex items-center justify-between flex-wrap gap-2 px-3 py-2.5 text-left hover:bg-purple-50/50 transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {isAddBlockOpen ? (
+                            <ChevronDown className="h-4 w-4 text-[#00A9C6]" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-[#00A9C6]" />
+                          )}
+                          <Plus className="h-3.5 w-3.5 text-[#00A9C6]" />
+                          <span className="font-bold text-purple-900 text-xs">
+                            Añadir nuevo bloque opcional
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-medium text-purple-700">
+                          {isAddBlockOpen ? "Cerrar formulario" : "Desplegar para crear bloque"}
+                        </span>
+                      </button>
+
+                      {isAddBlockOpen && (
+                        <div className="border-t border-purple-100 p-3 space-y-2.5 bg-white">
+                          <p className="text-[10px] text-slate-500">
+                            Definí el título y el prompt para que la IA extraiga o genere ese contenido en los próximos scrapings.
+                          </p>
+                          <div className="space-y-2">
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-600 block mb-1">
+                                Título del bloque:
+                              </label>
+                              <input
+                                type="text"
+                                value={newBlockTitleInput}
+                                onChange={(e) => setNewBlockTitleInput(e.target.value)}
+                                placeholder="Ej: Preguntas Frecuentes, Requisitos, Score Scout..."
+                                className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                                disabled={isProcessing}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-600 block mb-1">
+                                Prompt o instrucción para la IA:
+                              </label>
+                              <textarea
+                                rows={3}
+                                value={newBlockPromptInput}
+                                onChange={(e) => setNewBlockPromptInput(e.target.value)}
+                                placeholder="Ej: Extraer 10 preguntas y respuestas frecuentes detalladas en formato claro..."
+                                className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                                disabled={isProcessing}
+                              />
+                            </div>
+
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => handleAddCustomScraperBlock(newBlockTitleInput, newBlockPromptInput)}
+                                disabled={isProcessing || !newBlockTitleInput.trim()}
+                                className="h-8 px-3.5 rounded-lg bg-[#00A9C6] text-xs font-bold text-white hover:bg-[#0095AE] disabled:opacity-50 transition cursor-pointer inline-flex items-center gap-1 shadow-xs"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                Añadir bloque
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                   {/* ABAJO: Bloques opcionales creados (desplegables individualmente, apertura múltiple) */}
                   <div className="space-y-2">
@@ -1195,6 +1276,7 @@ export default function AiScraperModal({
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
 
