@@ -1327,8 +1327,14 @@ const ARGENTINE_AND_REGIONAL_CITIES: string[] = [
   "Río Gallegos", "Caleta Olivia", "El Calafate", "Santa Cruz",
   "Ushuaia", "Río Grande", "Tierra del Fuego",
   "Santa Rosa", "General Pico", "La Pampa",
-  "La Plata", "Mar del Plata", "Bahía Blanca", "Tandil", "Pilar", "Escobar", "Tigre", "San Isidro", "Vicente López", "San Nicolás", "Pergamino", "Junín", "Zárate", "Campana", "Olavarría", "Morón", "Lanús", "Avellaneda", "Quilmes"
+  "La Plata", "Mar del Plata", "Bahía Blanca", "Tandil", "Pilar", "Escobar", "Tigre", "San Isidro", "Vicente López", "Olivos", "San Nicolás", "Pergamino", "Junín", "Zárate", "Campana", "Olavarría", "Morón", "Lanús", "Avellaneda", "Quilmes"
 ];
+
+const GRAN_MENDOZA_SUBLOCALITIES_REGEX =
+  /^(?:san\s+jos[eé]|dorrego|villa\s+nueva|pedro\s+molina|las\s+ca[ñn]as|rodeo\s+de\s+la\s+cruz|bermejo|jes[uú]s\s+nazareno|san\s+francisco\s+del\s+monte|villa\s+hip[oó]dromo|gobernador\s+benegas|tortugas|chacras\s+de\s+coria|carrodilla|mayor\s+drummond|la\s+puntilla|vistalba|el\s+challao|las\s+compuertas|coquimbito|luzuriaga|russell|cruz\s+de\s+piedra|barraquero|nueva\s+ciudad|cuarta\s+secci[oó]n|quinta\s+secci[oó]n|sexta\s+secci[oó]n)$/i;
+
+const CABA_BARRIOS_REGEX =
+  /^(?:palermo|recoleta|belgrano|retiro|puerto\s+madero|microcentro|monserrat|san\s+telmo|caballito|almagro|balvanera|villa\s+urquiza|n[uú][ñn]ez|colegiales|chacarita|villa\s+crespo|flores|barracas|la\s+boca|constituci[oó]n|boedo|parque\s+patricios|saavedra|villa\s+devoto|villa\s+del\s+parque|liniers|laminar\s+plaza|catalinas)$/i;
 
 function parseAddressComponents(
   rawAddress?: string | null,
@@ -1379,9 +1385,12 @@ function parseAddressComponents(
   }
 
   let detectedCity = "";
+  let isRecognizedCity = false;
   let detectedProvince = "";
   let detectedCountry = defaultCountry;
   let hasArgentineLocationInAddress = false;
+  const hasCabaPostalOrMention = /\bC1\d{3}[A-Z]{0,3}\b|\b(?:caba|capital\s+federal|cdad\.?\s*aut[oó]noma\s+de\s+buenos\s+aires|ciudad\s+aut[oó]noma\s+de\s+buenos\s+aires)\b/i.test(clean);
+  const hasMendozaPostalOrMention = /\bM55\d{2}[A-Z]{0,3}\b|\bmendoza\b/i.test(clean);
 
   // Inspect ALL parts (before and after street) for city, province, and explicit standalone country
   for (let i = 0; i < parts.length; i++) {
@@ -1451,7 +1460,10 @@ function parseAddressComponents(
         );
         if (matchedTail) {
           hasArgentineLocationInAddress = true;
-          if (!detectedCity) detectedCity = matchedTail;
+          if (!detectedCity || !isRecognizedCity) {
+            detectedCity = matchedTail;
+            isRecognizedCity = true;
+          }
           street = part.slice(0, postalCityMatch.index).replace(/,\s*$/, "").trim() || street;
         }
       }
@@ -1461,7 +1473,10 @@ function parseAddressComponents(
     if (/\d{3,}/.test(cleanedPart)) continue;
 
     // Filter out neighborhoods/barrios/zones so they are never erroneously assigned as detectedCity
-    const isNeighborhood = /^(?:barrio|b°|bº|b[.]|zona|paraje|parque industrial|complejo)\b/i.test(cleanedPart);
+    const isNeighborhood =
+      /^(?:barrio|b°|bº|b[.]|zona|paraje|parque industrial|complejo)\b/i.test(cleanedPart) ||
+      GRAN_MENDOZA_SUBLOCALITIES_REGEX.test(cleanedPart) ||
+      CABA_BARRIOS_REGEX.test(cleanedPart);
 
     const matched = ARGENTINE_AND_REGIONAL_CITIES.find(
       (pc) => new RegExp(`^${escapeRegExp(pc)}$|\\b${escapeRegExp(pc)}\\b`, "i").test(cleanedPart)
@@ -1469,8 +1484,9 @@ function parseAddressComponents(
 
     if (matched) {
       hasArgentineLocationInAddress = true;
-      if (!detectedCity) {
+      if (!detectedCity || !isRecognizedCity) {
         detectedCity = matched;
+        isRecognizedCity = true;
       } else if (!detectedProvince && matched.toLowerCase() !== detectedCity.toLowerCase()) {
         detectedProvince = matched;
       }
@@ -1479,21 +1495,29 @@ function parseAddressComponents(
     }
   }
 
-  if (!detectedCity && parts.length > 0) {
+  if ((!detectedCity || !isRecognizedCity) && parts.length > 0) {
     const nonStreetText = parts.filter((_, idx) => idx !== streetPartIndex).join(" ");
     const matched = ARGENTINE_AND_REGIONAL_CITIES.find(
       (pc) => new RegExp(`\\b${escapeRegExp(pc)}\\b`, "i").test(nonStreetText)
     );
     if (matched) {
       detectedCity = matched;
+      isRecognizedCity = true;
       hasArgentineLocationInAddress = true;
     }
   }
 
   detectedCity = detectedCity || defaultCity;
 
-  if (/^(?:caba|capital federal|ciudad aut[oó]noma de buenos aires|cdad\.?\s*aut[oó]noma de buenos aires)$/i.test(detectedCity)) {
+  if (
+    hasCabaPostalOrMention ||
+    /^(?:caba|capital federal|ciudad aut[oó]noma de buenos aires|cdad\.?\s*aut[oó]noma de buenos aires)$/i.test(detectedCity) ||
+    CABA_BARRIOS_REGEX.test(detectedCity)
+  ) {
     detectedCity = "Buenos Aires";
+    hasArgentineLocationInAddress = true;
+  } else if (GRAN_MENDOZA_SUBLOCALITIES_REGEX.test(detectedCity) || (hasMendozaPostalOrMention && !isRecognizedCity)) {
+    detectedCity = "Mendoza";
     hasArgentineLocationInAddress = true;
   }
 
@@ -1799,6 +1823,7 @@ interface GoogleMapsPlaceCandidate {
   reviewCountNum: number;
   address: string;
   score: number;
+  hasOfficialDomain?: boolean;
 }
 
 function extractGoogleMapsPlaceCandidates(
@@ -1928,8 +1953,13 @@ function extractGoogleMapsPlaceCandidates(
       score -= 65;
     }
 
-    // 4. Official website domain match in Google Maps place metadata
-    if (hostClean && hostClean.length >= 4 && beforeSlice.toLowerCase().includes(hostClean)) {
+    // 4. Official website domain match in Google Maps place metadata (stored in afterSlice or beforeSlice)
+    const hasOfficialDomain = Boolean(
+      hostClean &&
+      hostClean.length >= 4 &&
+      (afterSlice.toLowerCase().includes(hostClean) || beforeSlice.toLowerCase().includes(hostClean))
+    );
+    if (hasOfficialDomain) {
       score += 150;
     }
 
@@ -1944,6 +1974,13 @@ function extractGoogleMapsPlaceCandidates(
     // 6. Target city match
     if (cityNorm && (normStr(cleanAddr).includes(cityNorm) || pNorm.includes(cityNorm))) {
       score += 40;
+      if (
+        cityNorm === "buenos aires" &&
+        (/\bc1\d{3}/i.test(cleanAddr) || /\b(?:caba|capital\s+federal|cdad\.?\s*autonoma)\b/i.test(normStr(cleanAddr))) &&
+        !/provincia\s+de\s+buenos\s+aires/i.test(normStr(cleanAddr))
+      ) {
+        score += 25;
+      }
     }
 
     // 7. Review count tie-breaker (main headquarters typically has the highest review volume)
@@ -1960,6 +1997,7 @@ function extractGoogleMapsPlaceCandidates(
       reviewCountNum,
       address: cleanAddr,
       score: Math.round(score),
+      hasOfficialDomain,
     };
 
     const prev = candidatesByCid.get(decCid);
@@ -1973,8 +2011,10 @@ function extractGoogleMapsPlaceCandidates(
 
 async function fetchGoogleMapsRawTextForQuery(q: string, userAgent: string): Promise<string | null> {
   try {
-    // Fast single-request protobuf endpoint (~400ms) instead of 2 sequential HTTP roundtrips
-    const gmapsUrl = "https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=" + encodeURIComponent(q.trim());
+    const cleanQ = q.trim();
+    // Fast single-request protobuf endpoint (~350ms) including pb= payload so Google returns full place names, CIDs, ratings, reviews & addresses in 1 roundtrip
+    const pb = `!1s${encodeURIComponent(cleanQ)}!7i20!10b1!12m57!1m5!18b1!30b1!31m1!1b1!34e1!2m4!5m1!6e2!20e3!39b1!6m28!32i1!49b1!63m0!66b1!85b1!114b1!149b1!206b1!209b1!212b1!215b1!216b1!222b1!223b1!234b1!235b1!246b1!253b1!260b1!262b1!266b1!270b1!271b1!273b1!281b1!294b1!302i300!303i100!10b1!12b1!13b1!14b1!16b1!17m1!3e1!20m3!5e2!6b1!14b1!46m1!1b0!96b1!97m1!2b1!99b1!19m4!2m3!1i360!2i120!4i8`;
+    const gmapsUrl = `https://www.google.com/search?tbm=map&authuser=0&hl=es&gl=ar&q=${encodeURIComponent(cleanQ)}&pb=${pb}`;
     const gmapsRes = await fetchWithTimeout(
       gmapsUrl,
       {
@@ -1987,7 +2027,7 @@ async function fetchGoogleMapsRawTextForQuery(q: string, userAgent: string): Pro
     );
     if (gmapsRes.ok) {
       const gmapsText = await gmapsRes.text();
-      if (gmapsText && gmapsText.length > 500 && /0x[0-9a-f]+:0x[0-9a-f]{10,}/i.test(gmapsText)) {
+      if (gmapsText && gmapsText.length > 500 && /"(0x[0-9a-f]+:(0x[0-9a-f]{10,}))","([^"]{2,140})"/i.test(gmapsText)) {
         return gmapsText;
       }
     }
@@ -2089,7 +2129,7 @@ async function enrichWithLiveGoogleMapsAndSearch(
     officialFullName && officialFullName !== cleanBrand && city ? `${officialFullName} ${city}` : null,
     cleanBrand && mainAddress ? `${cleanBrand} ${mainAddress}` : null,
     cleanBrand && country ? `${cleanBrand} ${country}` : null,
-    cleanBrand,
+    !city && !country ? cleanBrand : null,
   ].filter(Boolean) as string[];
 
   // If the website HTML already contained an explicit Google Maps link, inspect it using the strict candidate parser
@@ -2180,8 +2220,51 @@ async function enrichWithLiveGoogleMapsAndSearch(
     if (bestPlace.address && isValidPhysicalStreetAddress(bestPlace.address)) {
       extracted.detectedAddress = bestPlace.address;
       const parsedBest = parseAddressComponents(bestPlace.address, city || "Buenos Aires", country || "Argentina");
-      if (parsedBest.city) extracted.detectedCity = parsedBest.city;
+      if (parsedBest.city) {
+        // Keep "Mendoza" as main city when the primary headquarters is in a Gran Mendoza department/barrio and the entity's main city is Mendoza
+        if (
+          city &&
+          city.toLowerCase() === "mendoza" &&
+          /^(?:guaymall[eé]n|godoy\s+cruz|las\s+heras|luj[aá]n\s+de\s+cuyo|maip[uú])$/i.test(parsedBest.city)
+        ) {
+          extracted.detectedCity = "Mendoza";
+        } else {
+          extracted.detectedCity = parsedBest.city;
+        }
+      }
       if (parsedBest.country) extracted.detectedCountry = parsedBest.country;
+    }
+
+    // If Google Maps returned additional verified branches of the same brand (e.g. Regus branches across different cities/localities), add them as secondary sedes with their direct ?cid= links
+    if (sortedCandidates.length > 1 && Array.isArray(extracted.headquarterLocations)) {
+      const existingCitiesNorm = new Set(
+        extracted.headquarterLocations.map((l: any) =>
+          String(l?.city || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+        )
+      );
+      if (extracted.detectedCity) {
+        existingCitiesNorm.add(extracted.detectedCity.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim());
+      }
+      for (const cand of sortedCandidates.slice(1)) {
+        if (!cand.hasOfficialDomain || cand.score < 160 || !cand.address || !isValidPhysicalStreetAddress(cand.address)) continue;
+        if (!new RegExp(`^${escapeRegExp(cleanBrand)}\\b`, "i").test(cand.placeName.trim())) continue;
+        const parsedCand = parseAddressComponents(cand.address, city || "Buenos Aires", country || "Argentina");
+        if (country && parsedCand.country && parsedCand.country.toLowerCase() !== country.toLowerCase()) continue;
+        const isKnownArgentineCity = ARGENTINE_AND_REGIONAL_CITIES.some(
+          (ac) => ac.toLowerCase() === (parsedCand.city || "").toLowerCase()
+        );
+        if (!isKnownArgentineCity) continue;
+        const candCityNorm = (parsedCand.city || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (candCityNorm && !existingCitiesNorm.has(candCityNorm) && extracted.headquarterLocations.length < 8) {
+          existingCitiesNorm.add(candCityNorm);
+          extracted.headquarterLocations.push({
+            country: parsedCand.country || country || "Argentina",
+            city: parsedCand.city,
+            address: parsedCand.street || cleanAddressForSearch(cand.address),
+            mapUrl: cand.mapUrl,
+          });
+        }
+      }
     }
   }
 
@@ -2733,7 +2816,13 @@ function resolveHeadquarterLocations(
       parsedProvince = parsed.province;
       parsedCountry = parsed.country;
 
-      if (parsedCity && parsedCity !== finalCity) {
+      if (
+        isPrimary &&
+        finalCity.toLowerCase() === "mendoza" &&
+        /^(?:guaymall[eé]n|godoy\s+cruz|las\s+heras|luj[aá]n\s+de\s+cuyo|maip[uú])$/i.test(parsedCity)
+      ) {
+        locCity = "Mendoza";
+      } else if (parsedCity && parsedCity !== finalCity) {
         locCity = parsedCity;
       } else if (!locCity) {
         locCity = parsedCity || finalCity;
@@ -6913,6 +7002,8 @@ async function formatPublicationResult(
 
   const rawHq = Array.isArray(parsed.headquarterLocations) && parsed.headquarterLocations.length > 0
     ? parsed.headquarterLocations
+    : Array.isArray(extractedData.headquarterLocations) && extractedData.headquarterLocations.length > 0
+    ? extractedData.headquarterLocations
     : [
         {
           country: parsed.headquarterCountry || country || "Argentina",
