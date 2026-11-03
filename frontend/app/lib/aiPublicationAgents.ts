@@ -149,12 +149,11 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
 
   const COLOR_NAMES_PATTERN = "rojo|rojos|roja|rojas|azul|azules|celeste|celestes|verde|verdes|violeta|violetas|morado|morados|p[uú]rpura|purpura|naranja|naranjas|amarillo|amarillos|amarilla|amarillas|dorado|dorados|dorada|doradas|negro|negros|negra|negras|gris|grises|blanco|blancos";
 
-  // Specific question/title target match:
+  // Specific question/title target match (including "los títulos de esos párrafos deben ser en..."):
   const titleColorMatch =
-    p.match(new RegExp(`(?:preguntas?|t[ií]tulos?|subt[ií]tulos?)\\s+(?:en|de|con)?\\s*(?:color|letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})`, "i")) ||
-    p.match(new RegExp(`(?:letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})\\s+(?:para|en)\\s+(?:las?\\s+preguntas?|el\\s+t[ií]tulo|los\\s+t[ií]tulos?|subt[ií]tulos?)`, "i")) ||
-    p.match(new RegExp(`(?:en|de|con)\\s+(?:color\\s+)?(${COLOR_NAMES_PATTERN})\\s+(?:para\\s+)?(?:el\\s+t[ií]tulo|los\\s+t[ií]tulos?|las?\\s+preguntas?|subt[ií]tulos?)`, "i")) ||
-    p.match(new RegExp(`(?:t[ií]tulos?|subt[ií]tulos?)\\s+en\\s+letras?\\s+(${COLOR_NAMES_PATTERN})`, "i"));
+    p.match(new RegExp(`(?:preguntas?|t[ií]tulos?|subt[ií]tulos?|encabezados?)(?:\\s+(?:de\\s+(?:esos?|cada|los|ambos)\\s+p[aá]rrafos?|del\\s+p[aá]rrafo|principales?))?(?:\\s+(?:deben\\s+(?:ser|estar|ir)|tienen\\s+que\\s+(?:ser|estar|ir)|van|sean|en|de|con|color|letras?|texto))*\\s+(${COLOR_NAMES_PATTERN})`, "i")) ||
+    p.match(new RegExp(`(?:letras?|texto|color)?\\s*(${COLOR_NAMES_PATTERN})\\s+(?:para|en)\\s+(?:las?\\s+preguntas?|el\\s+t[ií]tulo|los\\s+t[ií]tulos?|subt[ií]tulos?)`, "i")) ||
+    p.match(new RegExp(`(?:en|de|con)\\s+(?:color\\s+)?(${COLOR_NAMES_PATTERN})\\s+(?:para\\s+)?(?:el\\s+t[ií]tulo|los\\s+t[ií]tulos?|las?\\s+preguntas?|subt[ií]tulos?)`, "i"));
 
   if (titleColorMatch && titleColorMatch[1]) {
     titleColor = colorMap[titleColorMatch[1].toLowerCase()];
@@ -306,10 +305,57 @@ export function extractParagraphCount(prompt?: string): number | null {
 export function enforceDescriptionParagraphCount(descHtml: string, prompt?: string): string {
   if (!descHtml) return "";
   const count = extractParagraphCount(prompt);
-  let resHtml = descHtml;
+
+  // Normalize any <h1>..<h6> headings followed by <p> into <p><strong>Heading</strong><br/>Body</p>
+  let resHtml = descHtml.replace(
+    /<h[1-6]([^>]*)>([\s\S]*?)<\/h[1-6]>\s*<p([^>]*)>([\s\S]*?)<\/p>/gi,
+    (_m, hAttrs, hInner, pAttrs, pInner) => {
+      const cleanH = hInner.trim();
+      const hasStrong = /^<(?:strong|b)[\s>]/i.test(cleanH);
+      const styleMatch = (hAttrs || "").match(/style="([^"]*)"/i);
+      const styleAttr = styleMatch ? ` style="${styleMatch[1]}"` : "";
+      const wrappedHeading = hasStrong ? cleanH : `<strong${styleAttr}>${cleanH}</strong>`;
+      return `<p${pAttrs}>${wrappedHeading}<br/>${pInner.trim()}</p>`;
+    }
+  );
+
+  // Merge standalone subtitle <p> tags (e.g. <p><strong>Título 1</strong></p><p>Cuerpo 1...</p>) into a single <p>
+  const rawParagraphs: string[] = Array.from(resHtml.match(/<p[\s\S]*?<\/p>/gi) || []);
+  if (rawParagraphs.length > 1) {
+    const mergedParagraphs: string[] = [];
+    for (let i = 0; i < rawParagraphs.length; i++) {
+      const curr = rawParagraphs[i];
+      const next = rawParagraphs[i + 1];
+      if (next) {
+        const currInner = curr.replace(/^<p[^>]*>|<\/p>$/gi, "").trim();
+        const currPlain = currInner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        const currWords = currPlain.split(/\s+/).filter(Boolean);
+        const nextPlain = next.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        const nextWords = nextPlain.split(/\s+/).filter(Boolean);
+
+        const isStandaloneHeadingP =
+          currWords.length >= 1 &&
+          currWords.length <= 14 &&
+          nextWords.length > 14 &&
+          !/<br\s*\/?>/i.test(currInner) &&
+          (/^<(?:strong|b|span)[^>]*>[\s\S]*<\/(?:strong|b|span)>$/i.test(currInner) || !/[.!?]$/.test(currPlain));
+
+        if (isStandaloneHeadingP) {
+          const nextOpenTag = (next.match(/^<p[^>]*>/i) || ["<p>"])[0];
+          const nextInner = next.replace(/^<p[^>]*>|<\/p>$/gi, "").trim();
+          const formattedTitle = /^<(?:strong|b)[\s>]/i.test(currInner) ? currInner : `<strong>${currInner}</strong>`;
+          mergedParagraphs.push(`${nextOpenTag}${formattedTitle}<br/>${nextInner}</p>`);
+          i++;
+          continue;
+        }
+      }
+      mergedParagraphs.push(curr);
+    }
+    resHtml = mergedParagraphs.join("\n");
+  }
 
   if (count && count > 0) {
-    let paragraphs: string[] = Array.from(descHtml.match(/<p[\s\S]*?<\/p>/gi) || []);
+    let paragraphs: string[] = Array.from(resHtml.match(/<p[\s\S]*?<\/p>/gi) || []);
     if (paragraphs.length === 0) {
       paragraphs = descHtml
         .split(/\n\s*\n+/)
@@ -397,7 +443,7 @@ export function extractParagraphWordLimit(prompt?: string): number | null {
     if (num >= 5 && num <= 400) return num;
   }
 
-  const generalWordRegex = new RegExp(`\\b(?:(?:con\\s+)?(?:un\\s+)?|de\\s+)?(?:maximo(?:\\s+de)?|limite(?:\\s+de)?|hasta|tope(?:\\s+de)?|menos(?:\\s+de)?|de)?\\s*(${wordKeys})\\s*palabras?\\b`, "i");
+  const generalWordRegex = new RegExp(`\\b(?:(?:con\\s+)?(?:un\\s+)?|de\\s+)?(?:maximo(?:\\s+de)?|limite(?:\\s+de)?|hasta|tope(?:\\s+de)?|menos\\s+de|no\\s+mas\\s+de)\\s*(${wordKeys})\\s*palabras?\\b`, "i");
   const generalWordMatch = p.match(generalWordRegex);
   if (generalWordMatch && generalWordMatch[1]) {
     const num = spanishWordNumberMap[generalWordMatch[1].toLowerCase()];
@@ -580,7 +626,7 @@ export function synthesizeMarketingTitle(
   // 2. Extract best heading or service from actual scraped website
   const allHeadings = (context.headings || [])
     .map((h) => cleanTitleString(h))
-    .filter((h) => h.length > 8 && h.length < 90 && !/¿|\?|menu|login|buscar|inicio|cookies|sesi[oó]n|bienvenidos?|error/i.test(h));
+    .filter((h) => h.length > 8 && h.length < 90 && !/¿|\?|menu|login|buscar|inicio|cookies|sesi[oó]n|bienvenidos?|error|\b202[0-9]\b|\d+\s+d[ií]as|novedades|noticias|agenda|asueto|licitaci/i.test(h));
 
   const allServices = (context.servicesList || [])
     .map((s) => cleanTitleString(s))
@@ -602,8 +648,9 @@ export function synthesizeMarketingTitle(
 
   if (!baseTitle && p) {
     const fullCorpus = `${context.rawPageTitle || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.mainText || ""}`.toLowerCase();
-    const isHospital = /hospital|sanatorio|cl[ií]nica|salud|m[eé]dico/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
-    const isEdu = !isHospital && /universidad|facultad|carrera|estudiant|posgrado/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
+    const isExplicitEdu = /universidad|facultad|instituto|colegio|escuela|campus|\.edu/i.test(`${entityName} ${context.url || ""}`);
+    const isHospital = !isExplicitEdu && /hospital|sanatorio|cl[ií]nica|salud|m[eé]dico/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
+    const isEdu = isExplicitEdu || (!isHospital && /universidad|facultad|carrera|estudiant|posgrado/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`));
     const isSports = /gimnasio|fitness|deporte|club/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
     const isLegal = /abogad|jur[ií]dico|legal|notari/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
     const isTourism = /hotel|hostel|turismo|alojam|posada/i.test(`${entityName} ${context.url || ""} ${fullCorpus}`);
@@ -1091,9 +1138,8 @@ export async function executeModelCall(
     // 2. Probar candidatos estables (gemini-2.0-flash y gemini-1.5-flash primero)
     const candidateModels = [
       "gemini-2.0-flash",
-      "gemini-1.5-flash",
-      "gemini-1.5-flash-8b",
-      "gemini-1.5-pro",
+      "gemini-2.5-flash",
+      "gemini-2.0-flash-lite",
     ];
 
     let lastErr: any = null;
@@ -2949,7 +2995,7 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
      * REGLA ESTRICTA DE RESTRICCIÓN NEGATIVA DE NOMBRE: Si el administrador pide que el título NO contenga el nombre de la institución (ej: 'que no contenga el nombre de la institucion', 'sin el nombre', 'no incluir el nombre', 'sin mencionar la institucion'), ESTÁ TERMINANTEMENTE PROHIBIDO incluir '${entityName}' o el nombre de la institución en el título. Genera ÚNICAMENTE el titular o eslogan publicitario/comercial de alto impacto, enfocado directamente en la propuesta de valor sin mencionar a la entidad.
      * Si NO pidió omitir el nombre, puedes integrar el nombre de la institución si encaja armónicamente con la propuesta atractiva de valor, o enfocar el titular comercialmente según lo pedido.
      * JAMÁS devuelvas las palabras de la instrucción como parte del título (ej: si pide "Especialista en marketing y haz un título...", NO escribas "Especialista en marketing..." en el título). NUNCA devuelvas solo el nombre seco si se pidió impacto.
-   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "2 párrafos", "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>. FORMATO, SUBTÍTULOS Y COLORES EXACTOS: Si el administrador pide subtítulos con su explicación o pide colores (ej: "letras azules", "rojo", etc.), aplica el estilo inline EXACTO pedido: si pide azul usa style="color: #0066cc;", si pide rojo usa style="color: #dc2626;", si pide amarillo usa style="color: #ca8a04;". Si no pide color, usa <p><strong>Subtítulo:</strong> Explicación...</p>.
+   - DESCRIPCIÓN PRINCIPAL: Si el administrador pide una cantidad exacta de párrafos (ej: "2 párrafos", "5 párrafos"), REDACTA EXACTAMENTE ESA CANTIDAD DE PÁRRAFOS en HTML <p>...</p>. FORMATO, SUBTÍTULOS Y COLORES EXACTOS: Si el administrador pide subtítulos con su explicación o pide colores (ej: "letras azules", "rojo", etc.), aplica el estilo inline EXACTO pedido: si pide azul usa style="color: #0066cc;", si pide rojo usa style="color: #dc2626;", si pide amarillo usa style="color: #ca8a04;". Si el administrador pide títulos o subtítulos para cada párrafo, colócalos SIEMPRE dentro de la misma etiqueta <p> del párrafo usando <p><strong>Título del párrafo</strong><br/>Desarrollo completo y muy detallado del párrafo...</p> (nunca pongas el título en un <p> separado del cuerpo). Si pide que la descripción sea muy detallada sobre qué trata la institución, qué ofrece y la mayoría de las cosas que tienen, detalla exhaustivamente sus facultades/áreas, carreras o servicios, programas, becas, investigación, extensión, sedes e instalaciones reales.
      * REGLA ESTRICTA DE LÍMITE DE PALABRAS EN CADA PÁRRAFO: Si el administrador pide un límite de palabras en cada párrafo (ej: "máximo 50 palabras en cada párrafo", "un límite de 50 palabras", "hasta 50 palabras", "menos de 50 palabras"): CUMPLE ESTRICTAMENTE Y NO SUPERES esa cantidad en ningún párrafo. Además, DESARROLLA Y EXPLAYA el contenido con riqueza de vocabulario para acercarte al límite solicitado (ej: si pide hasta 50 palabras por párrafo, redacta párrafos sustanciales y explicativos de entre 38 y 50 palabras cada uno; NO escribas párrafos telegráficos o pobres de solo 15-20 palabras). Cuenta las palabras con exactitud antes de emitir la respuesta.
      * CADA PÁRRAFO DEBE TENER UN CONTENIDO ÚNICO Y DIFERENTE. ESTÁ TOTALMENTE PROHIBIDO REPETIR ORACIONES O FRASES GENÉRICAS ENTRE PÁRRAFOS. Si pide emojis, íconos o estilo específico, aplícalo libremente. CERO PLANTILLAS RÍGIDAS. Si la entidad es una universidad o institución educativa, habla EXCLUSIVAMENTE de su propuesta académica, carreras, campus y admisiones; JAMÁS menciones hospitales a menos que sea un centro de salud.
    - BLOQUES PERSONALIZADOS: Genera cada bloque solicitado en el array "customBlocks".
@@ -3051,10 +3097,12 @@ ${customBlocksDirective}
 - Ciudades y provincias adicionales detectadas: "${(context.additionalCities || []).join(", ") || "Ninguna adicional identificada"}"
 - Direcciones físicas detectadas en el sitio: "${(context.additionalAddresses || []).slice(0, 15).join(" | ") || (context.address || "No informada")}"
 ${context.sedesContext ? `- Sedes y campus detectados en el sitio: "${context.sedesContext.slice(0, 1500)}"\n` : ""}- Google Maps (Sede Principal): Calificación verificada: "${context.rating && context.rating !== "0" ? context.rating : "No disponible"}" | Reseñas verificadas: "${context.reviewCount && context.reviewCount !== "0" ? context.reviewCount : "No disponible"}" | Link: "${context.commentsUrl || "N/A"}"
-- Encabezados principales del sitio: ${(context.headings || []).slice(0, 12).join(" | ") || "N/A"}
-- Servicios detectados: ${(context.servicesList || []).slice(0, 10).join(" | ") || "N/A"}
-- Párrafos de texto extraídos de la web:
-${(context.paragraphs || []).slice(0, 8).join("\n\n") || (context.mainText?.slice(0, 2500) || "N/A")}
+- Encabezados principales del sitio: ${(context.headings || []).slice(0, 30).join(" | ") || "N/A"}
+- Servicios detectados: ${(context.servicesList || []).slice(0, 20).join(" | ") || "N/A"}
+- Párrafos y contenido extraído de la web:
+${(context.paragraphs || []).slice(0, 18).join("\n\n") || (context.mainText?.slice(0, 5500) || "N/A")}
+- Texto completo adicional de referencia:
+${(context.mainText || "").slice(0, 4500)}
 
 ${taxonomySectionPrompt}
 
