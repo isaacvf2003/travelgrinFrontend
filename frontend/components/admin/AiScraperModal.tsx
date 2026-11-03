@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sparkles, Trash2, ArrowUp, ArrowDown, Pencil, Bot } from "lucide-react";
+import { Sparkles, Trash2, ArrowUp, ArrowDown, Pencil, Bot, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
 
 export type I18nRecord = Record<string, string> | Partial<Record<"es" | "en" | "pt" | "it", string>>;
@@ -95,19 +95,28 @@ export default function AiScraperModal({
   // Custom Prompts & Blocks Configuration State
   const [customTitlePrompt, setCustomTitlePrompt] = useState("");
   const [customDescPrompt, setCustomDescPrompt] = useState("");
-  const [includeScoreScout, setIncludeScoreScout] = useState(false);
+  const includeScoreScout = false;
+  const [isOptionalBlocksOpen, setIsOptionalBlocksOpen] = useState(false);
+  const [expandedBlockIndices, setExpandedBlockIndices] = useState<Set<number>>(new Set());
+  const [editingBlocks, setEditingBlocks] = useState<Record<number, { title: string; prompt: string }>>({});
   const [customScraperBlocks, setCustomScraperBlocks] = useState<Array<{ title: string; prompt?: string }>>([]);
   const [newBlockTitleInput, setNewBlockTitleInput] = useState("");
   const [newBlockPromptInput, setNewBlockPromptInput] = useState("");
-  const [editingBlockIndex, setEditingBlockIndex] = useState<number | null>(null);
-  const [editingBlockTitle, setEditingBlockTitle] = useState("");
-  const [editingBlockPrompt, setEditingBlockPrompt] = useState("");
 
   // Accordion Inline Form State for active draft inspection directly in the queue card
   const [expandedDraftIndex, setExpandedDraftIndex] = useState<number | null>(null);
   const [draftForm, setDraftForm] = useState<ScrapedPublicationDraft | null>(null);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [customLogoInput, setCustomLogoInput] = useState("");
+
+  // Reset collapsible optional blocks state whenever the modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setIsOptionalBlocksOpen(false);
+      setExpandedBlockIndices(new Set());
+      setEditingBlocks({});
+    }
+  }, [isOpen]);
 
   // Restore queue from sessionStorage and customApiKey/prompts/blocks from localStorage on load if available (Client-side only)
   useEffect(() => {
@@ -122,10 +131,7 @@ export default function AiScraperModal({
       const savedDescPrompt = window.localStorage.getItem("tgn_custom_desc_prompt");
       if (savedDescPrompt) setCustomDescPrompt(savedDescPrompt);
 
-      const savedScoreScout = window.localStorage.getItem("tgn_include_score_scout");
-      if (savedScoreScout !== null) {
-        setIncludeScoreScout(savedScoreScout === "true");
-      }
+      window.localStorage.removeItem("tgn_include_score_scout");
 
       const savedBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
       if (savedBlocks) {
@@ -192,13 +198,22 @@ export default function AiScraperModal({
     } catch {}
   };
 
-  const handleToggleScoreScout = (enabled: boolean) => {
-    setIncludeScoreScout(enabled);
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("tgn_include_score_scout", enabled ? "true" : "false");
+  const toggleExpandCustomBlock = (index: number) => {
+    setExpandedBlockIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+        setEditingBlocks((prevEdits) => {
+          if (!(index in prevEdits)) return prevEdits;
+          const copy = { ...prevEdits };
+          delete copy[index];
+          return copy;
+        });
+      } else {
+        next.add(index);
       }
-    } catch {}
+      return next;
+    });
   };
 
   const handleAddCustomScraperBlock = (title: string, promptText?: string) => {
@@ -218,7 +233,7 @@ export default function AiScraperModal({
     setNewBlockPromptInput("");
   };
 
-  const handleRemoveCustomScraperBlock = (titleToRemove: string) => {
+  const handleRemoveCustomScraperBlock = (titleToRemove: string, removedIndex?: number) => {
     setCustomScraperBlocks((prev) => {
       const updated = prev.filter((b) => b.title.toLowerCase() !== titleToRemove.toLowerCase());
       try {
@@ -232,11 +247,31 @@ export default function AiScraperModal({
       } catch {}
       return updated;
     });
+
+    if (typeof removedIndex === "number") {
+      setExpandedBlockIndices((prev) => {
+        const next = new Set<number>();
+        prev.forEach((idx) => {
+          if (idx < removedIndex) next.add(idx);
+          else if (idx > removedIndex) next.add(idx - 1);
+        });
+        return next;
+      });
+      setEditingBlocks((prev) => {
+        const next: Record<number, { title: string; prompt: string }> = {};
+        Object.entries(prev).forEach(([k, val]) => {
+          const idx = Number(k);
+          if (idx < removedIndex) next[idx] = val;
+          else if (idx > removedIndex) next[idx - 1] = val;
+        });
+        return next;
+      });
+    }
   };
 
   const handleMoveCustomBlock = (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
     setCustomScraperBlocks((prev) => {
-      const targetIndex = direction === "up" ? index - 1 : index + 1;
       if (targetIndex < 0 || targetIndex >= prev.length) return prev;
       const copy = [...prev];
       const temp = copy[index];
@@ -249,25 +284,75 @@ export default function AiScraperModal({
       } catch {}
       return copy;
     });
+
+    setExpandedBlockIndices((prev) => {
+      if (targetIndex < 0 || targetIndex >= customScraperBlocks.length) return prev;
+      const next = new Set(prev);
+      const hasCurrent = prev.has(index);
+      const hasTarget = prev.has(targetIndex);
+      if (hasCurrent) next.add(targetIndex);
+      else next.delete(targetIndex);
+      if (hasTarget) next.add(index);
+      else next.delete(index);
+      return next;
+    });
+
+    setEditingBlocks((prev) => {
+      if (targetIndex < 0 || targetIndex >= customScraperBlocks.length) return prev;
+      const next = { ...prev };
+      const curEdit = prev[index];
+      const tgtEdit = prev[targetIndex];
+      if (curEdit) next[targetIndex] = curEdit;
+      else delete next[targetIndex];
+      if (tgtEdit) next[index] = tgtEdit;
+      else delete next[index];
+      return next;
+    });
   };
 
   const handleStartEditBlock = (index: number) => {
     const block = customScraperBlocks[index];
     if (!block) return;
-    setEditingBlockIndex(index);
-    setEditingBlockTitle(block.title);
-    setEditingBlockPrompt(block.prompt || "");
+    setExpandedBlockIndices((prev) => {
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+    setEditingBlocks((prev) => ({
+      ...prev,
+      [index]: {
+        title: block.title,
+        prompt: block.prompt || "",
+      },
+    }));
   };
 
-  const handleSaveEditBlock = () => {
-    if (editingBlockIndex === null) return;
-    const cleanTitle = cleanGenericBlockTitle(editingBlockTitle.trim(), editingBlockPrompt.trim());
+  const handleUpdateEditBlockField = (index: number, field: "title" | "prompt", value: string) => {
+    setEditingBlocks((prev) => {
+      const current = prev[index] || {
+        title: customScraperBlocks[index]?.title || "",
+        prompt: customScraperBlocks[index]?.prompt || "",
+      };
+      return {
+        ...prev,
+        [index]: {
+          ...current,
+          [field]: value,
+        },
+      };
+    });
+  };
+
+  const handleSaveEditBlock = (index: number) => {
+    const draftEdit = editingBlocks[index];
+    if (!draftEdit) return;
+    const cleanTitle = cleanGenericBlockTitle(draftEdit.title.trim(), draftEdit.prompt.trim());
     if (!cleanTitle) return;
     setCustomScraperBlocks((prev) => {
       const copy = [...prev];
-      copy[editingBlockIndex] = {
+      copy[index] = {
         title: cleanTitle,
-        prompt: editingBlockPrompt.trim() || undefined,
+        prompt: draftEdit.prompt.trim() || undefined,
       };
       try {
         if (typeof window !== "undefined") {
@@ -276,15 +361,19 @@ export default function AiScraperModal({
       } catch {}
       return copy;
     });
-    setEditingBlockIndex(null);
-    setEditingBlockTitle("");
-    setEditingBlockPrompt("");
+    setEditingBlocks((prev) => {
+      const copy = { ...prev };
+      delete copy[index];
+      return copy;
+    });
   };
 
-  const handleCancelEditBlock = () => {
-    setEditingBlockIndex(null);
-    setEditingBlockTitle("");
-    setEditingBlockPrompt("");
+  const handleCancelEditBlock = (index: number) => {
+    setEditingBlocks((prev) => {
+      const copy = { ...prev };
+      delete copy[index];
+      return copy;
+    });
   };
 
   // Sync draftsQueue with sessionStorage on any change
@@ -831,230 +920,281 @@ export default function AiScraperModal({
               </div>
             </div>
 
-            {/* 3. Bloques Opcionales de Descripción */}
-            <div className="rounded-xl border border-purple-200 bg-white p-3.5 space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-purple-900 text-xs flex items-center gap-1">
+            {/* 3. Bloques Opcionales de Descripción (Botón desplegable) */}
+            <div className="rounded-xl border border-purple-200 bg-white overflow-hidden shadow-xs">
+              <button
+                type="button"
+                onClick={() => setIsOptionalBlocksOpen((prev) => !prev)}
+                className="w-full flex items-center justify-between flex-wrap gap-2 p-3.5 text-left hover:bg-purple-50/60 transition cursor-pointer"
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
                     <Bot className="h-4 w-4 text-purple-600" />
                     Bloques Opcionales de Descripción
                   </span>
                   <span className="text-[11px] text-purple-700">
                     (Se generan automáticamente debajo de la descripción principal)
                   </span>
+                  <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800 border border-purple-200">
+                    {customScraperBlocks.length} {customScraperBlocks.length === 1 ? "bloque" : "bloques"}
+                  </span>
                 </div>
-                <span className="text-[10px] text-slate-400">
-                  Podés eliminar o agregar bloques según lo que necesites
-                </span>
-              </div>
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-700">
+                  <span>{isOptionalBlocksOpen ? "Ocultar bloques" : "Ver / Añadir bloques"}</span>
+                  {isOptionalBlocksOpen ? (
+                    <ChevronDown className="h-4 w-4 text-purple-700" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-purple-700" />
+                  )}
+                </div>
+              </button>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* Score Scout Block Card */}
-                {includeScoreScout ? (
-                  <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-emerald-900 text-xs">Score Scout</span>
-                        <span className="rounded bg-emerald-200/80 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800">
-                          Auditoría
-                        </span>
+              {isOptionalBlocksOpen && (
+                <div className="border-t border-purple-100 p-3.5 space-y-4 bg-purple-50/20">
+                  {/* PRIMERA POSICIÓN: Añadir nuevo bloque opcional */}
+                  <div className="rounded-xl border border-purple-200 bg-white p-3 space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
+                      <span className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
+                        <Plus className="h-3.5 w-3.5 text-[#00A9C6]" />
+                        Añadir nuevo bloque opcional
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        Definí el título y el prompt para que la IA extraiga o genere ese contenido
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">
+                          Título del bloque:
+                        </label>
+                        <input
+                          type="text"
+                          value={newBlockTitleInput}
+                          onChange={(e) => setNewBlockTitleInput(e.target.value)}
+                          placeholder="Ej: Preguntas Frecuentes, Requisitos, Score Scout..."
+                          className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                          disabled={isProcessing}
+                        />
                       </div>
-                      <p className="text-[10px] text-emerald-700 leading-tight">
-                        Puntuación y confianza institucional calculada por IA.
-                      </p>
+
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">
+                          Prompt o instrucción para la IA:
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={newBlockPromptInput}
+                          onChange={(e) => setNewBlockPromptInput(e.target.value)}
+                          placeholder="Ej: Extraer 10 preguntas y respuestas frecuentes detalladas en formato claro..."
+                          className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                          disabled={isProcessing}
+                        />
+                      </div>
+
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleAddCustomScraperBlock(newBlockTitleInput, newBlockPromptInput)}
+                          disabled={isProcessing || !newBlockTitleInput.trim()}
+                          className="h-8 px-3.5 rounded-lg bg-[#00A9C6] text-xs font-bold text-white hover:bg-[#0095AE] disabled:opacity-50 transition cursor-pointer inline-flex items-center gap-1 shadow-xs"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Añadir bloque
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleScoreScout(false)}
-                      title="Eliminar bloque Score Scout (no aparecerá en futuros scrapings)"
-                      className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      Eliminar bloque
-                    </button>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-                    <div className="text-[11px] text-slate-500">
-                      <span className="line-through font-medium text-slate-400">Score Scout</span>
-                      <span className="text-[10px] block text-slate-400">Bloque eliminado de futuros scrapings</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleScoreScout(true)}
-                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
-                    >
-                      + Restaurar Score Scout
-                    </button>
-                  </div>
-                )}
 
-                {/* Other Custom Blocks */}
-                {customScraperBlocks.map((b, bIdx) => {
-                  const isEditing = editingBlockIndex === bIdx;
-                  return (
-                    <div
-                      key={bIdx}
-                      className="rounded-xl border border-purple-200 bg-purple-50/50 p-2.5 transition space-y-2"
-                    >
-                      {isEditing ? (
-                        <div className="space-y-2 bg-white/90 p-2.5 rounded-lg border border-purple-300">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-purple-900">Editar Bloque Opcional</span>
-                            <span className="text-[10px] text-slate-500">Posición {bIdx + 1} de {customScraperBlocks.length}</span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Título del bloque:</label>
-                              <input
-                                type="text"
-                                value={editingBlockTitle}
-                                onChange={(e) => setEditingBlockTitle(e.target.value)}
-                                className="w-full rounded-lg border border-purple-300 bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                placeholder="Título del bloque"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Prompt o instrucción para la IA:</label>
-                              <input
-                                type="text"
-                                value={editingBlockPrompt}
-                                onChange={(e) => setEditingBlockPrompt(e.target.value)}
-                                className="w-full rounded-lg border border-purple-300 bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                placeholder="Prompt para la IA (ej: hazme o generame 10 preguntas con respuestas)"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-end gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={handleCancelEditBlock}
-                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                            >
-                              Cancelar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleSaveEditBlock}
-                              className="rounded-lg bg-purple-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-purple-700 cursor-pointer shadow-xs"
-                            >
-                              Guardar Cambios
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="space-y-0.5 overflow-hidden pr-2 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-purple-900 text-xs truncate">{b.title}</span>
-                              <span className="rounded bg-purple-200/80 px-1.5 py-0.2 text-[9px] font-bold text-purple-800">
-                                Personalizado
-                              </span>
-                            </div>
-                            {b.prompt ? (
-                              <p className="text-[10px] text-purple-700 truncate" title={b.prompt}>
-                                <span className="font-semibold text-purple-900">Prompt:</span> {b.prompt}
-                              </p>
-                            ) : (
-                              <p className="text-[10px] text-slate-400">Extracción automática de contenido</p>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {/* Reorder Arrows */}
-                            <div className="flex items-center border border-purple-200 rounded-lg bg-white overflow-hidden shadow-xs">
-                              <button
-                                type="button"
-                                onClick={() => handleMoveCustomBlock(bIdx, "up")}
-                                disabled={bIdx === 0}
-                                title="Subir posición de este bloque"
-                                className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition border-r border-purple-100"
-                              >
-                                <ArrowUp className="h-3 w-3" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleMoveCustomBlock(bIdx, "down")}
-                                disabled={bIdx === customScraperBlocks.length - 1}
-                                title="Bajar posición de este bloque"
-                                className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition"
-                              >
-                                <ArrowDown className="h-3 w-3" />
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleStartEditBlock(bIdx)}
-                              title="Editar título o prompt de este bloque"
-                              className="rounded-lg border border-purple-200 bg-white px-2 py-1 text-[11px] font-semibold text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition flex items-center gap-1 cursor-pointer shadow-xs"
-                            >
-                              <Pencil className="h-3 w-3" />
-                              Editar prompt
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveCustomScraperBlock(b.title)}
-                              title="Eliminar este bloque"
-                              className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition flex items-center gap-1 cursor-pointer"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                              Eliminar bloque
-                            </button>
-                          </div>
-                        </div>
+                  {/* ABAJO: Bloques opcionales creados (desplegables individualmente, apertura múltiple) */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700">
+                        Bloques opcionales creados ({customScraperBlocks.length}):
+                      </span>
+                      {customScraperBlocks.length > 0 && (
+                        <span className="text-[10px] text-slate-400">
+                          Hacé clic en cada bloque para desplegar, ver o editar su prompt
+                        </span>
                       )}
                     </div>
-                  );
-                })}
-              </div>
 
-              {/* Add New Custom Block */}
-              <div className="border-t border-purple-100 pt-2.5">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-700 text-xs">
-                      + Añadir nuevo bloque opcional para futuros scrapings:
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Definí el título y la instrucción para que la IA extraiga o genere ese contenido
-                    </span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-center gap-2">
-                    <input
-                      type="text"
-                      value={newBlockTitleInput}
-                      onChange={(e) => setNewBlockTitleInput(e.target.value)}
-                      placeholder="Título del bloque (ej: Preguntas Frecuentes, Requisitos...)"
-                      className="w-full sm:w-1/2 h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-[#00A9C6]"
-                      disabled={isProcessing}
-                    />
-                    <input
-                      type="text"
-                      value={newBlockPromptInput}
-                      onChange={(e) => setNewBlockPromptInput(e.target.value)}
-                      placeholder="Prompt o instrucción para la IA (ej: extraer 10 preguntas y respuestas en formato...)"
-                      className="flex-1 h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-[#00A9C6]"
-                      disabled={isProcessing}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newBlockTitleInput.trim()) {
-                          e.preventDefault();
-                          handleAddCustomScraperBlock(newBlockTitleInput, newBlockPromptInput);
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleAddCustomScraperBlock(newBlockTitleInput, newBlockPromptInput)}
-                      disabled={isProcessing || !newBlockTitleInput.trim()}
-                      className="h-8 px-3 rounded-lg bg-[#00A9C6] text-xs font-bold text-white hover:bg-[#0095AE] disabled:opacity-50 transition cursor-pointer shrink-0"
-                    >
-                      + Añadir bloque
-                    </button>
+                    {customScraperBlocks.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-purple-200 bg-white/80 p-3 text-center text-[11px] text-slate-400">
+                        No hay bloques opcionales configurados todavía. Creá uno arriba para sumarlo al scraping.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {customScraperBlocks.map((b, bIdx) => {
+                          const isExpanded = expandedBlockIndices.has(bIdx);
+                          const editDraft = editingBlocks[bIdx];
+                          const isEditing = Boolean(editDraft);
+
+                          return (
+                            <div
+                              key={`${bIdx}-${b.title}`}
+                              className="rounded-xl border border-purple-200 bg-white overflow-hidden transition shadow-2xs"
+                            >
+                              {/* Cabecera clickeable del bloque */}
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => toggleExpandCustomBlock(bIdx)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    toggleExpandCustomBlock(bIdx);
+                                  }
+                                }}
+                                className={`flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer transition select-none ${
+                                  isExpanded ? "bg-purple-50/80 border-b border-purple-100" : "hover:bg-purple-50/40"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4 text-purple-700 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-purple-700 shrink-0" />
+                                  )}
+                                  <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-800 shrink-0">
+                                    #{bIdx + 1}
+                                  </span>
+                                  <span className="font-bold text-purple-950 text-xs break-words">
+                                    {b.title}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="flex items-center gap-1.5 shrink-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {/* Flechas de orden */}
+                                  <div className="flex items-center border border-purple-200 rounded-lg bg-white overflow-hidden shadow-2xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleMoveCustomBlock(bIdx, "up")}
+                                      disabled={bIdx === 0}
+                                      title="Subir posición de este bloque"
+                                      className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition border-r border-purple-100"
+                                    >
+                                      <ArrowUp className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleMoveCustomBlock(bIdx, "down")}
+                                      disabled={bIdx === customScraperBlocks.length - 1}
+                                      title="Bajar posición de este bloque"
+                                      className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition"
+                                    >
+                                      <ArrowDown className="h-3 w-3" />
+                                    </button>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveCustomScraperBlock(b.title, bIdx)}
+                                    title="Eliminar este bloque"
+                                    className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    <span className="hidden sm:inline">Eliminar</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Cuerpo desplegado del bloque */}
+                              {isExpanded && (
+                                <div className="p-3 bg-white space-y-2.5">
+                                  {isEditing && editDraft ? (
+                                    <div className="space-y-2.5 rounded-lg border border-purple-200 bg-purple-50/30 p-3">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-purple-900">
+                                          Editando bloque #{bIdx + 1}
+                                        </span>
+                                      </div>
+
+                                      <div>
+                                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">
+                                          Título del bloque:
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={editDraft.title}
+                                          onChange={(e) => handleUpdateEditBlockField(bIdx, "title", e.target.value)}
+                                          className="w-full h-8 rounded-lg border border-purple-300 bg-white px-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                          placeholder="Título del bloque"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">
+                                          Prompt o instrucción para la IA:
+                                        </label>
+                                        <textarea
+                                          rows={3}
+                                          value={editDraft.prompt}
+                                          onChange={(e) => handleUpdateEditBlockField(bIdx, "prompt", e.target.value)}
+                                          className="w-full rounded-lg border border-purple-300 bg-white p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                          placeholder="Escribí acá la instrucción completa para la IA..."
+                                        />
+                                      </div>
+
+                                      <div className="flex items-center justify-end gap-2 pt-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCancelEditBlock(bIdx)}
+                                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                                        >
+                                          Cancelar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSaveEditBlock(bIdx)}
+                                          className="rounded-lg bg-purple-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-purple-700 cursor-pointer shadow-xs"
+                                        >
+                                          Guardar Cambios
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-purple-800 mb-1">
+                                          Prompt configurado:
+                                        </div>
+                                        {b.prompt ? (
+                                          <p className="text-xs text-slate-800 whitespace-pre-wrap break-words leading-relaxed">
+                                            {b.prompt}
+                                          </p>
+                                        ) : (
+                                          <p className="text-xs italic text-slate-400">
+                                            Sin prompt específico (extracción automática según el título del bloque).
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      <div className="flex items-center justify-end">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartEditBlock(bIdx)}
+                                          className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-[11px] font-semibold text-purple-800 hover:bg-purple-100 hover:border-purple-300 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                        >
+                                          <Pencil className="h-3 w-3" />
+                                          Editar título / prompt
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
