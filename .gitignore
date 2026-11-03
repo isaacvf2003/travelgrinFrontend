@@ -1,5 +1,6 @@
 # Ignore backend folder (since it belongs to a separate repository)
 backend/
+backup_public_heavy/
 
 # Local env files
 .env
