@@ -1981,8 +1981,11 @@ export interface TaxonomyAgentData {
   languages: string[];
 }
 
+const AMBIGUOUS_TAXONOMY_TOKENS =
+  /^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas|gestiones|tramites|asistencia|social|sociales|medios|medio|formacion|profesional|profesionales|tecnico|tecnicos|tecnica|tecnicas|actividad|actividades|espacio|espacios|trabajo|trabajos|empresa|empresas|nacional|nacionales|internacional|internacionales|publico|publica|privado|privada|atencion|gestion|tramite|sistema|sistemas|programa|programas|proyecto|proyectos|desarrollo|comunidad|calidad|sector|sectores|otras|otros)$/i;
+
 function matchToCatalogPool(items: string[], pool: string[]): string[] {
-  if (!pool || pool.length === 0) return items.filter(Boolean);
+  if (!pool || pool.length === 0) return [];
   const poolWithNorm = pool.map((p) => ({
     original: p,
     norm: p.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
@@ -2012,18 +2015,22 @@ function matchToCatalogPool(items: string[], pool: string[]): string[] {
       matched.add(substring.original);
       continue;
     }
-    // Token matching: requerir tokens distintivos (longitud >= 5 y no palabras genéricas)
-    const itemTokens = itemNorm.split(/\s+/).filter((t) => t.length >= 5 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas|gestiones|tramites)$/i.test(t));
+    // Token matching: require distinctive core tokens (length >= 5, excluding ambiguous secondary words)
+    const itemTokens = itemNorm
+      .split(/[\s,;/()-]+/)
+      .filter((t) => t.length >= 5 && !AMBIGUOUS_TAXONOMY_TOKENS.test(t));
     if (itemTokens.length > 0) {
       const tokenMatch = poolWithNorm.find((p) => {
-        const poolTokens = p.norm.split(/\s+/).filter((t) => t.length >= 5);
-        return itemTokens.some((t) => {
-          const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          return new RegExp(`\\b${escaped}\\b`, "i").test(p.norm);
-        }) && poolTokens.some((pt) => {
+        const poolTokens = p.norm
+          .split(/[\s,;/()-]+/)
+          .filter((t) => t.length >= 5 && !AMBIGUOUS_TAXONOMY_TOKENS.test(t));
+        if (poolTokens.length === 0) return false;
+        const matchedPoolTokens = poolTokens.filter((pt) => {
           const escapedPt = pt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
           return new RegExp(`\\b${escapedPt}\\b`, "i").test(itemNorm);
         });
+        const minRequired = poolTokens.length === 1 ? 1 : Math.ceil(poolTokens.length * 0.6);
+        return matchedPoolTokens.length >= minRequired;
       });
       if (tokenMatch) {
         matched.add(tokenMatch.original);
@@ -2187,23 +2194,37 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
 
-    const isHealthEntity =
-      /\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextCorpus) ||
-      /osep|hospital|clinica|sanatorio|salud/i.test(context.url || "");
+    const identityHeaderNorm = `${context.rawPageTitle || ""} ${context.publisherName || ""} ${context.url || ""} ${(context.headings || []).slice(0, 6).join(" ")}`
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    const isCoworkingOrWorkspace =
+      /\b(coworking|espacios?\s+de\s+trabajo|oficinas?\s+privadas?|oficina\s+virtual|salas?\s+de\s+reuniones|alquiler\s+de\s+oficinas|escritorio\s+dedicado|centro\s+de\s+negocios|regus|wework|hit\s+cowork|la\s+maquinita|area\s+tres)\b/i.test(fullTextCorpus);
+
+    const isSportsOrGym =
+      /\b(gimnasio|gym|fitness|crossfit|calistenia|musculacion|entrenamiento\s+funcional|complejo\s+deportivo|polideportivo|club\s+deportivo|natatorio|pileta\s+climatizada|artes\s+marciales|boxeo|padel|paddle|tenis|futbol|hockey|rugby|basket|baloncesto|voleibol|atletismo|deporte|deportes|deportivo|deportiva|acondicionamiento\s+fisico)\b/i.test(fullTextCorpus) ||
+      /\b(gimnasio|gym|fitness|deporte|deportes|deportivo|polideportivo)\b/i.test(context.url || "");
 
     const isMediaOrSportsOrEntertainment =
       /\b(deportv|televisi[oó]n|streaming|transmisi[oó]n|transmisiones|canal de tv|deportes?|f[uú]tbol|automovilismo|boxeo|tenis|b[aá]squet|torneo|liga profesional|espect[aá]culos?|teatro|cine)\b/i.test(fullTextCorpus) ||
       /deportv|tv|deporte|streaming/i.test(context.url || "");
 
+    const hasExplicitHealthIdentity =
+      /\b(hospital|clinica|sanatorio|policlinico|centro\s+medico|consultorios?\s+medicos?|instituto\s+medico|maternidad|obra\s+social|prepaga|medicina\s+prepaga|centro\s+de\s+salud|ministerio\s+de\s+salud|secretaria\s+de\s+salud|odontologia|centro\s+odontologico|farmacia|laboratorio\s+de\s+analisis|osep|ioma|pami|osde|swiss\s+medical|galeno|medife)\b/i.test(identityHeaderNorm) ||
+      /osep|hospital|clinica|sanatorio/i.test(context.url || "");
+
     const isEducationalEntity =
       !isMediaOrSportsOrEntertainment &&
-      !isHealthEntity &&
+      !hasExplicitHealthIdentity &&
+      !isCoworkingOrWorkspace &&
       (/\b(universidad|facultad|carrera universitaria|carreras universitarias|licenciatura|tecnicatura|alumnos?|estudiantes?|vida estudiantil|campus universitario|matr[ií]cula acad[eé]mica|aranceles acad[eé]micos|inscripciones a carreras|ingreso universitario|becas de estudio|docentes? universitarios?|profesorado|instituto superior|colegio|escuela|centro de estudios|siglo 21)\b/i.test(fullTextCorpus) ||
-      (/\.edu(?:\.[a-z]{2})?/i.test(context.url || "") && !isHealthEntity));
+      (/\.edu(?:\.[a-z]{2})?/i.test(context.url || "") && !hasExplicitHealthIdentity));
 
     const isLegalOrConsulting =
-      /\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|cbi argentina|allende|brea)\b/i.test(fullTextCorpus) ||
-      /legal|migra|visas|estudio/i.test(context.url || "");
+      !isCoworkingOrWorkspace &&
+      (/\b(abogado|abogada|abogados|estudio juridico|notario|notaria|escribano|escribania|derecho|legal|migratorio|migracion|visas|visa|ciudadania|residencia|contable|auditoria|consultoria|asesoria fiscal|traduccion publica|cbi argentina|allende|brea)\b/i.test(fullTextCorpus) ||
+      /legal|migra|visas|estudio/i.test(context.url || ""));
 
     const isFashionOrDesign =
       /\b(moda|modas|diseno de indumentaria|indumentaria|textil|textiles|vestimenta|ropa|calzado|alta costura|fashion|prendas|confeccion|desfile|coleccion primavera|tendencias de moda|marcas de ropa)\b/i.test(fullTextCorpus);
@@ -2212,22 +2233,37 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       /\b(entretenimiento|espectaculo|espectaculos|teatro|cine|musica|concierto|conciertos|arte|cultura|cultural|eventos culturales|festival|festivales|recreacion|audiovisual|productora|producciones|galeria de arte|museo|museos|discoteca|boliche|ocio)\b/i.test(fullTextCorpus);
 
     const isRealEstate =
-      /\b(inmobiliaria|inmobiliario|bienes raices|alquiler de propiedades|venta de casas|inmuebles|real estate|desarrollos inmobiliarios|lotes|terrenos)\b/i.test(fullTextCorpus) &&
+      (/\b(inmobiliaria|inmobiliario|bienes raices|alquiler de propiedades|venta de casas|inmuebles|real estate|desarrollos inmobiliarios|lotes|terrenos)\b/i.test(fullTextCorpus) || isCoworkingOrWorkspace) &&
       !isLegalOrConsulting;
 
-    const isSportsOrGym =
-      /\b(gimnasio|gym|fitness|crossfit|calistenia|musculacion|entrenamiento\s+funcional|complejo\s+deportivo|polideportivo|club\s+deportivo|natatorio|pileta\s+climatizada|artes\s+marciales|boxeo|padel|paddle|tenis|futbol|hockey|rugby|basket|baloncesto|voleibol|atletismo|deporte|deportes|deportivo|deportiva|acondicionamiento\s+fisico)\b/i.test(fullTextCorpus) ||
-      /\b(gimnasio|gym|fitness|deporte|deportes|deportivo|polideportivo)\b/i.test(context.url || "");
+    const clinicalMatches = fullTextCorpus.match(/\b(atencion\s+medica|guardia\s+medica|especialidades\s+medicas|turnos\s+medicos|historia\s+clinica|internacion|consultorios\s+externos|prestaciones\s+medicas|cartilla\s+medica|cuerpo\s+medico)\b/gi) || [];
+    const isHealthEntity =
+      hasExplicitHealthIdentity ||
+      (!isEducationalEntity &&
+       !isSportsOrGym &&
+       !isCoworkingOrWorkspace &&
+       !isRealEstate &&
+       !isLegalOrConsulting &&
+       !isFashionOrDesign &&
+       !isEntertainmentOrCulture &&
+       new Set(clinicalMatches.map((m) => m.toLowerCase())).size >= 2);
 
     const isTourismEntity =
       !isEducationalEntity &&
       !isHealthEntity &&
       !isLegalOrConsulting &&
       !isSportsOrGym &&
+      !isCoworkingOrWorkspace &&
       /\b(hotel|hostel|alojamiento|hospedaje|posada|cabaña|cabañas|resort|turismo|viajes|excursion|excursiones|agencia de viajes|tour|tours)\b/i.test(fullTextCorpus);
 
     const isTechEntity =
-      /\b(software|tecnologia|tecnologias|app|aplicacion|sistemas|desarrollo web|programacion|informatica|it|ciberseguridad|telecomunicaciones|saas|plataforma digital)\b/i.test(fullTextCorpus);
+      !isCoworkingOrWorkspace &&
+      /\b(software|desarrollo\s+de\s+software|desarrollo\s+web|programacion|informatica|ciberseguridad|telecomunicaciones|saas|plataforma\s+digital)\b/i.test(fullTextCorpus);
+
+    const agriMatches = fullTextCorpus.match(/\b(agronom\w*|agropecu\w*|ganader\w*|cultivos?|cosechas?|semillas?|pesquer\w*|piscicultur\w*|vitivinicol\w*)\b/gi) || [];
+    const isActuallyAgri =
+      /\b(agricult\w*|agronom\w*|agropecu\w*|ganader\w*|pesquer\w*)\b/i.test(identityHeaderNorm) ||
+      new Set(agriMatches.map((m) => m.toLowerCase())).size >= 2;
 
     const isAuthenticOng =
       (/\.org(?:\.[a-z]{2})?|\.ngo(?:\.[a-z]{2})?/i.test(context.url || "")) &&
@@ -2269,66 +2305,62 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       matchedCats = matchedCats.filter((c) => {
         const cNorm = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         if (/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|guardia/i.test(cNorm)) return true;
-        if (/curso|formaci|capacitaci|convocatoria|empleo|beca|visa|migra/i.test(cNorm)) return false;
-        return false;
+        if (/curso|formaci|capacitaci|convocatoria|empleo|beca|visa|migra|carrera\s*universitaria|licenciatura|posgrado/i.test(cNorm)) return false;
+        return true;
       });
+    } else {
+      // Negative health guardrail: Non-health websites (e.g. sports/gym saying "cuidamos tu salud", coworking, education, etc.) must NEVER receive health/medical categories
+      matchedCats = matchedCats.filter((c) => {
+        const cNorm = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (/\b(salud|medic\w*|hospital\w*|clinica\w*|sanatori\w*|odontolog\w*|farmaci\w*|asistencia\s*social|enfermer\w*|pediatr\w*|cardiolog\w*|traumatolog\w*|obra\s*social|prepaga)\b/i.test(cNorm)) {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    if (!isActuallyAgri) {
+      matchedCats = matchedCats.filter((c) => !/agricult|agronom|agropecu|ganader|pesca|pesquer/i.test(c));
     }
 
     const nonOngPool = isAuthenticOng ? categoriesPool : categoriesPool.filter((c) => !isOngMatch(c));
 
-    // Dynamic semantic matching across all available DB categories if AI did not return a valid exact match
+    // Dynamic semantic matching across all available DB categories ONLY if AI returned nothing and there is a high-certainty match
     if (matchedCats.length === 0 && nonOngPool.length > 0) {
       const scoredCats: { cat: string; score: number }[] = [];
       for (const catName of nonOngPool) {
         const cNorm = catName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
+        const cTokens = cNorm.split(/\s+/).filter((t) => t.length > 3 && !AMBIGUOUS_TAXONOMY_TOKENS.test(t));
         let score = 0;
 
-        // Hard negative constraint: If entity is medical/health, NEVER match visa/migration, course, or job categories!
         if (isHealthEntity && /curso|formaci|capacitaci|convocatoria|empleo|beca|visa|migra/i.test(cNorm) && !/salud|medic|asistenc|hospital|clinica|sanatori|odontolog|farmaci/i.test(cNorm)) {
           continue;
         }
-        if (isHealthEntity && !/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga|guardia/i.test(cNorm)) {
+        if (!isHealthEntity && /\b(salud|medic\w*|hospital\w*|clinica\w*|sanatori\w*|odontolog\w*|farmaci\w*|asistencia\s*social|obra\s*social|prepaga)\b/i.test(cNorm)) {
           continue;
         }
-        // If entity is university/education, NEVER match visa/migration categories
+        if (!isActuallyAgri && /agricult|agronom|agropecu|ganader|pesca|pesquer/i.test(cNorm)) {
+          continue;
+        }
         if (isEducationalEntity && /visa|migra/i.test(cNorm)) {
           continue;
         }
-        // Gym/Sports: never match false onboarding or generic categories
         if (isSportsOrGym && /explorando\s*opciones|servicio\s*especializado|requisitos?\s*previos?/i.test(cNorm)) {
           continue;
         }
 
-        if (fullTextCorpus.includes(cNorm)) score += 50;
+        if (cNorm.length >= 5 && new RegExp(`\\b${cNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(fullTextCorpus)) {
+          score += 55;
+        }
         for (const tok of cTokens) {
           const escapedTok = tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
           if (new RegExp(`\\b${escapedTok}\\b`, "i").test(fullTextCorpus)) score += 15;
         }
 
-        // Check child subcategories belonging to this category in the categoryTree
-        if (taxonomies?.categoryTree?.length) {
-          const allParentNodes = taxonomies.categoryTree.flatMap((b) => b.parentCategories);
-          const matchedNode = allParentNodes.find((p) => p.name.toLowerCase() === catName.toLowerCase());
-          if (matchedNode && Array.isArray(matchedNode.subcategories)) {
-            for (const sub of matchedNode.subcategories) {
-              const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-              if (isSportsOrGym && /explorando\s*opciones|servicio\s*especializado|requisitos?\s*previos?/i.test(sNorm)) continue;
-              if (isHealthEntity && /curso|formaci|capacitaci|convocatoria|empleo|beca|visa|migra/i.test(sNorm) && !/salud|medic|asistenc|hospital|clinica|sanatori|odontolog|farmaci/i.test(sNorm)) continue;
-              const sTokens = sNorm.split(/\s+/).filter((t) => t.length > 3 && !/^(?:para|sobre|centro|centros|servicio|servicios|general|generales|opcion|opciones|requisito|requisitos|previo|previos|explorando|explorar|paso|pasos|nivel|niveles|inicio|inicios|bienvenida|bienvenido|bienvenidos|etapa|etapas|plan|planes|especializado|especializada|especializados|especializadas)$/i.test(t));
-              if (fullTextCorpus.includes(sNorm)) score += 35;
-              for (const tok of sTokens) {
-                const escapedTok = tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                if (new RegExp(`\\b${escapedTok}\\b`, "i").test(fullTextCorpus)) score += 10;
-              }
-            }
-          }
-        }
-
         if (isEducationalEntity && isStudentEduMatch(catName)) score += 60;
         if (isHealthEntity && /salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|obra\s*social|prepaga/i.test(cNorm)) score += 80;
 
-        if (score >= 25) {
+        if (score >= 55) {
           scoredCats.push({ cat: catName, score });
         }
       }
@@ -2336,7 +2368,7 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       scoredCats.sort((a, b) => b.score - a.score);
       if (scoredCats.length > 0) {
         matchedCats = [scoredCats[0].cat];
-        if (scoredCats[1] && scoredCats[1].score >= 35 && scoredCats[1].score >= scoredCats[0].score * 0.7) {
+        if (scoredCats[1] && scoredCats[1].score >= 55 && scoredCats[1].score >= scoredCats[0].score * 0.75) {
           matchedCats.push(scoredCats[1].cat);
         }
       }
@@ -2347,8 +2379,13 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       matchedCats = matchedCats.filter((c) => {
         const cNorm = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         if (/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|guardia/i.test(cNorm)) return true;
-        if (/curso|formaci|capacitaci|convocatoria|empleo|beca|visa|migra/i.test(cNorm)) return false;
-        return false;
+        if (/curso|formaci|capacitaci|convocatoria|empleo|beca|visa|migra|carrera\s*universitaria|licenciatura|posgrado/i.test(cNorm)) return false;
+        return true;
+      });
+    } else {
+      matchedCats = matchedCats.filter((c) => {
+        const cNorm = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return !/\b(salud|medic\w*|hospital\w*|clinica\w*|sanatori\w*|odontolog\w*|farmaci\w*|asistencia\s*social|enfermer\w*|pediatr\w*|cardiolog\w*|traumatolog\w*|obra\s*social|prepaga)\b/i.test(cNorm);
       });
     }
 
@@ -2386,23 +2423,6 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
 
     let matchedSubs = matchToCatalogPool(rawSubcategories, validSubcatPool);
 
-    // Only if the AI returned no subcategories at all, check if an exact subcategory phrase exists in the text
-    if (matchedSubs.length === 0 && rawSubcategories.length === 0 && validSubcatPool.length > 0) {
-      for (const sub of validSubcatPool) {
-        if (matchedSubs.includes(sub)) continue;
-        if (!isAuthenticOng && isOngMatch(sub)) continue;
-
-        const sNorm = sub.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        if (isHealthEntity && /curso|formaci|capacitaci|convocatoria|empleo|beca|visa|migra/i.test(sNorm) && !/salud|medic|asistenc|hospital|clinica|sanatori|odontolog|farmaci/i.test(sNorm)) continue;
-        if (isEducationalEntity && /visa|migra/i.test(sNorm)) continue;
-
-        // Require genuine presence of the full subcategory name in scraped text
-        if (sNorm.length >= 4 && fullTextCorpus.includes(sNorm)) {
-          matchedSubs.push(sub);
-        }
-      }
-    }
-
     if (!isAuthenticOng) {
       matchedSubs = matchedSubs.filter((s) => !isOngMatch(s));
     }
@@ -2410,8 +2430,13 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       matchedSubs = matchedSubs.filter((s) => {
         const sNorm = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         if (/salud|medic|asistenc|hospital|clinica|sanatori|farmaci|odontolog|guardia/i.test(sNorm)) return true;
-        if (/curso|formaci|capacitaci|convocatoria|empleo|beca|visa|migra/i.test(sNorm)) return false;
-        return false;
+        if (/curso|formaci|capacitaci|convocatoria|empleo|beca|visa|migra|carrera\s*universitaria|licenciatura|posgrado/i.test(sNorm)) return false;
+        return true;
+      });
+    } else {
+      matchedSubs = matchedSubs.filter((s) => {
+        const sNorm = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return !/\b(salud|medic\w*|hospital\w*|clinica\w*|sanatori\w*|odontolog\w*|farmaci\w*|asistencia\s*social|enfermer\w*|pediatr\w*|cardiolog\w*|traumatolog\w*|obra\s*social|prepaga)\b/i.test(sNorm);
       });
     }
 
@@ -2426,16 +2451,23 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
     const matchedActivities = matchToCatalogPool(rawActivities, activitiesPool);
     let cleanActivities = matchedActivities.filter((a) => !typesPool.includes(a));
 
+    if (!isHealthEntity) {
+      cleanActivities = cleanActivities.filter((a) => !/salud|asistencia\s*social|medicin|sanitari|hospital/i.test(a));
+    }
+    if (!isActuallyAgri) {
+      cleanActivities = cleanActivities.filter((a) => !/agricult|agronom|agropecu|ganader|pesca|pesquer/i.test(a));
+    }
+    if (isCoworkingOrWorkspace) {
+      cleanActivities = cleanActivities.filter((a) => !/salud|asistencia\s*social|educaci|formaci|ensenan|agricult|ganader|pesca|medio|cultura|entretenimiento|deporte/i.test(a));
+    }
+
     if (isEducationalEntity) {
-      cleanActivities = cleanActivities.filter((a) => !/hosteler|turism|alojam|profesional|tecnic|agricult|ganader|pesca|miner|comercio/i.test(a));
+      cleanActivities = cleanActivities.filter((a) => !/salud|asistencia\s*social|hosteler|turism|alojam|profesional|tecnic|agricult|ganader|pesca|miner|comercio/i.test(a));
     }
 
     if (isHealthEntity) {
       cleanActivities = cleanActivities.filter((a) => !/educaci|formaci|ensenan/i.test(a));
       const healthAct = activitiesPool.find((a) => /salud|asistencia|social|medic/i.test(a));
-      if (healthAct && !cleanActivities.includes(healthAct)) {
-        cleanActivities = [healthAct, ...cleanActivities];
-      }
       if (healthAct) {
         cleanActivities = [healthAct];
       }
@@ -2448,7 +2480,7 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       }
     }
 
-    if (isEntertainmentOrCulture) {
+    if (isEntertainmentOrCulture && !isCoworkingOrWorkspace) {
       const entAct = activitiesPool.find((a) => /entretenimiento|cultura|arte|medio/i.test(a));
       if (entAct && !cleanActivities.includes(entAct)) {
         cleanActivities = [entAct, ...cleanActivities];
@@ -2456,14 +2488,10 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
     }
 
     if (isSportsOrGym) {
-      cleanActivities = cleanActivities.filter((a) => !/hosteler|turism|alojam|agricult|ganader|pesca|miner|construcci|inmobiliari|manufactura/i.test(a));
-      const sportsAct = activitiesPool.find((a) => /deporte|fitness|bienestar|gimnasio|actividad\s+f[ií]sica|recreaci/i.test(a)) ||
-                        activitiesPool.find((a) => /cultura|entretenimiento|medio/i.test(a));
+      cleanActivities = cleanActivities.filter((a) => !/salud|asistencia\s*social|medicin|hosteler|turism|alojam|agricult|ganader|pesca|miner|construcci|inmobiliari|manufactura/i.test(a));
+      const sportsAct = activitiesPool.find((a) => /deporte|fitness|gimnasio|actividad\s+f[ií]sica|recreaci/i.test(a));
       if (sportsAct && !cleanActivities.includes(sportsAct)) {
         cleanActivities = [sportsAct, ...cleanActivities];
-      }
-      if (cleanActivities.length === 0 && sportsAct) {
-        cleanActivities = [sportsAct];
       }
       finalCategories = finalCategories.filter((c) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(c));
       matchedSubs = matchedSubs.filter((s) => !/explorando\s*opciones|servicio\s*especializado|sin\s*requisitos/i.test(s));
@@ -2478,51 +2506,41 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       cleanActivities = cleanActivities.filter((a) => !/bienes\s*ra[ií]ces|inmobiliari/i.test(a));
     }
 
-    if (cleanActivities.length === 0 && activitiesPool.length > 0) {
+    if (cleanActivities.length === 0 && activitiesPool.length > 0 && !isCoworkingOrWorkspace) {
       const sanitizedPool = activitiesPool.filter((a) => !typesPool.includes(a));
       const poolToUse = sanitizedPool.length > 0 ? sanitizedPool : activitiesPool;
       const scoredActsList: { act: string; score: number }[] = [];
       for (const act of poolToUse) {
         const aNorm = act.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        const aTokens = aNorm.split(/\s+/).filter((t) => t.length > 3 && !/para|sobre|servicios/i.test(t));
+        if (!isHealthEntity && /salud|asistencia\s*social|medicin|sanitari|hospital/i.test(aNorm)) continue;
+        if (!isActuallyAgri && /agricult|agronom|agropecu|ganader|pesca|pesquer/i.test(aNorm)) continue;
+        if (!isEducationalEntity && /educaci|formaci|ensenan/i.test(aNorm)) continue;
+        if (isLegalOrConsulting && /bienes\s*ra[ií]ces|inmobiliari/i.test(aNorm)) continue;
+
         let score = 0;
-        if (fullTextCorpus.includes(aNorm)) score += 40;
-        for (const tok of aTokens) {
-          if (fullTextCorpus.includes(tok)) score += 15;
+        if (aNorm.length >= 6 && new RegExp(`\\b${aNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(fullTextCorpus)) {
+          score += 55;
         }
-        if (isHealthEntity && /salud|asistencia|social|medic/i.test(aNorm)) {
-          score += 60;
-        }
-        if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) {
-          score += 60;
-        }
-        if (isLegalOrConsulting && /profesional|tecnico|legal|consult/i.test(aNorm)) {
-          score += 70;
-        }
-        if (isLegalOrConsulting && /bienes\s*ra[ií]ces|inmobiliari/i.test(aNorm)) {
-          continue; // NEVER score real estate for legal consultancies!
-        }
-        if (isFashionOrDesign && /moda|dise[nñ]o|textil/i.test(aNorm)) {
-          score += 70;
-        }
-        if (isEntertainmentOrCulture && /entretenimiento|cultura|arte|medio/i.test(aNorm)) {
-          score += 70;
-        }
-        if (isTechEntity && /tecnolog|informaci|comunicaci/i.test(aNorm)) {
-          score += 50;
-        }
-        if (isTourismEntity && /hosteler|alojam|turism/i.test(aNorm)) {
-          score += 50;
-        }
-        if (score > 0) scoredActsList.push({ act, score });
+        if (isHealthEntity && /salud|asistencia|social|medic/i.test(aNorm)) score += 70;
+        if (isEducationalEntity && /educaci|formaci/i.test(aNorm)) score += 70;
+        if (isLegalOrConsulting && /profesional|tecnico|legal|consult/i.test(aNorm)) score += 70;
+        if (isFashionOrDesign && /moda|dise[nñ]o|textil/i.test(aNorm)) score += 70;
+        if (isEntertainmentOrCulture && /entretenimiento|cultura|arte|medio/i.test(aNorm)) score += 70;
+        if (isTechEntity && /tecnolog|informaci|comunicaci/i.test(aNorm)) score += 60;
+        if (isTourismEntity && /hosteler|alojam|turism/i.test(aNorm)) score += 60;
+
+        if (score >= 55) scoredActsList.push({ act, score });
       }
       scoredActsList.sort((a, b) => b.score - a.score);
       if (scoredActsList.length > 0) {
         cleanActivities.push(scoredActsList[0].act);
-        if (!isHealthEntity && scoredActsList[1] && scoredActsList[1].score >= 25 && scoredActsList[1].score >= scoredActsList[0].score * 0.6) {
+        if (!isHealthEntity && scoredActsList[1] && scoredActsList[1].score >= 55 && scoredActsList[1].score >= scoredActsList[0].score * 0.75) {
           cleanActivities.push(scoredActsList[1].act);
         }
       }
+    } else if (cleanActivities.length === 0 && activitiesPool.length > 0 && isCoworkingOrWorkspace) {
+      const workspaceAct = activitiesPool.find((a) => /inmobiliari|bienes\s*ra[ií]ces|oficina|coworking|espacios\s*de\s*trabajo|servicios\s*empresariales|servicios\s*profesionales|comercio/i.test(a));
+      if (workspaceAct) cleanActivities.push(workspaceAct);
     }
 
     let matchedTypes = matchToCatalogPool(
@@ -2593,7 +2611,7 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       const online = modalitiesPool.find((m) => /online|virtual/i.test(m));
       const hasTelemedicine = /\b(telemedicina|teleconsulta|consulta\s+virtual|videoconsulta|atenci[oó]n\s+(?:m[eé]dica\s+)?virtual)\b/i.test(fullTextCorpus);
       const hasOnlineMention = !isHealthEntity && /online|virtual|remoto|a distancia|zoom|meet/i.test(fullTextCorpus);
-      const hasPresencialMention = /sede|sedes|sucursal|sucursales|consultorio|consultorios|campus|ubicacion|direccion|atencion presencial|visitanos|delegacion|delegaciones/i.test(fullTextCorpus) || isHealthEntity;
+      const hasPresencialMention = /sede|sedes|sucursal|sucursales|consultorio|consultorios|campus|ubicacion|direccion|atencion presencial|visitanos|delegacion|delegaciones|oficinas|espacios de trabajo/i.test(fullTextCorpus) || isHealthEntity;
       if (hasPresencialMention && presencial) finalMatchedModalities.push(presencial);
       if ((hasOnlineMention || hasTelemedicine) && online) finalMatchedModalities.push(online);
       if (finalMatchedModalities.length === 0 && presencial) {
@@ -2628,16 +2646,9 @@ Recuerda: Elige ÚNICAMENTE nombres exactos de las listas provistas.`;
       Array.isArray(parsed.languages) ? parsed.languages : [parsed.languages],
       languagesPool
     );
-    if (/\b(english|ingl[eé]s|international|exchange|intercambio|study abroad|toefl|ielts|admissions)\b/i.test(fullTextCorpus) || /\b(\.edu|\.gov)\b/i.test(context.url || "")) {
-      const eng = languagesPool.find((l) => /ingl[eé]s|english/i.test(l));
-      if (eng && !matchedLanguages.includes(eng)) matchedLanguages.push(eng);
-    }
-    if (/\b(portugu[eêé]s|falamos|brasil|brazil)\b/i.test(fullTextCorpus) || /\.br(?:\/|$)/i.test(context.url || "")) {
-      const pt = languagesPool.find((l) => /portugu[eéè]s/i.test(l));
-      if (pt && !matchedLanguages.includes(pt)) matchedLanguages.push(pt);
-    }
     if (matchedLanguages.length === 0) {
-      matchedLanguages = ["Español"];
+      const esp = languagesPool.find((l) => /espa[nñ]ol|spanish/i.test(l));
+      matchedLanguages = esp ? [esp] : (languagesPool.length > 0 ? [] : ["Español"]);
     }
 
     return {
@@ -2810,11 +2821,13 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("   - Una entidad NUNCA puede ser 'Organismo público' e 'Institución privada' / 'Empresa' a la vez. Elige solo una según la naturaleza legal real.");
   lines.push("   - Si pertenece a una universidad pública nacional o ente estatal (ej: Hospital Universitario UNCUYO, UBA, etc.), su tipo es EXCLUSIVAMENTE 'Organismo público'. NUNCA incluyas 'Institución privada' ni 'Empresa'.");
   lines.push("   - Si es privada, es 'Institución privada' o 'Empresa', nunca 'Organismo público'.");
-  lines.push("6. PROHIBIDO VINCULAR CATEGORÍAS NO AFINES POR PALABRAS AISLADAS: Si una página de deportes o gimnasio menciona 'trámites' o 'gestiones' en su menú municipal, ESTÁ TERMINANTEMENTE PROHIBIDO seleccionar 'Gestiones migratorias y Visas' o ramas legales. De igual modo, jamás asignes 'Agricultura, ganadería y pesca' a un gimnasio, hospital, escuela o estudio jurídico.");
-  lines.push("7. INDEPENDENCIA ABSOLUTA DE LA URL: La URL sirve únicamente para la descarga técnica del sitio. No clasifiques por la extensión o palabras del dominio (.edu, .gob, .org, etc.) si el contenido real del sitio es un hospital, clínica, gimnasio o comercio.");
-  lines.push("8. CATÁLOGO ESTRICTAMENTE CERRADO Y CERO INVENCIÓN: Trabaja SIEMPRE con las taxonomías, bloques y categorías que se encuentran en el catálogo oficial de abajo (creadas por el administrador en la base de datos).");
-  lines.push("   - Si el catálogo administrado por el usuario no contiene categorías o actividades afines para la web analizada, DEBES DEVOLVER ARRAY VACÍO [] en 'categorySelections' y 'subcategorySelections' (y cadena vacía '' en 'category' y 'subcategory'). ESTÁ PROHIBIDO inventar nombres o forzar categorías de otros rubros.");
-  lines.push("9. PUEDES SELECCIONAR MÁS DE UNA OPCIÓN cuando el sitio web analizado genuinamente abarque varias opciones válidas del catálogo.");
+  lines.push("6. PROHIBIDO VINCULAR ACTIVIDADES O CATEGORÍAS POR FRASES ACCESORIAS O ESLÓGANES (EJEMPLO CRÍTICO: 'CUIDAMOS TU SALUD'):");
+  lines.push("   - Si una web es de deportes, gimnasio, club, oficinas/coworking (ej: Regus), educación, turismo o consultoría y dice frases como 'cuidamos tu salud', 'bienestar', 'asistencia personalizada', 'sede social', o menciona industrias de clientes como 'empresas de tecnología, agricultura y energía', ESTÁ TERMINANTEMENTE PROHIBIDO asignarle 'Salud y asistencia social', categorías de salud/medicina, o 'Agricultura, ganadería y pesca'.");
+  lines.push("   - Si una página de deportes o gimnasio menciona 'trámites' o 'gestiones' en su menú, ESTÁ TERMINANTEMENTE PROHIBIDO seleccionar 'Gestiones migratorias y Visas' o ramas legales.");
+  lines.push("7. INDEPENDENCIA ABSOLUTA DE LA URL: La URL sirve únicamente para la descarga técnica del sitio. No clasifiques por la extensión o palabras del dominio (.edu, .gob, .org, etc.) si el contenido real del sitio es otro.");
+  lines.push("8. CATÁLOGO ESTRICTAMENTE CERRADO Y CERO INVENCIÓN: Trabaja SIEMPRE con las taxonomías, bloques, categorías, subcategorías e idiomas que el administrador creó en el catálogo oficial de abajo.");
+  lines.push("   - Si para algún bloque o sección (Actividad, Tipo, Modalidad o Categorías/Subcategorías) el catálogo del administrador NO tiene ninguna opción que aplique con 100% de certeza a la web analizada, DEBES DEVOLVER ARRAY VACÍO [] en esa sección (no importa que quede vacía). ESTÁ TERMINANTEMENTE PROHIBIDO inventar nombres, usar plantillas o forzar opciones que no tienen nada que ver.");
+  lines.push("9. EVALUACIÓN COMPLETA MULTI-BLOQUE: Examina TODOS los bloques creados por el administrador y selecciona TODAS las opciones de distintos bloques que genuinamente correspondan a la web con total exactitud.");
   lines.push("");
 
   lines.push("1. SECCIÓN ACTIVIDADES ('providerActivities' - Array de strings):");
@@ -2904,7 +2917,7 @@ export function buildTaxonomyCatalogPromptSection(taxonomies: any): string {
   lines.push("");
 
   lines.push("5. SECCIÓN IDIOMAS ('languages' - Array de strings):");
-  lines.push("Examina los idiomas comprobados de atención en la web:");
+  lines.push("Selecciona ÚNICAMENTE del catálogo de abajo los idiomas reales en los que está escrita la web o en los que explícitamente declara brindar atención/servicios (PROHIBIDO inventar idiomas o agregar idiomas solo porque mencione países):");
   languages.forEach((l) => lines.push(`  - "${l}"`));
   lines.push("======================================================================");
 
@@ -3047,7 +3060,7 @@ HIERARQUÍA DE AUTORIDAD EDITORIAL (REGLAS SUPREMAS):
     }
   ],
   "providerInfo": "Resumen institucional conciso y rico en español de 1 o 2 oraciones (tomando lo mejor de la descripción sin plantillas genéricas)",
-  "detectedPublisherName": "Nombre oficial completo de la entidad (resolviendo siglas si aplica)",
+  "detectedPublisherName": "Nombre real de la marca, empresa, agencia o institución (ej: 'Regus', 'Universidad Nacional de Cuyo', 'Hospital Italiano'). JAMÁS pongas un eslogan descriptivo o título de página como 'Espacios de trabajo flexibles en Argentina'",
   "detectedAddress": "De los Latinos 8555, X5008 Córdoba",
   "detectedFoundingYear": "0",
   "detectedRating": "4.0",
@@ -3336,10 +3349,30 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
     let finalMatchedLangs = [...matchedLanguages];
 
     // Sanity negative checks: Prevent absurd hallucinations on non-matching sectors
-    const fullTextNorm = `${context.rawPageTitle || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.mainText || ""}`.toLowerCase();
-    const isActuallyAgri = /\b(agricult|agronom|agropecu|ganader|cultivo|cosecha|pesca|pesquer|piscicultur)\b/i.test(fullTextNorm);
+    const fullTextNorm = `${context.rawPageTitle || ""} ${context.headings?.join(" ") || ""} ${context.paragraphs?.join(" ") || ""} ${context.mainText || ""}`
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    const identityHeaderNorm = `${context.rawPageTitle || ""} ${context.publisherName || ""} ${context.url || ""} ${(context.headings || []).slice(0, 6).join(" ")}`
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    const isCoworkingOrWorkspace =
+      /\b(coworking|espacios?\s+de\s+trabajo|oficinas?\s+privadas?|oficina\s+virtual|salas?\s+de\s+reuniones|alquiler\s+de\s+oficinas|escritorio\s+dedicado|centro\s+de\s+negocios|regus|wework|hit\s+cowork|la\s+maquinita|area\s+tres)\b/i.test(fullTextNorm);
+
+    const isSportsOrGym =
+      /\b(gimnasio|gym|fitness|crossfit|calistenia|musculacion|entrenamiento\s+funcional|complejo\s+deportivo|polideportivo|club\s+deportivo|natatorio|pileta\s+climatizada|artes\s+marciales|boxeo|padel|paddle|tenis|futbol|hockey|rugby|basket|baloncesto|voleibol|atletismo|deporte|deportes|deportivo|deportiva|acondicionamiento\s+fisico)\b/i.test(fullTextNorm) ||
+      /\b(gimnasio|gym|fitness|deporte|deportes|deportivo|polideportivo)\b/i.test(context.url || "");
+
+    const agriMatches = fullTextNorm.match(/\b(agronom\w*|agropecu\w*|ganader\w*|cultivos?|cosechas?|semillas?|pesquer\w*|piscicultur\w*|vitivinicol\w*)\b/gi) || [];
+    const isActuallyAgri =
+      /\b(agricult\w*|agronom\w*|agropecu\w*|ganader\w*|pesquer\w*)\b/i.test(identityHeaderNorm) ||
+      new Set(agriMatches.map((m) => m.toLowerCase())).size >= 2;
     if (!isActuallyAgri) {
       finalMatchedActs = finalMatchedActs.filter((a) => !/agricultura|ganader|pesca/i.test(a));
+      finalMatchedCats = finalMatchedCats.filter((c) => !/agricult|agronom|agropecu|ganader|pesca/i.test(c));
+      matchedSubs = matchedSubs.filter((s) => !/agricult|agronom|agropecu|ganader|pesca/i.test(s));
     }
 
     const isActuallyMigration = /\b(visas?|migratori|migraci[oó]n|residencia\s*legal|ciudadan[ií]a\s*legal|tr[aá]mites?\s*consulares?)\b/i.test(fullTextNorm);
@@ -3348,12 +3381,19 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       matchedSubs = matchedSubs.filter((s) => !/visa|migra|residencia\s*y\s*ciudadan/i.test(s));
     }
 
+    const hasExplicitHealthIdentity =
+      /\b(hospital|clinica|sanatorio|policlinico|centro\s+medico|consultorios?\s+medicos?|instituto\s+medico|maternidad|obra\s+social|prepaga|medicina\s+prepaga|centro\s+de\s+salud|ministerio\s+de\s+salud|secretaria\s+de\s+salud|odontologia|centro\s+odontologico|farmacia|laboratorio\s+de\s+analisis|osep|ioma|pami|osde|swiss\s+medical|galeno|medife)\b/i.test(identityHeaderNorm) ||
+      /osep|hospital|clinica|sanatorio/i.test(context.url || "");
+
     const isEducationalEntity =
-      /\b(universidad|instituto superior|colegio|facultad|instituto universitario|escuela)\b/i.test(
+      !hasExplicitHealthIdentity &&
+      !isCoworkingOrWorkspace &&
+      !isSportsOrGym &&
+      (/\b(universidad|instituto superior|colegio|facultad|instituto universitario|escuela)\b/i.test(
         `${context.rawPageTitle || ""} ${context.url || ""}`
       ) ||
       (/\b(carreras? universitarias?|licenciaturas?|tecnicaturas?|alumnos?|estudiantes?|matricula academica|campus universitario)\b/i.test(fullTextNorm) &&
-       !/\b(hospital|clinica|sanatorio|policlinico)\b/i.test(`${context.rawPageTitle || ""} ${context.url || ""}`));
+       !/\b(hospital|clinica|sanatorio|policlinico)\b/i.test(`${context.rawPageTitle || ""} ${context.url || ""}`)));
 
     if (isEducationalEntity) {
       finalMatchedActs = finalMatchedActs.filter((a) => !/salud|asistencia\s*social|medic|hosteler|turism|agricult|ganader/i.test(a));
@@ -3366,18 +3406,18 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
       }
     }
 
+    const clinicalMatches = fullTextNorm.match(/\b(atencion\s+medica|guardia\s+medica|especialidades\s+medicas|turnos\s+medicos|historia\s+clinica|internacion|consultorios\s+externos|prestaciones\s+medicas|cartilla\s+medica|cuerpo\s+medico)\b/gi) || [];
     const isHealthEntity =
-      !isEducationalEntity &&
-      (/\b(salud|medico|medica|medicos|medicas|medicina|clinica|hospital|sanatorio|obra social|prepaga|paciente|pacientes|enfermeria|atencion medica|consultorio|consultorios|asistencial|prestaciones medicas|farmacia|odontologia|psicologia|pediatria|traumatologia|cardiologia|osep|ioma|pami|osde|swiss medical)\b/i.test(fullTextNorm) ||
-      /hospital|clinica|sanatorio|salud/i.test(context.url || ""));
+      hasExplicitHealthIdentity ||
+      (!isEducationalEntity &&
+       !isSportsOrGym &&
+       !isCoworkingOrWorkspace &&
+       new Set(clinicalMatches.map((m) => m.toLowerCase())).size >= 2);
 
     if (isHealthEntity) {
       // 1. A hospital's activity is strictly health; never include education
       finalMatchedActs = finalMatchedActs.filter((a) => !/educaci|formaci|ensenan/i.test(a));
       const healthAct = activitiesPool.find((a) => /salud|asistencia|social|medic/i.test(a));
-      if (healthAct && !finalMatchedActs.includes(healthAct)) {
-        finalMatchedActs = [healthAct, ...finalMatchedActs];
-      }
       if (healthAct) {
         finalMatchedActs = [healthAct];
       }
@@ -3396,6 +3436,21 @@ GENERA EL OBJETO JSON COMPLETO CUMPLIENDO ESTRICTAMENTE TODAS LAS DIRECTIVAS EDI
         }
         return true;
       });
+    } else {
+      // Negative health guardrail: Non-health websites (e.g., sports saying "cuidamos tu salud", coworking like Regus, education, etc.) must NEVER receive health/medical activities or categories
+      finalMatchedActs = finalMatchedActs.filter((a) => !/salud|asistencia\s*social|medicin|sanitari|hospital/i.test(a));
+      finalMatchedCats = finalMatchedCats.filter((c) => {
+        const cNorm = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return !/\b(salud|medic\w*|hospital\w*|clinica\w*|sanatori\w*|odontolog\w*|farmaci\w*|asistencia\s*social|enfermer\w*|pediatr\w*|cardiolog\w*|traumatolog\w*|obra\s*social|prepaga)\b/i.test(cNorm);
+      });
+      matchedSubs = matchedSubs.filter((s) => {
+        const sNorm = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return !/\b(salud|medic\w*|hospital\w*|clinica\w*|sanatori\w*|odontolog\w*|farmaci\w*|asistencia\s*social|enfermer\w*|pediatr\w*|cardiolog\w*|traumatolog\w*|obra\s*social|prepaga)\b/i.test(sNorm);
+      });
+    }
+
+    if (isCoworkingOrWorkspace) {
+      finalMatchedActs = finalMatchedActs.filter((a) => !/salud|asistencia\s*social|educaci|formaci|ensenan|agricult|ganader|pesca|medio|cultura|entretenimiento|deporte/i.test(a));
     }
 
     // Mutual exclusivity for providerTypes: An entity cannot be both public and private!
