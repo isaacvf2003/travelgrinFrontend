@@ -7851,19 +7851,50 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     return Array.from(langs);
   };
 
+  const isFeaturedPublication = (p: Publication | null | undefined): boolean => {
+    if (!p) return false;
+    if (p.featured === true || (p as any).featured === "true" || (p as any).featured === 1 || (p as any).featured === "1") return true;
+    const f = (p.fields as any)?.featured;
+    if (f === true || f === "true" || f === 1 || f === "1") return true;
+    const plan = String((p.fields as any)?.publicationPlan ?? (p as any).publicationPlan ?? "").toLowerCase();
+    if (plan.includes("featured") || plan.includes("destacad")) return true;
+    return false;
+  };
+
+  const isPartnerPublication = (p: Publication | null | undefined): boolean => {
+    if (!p) return false;
+    const partnerVal = (p.fields as any)?.partner ?? (p as any)?.partner;
+    if (partnerVal === true || partnerVal === "true" || partnerVal === 1 || partnerVal === "1") return true;
+    const partnerStatus = String((p.fields as any)?.partnerStatus ?? (p as any)?.partnerStatus ?? "").toLowerCase();
+    if (partnerStatus === "approved" || partnerStatus === "active" || partnerStatus === "partner") return true;
+    return false;
+  };
+
   const filteredPublications = publications
     .filter((item) => {
       if (isHomeHowPublication(item)) return false;
       const query = publicationSearch.toLowerCase().trim();
-      const matchesSearch = !query || [item.title, item.publisherName, item.category, item.subcategory]
+      const matchesSearch = !query || [
+        item.title,
+        item.id,
+        item.publisherName,
+        item.category,
+        item.subcategory,
+        item.city,
+        item.country,
+        item.titleI18n?.es,
+        item.titleI18n?.en,
+        item.titleI18n?.pt,
+        item.titleI18n?.it,
+      ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query));
       const matchesType =
         publicationTypeFilter === "todas"
           || (publicationTypeFilter === "prestacion" ? item.primaryGroupKey === "prestacion" : item.primaryGroupKey !== "prestacion");
 
-      const isFeatured = item.featured === true || Boolean((item.fields as any)?.featured);
-      const isPartner = Boolean((item.fields as any)?.partner) || Boolean((item as any).partner);
+      const isFeatured = isFeaturedPublication(item);
+      const isPartner = isPartnerPublication(item);
       const matchesFeature =
         publicationFeatureFilter === "todas"
           || (publicationFeatureFilter === "destacadas" && isFeatured)
@@ -11134,95 +11165,132 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           </div>
 
           <div ref={publicationsListContainerRef} className="mt-8 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
-                  <button type="button" onClick={() => { setPublicationTab("publicaciones"); setPublicationCurrentPage(1); }} className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "publicaciones" ? "bg-white shadow" : "text-slate-500"}`}>Publicaciones</button>
-                  <button type="button" onClick={() => setPublicationTab("denuncias")} className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "denuncias" ? "bg-white shadow" : "text-slate-500"}`}>Denuncias</button>
-                </div>
-
-                {publicationTab === "publicaciones" && (
-                  <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs">
+            <div className="mb-6 flex flex-col lg:flex-row items-stretch lg:items-start justify-between gap-4">
+              {/* Columna izquierda: Tabs, Filtros de características, Filtro de tipo y Buscador */}
+              <div className="flex-1 space-y-3 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
                     <button
                       type="button"
-                      onClick={() => {
-                        setPublicationFeatureFilter("todas");
-                        setPublicationCurrentPage(1);
-                      }}
-                      className={`rounded-md px-2.5 py-1.5 font-semibold transition ${
-                        publicationFeatureFilter === "todas"
-                          ? "bg-white text-slate-800 shadow-xs"
-                          : "text-slate-500 hover:text-slate-700"
-                      }`}
+                      onClick={() => { setPublicationTab("publicaciones"); setPublicationCurrentPage(1); }}
+                      className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "publicaciones" ? "bg-white shadow" : "text-slate-500"}`}
                     >
-                      Todas ({publications.filter((p) => !isHomeHowPublication(p)).length})
+                      Publicaciones
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        setPublicationFeatureFilter("partner");
-                        setPublicationCurrentPage(1);
-                      }}
-                      className={`rounded-md px-2.5 py-1.5 font-semibold transition inline-flex items-center gap-1 ${
-                        publicationFeatureFilter === "partner"
-                          ? "bg-cyan-600 text-white shadow-xs"
-                          : "text-slate-500 hover:text-slate-700"
-                      }`}
+                      onClick={() => setPublicationTab("denuncias")}
+                      className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "denuncias" ? "bg-white shadow" : "text-slate-500"}`}
                     >
-                      <span>🤝 Solo Partner ({publications.filter((p) => !isHomeHowPublication(p) && (Boolean((p.fields as any)?.partner) || Boolean((p as any).partner))).length})</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPublicationFeatureFilter("destacadas");
-                        setPublicationCurrentPage(1);
-                      }}
-                      className={`rounded-md px-2.5 py-1.5 font-semibold transition inline-flex items-center gap-1 ${
-                        publicationFeatureFilter === "destacadas"
-                          ? "bg-amber-500 text-white shadow-xs"
-                          : "text-slate-500 hover:text-slate-700"
-                      }`}
-                    >
-                      <span>⭐ Solo Destacadas ({publications.filter((p) => !isHomeHowPublication(p) && (p.featured === true || Boolean((p.fields as any)?.featured))).length})</span>
+                      Denuncias
                     </button>
                   </div>
-                )}
+
+                  {publicationTab === "publicaciones" && (
+                    <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPublicationFeatureFilter("todas");
+                          setPublicationCurrentPage(1);
+                        }}
+                        className={`rounded-md px-2.5 py-1.5 font-semibold transition ${
+                          publicationFeatureFilter === "todas"
+                            ? "bg-white text-slate-800 shadow-xs"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        Todas ({publications.filter((p) => !isHomeHowPublication(p)).length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPublicationFeatureFilter("partner");
+                          setPublicationCurrentPage(1);
+                        }}
+                        className={`rounded-md px-2.5 py-1.5 font-semibold transition inline-flex items-center gap-1 ${
+                          publicationFeatureFilter === "partner"
+                            ? "bg-cyan-600 text-white shadow-xs"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        <span>🤝 Solo Partner ({publications.filter((p) => !isHomeHowPublication(p) && isPartnerPublication(p)).length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPublicationFeatureFilter("destacadas");
+                          setPublicationCurrentPage(1);
+                        }}
+                        className={`rounded-md px-2.5 py-1.5 font-semibold transition inline-flex items-center gap-1 ${
+                          publicationFeatureFilter === "destacadas"
+                            ? "bg-amber-500 text-white shadow-xs"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        <span>⭐ Solo Destacadas ({publications.filter((p) => !isHomeHowPublication(p) && isFeaturedPublication(p)).length})</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={publicationTypeFilter}
+                    onChange={(event) => {
+                      setPublicationTypeFilter(event.target.value as "todas" | "publicacion" | "prestacion");
+                      setPublicationCurrentPage(1);
+                    }}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
+                  >
+                    <option value="todas">Todos los tipos</option>
+                    <option value="publicacion">Publicaciones</option>
+                    <option value="prestacion">Prestaciones</option>
+                  </select>
+
+                  <div className="relative flex-1 min-w-[200px]">
+                    <input
+                      value={publicationSearch}
+                      onChange={(event) => {
+                        setPublicationSearch(event.target.value);
+                        setPublicationCurrentPage(1);
+                      }}
+                      placeholder="Buscar..."
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
+                    />
+                    {publicationSearch && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPublicationSearch("");
+                          setPublicationCurrentPage(1);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                <select
-                  value={publicationFeatureFilter}
-                  onChange={(event) => {
-                    setPublicationFeatureFilter(event.target.value as "todas" | "destacadas" | "partner");
-                    setPublicationCurrentPage(1);
-                  }}
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+
+              {/* Columna derecha (al costado): Nueva arriba, Generar con IA abajo, Actualizar Bloques abajo de IA */}
+              <div className="flex flex-col gap-2 shrink-0 w-full sm:w-auto lg:w-64">
+                <button
+                  type="button"
+                  onClick={openNewPublicationEditor}
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 shadow-xs transition"
                 >
-                  <option value="todas">Todas (Partner y Destacadas)</option>
-                  <option value="partner">🤝 Solo Partner</option>
-                  <option value="destacadas">⭐ Solo Destacadas</option>
-                </select>
-                <select
-                  value={publicationTypeFilter}
-                  onChange={(event) => {
-                    setPublicationTypeFilter(event.target.value as "todas" | "publicacion" | "prestacion");
-                    setPublicationCurrentPage(1);
-                  }}
-                  className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                  + Nueva
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiModalOpen(true)}
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#00A9C6] px-4 text-sm font-semibold text-white hover:bg-[#0095AE] shadow-xs transition"
                 >
-                  <option value="todas">Todos los tipos</option>
-                  <option value="publicacion">Publicaciones</option>
-                  <option value="prestacion">Prestaciones</option>
-                </select>
-                <input
-                  value={publicationSearch}
-                  onChange={(event) => {
-                    setPublicationSearch(event.target.value);
-                    setPublicationCurrentPage(1);
-                  }}
-                  placeholder="Buscar..."
-                  className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-200 sm:w-64"
-                />
-                <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0095AE]">Generar con IA / Web Scraper</button>
+                  <Sparkles className="h-4 w-4" />
+                  Generar con IA / Web Scraper
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -11230,14 +11298,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     setBulkDocInitialPubId(undefined);
                     setBulkDocModalOpen(true);
                   }}
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-xs transition"
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-xs transition"
                 >
                   <FileSpreadsheet className="h-4 w-4 text-slate-600" />
                   Actualizar Bloques (Excel / Prompt)
                 </button>
-                <button type="button" onClick={openNewPublicationEditor} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Nueva</button>
               </div>
             </div>
+
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "Últimas publicaciones"}</div>
               {publicationTab === "publicaciones" && filteredPublications.length > 0 && (
@@ -11309,11 +11377,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${publicationTypeColors(p)}`}>
                         {publicationTypeLabel(p)}
                       </span>
-                      {p.featured ? (
-                        <span className="rounded-full bg-[#00A9C6]/10 px-2 py-0.5 text-xs text-[#007D92]">destacado</span>
+                      {isFeaturedPublication(p) ? (
+                        <span className="rounded-full bg-[#00A9C6]/10 px-2 py-0.5 text-xs font-semibold text-[#007D92]">destacado</span>
                       ) : null}
-                      {Boolean((p.fields as any)?.partner) ? (
-                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-700">partner</span>
+                      {isPartnerPublication(p) ? (
+                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold text-cyan-700">partner</span>
                       ) : null}
                     </div>
                     <div className="mt-2 text-base font-semibold text-slate-900">
