@@ -763,9 +763,9 @@ function normalizeProviderPlanLabel(value: unknown, extra?: any): string {
 
   const duration = Number(
     extra?.planDurationDays ??
-      extra?.promoMeta?.durationDays ??
-      extra?.durationDays ??
-      0,
+    extra?.promoMeta?.durationDays ??
+    extra?.durationDays ??
+    0,
   );
 
   const matchDays = raw.match(/(\d+)\s*(días|dias|d)/i);
@@ -919,12 +919,12 @@ function parseProviderLinks(raw: string): { website: string; socialLinks: Social
           kind === "web"
             ? "Web"
             : kind === "phone"
-            ? "Teléfono"
-            : kind === "whatsapp"
-            ? "WhatsApp"
-            : kind === "email"
-            ? "Email"
-            : kind.charAt(0).toUpperCase() + kind.slice(1),
+              ? "Teléfono"
+              : kind === "whatsapp"
+                ? "WhatsApp"
+                : kind === "email"
+                  ? "Email"
+                  : kind.charAt(0).toUpperCase() + kind.slice(1),
         url,
       };
     })
@@ -1404,7 +1404,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     isOpen: false,
     title: "",
     message: "",
-    onConfirm: () => {},
+    onConfirm: () => { },
     isLoading: false,
   });
   const [expandedPanelBlocks, setExpandedPanelBlocks] = useState<Record<string, boolean>>({});
@@ -1837,19 +1837,19 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         const items = Array.isArray(payload?.items) ? payload.items : [];
         const names = Array.isArray(items)
           ? items
-              .map((entry: any) =>
-                firstNonEmpty(
-                  entry?.translations?.spa?.common,
-                  entry?.translations?.es?.common,
-                  entry?.name?.common
-                )
+            .map((entry: any) =>
+              firstNonEmpty(
+                entry?.translations?.spa?.common,
+                entry?.translations?.es?.common,
+                entry?.name?.common
               )
-              .filter(Boolean)
+            )
+            .filter(Boolean)
           : [];
         const unique = Array.from(new Set(names.map((name: string) => String(name).trim()))).sort((a, b) => a.localeCompare(b));
         setCountryCatalog(unique);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       active = false;
     };
@@ -2057,11 +2057,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         order: editingCategoryId
           ? categories.find((category) => category.id === editingCategoryId)?.order ?? 0
           : (() => {
-              const siblingMax = categories
-                .filter((category) => (category.parentId ?? null) === parentId && (category.blockId ?? null) === (resolvedBlockId ?? null))
-                .reduce((max, category) => Math.max(max, Number(category.order ?? 0)), -1);
-              return siblingMax + 1;
-            })(),
+            const siblingMax = categories
+              .filter((category) => (category.parentId ?? null) === parentId && (category.blockId ?? null) === (resolvedBlockId ?? null))
+              .reduce((max, category) => Math.max(max, Number(category.order ?? 0)), -1);
+            return siblingMax + 1;
+          })(),
         isPublicVisible: catIsPublicVisible,
         isPrimaryCategory: catIsPrimaryCategory,
         visibleInCard: catIsPrimaryCategory,
@@ -2389,7 +2389,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const shouldStartAsPrimaryCategory = Boolean(
       blockId &&
       !parentId &&
-    categories.some((category) => category.blockId === blockId && (category.visibleInCard ?? category.isPrimaryCategory) === true)
+      categories.some((category) => category.blockId === blockId && (category.visibleInCard ?? category.isPrimaryCategory) === true)
     );
     setCategoryModalMode("category");
     setCatError("");
@@ -2831,16 +2831,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     );
     const optimizedImageAssets: ImageAsset[] = imageList.length
       ? await Promise.all(imageList.map(async (url) => {
-          const existingUpload = uploadedAssetsByUrl.get(url) || existingAssetsByUrl.get(url);
-          return existingUpload || uploadRemoteImageAssetToCloudinary(url, { folder: "admin/publications" });
-        }))
+        const existingUpload = uploadedAssetsByUrl.get(url) || existingAssetsByUrl.get(url);
+        return existingUpload || uploadRemoteImageAssetToCloudinary(url, { folder: "admin/publications" });
+      }))
       : [];
     const optimizedImageList = optimizedImageAssets.map((asset) => asset.url).filter(Boolean);
     const existingProviderLogoAsset = (pFieldsBase as any).providerLogoAsset as ImageAsset | undefined;
     const optimizedProviderLogoAsset = pProviderLogo
       ? (existingProviderLogoAsset && imageAssetToUrl(existingProviderLogoAsset) === pProviderLogo
-          ? existingProviderLogoAsset
-          : await uploadRemoteImageAssetToCloudinary(pProviderLogo, { folder: "admin/providers" }))
+        ? existingProviderLogoAsset
+        : await uploadRemoteImageAssetToCloudinary(pProviderLogo, { folder: "admin/providers" }))
       : null;
     const optimizedProviderLogo = optimizedProviderLogoAsset?.url || pProviderLogo;
     const effectiveCategorySelections = pCategorySelections.filter(Boolean);
@@ -3259,7 +3259,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           const host = new URL(siteUrl).hostname.replace(/^www\./, "");
           if (host) cleanLogo = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
         }
-      } catch {}
+      } catch { }
     }
     setPProviderLogo(cleanLogo);
     if (Array.isArray(draft.images)) {
@@ -3271,12 +3271,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     const headquarterRaw = Array.isArray(draft.headquarterLocations) && draft.headquarterLocations.length > 0
       ? draft.headquarterLocations
       : [
-          {
-            country: draft.headquarterCountry || draft.country || "Argentina",
-            city: draft.headquarterCity || draft.city || "Buenos Aires",
-            mapUrl: draft.locationAddress || "",
-          },
-        ];
+        {
+          country: draft.headquarterCountry || draft.country || "Argentina",
+          city: draft.headquarterCity || draft.city || "Buenos Aires",
+          mapUrl: draft.locationAddress || "",
+        },
+      ];
 
     const primaryHq = headquarterRaw[0] || {
       country: draft.headquarterCountry || draft.country || "Argentina",
@@ -3742,12 +3742,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPCountry(pub.country ?? "");
     const headquarterRaw = Array.isArray((pub.fields as any)?.headquarterLocations)
       ? (pub.fields as any).headquarterLocations
-          .map((loc: any) => ({
-            country: String(loc?.country ?? "").trim(),
-            city: String(loc?.city ?? "").trim(),
-            mapUrl: String(loc?.mapUrl ?? "").trim(),
-          }))
-          .filter((loc: any) => loc.country || loc.city || loc.mapUrl)
+        .map((loc: any) => ({
+          country: String(loc?.country ?? "").trim(),
+          city: String(loc?.city ?? "").trim(),
+          mapUrl: String(loc?.mapUrl ?? "").trim(),
+        }))
+        .filter((loc: any) => loc.country || loc.city || loc.mapUrl)
       : [];
     const primaryHeadquarter = headquarterRaw[0] ?? {
       country: String(pub.headquarterCountry ?? "").trim(),
@@ -3764,8 +3764,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPPricePeriod((pub.fields as any)?.pricePeriod ?? "month");
     const normalizedPriceByCurrency = Array.isArray((pub.fields as any)?.priceByCurrency)
       ? (pub.fields as any).priceByCurrency
-          .map((entry: any) => ({ currency: String(entry?.currency ?? "").trim(), amount: String(entry?.amount ?? "").trim() }))
-          .filter((entry: ExtraPrice, index: number, self: ExtraPrice[]) => entry.currency && entry.amount && self.findIndex((item) => item.currency === entry.currency) === index)
+        .map((entry: any) => ({ currency: String(entry?.currency ?? "").trim(), amount: String(entry?.amount ?? "").trim() }))
+        .filter((entry: ExtraPrice, index: number, self: ExtraPrice[]) => entry.currency && entry.amount && self.findIndex((item) => item.currency === entry.currency) === index)
       : [];
     setPExtraPrices(normalizedPriceByCurrency.filter((entry: ExtraPrice) => entry.currency !== String(pub.currency ?? "").trim()));
     setPLanguages(
@@ -3795,26 +3795,26 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPLocationAddress((pub.fields as any)?.locationAddress ?? "");
     const destinationRaw = Array.isArray((pub.fields as any)?.travelDestinations)
       ? (pub.fields as any).travelDestinations
-          .map((loc: any) => ({
-            country: String(loc?.country ?? "").trim(),
-            city: String(loc?.city ?? "").trim(),
-            mapUrl: String(loc?.mapUrl ?? "").trim(),
-          }))
-          .filter((loc: any) => loc.country || loc.city || loc.mapUrl)
+        .map((loc: any) => ({
+          country: String(loc?.country ?? "").trim(),
+          city: String(loc?.city ?? "").trim(),
+          mapUrl: String(loc?.mapUrl ?? "").trim(),
+        }))
+        .filter((loc: any) => loc.country || loc.city || loc.mapUrl)
       : [];
     const fallbackLocations = Array.isArray((pub.fields as any)?.offerLocations)
       ? (pub.fields as any).offerLocations.map((loc: any) => ({
-          country: String(loc?.country ?? "").trim(),
-          city: String(loc?.region ?? "").trim(),
-          mapUrl: String(loc?.address ?? "").trim(),
-        }))
+        country: String(loc?.country ?? "").trim(),
+        city: String(loc?.region ?? "").trim(),
+        mapUrl: String(loc?.address ?? "").trim(),
+      }))
       : [];
     const fallbackDestinations = Array.isArray((pub.fields as any)?.destinationCountries)
       ? (pub.fields as any).destinationCountries.map((country: string) => ({
-          country: String(country ?? "").trim(),
-          city: "",
-          mapUrl: "",
-        }))
+        country: String(country ?? "").trim(),
+        city: "",
+        mapUrl: "",
+      }))
       : [];
     const useCountryFallback = !destinationRaw.length && !fallbackLocations.length;
     const combinedDestinations = uniqueLocations([
@@ -3898,13 +3898,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPPrestacionHeroInfoBlocks(
       Array.isArray((pub.fields as any)?.prestationHeroInfoBlocks)
         ? (pub.fields as any).prestationHeroInfoBlocks.map((entry: any) => ({
-            title: String(entry?.title ?? ""),
-            titleI18n: (entry?.titleI18n ?? { es: String(entry?.title ?? "") }) as I18nRecord,
-            text: String(entry?.text ?? ""),
-            textI18n: (entry?.textI18n ?? { es: String(entry?.text ?? "") }) as I18nRecord,
-            bgColor: String(entry?.bgColor ?? "#DBEAFE"),
-            textColor: String(entry?.textColor ?? "#1E3A8A"),
-          }))
+          title: String(entry?.title ?? ""),
+          titleI18n: (entry?.titleI18n ?? { es: String(entry?.title ?? "") }) as I18nRecord,
+          text: String(entry?.text ?? ""),
+          textI18n: (entry?.textI18n ?? { es: String(entry?.text ?? "") }) as I18nRecord,
+          bgColor: String(entry?.bgColor ?? "#DBEAFE"),
+          textColor: String(entry?.textColor ?? "#1E3A8A"),
+        }))
         : [createEmptyPrestacionHeroInfoBlock()]
     );
     setPPrestacionRelatedIds(
@@ -3915,53 +3915,53 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPPrestacionResources(
       Array.isArray((pub.fields as any)?.prestationResources)
         ? (pub.fields as any).prestationResources.map((entry: any) => ({
-            title: String(entry?.title ?? ""),
-            titleI18n: (entry?.titleI18n ?? { es: String(entry?.title ?? "") }) as I18nRecord,
-            subtitle: String(entry?.subtitle ?? ""),
-            subtitleI18n: (entry?.subtitleI18n ?? { es: String(entry?.subtitle ?? "") }) as I18nRecord,
-            image: String(entry?.image ?? ""),
-            imageI18n: (entry?.imageI18n ?? { es: String(entry?.image ?? "") }) as I18nRecord,
-            prestationRef: String(entry?.prestationRef ?? ""),
-            checkItems: Array.isArray(entry?.checkItems)
-              ? entry.checkItems.map((item: any) => String(item)).filter(Boolean)
+          title: String(entry?.title ?? ""),
+          titleI18n: (entry?.titleI18n ?? { es: String(entry?.title ?? "") }) as I18nRecord,
+          subtitle: String(entry?.subtitle ?? ""),
+          subtitleI18n: (entry?.subtitleI18n ?? { es: String(entry?.subtitle ?? "") }) as I18nRecord,
+          image: String(entry?.image ?? ""),
+          imageI18n: (entry?.imageI18n ?? { es: String(entry?.image ?? "") }) as I18nRecord,
+          prestationRef: String(entry?.prestationRef ?? ""),
+          checkItems: Array.isArray(entry?.checkItems)
+            ? entry.checkItems.map((item: any) => String(item)).filter(Boolean)
+            : [],
+          checkItemsI18n: Array.isArray(entry?.checkItemsI18n)
+            ? entry.checkItemsI18n.map((item: any, idx: number) => ((item ?? { es: String(entry?.checkItems?.[idx] ?? "") }) as I18nRecord))
+            : Array.isArray(entry?.checkItems)
+              ? entry.checkItems.map((item: any) => ({ es: String(item ?? "") }))
               : [],
-            checkItemsI18n: Array.isArray(entry?.checkItemsI18n)
-              ? entry.checkItemsI18n.map((item: any, idx: number) => ((item ?? { es: String(entry?.checkItems?.[idx] ?? "") }) as I18nRecord))
-              : Array.isArray(entry?.checkItems)
-                ? entry.checkItems.map((item: any) => ({ es: String(item ?? "") }))
-                : [],
-            buttons: Array.isArray(entry?.buttons)
-              ? entry.buttons
-                  .map((btn: any) => ({
-                    label: String(btn?.label ?? ""),
-                    labelI18n: (btn?.labelI18n ?? { es: String(btn?.label ?? "") }) as I18nRecord,
-                    url: String(btn?.url ?? ""),
-                    style: btn?.style === "secondary" ? "secondary" : "primary",
-                    bgColor: String(btn?.bgColor ?? (btn?.style === "secondary" ? "#FFFFFF" : "#2563EB")),
-                    textColor: String(btn?.textColor ?? (btn?.style === "secondary" ? "#1D4ED8" : "#FFFFFF")),
-                  }))
-                  .filter((btn: any) => btn.label || btn.url)
-              : [],
-            colorNoteTitle: String(entry?.colorNoteTitle ?? ""),
-            colorNoteTitleI18n: (entry?.colorNoteTitleI18n ?? { es: String(entry?.colorNoteTitle ?? "") }) as I18nRecord,
-            colorNoteText: String(entry?.colorNoteText ?? ""),
-            colorNoteTextI18n: (entry?.colorNoteTextI18n ?? { es: String(entry?.colorNoteText ?? "") }) as I18nRecord,
-            colorNoteBgColor: String(entry?.colorNoteBgColor ?? "#EEF2FF"),
-            colorNoteTextColor: String(entry?.colorNoteTextColor ?? "#1E3A8A"),
-          }))
+          buttons: Array.isArray(entry?.buttons)
+            ? entry.buttons
+              .map((btn: any) => ({
+                label: String(btn?.label ?? ""),
+                labelI18n: (btn?.labelI18n ?? { es: String(btn?.label ?? "") }) as I18nRecord,
+                url: String(btn?.url ?? ""),
+                style: btn?.style === "secondary" ? "secondary" : "primary",
+                bgColor: String(btn?.bgColor ?? (btn?.style === "secondary" ? "#FFFFFF" : "#2563EB")),
+                textColor: String(btn?.textColor ?? (btn?.style === "secondary" ? "#1D4ED8" : "#FFFFFF")),
+              }))
+              .filter((btn: any) => btn.label || btn.url)
+            : [],
+          colorNoteTitle: String(entry?.colorNoteTitle ?? ""),
+          colorNoteTitleI18n: (entry?.colorNoteTitleI18n ?? { es: String(entry?.colorNoteTitle ?? "") }) as I18nRecord,
+          colorNoteText: String(entry?.colorNoteText ?? ""),
+          colorNoteTextI18n: (entry?.colorNoteTextI18n ?? { es: String(entry?.colorNoteText ?? "") }) as I18nRecord,
+          colorNoteBgColor: String(entry?.colorNoteBgColor ?? "#EEF2FF"),
+          colorNoteTextColor: String(entry?.colorNoteTextColor ?? "#1E3A8A"),
+        }))
         : [createEmptyPrestacionResource()]
     );
     setPPrestacionSteps(
       Array.isArray((pub.fields as any)?.prestationSteps)
         ? (pub.fields as any).prestationSteps.map((entry: any) => ({
-            title: String(entry?.title ?? ""),
-            titleI18n: (entry?.titleI18n ?? { es: String(entry?.title ?? "") }) as I18nRecord,
-            subtitle: String(entry?.subtitle ?? ""),
-            subtitleI18n: (entry?.subtitleI18n ?? { es: String(entry?.subtitle ?? "") }) as I18nRecord,
-            image: String(entry?.image ?? ""),
-            imageI18n: (entry?.imageI18n ?? { es: String(entry?.image ?? "") }) as I18nRecord,
-            prestationRef: String(entry?.prestationRef ?? ""),
-          }))
+          title: String(entry?.title ?? ""),
+          titleI18n: (entry?.titleI18n ?? { es: String(entry?.title ?? "") }) as I18nRecord,
+          subtitle: String(entry?.subtitle ?? ""),
+          subtitleI18n: (entry?.subtitleI18n ?? { es: String(entry?.subtitle ?? "") }) as I18nRecord,
+          image: String(entry?.image ?? ""),
+          imageI18n: (entry?.imageI18n ?? { es: String(entry?.image ?? "") }) as I18nRecord,
+          prestationRef: String(entry?.prestationRef ?? ""),
+        }))
         : [createEmptyPrestacionStep()]
     );
     setPPrestacionFaqs(
@@ -3972,43 +3972,43 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPPrestacionColorBlocks(
       Array.isArray((pub.fields as any)?.prestationColorBlocks)
         ? (pub.fields as any).prestationColorBlocks.map((entry: any) => ({
-            title: String(entry?.title ?? ""),
-            text: String(entry?.text ?? ""),
-            bgColor: String(entry?.bgColor ?? "#EEF2FF"),
-            textColor: String(entry?.textColor ?? "#312E81"),
-            prestationRef: String(entry?.prestationRef ?? ""),
-          }))
+          title: String(entry?.title ?? ""),
+          text: String(entry?.text ?? ""),
+          bgColor: String(entry?.bgColor ?? "#EEF2FF"),
+          textColor: String(entry?.textColor ?? "#312E81"),
+          prestationRef: String(entry?.prestationRef ?? ""),
+        }))
         : [createEmptyPrestacionColorBlock()]
     );
     setPExtraDescriptions(
       Array.isArray((pub.fields as any)?.extraDescriptions)
         ? (pub.fields as any).extraDescriptions.map((d: any) => {
-            const title = String(d?.title ?? "");
-            const body = String(d?.body ?? "");
-            const titleI18n = (d?.titleI18n ?? null) as I18nRecord | null;
-            const bodyI18n = (d?.bodyI18n ?? null) as I18nRecord | null;
-            const fallbackTitle = titleI18n?.es ?? title;
-            const fallbackBody = bodyI18n?.es ?? body;
-            return {
-              title: fallbackTitle,
-              body: fallbackBody,
-              titleI18n: titleI18n ?? { es: fallbackTitle },
-              bodyI18n: bodyI18n ?? { es: fallbackBody },
-              lang: "es" as Lang,
-              visibleInCard: booleanLike(d?.visibleInCard),
-            };
-          })
+          const title = String(d?.title ?? "");
+          const body = String(d?.body ?? "");
+          const titleI18n = (d?.titleI18n ?? null) as I18nRecord | null;
+          const bodyI18n = (d?.bodyI18n ?? null) as I18nRecord | null;
+          const fallbackTitle = titleI18n?.es ?? title;
+          const fallbackBody = bodyI18n?.es ?? body;
+          return {
+            title: fallbackTitle,
+            body: fallbackBody,
+            titleI18n: titleI18n ?? { es: fallbackTitle },
+            bodyI18n: bodyI18n ?? { es: fallbackBody },
+            lang: "es" as Lang,
+            visibleInCard: booleanLike(d?.visibleInCard),
+          };
+        })
         : []
     );
     setPTourismType((pub.fields as any)?.tourismType === "emisivo" ? "emisivo" : "receptivo");
     const detailedLinks = Array.isArray((pub.fields as any)?.socialLinksDetailed)
       ? (pub.fields as any).socialLinksDetailed
-          .map((entry: any) => ({
-            kind: String(entry?.kind ?? ""),
-            label: String(entry?.label ?? ""),
-            url: String(entry?.url ?? ""),
-          }))
-          .filter((entry: any) => entry.kind && entry.url)
+        .map((entry: any) => ({
+          kind: String(entry?.kind ?? ""),
+          label: String(entry?.label ?? ""),
+          url: String(entry?.url ?? ""),
+        }))
+        .filter((entry: any) => entry.kind && entry.url)
       : [];
     if (detailedLinks.length) {
       setPSocialLinksDetailed(detailedLinks);
@@ -4052,7 +4052,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     setPPartner(false);
     setPTitleI18n((prev) => ({ ...prev, es: `${String(prev.es ?? pub.title ?? "").trim()} (copia)` }));
     setPTitle((prev) => `${String(prev || pub.title || "").trim()} (copia)`);
-      setSaveMessage("Copia cargada. Editá los campos necesarios y guardá como nueva publicación.");
+    setSaveMessage("Copia cargada. Editá los campos necesarios y guardá como nueva publicación.");
     window.setTimeout(() => setSaveMessage(""), 4500);
   }
 
@@ -4565,9 +4565,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           key={lang}
           type="button"
           onClick={() => onChange(lang)}
-          className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase ${
-            active === lang ? "border-[#00A9C6] bg-[#00A9C6]/10 text-[#007D92]" : "border-slate-200 text-slate-500"
-          }`}
+          className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase ${active === lang ? "border-[#00A9C6] bg-[#00A9C6]/10 text-[#007D92]" : "border-slate-200 text-slate-500"
+            }`}
         >
           {labelBuilder ? labelBuilder(lang) : lang}
         </button>
@@ -4672,13 +4671,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       return isPrestacionEditor
         ? !["prestacion", "prestaciones"].includes(taxonomyType || "")
         : taxonomyType === "categoria" ||
-            taxonomyType === "filtro" ||
-            !["actividad", "modalidad", "idiomas", "prestacion", "prestaciones", "tipo", "tipos"].includes(taxonomyType || "");
+        taxonomyType === "filtro" ||
+        !["actividad", "modalidad", "idiomas", "prestacion", "prestaciones", "tipo", "tipos"].includes(taxonomyType || "");
     };
 
     if (panel === "category") {
       if (!pickerRoots.length) {
-      return <div className="mt-3 text-sm text-slate-500">No hay categorías disponibles.</div>;
+        return <div className="mt-3 text-sm text-slate-500">No hay categorías disponibles.</div>;
       }
       return (
         <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -5249,7 +5248,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             .filter((item) => !String(item.price ?? "").trim() || item.price === "0")
             .map((item) => item.createdAt)
         )
-    ),
+      ),
     [dashboardPublicationHistory]
   );
   const feedbackReports = useMemo(
@@ -5477,13 +5476,13 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           const sourceServiceId = String(extra.sourceServiceId ?? "").trim();
           const matchedPublication = sourceServiceId
             ? publications.find((publication) => {
-                const fields = (publication.fields && typeof publication.fields === "object" ? publication.fields : {}) as Record<string, unknown>;
-                return (
-                  String(fields.sourceServiceId ?? "").trim() === sourceServiceId ||
-                  String((publication as any).sourceServiceId ?? "").trim() === sourceServiceId ||
-                  String((publication as any).relatedSubmissionId ?? "").trim() === sourceServiceId
-                );
-              })
+              const fields = (publication.fields && typeof publication.fields === "object" ? publication.fields : {}) as Record<string, unknown>;
+              return (
+                String(fields.sourceServiceId ?? "").trim() === sourceServiceId ||
+                String((publication as any).sourceServiceId ?? "").trim() === sourceServiceId ||
+                String((publication as any).relatedSubmissionId ?? "").trim() === sourceServiceId
+              );
+            })
             : null;
           sourcePublicationId = matchedPublication ? String(matchedPublication.id) : "";
         }
@@ -5611,7 +5610,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     let images = normalizeStringArray(extra.images as string[] | string | undefined);
     let imageAssets = Array.isArray(extra.imageAssets) ? (extra.imageAssets as ImageAsset[]) : [];
-    
+
     const existingImages = existingPub && Array.isArray(existingPub.images) ? existingPub.images.map(String) : [];
     const imagesAreIdentical = images.length === existingImages.length &&
       images.every((img, idx) => img === existingImages[idx]);
@@ -5623,8 +5622,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
     const priceByCurrency = Array.isArray(extra.priceByCurrency)
       ? (extra.priceByCurrency as Array<Record<string, unknown>>)
-          .map((entry) => ({ currency: String(entry.currency ?? "").trim(), amount: String(entry.amount ?? "").trim() }))
-          .filter((entry, index, self) => entry.currency && entry.amount && self.findIndex((item) => item.currency === entry.currency) === index)
+        .map((entry) => ({ currency: String(entry.currency ?? "").trim(), amount: String(entry.amount ?? "").trim() }))
+        .filter((entry, index, self) => entry.currency && entry.amount && self.findIndex((item) => item.currency === entry.currency) === index)
       : [];
 
     let providerLogo = String(extra.providerLogo ?? "").trim();
@@ -5643,12 +5642,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     ].filter((entry) => entry.url);
     const detailedFormLinks = Array.isArray(extra.socialLinksDetailed)
       ? (extra.socialLinksDetailed as Array<Record<string, unknown>>)
-          .map((entry) => ({
-            kind: String(entry.kind ?? "web").trim() || "web",
-            label: String(entry.label ?? "").trim(),
-            url: String(entry.url ?? "").trim(),
-          }))
-          .filter((entry) => entry.url)
+        .map((entry) => ({
+          kind: String(entry.kind ?? "web").trim() || "web",
+          label: String(entry.label ?? "").trim(),
+          url: String(entry.url ?? "").trim(),
+        }))
+        .filter((entry) => entry.url)
       : [];
     const extraVenues = Array.isArray(extra.venues) ? extra.venues as Array<Record<string, unknown>> : [];
     const receivingMode = String(extra.receivingCountriesMode ?? "all").toLowerCase();
@@ -5784,24 +5783,24 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     : [];
   const detailRelatedServices = detailTravelService && !isDetailDemandante
     ? userOferentes
-        .filter((item) => String(item.email ?? "").trim().toLowerCase() === String(detailTravelService.email ?? "").trim().toLowerCase())
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        })
+      .filter((item) => String(item.email ?? "").trim().toLowerCase() === String(detailTravelService.email ?? "").trim().toLowerCase())
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      })
     : [];
   const detailRelatedPayments = detailTravelService && !isDetailDemandante
     ? travelServicePayments.filter((item) => detailRelatedServices.some((service) => service.id === item.serviceId))
     : [];
   const detailCurrentPayment = detailTravelService && !isDetailDemandante
     ? [...detailRelatedPayments]
-        .filter((item) => item.serviceId === detailTravelService.id)
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        })[0] ?? null
+      .filter((item) => item.serviceId === detailTravelService.id)
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      })[0] ?? null
     : null;
   const detailCurrentRefund = parseRefundSnapshot({
     ...(detailCurrentPayment?.raw && typeof detailCurrentPayment.raw === "object" ? detailCurrentPayment.raw as Record<string, unknown> : {}),
@@ -5822,21 +5821,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       : serviceEffectiveStatus(detailTravelService);
   const detailPaymentServices = detailPaymentEmail
     ? userOferentes
-        .filter((item) => String(item.email ?? "").trim().toLowerCase() === detailPaymentEmail)
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        })
+      .filter((item) => String(item.email ?? "").trim().toLowerCase() === detailPaymentEmail)
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      })
     : [];
   const detailPaymentItems = detailPaymentEmail
     ? travelServicePayments
-        .filter((item) => String(item.payerEmail ?? "").trim().toLowerCase() === detailPaymentEmail)
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        })
+      .filter((item) => String(item.payerEmail ?? "").trim().toLowerCase() === detailPaymentEmail)
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      })
     : [];
   const detailPaymentLabel = detailPaymentServices[0]
     ? providerDisplayName(detailPaymentServices[0])
@@ -5903,22 +5902,22 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               {String(detailCurrentRefund.refundStatus ?? "").trim() ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="mb-2 text-sm font-semibold text-slate-900">Reembolso</div>
-                <div className="grid gap-2 md:grid-cols-2">
-                  <div><b>{t("admin.request.refundStatus")}:</b> {String(detailCurrentRefund.refundStatus ?? "").trim() ? refundStatusLabel(detailCurrentRefund.refundStatus) : "-"}</div>
-                  <div><b>{t("admin.request.refundAmount")}:</b> {String(detailCurrentRefund.refundCurrency ?? detailCurrentPayment?.currency ?? "-")} {String(detailCurrentRefund.refundAmount ?? detailCurrentPayment?.amount ?? "-")}</div>
-                  <div><b>Refund ref:</b> {String(detailCurrentRefund.refundProviderReference ?? "-") || "-"}</div>
-                  <div><b>{t("admin.request.providerError")}:</b> {String(detailCurrentRefund.refundProviderError ?? "-") || "-"}</div>
-                  <div><b>Solicitado:</b> {detailCurrentRefund.refundRequestedAt ? new Date(String(detailCurrentRefund.refundRequestedAt)).toLocaleString("es-AR") : "-"}</div>
-                  <div><b>Procesando:</b> {detailCurrentRefund.refundProcessingAt ? new Date(String(detailCurrentRefund.refundProcessingAt)).toLocaleString("es-AR") : "-"}</div>
-                </div>
-                {String(detailCurrentRefund.refundStatus ?? "").trim().toLowerCase() === "refund_processing" ? (
-                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
-                    {t("providerPortal.refund.pendingNotice")}
+                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="mb-2 text-sm font-semibold text-slate-900">Reembolso</div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <div><b>{t("admin.request.refundStatus")}:</b> {String(detailCurrentRefund.refundStatus ?? "").trim() ? refundStatusLabel(detailCurrentRefund.refundStatus) : "-"}</div>
+                    <div><b>{t("admin.request.refundAmount")}:</b> {String(detailCurrentRefund.refundCurrency ?? detailCurrentPayment?.currency ?? "-")} {String(detailCurrentRefund.refundAmount ?? detailCurrentPayment?.amount ?? "-")}</div>
+                    <div><b>Refund ref:</b> {String(detailCurrentRefund.refundProviderReference ?? "-") || "-"}</div>
+                    <div><b>{t("admin.request.providerError")}:</b> {String(detailCurrentRefund.refundProviderError ?? "-") || "-"}</div>
+                    <div><b>Solicitado:</b> {detailCurrentRefund.refundRequestedAt ? new Date(String(detailCurrentRefund.refundRequestedAt)).toLocaleString("es-AR") : "-"}</div>
+                    <div><b>Procesando:</b> {detailCurrentRefund.refundProcessingAt ? new Date(String(detailCurrentRefund.refundProcessingAt)).toLocaleString("es-AR") : "-"}</div>
                   </div>
-                ) : null}
-              </div>
+                  {String(detailCurrentRefund.refundStatus ?? "").trim().toLowerCase() === "refund_processing" ? (
+                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                      {t("providerPortal.refund.pendingNotice")}
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
               <div className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="mb-2 text-sm font-semibold text-slate-900">Datos enviados</div>
@@ -5969,11 +5968,11 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                     (String((originalPub.fields as any)?.pricePeriod ?? "") !== String(detailExtra?.pricePeriod ?? "")) ||
                     (Boolean((originalPub.fields as any)?.priceNegotiable) !== Boolean(detailExtra?.priceNegotiable))
                   ) && (
-                    <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">
-                      Actual: {originalPub.price ? `${originalPub.currency} ${originalPub.price} / ${String((originalPub.fields as any)?.pricePeriod === "person" ? "Persona" : "Mes")}` : "Gratis / No especificado"}
-                      {Boolean((originalPub.fields as any)?.priceNegotiable) ? " (Negociable)" : ""}
-                    </div>
-                  )}
+                      <div className="md:col-span-2 -mt-1 text-xs text-rose-600 line-through">
+                        Actual: {originalPub.price ? `${originalPub.currency} ${originalPub.price} / ${String((originalPub.fields as any)?.pricePeriod === "person" ? "Persona" : "Mes")}` : "Gratis / No especificado"}
+                        {Boolean((originalPub.fields as any)?.priceNegotiable) ? " (Negociable)" : ""}
+                      </div>
+                    )}
                   {Array.isArray(detailExtra?.priceByCurrency) && detailExtra.priceByCurrency.length > 0 && (
                     <div className="md:col-span-2 text-xs text-slate-500">
                       <b>Precios alternativos:</b> {detailExtra.priceByCurrency.map((p: any) => `${p.currency} ${p.amount}`).join(", ")}
@@ -6037,7 +6036,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       : ""}
                   </div>
                 </div>
-                
+
                 {/* Proposed gallery images */}
                 <div className="mt-3">
                   <b>Imágenes propuestas en solicitud:</b>
@@ -6586,7 +6585,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               } catch (error) {
                 console.error("Error al eliminar", error);
               } finally {
-                setConfirmDeleteModal({ isOpen: false, title: "", message: "", onConfirm: () => {}, isLoading: false });
+                setConfirmDeleteModal({ isOpen: false, title: "", message: "", onConfirm: () => { }, isLoading: false });
               }
             }}
             className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-rose-700 disabled:opacity-50"
@@ -6640,16 +6639,16 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-          <div className="mb-3">
+        <div className="mb-3">
           <p className="text-sm font-semibold text-slate-900">Precios de planes por pais</p>
-            <p className="text-xs text-slate-500">Configura los valores del destacado por país de destino. Si no hay regla del país, se usa la regla por defecto.</p>
-          </div>
+          <p className="text-xs text-slate-500">Configura los valores del destacado por país de destino. Si no hay regla del país, se usa la regla por defecto.</p>
+        </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-8">
-            <select value="featured_120d" onChange={() => setPriceRulePlanTypeDraft("featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
-              <option value="featured_120d">Pago unico 120 dias</option>
-            </select>
-            <select value={priceRuleCountryDraft} onChange={(event) => {
-              const value = event.target.value;
+          <select value="featured_120d" onChange={() => setPriceRulePlanTypeDraft("featured_120d")} className="h-10 rounded-xl border border-slate-200 px-3 text-sm">
+            <option value="featured_120d">Pago unico 120 dias</option>
+          </select>
+          <select value={priceRuleCountryDraft} onChange={(event) => {
+            const value = event.target.value;
             setPriceRuleCountryDraft(value);
             if (value === "__ALL__") {
               setPriceRuleDefaultDraft(true);
@@ -6785,15 +6784,15 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
           {visibleFeaturedPlanPrices.length ? visibleFeaturedPlanPrices.map((item) => {
             const linkedPlan = item.planType === "featured_monthly" ? findSubscriptionPlanForPriceRule(item.id) : null;
             return (
-            <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-              <div className="flex flex-1 flex-wrap items-center gap-2">
+              <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                <div className="flex flex-1 flex-wrap items-center gap-2">
                   <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.isDefault ? "DEFECTO" : (item.country || "-")}</span>
                   <span className="rounded-full bg-white px-2 py-1 font-semibold">{item.planType === "featured_monthly" ? "MENSUAL" : `${item.durationDays ?? 120} DIAS`}</span>
                   <span>{item.currency}</span>
                   <span>{item.amount}</span>
-                <span className="rounded-full bg-white px-2 py-1">
-                  Modo: {item.planType === "featured_monthly" ? (linkedPlan?.providerMode === "manual" ? "Manual" : "dLocal API") : "dLocal API"}
-                </span>
+                  <span className="rounded-full bg-white px-2 py-1">
+                    Modo: {item.planType === "featured_monthly" ? (linkedPlan?.providerMode === "manual" ? "Manual" : "dLocal API") : "dLocal API"}
+                  </span>
                   {item.planType === "featured_monthly" ? (
                     <>
                       {linkedPlan?.dlocalPlanId ? (
@@ -6801,51 +6800,52 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       ) : null}
                     </>
                   ) : item.providerResourceId ? (
-                  <span className="max-w-[280px] truncate rounded-full bg-white px-2 py-1">Recurso: {item.providerResourceId}</span>
-                ) : null}
-                <span className="max-w-[320px] truncate">
-                  {item.planType === "featured_monthly"
-                    ? linkedPlan?.providerMode === "manual"
-                      ? "Suscripción mensual con fallback manual activo"
-                      : "Suscripción mensual real de dLocal Go"
-                    : "Checkout: se genera por API al pagar"}
-                </span>
-                <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
+                    <span className="max-w-[280px] truncate rounded-full bg-white px-2 py-1">Recurso: {item.providerResourceId}</span>
+                  ) : null}
+                  <span className="max-w-[320px] truncate">
+                    {item.planType === "featured_monthly"
+                      ? linkedPlan?.providerMode === "manual"
+                        ? "Suscripción mensual con fallback manual activo"
+                        : "Suscripción mensual real de dLocal Go"
+                      : "Checkout: se genera por API al pagar"}
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 ${item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {item.planType === "featured_monthly" && (linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl) ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl || "");
+                            setPriceRuleMessage("subscribe_url copiado.");
+                          } catch {
+                            setPriceRuleMessage("No se pudo copiar el subscribe_url.");
+                          }
+                        }}
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100"
+                      >
+                        Copiar URL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.open(linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl || "", "_blank", "noopener,noreferrer")}
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100"
+                      >
+                        Ver checkout
+                      </button>
+                    </>
+                  ) : null}
+                  <button type="button" onClick={() => editPriceRule(item)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100">Editar</button>
+                  <button type="button" onClick={() => { void deletePriceRule(item.id); }} className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-rose-700 hover:bg-rose-50">Eliminar</button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {item.planType === "featured_monthly" && (linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl) ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl || "");
-                          setPriceRuleMessage("subscribe_url copiado.");
-                        } catch {
-                          setPriceRuleMessage("No se pudo copiar el subscribe_url.");
-                        }
-                      }}
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100"
-                    >
-                      Copiar URL
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => window.open(linkedPlan?.subscribeUrl || linkedPlan?.manualSubscribeUrl || "", "_blank", "noopener,noreferrer")}
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100"
-                    >
-                      Ver checkout
-                    </button>
-                  </>
-                ) : null}
-                <button type="button" onClick={() => editPriceRule(item)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-100">Editar</button>
-                <button type="button" onClick={() => { void deletePriceRule(item.id); }} className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-rose-700 hover:bg-rose-50">Eliminar</button>
-              </div>
-            </div>
-          )}) : (
-              <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay precios configurados.</div>
-            )}
-          </div>
+            )
+          }) : (
+            <div className="rounded-xl border border-slate-100 p-3 text-xs text-slate-500">Aun no hay precios configurados.</div>
+          )}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -6934,11 +6934,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               key={`payment-tab-${item.key}`}
               type="button"
               onClick={() => setPaymentSectionTab(item.key as typeof paymentSectionTab)}
-              className={`rounded-xl border p-3 text-left text-xs transition ${
-                paymentSectionTab === item.key
+              className={`rounded-xl border p-3 text-left text-xs transition ${paymentSectionTab === item.key
                   ? "border-[#00A9C6] bg-cyan-50 text-slate-950 shadow-sm"
                   : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white"
-              }`}
+                }`}
             >
               <span className="font-semibold">{item.label}:</span> {item.count}
             </button>
@@ -7040,148 +7039,149 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               return acc;
             }, { views: 0, leads: 0, favorites: 0, shares: 0 });
             return (
-            <article key={service.id} className="rounded-2xl border border-slate-100 bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{service.taxonomyType}</span>
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">{serviceStatus}</span>
-                    {!isDemandante ? normalizeStringArray(service.typeProfile).map((item) => <span key={item} className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">{item}</span>) : null}
-                  </div>
-                  {isDemandante ? (
-                    <div className="mt-2 space-y-1 text-xs text-slate-600">
-                      <p className="text-sm font-semibold text-slate-900">{service.email || "Sin email"}</p>
-                      <p><b>Categoría:</b> {serviceCategories.join(", ") || "-"}</p>
-                      <p><b>Pasaporte:</b> {service.country || "-"} <b className="ml-2">Destino:</b> {service.destinationCountry || "-"}</p>
-                      <p><b>Busca:</b> {String(serviceExtra.whatSearching ?? "") || "-"}</p>
-                      <p><b>Dudas/preocupación:</b> {String(serviceExtra.whatStop ?? "") || "-"}</p>
+              <article key={service.id} className="rounded-2xl border border-slate-100 bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{service.taxonomyType}</span>
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">{serviceStatus}</span>
+                      {!isDemandante ? normalizeStringArray(service.typeProfile).map((item) => <span key={item} className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">{item}</span>) : null}
                     </div>
-                  ) : (
-                    <>
-                      <p className="mt-2 text-sm font-semibold text-slate-900">{firstOferenteDisplayNameByEmail.get(providerRootEmail(service) || `service:${service.id}`) ?? providerDisplayName(service)}</p>
-                      <p className="mt-1 text-xs text-slate-500">{service.email}</p>
-                      <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
-                      {totalSubmissionsByEmail > 1 ? (
-                        <div className="mt-2.5 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-semibold">⚠️ Múltiples publicaciones ({totalSubmissionsByEmail}):</span>
-                            <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-[11px] font-bold text-amber-900 hover:bg-amber-100 shadow-sm">
-                              Ver todas en Detalle
-                            </button>
-                          </div>
-                          <p className="mt-1 text-[11px] text-amber-800 leading-relaxed">
-                            Este usuario cargó varias publicaciones. Revisa abajo el título de cada publicación antes de aprobar o rechazar.
-                          </p>
-                        </div>
-                      ) : null}
-                      {(() => {
-                        const rootEmail = providerRootEmail(service) || String(service.email ?? "").toLowerCase();
-                        const allUserServices = travelServices.filter((s) => (providerRootEmail(s) || String(s.email ?? "").toLowerCase()) === rootEmail);
-                        if (!allUserServices.length) return null;
-                        return (
-                          <div className="mt-2.5 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs">
-                            <p className="font-bold text-slate-700 text-[11px] uppercase tracking-wide">
-                              Solicitudes cargadas ({allUserServices.length}):
-                            </p>
-                            <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                              {allUserServices.map((subService) => {
-                              const subExtra = parseTravelServiceExtra(subService);
-                              const subStatus = serviceEffectiveStatus(subService);
-                              const subTitle = String(subExtra.publicationTitle ?? "").trim() || "Sin título propuesto";
-                              const subPlan = normalizeProviderPlanLabel(subExtra.requestedPlan ?? subExtra.publicationPlan);
-                              const isCurrentActiveCard = subService.id === service.id;
-                              const isPending = isReviewableTravelService(subService, subExtra);
-                              return (
-                                <div key={`user-sub-${subService.id}`} className={`rounded-xl border p-2.5 transition ${isCurrentActiveCard ? "border-[#00A9C6] bg-white shadow-sm" : "border-slate-200 bg-white"}`}>
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex flex-wrap items-center gap-1.5">
-                                        <span className="font-bold text-slate-900 text-xs">📌 "{subTitle}"</span>
-                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{subPlan}</span>
-                                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${subStatus === "aprobado" ? "bg-emerald-100 text-emerald-800" : subStatus === "rechazado" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>
-                                          {subStatus}
-                                        </span>
-                                      </div>
-                                      <div className="mt-1 text-[11px] text-slate-500">
-                                        ID: {subService.id.slice(0, 8)}... | Solicitud: {providerRequestKindDisplayLabel(subExtra.requestKind)} | Fecha: {subService.createdAt ? new Date(subService.createdAt).toLocaleDateString("es-AR") : "-"}
-                                      </div>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-1">
-                                      <button type="button" onClick={() => setDetailTravelService(subService)} className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
-                                        Inspeccionar
-                                      </button>
-                                      {isPending ? (
-                                        <>
-                                          <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "aprobado")} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100" title={`Aprobar "${subTitle}"`}>
-                                            Aprobar
-                                          </button>
-                                          <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "rechazado")} className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-800 hover:bg-rose-100" title={`Rechazar "${subTitle}"`}>
-                                            Rechazar
-                                          </button>
-                                          <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "falta info")} className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100" title={`Pedir info para "${subTitle}"`}>
-                                            Falta info
-                                          </button>
-                                        </>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                    {isDemandante ? (
+                      <div className="mt-2 space-y-1 text-xs text-slate-600">
+                        <p className="text-sm font-semibold text-slate-900">{service.email || "Sin email"}</p>
+                        <p><b>Categoría:</b> {serviceCategories.join(", ") || "-"}</p>
+                        <p><b>Pasaporte:</b> {service.country || "-"} <b className="ml-2">Destino:</b> {service.destinationCountry || "-"}</p>
+                        <p><b>Busca:</b> {String(serviceExtra.whatSearching ?? "") || "-"}</p>
+                        <p><b>Dudas/preocupación:</b> {String(serviceExtra.whatStop ?? "") || "-"}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="mt-2 text-sm font-semibold text-slate-900">{firstOferenteDisplayNameByEmail.get(providerRootEmail(service) || `service:${service.id}`) ?? providerDisplayName(service)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{service.email}</p>
+                        <p className="mt-2 text-xs text-slate-600"><b>Este email envió:</b> {totalSubmissionsByEmail} solicitud(es)</p>
+                        {totalSubmissionsByEmail > 1 ? (
+                          <div className="mt-2.5 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-semibold">⚠️ Múltiples publicaciones ({totalSubmissionsByEmail}):</span>
+                              <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-[11px] font-bold text-amber-900 hover:bg-amber-100 shadow-sm">
+                                Ver todas en Detalle
+                              </button>
                             </div>
-                          </div>
-                        );
-                      })()}
-                      <div className="mt-2 text-xs text-slate-600">
-                        <b>Tiene {linkedPublications.length} publicación(es) activa(s)</b>
-                        {linkedPublications.length ? (
-                          <div className="mt-1 space-y-1">
-                            {linkedPublications.slice(0, 3).map((publication) => (
-                              <div key={`${service.id}-${publication.id}`}>
-                                [{normalizeVisibleText(linkedPublicationPlanLabel(publication))}] {normalizeVisibleText(publication.title || "Sin título")} — {normalizeVisibleText(publication.publisherName || "Sin oferente")}
-                              </div>
-                            ))}
+                            <p className="mt-1 text-[11px] text-amber-800 leading-relaxed">
+                              Este usuario cargó varias publicaciones. Revisa abajo el título de cada publicación antes de aprobar o rechazar.
+                            </p>
                           </div>
                         ) : null}
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5">Visitas: {aggregated.views}</span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5">Leads: {aggregated.leads}</span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5">Favoritos: {aggregated.favorites}</span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5">Compartidos: {aggregated.shares}</span>
-                      </div>
-                      {String(serviceExtra.monthlySubscriptionStatus ?? "").trim().toLowerCase() === "cancelled" ? (
-                        <p className="mt-2 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-xs text-violet-900">
-                          <b>Suscripción mensual cancelada:</b> la publicación vinculada sigue activa hasta su vencimiento actual y luego queda pausada si no se reactiva.
-                        </p>
-                      ) : null}
-                      {String(serviceExtra.statusReason ?? "").trim() ? (
-                        <p className="mt-2 text-xs text-slate-600">
-                          <b>Motivo estado:</b> {String(serviceExtra.statusReason)}
-                        </p>
-                      ) : null}
-                      {serviceExtra.statusUpdatedAt ? (
-                        <p className="mt-1 text-xs text-slate-600">
-                          <b>Estado actualizado:</b> {new Date(String(serviceExtra.statusUpdatedAt)).toLocaleString("es-AR")}
-                        </p>
-                      ) : null}
-                    </>
-                  )}
+                        {(() => {
+                          const rootEmail = providerRootEmail(service) || String(service.email ?? "").toLowerCase();
+                          const allUserServices = travelServices.filter((s) => (providerRootEmail(s) || String(s.email ?? "").toLowerCase()) === rootEmail);
+                          if (!allUserServices.length) return null;
+                          return (
+                            <div className="mt-2.5 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 text-xs">
+                              <p className="font-bold text-slate-700 text-[11px] uppercase tracking-wide">
+                                Solicitudes cargadas ({allUserServices.length}):
+                              </p>
+                              <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                                {allUserServices.map((subService) => {
+                                  const subExtra = parseTravelServiceExtra(subService);
+                                  const subStatus = serviceEffectiveStatus(subService);
+                                  const subTitle = String(subExtra.publicationTitle ?? "").trim() || "Sin título propuesto";
+                                  const subPlan = normalizeProviderPlanLabel(subExtra.requestedPlan ?? subExtra.publicationPlan);
+                                  const isCurrentActiveCard = subService.id === service.id;
+                                  const isPending = isReviewableTravelService(subService, subExtra);
+                                  return (
+                                    <div key={`user-sub-${subService.id}`} className={`rounded-xl border p-2.5 transition ${isCurrentActiveCard ? "border-[#00A9C6] bg-white shadow-sm" : "border-slate-200 bg-white"}`}>
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex flex-wrap items-center gap-1.5">
+                                            <span className="font-bold text-slate-900 text-xs">📌 "{subTitle}"</span>
+                                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{subPlan}</span>
+                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${subStatus === "aprobado" ? "bg-emerald-100 text-emerald-800" : subStatus === "rechazado" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>
+                                              {subStatus}
+                                            </span>
+                                          </div>
+                                          <div className="mt-1 text-[11px] text-slate-500">
+                                            ID: {subService.id.slice(0, 8)}... | Solicitud: {providerRequestKindDisplayLabel(subExtra.requestKind)} | Fecha: {subService.createdAt ? new Date(subService.createdAt).toLocaleDateString("es-AR") : "-"}
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-1">
+                                          <button type="button" onClick={() => setDetailTravelService(subService)} className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
+                                            Inspeccionar
+                                          </button>
+                                          {isPending ? (
+                                            <>
+                                              <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "aprobado")} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100" title={`Aprobar "${subTitle}"`}>
+                                                Aprobar
+                                              </button>
+                                              <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "rechazado")} className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-800 hover:bg-rose-100" title={`Rechazar "${subTitle}"`}>
+                                                Rechazar
+                                              </button>
+                                              <button type="button" onClick={() => updateTravelServiceStatus(subService.id, "falta info")} className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100" title={`Pedir info para "${subTitle}"`}>
+                                                Falta info
+                                              </button>
+                                            </>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        <div className="mt-2 text-xs text-slate-600">
+                          <b>Tiene {linkedPublications.length} publicación(es) activa(s)</b>
+                          {linkedPublications.length ? (
+                            <div className="mt-1 space-y-1">
+                              {linkedPublications.slice(0, 3).map((publication) => (
+                                <div key={`${service.id}-${publication.id}`}>
+                                  [{normalizeVisibleText(linkedPublicationPlanLabel(publication))}] {normalizeVisibleText(publication.title || "Sin título")} — {normalizeVisibleText(publication.publisherName || "Sin oferente")}
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5">Visitas: {aggregated.views}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5">Leads: {aggregated.leads}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5">Favoritos: {aggregated.favorites}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5">Compartidos: {aggregated.shares}</span>
+                        </div>
+                        {String(serviceExtra.monthlySubscriptionStatus ?? "").trim().toLowerCase() === "cancelled" ? (
+                          <p className="mt-2 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-xs text-violet-900">
+                            <b>Suscripción mensual cancelada:</b> la publicación vinculada sigue activa hasta su vencimiento actual y luego queda pausada si no se reactiva.
+                          </p>
+                        ) : null}
+                        {String(serviceExtra.statusReason ?? "").trim() ? (
+                          <p className="mt-2 text-xs text-slate-600">
+                            <b>Motivo estado:</b> {String(serviceExtra.statusReason)}
+                          </p>
+                        ) : null}
+                        {serviceExtra.statusUpdatedAt ? (
+                          <p className="mt-1 text-xs text-slate-600">
+                            <b>Estado actualizado:</b> {new Date(String(serviceExtra.statusUpdatedAt)).toLocaleString("es-AR")}
+                          </p>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Detalle</button>
+                    {isReviewableTravelService(service, serviceExtra) ? (
+                      <>
+                        <button type="button" onClick={() => updateTravelServiceStatus(service.id, "aprobado")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Aprobado</button>
+                        <button type="button" onClick={() => updateTravelServiceStatus(service.id, "rechazado")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Rechazado</button>
+                        <button type="button" onClick={() => updateTravelServiceStatus(service.id, "falta info")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Falta info</button>
+                      </>
+                    ) : null}
+                    <button type="button" onClick={() => deleteTravelService(service.id)} className="rounded-lg border border-rose-200 px-3 py-1.5 text-rose-700 hover:bg-rose-50">Eliminar</button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <button type="button" onClick={() => setDetailTravelService(service)} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Detalle</button>
-                  {isReviewableTravelService(service, serviceExtra) ? (
-                    <>
-                      <button type="button" onClick={() => updateTravelServiceStatus(service.id, "aprobado")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Aprobado</button>
-                      <button type="button" onClick={() => updateTravelServiceStatus(service.id, "rechazado")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Rechazado</button>
-                      <button type="button" onClick={() => updateTravelServiceStatus(service.id, "falta info")} className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50">Falta info</button>
-                    </>
-                  ) : null}
-                  <button type="button" onClick={() => deleteTravelService(service.id)} className="rounded-lg border border-rose-200 px-3 py-1.5 text-rose-700 hover:bg-rose-50">Eliminar</button>
-                </div>
-              </div>
-            </article>
-          )}) : (
+              </article>
+            )
+          }) : (
             <div className="rounded-xl border border-slate-100 p-4 text-sm text-slate-500">No hay usuarios para mostrar.</div>
           )}
         </div>
@@ -7251,14 +7251,14 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         .some((value) => String(value).toLowerCase().includes(query));
       const matchesType =
         publicationTypeFilter === "todas"
-          || (publicationTypeFilter === "prestacion" ? item.primaryGroupKey === "prestacion" : item.primaryGroupKey !== "prestacion");
+        || (publicationTypeFilter === "prestacion" ? item.primaryGroupKey === "prestacion" : item.primaryGroupKey !== "prestacion");
 
       const isFeatured = isFeaturedPublication(item);
       const isPartner = isPartnerPublication(item);
       const matchesFeature =
         publicationFeatureFilter === "todas"
-          || (publicationFeatureFilter === "destacadas" && isFeatured)
-          || (publicationFeatureFilter === "partner" && isPartner);
+        || (publicationFeatureFilter === "destacadas" && isFeatured)
+        || (publicationFeatureFilter === "partner" && isPartner);
 
       return matchesSearch && matchesType && matchesFeature;
     })
@@ -7320,213 +7320,213 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
   return (
     <div ref={adminRootRef} className="min-w-0 space-y-4 sm:space-y-6">
       {isPanelSection ? (
-      <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <DashboardStatCard
-          label="Usuarios Oferentes"
-          total={uniqueUserOferentes.length}
-          active={activeUserOferentes}
-          monthly={monthlyUserOferentes}
-          activeMonthly={monthlyActiveUserOferentes}
-          tone="blue"
-        />
-        <DashboardStatCard
-          label="Usuarios Demandantes"
-          total={userDemandantes.length}
-          active={activeUserDemandantes}
-          monthly={monthlyUserDemandantes}
-          activeMonthly={monthlyActiveUserDemandantes}
-          tone="violet"
-        />
-        <DashboardStatCard
-          label="Publicaciones Activas"
-          total={activePublications.length}
-          active={activePublications.length}
-          monthly={monthlyActivePublications}
-          activeMonthly={monthlyActivePublications}
-          tone="emerald"
-        />
-        <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 to-rose-100 p-5 text-rose-700 shadow-sm">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-rose-500" />
-            <span className="text-xs font-semibold uppercase tracking-widest opacity-70">Reportes / Denuncias</span>
-          </div>
-          <div className="mt-3 flex items-end justify-between">
-            <div>
-              <p className="text-4xl font-bold tracking-tight">{complaintReports.length.toLocaleString()}</p>
-              <p className="text-xs opacity-70">en el mes</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xl font-semibold">{new Set(complaintReports.map((report) => report.publicationId).filter(Boolean)).size.toLocaleString()}</p>
-              <p className="text-xs opacity-70">usuarios afectados</p>
-            </div>
-          </div>
-          <div className="mt-3 border-t border-rose-200 pt-2 text-xs">+ {complaintReports.length.toLocaleString()} acumulado</div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <StatsChartCard title="Oferentes: activos vs inactivos" labelA="Activos" labelB="Inactivos" colorA="#6366f1" colorB="#c7d2fe" getData={oferentesData} />
-        <StatsChartCard title="Demandantes: activos vs inactivos" labelA="Activos" labelB="Inactivos" colorA="#8b5cf6" colorB="#ddd6fe" getData={demandantesData} />
-        <StatsChartCard title="Publicaciones: pagas vs gratis" labelA="Pagas" labelB="Gratis" colorA="#10b981" colorB="#a7f3d0" getData={publicationsData} />
-        <StatsChartCard title="Denuncias por período" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Total Publicaciones</p>
-          <p className="mt-2 text-3xl font-bold text-slate-800">{publications.length.toLocaleString()}</p>
-        </div>
-        <div className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-widest text-violet-500">Pagas</p>
-          <p className="mt-2 text-3xl font-bold text-violet-700">{paidPublications.length.toLocaleString()}</p>
-        </div>
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-500">Gratis</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-700">{freePublications.toLocaleString()}</p>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-cyan-100 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <MapPinned className="h-4 w-4 text-[#00A9C6]" />
-              Seleccionar los destino disponible para el registro del oferente
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Solo modifica el campo País destino que aplica tu propuesta en el registro de oferentes.
-            </p>
-          </div>
-          {oferenteDestinationSaved ? (
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-              Cambios aplicado
-            </span>
-          ) : null}
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            <input
-              type="radio"
-              name="oferente-destination-mode-dashboard"
-              checked={oferenteDestinationMode === "all"}
-              onChange={() => setOferenteDestinationMode("all")}
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <DashboardStatCard
+              label="Usuarios Oferentes"
+              total={uniqueUserOferentes.length}
+              active={activeUserOferentes}
+              monthly={monthlyUserOferentes}
+              activeMonthly={monthlyActiveUserOferentes}
+              tone="blue"
             />
-            Habilitar todos los destinos
-          </label>
-          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            <input
-              type="radio"
-              name="oferente-destination-mode-dashboard"
-              checked={oferenteDestinationMode === "some"}
-              onChange={() => setOferenteDestinationMode("some")}
+            <DashboardStatCard
+              label="Usuarios Demandantes"
+              total={userDemandantes.length}
+              active={activeUserDemandantes}
+              monthly={monthlyUserDemandantes}
+              activeMonthly={monthlyActiveUserDemandantes}
+              tone="violet"
             />
-            Habilitar algunos
-          </label>
-        </div>
-
-        {oferenteDestinationMode === "some" ? (
-          <div className="mt-4">
-            <CountryMultiSelect
-              label="Destinos habilitados"
-              selected={oferenteDestinationCountries}
-              onChange={setOferenteDestinationCountries}
-              placeholder="Seleccioná uno o más países destino"
+            <DashboardStatCard
+              label="Publicaciones Activas"
+              total={activePublications.length}
+              active={activePublications.length}
+              monthly={monthlyActivePublications}
+              activeMonthly={monthlyActivePublications}
+              tone="emerald"
             />
+            <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 to-rose-100 p-5 text-rose-700 shadow-sm">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-rose-500" />
+                <span className="text-xs font-semibold uppercase tracking-widest opacity-70">Reportes / Denuncias</span>
+              </div>
+              <div className="mt-3 flex items-end justify-between">
+                <div>
+                  <p className="text-4xl font-bold tracking-tight">{complaintReports.length.toLocaleString()}</p>
+                  <p className="text-xs opacity-70">en el mes</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-semibold">{new Set(complaintReports.map((report) => report.publicationId).filter(Boolean)).size.toLocaleString()}</p>
+                  <p className="text-xs opacity-70">usuarios afectados</p>
+                </div>
+              </div>
+              <div className="mt-3 border-t border-rose-200 pt-2 text-xs">+ {complaintReports.length.toLocaleString()} acumulado</div>
+            </div>
           </div>
-        ) : null}
 
-        <button
-          type="button"
-          onClick={applyOferenteDestinationConfig}
-          disabled={oferenteDestinationSaving}
-          className="mt-4 rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0193ab] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {oferenteDestinationSaving ? "Aplicando..." : "Aplicar cambios"}
-        </button>
-      </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <StatsChartCard title="Oferentes: activos vs inactivos" labelA="Activos" labelB="Inactivos" colorA="#6366f1" colorB="#c7d2fe" getData={oferentesData} />
+            <StatsChartCard title="Demandantes: activos vs inactivos" labelA="Activos" labelB="Inactivos" colorA="#8b5cf6" colorB="#ddd6fe" getData={demandantesData} />
+            <StatsChartCard title="Publicaciones: pagas vs gratis" labelA="Pagas" labelB="Gratis" colorA="#10b981" colorB="#a7f3d0" getData={publicationsData} />
+            <StatsChartCard title="Denuncias por período" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
+          </div>
 
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100"><h3 className="text-sm font-semibold text-slate-700">Categorías</h3></div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">Categoría</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">En país destino</th></tr></thead>
-            <tbody>
-              {categoryDashboardRows.blockRows.map((block) => {
-                const open = expandedPanelBlocks[block.id] ?? false;
-                return (
-                  <Fragment key={`block-row-${block.id}`}>
-                    <tr className="border-t border-slate-100 hover:bg-slate-50">
-                      <td className="px-5 py-3 text-slate-700 font-semibold">
-                        <button type="button" onClick={() => setExpandedPanelBlocks((prev) => ({ ...prev, [block.id]: !open }))} className="inline-flex items-center gap-2">
-                          <span className="text-[#00A9C6]">{open ? "?" : "?"}</span>
-                          <span>{block.name}</span>
-                        </button>
-                      </td>
-                      <td className="px-3 py-3 text-center text-slate-700">{block.total}</td>
-                      <td className="px-3 py-3 text-center"><span className="rounded-full bg-violet-100 px-2 py-0.5 font-semibold text-violet-700">{block.paid}</span></td>
-                      <td className="px-3 py-3 text-center"><span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">{block.free}</span></td>
-                      <td className="px-3 py-3 text-center text-slate-500">{block.destination}</td>
-                    </tr>
-                    {open
-                      ? block.roots.map((root) => (
-                          <Fragment key={`root-${root.id}`}>
-                            <tr className="border-t border-slate-50 bg-slate-50/60">
-                              <td className="px-5 py-2 pl-10 text-slate-700">{root.name}</td>
-                              <td className="px-3 py-2 text-center text-slate-600">{root.total}</td>
-                              <td className="px-3 py-2 text-center text-violet-700">{root.paid}</td>
-                              <td className="px-3 py-2 text-center text-emerald-700">{root.free}</td>
-                              <td className="px-3 py-2 text-center text-slate-500">{root.destination}</td>
-                            </tr>
-                            {root.children.map((child) => (
-                              <tr key={`child-${child.id}`} className="border-t border-slate-50 bg-white">
-                                <td className="px-5 py-2 pl-16 text-slate-500"><span className="mr-1 text-slate-300">-</span>{child.name}</td>
-                                <td className="px-3 py-2 text-center text-slate-500">{child.total}</td>
-                                <td className="px-3 py-2 text-center text-violet-600">{child.paid}</td>
-                                <td className="px-3 py-2 text-center text-emerald-600">{child.free}</td>
-                                <td className="px-3 py-2 text-center text-slate-400">{child.destination}</td>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Total Publicaciones</p>
+              <p className="mt-2 text-3xl font-bold text-slate-800">{publications.length.toLocaleString()}</p>
+            </div>
+            <div className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-widest text-violet-500">Pagas</p>
+              <p className="mt-2 text-3xl font-bold text-violet-700">{paidPublications.length.toLocaleString()}</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-widest text-emerald-500">Gratis</p>
+              <p className="mt-2 text-3xl font-bold text-emerald-700">{freePublications.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-cyan-100 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <MapPinned className="h-4 w-4 text-[#00A9C6]" />
+                  Seleccionar los destino disponible para el registro del oferente
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Solo modifica el campo País destino que aplica tu propuesta en el registro de oferentes.
+                </p>
+              </div>
+              {oferenteDestinationSaved ? (
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                  Cambios aplicado
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <input
+                  type="radio"
+                  name="oferente-destination-mode-dashboard"
+                  checked={oferenteDestinationMode === "all"}
+                  onChange={() => setOferenteDestinationMode("all")}
+                />
+                Habilitar todos los destinos
+              </label>
+              <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <input
+                  type="radio"
+                  name="oferente-destination-mode-dashboard"
+                  checked={oferenteDestinationMode === "some"}
+                  onChange={() => setOferenteDestinationMode("some")}
+                />
+                Habilitar algunos
+              </label>
+            </div>
+
+            {oferenteDestinationMode === "some" ? (
+              <div className="mt-4">
+                <CountryMultiSelect
+                  label="Destinos habilitados"
+                  selected={oferenteDestinationCountries}
+                  onChange={setOferenteDestinationCountries}
+                  placeholder="Seleccioná uno o más países destino"
+                />
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={applyOferenteDestinationConfig}
+              disabled={oferenteDestinationSaving}
+              className="mt-4 rounded-xl bg-[#00A9C6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0193ab] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {oferenteDestinationSaving ? "Aplicando..." : "Aplicar cambios"}
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100"><h3 className="text-sm font-semibold text-slate-700">Categorías</h3></div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">Categoría</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">En país destino</th></tr></thead>
+                <tbody>
+                  {categoryDashboardRows.blockRows.map((block) => {
+                    const open = expandedPanelBlocks[block.id] ?? false;
+                    return (
+                      <Fragment key={`block-row-${block.id}`}>
+                        <tr className="border-t border-slate-100 hover:bg-slate-50">
+                          <td className="px-5 py-3 text-slate-700 font-semibold">
+                            <button type="button" onClick={() => setExpandedPanelBlocks((prev) => ({ ...prev, [block.id]: !open }))} className="inline-flex items-center gap-2">
+                              <span className="text-[#00A9C6]">{open ? "?" : "?"}</span>
+                              <span>{block.name}</span>
+                            </button>
+                          </td>
+                          <td className="px-3 py-3 text-center text-slate-700">{block.total}</td>
+                          <td className="px-3 py-3 text-center"><span className="rounded-full bg-violet-100 px-2 py-0.5 font-semibold text-violet-700">{block.paid}</span></td>
+                          <td className="px-3 py-3 text-center"><span className="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">{block.free}</span></td>
+                          <td className="px-3 py-3 text-center text-slate-500">{block.destination}</td>
+                        </tr>
+                        {open
+                          ? block.roots.map((root) => (
+                            <Fragment key={`root-${root.id}`}>
+                              <tr className="border-t border-slate-50 bg-slate-50/60">
+                                <td className="px-5 py-2 pl-10 text-slate-700">{root.name}</td>
+                                <td className="px-3 py-2 text-center text-slate-600">{root.total}</td>
+                                <td className="px-3 py-2 text-center text-violet-700">{root.paid}</td>
+                                <td className="px-3 py-2 text-center text-emerald-700">{root.free}</td>
+                                <td className="px-3 py-2 text-center text-slate-500">{root.destination}</td>
                               </tr>
-                            ))}
-                          </Fragment>
-                        ))
-                      : null}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-700">Países destino (demandantes)</h3>
-            <input value={destinationCountrySearch} onChange={(event) => setDestinationCountrySearch(event.target.value)} placeholder="Buscar país..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
-            <p className="mt-1 text-[11px] text-slate-400">Sin búsqueda: top 10 países con más demandantes.</p>
+                              {root.children.map((child) => (
+                                <tr key={`child-${child.id}`} className="border-t border-slate-50 bg-white">
+                                  <td className="px-5 py-2 pl-16 text-slate-500"><span className="mr-1 text-slate-300">-</span>{child.name}</td>
+                                  <td className="px-3 py-2 text-center text-slate-500">{child.total}</td>
+                                  <td className="px-3 py-2 text-center text-violet-600">{child.paid}</td>
+                                  <td className="px-3 py-2 text-center text-emerald-600">{child.free}</td>
+                                  <td className="px-3 py-2 text-center text-slate-400">{child.destination}</td>
+                                </tr>
+                              ))}
+                            </Fragment>
+                          ))
+                          : null}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">País</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Visitas</th></tr></thead><tbody>{visibleDestinationRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.total}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.visits}</td></tr>))}</tbody></table></div>
-        </div>
-        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-700">Países origen (oferentes)</h3>
-            <input value={originCountrySearch} onChange={(event) => setOriginCountrySearch(event.target.value)} placeholder="Buscar país..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
-            <p className="mt-1 text-[11px] text-slate-400">Sin búsqueda: top 10 países con más oferentes.</p>
-          </div>
-          <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">País</th><th className="text-center px-3 py-3 font-semibold">Pubs.</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Cats.</th><th className="text-center px-3 py-3 font-semibold">Destinos</th></tr></thead><tbody>{visibleOriginRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.publications}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center text-slate-600">{row.categories}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.destinations}</td></tr>))}</tbody></table></div>
-        </div>
-      </div>
 
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-semibold text-slate-700">Visitas por pasaporte / país de origen</h3>
-          <input value={passportCountrySearch} onChange={(event) => setPassportCountrySearch(event.target.value)} placeholder="Buscar país..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
-          <p className="mt-1 text-[11px] text-slate-400">Sin búsqueda: top 10 países con más pasaportes seleccionados.</p>
-        </div>
-        <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">País</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Prom. por día</th><th className="text-center px-3 py-3 font-semibold">Prom. por mes</th><th className="text-center px-3 py-3 font-semibold">Destinos prom.</th></tr></thead><tbody>{visiblePassportRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-5 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center font-bold text-blue-600">{row.total.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-600">{row.perDay}</td><td className="px-3 py-3 text-center text-slate-600">{row.perMonth.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-500">{row.avgDestinations}</td></tr>))}</tbody></table></div>
-      </div>
-      </>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <h3 className="text-sm font-semibold text-slate-700">Países destino (demandantes)</h3>
+                <input value={destinationCountrySearch} onChange={(event) => setDestinationCountrySearch(event.target.value)} placeholder="Buscar país..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
+                <p className="mt-1 text-[11px] text-slate-400">Sin búsqueda: top 10 países con más demandantes.</p>
+              </div>
+              <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">País</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Visitas</th></tr></thead><tbody>{visibleDestinationRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.total}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.visits}</td></tr>))}</tbody></table></div>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <h3 className="text-sm font-semibold text-slate-700">Países origen (oferentes)</h3>
+                <input value={originCountrySearch} onChange={(event) => setOriginCountrySearch(event.target.value)} placeholder="Buscar país..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
+                <p className="mt-1 text-[11px] text-slate-400">Sin búsqueda: top 10 países con más oferentes.</p>
+              </div>
+              <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-4 py-3 font-semibold">País</th><th className="text-center px-3 py-3 font-semibold">Pubs.</th><th className="text-center px-3 py-3 font-semibold">Pagas</th><th className="text-center px-3 py-3 font-semibold">Gratis</th><th className="text-center px-3 py-3 font-semibold">Cats.</th><th className="text-center px-3 py-3 font-semibold">Destinos</th></tr></thead><tbody>{visibleOriginRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-4 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center text-slate-600">{row.publications}</td><td className="px-3 py-3 text-center font-semibold text-violet-600">{row.paid}</td><td className="px-3 py-3 text-center font-semibold text-emerald-600">{row.free}</td><td className="px-3 py-3 text-center text-slate-600">{row.categories}</td><td className="px-3 py-3 text-center font-semibold text-blue-600">{row.destinations}</td></tr>))}</tbody></table></div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-700">Visitas por pasaporte / país de origen</h3>
+              <input value={passportCountrySearch} onChange={(event) => setPassportCountrySearch(event.target.value)} placeholder="Buscar país..." className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-200" />
+              <p className="mt-1 text-[11px] text-slate-400">Sin búsqueda: top 10 países con más pasaportes seleccionados.</p>
+            </div>
+            <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="bg-slate-50 text-slate-400 uppercase tracking-wider"><th className="text-left px-5 py-3 font-semibold">País</th><th className="text-center px-3 py-3 font-semibold">Total</th><th className="text-center px-3 py-3 font-semibold">Prom. por día</th><th className="text-center px-3 py-3 font-semibold">Prom. por mes</th><th className="text-center px-3 py-3 font-semibold">Destinos prom.</th></tr></thead><tbody>{visiblePassportRows.map((row) => (<tr key={row.country} className="border-t border-slate-50 hover:bg-slate-50"><td className="px-5 py-3 font-medium text-slate-700">{row.country}</td><td className="px-3 py-3 text-center font-bold text-blue-600">{row.total.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-600">{row.perDay}</td><td className="px-3 py-3 text-center text-slate-600">{row.perMonth.toLocaleString()}</td><td className="px-3 py-3 text-center text-slate-500">{row.avgDestinations}</td></tr>))}</tbody></table></div>
+          </div>
+        </>
       ) : null}
 
       {isUsersSection ? usersSectionCard : null}
@@ -7563,11 +7563,10 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                       key={item.id}
                       type="button"
                       onClick={() => setSelectedFeedbackId(item.id)}
-                      className={`w-full rounded-2xl border p-3 text-left transition ${
-                        active
+                      className={`w-full rounded-2xl border p-3 text-left transition ${active
                           ? "border-indigo-200 bg-white shadow-sm"
                           : "border-transparent bg-white/70 hover:border-slate-200 hover:bg-white"
-                      }`}
+                        }`}
                     >
                       <div className="text-sm font-semibold text-slate-900">{normalizeVisibleText(item.fullName || "Usuario sin nombre")}</div>
                       <div className="mt-1 break-all text-xs text-slate-500">{normalizeVisibleText(item.email || item.contact || "-")}</div>
@@ -7673,3262 +7672,3258 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       ) : null}
 
       {isCategoriesSection ? (
-      <div className="grid gap-8">
-      {/* Categorías */}
-      <section className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {renderLangTabs(catLang, setCatLang)}
-            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-              <button
-                type="button"
-                onClick={openCreateBlockModal}
-                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:flex-none"
-              >
-                <Plus className="h-4 w-4" />
-                Nuevo bloque
-              </button>
-              <button
-                type="button"
-                onClick={() => openCreateCategoryModal()}
-                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700 sm:flex-none"
-              >
-                <Plus className="h-4 w-4" />
-                Nueva categoría
-              </button>
-            </div>
-          </div>
+        <div className="grid gap-8">
+          {/* Categorías */}
+          <section className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {renderLangTabs(catLang, setCatLang)}
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={openCreateBlockModal}
+                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:flex-none"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Nuevo bloque
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openCreateCategoryModal()}
+                    className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700 sm:flex-none"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Nueva categoría
+                  </button>
+                </div>
+              </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-4 sm:px-5">
-              <h3 className="text-sm font-semibold text-slate-700">Árbol de bloques y categorías</h3>
-              <span className="text-xs text-slate-400">{categoryBlocks.length} bloques · {categories.length} categorías</span>
-            </div>
+              <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-4 sm:px-5">
+                  <h3 className="text-sm font-semibold text-slate-700">Árbol de bloques y categorías</h3>
+                  <span className="text-xs text-slate-400">{categoryBlocks.length} bloques · {categories.length} categorías</span>
+                </div>
 
-            {!categoryBlocks.length ? (
-              <div className="px-5 py-10 text-center text-sm text-slate-500">No hay bloques todavía.</div>
-            ) : (
-              <div className="space-y-4 px-2 py-3 sm:px-4 sm:py-4">
-                {categoryBlocks.map((block, blockIndex) => {
-                  const rootsInBlock = rootCategoriesByBlock.get(block.id) ?? [];
-                  const optionRoots = (block.options ?? [])
-                    .filter((option) => !option.parentId)
-                    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-                  const optionChildrenByParent = new Map<string, FilterOption[]>();
-                  (block.options ?? []).forEach((option) => {
-                    if (!option.parentId) return;
-                    optionChildrenByParent.set(option.parentId, [
-                      ...(optionChildrenByParent.get(option.parentId) ?? []),
-                      option,
-                    ]);
-                  });
-                  optionChildrenByParent.forEach((arr, key) => {
-                    optionChildrenByParent.set(
-                      key,
-                      [...arr].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                    );
-                  });
-                  const isBlockOpen = expandedBlocks[block.id] ?? false;
-                  const hasBlockContent = rootsInBlock.length > 0 || optionRoots.length > 0;
-                  const isBlockVisibleOnCard = block.visibleInCard === true;
-                  return (
-                    <div key={block.id} className="rounded-2xl border border-slate-100 bg-white">
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-3 py-3 sm:px-4">
-                        <button
-                          type="button"
-                          onClick={() => hasBlockContent && setExpandedBlocks((prev) => ({ ...prev, [block.id]: !isBlockOpen }))}
-                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                        >
-                          <span className="flex h-5 w-5 items-center justify-center text-slate-400">
-                            {hasBlockContent ? (isBlockOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />) : <span className="h-4 w-4" />}
-                          </span>
-                          <span>
-                            <p className="text-sm font-semibold text-slate-900">{formatAdminBlockLabel(pickI18nText(block.labelI18n ?? null, catLang, block.label), block.taxonomyType ?? "categoria")}</p>
-                            <p className="text-xs text-slate-500">Tipo de filtro: {formatAdminTaxonomyTypeLabel(block.taxonomyType ?? "categoria")}</p>{block.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Este bloque es invisible</p> : null}
-                            {isBlockVisibleOnCard ? <p className="mt-1 text-xs font-semibold text-indigo-600">Visible en tarjeta</p> : null}
-                          </span>
-                        </button>
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          <button type="button" onClick={() => moveFilterGroup(block.id, -1)} disabled={blockIndex === 0} title="Subir bloque" aria-label="Subir bloque" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowUp className="h-3.5 w-3.5" /></button>
-                          <button type="button" onClick={() => moveFilterGroup(block.id, 1)} disabled={blockIndex === categoryBlocks.length - 1} title="Bajar bloque" aria-label="Bajar bloque" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowDown className="h-3.5 w-3.5" /></button>
-                          <button type="button" onClick={() => openEditBlockModal(block)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Editar</button>
-                          <button type="button" onClick={() => deleteFilterGroup(block.id)} disabled={block.key === "price"} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">Eliminar</button>
-                          <button type="button" onClick={() => openCreateCategoryModal("", block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ Categoría</button>
-                        </div>
-                      </div>
-
-                      {isBlockOpen ? (() => {
-                        const normalizeTreeLabel = (value: string) => normalizeBlockKey(value || "").trim();
-                        const rootNames = new Set(
-                          rootsInBlock.map((root) => normalizeTreeLabel(pickI18nText(root.descriptionI18n ?? null, catLang, root.description)))
+                {!categoryBlocks.length ? (
+                  <div className="px-5 py-10 text-center text-sm text-slate-500">No hay bloques todavía.</div>
+                ) : (
+                  <div className="space-y-4 px-2 py-3 sm:px-4 sm:py-4">
+                    {categoryBlocks.map((block, blockIndex) => {
+                      const rootsInBlock = rootCategoriesByBlock.get(block.id) ?? [];
+                      const optionRoots = (block.options ?? [])
+                        .filter((option) => !option.parentId)
+                        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                      const optionChildrenByParent = new Map<string, FilterOption[]>();
+                      (block.options ?? []).forEach((option) => {
+                        if (!option.parentId) return;
+                        optionChildrenByParent.set(option.parentId, [
+                          ...(optionChildrenByParent.get(option.parentId) ?? []),
+                          option,
+                        ]);
+                      });
+                      optionChildrenByParent.forEach((arr, key) => {
+                        optionChildrenByParent.set(
+                          key,
+                          [...arr].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                         );
-                        const fallbackOptionRoots = optionRoots.filter((option) => {
-                          const optionName = normalizeTreeLabel(pickI18nText(option.labelI18n ?? null, catLang, option.label));
-                          return !rootNames.has(optionName);
-                        });
+                      });
+                      const isBlockOpen = expandedBlocks[block.id] ?? false;
+                      const hasBlockContent = rootsInBlock.length > 0 || optionRoots.length > 0;
+                      const isBlockVisibleOnCard = block.visibleInCard === true;
+                      return (
+                        <div key={block.id} className="rounded-2xl border border-slate-100 bg-white">
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-3 py-3 sm:px-4">
+                            <button
+                              type="button"
+                              onClick={() => hasBlockContent && setExpandedBlocks((prev) => ({ ...prev, [block.id]: !isBlockOpen }))}
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                            >
+                              <span className="flex h-5 w-5 items-center justify-center text-slate-400">
+                                {hasBlockContent ? (isBlockOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />) : <span className="h-4 w-4" />}
+                              </span>
+                              <span>
+                                <p className="text-sm font-semibold text-slate-900">{formatAdminBlockLabel(pickI18nText(block.labelI18n ?? null, catLang, block.label), block.taxonomyType ?? "categoria")}</p>
+                                <p className="text-xs text-slate-500">Tipo de filtro: {formatAdminTaxonomyTypeLabel(block.taxonomyType ?? "categoria")}</p>{block.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Este bloque es invisible</p> : null}
+                                {isBlockVisibleOnCard ? <p className="mt-1 text-xs font-semibold text-indigo-600">Visible en tarjeta</p> : null}
+                              </span>
+                            </button>
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <button type="button" onClick={() => moveFilterGroup(block.id, -1)} disabled={blockIndex === 0} title="Subir bloque" aria-label="Subir bloque" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowUp className="h-3.5 w-3.5" /></button>
+                              <button type="button" onClick={() => moveFilterGroup(block.id, 1)} disabled={blockIndex === categoryBlocks.length - 1} title="Bajar bloque" aria-label="Bajar bloque" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowDown className="h-3.5 w-3.5" /></button>
+                              <button type="button" onClick={() => openEditBlockModal(block)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Editar</button>
+                              <button type="button" onClick={() => deleteFilterGroup(block.id)} disabled={block.key === "price"} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">Eliminar</button>
+                              <button type="button" onClick={() => openCreateCategoryModal("", block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ Categoría</button>
+                            </div>
+                          </div>
 
-                        if (!rootsInBlock.length && !fallbackOptionRoots.length) {
-                          return <div className="px-4 py-4 text-xs text-slate-500">Sin categorías en este bloque.</div>;
-                        }
+                          {isBlockOpen ? (() => {
+                            const normalizeTreeLabel = (value: string) => normalizeBlockKey(value || "").trim();
+                            const rootNames = new Set(
+                              rootsInBlock.map((root) => normalizeTreeLabel(pickI18nText(root.descriptionI18n ?? null, catLang, root.description)))
+                            );
+                            const fallbackOptionRoots = optionRoots.filter((option) => {
+                              const optionName = normalizeTreeLabel(pickI18nText(option.labelI18n ?? null, catLang, option.label));
+                              return !rootNames.has(optionName);
+                            });
 
-                        return (
-                          <div className="divide-y divide-slate-50">
-                            {rootsInBlock.map((root) => {
-                              const children = childrenBy.get(root.id) ?? [];
-                              const rootIndex = rootsInBlock.findIndex((category) => category.id === root.id);
-                              const rootName = normalizeTreeLabel(pickI18nText(root.descriptionI18n ?? null, catLang, root.description));
-                              const matchingOptionRoot = optionRoots.find(
-                                (option) => normalizeTreeLabel(pickI18nText(option.labelI18n ?? null, catLang, option.label)) === rootName
-                              );
-                              const fallbackChildren = (matchingOptionRoot ? optionChildrenByParent.get(matchingOptionRoot.id) ?? [] : []).filter(
-                                (optionChild) => {
-                                  const optionChildName = normalizeTreeLabel(
-                                    pickI18nText(optionChild.labelI18n ?? null, catLang, optionChild.label)
+                            if (!rootsInBlock.length && !fallbackOptionRoots.length) {
+                              return <div className="px-4 py-4 text-xs text-slate-500">Sin categorías en este bloque.</div>;
+                            }
+
+                            return (
+                              <div className="divide-y divide-slate-50">
+                                {rootsInBlock.map((root) => {
+                                  const children = childrenBy.get(root.id) ?? [];
+                                  const rootIndex = rootsInBlock.findIndex((category) => category.id === root.id);
+                                  const rootName = normalizeTreeLabel(pickI18nText(root.descriptionI18n ?? null, catLang, root.description));
+                                  const matchingOptionRoot = optionRoots.find(
+                                    (option) => normalizeTreeLabel(pickI18nText(option.labelI18n ?? null, catLang, option.label)) === rootName
                                   );
-                                  return !children.some(
-                                    (categoryChild) =>
-                                      normalizeTreeLabel(
-                                        pickI18nText(categoryChild.descriptionI18n ?? null, catLang, categoryChild.description)
-                                      ) === optionChildName
+                                  const fallbackChildren = (matchingOptionRoot ? optionChildrenByParent.get(matchingOptionRoot.id) ?? [] : []).filter(
+                                    (optionChild) => {
+                                      const optionChildName = normalizeTreeLabel(
+                                        pickI18nText(optionChild.labelI18n ?? null, catLang, optionChild.label)
+                                      );
+                                      return !children.some(
+                                        (categoryChild) =>
+                                          normalizeTreeLabel(
+                                            pickI18nText(categoryChild.descriptionI18n ?? null, catLang, categoryChild.description)
+                                          ) === optionChildName
+                                      );
+                                    }
                                   );
-                                }
-                              );
-                              const isOpen = expandedCategories[root.id] ?? false;
-                              const hasChildren = children.length > 0 || fallbackChildren.length > 0;
+                                  const isOpen = expandedCategories[root.id] ?? false;
+                                  const hasChildren = children.length > 0 || fallbackChildren.length > 0;
 
-                              return (
-                                <div key={root.id}>
-                                  <div className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
-                                    <button
-                                      type="button"
-                                      onClick={() => hasChildren && setExpandedCategories((prev) => ({ ...prev, [root.id]: !isOpen }))}
-                                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                                    >
-                                      <span className="flex h-5 w-5 items-center justify-center text-slate-400 hover:text-slate-600">
-                                        {hasChildren ? (isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />) : <span className="h-4 w-4" />}
-                                      </span>
-                                      <span className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-slate-900">
-                                          {pickI18nText(root.descriptionI18n ?? null, catLang, root.description)}
-                                          {root.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
-                                        </p>{root.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Esta categoría es invisible</p> : null}
-                                        {getCategoryCustomTaxonomyNotice(root) ? <p className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(root)}</p> : null}
-                                      </span>
-                                    </button>
-                                    <div className="flex flex-wrap items-center justify-end gap-2">
-                                      <button type="button" onClick={() => moveCategory(root.id, -1)} disabled={rootIndex === 0} title="Subir categoría" aria-label="Subir categoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowUp className="h-3.5 w-3.5" /></button>
-                                      <button type="button" onClick={() => moveCategory(root.id, 1)} disabled={rootIndex === rootsInBlock.length - 1} title="Bajar categoría" aria-label="Bajar categoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowDown className="h-3.5 w-3.5" /></button>
-                                      <button type="button" onClick={() => openCreateCategoryModal(root.id, block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ Sub</button>
-                                      <button type="button" onClick={() => openEditCategoryModal(root)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Editar</button>
-                                      <button type="button" onClick={() => deleteCategory(root.id)} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50">Eliminar</button>
-                                    </div>
-                                  </div>
-
-                                  {isOpen
-                                    ? (
-                                        <>
-                                          {children.map((child, childIndex) => (
-                                            <div key={child.id} className="group flex items-center gap-3 border-t border-slate-100 bg-slate-50/70 px-4 py-3 pl-14 hover:bg-slate-50">
-                                              <div className="h-px w-4 bg-slate-200" />
-                                              <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium text-slate-800">
-                                                  {pickI18nText(child.descriptionI18n ?? null, catLang, child.description)}
-                                                  {child.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
-                                                </div>{child.isPublicVisible === false ? <div className="mt-1 text-xs font-medium text-amber-600">Esta categoría es invisible</div> : null}
-                                                {getCategoryCustomTaxonomyNotice(child) ? <div className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(child)}</div> : null}
-                                              </div>
-                                              <div className="flex flex-wrap items-center justify-end gap-2">
-                                                <button type="button" onClick={() => moveCategory(child.id, -1)} disabled={childIndex === 0} title="Subir subcategoría" aria-label="Subir subcategoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowUp className="h-3.5 w-3.5" /></button>
-                                                <button type="button" onClick={() => moveCategory(child.id, 1)} disabled={childIndex === children.length - 1} title="Bajar subcategoría" aria-label="Bajar subcategoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowDown className="h-3.5 w-3.5" /></button>
-                                                <button type="button" onClick={() => openEditCategoryModal(child)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-white">Editar</button>
-                                                <button type="button" onClick={() => deleteCategory(child.id)} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50">Eliminar</button>
-                                              </div>
-                                            </div>
-                                          ))}
-
-                                          {fallbackChildren.map((optionChild) => (
-                                            <div
-                                              key={optionChild.id}
-                                              className="group flex items-center gap-3 border-t border-slate-100 bg-slate-50/70 px-4 py-3 pl-14 hover:bg-slate-50"
-                                            >
-                                              <div className="h-px w-4 bg-slate-200" />
-                                              <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium text-slate-800">
-                                                  {pickI18nText(optionChild.labelI18n ?? null, catLang, optionChild.label)}
-                                                </div>
-                                              </div>
-                                              <button
-                                                type="button"
-                                                onClick={() => deleteFilterOption(optionChild.id)}
-                                                className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50"
-                                              >
-                                                Eliminar
-                                              </button>
-                                            </div>
-                                          ))}
-                                        </>
-                                      )
-                                    : null}
-                                </div>
-                              );
-                            })}
-
-                            {fallbackOptionRoots.map((rootOption) => {
-                              const children = optionChildrenByParent.get(rootOption.id) ?? [];
-                              const optionStateKey = `option-${rootOption.id}`;
-                              const isOptionOpen = expandedCategories[optionStateKey] ?? false;
-                              return (
-                                <div key={rootOption.id}>
-                                  <div className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
-                                    <button
-                                      type="button"
-                                      onClick={() => children.length && setExpandedCategories((prev) => ({ ...prev, [optionStateKey]: !isOptionOpen }))}
-                                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                                    >
-                                      <span className="flex h-5 w-5 items-center justify-center text-slate-400">
-                                        {children.length ? (isOptionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />) : <span className="h-4 w-4" />}
-                                      </span>
-                                      <span className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-slate-900">
-                                          {pickI18nText(rootOption.labelI18n ?? null, catLang, rootOption.label)}
-                                        </p>
-                                      </span>
-                                    </button>
-                                    <div className="flex flex-wrap items-center justify-end gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => deleteFilterOption(rootOption.id)}
-                                        className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50"
-                                      >
-                                        Eliminar
-                                      </button>
-                                    </div>
-                                  </div>
-                                  {isOptionOpen ? children.map((child) => (
-                                    <div
-                                      key={child.id}
-                                      className="group flex items-center gap-3 border-t border-slate-100 bg-slate-50/70 px-4 py-3 pl-14 hover:bg-slate-50"
-                                    >
-                                      <div className="h-px w-4 bg-slate-200" />
-                                      <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-slate-800">
-                                          {pickI18nText(child.labelI18n ?? null, catLang, child.label)}
+                                  return (
+                                    <div key={root.id}>
+                                      <div className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+                                        <button
+                                          type="button"
+                                          onClick={() => hasChildren && setExpandedCategories((prev) => ({ ...prev, [root.id]: !isOpen }))}
+                                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                        >
+                                          <span className="flex h-5 w-5 items-center justify-center text-slate-400 hover:text-slate-600">
+                                            {hasChildren ? (isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />) : <span className="h-4 w-4" />}
+                                          </span>
+                                          <span className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-slate-900">
+                                              {pickI18nText(root.descriptionI18n ?? null, catLang, root.description)}
+                                              {root.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
+                                            </p>{root.isPublicVisible === false ? <p className="mt-1 text-xs font-medium text-amber-600">Esta categoría es invisible</p> : null}
+                                            {getCategoryCustomTaxonomyNotice(root) ? <p className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(root)}</p> : null}
+                                          </span>
+                                        </button>
+                                        <div className="flex flex-wrap items-center justify-end gap-2">
+                                          <button type="button" onClick={() => moveCategory(root.id, -1)} disabled={rootIndex === 0} title="Subir categoría" aria-label="Subir categoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowUp className="h-3.5 w-3.5" /></button>
+                                          <button type="button" onClick={() => moveCategory(root.id, 1)} disabled={rootIndex === rootsInBlock.length - 1} title="Bajar categoría" aria-label="Bajar categoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowDown className="h-3.5 w-3.5" /></button>
+                                          <button type="button" onClick={() => openCreateCategoryModal(root.id, block.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">+ Sub</button>
+                                          <button type="button" onClick={() => openEditCategoryModal(root)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Editar</button>
+                                          <button type="button" onClick={() => deleteCategory(root.id)} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50">Eliminar</button>
                                         </div>
                                       </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => deleteFilterOption(child.id)}
-                                        className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50"
-                                      >
-                                        Eliminar
-                                      </button>
+
+                                      {isOpen
+                                        ? (
+                                          <>
+                                            {children.map((child, childIndex) => (
+                                              <div key={child.id} className="group flex items-center gap-3 border-t border-slate-100 bg-slate-50/70 px-4 py-3 pl-14 hover:bg-slate-50">
+                                                <div className="h-px w-4 bg-slate-200" />
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="text-sm font-medium text-slate-800">
+                                                    {pickI18nText(child.descriptionI18n ?? null, catLang, child.description)}
+                                                    {child.isPrimaryCategory ? <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-700">Principal</span> : null}
+                                                  </div>{child.isPublicVisible === false ? <div className="mt-1 text-xs font-medium text-amber-600">Esta categoría es invisible</div> : null}
+                                                  {getCategoryCustomTaxonomyNotice(child) ? <div className="mt-1 text-xs font-medium text-indigo-600">{getCategoryCustomTaxonomyNotice(child)}</div> : null}
+                                                </div>
+                                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                                  <button type="button" onClick={() => moveCategory(child.id, -1)} disabled={childIndex === 0} title="Subir subcategoría" aria-label="Subir subcategoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowUp className="h-3.5 w-3.5" /></button>
+                                                  <button type="button" onClick={() => moveCategory(child.id, 1)} disabled={childIndex === children.length - 1} title="Bajar subcategoría" aria-label="Bajar subcategoría" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><ArrowDown className="h-3.5 w-3.5" /></button>
+                                                  <button type="button" onClick={() => openEditCategoryModal(child)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-white">Editar</button>
+                                                  <button type="button" onClick={() => deleteCategory(child.id)} className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50">Eliminar</button>
+                                                </div>
+                                              </div>
+                                            ))}
+
+                                            {fallbackChildren.map((optionChild) => (
+                                              <div
+                                                key={optionChild.id}
+                                                className="group flex items-center gap-3 border-t border-slate-100 bg-slate-50/70 px-4 py-3 pl-14 hover:bg-slate-50"
+                                              >
+                                                <div className="h-px w-4 bg-slate-200" />
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="text-sm font-medium text-slate-800">
+                                                    {pickI18nText(optionChild.labelI18n ?? null, catLang, optionChild.label)}
+                                                  </div>
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => deleteFilterOption(optionChild.id)}
+                                                  className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                                                >
+                                                  Eliminar
+                                                </button>
+                                              </div>
+                                            ))}
+                                          </>
+                                        )
+                                        : null}
                                     </div>
-                                  )) : null}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })() : null}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+                                  );
+                                })}
 
-        {showCategoryModal ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-3 py-4 sm:px-4 sm:py-8">
-            <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-3 shadow-2xl sm:p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="inline-flex rounded-xl bg-slate-100 p-1">
-                  <button type="button" onClick={() => setCategoryModalMode("category")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${categoryModalMode === "category" ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}>Categoría</button>
-                  <button type="button" onClick={() => setCategoryModalMode("block")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${categoryModalMode === "block" ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}>Bloque</button>
-                </div>
-                <button type="button" onClick={() => setShowCategoryModal(false)} className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              {categoryModalMode === "category" ? (
-                <div className="space-y-4">
-                  <h3 className="text-2xl font-semibold text-slate-900">{editingCategoryId ? "Editar categoría" : catParentId ? "Nueva subcategoría" : "Nueva categoría"}</h3>
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Nombre (multilenguaje)</label>
-                    <div className="space-y-2">
-                      {LANGS.map((lang) => (
-                        <div key={lang} className="flex items-center gap-2">
-                          <span className="w-6 text-xs font-bold uppercase text-slate-400">{lang}</span>
-                          <input value={catI18n[lang] ?? ""} onChange={(e) => setCatI18n((prev) => ({ ...prev, [lang]: e.target.value }))} className="h-11 flex-1 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" placeholder={`Nombre en ${lang.toUpperCase()}`} />
+                                {fallbackOptionRoots.map((rootOption) => {
+                                  const children = optionChildrenByParent.get(rootOption.id) ?? [];
+                                  const optionStateKey = `option-${rootOption.id}`;
+                                  const isOptionOpen = expandedCategories[optionStateKey] ?? false;
+                                  return (
+                                    <div key={rootOption.id}>
+                                      <div className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+                                        <button
+                                          type="button"
+                                          onClick={() => children.length && setExpandedCategories((prev) => ({ ...prev, [optionStateKey]: !isOptionOpen }))}
+                                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                        >
+                                          <span className="flex h-5 w-5 items-center justify-center text-slate-400">
+                                            {children.length ? (isOptionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />) : <span className="h-4 w-4" />}
+                                          </span>
+                                          <span className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-slate-900">
+                                              {pickI18nText(rootOption.labelI18n ?? null, catLang, rootOption.label)}
+                                            </p>
+                                          </span>
+                                        </button>
+                                        <div className="flex flex-wrap items-center justify-end gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => deleteFilterOption(rootOption.id)}
+                                            className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                                          >
+                                            Eliminar
+                                          </button>
+                                        </div>
+                                      </div>
+                                      {isOptionOpen ? children.map((child) => (
+                                        <div
+                                          key={child.id}
+                                          className="group flex items-center gap-3 border-t border-slate-100 bg-slate-50/70 px-4 py-3 pl-14 hover:bg-slate-50"
+                                        >
+                                          <div className="h-px w-4 bg-slate-200" />
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium text-slate-800">
+                                              {pickI18nText(child.labelI18n ?? null, catLang, child.label)}
+                                            </div>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => deleteFilterOption(child.id)}
+                                            className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                                          >
+                                            Eliminar
+                                          </button>
+                                        </div>
+                                      )) : null}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })() : null}
                         </div>
-                      ))}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {showCategoryModal ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-3 py-4 sm:px-4 sm:py-8">
+                <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-3 shadow-2xl sm:p-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="inline-flex rounded-xl bg-slate-100 p-1">
+                      <button type="button" onClick={() => setCategoryModalMode("category")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${categoryModalMode === "category" ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}>Categoría</button>
+                      <button type="button" onClick={() => setCategoryModalMode("block")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${categoryModalMode === "block" ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}>Bloque</button>
                     </div>
-                    {catError ? <p className="mt-2 text-xs text-red-500">{catError}</p> : null}
+                    <button type="button" onClick={() => setShowCategoryModal(false)} className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
+                      <X className="h-5 w-5" />
+                    </button>
                   </div>
 
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Bloque</label>
-                    <select value={catBlockId} onChange={(e) => setCatBlockId(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" disabled={Boolean(catParentId)}>
-                      <option value="">Seleccionar bloque</option>
-                      {categoryBlocks.map((block) => (
-                        <option key={block.id} value={block.id}>{formatAdminBlockLabel(pickI18nText(block.labelI18n ?? null, catLang, block.label), block.taxonomyType ?? "categoria")}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {showCategoryParentSelector ? (
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Categoría padre</label>
-                      <select value={catParentId} onChange={(e) => setCatParentId(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300">
-                        <option value="">(Ninguna, categoría raíz)</option>
-                        {roots
-                          .filter((root) => {
-                            if (!catBlockId) return true;
-                            return root.blockId === catBlockId;
-                          })
-                          .map((root) => (
-                          <option key={root.id} value={root.id}>{pickI18nText(root.descriptionI18n ?? null, catLang, root.description)}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : null}
-
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Tipo de filtro</label>
-                    <select value={catTaxonomyType} onChange={(e) => setCatTaxonomyType(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300">
-                      <option value="inherit">Predeterminado (hereda el tipo de filtro del padre)</option>
-                      <option value="categoria">Categoría</option>
-                      <option value="prestacion">Prestación</option>
-                      <option value="idiomas">Idiomas</option>
-                      <option value="modalidad">Modalidad</option>
-                      <option value="actividad">Actividad</option>
-                      <option value="tipos">Tipos</option>
-                    </select>
-                  </div>
-
-                  <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
-                    <input type="checkbox" checked={catIsPublicVisible} onChange={(e) => setCatIsPublicVisible(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
-                    <span>Visible al público</span>
-                  </label>
-                  <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
-                    <input type="checkbox" checked={catIsPrimaryCategory} onChange={(e) => setCatIsPrimaryCategory(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
-                    <span>Esta categoría es principal (buscador de inicio)</span>
-                  </label>
-                  {catIsPrimaryCategory ? (
-                    <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <label className="block text-xs font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
-                      <input
-                        value={catIconImageUrl.startsWith("data:image/") ? "" : catIconImageUrl}
-                        onChange={(e) => {
-                          setCatIconImageTouched(true);
-                          setCatIconImageUrl(e.target.value);
-                        }}
-                        className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                        placeholder="URL de ícono (opcional)"
-                      />
-                      <input
-                        type="file"
-                        accept={IMAGE_FILE_ACCEPT}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          void fileToUploadAsset(file).then((asset) => {
-                            setCatIconImageTouched(true);
-                            setCatIconImageUrl(asset.url);
-                          }).catch(() => null);
-                          e.currentTarget.value = "";
-                        }}
-                        className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-600"
-                      />
-                      {catIconImageUrl ? (
-                        <div className="flex items-center gap-2">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={catIconImageUrl} alt="Preview ícono de categoría" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCatIconImageTouched(true);
-                              setCatIconImageUrl("");
-                            }}
-                            className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      ) : null}
-                      <p className="text-[11px] text-slate-500">
-                        Este ícono se muestra junto al nombre en los buscadores de categorías principales.
-                      </p>
-                      <label className="mt-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Imagen de card principal (opcional)</label>
-                      <input
-                        value={catCardImageUrl.startsWith("data:image/") ? "" : catCardImageUrl}
-                        onChange={(e) => {
-                          setCatCardImageTouched(true);
-                          setCatCardImageUrl(e.target.value);
-                        }}
-                        className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                        placeholder="URL de imagen para card (opcional)"
-                      />
-                      <input
-                        type="file"
-                        accept={IMAGE_FILE_ACCEPT}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          void fileToUploadAsset(file).then((asset) => {
-                            setCatCardImageTouched(true);
-                            setCatCardImageUrl(asset.url);
-                          }).catch(() => null);
-                          e.currentTarget.value = "";
-                        }}
-                        className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-600"
-                      />
-                      {catCardImageUrl ? (
+                  {categoryModalMode === "category" ? (
+                    <div className="space-y-4">
+                      <h3 className="text-2xl font-semibold text-slate-900">{editingCategoryId ? "Editar categoría" : catParentId ? "Nueva subcategoría" : "Nueva categoría"}</h3>
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Nombre (multilenguaje)</label>
                         <div className="space-y-2">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={catCardImageUrl} alt="Preview imagen de card principal" className="h-20 w-full rounded-lg border border-slate-200 object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCatCardImageTouched(true);
-                              setCatCardImageUrl("");
-                            }}
-                            className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                          >
-                            Eliminar
-                          </button>
+                          {LANGS.map((lang) => (
+                            <div key={lang} className="flex items-center gap-2">
+                              <span className="w-6 text-xs font-bold uppercase text-slate-400">{lang}</span>
+                              <input value={catI18n[lang] ?? ""} onChange={(e) => setCatI18n((prev) => ({ ...prev, [lang]: e.target.value }))} className="h-11 flex-1 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" placeholder={`Nombre en ${lang.toUpperCase()}`} />
+                            </div>
+                          ))}
                         </div>
-                      ) : null}
-                      <p className="text-[11px] text-slate-500">
-                        Esta imagen se usa como fondo en las cards del bloque &quot;Categorías con propósito&quot;.
-                      </p>
-                    </div>
-                  ) : null}
+                        {catError ? <p className="mt-2 text-xs text-red-500">{catError}</p> : null}
+                      </div>
 
-                  {(() => {
-                    const block = catBlockId ? filterGroupById.get(catBlockId) : null;
-                    const isPriceBlock = block?.key === "price";
-                    if (!isPriceBlock || editingCategoryId) return null;
-                    return (
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Rango de precio para filtros</label>
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          <input
-                            value={catPriceMin}
-                            onChange={(e) => setCatPriceMin(e.target.value.replace(/[^0-9]/g, ""))}
-                            placeholder="Mínimo"
-                            className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
-                          />
-                          <input
-                            value={catPriceMax}
-                            onChange={(e) => setCatPriceMax(e.target.value.replace(/[^0-9]/g, ""))}
-                            placeholder="Máximo"
-                            className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
-                          />
-                        </div>
-                        <div className="mt-2">
-                          <select value={catPriceCurrency} onChange={(e) => setCatPriceCurrency(e.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
-                            <option value="ARS">ARS</option>
-                            <option value="USD">USD</option>
-                            <option value="EUR">EUR</option>
-                            <option value="BRL">BRL</option>
-                            <option value="JPY">JPY</option>
-                            <option value="GBP">GBP</option>
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Bloque</label>
+                        <select value={catBlockId} onChange={(e) => setCatBlockId(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" disabled={Boolean(catParentId)}>
+                          <option value="">Seleccionar bloque</option>
+                          {categoryBlocks.map((block) => (
+                            <option key={block.id} value={block.id}>{formatAdminBlockLabel(pickI18nText(block.labelI18n ?? null, catLang, block.label), block.taxonomyType ?? "categoria")}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {showCategoryParentSelector ? (
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Categoría padre</label>
+                          <select value={catParentId} onChange={(e) => setCatParentId(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300">
+                            <option value="">(Ninguna, categoría raíz)</option>
+                            {roots
+                              .filter((root) => {
+                                if (!catBlockId) return true;
+                                return root.blockId === catBlockId;
+                              })
+                              .map((root) => (
+                                <option key={root.id} value={root.id}>{pickI18nText(root.descriptionI18n ?? null, catLang, root.description)}</option>
+                              ))}
                           </select>
                         </div>
-                        <p className="mt-2 text-xs text-slate-500">
-                          Al crear la categoría, también se agregará una opción de rango de precio y la moneda al bloque &quot;price&quot;.
-                        </p>
+                      ) : null}
+
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Tipo de filtro</label>
+                        <select value={catTaxonomyType} onChange={(e) => setCatTaxonomyType(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300">
+                          <option value="inherit">Predeterminado (hereda el tipo de filtro del padre)</option>
+                          <option value="categoria">Categoría</option>
+                          <option value="prestacion">Prestación</option>
+                          <option value="idiomas">Idiomas</option>
+                          <option value="modalidad">Modalidad</option>
+                          <option value="actividad">Actividad</option>
+                          <option value="tipos">Tipos</option>
+                        </select>
                       </div>
-                    );
-                  })()}
 
-                  <div className="flex flex-wrap justify-end gap-2 pt-2">
-                    <button type="button" onClick={() => setShowCategoryModal(false)} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
-                    <button type="button" onClick={addCategory} disabled={savingCategory} className="h-10 rounded-xl bg-indigo-500 px-5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60">{savingCategory ? "Guardando..." : editingCategoryId ? "Actualizar categoría" : "Crear categoría"}</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <h3 className="text-2xl font-semibold text-slate-900">{editingBlockId ? "Editar título" : "Nuevo título"}</h3>
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Título del bloque (multilenguaje)</label>
-                    {renderLangTabs(blockLang, setBlockLang)}
-                    <input value={blockLabelI18n[blockLang] ?? ""} onChange={(e) => setBlockLabelI18n((prev) => ({ ...prev, [blockLang]: e.target.value }))} className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" placeholder="Título del bloque" />
-                    {blockError ? <p className="mt-2 text-xs text-red-500">{blockError}</p> : null}
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Tipo de filtro</label>
-                    <select value={blockTaxonomyType} onChange={(e) => setBlockTaxonomyType(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300">
-                      <option value="categoria">Categoría</option>
-                      <option value="prestacion">Prestación</option>
-                      <option value="idiomas">Idiomas</option>
-                      <option value="modalidad">Modalidad</option>
-                      <option value="actividad">Actividad</option>
-                      <option value="tipos">Tipos</option>
-                    </select>
-                  </div>
-
-                  <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
-                    <input type="checkbox" checked={blockIsPublicVisible} onChange={(e) => setBlockIsPublicVisible(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
-                    <span>Visible al público</span>
-                  </label>
-                  <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={blockVisibleInCard}
-                      onChange={(e) => setBlockVisibleInCard(e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                    />
-                    <span>Visible en la tarjeta (aplica al bloque completo)</span>
-                  </label>
-                  {!editingBlockId ? (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="mb-3 flex items-center justify-between gap-2">
-                        <div>
-                          <div className="text-xs font-semibold uppercase tracking-widest text-slate-500">Categorías iniciales del título</div>
-                          <div className="text-xs text-slate-500">Opcional: creá categorías y subcategorías al mismo tiempo que el título.</div>
+                      <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
+                        <input type="checkbox" checked={catIsPublicVisible} onChange={(e) => setCatIsPublicVisible(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
+                        <span>Visible al público</span>
+                      </label>
+                      <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
+                        <input type="checkbox" checked={catIsPrimaryCategory} onChange={(e) => setCatIsPrimaryCategory(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
+                        <span>Esta categoría es principal (buscador de inicio)</span>
+                      </label>
+                      {catIsPrimaryCategory ? (
+                        <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <label className="block text-xs font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
+                          <input
+                            value={catIconImageUrl.startsWith("data:image/") ? "" : catIconImageUrl}
+                            onChange={(e) => {
+                              setCatIconImageTouched(true);
+                              setCatIconImageUrl(e.target.value);
+                            }}
+                            className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                            placeholder="URL de ícono (opcional)"
+                          />
+                          <input
+                            type="file"
+                            accept={IMAGE_FILE_ACCEPT}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              void fileToUploadAsset(file).then((asset) => {
+                                setCatIconImageTouched(true);
+                                setCatIconImageUrl(asset.url);
+                              }).catch(() => null);
+                              e.currentTarget.value = "";
+                            }}
+                            className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-600"
+                          />
+                          {catIconImageUrl ? (
+                            <div className="flex items-center gap-2">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={catIconImageUrl} alt="Preview ícono de categoría" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCatIconImageTouched(true);
+                                  setCatIconImageUrl("");
+                                }}
+                                className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          ) : null}
+                          <p className="text-[11px] text-slate-500">
+                            Este ícono se muestra junto al nombre en los buscadores de categorías principales.
+                          </p>
+                          <label className="mt-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Imagen de card principal (opcional)</label>
+                          <input
+                            value={catCardImageUrl.startsWith("data:image/") ? "" : catCardImageUrl}
+                            onChange={(e) => {
+                              setCatCardImageTouched(true);
+                              setCatCardImageUrl(e.target.value);
+                            }}
+                            className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                            placeholder="URL de imagen para card (opcional)"
+                          />
+                          <input
+                            type="file"
+                            accept={IMAGE_FILE_ACCEPT}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              void fileToUploadAsset(file).then((asset) => {
+                                setCatCardImageTouched(true);
+                                setCatCardImageUrl(asset.url);
+                              }).catch(() => null);
+                              e.currentTarget.value = "";
+                            }}
+                            className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-600"
+                          />
+                          {catCardImageUrl ? (
+                            <div className="space-y-2">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={catCardImageUrl} alt="Preview imagen de card principal" className="h-20 w-full rounded-lg border border-slate-200 object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCatCardImageTouched(true);
+                                  setCatCardImageUrl("");
+                                }}
+                                className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          ) : null}
+                          <p className="text-[11px] text-slate-500">
+                            Esta imagen se usa como fondo en las cards del bloque &quot;Categorías con propósito&quot;.
+                          </p>
                         </div>
-                        <button type="button" onClick={() => addBlockCategoryDraft("")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">+ Nueva categoría</button>
-                      </div>
-                      <div className="space-y-3">
-                        {blockRootDrafts.map((draft, draftIndex) => {
-                          const subDrafts = blockDraftChildrenByParent.get(draft.id) ?? [];
-                          return (
-                            <div key={draft.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                              <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
-                                Categoría {draftIndex + 1}
-                              </div>
-                              <div className="mb-2">
-                                {renderLangTabs(
-                                  draft.lang,
-                                  (lang) => updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, lang }))
-                                )}
-                              </div>
-                              <div className="mb-2 grid gap-2 sm:grid-cols-[1fr_auto]">
-                                <input
-                                  value={draft.nameI18n[draft.lang] ?? ""}
-                                  onChange={(e) =>
-                                    updateBlockCategoryDraft(draft.id, (prev) => ({
-                                      ...prev,
-                                      nameI18n: { ...prev.nameI18n, [prev.lang]: e.target.value },
-                                    }))
-                                  }
-                                  className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
-                                  placeholder={`Nombre en ${draft.lang.toUpperCase()}`}
-                                />
-                                <button type="button" onClick={() => removeBlockCategoryDraft(draft.id)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Eliminar</button>
-                              </div>
-                              <div className={`grid gap-2 ${blockVisibleInCard ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
-                                <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={draft.isPublicVisible}
-                                    onChange={(e) =>
-                                      updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, isPublicVisible: e.target.checked }))
-                                    }
-                                    className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                                  />
-                                  Visible al público
-                                </label>
-                                {blockVisibleInCard ? (
-                                  <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
-                                    <input
-                                      type="checkbox"
-                                      checked={draft.visibleInCard}
-                                      onChange={(e) =>
-                                        updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, visibleInCard: e.target.checked }))
-                                      }
-                                      className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                                    />
-                                    Visible en la tarjeta
-                                  </label>
-                                ) : null}
-                              </div>
-                              <label className="mt-2 flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
-                                <input
-                                  type="checkbox"
-                                  checked={draft.isPrimaryCategory}
-                                  onChange={(e) =>
-                                    updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
-                                  }
-                                  className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                                />
-                                Categoría principal del bloque
-                              </label>
-                              {draft.visibleInCard ? (
-                                <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
-                                  <input
-                                    value={draft.iconImageUrl}
-                                    onChange={(e) =>
-                                      updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, iconImageUrl: e.target.value }))
-                                    }
-                                    className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                                    placeholder="URL del ícono"
-                                  />
-                                  <input
-                                    type="file"
-                                    accept={IMAGE_FILE_ACCEPT}
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (!file) return;
-                                      void fileToUploadAsset(file).then((asset) =>
-                                        updateBlockCategoryDraft(draft.id, (prev) => ({
-                                          ...prev,
-                                          iconImageUrl: asset.url,
-                                        }))
-                                      ).catch(() => null);
-                                      e.currentTarget.value = "";
-                                    }}
-                                    className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-white file:px-2 file:py-1 file:text-xs file:font-semibold file:text-slate-600"
-                                  />
-                                  {draft.iconImageUrl ? (
-                                    <div className="flex items-center gap-2">
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={draft.iconImageUrl} alt="Preview ícono categoría principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
-                                      <button
-                                        type="button"
-                                        onClick={() => updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, iconImageUrl: "" }))}
-                                        className="rounded-lg border border-red-200 px-2 py-1 text-[11px] text-red-600 hover:bg-red-50"
-                                      >
-                                        Eliminar
-                                      </button>
-                                    </div>
-                                  ) : null}
-                                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Imagen de card principal (opcional)</label>
-                                  <input
-                                    value={draft.cardImageUrl}
-                                    onChange={(e) =>
-                                      updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, cardImageUrl: e.target.value }))
-                                    }
-                                    className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                                    placeholder="URL de imagen de card"
-                                  />
-                                  <input
-                                    type="file"
-                                    accept={IMAGE_FILE_ACCEPT}
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (!file) return;
-                                      void fileToUploadAsset(file).then((asset) =>
-                                        updateBlockCategoryDraft(draft.id, (prev) => ({
-                                          ...prev,
-                                          cardImageUrl: asset.url,
-                                        }))
-                                      ).catch(() => null);
-                                      e.currentTarget.value = "";
-                                    }}
-                                    className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-white file:px-2 file:py-1 file:text-xs file:font-semibold file:text-slate-600"
-                                  />
-                                  {draft.cardImageUrl ? (
-                                    <div className="space-y-2">
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={draft.cardImageUrl} alt="Preview imagen card principal" className="h-16 w-full rounded border border-slate-200 object-cover" />
-                                      <button
-                                        type="button"
-                                        onClick={() => updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, cardImageUrl: "" }))}
-                                        className="rounded-lg border border-red-200 px-2 py-1 text-[11px] text-red-600 hover:bg-red-50"
-                                      >
-                                        Eliminar
-                                      </button>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                              <div className="mt-2">
-                                <button
-                                  type="button"
-                                  onClick={() => addBlockCategoryDraft(draft.id)}
-                                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                                >
-                          + Subcategoría
-                                </button>
-                              </div>
-                              <div className="mt-2">
-                                <select
-                                  value={draft.taxonomyType}
-                                  onChange={(e) =>
-                                    updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, taxonomyType: e.target.value }))
-                                  }
-                                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                                >
-                                  <option value="inherit">Predeterminado (hereda tipo de filtro del padre o del bloque)</option>
-                                  <option value="categoria">categoria</option>
-                                  <option value="prestacion">prestacion</option>
-                                  <option value="idiomas">idiomas</option>
-                                  <option value="modalidad">modalidad</option>
-                                  <option value="actividad">actividad</option>
-                                  <option value="tipos">tipos</option>
-                                </select>
-                              </div>
+                      ) : null}
 
-                              {subDrafts.length ? (
-                                <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                  {subDrafts.map((subDraft, subIndex) => (
-                                    <div key={subDraft.id} className="rounded-lg border border-slate-200 bg-white p-2">
-                                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-                                    Subcategoría {draftIndex + 1}.{subIndex + 1}
-                                      </div>
-                                      <div className="mb-2">
-                                        {renderLangTabs(
-                                          subDraft.lang,
-                                          (lang) => updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, lang }))
-                                        )}
-                                      </div>
-                                      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                                        <input
-                                          value={subDraft.nameI18n[subDraft.lang] ?? ""}
-                                          onChange={(e) =>
-                                            updateBlockCategoryDraft(subDraft.id, (prev) => ({
-                                              ...prev,
-                                              nameI18n: { ...prev.nameI18n, [prev.lang]: e.target.value },
-                                            }))
-                                          }
-                                          className="h-9 rounded-lg border border-slate-200 px-3 text-sm"
-                                          placeholder={`Nombre en ${subDraft.lang.toUpperCase()}`}
-                                        />
-                                        <button type="button" onClick={() => removeBlockCategoryDraft(subDraft.id)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Eliminar</button>
-                                      </div>
-                                      <div className={`mt-2 grid gap-2 ${blockVisibleInCard ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
-                                        <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
-                                          <input
-                                            type="checkbox"
-                                            checked={subDraft.isPublicVisible}
-                                            onChange={(e) =>
-                                              updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, isPublicVisible: e.target.checked }))
-                                            }
-                                            className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                                          />
-                                  Visible al público
-                                        </label>
-                                        {blockVisibleInCard ? (
-                                          <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
-                                            <input
-                                              type="checkbox"
-                                              checked={subDraft.visibleInCard}
-                                              onChange={(e) =>
-                                                updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, visibleInCard: e.target.checked }))
-                                              }
-                                              className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                                            />
-                                            Visible en la tarjeta
-                                          </label>
-                                        ) : null}
-                                      </div>
-                                      <label className="mt-2 flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                      {(() => {
+                        const block = catBlockId ? filterGroupById.get(catBlockId) : null;
+                        const isPriceBlock = block?.key === "price";
+                        if (!isPriceBlock || editingCategoryId) return null;
+                        return (
+                          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Rango de precio para filtros</label>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <input
+                                value={catPriceMin}
+                                onChange={(e) => setCatPriceMin(e.target.value.replace(/[^0-9]/g, ""))}
+                                placeholder="Mínimo"
+                                className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
+                              />
+                              <input
+                                value={catPriceMax}
+                                onChange={(e) => setCatPriceMax(e.target.value.replace(/[^0-9]/g, ""))}
+                                placeholder="Máximo"
+                                className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
+                              />
+                            </div>
+                            <div className="mt-2">
+                              <select value={catPriceCurrency} onChange={(e) => setCatPriceCurrency(e.target.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
+                                <option value="ARS">ARS</option>
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                                <option value="BRL">BRL</option>
+                                <option value="JPY">JPY</option>
+                                <option value="GBP">GBP</option>
+                              </select>
+                            </div>
+                            <p className="mt-2 text-xs text-slate-500">
+                              Al crear la categoría, también se agregará una opción de rango de precio y la moneda al bloque &quot;price&quot;.
+                            </p>
+                          </div>
+                        );
+                      })()}
+
+                      <div className="flex flex-wrap justify-end gap-2 pt-2">
+                        <button type="button" onClick={() => setShowCategoryModal(false)} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
+                        <button type="button" onClick={addCategory} disabled={savingCategory} className="h-10 rounded-xl bg-indigo-500 px-5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60">{savingCategory ? "Guardando..." : editingCategoryId ? "Actualizar categoría" : "Crear categoría"}</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <h3 className="text-2xl font-semibold text-slate-900">{editingBlockId ? "Editar título" : "Nuevo título"}</h3>
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Título del bloque (multilenguaje)</label>
+                        {renderLangTabs(blockLang, setBlockLang)}
+                        <input value={blockLabelI18n[blockLang] ?? ""} onChange={(e) => setBlockLabelI18n((prev) => ({ ...prev, [blockLang]: e.target.value }))} className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300" placeholder="Título del bloque" />
+                        {blockError ? <p className="mt-2 text-xs text-red-500">{blockError}</p> : null}
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-500">Tipo de filtro</label>
+                        <select value={blockTaxonomyType} onChange={(e) => setBlockTaxonomyType(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-indigo-300">
+                          <option value="categoria">Categoría</option>
+                          <option value="prestacion">Prestación</option>
+                          <option value="idiomas">Idiomas</option>
+                          <option value="modalidad">Modalidad</option>
+                          <option value="actividad">Actividad</option>
+                          <option value="tipos">Tipos</option>
+                        </select>
+                      </div>
+
+                      <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
+                        <input type="checkbox" checked={blockIsPublicVisible} onChange={(e) => setBlockIsPublicVisible(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-indigo-600" />
+                        <span>Visible al público</span>
+                      </label>
+                      <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={blockVisibleInCard}
+                          onChange={(e) => setBlockVisibleInCard(e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                        />
+                        <span>Visible en la tarjeta (aplica al bloque completo)</span>
+                      </label>
+                      {!editingBlockId ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <div>
+                              <div className="text-xs font-semibold uppercase tracking-widest text-slate-500">Categorías iniciales del título</div>
+                              <div className="text-xs text-slate-500">Opcional: creá categorías y subcategorías al mismo tiempo que el título.</div>
+                            </div>
+                            <button type="button" onClick={() => addBlockCategoryDraft("")} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">+ Nueva categoría</button>
+                          </div>
+                          <div className="space-y-3">
+                            {blockRootDrafts.map((draft, draftIndex) => {
+                              const subDrafts = blockDraftChildrenByParent.get(draft.id) ?? [];
+                              return (
+                                <div key={draft.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                                  <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+                                    Categoría {draftIndex + 1}
+                                  </div>
+                                  <div className="mb-2">
+                                    {renderLangTabs(
+                                      draft.lang,
+                                      (lang) => updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, lang }))
+                                    )}
+                                  </div>
+                                  <div className="mb-2 grid gap-2 sm:grid-cols-[1fr_auto]">
+                                    <input
+                                      value={draft.nameI18n[draft.lang] ?? ""}
+                                      onChange={(e) =>
+                                        updateBlockCategoryDraft(draft.id, (prev) => ({
+                                          ...prev,
+                                          nameI18n: { ...prev.nameI18n, [prev.lang]: e.target.value },
+                                        }))
+                                      }
+                                      className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
+                                      placeholder={`Nombre en ${draft.lang.toUpperCase()}`}
+                                    />
+                                    <button type="button" onClick={() => removeBlockCategoryDraft(draft.id)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Eliminar</button>
+                                  </div>
+                                  <div className={`grid gap-2 ${blockVisibleInCard ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
+                                    <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={draft.isPublicVisible}
+                                        onChange={(e) =>
+                                          updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, isPublicVisible: e.target.checked }))
+                                        }
+                                        className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                                      />
+                                      Visible al público
+                                    </label>
+                                    {blockVisibleInCard ? (
+                                      <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
                                         <input
                                           type="checkbox"
-                                          checked={subDraft.isPrimaryCategory}
+                                          checked={draft.visibleInCard}
                                           onChange={(e) =>
-                                            updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
+                                            updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, visibleInCard: e.target.checked }))
                                           }
                                           className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
                                         />
-                                        Categoría principal del bloque
+                                        Visible en la tarjeta
                                       </label>
-                                      {subDraft.visibleInCard ? (
-                                        <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
-                                          <input
-                                            value={subDraft.iconImageUrl}
-                                            onChange={(e) =>
-                                              updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, iconImageUrl: e.target.value }))
-                                            }
-                                            className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                                    placeholder="URL del ícono"
-                                          />
-                                          <input
-                                            type="file"
-                                            accept={IMAGE_FILE_ACCEPT}
-                                            onChange={(e) => {
-                                              const file = e.target.files?.[0];
-                                              if (!file) return;
-                                              void fileToUploadAsset(file).then((asset) =>
-                                                updateBlockCategoryDraft(subDraft.id, (prev) => ({
-                                                  ...prev,
-                                                  iconImageUrl: asset.url,
-                                                }))
-                                              ).catch(() => null);
-                                              e.currentTarget.value = "";
-                                            }}
-                                            className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-white file:px-2 file:py-1 file:text-xs file:font-semibold file:text-slate-600"
-                                          />
-                                          {subDraft.iconImageUrl ? (
-                                            <div className="flex items-center gap-2">
-                                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={subDraft.iconImageUrl} alt="Preview ícono subcategoría principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
-                                              <button
-                                                type="button"
-                                                onClick={() => updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, iconImageUrl: "" }))}
-                                                className="rounded-lg border border-red-200 px-2 py-1 text-[11px] text-red-600 hover:bg-red-50"
-                                              >
-                                                Eliminar
-                                              </button>
-                                            </div>
-                                          ) : null}
-                                          <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Imagen de card principal (opcional)</label>
-                                          <input
-                                            value={subDraft.cardImageUrl}
-                                            onChange={(e) =>
-                                              updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, cardImageUrl: e.target.value }))
-                                            }
-                                            className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                                            placeholder="URL de imagen de card"
-                                          />
-                                          <input
-                                            type="file"
-                                            accept={IMAGE_FILE_ACCEPT}
-                                            onChange={(e) => {
-                                              const file = e.target.files?.[0];
-                                              if (!file) return;
-                                              void fileToUploadAsset(file).then((asset) =>
-                                                updateBlockCategoryDraft(subDraft.id, (prev) => ({
-                                                  ...prev,
-                                                  cardImageUrl: asset.url,
-                                                }))
-                                              ).catch(() => null);
-                                              e.currentTarget.value = "";
-                                            }}
-                                            className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-white file:px-2 file:py-1 file:text-xs file:font-semibold file:text-slate-600"
-                                          />
-                                          {subDraft.cardImageUrl ? (
-                                            <div className="space-y-2">
-                                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={subDraft.cardImageUrl} alt="Preview imagen card subcategoría principal" className="h-16 w-full rounded border border-slate-200 object-cover" />
-                                              <button
-                                                type="button"
-                                                onClick={() => updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, cardImageUrl: "" }))}
-                                                className="rounded-lg border border-red-200 px-2 py-1 text-[11px] text-red-600 hover:bg-red-50"
-                                              >
-                                                Eliminar
-                                              </button>
-                                            </div>
-                                          ) : null}
+                                    ) : null}
+                                  </div>
+                                  <label className="mt-2 flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                                    <input
+                                      type="checkbox"
+                                      checked={draft.isPrimaryCategory}
+                                      onChange={(e) =>
+                                        updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
+                                      }
+                                      className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                                    />
+                                    Categoría principal del bloque
+                                  </label>
+                                  {draft.visibleInCard ? (
+                                    <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                      <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
+                                      <input
+                                        value={draft.iconImageUrl}
+                                        onChange={(e) =>
+                                          updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, iconImageUrl: e.target.value }))
+                                        }
+                                        className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                                        placeholder="URL del ícono"
+                                      />
+                                      <input
+                                        type="file"
+                                        accept={IMAGE_FILE_ACCEPT}
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (!file) return;
+                                          void fileToUploadAsset(file).then((asset) =>
+                                            updateBlockCategoryDraft(draft.id, (prev) => ({
+                                              ...prev,
+                                              iconImageUrl: asset.url,
+                                            }))
+                                          ).catch(() => null);
+                                          e.currentTarget.value = "";
+                                        }}
+                                        className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-white file:px-2 file:py-1 file:text-xs file:font-semibold file:text-slate-600"
+                                      />
+                                      {draft.iconImageUrl ? (
+                                        <div className="flex items-center gap-2">
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img src={draft.iconImageUrl} alt="Preview ícono categoría principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
+                                          <button
+                                            type="button"
+                                            onClick={() => updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, iconImageUrl: "" }))}
+                                            className="rounded-lg border border-red-200 px-2 py-1 text-[11px] text-red-600 hover:bg-red-50"
+                                          >
+                                            Eliminar
+                                          </button>
                                         </div>
                                       ) : null}
-                                      <div className="mt-2">
-                                        <select
-                                          value={subDraft.taxonomyType}
-                                          onChange={(e) =>
-                                            updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, taxonomyType: e.target.value }))
-                                          }
-                                          className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
-                                        >
-                                          <option value="inherit">Predeterminado</option>
-                                          <option value="categoria">categoria</option>
-                                          <option value="prestacion">prestacion</option>
-                                          <option value="idiomas">idiomas</option>
-                                          <option value="modalidad">modalidad</option>
-                                          <option value="actividad">actividad</option>
-                                          <option value="tipos">tipos</option>
-                                        </select>
-                                      </div>
+                                      <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Imagen de card principal (opcional)</label>
+                                      <input
+                                        value={draft.cardImageUrl}
+                                        onChange={(e) =>
+                                          updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, cardImageUrl: e.target.value }))
+                                        }
+                                        className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                                        placeholder="URL de imagen de card"
+                                      />
+                                      <input
+                                        type="file"
+                                        accept={IMAGE_FILE_ACCEPT}
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (!file) return;
+                                          void fileToUploadAsset(file).then((asset) =>
+                                            updateBlockCategoryDraft(draft.id, (prev) => ({
+                                              ...prev,
+                                              cardImageUrl: asset.url,
+                                            }))
+                                          ).catch(() => null);
+                                          e.currentTarget.value = "";
+                                        }}
+                                        className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-white file:px-2 file:py-1 file:text-xs file:font-semibold file:text-slate-600"
+                                      />
+                                      {draft.cardImageUrl ? (
+                                        <div className="space-y-2">
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img src={draft.cardImageUrl} alt="Preview imagen card principal" className="h-16 w-full rounded border border-slate-200 object-cover" />
+                                          <button
+                                            type="button"
+                                            onClick={() => updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, cardImageUrl: "" }))}
+                                            className="rounded-lg border border-red-200 px-2 py-1 text-[11px] text-red-600 hover:bg-red-50"
+                                          >
+                                            Eliminar
+                                          </button>
+                                        </div>
+                                      ) : null}
                                     </div>
-                                  ))}
+                                  ) : null}
+                                  <div className="mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => addBlockCategoryDraft(draft.id)}
+                                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                                    >
+                                      + Subcategoría
+                                    </button>
+                                  </div>
+                                  <div className="mt-2">
+                                    <select
+                                      value={draft.taxonomyType}
+                                      onChange={(e) =>
+                                        updateBlockCategoryDraft(draft.id, (prev) => ({ ...prev, taxonomyType: e.target.value }))
+                                      }
+                                      className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                                    >
+                                      <option value="inherit">Predeterminado (hereda tipo de filtro del padre o del bloque)</option>
+                                      <option value="categoria">categoria</option>
+                                      <option value="prestacion">prestacion</option>
+                                      <option value="idiomas">idiomas</option>
+                                      <option value="modalidad">modalidad</option>
+                                      <option value="actividad">actividad</option>
+                                      <option value="tipos">tipos</option>
+                                    </select>
+                                  </div>
+
+                                  {subDrafts.length ? (
+                                    <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                      {subDrafts.map((subDraft, subIndex) => (
+                                        <div key={subDraft.id} className="rounded-lg border border-slate-200 bg-white p-2">
+                                          <div className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+                                            Subcategoría {draftIndex + 1}.{subIndex + 1}
+                                          </div>
+                                          <div className="mb-2">
+                                            {renderLangTabs(
+                                              subDraft.lang,
+                                              (lang) => updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, lang }))
+                                            )}
+                                          </div>
+                                          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                                            <input
+                                              value={subDraft.nameI18n[subDraft.lang] ?? ""}
+                                              onChange={(e) =>
+                                                updateBlockCategoryDraft(subDraft.id, (prev) => ({
+                                                  ...prev,
+                                                  nameI18n: { ...prev.nameI18n, [prev.lang]: e.target.value },
+                                                }))
+                                              }
+                                              className="h-9 rounded-lg border border-slate-200 px-3 text-sm"
+                                              placeholder={`Nombre en ${subDraft.lang.toUpperCase()}`}
+                                            />
+                                            <button type="button" onClick={() => removeBlockCategoryDraft(subDraft.id)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Eliminar</button>
+                                          </div>
+                                          <div className={`mt-2 grid gap-2 ${blockVisibleInCard ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
+                                            <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                                              <input
+                                                type="checkbox"
+                                                checked={subDraft.isPublicVisible}
+                                                onChange={(e) =>
+                                                  updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, isPublicVisible: e.target.checked }))
+                                                }
+                                                className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                                              />
+                                              Visible al público
+                                            </label>
+                                            {blockVisibleInCard ? (
+                                              <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={subDraft.visibleInCard}
+                                                  onChange={(e) =>
+                                                    updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, visibleInCard: e.target.checked }))
+                                                  }
+                                                  className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                                                />
+                                                Visible en la tarjeta
+                                              </label>
+                                            ) : null}
+                                          </div>
+                                          <label className="mt-2 flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-slate-700">
+                                            <input
+                                              type="checkbox"
+                                              checked={subDraft.isPrimaryCategory}
+                                              onChange={(e) =>
+                                                updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, isPrimaryCategory: e.target.checked }))
+                                              }
+                                              className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                                            />
+                                            Categoría principal del bloque
+                                          </label>
+                                          {subDraft.visibleInCard ? (
+                                            <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                              <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Ícono de categoría principal (opcional)</label>
+                                              <input
+                                                value={subDraft.iconImageUrl}
+                                                onChange={(e) =>
+                                                  updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, iconImageUrl: e.target.value }))
+                                                }
+                                                className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                                                placeholder="URL del ícono"
+                                              />
+                                              <input
+                                                type="file"
+                                                accept={IMAGE_FILE_ACCEPT}
+                                                onChange={(e) => {
+                                                  const file = e.target.files?.[0];
+                                                  if (!file) return;
+                                                  void fileToUploadAsset(file).then((asset) =>
+                                                    updateBlockCategoryDraft(subDraft.id, (prev) => ({
+                                                      ...prev,
+                                                      iconImageUrl: asset.url,
+                                                    }))
+                                                  ).catch(() => null);
+                                                  e.currentTarget.value = "";
+                                                }}
+                                                className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-white file:px-2 file:py-1 file:text-xs file:font-semibold file:text-slate-600"
+                                              />
+                                              {subDraft.iconImageUrl ? (
+                                                <div className="flex items-center gap-2">
+                                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                  <img src={subDraft.iconImageUrl} alt="Preview ícono subcategoría principal" className="h-10 w-10 rounded border border-slate-200 object-cover" />
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, iconImageUrl: "" }))}
+                                                    className="rounded-lg border border-red-200 px-2 py-1 text-[11px] text-red-600 hover:bg-red-50"
+                                                  >
+                                                    Eliminar
+                                                  </button>
+                                                </div>
+                                              ) : null}
+                                              <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-500">Imagen de card principal (opcional)</label>
+                                              <input
+                                                value={subDraft.cardImageUrl}
+                                                onChange={(e) =>
+                                                  updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, cardImageUrl: e.target.value }))
+                                                }
+                                                className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                                                placeholder="URL de imagen de card"
+                                              />
+                                              <input
+                                                type="file"
+                                                accept={IMAGE_FILE_ACCEPT}
+                                                onChange={(e) => {
+                                                  const file = e.target.files?.[0];
+                                                  if (!file) return;
+                                                  void fileToUploadAsset(file).then((asset) =>
+                                                    updateBlockCategoryDraft(subDraft.id, (prev) => ({
+                                                      ...prev,
+                                                      cardImageUrl: asset.url,
+                                                    }))
+                                                  ).catch(() => null);
+                                                  e.currentTarget.value = "";
+                                                }}
+                                                className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-white file:px-2 file:py-1 file:text-xs file:font-semibold file:text-slate-600"
+                                              />
+                                              {subDraft.cardImageUrl ? (
+                                                <div className="space-y-2">
+                                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                  <img src={subDraft.cardImageUrl} alt="Preview imagen card subcategoría principal" className="h-16 w-full rounded border border-slate-200 object-cover" />
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, cardImageUrl: "" }))}
+                                                    className="rounded-lg border border-red-200 px-2 py-1 text-[11px] text-red-600 hover:bg-red-50"
+                                                  >
+                                                    Eliminar
+                                                  </button>
+                                                </div>
+                                              ) : null}
+                                            </div>
+                                          ) : null}
+                                          <div className="mt-2">
+                                            <select
+                                              value={subDraft.taxonomyType}
+                                              onChange={(e) =>
+                                                updateBlockCategoryDraft(subDraft.id, (prev) => ({ ...prev, taxonomyType: e.target.value }))
+                                              }
+                                              className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                                            >
+                                              <option value="inherit">Predeterminado</option>
+                                              <option value="categoria">categoria</option>
+                                              <option value="prestacion">prestacion</option>
+                                              <option value="idiomas">idiomas</option>
+                                              <option value="modalidad">modalidad</option>
+                                              <option value="actividad">actividad</option>
+                                              <option value="tipos">tipos</option>
+                                            </select>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : null}
                                 </div>
-                              ) : null}
-                            </div>
-                          );
-                        })}
-                        {!blockCategoryDrafts.length ? (
-                          <div className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-xs text-slate-500">
-                          Sin categorías iniciales. Podés crearlas luego con <b>+ Nueva categoría</b>.
+                              );
+                            })}
+                            {!blockCategoryDrafts.length ? (
+                              <div className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-xs text-slate-500">
+                                Sin categorías iniciales. Podés crearlas luego con <b>+ Nueva categoría</b>.
+                              </div>
+                            ) : null}
                           </div>
-                        ) : null}
+                        </div>
+                      ) : null}
+                      <div className="flex flex-wrap justify-end gap-2 pt-2">
+                        <button type="button" onClick={() => setShowCategoryModal(false)} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
+                        <button type="button" onClick={saveBlockFromModal} disabled={savingFilterGroup} className="h-10 rounded-xl bg-indigo-500 px-5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60">{savingFilterGroup ? "Guardando..." : editingBlockId ? "Actualizar bloque" : "Crear bloque"}</button>
                       </div>
                     </div>
-                  ) : null}
-                  <div className="flex flex-wrap justify-end gap-2 pt-2">
-                    <button type="button" onClick={() => setShowCategoryModal(false)} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
-                    <button type="button" onClick={saveBlockFromModal} disabled={savingFilterGroup} className="h-10 rounded-xl bg-indigo-500 px-5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-60">{savingFilterGroup ? "Guardando..." : editingBlockId ? "Actualizar bloque" : "Crear bloque"}</button>
-                  </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </section>
-      </div>
+              </div>
+            ) : null}
+          </section>
+        </div>
       ) : null}
 
       {/* Publicaciones */}
       {isPublicationsSection ? (
-      <section ref={publicationsTopRef} className="overflow-x-hidden rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
-        <details open className="group">
-          <summary className="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border border-transparent px-1 py-1 transition hover:border-slate-100 hover:bg-slate-50">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Publicaciones</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Las publicaciones aparecen en <b>/buscar</b> y se filtran con múltiples selecciones por bloque.
-              </p>
-            </div>
-            <ChevronDown className="mt-2 h-4 w-4 text-[#00A9C6] transition group-open:rotate-180" />
-          </summary>
-
-          {(showPublicationEditor || isNewPublicationPage) ? (
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-[#007D92] hover:bg-cyan-100">Generar con IA</button>
-                <button type="button" onClick={() => (isNewPublicationPage ? router.push(`${basePath}?section=publicaciones`) : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
-              </div>
-            </div>
-          <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
-            <div className="grid gap-2 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <label className="text-sm font-semibold text-slate-900">Idioma de edición de la publicación</label>
-                  <p className="text-xs text-slate-500">
-                    Seleccioná la pestaña para ver y editar los textos en cada idioma (título, descripción, descripciones opcionales e información del oferente).
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={translatingField === "all"}
-                  onClick={async () => {
-                    const titleEs = pTitleI18n.es || pTitle;
-                    const descEs = pDescriptionI18n.es || pDescription;
-                    const provEs = pProviderInfoI18n.es || "";
-                    if (!titleEs && !descEs && !provEs) return;
-                    setTranslatingField("all");
-                    try {
-                      if (titleEs) {
-                        const resT = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
-                        });
-                        const dataT = await resT.json();
-                        if (dataT?.translations) {
-                          setPTitleI18n((prev) => ({
-                            ...prev,
-                            es: titleEs,
-                            en: dataT.translations.en || prev.en || titleEs,
-                            pt: dataT.translations.pt || prev.pt || titleEs,
-                            it: dataT.translations.it || prev.it || titleEs,
-                          }));
-                        }
-                      }
-                      if (descEs) {
-                        const resD = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
-                        });
-                        const dataD = await resD.json();
-                        if (dataD?.translations) {
-                          setPDescriptionI18n((prev) => ({
-                            ...prev,
-                            es: descEs,
-                            en: dataD.translations.en || prev.en || descEs,
-                            pt: dataD.translations.pt || prev.pt || descEs,
-                            it: dataD.translations.it || prev.it || descEs,
-                          }));
-                        }
-                      }
-                      if (provEs) {
-                        const resP = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: provEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
-                        });
-                        const dataP = await resP.json();
-                        if (dataP?.translations) {
-                          setPProviderInfoI18n((prev) => ({
-                            ...prev,
-                            es: provEs,
-                            en: dataP.translations.en || prev.en || provEs,
-                            pt: dataP.translations.pt || prev.pt || provEs,
-                            it: dataP.translations.it || prev.it || provEs,
-                          }));
-                        }
-                      }
-                    } catch (err) {
-                      console.error("Translation all error:", err);
-                    } finally {
-                      setTranslatingField(null);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-300 bg-gradient-to-r from-cyan-600 to-[#007D92] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-                >
-                  <Languages className="h-3.5 w-3.5 text-white" />
-                  {translatingField === "all" ? "Traduciendo..." : "🌐 Traducir publicación completa a EN, PT, IT"}
-                </button>
-              </div>
-              <div className="mt-2">
-                {renderLangTabs(pLang, (l) => {
-                  setPLang(l);
-                  setEditingLang(l);
-                }, (lang) => {
-                  if (lang === "es") return "🇪🇸 Español (ES)";
-                  if (lang === "en") return "🇬🇧 English (EN)";
-                  if (lang === "pt") return "🇧🇷 Português (PT)";
-                  if (lang === "it") return "🇮🇹 Italiano (IT)";
-                  return lang.toUpperCase();
-                })}
-              </div>
-            </div>
-          <div className="flex flex-wrap gap-3 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm shadow-slate-200/60">
-            <button type="button" onClick={() => setPEditorMode("publicacion")} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "publicacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Publicación</button>
-            <button type="button" onClick={() => { setPEditorMode("prestacion"); if (!pPrestacionResources.length) setPPrestacionResources([createEmptyPrestacionResource()]); if (!pPrestacionSteps.length) setPPrestacionSteps([createEmptyPrestacionStep()]); if (!pPrestacionFaqs.length) setPPrestacionFaqs([createEmptyPrestacionFaq()]); if (!pPrestacionColorBlocks.length) setPPrestacionColorBlocks([createEmptyPrestacionColorBlock()]); }} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "prestacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Prestaciones</button>
-          </div>
-<div className="contents min-w-0">
-          {pEditorMode !== "prestacion" ? (
-          <>
-          <AdminEditorSection
-            id="admin-publicacion-oferente"
-            tone="slate"
-            icon={<UserRound className="h-5 w-5" />}
-            title="Información del oferente"
-            description="Completá primero los datos base del perfil que se mostrará junto a la publicación."
-          >
-            <div className="grid gap-2">
-              <label className="text-sm font-medium text-slate-700">Nombre del oferente (aprobado)</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setApprovedProviderPickerOpen((prev) => !prev)}
-                  className="flex h-auto min-h-10 w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-3 text-left text-sm outline-none transition hover:bg-slate-50 focus:ring-2 focus:ring-[#00A9C6]/30"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium text-slate-900">
-                      {pProviderEmail ? `${pPublisherName || "Sin nombre"} (${pProviderEmail})` : "Seleccionar oferente aprobado"}
-                    </div>
-                    {pProviderEmail ? (
-                      <div className="truncate text-xs text-slate-500">Elegí una solicitud aprobada para autocompletar la publicación.</div>
-                    ) : null}
-                  </div>
-                  <ChevronDown className={`h-4 w-4 text-slate-400 transition ${approvedProviderPickerOpen ? "rotate-180" : ""}`} />
-                </button>
-                {approvedProviderPickerOpen ? (
-                  <div className="absolute left-0 right-0 top-full z-30 mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
-                    <input
-                      value={pApprovedProviderSearch}
-                      onChange={(e) => setPApprovedProviderSearch(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                      placeholder="Buscar oferente por nombre o email..."
-                    />
-                    <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
-                      {approvedOferentesGrouped.length ? approvedOferentesGrouped.map((group) => (
-                        <div key={`provider-group-${group.email}`} className="rounded-xl border border-slate-200 bg-slate-50">
-                          <button
-                            type="button"
-                            onClick={() => setApprovedProviderExpandedEmail((prev) => prev === group.email ? null : group.email)}
-                            className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
-                          >
-                            <div className="min-w-0">
-                              <div className="font-medium text-slate-900">{group.label}</div>
-                              <div className="truncate text-xs text-slate-500">{group.email}</div>
-                            </div>
-                            <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-slate-700">
-                              {group.services.length} solicitud(es)
-                            </span>
-                          </button>
-                          {approvedProviderExpandedEmail === group.email ? (
-                            <div className="space-y-2 border-t border-slate-200 bg-white p-3">
-                              {group.services.map((service) => {
-                                const extra = parseTravelServiceExtra(service);
-                                const identifier = service.name && service.name !== group.label ? service.name : `Solicitud ${service.id.slice(0, 8)}`;
-                                return (
-                                  <button
-                                    key={service.id}
-                                    type="button"
-                                    onClick={() => applyOferenteToPublication(service.id)}
-                                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-left hover:bg-slate-100"
-                                  >
-                                    <div className="font-medium text-slate-900">{identifier}</div>
-                                    <div className="mt-1 text-xs text-slate-600">
-                                      {[
-                                        providerRequestKindDisplayLabel(extra.requestKind),
-                                        normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan),
-                                        service.createdAt ? new Date(service.createdAt).toLocaleDateString("es-AR") : "",
-                                      ].filter(Boolean).join(" | ")}
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                        </div>
-                      )) : (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-                          No hay oferentes aprobados para mostrar.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            <div className="grid gap-2 md:grid-cols-2">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Nombre del oferente</label>
-                <input
-                  value={pPublisherName}
-                  onChange={(e) => setPPublisherName(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Ej: Ana Pérez"
-                />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
-                <button
-                  type="button"
-                  disabled={translatingField === "providerInfo"}
-                  onClick={async () => {
-                    const currentEs = pProviderInfoI18n.es;
-                    if (!currentEs) return;
-                    setTranslatingField("providerInfo");
-                    try {
-                      const res = await fetch("/api/admin/translate-i18n", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
-                      });
-                      const data = await res.json();
-                      if (data.translations) {
-                        setPProviderInfoI18n((prev) => ({
-                          ...prev,
-                          es: currentEs,
-                          en: data.translations.en || prev.en || currentEs,
-                          pt: data.translations.pt || prev.pt || currentEs,
-                          it: data.translations.it || prev.it || currentEs,
-                        }));
-                      }
-                    } catch (err) {
-                      console.error("Translation error:", err);
-                    } finally {
-                      setTranslatingField(null);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-                >
-                  <Languages className="h-3.5 w-3.5 text-cyan-600" />
-                  {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
-                </button>
-              </div>
-              <RichTextEditor
-                value={pProviderInfoI18n[pLang] ?? ""}
-                onChange={(next) => setPProviderInfoI18n((prev) => ({ ...prev, [pLang]: next }))}
-                placeholder="Texto visible en el detalle de la publicación..."
-              />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Logo del oferente (URL o archivo)</label>
-                <input
-                  value={pProviderLogo}
-                  onChange={(e) => setPProviderLogo(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="https://..."
-                />
-                <input
-                  type="file"
-                  accept={IMAGE_FILE_ACCEPT}
-                  onChange={(e) => handleProviderLogoUpload(e.target.files?.[0] ?? null)}
-                  className="w-full min-w-0 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#007D92] hover:file:bg-[#00A9C6]/20"
-                />
-                {pProviderLogo ? (
-                  <div
-                    className="relative h-14 w-14 overflow-hidden rounded-full border border-slate-300 bg-slate-100 shadow-sm flex items-center justify-center"
-                    style={{
-                      backgroundImage:
-                        "linear-gradient(45deg, #cbd5e1 25%, transparent 25%), linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cbd5e1 75%), linear-gradient(-45deg, transparent 75%, #cbd5e1 75%)",
-                      backgroundSize: "8px 8px",
-                      backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={pProviderLogo}
-                      alt="Logo del oferente"
-                      referrerPolicy="no-referrer"
-                      className="h-full w-full object-contain p-1.5 drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.7)]"
-                      onError={(e) => {
-                        try {
-                          const host = new URL(pWebsite || pProviderLogo).hostname;
-                          if (host && !e.currentTarget.src.includes("google.com/s2/favicons")) {
-                            e.currentTarget.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
-                          }
-                        } catch {}
-                      }}
-                    />
-                  </div>
-                ) : null}
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Inicio de actividad (año)</label>
-                <input
-                  value={pProviderStartYear}
-                  onChange={(e) => setPProviderStartYear(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="2010"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Valoración (0 a 5)</label>
-                <input
-                  value={pProviderRating}
-                  onChange={(e) => setPProviderRating(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="4.5"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Cantidad de comentarios</label>
-                <input
-                  value={pProviderReviewCount}
-                  onChange={(e) => setPProviderReviewCount(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="200"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Link a comentarios</label>
-                <input
-                  value={pProviderCommentsUrl}
-                  onChange={(e) => setPProviderCommentsUrl(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="https://..."
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Actividad</label>
-                {renderTaxonomyTypeDropdown(
-                  "actividad",
-                  actividadRoots,
-                  pProviderActivities,
-                  (value, checked) =>
-                    setPProviderActivities((prev) =>
-                      checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
-                    ),
-                  "No hay categorías con tipo de filtro actividad.",
-                  "Seleccionar actividades"
-                )}
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Tipo</label>
-                {renderTaxonomyTypeDropdown(
-                  "tipo",
-                  tipoRoots,
-                  pProviderTypes,
-                  (value, checked) =>
-                    setPProviderTypes((prev) =>
-                      checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
-                    ),
-                  "No hay categorías con tipo de filtro tipo.",
-                  "Seleccionar tipos"
-                )}
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-slate-200/80 bg-slate-50/75 p-4">
-              <div className="text-sm font-semibold text-slate-900">Modalidad en que ofrece sus servicios</div>
-              <div className="mt-1 text-xs text-slate-500">Marcá una o más modalidades (categorías con tipo de filtro modalidad).</div>
-              {renderTaxonomyTypeDropdown(
-                "modalidad",
-                modalidadRoots,
-                pProviderModalities,
-                (value, checked) =>
-                  setPProviderModalities((prev) =>
-                    checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
-                  ),
-                "No hay categorías con tipo de filtro modalidad."
-              )}
-            </div>
-
-          </AdminEditorSection>
-
-          <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm shadow-slate-200/60">
-            <a href="#admin-publicacion-propuesta" className="rounded-full bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100">Propuesta o publicación</a>
-            <a href="#admin-publicacion-ubicacion-precio" className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">Ubicación y precio</a>
-            <a href="#admin-publicacion-sedes" className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">Sedes y filtro por pasaporte</a>
-            <a href="#admin-publicacion-idiomas-contacto" className="rounded-full bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">Idiomas, expiración y contacto</a>
-            <a href="#admin-publicacion-imagenes" className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">Imágenes</a>
-          </div>
-
-          <AdminEditorSection
-            id="admin-publicacion-propuesta"
-            tone="indigo"
-            icon={<FileText className="h-5 w-5" />}
-            title="Propuesta o publicación"
-            description="Definí el contenido principal, cómo se clasifica y qué información verá primero la persona usuaria."
-          >
-          <div className="grid gap-4">
-            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
-              <div className="text-sm font-semibold text-slate-900">Categorías y subcategorías</div>
-              <div className="mt-1 text-xs text-slate-500">Seleccioná categoría y subcategoría desde un único selector integrado.</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOpenPublicationPanel((prev) => (prev === "category" ? null : "category"))}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  Categoría + subcategoría
-                  {openPublicationPanel === "category" ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </button>
-              </div>
-              {openPublicationPanel ? <div className="mt-3">{renderCategorySelection(openPublicationPanel)}</div> : null}
-              {(pCategorySelections.length || pSubcategorySelections.length) ? (
-                <div className="mt-4 rounded-xl border border-indigo-100 bg-white/90 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Seleccionado</div>
-                  <div className="mt-2 space-y-1 text-sm text-slate-700">
-                    {pCategorySelections.length ? (
-                      <div>
-                        <span className="font-semibold">Categorías:</span> {pCategorySelections.join(", ")}
-                      </div>
-                    ) : null}
-                    {pSubcategorySelections.length ? (
-                      <div>
-                        <span className="font-semibold">Subcategorías:</span> {pSubcategorySelections.join(", ")}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
-              <div className="text-sm font-semibold text-slate-900">Añadir prestaciones</div>
-              <div className="mt-1 text-xs text-slate-500">Seleccioná prestaciones (categorías con tipo de filtro prestación).</div>
-              {renderTaxonomyTypeDropdown(
-                "prestacion",
-                prestacionRoots,
-                pPrestaciones,
-                (value, checked) =>
-                  setPPrestaciones((prev) =>
-                    checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
-                  ),
-                "No hay categorías con tipo de filtro prestación."
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-indigo-100 bg-white/90 p-3">
-              <label htmlFor="featured" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
-                <input
-                  id="featured"
-                  type="checkbox"
-                  checked={pFeatured}
-                  onChange={(e) => setPFeatured(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]"
-                />
-                Destacado
-              </label>
-              <label htmlFor="partner" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
-                <input
-                  id="partner"
-                  type="checkbox"
-                  checked={pPartner}
-                  onChange={(e) => setPPartner(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-cyan-600"
-                />
-                Partner
-              </label>
-            </div>
-
-            <div className="grid gap-2 md:grid-cols-2">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Estado</label>
-                <select
-                  value={pStatus}
-                  onChange={(e) => setPStatus(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                >
-                  <option value="active">Activo</option>
-                  <option value="draft">Borrador</option>
-                  <option value="paused">Pausado</option>
-                  <option value="hidden">Oculto</option>
-                </select>
-              </div>
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Título de la publicación <span className="font-bold text-[#007D92]">({pLang.toUpperCase()})</span>
-                  </label>
-                  <button
-                    type="button"
-                    disabled={translatingField === "title"}
-                    onClick={async () => {
-                      const currentEs = pTitleI18n.es || pTitle;
-                      if (!currentEs) return;
-                      setTranslatingField("title");
-                      try {
-                        const res = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
-                        });
-                        const data = await res.json();
-                        if (data?.translations) {
-                          setPTitleI18n((prev) => ({
-                            ...prev,
-                            es: currentEs,
-                            en: data.translations.en || prev.en || currentEs,
-                            pt: data.translations.pt || prev.pt || currentEs,
-                            it: data.translations.it || prev.it || currentEs,
-                          }));
-                        }
-                      } catch (err) {
-                        console.error("Translation error:", err);
-                      } finally {
-                        setTranslatingField(null);
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-                  >
-                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
-                    {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
-                  </button>
-                </div>
-                <input
-                  value={pTitleI18n[pLang] ?? ""}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setPTitleI18n((prev) => ({ ...prev, [pLang]: next }));
-                    if (pLang === "es") setPTitle(next);
-                  }}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder={`Ej: Acompañamos tu registro (${pLang.toUpperCase()})...`}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Descripción <span className="font-bold text-[#007D92]">({pLang.toUpperCase()})</span>
-                  </label>
-                  {pDescriptionI18n[pLang] ? (
-                    <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                      ✓ Idioma {pLang.toUpperCase()} activo
-                    </span>
-                  ) : (
-                    <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                      ⚠️ Vacío en {pLang.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {renderLangTabs(pLang, (l) => {
-                    setPLang(l);
-                    setEditingLang(l);
-                  })}
-                  <button
-                    type="button"
-                    disabled={translatingField === "description"}
-                    onClick={async () => {
-                      const currentEs = pDescriptionI18n.es || pDescription;
-                      if (!currentEs) return;
-                      setTranslatingField("description");
-                      try {
-                        const res = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
-                        });
-                        const data = await res.json();
-                        if (data?.translations) {
-                          setPDescriptionI18n((prev) => ({
-                            ...prev,
-                            es: currentEs,
-                            en: data.translations.en || prev.en || currentEs,
-                            pt: data.translations.pt || prev.pt || currentEs,
-                            it: data.translations.it || prev.it || currentEs,
-                          }));
-                        }
-                      } catch (err) {
-                        console.error("Translation error:", err);
-                      } finally {
-                        setTranslatingField(null);
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-                  >
-                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
-                    {translatingField === "description" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
-                  </button>
-                </div>
-              </div>
-              <RichTextEditor
-                value={pDescriptionI18n[pLang] ?? ""}
-                onChange={(next) => {
-                  setPDescriptionI18n((prev) => ({ ...prev, [pLang]: next }));
-                  if (pLang === "es") setPDescription(next);
-                }}
-                placeholder={`Texto de la publicación (${pLang.toUpperCase()})...`}
-              />
-            </div>
-
-            <div className="grid gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-slate-900">Descripción opcional</div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPExtraDescriptions((prev) => [
-                      ...prev,
-                      { title: "", body: "", titleI18n: { es: "" }, bodyI18n: { es: "" }, lang: "es", visibleInCard: false },
-                    ])
-                  }
-                  className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  + Agregar bloque
-                </button>
-              </div>
-
-              {pExtraDescriptions.length ? (
-                <div className="grid gap-3">
-                  {pExtraDescriptions.map((desc, idx) => (
-                    <div key={`extra-${idx}`} className="grid gap-2 rounded-xl border border-slate-100 p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={translatingField === `extra-${idx}`}
-                            onClick={async () => {
-                              const titleEs = desc.titleI18n?.es || desc.title;
-                              const bodyEs = desc.bodyI18n?.es || desc.body;
-                              if (!titleEs && !bodyEs) return;
-                              setTranslatingField(`extra-${idx}`);
-                              try {
-                                const promises = [];
-                                if (titleEs) {
-                                  promises.push(
-                                    fetch("/api/admin/translate-i18n", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
-                                    }).then((res) => res.json())
-                                  );
-                                } else { promises.push(Promise.resolve(null)); }
-                                if (bodyEs) {
-                                  promises.push(
-                                    fetch("/api/admin/translate-i18n", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ text: bodyEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
-                                    }).then((res) => res.json())
-                                  );
-                                } else { promises.push(Promise.resolve(null)); }
-                                const [tRes, bRes] = await Promise.all(promises);
-                                setPExtraDescriptions((prev) =>
-                                  prev.map((d, i) => {
-                                    if (i !== idx) return d;
-                                    const nextTitleI18n = { ...d.titleI18n, es: titleEs };
-                                    if (tRes?.translations) {
-                                      ["en", "pt", "it"].forEach((l) => { if (tRes.translations[l]) (nextTitleI18n as any)[l] = tRes.translations[l]; });
-                                    }
-                                    const nextBodyI18n = { ...d.bodyI18n, es: bodyEs };
-                                    if (bRes?.translations) {
-                                      ["en", "pt", "it"].forEach((l) => { if (bRes.translations[l]) (nextBodyI18n as any)[l] = bRes.translations[l]; });
-                                    }
-                                    return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
-                                  })
-                                );
-                              } catch (err) {
-                                console.error("Extra block translate error:", err);
-                              } finally {
-                                setTranslatingField(null);
-                              }
-                            }}
-                            className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-                          >
-                            <Languages className="h-3 w-3 text-cyan-600" />
-                            {translatingField === `extra-${idx}` ? "Traduciendo..." : "Traducir bloque (EN, PT, IT)"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx))
-                            }
-                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </div>
-                      <input
-                        value={desc.titleI18n[pLang] ?? ""}
-                        onChange={(e) =>
-                          setPExtraDescriptions((prev) =>
-                            prev.map((d, i) =>
-                              i === idx
-                                ? {
-                                    ...d,
-                                    titleI18n: { ...d.titleI18n, [pLang]: e.target.value },
-                                    title: pLang === "es" ? e.target.value : d.title,
-                                  }
-                                : d
-                            )
-                          )
-                        }
-                        className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                        placeholder="Título del bloque"
-                      />
-                      <RichTextEditor
-                        value={desc.bodyI18n[pLang] ?? ""}
-                        onChange={(next) =>
-                          setPExtraDescriptions((prev) =>
-                            prev.map((d, i) =>
-                              i === idx
-                                ? {
-                                    ...d,
-                                    bodyI18n: { ...d.bodyI18n, [pLang]: next },
-                                    body: pLang === "es" ? next : d.body,
-                                  }
-                                : d
-                            )
-                          )
-                        }
-                        placeholder="Descripción adicional..."
-                        minHeightClassName="min-h-[80px]"
-                      />
-                      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                        <input
-                          type="checkbox"
-                          checked={booleanLike(desc.visibleInCard)}
-                          onChange={(e) =>
-                            setPExtraDescriptions((prev) =>
-                              prev.map((d, i) =>
-                                i === idx
-                                  ? {
-                                      ...d,
-                                      visibleInCard: e.target.checked,
-                                    }
-                                  : d
-                              )
-                            )
-                          }
-                          className="h-4 w-4 rounded border-slate-300 text-[#00A9C6] focus:ring-[#00A9C6]"
-                        />
-                        Visible en la tarjeta
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-500">
-                  Podés agregar más bloques de descripción con un título propio.
+        <section ref={publicationsTopRef} className="overflow-x-hidden rounded-3xl border border-slate-100 bg-white p-3 shadow-sm sm:p-6">
+          <details open className="group">
+            <summary className="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border border-transparent px-1 py-1 transition hover:border-slate-100 hover:bg-slate-50">
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900">Publicaciones</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Las publicaciones aparecen en <b>/buscar</b> y se filtran con múltiples selecciones por bloque.
                 </p>
-              )}
-            </div>
-          </div>
-          </AdminEditorSection>
+              </div>
+              <ChevronDown className="mt-2 h-4 w-4 text-[#00A9C6] transition group-open:rotate-180" />
+            </summary>
 
-          <AdminEditorSection
-            id="admin-publicacion-ubicacion-precio"
-            tone="sky"
-            icon={<MapPinned className="h-5 w-5" />}
-            title="Ubicación y precio"
-            description="Agrupá destino, ciudad, mapa y la configuración comercial en un mismo bloque más fácil de completar."
-          >
-          <div className="grid gap-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">País (destino del viaje)</label>
-                <CountryMultiSelect
-                  label="Seleccionar país destino"
-                  showLabel={false}
-                  selectionMode="single"
-                  compact
-                  selectedSingle={pCountry}
-                  onSingleChange={setPCountry}
-                  placeholder="Seleccioná un país destino."
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Ciudad (destino del viaje)</label>
-                <input
-                  value={pCity}
-                  onChange={(e) => setPCity(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Ciudad de Mendoza"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Ubicación de Google Maps (URL)</label>
-                <input
-                  value={pLocationAddress}
-                  onChange={(e) => setPLocationAddress(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="https://maps.google.com/..."
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Moneda principal</label>
-                <select
-                  value={pCurrency}
-                  onChange={(e) => setPCurrency(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                >
-                  <option value="ARS">ARS</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="BRL">BRL</option>
-                  <option value="CLP">CLP</option>
-                  <option value="COP">COP</option>
-                  <option value="MXN">MXN</option>
-                  <option value="PEN">PEN</option>
-                  <option value="UYU">UYU</option>
-                  <option value="JPY">JPY</option>
-                </select>
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Precio</label>
-                <input
-                  value={pPrice}
-                  onChange={(e) => setPPrice(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="150000"
-                  disabled={/^precio a convenir$/i.test(String(pPrice).trim())}
-                />
-                <label className="flex items-center gap-2 text-xs text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={/^precio a convenir$/i.test(String(pPrice).trim())}
-                    onChange={(e) => setPPrice(e.target.checked ? "Precio a convenir" : "")}
-                    className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]"
-                  />
-                  Precio a convenir
-                </label>
-                {/^precio a convenir$/i.test(String(pPrice).trim()) ? (
-                  <input
-                    value={pPrice}
-                    onChange={(e) => setPPrice(e.target.value)}
-                    className="h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                    placeholder="Texto para mostrar cuando no hay precio"
-                  />
-                ) : null}
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-slate-700">Periodo de precio</label>
-                <select
-                  value={pPricePeriod}
-                  onChange={(e) => setPPricePeriod(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                >
-                  <option value="">Sin período</option>
-                  <option value="month">por mes</option>
-                  <option value="week">por semana</option>
-                  <option value="day">por día</option>
-                  <option value="year">por año</option>
-                  <option value="once">único</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid gap-2 rounded-2xl border border-sky-100 bg-sky-50/45 p-4">
-              <label className="text-sm font-medium text-slate-700">Precios por moneda</label>
-              <div className="space-y-2">
-                {pExtraPrices.length ? (
-                  pExtraPrices.map((entry, idx) => (
-                    <div key={`price-${idx}`} className="flex flex-wrap items-center gap-2">
-                      <select
-                        value={entry.currency}
-                        onChange={(e) =>
-                          setPExtraPrices((prev) =>
-                            prev.map((item, index) =>
-                              index === idx ? { ...item, currency: e.target.value } : item
-                            )
-                          )
-                        }
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                      >
-                        <option value="">Moneda</option>
-                        <option value="ARS">ARS</option>
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="BRL">BRL</option>
-                        <option value="CLP">CLP</option>
-                        <option value="COP">COP</option>
-                        <option value="MXN">MXN</option>
-                        <option value="PEN">PEN</option>
-                        <option value="UYU">UYU</option>
-                        <option value="JPY">JPY</option>
-                      </select>
-                      <input
-                        value={entry.amount}
-                        onChange={(e) =>
-                          setPExtraPrices((prev) =>
-                            prev.map((item, index) =>
-                              index === idx ? { ...item, amount: e.target.value } : item
-                            )
-                          )
-                        }
-                        className="h-10 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                        placeholder="Monto"
-                      />
+            {(showPublicationEditor || isNewPublicationPage) ? (
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-[#007D92] hover:bg-cyan-100">Generar con IA</button>
+                    <button type="button" onClick={() => (isNewPublicationPage ? router.push(`${basePath}?section=publicaciones`) : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
+                  </div>
+                </div>
+                <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
+                  <div className="grid gap-2 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <label className="text-sm font-semibold text-slate-900">Idioma de edición de la publicación</label>
+                        <p className="text-xs text-slate-500">
+                          Seleccioná la pestaña para ver y editar los textos en cada idioma (título, descripción, descripciones opcionales e información del oferente).
+                        </p>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setPExtraPrices((prev) => prev.filter((_, index) => index !== idx))}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                      >
-                        Quitar
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-xs text-slate-500">Sumá precios adicionales por moneda.</div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setPExtraPrices((prev) => [...prev, { currency: "", amount: "" }])}
-                className="mt-2 w-fit rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-              >
-                + Agregar precio
-              </button>
-            </div>
-          </div>
-          </AdminEditorSection>
-
-          <AdminEditorSection
-            id="admin-publicacion-sedes"
-            tone="emerald"
-            icon={<Building2 className="h-5 w-5" />}
-            title="Sedes y filtro por pasaporte"
-            description="Separá claramente dónde opera el oferente y desde qué países puede recibir viajeros."
-          >
-            <div className="grid gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/45 p-4">
-              <div className="text-xs font-semibold uppercase text-slate-500">Sede principal del oferente</div>
-              <div className="grid gap-2 md:grid-cols-3">
-                <CountryMultiSelect
-                  label="País de la sede"
-                  showLabel={false}
-                  selectionMode="single"
-                  compact
-                  selectedSingle={pHeadquarterCountry}
-                  onSingleChange={setPHeadquarterCountry}
-                  placeholder="País de la sede"
-                />
-                <input
-                  value={pHeadquarterCity}
-                  onChange={(e) => setPHeadquarterCity(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Ciudad de la sede"
-                />
-                <input
-                  value={pHeadquarterMapUrl}
-                  onChange={(e) => setPHeadquarterMapUrl(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  placeholder="Link de Google Maps (opcional)"
-                />
-              </div>
-            </div>
-            <div className="grid gap-2 rounded-2xl border border-emerald-100 bg-white/90 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-semibold uppercase text-slate-500">Sedes adicionales</div>
-                <button
-                  type="button"
-                  onClick={() => setPHeadquarterExtras((prev) => [...prev, { country: "", city: "", mapUrl: "" }])}
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                >
-                  + Agregar sede
-                </button>
-              </div>
-              {pHeadquarterExtras.length ? (
-                <div className="space-y-2">
-                  {pHeadquarterExtras.map((loc, idx) => (
-                    <div key={`hq-${idx}`} className="grid gap-2 md:grid-cols-3">
-                      <CountryMultiSelect
-                        label={`País sede adicional ${idx + 1}`}
-                        showLabel={false}
-                        selectionMode="single"
-                        compact
-                        selectedSingle={loc.country}
-                        onSingleChange={(nextCountry) =>
-                          setPHeadquarterExtras((prev) =>
-                            prev.map((item, index) =>
-                              index === idx ? { ...item, country: nextCountry } : item
-                            )
-                          )
-                        }
-                        placeholder="País de la sede"
-                      />
-                      <input
-                        value={loc.city}
-                        onChange={(e) =>
-                          setPHeadquarterExtras((prev) =>
-                            prev.map((item, index) =>
-                              index === idx ? { ...item, city: e.target.value } : item
-                            )
-                          )
-                        }
-                        className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                        placeholder="Ciudad de la sede"
-                      />
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <input
-                          value={loc.mapUrl}
-                          onChange={(e) =>
-                            setPHeadquarterExtras((prev) =>
-                              prev.map((item, index) =>
-                                index === idx ? { ...item, mapUrl: e.target.value } : item
-                              )
-                            )
+                        disabled={translatingField === "all"}
+                        onClick={async () => {
+                          const titleEs = pTitleI18n.es || pTitle;
+                          const descEs = pDescriptionI18n.es || pDescription;
+                          const provEs = pProviderInfoI18n.es || "";
+                          if (!titleEs && !descEs && !provEs) return;
+                          setTranslatingField("all");
+                          try {
+                            if (titleEs) {
+                              const resT = await fetch("/api/admin/translate-i18n", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
+                              });
+                              const dataT = await resT.json();
+                              if (dataT?.translations) {
+                                setPTitleI18n((prev) => ({
+                                  ...prev,
+                                  es: titleEs,
+                                  en: dataT.translations.en || prev.en || titleEs,
+                                  pt: dataT.translations.pt || prev.pt || titleEs,
+                                  it: dataT.translations.it || prev.it || titleEs,
+                                }));
+                              }
+                            }
+                            if (descEs) {
+                              const resD = await fetch("/api/admin/translate-i18n", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                              });
+                              const dataD = await resD.json();
+                              if (dataD?.translations) {
+                                setPDescriptionI18n((prev) => ({
+                                  ...prev,
+                                  es: descEs,
+                                  en: dataD.translations.en || prev.en || descEs,
+                                  pt: dataD.translations.pt || prev.pt || descEs,
+                                  it: dataD.translations.it || prev.it || descEs,
+                                }));
+                              }
+                            }
+                            if (provEs) {
+                              const resP = await fetch("/api/admin/translate-i18n", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ text: provEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                              });
+                              const dataP = await resP.json();
+                              if (dataP?.translations) {
+                                setPProviderInfoI18n((prev) => ({
+                                  ...prev,
+                                  es: provEs,
+                                  en: dataP.translations.en || prev.en || provEs,
+                                  pt: dataP.translations.pt || prev.pt || provEs,
+                                  it: dataP.translations.it || prev.it || provEs,
+                                }));
+                              }
+                            }
+                          } catch (err) {
+                            console.error("Translation all error:", err);
+                          } finally {
+                            setTranslatingField(null);
                           }
-                          className="h-10 flex-1 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                          placeholder="Link de Google Maps (opcional)"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setPHeadquarterExtras((prev) => prev.filter((_, index) => index !== idx))}
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          Quitar
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-slate-500">Podés sumar más sedes si aplica.</div>
-              )}
-            </div>
-
-            <div className="grid gap-2 rounded-2xl border border-emerald-100 bg-white/90 p-4">
-              <label className="text-sm font-medium text-slate-700">Filtro por pasaporte</label>
-              <select
-                value={pReceivingCountriesMode}
-                onChange={(e) => setPReceivingCountriesMode(e.target.value as "all" | "only" | "except")}
-                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-              >
-                <option value="all">Recibe viajeros de todos los países</option>
-                <option value="only">Recibe solo los países seleccionados</option>
-                <option value="except">Recibe todos los países excepto los seleccionados</option>
-              </select>
-            </div>
-
-            {pReceivingCountriesMode === "all" ? (
-              <div className="text-xs text-slate-500">No se aplican restricciones por pasaporte.</div>
-            ) : (
-              <CountryMultiSelect
-                label={
-                  pReceivingCountriesMode === "except"
-                    ? "Países que NO recibe"
-                    : "Países que recibe"
-                }
-                selected={pReceivingCountries}
-                onChange={setPReceivingCountries}
-                placeholder="Seleccioná países para aplicar el filtro."
-              />
-            )}
-          </AdminEditorSection>
-
-          <AdminEditorSection
-            id="admin-publicacion-idiomas-contacto"
-            tone="amber"
-            icon={<Languages className="h-5 w-5" />}
-            title="Idiomas, expiración y contacto"
-            description="Terminá la configuración pública y operativa de la publicación sin mezclarla con el material visual."
-          >
-          <div className="grid gap-3 rounded-2xl border border-amber-100 bg-amber-50/45 p-4">
-            <label className="text-sm font-medium text-slate-700">Idiomas que se hablan</label>
-            {renderTaxonomyTypeDropdown(
-              "idiomas",
-              idiomaRoots,
-              pLanguages.split(",").map((v) => v.trim()).filter(Boolean),
-              (value, checked) => {
-                const current = pLanguages.split(",").map((v) => v.trim()).filter(Boolean);
-                const next = checked
-                  ? Array.from(new Set([...current, value]))
-                  : current.filter((v) => v !== value);
-                setPLanguages(next.join(", "));
-              },
-              "No hay categorías con tipo de filtro idiomas."
-            )}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="text-sm font-medium text-slate-700">Fecha y hora de expiración</label>
-                <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="text-slate-400 font-medium mr-1">Calcular:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 60);
-                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-                      setPExpirationTime("23:59");
-                    }}
-                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
-                  >
-                    +60d
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 120);
-                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-                      setPExpirationTime("23:59");
-                    }}
-                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
-                  >
-                    +120d
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 180);
-                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-                      setPExpirationTime("23:59");
-                    }}
-                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
-                  >
-                    +180d
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 365);
-                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-                      setPExpirationTime("23:59");
-                    }}
-                    className="rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 font-semibold transition-colors border border-emerald-200"
-                  >
-                    +365d (Partner)
-                  </button>
-                  {(pExpirationDate || pExpirationTime) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPExpirationDate("");
-                        setPExpirationTime("");
-                      }}
-                      className="rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 px-2 py-1 font-medium transition-colors"
-                    >
-                      Limpiar
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <input
-                  type="date"
-                  value={pExpirationDate}
-                  onChange={(e) => setPExpirationDate(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                />
-                <input
-                  type="time"
-                  value={pExpirationTime}
-                  onChange={(e) => setPExpirationTime(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  step={60}
-                />
-              </div>
-              <p className="text-xs text-slate-500">Selecciona la fecha en el calendario. La hora es opcional (por defecto 23:59).</p>
-            </div>
-            <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
-              <label className="text-sm font-medium text-slate-700">Página web</label>
-              <input
-                value={pWebsite}
-                onChange={(e) => setPWebsite(e.target.value)}
-                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                placeholder="https://"
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-3 rounded-2xl border border-amber-100 bg-white p-4 shadow-sm shadow-amber-100/70">
-            <div className="text-sm font-semibold text-slate-900">Redes sociales y contacto</div>
-            <div className="space-y-3">
-              {pSocialLinksDetailed.map((entry, idx) => (
-                <div key={`link-${idx}`} className="grid gap-2 md:grid-cols-[minmax(120px,180px)_1fr_1fr_auto] items-center">
-                  <select
-                    value={entry.kind}
-                    onChange={(e) =>
-                      setPSocialLinksDetailed((prev) =>
-                        prev.map((item, index) =>
-                          index === idx ? { ...item, kind: e.target.value } : item
-                        )
-                      )
-                    }
-                    className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                  >
-                    {linkKindOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    value={entry.label}
-                    onChange={(e) =>
-                      setPSocialLinksDetailed((prev) =>
-                        prev.map((item, index) =>
-                          index === idx ? { ...item, label: e.target.value } : item
-                        )
-                      )
-                    }
-                    className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                    placeholder="Renombre del link (opcional)"
-                  />
-                  <input
-                    value={entry.url}
-                    onChange={(e) =>
-                      setPSocialLinksDetailed((prev) =>
-                        prev.map((item, index) =>
-                          index === idx ? { ...item, url: e.target.value } : item
-                        )
-                      )
-                    }
-                    className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                    placeholder="Link o email"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setPSocialLinksDetailed((prev) => prev.filter((_, index) => index !== idx))}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                  >
-                    Quitar
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() =>
-                  setPSocialLinksDetailed((prev) => [
-                    ...prev,
-                    { kind: "web", label: "", url: "" },
-                  ])
-                }
-                className="w-fit rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-              >
-                + Agregar link
-              </button>
-            </div>
-          </div>
-          <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
-            <label className="text-sm font-medium text-slate-700">Idioma de edición</label>
-            {renderLangTabs(pLang, setEditingLang)}
-            <p className="text-xs text-slate-500">
-              Cambia el idioma de todos los campos traducibles de esta publicación sin tocar URLs, nombres propios ni precios.
-            </p>
-          </div>
-          </AdminEditorSection>
-
-          <AdminEditorSection
-            id="admin-publicacion-imagenes"
-            tone="slate"
-            icon={<ImageIcon className="h-5 w-5" />}
-            title="Imágenes"
-            description="Cargá o pegá URLs de las imágenes en un bloque aparte para que el flujo del formulario sea más limpio."
-          >
-          <div className="grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/65 p-4">
-            <label className="text-sm font-medium text-slate-700">Imágenes (URLs o subida directa)</label>
-            <textarea
-              value={pImageUrls}
-              onChange={(e) => setPImageUrls(e.target.value)}
-              className="min-h-[90px] rounded-xl border border-slate-200 bg-white p-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-              placeholder="https://... \nhttps://..."
-            />
-            <input
-              type="file"
-              accept={IMAGE_FILE_ACCEPT}
-              multiple
-              onChange={(e) => handleImageUpload(e.target.files)}
-              className="w-full min-w-0 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#007D92] hover:file:bg-[#00A9C6]/20"
-            />
-            {imageList.length ? (
-              <div className="grid gap-3 md:grid-cols-4">
-                {imageList.map((img, idx) => (
-                  <div key={`${img}-${idx}`} className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/60">
-                    <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => removeImage(img)}
-                        className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-xs font-semibold text-slate-600 shadow"
-                        aria-label="Quitar imagen"
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-300 bg-gradient-to-r from-cyan-600 to-[#007D92] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <Languages className="h-3.5 w-3.5 text-white" />
+                        {translatingField === "all" ? "Traduciendo..." : "🌐 Traducir publicación completa a EN, PT, IT"}
                       </button>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img} alt={`preview-${idx}`} className="h-full w-full object-cover" />
+                    </div>
+                    <div className="mt-2">
+                      {renderLangTabs(pLang, (l) => {
+                        setPLang(l);
+                        setEditingLang(l);
+                      }, (lang) => {
+                        if (lang === "es") return "🇪🇸 Español (ES)";
+                        if (lang === "en") return "🇬🇧 English (EN)";
+                        if (lang === "pt") return "🇧🇷 Português (PT)";
+                        if (lang === "it") return "🇮🇹 Italiano (IT)";
+                        return lang.toUpperCase();
+                      })}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          </AdminEditorSection>
-
-          </>
-          ) : null}
-
-          {pEditorMode === "prestacion" ? (
-            <div className="grid gap-5">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <label className="text-sm font-semibold text-slate-900">Estado de la prestación</label>
-                <select
-                  value={pStatus}
-                  onChange={(e) => setPStatus(e.target.value)}
-                  className="mt-3 h-10 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
-                >
-                  <option value="active">Activo</option>
-                  <option value="draft">Borrador</option>
-                  <option value="paused">Pausado</option>
-                  <option value="hidden">Oculto</option>
-                </select>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-sm font-semibold text-slate-900">Prestación vinculada a la publicación</div>
-                <p className="mt-1 text-xs text-slate-500">Elegí a qué categoría con tipo de filtro prestación pertenece esta publicación.</p>
-                <div className="mt-3 grid gap-2">
-                  <label className="text-xs font-medium text-slate-500">Seleccionar prestación</label>
-                  <select
-                    value={pPrestacionCategory}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      setPPrestacionCategory(next);
-                      setPPrestaciones(next ? [next] : []);
-                    }}
-                    className="h-10 rounded-xl border border-slate-200 px-3"
-                  >
-                    <option value="">Seleccionar prestación</option>
-                    {prestacionRoots.map((opt) => (
-                      <option key={`prestation-category-${opt.id}`} value={opt.description}>{pickI18nText(opt.descriptionI18n ?? null, pLang, opt.description)}</option>
-                    ))}
-                  </select>
-                  {!prestacionRoots.length ? <div className="text-xs text-slate-500">No hay categorías con tipo de filtro prestación.</div> : null}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-sm font-semibold text-slate-900">Elegir categorías o subcategorías vinculadas con la publicación</div>
-                <p className="mt-1 text-xs text-slate-500">Seleccioná categorías y subcategorías relacionadas. Se muestran todas excepto las de tipo prestación.</p>
-                <button
-                  type="button"
-                  onClick={() => setOpenPublicationPanel((prev) => (prev === "category" ? null : "category"))}
-                  className="mt-3 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <span>{pCategorySelections.length || pSubcategorySelections.length ? "Editar categorías vinculadas" : "Seleccionar categorías vinculadas"}</span>
-                  {openPublicationPanel === "category" ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </button>
-                {openPublicationPanel ? <div className="mt-3">{renderCategorySelection(openPublicationPanel)}</div> : null}
-                {(pCategorySelections.length || pSubcategorySelections.length) ? (
-                  <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Vinculado</div>
-                    <div className="mt-2 space-y-1 text-sm text-slate-700">
-                      {pCategorySelections.length ? (
-                        <div>
-                          <span className="font-semibold">Categorías:</span> {pCategorySelections.join(", ")}
-                        </div>
-                      ) : null}
-                      {pSubcategorySelections.length ? (
-                        <div>
-                          <span className="font-semibold">Subcategorías:</span> {pSubcategorySelections.join(", ")}
-                        </div>
-                      ) : null}
-                    </div>
+                  <div className="flex flex-wrap gap-3 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm shadow-slate-200/60">
+                    <button type="button" onClick={() => setPEditorMode("publicacion")} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "publicacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Publicación</button>
+                    <button type="button" onClick={() => { setPEditorMode("prestacion"); if (!pPrestacionResources.length) setPPrestacionResources([createEmptyPrestacionResource()]); if (!pPrestacionSteps.length) setPPrestacionSteps([createEmptyPrestacionStep()]); if (!pPrestacionFaqs.length) setPPrestacionFaqs([createEmptyPrestacionFaq()]); if (!pPrestacionColorBlocks.length) setPPrestacionColorBlocks([createEmptyPrestacionColorBlock()]); }} className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition sm:flex-none ${pEditorMode === "prestacion" ? "bg-[#273166] text-white shadow-[0_12px_30px_rgba(39,49,102,0.22)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Prestaciones</button>
                   </div>
-                ) : null}
-              </div>
+                  <div className="contents min-w-0">
+                    {pEditorMode !== "prestacion" ? (
+                      <>
+                        <AdminEditorSection
+                          id="admin-publicacion-oferente"
+                          tone="slate"
+                          icon={<UserRound className="h-5 w-5" />}
+                          title="Información del oferente"
+                          description="Completá primero los datos base del perfil que se mostrará junto a la publicación."
+                        >
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium text-slate-700">Nombre del oferente (aprobado)</label>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setApprovedProviderPickerOpen((prev) => !prev)}
+                                className="flex h-auto min-h-10 w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-3 text-left text-sm outline-none transition hover:bg-slate-50 focus:ring-2 focus:ring-[#00A9C6]/30"
+                              >
+                                <div className="min-w-0">
+                                  <div className="font-medium text-slate-900">
+                                    {pProviderEmail ? `${pPublisherName || "Sin nombre"} (${pProviderEmail})` : "Seleccionar oferente aprobado"}
+                                  </div>
+                                  {pProviderEmail ? (
+                                    <div className="truncate text-xs text-slate-500">Elegí una solicitud aprobada para autocompletar la publicación.</div>
+                                  ) : null}
+                                </div>
+                                <ChevronDown className={`h-4 w-4 text-slate-400 transition ${approvedProviderPickerOpen ? "rotate-180" : ""}`} />
+                              </button>
+                              {approvedProviderPickerOpen ? (
+                                <div className="absolute left-0 right-0 top-full z-30 mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+                                  <input
+                                    value={pApprovedProviderSearch}
+                                    onChange={(e) => setPApprovedProviderSearch(e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                    placeholder="Buscar oferente por nombre o email..."
+                                  />
+                                  <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+                                    {approvedOferentesGrouped.length ? approvedOferentesGrouped.map((group) => (
+                                      <div key={`provider-group-${group.email}`} className="rounded-xl border border-slate-200 bg-slate-50">
+                                        <button
+                                          type="button"
+                                          onClick={() => setApprovedProviderExpandedEmail((prev) => prev === group.email ? null : group.email)}
+                                          className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
+                                        >
+                                          <div className="min-w-0">
+                                            <div className="font-medium text-slate-900">{group.label}</div>
+                                            <div className="truncate text-xs text-slate-500">{group.email}</div>
+                                          </div>
+                                          <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-slate-700">
+                                            {group.services.length} solicitud(es)
+                                          </span>
+                                        </button>
+                                        {approvedProviderExpandedEmail === group.email ? (
+                                          <div className="space-y-2 border-t border-slate-200 bg-white p-3">
+                                            {group.services.map((service) => {
+                                              const extra = parseTravelServiceExtra(service);
+                                              const identifier = service.name && service.name !== group.label ? service.name : `Solicitud ${service.id.slice(0, 8)}`;
+                                              return (
+                                                <button
+                                                  key={service.id}
+                                                  type="button"
+                                                  onClick={() => applyOferenteToPublication(service.id)}
+                                                  className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-left hover:bg-slate-100"
+                                                >
+                                                  <div className="font-medium text-slate-900">{identifier}</div>
+                                                  <div className="mt-1 text-xs text-slate-600">
+                                                    {[
+                                                      providerRequestKindDisplayLabel(extra.requestKind),
+                                                      normalizeProviderPlanLabel(extra.requestedPlan ?? extra.publicationPlan),
+                                                      service.createdAt ? new Date(service.createdAt).toLocaleDateString("es-AR") : "",
+                                                    ].filter(Boolean).join(" | ")}
+                                                  </div>
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    )) : (
+                                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                                        No hay oferentes aprobados para mostrar.
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="grid gap-2 md:grid-cols-2">
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium text-slate-700">Nombre del oferente</label>
+                              <input
+                                value={pPublisherName}
+                                onChange={(e) => setPPublisherName(e.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                placeholder="Ej: Ana Pérez"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid gap-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <label className="text-sm font-medium text-slate-700">Descripción del oferente</label>
+                              <button
+                                type="button"
+                                disabled={translatingField === "providerInfo"}
+                                onClick={async () => {
+                                  const currentEs = pProviderInfoI18n.es;
+                                  if (!currentEs) return;
+                                  setTranslatingField("providerInfo");
+                                  try {
+                                    const res = await fetch("/api/admin/translate-i18n", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                                    });
+                                    const data = await res.json();
+                                    if (data.translations) {
+                                      setPProviderInfoI18n((prev) => ({
+                                        ...prev,
+                                        es: currentEs,
+                                        en: data.translations.en || prev.en || currentEs,
+                                        pt: data.translations.pt || prev.pt || currentEs,
+                                        it: data.translations.it || prev.it || currentEs,
+                                      }));
+                                    }
+                                  } catch (err) {
+                                    console.error("Translation error:", err);
+                                  } finally {
+                                    setTranslatingField(null);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                              >
+                                <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                                {translatingField === "providerInfo" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                              </button>
+                            </div>
+                            <RichTextEditor
+                              value={pProviderInfoI18n[pLang] ?? ""}
+                              onChange={(next) => setPProviderInfoI18n((prev) => ({ ...prev, [pLang]: next }))}
+                              placeholder="Texto visible en el detalle de la publicación..."
+                            />
+                          </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-sm font-semibold text-slate-900">Lugar de destino (visibilidad)</div>
-                <p className="mt-1 text-xs text-slate-500">Seleccioná uno o más países en los que querés mostrar esta prestación en /buscar.</p>
-                <div className="mt-3">
-                  <CountryMultiSelect
-                    label="Países donde se muestra"
-                    selected={pPrestacionDestinationCountries}
-                    onChange={setPPrestacionDestinationCountries}
-                    placeholder="Seleccioná países destino"
-                  />
-                </div>
-              </div>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium text-slate-700">Logo del oferente (URL o archivo)</label>
+                              <input
+                                value={pProviderLogo}
+                                onChange={(e) => setPProviderLogo(e.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                placeholder="https://..."
+                              />
+                              <input
+                                type="file"
+                                accept={IMAGE_FILE_ACCEPT}
+                                onChange={(e) => handleProviderLogoUpload(e.target.files?.[0] ?? null)}
+                                className="w-full min-w-0 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#007D92] hover:file:bg-[#00A9C6]/20"
+                              />
+                              {pProviderLogo ? (
+                                <div
+                                  className="relative h-14 w-14 overflow-hidden rounded-full border border-slate-300 bg-slate-100 shadow-sm flex items-center justify-center"
+                                  style={{
+                                    backgroundImage:
+                                      "linear-gradient(45deg, #cbd5e1 25%, transparent 25%), linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cbd5e1 75%), linear-gradient(-45deg, transparent 75%, #cbd5e1 75%)",
+                                    backgroundSize: "8px 8px",
+                                    backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
+                                  }}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={pProviderLogo}
+                                    alt="Logo del oferente"
+                                    referrerPolicy="no-referrer"
+                                    className="h-full w-full object-contain p-1.5 drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.7)]"
+                                    onError={(e) => {
+                                      try {
+                                        const host = new URL(pWebsite || pProviderLogo).hostname;
+                                        if (host && !e.currentTarget.src.includes("google.com/s2/favicons")) {
+                                          e.currentTarget.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+                                        }
+                                      } catch { }
+                                    }}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium text-slate-700">Inicio de actividad (año)</label>
+                              <input
+                                value={pProviderStartYear}
+                                onChange={(e) => setPProviderStartYear(e.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                placeholder="2010"
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium text-slate-700">Valoración (0 a 5)</label>
+                              <input
+                                value={pProviderRating}
+                                onChange={(e) => setPProviderRating(e.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                placeholder="4.5"
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium text-slate-700">Cantidad de comentarios</label>
+                              <input
+                                value={pProviderReviewCount}
+                                onChange={(e) => setPProviderReviewCount(e.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                placeholder="200"
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium text-slate-700">Link a comentarios</label>
+                              <input
+                                value={pProviderCommentsUrl}
+                                onChange={(e) => setPProviderCommentsUrl(e.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                placeholder="https://..."
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium text-slate-700">Actividad</label>
+                              {renderTaxonomyTypeDropdown(
+                                "actividad",
+                                actividadRoots,
+                                pProviderActivities,
+                                (value, checked) =>
+                                  setPProviderActivities((prev) =>
+                                    checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
+                                  ),
+                                "No hay categorías con tipo de filtro actividad.",
+                                "Seleccionar actividades"
+                              )}
+                            </div>
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium text-slate-700">Tipo</label>
+                              {renderTaxonomyTypeDropdown(
+                                "tipo",
+                                tipoRoots,
+                                pProviderTypes,
+                                (value, checked) =>
+                                  setPProviderTypes((prev) =>
+                                    checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
+                                  ),
+                                "No hay categorías con tipo de filtro tipo.",
+                                "Seleccionar tipos"
+                              )}
+                            </div>
+                          </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="text-sm font-semibold text-slate-900">Hero de la prestación</div>
-                  <p className="mt-1 text-xs text-slate-500">Podés usar una imagen personalizada para el hero del detalle, con título y subtítulo traducibles.</p>
-                  <div className="mt-3 grid gap-2">
-                  <input value={getLangEditValue(pPrestacionHeroTitleI18n, pLang)} onChange={(e) => {
-                    const next = e.target.value;
-                    setPPrestacionHeroTitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next));
-                    setPTitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next));
-                    if (pLang === "es") setPTitle(next);
-                  }} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del hero" />
-                  <RichTextEditor value={getLangEditValue(pPrestacionHeroSubtitleI18n, pLang)} onChange={(next) => setPPrestacionHeroSubtitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next))} placeholder="Subtítulo del hero" minHeightClassName="min-h-[80px]" />
-                  <input value={getLangMediaValue(pPrestacionHeroImageI18n, pLang, pPrestacionHeroImage)} onChange={(e) => setPPrestacionHeroImageI18n((prev) => setLangText(prev.es ?? "", prev, pLang, e.target.value))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="URL de imagen del hero (opcional)" />
-                  <input type="file" accept={IMAGE_FILE_ACCEPT} onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    void fileToUploadAsset(file).then((asset) => setPPrestacionHeroImageI18n((prev) => setLangText(prev.es ?? "", prev, pLang, asset.url))).catch(() => null);
-                  }} className="w-full min-w-0 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:font-semibold file:text-[#007D92]" />
-                </div>
-              </div>
+                          <div className="mt-4 rounded-2xl border border-slate-200/80 bg-slate-50/75 p-4">
+                            <div className="text-sm font-semibold text-slate-900">Modalidad en que ofrece sus servicios</div>
+                            <div className="mt-1 text-xs text-slate-500">Marcá una o más modalidades (categorías con tipo de filtro modalidad).</div>
+                            {renderTaxonomyTypeDropdown(
+                              "modalidad",
+                              modalidadRoots,
+                              pProviderModalities,
+                              (value, checked) =>
+                                setPProviderModalities((prev) =>
+                                  checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
+                                ),
+                              "No hay categorías con tipo de filtro modalidad."
+                            )}
+                          </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-sm font-semibold text-slate-900">Bloques informativos bajo hero</div>
-                <p className="mt-1 text-xs text-slate-500">Estos bloques se muestran justo debajo del hero en el detalle y son traducibles.</p>
-                <div className="mt-3 space-y-3">
-                  {pPrestacionHeroInfoBlocks.map((block, idx) => (
-                    <div key={`hero-info-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Bloque #{idx + 1}</span><button type="button" aria-label="Eliminar bloque" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionHeroInfoBlocks((prev) => prev.length <= 1 ? [createEmptyPrestacionHeroInfoBlock()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
-                      <input value={getLangEditValue(block.titleI18n, pLang)} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del bloque" />
-                      <RichTextEditor value={getLangEditValue(block.textI18n, pLang)} onChange={(next) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, text: pLang === "es" ? next : it.text, textI18n: setLangText(it.text, it.textI18n, pLang, next) } : it))} placeholder="Texto del bloque" minHeightClassName="min-h-[70px]" />
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <input type="color" value={block.bgColor} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, bgColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
-                        <input type="color" value={block.textColor} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, textColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => setPPrestacionHeroInfoBlocks((prev) => [...prev, createEmptyPrestacionHeroInfoBlock()])} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">+ Agregar bloque informativo</button>
-              </div>
+                        </AdminEditorSection>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-                  <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">1</span>
-                    <div>
-                      <div className="text-lg font-semibold text-slate-900">Tarjetas de recursos</div>
-                      <p className="text-xs text-slate-500">Tarjetas flexibles con título, subtítulo, imagen, ítems con check y botones. Cada tarjeta puede tener además un bloque de texto con color.</p>
-                      <p className="mt-1 text-[11px] text-slate-400">Estás editando contenidos en idioma: <span className="font-semibold uppercase">{pLang}</span>. En imágenes, podés cargar una por idioma; si no cargás una, se usa la de ES.</p>
-                    </div>
-                </div>
-                <div className="mt-4 space-y-3">
-                  {pPrestacionResources.map((card, idx) => (
-                    <div key={`resource-${idx}`} className="rounded-xl border border-slate-200 p-3">
-                      <div className="mb-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Tarjeta #{idx + 1}
-                        <button type="button" aria-label="Eliminar tarjeta" onClick={() => setPPrestacionResources((prev) => prev.length <= 1 ? [createEmptyPrestacionResource()] : prev.filter((_, i) => i !== idx))} className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"><X className="h-3.5 w-3.5" /></button>
-                      </div>
-                      <div className="grid gap-2 md:grid-cols-2">
-                        <div className="grid gap-1"><label className="text-xs font-medium text-slate-500">Título</label><input value={getLangEditValue(card.titleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Lima Immigration" /></div>
-                        {card.title || card.subtitle || card.image || (card.checkItemsI18n ?? []).length || (card.buttons ?? []).length || card.colorNoteTitle || card.colorNoteText ? (
-                          <div className="rounded-xl border border-slate-200 bg-white p-3">
-                            {card.image ? <img src={card.image} alt="preview" className="h-28 w-full rounded-lg object-cover" /> : null}
-                            {getLangEditValue(card.titleI18n, pLang) ? <div className="mt-2 text-sm font-semibold text-slate-900">{getLangEditValue(card.titleI18n, pLang)}</div> : null}
-                            {getLangEditValue(card.subtitleI18n, pLang) ? <div className="mt-1 text-xs text-slate-600">{getLangEditValue(card.subtitleI18n, pLang)}</div> : null}
-                            {(card.checkItemsI18n ?? []).length ? (
-                              <ul className="mt-2 space-y-1 text-xs text-slate-700">
-                                {(card.checkItemsI18n ?? []).slice(0, 3).map((itemI18n, i) => <li key={`prev-check-${idx}-${i}`} className="text-emerald-600">✓ {getLangEditValue(itemI18n, pLang)}</li>)}
-                              </ul>
-                            ) : null}
-                            {(card.colorNoteTitle || card.colorNoteText) ? (
-                              <div className="mt-2 rounded-lg p-2 text-xs" style={{ backgroundColor: card.colorNoteBgColor || "#EEF2FF", color: card.colorNoteTextColor || "#1E3A8A" }}>
-                                {getLangEditValue(card.colorNoteTitleI18n, pLang) ? <div className="font-semibold">{getLangEditValue(card.colorNoteTitleI18n, pLang)}</div> : null}
-                                {getLangEditValue(card.colorNoteTextI18n, pLang) ? <div>{getLangEditValue(card.colorNoteTextI18n, pLang)}</div> : null}
+                        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm shadow-slate-200/60">
+                          <a href="#admin-publicacion-propuesta" className="rounded-full bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100">Propuesta o publicación</a>
+                          <a href="#admin-publicacion-ubicacion-precio" className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100">Ubicación y precio</a>
+                          <a href="#admin-publicacion-sedes" className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">Sedes y filtro por pasaporte</a>
+                          <a href="#admin-publicacion-idiomas-contacto" className="rounded-full bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">Idiomas, expiración y contacto</a>
+                          <a href="#admin-publicacion-imagenes" className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">Imágenes</a>
+                        </div>
+
+                        <AdminEditorSection
+                          id="admin-publicacion-propuesta"
+                          tone="indigo"
+                          icon={<FileText className="h-5 w-5" />}
+                          title="Propuesta o publicación"
+                          description="Definí el contenido principal, cómo se clasifica y qué información verá primero la persona usuaria."
+                        >
+                          <div className="grid gap-4">
+                            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
+                              <div className="text-sm font-semibold text-slate-900">Categorías y subcategorías</div>
+                              <div className="mt-1 text-xs text-slate-500">Seleccioná categoría y subcategoría desde un único selector integrado.</div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenPublicationPanel((prev) => (prev === "category" ? null : "category"))}
+                                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                >
+                                  Categoría + subcategoría
+                                  {openPublicationPanel === "category" ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                </button>
+                              </div>
+                              {openPublicationPanel ? <div className="mt-3">{renderCategorySelection(openPublicationPanel)}</div> : null}
+                              {(pCategorySelections.length || pSubcategorySelections.length) ? (
+                                <div className="mt-4 rounded-xl border border-indigo-100 bg-white/90 p-3">
+                                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Seleccionado</div>
+                                  <div className="mt-2 space-y-1 text-sm text-slate-700">
+                                    {pCategorySelections.length ? (
+                                      <div>
+                                        <span className="font-semibold">Categorías:</span> {pCategorySelections.join(", ")}
+                                      </div>
+                                    ) : null}
+                                    {pSubcategorySelections.length ? (
+                                      <div>
+                                        <span className="font-semibold">Subcategorías:</span> {pSubcategorySelections.join(", ")}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+
+                            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 p-4">
+                              <div className="text-sm font-semibold text-slate-900">Añadir prestaciones</div>
+                              <div className="mt-1 text-xs text-slate-500">Seleccioná prestaciones (categorías con tipo de filtro prestación).</div>
+                              {renderTaxonomyTypeDropdown(
+                                "prestacion",
+                                prestacionRoots,
+                                pPrestaciones,
+                                (value, checked) =>
+                                  setPPrestaciones((prev) =>
+                                    checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
+                                  ),
+                                "No hay categorías con tipo de filtro prestación."
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-indigo-100 bg-white/90 p-3">
+                              <label htmlFor="featured" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+                                <input
+                                  id="featured"
+                                  type="checkbox"
+                                  checked={pFeatured}
+                                  onChange={(e) => setPFeatured(e.target.checked)}
+                                  className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]"
+                                />
+                                Destacado
+                              </label>
+                              <label htmlFor="partner" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+                                <input
+                                  id="partner"
+                                  type="checkbox"
+                                  checked={pPartner}
+                                  onChange={(e) => setPPartner(e.target.checked)}
+                                  className="h-4 w-4 rounded border-slate-300 text-cyan-600"
+                                />
+                                Partner
+                              </label>
+                            </div>
+
+                            <div className="grid gap-2 md:grid-cols-2">
+                              <div className="grid gap-2">
+                                <label className="text-sm font-medium text-slate-700">Estado</label>
+                                <select
+                                  value={pStatus}
+                                  onChange={(e) => setPStatus(e.target.value)}
+                                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                >
+                                  <option value="active">Activo</option>
+                                  <option value="draft">Borrador</option>
+                                  <option value="paused">Pausado</option>
+                                  <option value="hidden">Oculto</option>
+                                </select>
+                              </div>
+                              <div className="grid gap-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <label className="text-sm font-medium text-slate-700">
+                                    Título de la publicación <span className="font-bold text-[#007D92]">({pLang.toUpperCase()})</span>
+                                  </label>
+                                  <button
+                                    type="button"
+                                    disabled={translatingField === "title"}
+                                    onClick={async () => {
+                                      const currentEs = pTitleI18n.es || pTitle;
+                                      if (!currentEs) return;
+                                      setTranslatingField("title");
+                                      try {
+                                        const res = await fetch("/api/admin/translate-i18n", {
+                                          method: "POST",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: false }),
+                                        });
+                                        const data = await res.json();
+                                        if (data?.translations) {
+                                          setPTitleI18n((prev) => ({
+                                            ...prev,
+                                            es: currentEs,
+                                            en: data.translations.en || prev.en || currentEs,
+                                            pt: data.translations.pt || prev.pt || currentEs,
+                                            it: data.translations.it || prev.it || currentEs,
+                                          }));
+                                        }
+                                      } catch (err) {
+                                        console.error("Translation error:", err);
+                                      } finally {
+                                        setTranslatingField(null);
+                                      }
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                                  >
+                                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                                    {translatingField === "title" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                                  </button>
+                                </div>
+                                <input
+                                  value={pTitleI18n[pLang] ?? ""}
+                                  onChange={(e) => {
+                                    const next = e.target.value;
+                                    setPTitleI18n((prev) => ({ ...prev, [pLang]: next }));
+                                    if (pLang === "es") setPTitle(next);
+                                  }}
+                                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                  placeholder={`Ej: Acompañamos tu registro (${pLang.toUpperCase()})...`}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid gap-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <label className="text-sm font-medium text-slate-700">
+                                    Descripción <span className="font-bold text-[#007D92]">({pLang.toUpperCase()})</span>
+                                  </label>
+                                  {pDescriptionI18n[pLang] ? (
+                                    <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                                      ✓ Idioma {pLang.toUpperCase()} activo
+                                    </span>
+                                  ) : (
+                                    <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                                      ⚠️ Vacío en {pLang.toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {renderLangTabs(pLang, (l) => {
+                                    setPLang(l);
+                                    setEditingLang(l);
+                                  })}
+                                  <button
+                                    type="button"
+                                    disabled={translatingField === "description"}
+                                    onClick={async () => {
+                                      const currentEs = pDescriptionI18n.es || pDescription;
+                                      if (!currentEs) return;
+                                      setTranslatingField("description");
+                                      try {
+                                        const res = await fetch("/api/admin/translate-i18n", {
+                                          method: "POST",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ text: currentEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                                        });
+                                        const data = await res.json();
+                                        if (data?.translations) {
+                                          setPDescriptionI18n((prev) => ({
+                                            ...prev,
+                                            es: currentEs,
+                                            en: data.translations.en || prev.en || currentEs,
+                                            pt: data.translations.pt || prev.pt || currentEs,
+                                            it: data.translations.it || prev.it || currentEs,
+                                          }));
+                                        }
+                                      } catch (err) {
+                                        console.error("Translation error:", err);
+                                      } finally {
+                                        setTranslatingField(null);
+                                      }
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                                  >
+                                    <Languages className="h-3.5 w-3.5 text-cyan-600" />
+                                    {translatingField === "description" ? "Traduciendo..." : "🌐 Traducir a EN, PT, IT"}
+                                  </button>
+                                </div>
+                              </div>
+                              <RichTextEditor
+                                value={pDescriptionI18n[pLang] ?? ""}
+                                onChange={(next) => {
+                                  setPDescriptionI18n((prev) => ({ ...prev, [pLang]: next }));
+                                  if (pLang === "es") setPDescription(next);
+                                }}
+                                placeholder={`Texto de la publicación (${pLang.toUpperCase()})...`}
+                              />
+                            </div>
+
+                            <div className="grid gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/60">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="text-sm font-semibold text-slate-900">Descripción opcional</div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPExtraDescriptions((prev) => [
+                                      ...prev,
+                                      { title: "", body: "", titleI18n: { es: "" }, bodyI18n: { es: "" }, lang: "es", visibleInCard: false },
+                                    ])
+                                  }
+                                  className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                >
+                                  + Agregar bloque
+                                </button>
+                              </div>
+
+                              {pExtraDescriptions.length ? (
+                                <div className="grid gap-3">
+                                  {pExtraDescriptions.map((desc, idx) => (
+                                    <div key={`extra-${idx}`} className="grid gap-2 rounded-xl border border-slate-100 p-3">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="text-xs font-semibold uppercase text-slate-500">Bloque {idx + 1}</div>
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            type="button"
+                                            disabled={translatingField === `extra-${idx}`}
+                                            onClick={async () => {
+                                              const titleEs = desc.titleI18n?.es || desc.title;
+                                              const bodyEs = desc.bodyI18n?.es || desc.body;
+                                              if (!titleEs && !bodyEs) return;
+                                              setTranslatingField(`extra-${idx}`);
+                                              try {
+                                                const promises = [];
+                                                if (titleEs) {
+                                                  promises.push(
+                                                    fetch("/api/admin/translate-i18n", {
+                                                      method: "POST",
+                                                      headers: { "Content-Type": "application/json" },
+                                                      body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                                                    }).then((res) => res.json())
+                                                  );
+                                                } else { promises.push(Promise.resolve(null)); }
+                                                if (bodyEs) {
+                                                  promises.push(
+                                                    fetch("/api/admin/translate-i18n", {
+                                                      method: "POST",
+                                                      headers: { "Content-Type": "application/json" },
+                                                      body: JSON.stringify({ text: bodyEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                                                    }).then((res) => res.json())
+                                                  );
+                                                } else { promises.push(Promise.resolve(null)); }
+                                                const [tRes, bRes] = await Promise.all(promises);
+                                                setPExtraDescriptions((prev) =>
+                                                  prev.map((d, i) => {
+                                                    if (i !== idx) return d;
+                                                    const nextTitleI18n = { ...d.titleI18n, es: titleEs };
+                                                    if (tRes?.translations) {
+                                                      ["en", "pt", "it"].forEach((l) => { if (tRes.translations[l]) (nextTitleI18n as any)[l] = tRes.translations[l]; });
+                                                    }
+                                                    const nextBodyI18n = { ...d.bodyI18n, es: bodyEs };
+                                                    if (bRes?.translations) {
+                                                      ["en", "pt", "it"].forEach((l) => { if (bRes.translations[l]) (nextBodyI18n as any)[l] = bRes.translations[l]; });
+                                                    }
+                                                    return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
+                                                  })
+                                                );
+                                              } catch (err) {
+                                                console.error("Extra block translate error:", err);
+                                              } finally {
+                                                setTranslatingField(null);
+                                              }
+                                            }}
+                                            className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                                          >
+                                            <Languages className="h-3 w-3 text-cyan-600" />
+                                            {translatingField === `extra-${idx}` ? "Traduciendo..." : "Traducir bloque (EN, PT, IT)"}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setPExtraDescriptions((prev) => prev.filter((_, i) => i !== idx))
+                                            }
+                                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                                          >
+                                            Eliminar
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <input
+                                        value={desc.titleI18n[pLang] ?? ""}
+                                        onChange={(e) =>
+                                          setPExtraDescriptions((prev) =>
+                                            prev.map((d, i) =>
+                                              i === idx
+                                                ? {
+                                                  ...d,
+                                                  titleI18n: { ...d.titleI18n, [pLang]: e.target.value },
+                                                  title: pLang === "es" ? e.target.value : d.title,
+                                                }
+                                                : d
+                                            )
+                                          )
+                                        }
+                                        className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                        placeholder="Título del bloque"
+                                      />
+                                      <RichTextEditor
+                                        value={desc.bodyI18n[pLang] ?? ""}
+                                        onChange={(next) =>
+                                          setPExtraDescriptions((prev) =>
+                                            prev.map((d, i) =>
+                                              i === idx
+                                                ? {
+                                                  ...d,
+                                                  bodyI18n: { ...d.bodyI18n, [pLang]: next },
+                                                  body: pLang === "es" ? next : d.body,
+                                                }
+                                                : d
+                                            )
+                                          )
+                                        }
+                                        placeholder="Descripción adicional..."
+                                        minHeightClassName="min-h-[80px]"
+                                      />
+                                      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                                        <input
+                                          type="checkbox"
+                                          checked={booleanLike(desc.visibleInCard)}
+                                          onChange={(e) =>
+                                            setPExtraDescriptions((prev) =>
+                                              prev.map((d, i) =>
+                                                i === idx
+                                                  ? {
+                                                    ...d,
+                                                    visibleInCard: e.target.checked,
+                                                  }
+                                                  : d
+                                              )
+                                            )
+                                          }
+                                          className="h-4 w-4 rounded border-slate-300 text-[#00A9C6] focus:ring-[#00A9C6]"
+                                        />
+                                        Visible en la tarjeta
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-500">
+                                  Podés agregar más bloques de descripción con un título propio.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </AdminEditorSection>
+
+                        <AdminEditorSection
+                          id="admin-publicacion-ubicacion-precio"
+                          tone="sky"
+                          icon={<MapPinned className="h-5 w-5" />}
+                          title="Ubicación y precio"
+                          description="Agrupá destino, ciudad, mapa y la configuración comercial en un mismo bloque más fácil de completar."
+                        >
+                          <div className="grid gap-4">
+                            <div className="grid gap-4 md:grid-cols-3">
+                              <div className="grid gap-2">
+                                <label className="text-sm font-medium text-slate-700">País (destino del viaje)</label>
+                                <CountryMultiSelect
+                                  label="Seleccionar país destino"
+                                  showLabel={false}
+                                  selectionMode="single"
+                                  compact
+                                  selectedSingle={pCountry}
+                                  onSingleChange={setPCountry}
+                                  placeholder="Seleccioná un país destino."
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <label className="text-sm font-medium text-slate-700">Ciudad (destino del viaje)</label>
+                                <input
+                                  value={pCity}
+                                  onChange={(e) => setPCity(e.target.value)}
+                                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                  placeholder="Ciudad de Mendoza"
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <label className="text-sm font-medium text-slate-700">Ubicación de Google Maps (URL)</label>
+                                <input
+                                  value={pLocationAddress}
+                                  onChange={(e) => setPLocationAddress(e.target.value)}
+                                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                  placeholder="https://maps.google.com/..."
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-3">
+                              <div className="grid gap-2">
+                                <label className="text-sm font-medium text-slate-700">Moneda principal</label>
+                                <select
+                                  value={pCurrency}
+                                  onChange={(e) => setPCurrency(e.target.value)}
+                                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                >
+                                  <option value="ARS">ARS</option>
+                                  <option value="USD">USD</option>
+                                  <option value="EUR">EUR</option>
+                                  <option value="BRL">BRL</option>
+                                  <option value="CLP">CLP</option>
+                                  <option value="COP">COP</option>
+                                  <option value="MXN">MXN</option>
+                                  <option value="PEN">PEN</option>
+                                  <option value="UYU">UYU</option>
+                                  <option value="JPY">JPY</option>
+                                </select>
+                              </div>
+                              <div className="grid gap-2">
+                                <label className="text-sm font-medium text-slate-700">Precio</label>
+                                <input
+                                  value={pPrice}
+                                  onChange={(e) => setPPrice(e.target.value)}
+                                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                  placeholder="150000"
+                                  disabled={/^precio a convenir$/i.test(String(pPrice).trim())}
+                                />
+                                <label className="flex items-center gap-2 text-xs text-slate-600">
+                                  <input
+                                    type="checkbox"
+                                    checked={/^precio a convenir$/i.test(String(pPrice).trim())}
+                                    onChange={(e) => setPPrice(e.target.checked ? "Precio a convenir" : "")}
+                                    className="h-4 w-4 rounded border-slate-300 text-[#00A9C6]"
+                                  />
+                                  Precio a convenir
+                                </label>
+                                {/^precio a convenir$/i.test(String(pPrice).trim()) ? (
+                                  <input
+                                    value={pPrice}
+                                    onChange={(e) => setPPrice(e.target.value)}
+                                    className="h-9 rounded-xl border border-slate-200 px-3 text-xs outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                    placeholder="Texto para mostrar cuando no hay precio"
+                                  />
+                                ) : null}
+                              </div>
+                              <div className="grid gap-2">
+                                <label className="text-sm font-medium text-slate-700">Periodo de precio</label>
+                                <select
+                                  value={pPricePeriod}
+                                  onChange={(e) => setPPricePeriod(e.target.value)}
+                                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                >
+                                  <option value="">Sin período</option>
+                                  <option value="month">por mes</option>
+                                  <option value="week">por semana</option>
+                                  <option value="day">por día</option>
+                                  <option value="year">por año</option>
+                                  <option value="once">único</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="grid gap-2 rounded-2xl border border-sky-100 bg-sky-50/45 p-4">
+                              <label className="text-sm font-medium text-slate-700">Precios por moneda</label>
+                              <div className="space-y-2">
+                                {pExtraPrices.length ? (
+                                  pExtraPrices.map((entry, idx) => (
+                                    <div key={`price-${idx}`} className="flex flex-wrap items-center gap-2">
+                                      <select
+                                        value={entry.currency}
+                                        onChange={(e) =>
+                                          setPExtraPrices((prev) =>
+                                            prev.map((item, index) =>
+                                              index === idx ? { ...item, currency: e.target.value } : item
+                                            )
+                                          )
+                                        }
+                                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                      >
+                                        <option value="">Moneda</option>
+                                        <option value="ARS">ARS</option>
+                                        <option value="USD">USD</option>
+                                        <option value="EUR">EUR</option>
+                                        <option value="BRL">BRL</option>
+                                        <option value="CLP">CLP</option>
+                                        <option value="COP">COP</option>
+                                        <option value="MXN">MXN</option>
+                                        <option value="PEN">PEN</option>
+                                        <option value="UYU">UYU</option>
+                                        <option value="JPY">JPY</option>
+                                      </select>
+                                      <input
+                                        value={entry.amount}
+                                        onChange={(e) =>
+                                          setPExtraPrices((prev) =>
+                                            prev.map((item, index) =>
+                                              index === idx ? { ...item, amount: e.target.value } : item
+                                            )
+                                          )
+                                        }
+                                        className="h-10 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                        placeholder="Monto"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => setPExtraPrices((prev) => prev.filter((_, index) => index !== idx))}
+                                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                                      >
+                                        Quitar
+                                      </button>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-xs text-slate-500">Sumá precios adicionales por moneda.</div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setPExtraPrices((prev) => [...prev, { currency: "", amount: "" }])}
+                                className="mt-2 w-fit rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                              >
+                                + Agregar precio
+                              </button>
+                            </div>
+                          </div>
+                        </AdminEditorSection>
+
+                        <AdminEditorSection
+                          id="admin-publicacion-sedes"
+                          tone="emerald"
+                          icon={<Building2 className="h-5 w-5" />}
+                          title="Sedes y filtro por pasaporte"
+                          description="Separá claramente dónde opera el oferente y desde qué países puede recibir viajeros."
+                        >
+                          <div className="grid gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/45 p-4">
+                            <div className="text-xs font-semibold uppercase text-slate-500">Sede principal del oferente</div>
+                            <div className="grid gap-2 md:grid-cols-3">
+                              <CountryMultiSelect
+                                label="País de la sede"
+                                showLabel={false}
+                                selectionMode="single"
+                                compact
+                                selectedSingle={pHeadquarterCountry}
+                                onSingleChange={setPHeadquarterCountry}
+                                placeholder="País de la sede"
+                              />
+                              <input
+                                value={pHeadquarterCity}
+                                onChange={(e) => setPHeadquarterCity(e.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                placeholder="Ciudad de la sede"
+                              />
+                              <input
+                                value={pHeadquarterMapUrl}
+                                onChange={(e) => setPHeadquarterMapUrl(e.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                placeholder="Link de Google Maps (opcional)"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid gap-2 rounded-2xl border border-emerald-100 bg-white/90 p-4">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-xs font-semibold uppercase text-slate-500">Sedes adicionales</div>
+                              <button
+                                type="button"
+                                onClick={() => setPHeadquarterExtras((prev) => [...prev, { country: "", city: "", mapUrl: "" }])}
+                                className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                              >
+                                + Agregar sede
+                              </button>
+                            </div>
+                            {pHeadquarterExtras.length ? (
+                              <div className="space-y-2">
+                                {pHeadquarterExtras.map((loc, idx) => (
+                                  <div key={`hq-${idx}`} className="grid gap-2 md:grid-cols-3">
+                                    <CountryMultiSelect
+                                      label={`País sede adicional ${idx + 1}`}
+                                      showLabel={false}
+                                      selectionMode="single"
+                                      compact
+                                      selectedSingle={loc.country}
+                                      onSingleChange={(nextCountry) =>
+                                        setPHeadquarterExtras((prev) =>
+                                          prev.map((item, index) =>
+                                            index === idx ? { ...item, country: nextCountry } : item
+                                          )
+                                        )
+                                      }
+                                      placeholder="País de la sede"
+                                    />
+                                    <input
+                                      value={loc.city}
+                                      onChange={(e) =>
+                                        setPHeadquarterExtras((prev) =>
+                                          prev.map((item, index) =>
+                                            index === idx ? { ...item, city: e.target.value } : item
+                                          )
+                                        )
+                                      }
+                                      className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                      placeholder="Ciudad de la sede"
+                                    />
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
+                                      <input
+                                        value={loc.mapUrl}
+                                        onChange={(e) =>
+                                          setPHeadquarterExtras((prev) =>
+                                            prev.map((item, index) =>
+                                              index === idx ? { ...item, mapUrl: e.target.value } : item
+                                            )
+                                          )
+                                        }
+                                        className="h-10 flex-1 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                        placeholder="Link de Google Maps (opcional)"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => setPHeadquarterExtras((prev) => prev.filter((_, index) => index !== idx))}
+                                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                                      >
+                                        Quitar
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-slate-500">Podés sumar más sedes si aplica.</div>
+                            )}
+                          </div>
+
+                          <div className="grid gap-2 rounded-2xl border border-emerald-100 bg-white/90 p-4">
+                            <label className="text-sm font-medium text-slate-700">Filtro por pasaporte</label>
+                            <select
+                              value={pReceivingCountriesMode}
+                              onChange={(e) => setPReceivingCountriesMode(e.target.value as "all" | "only" | "except")}
+                              className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                            >
+                              <option value="all">Recibe viajeros de todos los países</option>
+                              <option value="only">Recibe solo los países seleccionados</option>
+                              <option value="except">Recibe todos los países excepto los seleccionados</option>
+                            </select>
+                          </div>
+
+                          {pReceivingCountriesMode === "all" ? (
+                            <div className="text-xs text-slate-500">No se aplican restricciones por pasaporte.</div>
+                          ) : (
+                            <CountryMultiSelect
+                              label={
+                                pReceivingCountriesMode === "except"
+                                  ? "Países que NO recibe"
+                                  : "Países que recibe"
+                              }
+                              selected={pReceivingCountries}
+                              onChange={setPReceivingCountries}
+                              placeholder="Seleccioná países para aplicar el filtro."
+                            />
+                          )}
+                        </AdminEditorSection>
+
+                        <AdminEditorSection
+                          id="admin-publicacion-idiomas-contacto"
+                          tone="amber"
+                          icon={<Languages className="h-5 w-5" />}
+                          title="Idiomas, expiración y contacto"
+                          description="Terminá la configuración pública y operativa de la publicación sin mezclarla con el material visual."
+                        >
+                          <div className="grid gap-3 rounded-2xl border border-amber-100 bg-amber-50/45 p-4">
+                            <label className="text-sm font-medium text-slate-700">Idiomas que se hablan</label>
+                            {renderTaxonomyTypeDropdown(
+                              "idiomas",
+                              idiomaRoots,
+                              pLanguages.split(",").map((v) => v.trim()).filter(Boolean),
+                              (value, checked) => {
+                                const current = pLanguages.split(",").map((v) => v.trim()).filter(Boolean);
+                                const next = checked
+                                  ? Array.from(new Set([...current, value]))
+                                  : current.filter((v) => v !== value);
+                                setPLanguages(next.join(", "));
+                              },
+                              "No hay categorías con tipo de filtro idiomas."
+                            )}
+                          </div>
+
+                          <div className="grid gap-3 md:grid-cols-3">
+                            <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <label className="text-sm font-medium text-slate-700">Fecha y hora de expiración</label>
+                                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                                  <span className="text-slate-400 font-medium mr-1">Calcular:</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const d = new Date();
+                                      d.setDate(d.getDate() + 60);
+                                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                                      setPExpirationTime("23:59");
+                                    }}
+                                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
+                                  >
+                                    +60d
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const d = new Date();
+                                      d.setDate(d.getDate() + 120);
+                                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                                      setPExpirationTime("23:59");
+                                    }}
+                                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
+                                  >
+                                    +120d
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const d = new Date();
+                                      d.setDate(d.getDate() + 180);
+                                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                                      setPExpirationTime("23:59");
+                                    }}
+                                    className="rounded-lg bg-slate-100 hover:bg-[#00A9C6]/10 hover:text-[#00A9C6] px-2 py-1 font-medium text-slate-600 transition-colors"
+                                  >
+                                    +180d
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const d = new Date();
+                                      d.setDate(d.getDate() + 365);
+                                      setPExpirationDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                                      setPExpirationTime("23:59");
+                                    }}
+                                    className="rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 font-semibold transition-colors border border-emerald-200"
+                                  >
+                                    +365d (Partner)
+                                  </button>
+                                  {(pExpirationDate || pExpirationTime) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPExpirationDate("");
+                                        setPExpirationTime("");
+                                      }}
+                                      className="rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 px-2 py-1 font-medium transition-colors"
+                                    >
+                                      Limpiar
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                <input
+                                  type="date"
+                                  value={pExpirationDate}
+                                  onChange={(e) => setPExpirationDate(e.target.value)}
+                                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                />
+                                <input
+                                  type="time"
+                                  value={pExpirationTime}
+                                  onChange={(e) => setPExpirationTime(e.target.value)}
+                                  className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                  step={60}
+                                />
+                              </div>
+                              <p className="text-xs text-slate-500">Selecciona la fecha en el calendario. La hora es opcional (por defecto 23:59).</p>
+                            </div>
+                            <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4 md:col-span-2">
+                              <label className="text-sm font-medium text-slate-700">Página web</label>
+                              <input
+                                value={pWebsite}
+                                onChange={(e) => setPWebsite(e.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                placeholder="https://"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid gap-3 rounded-2xl border border-amber-100 bg-white p-4 shadow-sm shadow-amber-100/70">
+                            <div className="text-sm font-semibold text-slate-900">Redes sociales y contacto</div>
+                            <div className="space-y-3">
+                              {pSocialLinksDetailed.map((entry, idx) => (
+                                <div key={`link-${idx}`} className="grid gap-2 md:grid-cols-[minmax(120px,180px)_1fr_1fr_auto] items-center">
+                                  <select
+                                    value={entry.kind}
+                                    onChange={(e) =>
+                                      setPSocialLinksDetailed((prev) =>
+                                        prev.map((item, index) =>
+                                          index === idx ? { ...item, kind: e.target.value } : item
+                                        )
+                                      )
+                                    }
+                                    className="h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                  >
+                                    {linkKindOptions.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    value={entry.label}
+                                    onChange={(e) =>
+                                      setPSocialLinksDetailed((prev) =>
+                                        prev.map((item, index) =>
+                                          index === idx ? { ...item, label: e.target.value } : item
+                                        )
+                                      )
+                                    }
+                                    className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                    placeholder="Renombre del link (opcional)"
+                                  />
+                                  <input
+                                    value={entry.url}
+                                    onChange={(e) =>
+                                      setPSocialLinksDetailed((prev) =>
+                                        prev.map((item, index) =>
+                                          index === idx ? { ...item, url: e.target.value } : item
+                                        )
+                                      )
+                                    }
+                                    className="h-10 rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                                    placeholder="Link o email"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setPSocialLinksDetailed((prev) => prev.filter((_, index) => index !== idx))}
+                                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                                  >
+                                    Quitar
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPSocialLinksDetailed((prev) => [
+                                    ...prev,
+                                    { kind: "web", label: "", url: "" },
+                                  ])
+                                }
+                                className="w-fit rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                              >
+                                + Agregar link
+                              </button>
+                            </div>
+                          </div>
+                          <div className="grid gap-2 rounded-2xl border border-amber-100 bg-white/90 p-4">
+                            <label className="text-sm font-medium text-slate-700">Idioma de edición</label>
+                            {renderLangTabs(pLang, setEditingLang)}
+                            <p className="text-xs text-slate-500">
+                              Cambia el idioma de todos los campos traducibles de esta publicación sin tocar URLs, nombres propios ni precios.
+                            </p>
+                          </div>
+                        </AdminEditorSection>
+
+                        <AdminEditorSection
+                          id="admin-publicacion-imagenes"
+                          tone="slate"
+                          icon={<ImageIcon className="h-5 w-5" />}
+                          title="Imágenes"
+                          description="Cargá o pegá URLs de las imágenes en un bloque aparte para que el flujo del formulario sea más limpio."
+                        >
+                          <div className="grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/65 p-4">
+                            <label className="text-sm font-medium text-slate-700">Imágenes (URLs o subida directa)</label>
+                            <textarea
+                              value={pImageUrls}
+                              onChange={(e) => setPImageUrls(e.target.value)}
+                              className="min-h-[90px] rounded-xl border border-slate-200 bg-white p-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                              placeholder="https://... \nhttps://..."
+                            />
+                            <input
+                              type="file"
+                              accept={IMAGE_FILE_ACCEPT}
+                              multiple
+                              onChange={(e) => handleImageUpload(e.target.files)}
+                              className="w-full min-w-0 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#007D92] hover:file:bg-[#00A9C6]/20"
+                            />
+                            {imageList.length ? (
+                              <div className="grid gap-3 md:grid-cols-4">
+                                {imageList.map((img, idx) => (
+                                  <div key={`${img}-${idx}`} className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/60">
+                                    <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
+                                      <button
+                                        type="button"
+                                        onClick={() => removeImage(img)}
+                                        className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-xs font-semibold text-slate-600 shadow"
+                                        aria-label="Quitar imagen"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={img} alt={`preview-${idx}`} className="h-full w-full object-cover" />
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             ) : null}
                           </div>
-                        ) : (
-                          <div className="rounded-xl border-2 border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-400">Completá los campos para ver la previa</div>
-                        )}
-                      </div>
-                      <div className="mt-2 grid gap-2">
-                        <label className="text-xs font-medium text-slate-500">Subtítulo</label><input value={getLangEditValue(card.subtitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? e.target.value : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Tu guía de visa personalizada" />
-                        <label className="text-xs font-medium text-slate-500">Imagen (URL)</label><input value={getLangMediaValue(card.imageI18n, pLang, card.image)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? e.target.value : it.image, imageI18n: setLangText(it.image, it.imageI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="https://..." />
-                        <input
-                          type="file"
-                          accept={IMAGE_FILE_ACCEPT}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            void fileToUploadAsset(file).then((asset) => {
-                              setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? asset.url : it.image, imageI18n: setLangText(it.image, it.imageI18n, pLang, asset.url) } : it));
-                            }).catch(() => null);
-                          }}
-                          className="w-full min-w-0 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:font-semibold file:text-[#007D92]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPPrestacionResources((prev) =>
-                              prev.map((it, i) =>
-                                i === idx
-                                  ? { ...it, image: "", imageI18n: setLangText("", it.imageI18n, pLang, "") }
-                                  : it
-                              )
-                            )
-                          }
-                          className="h-9 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600"
-                        >
-                          Quitar imagen
-                        </button>
-                      </div>
-                      <div className="mt-3">
-                        <label className="text-xs font-medium text-slate-500">Ítems con check</label>
-                        <div className="mt-1 flex gap-2">
-                          <input value={resourceItemDrafts[idx] ?? ""} onChange={(e) => setResourceItemDrafts((prev) => ({ ...prev, [idx]: e.target.value }))} className="h-9 flex-1 rounded-xl border border-slate-200 px-3 text-sm" placeholder="Agregar ítem..." />
-                          <button type="button" onClick={() => {
-                            const value = (resourceItemDrafts[idx] ?? "").trim();
-                            if (!value) return;
-                            setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, checkItems: [...(it.checkItems ?? []), pLang === "es" ? value : ""], checkItemsI18n: [...(it.checkItemsI18n ?? []), setLangText("", { es: "" }, pLang, value)] } : it));
-                            setResourceItemDrafts((prev) => ({ ...prev, [idx]: "" }));
-                          }} className="h-9 w-9 rounded-lg border border-slate-200">+</button>
-                        </div>
-                        <div className="mt-2 grid gap-2">
-                          {(card.checkItemsI18n ?? []).map((itemI18n, itemIdx) => (
-                            <div key={`item-${itemIdx}`} className="grid grid-cols-[1fr_auto] gap-2">
-                              <input
-                                value={getLangEditValue(itemI18n, pLang)}
-                                onChange={(e) =>
-                                  setPPrestacionResources((prev) =>
-                                    prev.map((it, i) => {
-                                      if (i !== idx) return it;
-                                      const nextI18n = [...(it.checkItemsI18n ?? [])];
-                                      const current = nextI18n[itemIdx] ?? { es: it.checkItems?.[itemIdx] ?? "" };
-                                      nextI18n[itemIdx] = setLangText(it.checkItems?.[itemIdx] ?? "", current, pLang, e.target.value);
-                                      const nextChecks = [...(it.checkItems ?? [])];
-                                      if (pLang === "es") nextChecks[itemIdx] = e.target.value;
-                                      return { ...it, checkItems: nextChecks, checkItemsI18n: nextI18n };
-                                    })
-                                  )
-                                }
-                                className="h-9 rounded-xl border border-slate-200 px-3 text-sm"
-                                placeholder={`Ítem con check (${pLang.toUpperCase()})`}
-                              />
-                              <button type="button" aria-label="Eliminar ítem" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-red-500" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, checkItems: (it.checkItems ?? []).filter((_, j) => j !== itemIdx), checkItemsI18n: (it.checkItemsI18n ?? []).filter((_, j) => j !== itemIdx) } : it))}><X className="h-3.5 w-3.5" /></button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="mt-3 text-xs font-medium text-slate-500">Botones ({(card.buttons ?? []).length}/2)</div><div className="mt-2 grid gap-2 md:grid-cols-[1fr_140px]">
-                        <input value={getLangEditValue(resourceButtonDrafts[idx]?.labelI18n, pLang)} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: pLang === "es" ? e.target.value : prev[idx]?.label ?? "", labelI18n: setLangText(prev[idx]?.label ?? "", prev[idx]?.labelI18n, pLang, e.target.value), url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder={`Texto del botón (${pLang.toUpperCase()})`} />
-                        <select value={(resourceButtonDrafts[idx]?.style ?? "primary")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: e.target.value === "secondary" ? "secondary" : "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm">
-                          <option value="primary">Primario</option>
-                          <option value="secondary">Secundario</option>
-                        </select>
-                        <input value={(resourceButtonDrafts[idx]?.url ?? "")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: e.target.value, style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm md:col-span-1" placeholder="URL destino (afiliado u otro)" />
-                        <button type="button" onClick={() => {
-                          const draft = resourceButtonDrafts[idx] ?? { label: "", labelI18n: { es: "" }, url: "", style: "primary" as const, bgColor: "#2563EB", textColor: "#FFFFFF" };
-                          const translatedLabel = firstNonEmptyI18n(draft.labelI18n, draft.label);
-                          if (!translatedLabel.trim() || !draft.url.trim()) return;
-                          if ((card.buttons ?? []).length >= 2) return;
-                          setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, buttons: [...(it.buttons ?? []), { label: translatedLabel.trim(), labelI18n: setLangText(draft.label, draft.labelI18n, pLang, translatedLabel.trim()), url: draft.url.trim(), style: draft.style, bgColor: draft.bgColor, textColor: draft.textColor }] } : it));
-                          setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: "", labelI18n: { es: "" }, url: "", style: "primary", bgColor: "#2563EB", textColor: "#FFFFFF" } }));
-                        }} className="h-9 rounded-lg border border-slate-200 text-sm">+</button>
-                      </div>
-                      <div className="mt-2 grid gap-2 md:grid-cols-2">
-                        <div className="grid gap-1"><label className="text-[11px] text-slate-500">Color botón</label><input type="color" value={(resourceButtonDrafts[idx]?.bgColor ?? "#2563EB")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: e.target.value, textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 w-12 rounded border border-slate-200" /></div>
-                        <div className="grid gap-1"><label className="text-[11px] text-slate-500">Color texto</label><input type="color" value={(resourceButtonDrafts[idx]?.textColor ?? "#FFFFFF")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: e.target.value } }))} className="h-9 w-12 rounded border border-slate-200" /></div>
-                      </div>
-                      {(card.buttons ?? []).length ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {card.buttons.map((btn, btnIdx) => (
-                            <span key={`${getLangEditValue(btn.labelI18n, pLang)}-${btnIdx}`} className="rounded-lg px-2 py-1 text-xs shadow-sm" style={{ backgroundColor: btn.bgColor || (btn.style === "secondary" ? "#FFFFFF" : "#2563EB"), color: btn.textColor || (btn.style === "secondary" ? "#1D4ED8" : "#FFFFFF"), border: btn.style === "secondary" ? "1px solid #C7D2FE" : "1px solid transparent" }}>{getLangEditValue(btn.labelI18n, pLang)}<button type="button" aria-label="Quitar botón" className="ml-2 inline-flex align-middle" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, buttons: (it.buttons ?? []).filter((_, j) => j !== btnIdx) } : it))}><X className="h-3 w-3" /></button></span>
-                          ))}
-                        </div>
-                      ) : null}
-                      {(card.buttons ?? []).length ? (
-                        <div className="mt-2 grid gap-2">
-                          {card.buttons.map((btn, btnIdx) => (
-                            <input
-                              key={`btn-label-${idx}-${btnIdx}`}
-                              value={getLangEditValue(btn.labelI18n, pLang)}
-                              onChange={(e) =>
-                                setPPrestacionResources((prev) =>
-                                  prev.map((it, i) => {
-                                    if (i !== idx) return it;
-                                    return {
-                                      ...it,
-                                      buttons: (it.buttons ?? []).map((b, j) =>
-                                        j === btnIdx
-                                          ? {
-                                              ...b,
-                                              label: pLang === "es" ? e.target.value : b.label,
-                                              labelI18n: setLangText(b.label, b.labelI18n, pLang, e.target.value),
-                                            }
-                                          : b
-                                      ),
-                                    };
-                                  })
-                                )
-                              }
-                              className="h-9 rounded-xl border border-slate-200 px-3 text-sm"
-                              placeholder={`Texto del botón #${btnIdx + 1} (${pLang.toUpperCase()})`}
-                            />
-                          ))}
-                        </div>
-                      ) : null}
-                      {(card.colorNoteTitle || card.colorNoteText) ? (
-                        <div className="mt-3 grid gap-2">
-                          <input value={getLangEditValue(card.colorNoteTitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: pLang === "es" ? e.target.value : it.colorNoteTitle, colorNoteTitleI18n: setLangText(it.colorNoteTitle ?? "", it.colorNoteTitleI18n, pLang, e.target.value) } : it))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder="Título del bloque de color" />
-                          <RichTextEditor value={getLangEditValue(card.colorNoteTextI18n, pLang)} onChange={(next) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteText: pLang === "es" ? next : it.colorNoteText, colorNoteTextI18n: setLangText(it.colorNoteText ?? "", it.colorNoteTextI18n, pLang, next) } : it))} placeholder="Texto del bloque de color" minHeightClassName="min-h-[70px]" />
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <input type="color" value={card.colorNoteBgColor ?? "#EEF2FF"} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteBgColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
-                            <input type="color" value={card.colorNoteTextColor ?? "#1E3A8A"} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTextColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
-                          </div>
-                        </div>
-                      ) : null}
-                      <button type="button" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: it.colorNoteTitle || "Título", colorNoteText: it.colorNoteText || "Texto destacado", colorNoteBgColor: it.colorNoteBgColor || "#EEF2FF", colorNoteTextColor: it.colorNoteTextColor || "#1E3A8A" } : it))} className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700">Agregar bloque de texto con color a esta tarjeta</button>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => setPPrestacionResources((prev) => [...prev, createEmptyPrestacionResource()])} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">+ Agregar tarjeta de recurso</button>
-              </div>
+                        </AdminEditorSection>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-                  <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">2</span>
-                  <div>
-                    <div className="text-lg font-semibold text-slate-900">Pasos de uso / Cómo funciona</div>
-                    <p className="text-xs text-slate-500">Guía paso a paso para mostrar en la pantalla de detalle.</p>
-                  </div>
-                </div>
-                <div className="mt-3 rounded-xl bg-slate-50 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vista previa de pasos</div>
-                  <div className="mt-3 space-y-3">
-                    {pPrestacionSteps.map((step, idx) => (
-                      <div key={`step-preview-${idx}`} className="flex gap-3">
-                        <div className="grid h-7 w-7 place-items-center rounded-full bg-indigo-600 text-xs font-semibold text-white">{idx + 1}</div>
-                        <div>
-                          <div className="text-sm font-semibold text-slate-900">{getLangEditValue(step.titleI18n, pLang) || `Paso ${idx + 1}`}</div>
-                          <div className="text-xs text-slate-600">{getLangEditValue(step.subtitleI18n, pLang) || "Descripción del paso..."}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-3 space-y-3">
-                  {pPrestacionSteps.map((step, idx) => (
-                    <div key={`step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Paso {idx + 1}</span><button type="button" aria-label="Eliminar paso" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionSteps((prev) => prev.length <= 1 ? [createEmptyPrestacionStep()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
-                      <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del paso" />
-                      <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, next) } : it))} placeholder="Descripción del paso..." minHeightClassName="min-h-[70px]" />
-                      <input value={getLangMediaValue(step.imageI18n, pLang, step.image ?? "")} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? e.target.value : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Imagen URL (opcional)" />
-                      <input
-                        type="file"
-                        accept={IMAGE_FILE_ACCEPT}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          void fileToUploadAsset(file).then((asset) => {
-                            setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? asset.url : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, asset.url) } : it));
-                          }).catch(() => null);
-                        }}
-                        className="w-full min-w-0 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:font-semibold file:text-[#007D92]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPPrestacionSteps((prev) =>
-                            prev.map((it, i) =>
-                              i === idx
-                                ? { ...it, image: "", imageI18n: setLangText("", it.imageI18n, pLang, "") }
-                                : it
-                            )
-                          )
-                        }
-                        className="h-9 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600"
-                      >
-                        Quitar imagen
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => setPPrestacionSteps((prev) => [...prev, createEmptyPrestacionStep()])} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">+ Agregar paso</button>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-                  <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">3</span>
-                  <div>
-                    <div className="text-lg font-semibold text-slate-900">Preguntas frecuentes (FAQs)</div>
-                    <p className="text-xs text-slate-500">Se muestran como acordeón en la pantalla de detalle.</p>
-                  </div>
-                </div>
-                <div className="mt-3 rounded-xl bg-slate-50 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vista previa de FAQs</div>
-                  <div className="mt-2 space-y-2">
-                    {pPrestacionFaqs.map((faq, idx) => (
-                      <details key={`faq-preview-${idx}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-                        <summary className="cursor-pointer font-semibold text-slate-900">{getLangEditValue(faq.questionI18n, pLang) || `Q${idx + 1}`}</summary>
-                        {getLangEditValue(faq.answerI18n, pLang) ? <div className="mt-2 text-slate-600">{getLangEditValue(faq.answerI18n, pLang)}</div> : null}
-                      </details>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-3 space-y-3">
-                  {pPrestacionFaqs.map((faq, idx) => (
-                    <div key={`faq-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Q{idx + 1}</span><button type="button" aria-label="Eliminar pregunta" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionFaqs((prev) => prev.length <= 1 ? [createEmptyPrestacionFaq()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
-                      <input value={getLangEditValue(faq.questionI18n, pLang)} onChange={(e) => setPPrestacionFaqs((prev) => prev.map((it, i) => i === idx ? { ...it, question: pLang === "es" ? e.target.value : it.question, questionI18n: setLangText(it.question, it.questionI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Pregunta frecuente..." />
-                      <RichTextEditor value={getLangEditValue(faq.answerI18n, pLang)} onChange={(next) => setPPrestacionFaqs((prev) => prev.map((it, i) => i === idx ? { ...it, answer: pLang === "es" ? next : it.answer, answerI18n: setLangText(it.answer, it.answerI18n, pLang, next) } : it))} placeholder="Respuesta..." minHeightClassName="min-h-[80px]" />
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => setPPrestacionFaqs((prev) => [...prev, createEmptyPrestacionFaq()])} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">+ Agregar pregunta frecuente</button>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="text-lg font-semibold text-slate-900">También te puede interesar</div>
-                <p className="mt-1 text-xs text-slate-500">Seleccioná publicaciones para mostrar en carrusel al final del detalle.</p>
-                <div className="mt-3 grid gap-2">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <input
-                      value={pPrestacionRelatedSearch}
-                      onChange={(e) => setPPrestacionRelatedSearch(e.target.value)}
-                      placeholder="Buscar publicación..."
-                      className="h-10 rounded-xl border border-slate-200 px-3"
-                    />
-                    <select
-                      value={pPrestacionRelatedCategory}
-                      onChange={(e) => setPPrestacionRelatedCategory(e.target.value)}
-                      className="h-10 rounded-xl border border-slate-200 px-3"
-                    >
-                      <option value="todas">Todas las categorías</option>
-                      {Array.from(new Set(publications.map((pub) => String(pub.category ?? "").trim()).filter(Boolean))).map((category) => (
-                        <option key={`related-cat-${category}`} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      if (!id) return;
-                      setPPrestacionRelatedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-                    }}
-                    className="h-10 rounded-xl border border-slate-200 px-3"
-                  >
-                    <option value="">Agregar publicación relacionada</option>
-                    {publications
-                      .filter((pub) => pub.id !== editingId)
-                      .filter((pub) => pPrestacionRelatedCategory === "todas" || String(pub.category ?? "").trim() === pPrestacionRelatedCategory)
-                      .filter((pub) =>
-                        String(pub.title ?? "")
-                          .toLowerCase()
-                          .includes(pPrestacionRelatedSearch.toLowerCase().trim())
-                      )
-                      .slice(0, 80)
-                      .map((pub) => (
-                      <option key={`related-${pub.id}`} value={pub.id}>{pub.title}</option>
-                    ))}
-                  </select>
-                  <div className="flex flex-wrap gap-2">
-                    {pPrestacionRelatedIds.map((id) => {
-                      const pub = publications.find((item) => item.id === id);
-                      return (
-                        <span key={id} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
-                          {pub?.title || id}
-                          <button type="button" aria-label="Quitar publicación relacionada" className="ml-2 inline-flex align-middle text-red-500" onClick={() => setPPrestacionRelatedIds((prev) => prev.filter((entry) => entry !== id))}><X className="h-3 w-3" /></button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={createPublication}
-              className="h-11 rounded-xl bg-[#00A9C6] px-6 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={savingPublication}
-            >
-              {savingPublication
-                ? "Guardando..."
-                : editingId
-                  ? "Guardar cambios"
-                  : "Crear publicación"}
-            </button>
-            <button
-              type="button"
-              disabled={translatingField === "all"}
-              onClick={async () => {
-                setTranslatingField("all");
-                try {
-                  const promises: Promise<any>[] = [];
-
-                  // Title
-                  const titleEs = pTitleI18n.es || pTitle;
-                  if (titleEs) {
-                    promises.push(
-                      fetch("/api/admin/translate-i18n", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
-                      }).then((res) => res.json().then((d) => ({ key: "title", translations: d.translations })))
-                    );
-                  }
-
-                  // Description
-                  const descEs = pDescriptionI18n.es || pDescription;
-                  if (descEs) {
-                    promises.push(
-                      fetch("/api/admin/translate-i18n", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
-                      }).then((res) => res.json().then((d) => ({ key: "description", translations: d.translations })))
-                    );
-                  }
-
-                  // Provider info
-                  const providerEs = pProviderInfoI18n.es;
-                  if (providerEs) {
-                    promises.push(
-                      fetch("/api/admin/translate-i18n", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: providerEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
-                      }).then((res) => res.json().then((d) => ({ key: "providerInfo", translations: d.translations })))
-                    );
-                  }
-
-                  const results = await Promise.all(promises);
-                  results.forEach((item) => {
-                    if (!item || !item.translations) return;
-                    if (item.key === "title") {
-                      setPTitleI18n((prev) => ({
-                        ...prev,
-                        en: item.translations.en || prev.en || titleEs,
-                        pt: item.translations.pt || prev.pt || titleEs,
-                        it: item.translations.it || prev.it || titleEs,
-                      }));
-                    } else if (item.key === "description") {
-                      setPDescriptionI18n((prev) => ({
-                        ...prev,
-                        en: item.translations.en || prev.en || descEs,
-                        pt: item.translations.pt || prev.pt || descEs,
-                        it: item.translations.it || prev.it || descEs,
-                      }));
-                    } else if (item.key === "providerInfo") {
-                      setPProviderInfoI18n((prev) => ({
-                        ...prev,
-                        en: item.translations.en || prev.en || providerEs,
-                        pt: item.translations.pt || prev.pt || providerEs,
-                        it: item.translations.it || prev.it || providerEs,
-                      }));
-                    }
-                  });
-
-                  // Translate extra descriptions
-                  if (pExtraDescriptions.length) {
-                    const extraPromises = pExtraDescriptions.map(async (d) => {
-                      const tEs = d.titleI18n?.es || d.title;
-                      const bEs = d.bodyI18n?.es || d.body;
-                      let tTrans = null;
-                      let bTrans = null;
-                      if (tEs) {
-                        const r = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: tEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
-                        });
-                        tTrans = (await r.json())?.translations;
-                      }
-                      if (bEs) {
-                        const r = await fetch("/api/admin/translate-i18n", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ text: bEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
-                        });
-                        bTrans = (await r.json())?.translations;
-                      }
-                      const nextTitleI18n = { ...d.titleI18n, es: tEs };
-                      if (tTrans) ["en", "pt", "it"].forEach((l) => { if (tTrans[l]) (nextTitleI18n as any)[l] = tTrans[l]; });
-                      const nextBodyI18n = { ...d.bodyI18n, es: bEs };
-                      if (bTrans) ["en", "pt", "it"].forEach((l) => { if (bTrans[l]) (nextBodyI18n as any)[l] = bTrans[l]; });
-                      return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
-                    });
-                    const updatedExtras = await Promise.all(extraPromises);
-                    setPExtraDescriptions(updatedExtras);
-                  }
-
-                  setSaveMessage("Traducción completada a todos los idiomas.");
-                  window.setTimeout(() => setSaveMessage(""), 4000);
-                } catch (err) {
-                  console.error("Auto-translate error:", err);
-                } finally {
-                  setTranslatingField(null);
-                }
-              }}
-              className="h-11 inline-flex items-center gap-2 rounded-xl border border-cyan-300 bg-cyan-50 px-5 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
-            >
-              <Languages className="h-4 w-4 text-cyan-600" />
-              {translatingField === "all" ? "Traduciendo todo..." : "🌐 Traducir todo a multilenguaje (EN, PT, IT)"}
-            </button>
-            {editingId ? (
-              <button
-                onClick={cancelEdit}
-                className="h-11 rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancelar edición
-              </button>
-            ) : null}
-            {saveMessage ? (
-              <span className="text-sm font-medium text-emerald-600">{saveMessage}</span>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </div>
-
-          ) : null}
-
-          {!isNewPublicationPage ? (
-          <>
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Total</p><p className="mt-2 text-3xl font-bold text-slate-800">{publications.length}</p><p className="text-xs text-slate-400">-3 en el mes · +87 · -8</p></div>
-            <div className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-violet-500">Pagas</p><p className="mt-2 text-3xl font-bold text-violet-700">{paidPublications.length}</p></div>
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-emerald-500">Gratis</p><p className="mt-2 text-3xl font-bold text-emerald-700">{freePublications}</p></div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <StatsChartCard title="Publicaciones: pagas vs gratis" labelA="Pagas" labelB="Gratis" colorA="#10b981" colorB="#a7f3d0" getData={publicationsData} />
-            <StatsChartCard title="Denuncias por período" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
-          </div>
-
-          <div ref={publicationsListContainerRef} className="mt-8 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-            <div className="mb-6 flex flex-col lg:flex-row items-stretch lg:items-start justify-between gap-4">
-              {/* Columna izquierda: Tabs, Filtros de características, Filtro de tipo y Buscador */}
-              <div className="flex-1 space-y-3 min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
-                    <button
-                      type="button"
-                      onClick={() => { setPublicationTab("publicaciones"); setPublicationCurrentPage(1); }}
-                      className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "publicaciones" ? "bg-white shadow" : "text-slate-500"}`}
-                    >
-                      Publicaciones
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPublicationTab("denuncias")}
-                      className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "denuncias" ? "bg-white shadow" : "text-slate-500"}`}
-                    >
-                      Denuncias
-                    </button>
-                  </div>
-
-                  {publicationTab === "publicaciones" && (
-                    <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPublicationFeatureFilter("todas");
-                          setPublicationCurrentPage(1);
-                        }}
-                        className={`rounded-md px-2.5 py-1.5 font-semibold transition ${
-                          publicationFeatureFilter === "todas"
-                            ? "bg-white text-slate-800 shadow-xs"
-                            : "text-slate-500 hover:text-slate-700"
-                        }`}
-                      >
-                        Todas ({publications.filter((p) => !isHomeHowPublication(p)).length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPublicationFeatureFilter("partner");
-                          setPublicationCurrentPage(1);
-                        }}
-                        className={`rounded-md px-2.5 py-1.5 font-semibold transition inline-flex items-center gap-1 ${
-                          publicationFeatureFilter === "partner"
-                            ? "bg-cyan-600 text-white shadow-xs"
-                            : "text-slate-500 hover:text-slate-700"
-                        }`}
-                      >
-                        <span>🤝 Solo Partner ({publications.filter((p) => !isHomeHowPublication(p) && isPartnerPublication(p)).length})</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPublicationFeatureFilter("destacadas");
-                          setPublicationCurrentPage(1);
-                        }}
-                        className={`rounded-md px-2.5 py-1.5 font-semibold transition inline-flex items-center gap-1 ${
-                          publicationFeatureFilter === "destacadas"
-                            ? "bg-amber-500 text-white shadow-xs"
-                            : "text-slate-500 hover:text-slate-700"
-                        }`}
-                      >
-                        <span>⭐ Solo Destacadas ({publications.filter((p) => !isHomeHowPublication(p) && isFeaturedPublication(p)).length})</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    value={publicationTypeFilter}
-                    onChange={(event) => {
-                      setPublicationTypeFilter(event.target.value as "todas" | "publicacion" | "prestacion");
-                      setPublicationCurrentPage(1);
-                    }}
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
-                  >
-                    <option value="todas">Todos los tipos</option>
-                    <option value="publicacion">Publicaciones</option>
-                    <option value="prestacion">Prestaciones</option>
-                  </select>
-
-                  <div className="relative flex-1 min-w-[200px]">
-                    <input
-                      value={publicationSearch}
-                      onChange={(event) => {
-                        setPublicationSearch(event.target.value);
-                        setPublicationCurrentPage(1);
-                      }}
-                      placeholder="Buscar..."
-                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
-                    />
-                    {publicationSearch && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPublicationSearch("");
-                          setPublicationCurrentPage(1);
-                        }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Columna derecha (al costado): Nueva arriba, Generar con IA abajo, Actualizar Bloques abajo de IA */}
-              <div className="flex flex-col gap-2 shrink-0 w-full sm:w-auto lg:w-64">
-                <button
-                  type="button"
-                  onClick={openNewPublicationEditor}
-                  className="inline-flex h-10 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 shadow-xs transition"
-                >
-                  + Nueva
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAiModalOpen(true)}
-                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#00A9C6] px-4 text-sm font-semibold text-white hover:bg-[#0095AE] shadow-xs transition"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Generar con IA / Web Scraper
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBulkDocInitialBlock("");
-                    setBulkDocInitialPubId(undefined);
-                    setBulkDocModalOpen(true);
-                  }}
-                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-xs transition"
-                >
-                  <FileSpreadsheet className="h-4 w-4 text-slate-600" />
-                  Actualizar Bloques (Excel / Prompt)
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "Últimas publicaciones"}</div>
-              {publicationTab === "publicaciones" && filteredPublications.length > 0 && (
-                <div className="text-xs text-slate-500 font-medium">
-                  Mostrando {(safePublicationPage - 1) * PUBLICATIONS_PER_PAGE + 1} - {Math.min(safePublicationPage * PUBLICATIONS_PER_PAGE, filteredPublications.length)} de {filteredPublications.length} publicaciones
-                </div>
-              )}
-            </div>
-            <div className="mt-3 space-y-3">
-            {publicationTab === "denuncias" ? filteredReports.map((report) => {
-              const isOpen = Boolean(expandedReports[report.id]);
-              const isFeedback = String(report.reason ?? "").toLowerCase() === "feedback" || String(report.publicationId ?? "") === "feedback-general";
-              const reportedPublication = publicationsById.get(String(report.publicationId ?? ""));
-              const reportedPath = reportedPublication?.primaryGroupKey === "prestacion"
-                ? `/prestaciones/${encodeURIComponent(report.publicationId)}`
-                : `/publicacion/${encodeURIComponent(report.publicationId)}`;
-              return (
-                <div key={report.id} className="rounded-2xl border border-rose-100 bg-white p-4">
-                  <button
-                    type="button"
-                    onClick={() => setExpandedReports((prev) => ({ ...prev, [report.id]: !prev[report.id] }))}
-                    className="w-full text-left"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">
-                          {normalizeVisibleText(isFeedback ? "Feedback general" : (report.publicationTitle || "Publicación sin título"))}
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500">Publicación ID: {normalizeVisibleText(report.publicationId || "-")}</div>
-                        <div className="mt-1 text-xs text-slate-500">Denunciante: {normalizeVisibleText(report.fullName || "-")} · {normalizeVisibleText(report.email || "-")} · {normalizeVisibleText(report.contact || "-")}</div>
-                      </div>
-                      <span className="text-xs font-semibold text-rose-600">{isOpen ? "Ocultar" : "Ver detalle"}</span>
-                    </div>
-                  </button>
-
-                  {isOpen ? (
-                    <>
-                      <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">{report.details || "-"}</div>
-                      {report.publicationId && !isFeedback ? (
-                        <a
-                          href={reportedPath}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-2 inline-flex rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
-                        >
-                          Abrir publicación denunciada
-                        </a>
-                      ) : null}
-                      <div className="mt-2 text-xs text-rose-600">{normalizeVisibleText(report.reason || "Denuncia")} · {report.createdAt ? new Date(report.createdAt).toLocaleString("es-AR") : ""}</div>
-                    </>
-                  ) : null}
-                </div>
-              );
-            }) : paginatedPublications.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-                No se encontraron publicaciones con los filtros seleccionados.
-              </div>
-            ) : paginatedPublications.map((p) => {
-              const publicationEditRequest = reviewableEditRequestByPublicationId.get(p.id);
-              const publicationNeedsAdminReview = Boolean((p.fields as any)?.needsAdminReview) || Boolean(String((p.fields as any)?.adminReviewReason ?? "").trim());
-              return (
-              <div key={p.id} className={`rounded-2xl border bg-white p-4 ${publicationEditRequest || publicationNeedsAdminReview ? "border-amber-300 bg-amber-50/40 shadow-[0_0_0_1px_rgba(245,158,11,0.18)]" : p.primaryGroupKey === "prestacion" ? "border-teal-200" : "border-indigo-200"}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="inline-flex items-center gap-2">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
-                        {statusLabel(p.status)}
-                      </span>
-                      <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${publicationTypeColors(p)}`}>
-                        {publicationTypeLabel(p)}
-                      </span>
-                      {isFeaturedPublication(p) ? (
-                        <span className="rounded-full bg-[#00A9C6]/10 px-2 py-0.5 text-xs font-semibold text-[#007D92]">destacado</span>
-                      ) : null}
-                      {isPartnerPublication(p) ? (
-                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold text-cyan-700">partner</span>
-                      ) : null}
-                    </div>
-                    <div className="mt-2 text-base font-semibold text-slate-900">{normalizeVisibleText(p.title)}</div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      Oferente: {normalizeVisibleText(p.publisherName || "Sin nombre")} · Email: {normalizeVisibleText(String((p.fields as any)?.providerEmail ?? "-"))}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      Creada: {p.createdAt ? new Date(p.createdAt).toLocaleString("es-AR") : "-"}
-                    </div>
-                    {publicationEditRequest || publicationNeedsAdminReview ? (
-                      <div className="mt-2 rounded-xl border border-amber-200 bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900">
-                        {publicationEditRequest
-                          ? `Revision pendiente: ${providerRequestKindDisplayLabel(parseTravelServiceExtra(publicationEditRequest).requestKind)}. Revisar solicitud antes de publicar.`
-                          : "Revision pendiente: upgrade aprobado. Revisar, ajustar y guardar como Activo para publicarla."}
-                      </div>
-                    ) : null}
-                    <div className="mt-1 text-sm text-slate-600">
-                      {(() => {
-                        return "Bloque: Categorías";
-                      })()}
-                      {p.category
-                        ? ` · ${normalizeVisibleText(pickI18nText(p.categoryI18n ?? null, locale, p.category))}${
-                            p.subcategory
-                              ? ` · ${normalizeVisibleText(pickI18nText(p.subcategoryI18n ?? null, locale, p.subcategory))}`
-                              : ""
-                          }`
-                        : " · Sin categoría"}
-                      {p.city ? ` · ${normalizeVisibleText(p.city)}` : ""}
-                      {p.country ? `, ${normalizeVisibleText(p.country)}` : ""}
-                      {p.headquarterCountry ? ` · Sede: ${normalizeVisibleText(p.headquarterCountry)}` : ""}
-                    </div>
-                    {(() => {
-                      const warnings: string[] = [];
-                      if (p.status !== "active") {
-                        warnings.push(`No visible porque: ${statusLabel(p.status)}`);
-                      }
-                      if (p.expiration) {
-                        const exp = new Date(p.expiration);
-                        if (!Number.isNaN(exp.getTime()) && exp.getTime() < Date.now()) {
-                          warnings.push("No visible porque: Expirada");
-                        }
-                      }
-                      if (p.primaryGroupKey && p.primaryGroupKey !== "category") {
-                        warnings.push("Advertencia: categoría definida en un bloque distinto a categorías.");
-                      }
-                      const catType = p.category ? categoryTaxonomyTypeByLabel.get(p.category) : null;
-                      const subType = p.subcategory ? categoryTaxonomyTypeByLabel.get(p.subcategory) : null;
-                      if (catType && subType && catType !== subType) {
-                        warnings.push("Advertencia: tipo de filtro y categoría no coinciden.");
-                      }
-                      return warnings.length ? (
-                        <div className="mt-2 space-y-1 text-xs text-amber-600">
-                          {warnings.map((warning) => (
-                            <div key={warning}>{warning}</div>
-                          ))}
-                        </div>
-                      ) : null;
-                    })()}
-                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5">Visitas: {readPublicationAnalytics(p).views}</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5">Leads: {readPublicationAnalytics(p).leads}</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5">Favoritos: {readPublicationAnalytics(p).favorites}</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5">Compartidos: {readPublicationAnalytics(p).shares}</span>
-                      {publicationLanguages(p).length ? (
-                        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">Idiomas: {publicationLanguages(p).join(", ")}</span>
-                      ) : null}
-                    </div>
-
-                    {/* show dynamic tags */}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {(p.filterOptions ?? []).slice(0, 12).map((entry) => (
-                        <span
-                          key={entry.filterOptionId}
-                          className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700"
-                        >
-                          {pickI18nText(entry.filterOption.labelI18n ?? null, locale, entry.filterOption.label)}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <a
-                      href={p.primaryGroupKey === "prestacion" ? `/prestaciones/${encodeURIComponent(p.id)}` : `/publicacion/${encodeURIComponent(p.id)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg border border-cyan-200 px-3 py-1.5 text-xs text-cyan-700 hover:bg-cyan-50"
-                    >
-                      Ver detalle
-                    </a>
-                    {publicationEditRequest ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => updateTravelServiceStatus(publicationEditRequest.id, "aprobado")}
-                          className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50"
-                        >
-                          Aceptar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateTravelServiceStatus(publicationEditRequest.id, "rechazado")}
-                          className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50"
-                        >
-                          Rechazar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateTravelServiceStatus(publicationEditRequest.id, "falta info")}
-                          className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50"
-                        >
-                          Falta info
-                        </button>
                       </>
                     ) : null}
-                    <button
-                      onClick={() => editPublication(p)}
-                      className="rounded-lg border border-[#00A9C6]/40 px-3 py-1.5 text-xs text-[#007D92] hover:bg-[#00A9C6]/10"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => copyPublication(p)}
-                      className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs text-indigo-700 hover:bg-indigo-50"
-                    >
-                      Copiar del seleccionado
-                    </button>
-                    <button
-                      onClick={() => deletePublication(p.id)}
-                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                    >
-                      Eliminar
-                    </button>
+
+                    {pEditorMode === "prestacion" ? (
+                      <div className="grid gap-5">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <label className="text-sm font-semibold text-slate-900">Estado de la prestación</label>
+                          <select
+                            value={pStatus}
+                            onChange={(e) => setPStatus(e.target.value)}
+                            className="mt-3 h-10 w-full rounded-xl border border-slate-200 px-3 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                          >
+                            <option value="active">Activo</option>
+                            <option value="draft">Borrador</option>
+                            <option value="paused">Pausado</option>
+                            <option value="hidden">Oculto</option>
+                          </select>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="text-sm font-semibold text-slate-900">Prestación vinculada a la publicación</div>
+                          <p className="mt-1 text-xs text-slate-500">Elegí a qué categoría con tipo de filtro prestación pertenece esta publicación.</p>
+                          <div className="mt-3 grid gap-2">
+                            <label className="text-xs font-medium text-slate-500">Seleccionar prestación</label>
+                            <select
+                              value={pPrestacionCategory}
+                              onChange={(e) => {
+                                const next = e.target.value;
+                                setPPrestacionCategory(next);
+                                setPPrestaciones(next ? [next] : []);
+                              }}
+                              className="h-10 rounded-xl border border-slate-200 px-3"
+                            >
+                              <option value="">Seleccionar prestación</option>
+                              {prestacionRoots.map((opt) => (
+                                <option key={`prestation-category-${opt.id}`} value={opt.description}>{pickI18nText(opt.descriptionI18n ?? null, pLang, opt.description)}</option>
+                              ))}
+                            </select>
+                            {!prestacionRoots.length ? <div className="text-xs text-slate-500">No hay categorías con tipo de filtro prestación.</div> : null}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="text-sm font-semibold text-slate-900">Elegir categorías o subcategorías vinculadas con la publicación</div>
+                          <p className="mt-1 text-xs text-slate-500">Seleccioná categorías y subcategorías relacionadas. Se muestran todas excepto las de tipo prestación.</p>
+                          <button
+                            type="button"
+                            onClick={() => setOpenPublicationPanel((prev) => (prev === "category" ? null : "category"))}
+                            className="mt-3 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            <span>{pCategorySelections.length || pSubcategorySelections.length ? "Editar categorías vinculadas" : "Seleccionar categorías vinculadas"}</span>
+                            {openPublicationPanel === "category" ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </button>
+                          {openPublicationPanel ? <div className="mt-3">{renderCategorySelection(openPublicationPanel)}</div> : null}
+                          {(pCategorySelections.length || pSubcategorySelections.length) ? (
+                            <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Vinculado</div>
+                              <div className="mt-2 space-y-1 text-sm text-slate-700">
+                                {pCategorySelections.length ? (
+                                  <div>
+                                    <span className="font-semibold">Categorías:</span> {pCategorySelections.join(", ")}
+                                  </div>
+                                ) : null}
+                                {pSubcategorySelections.length ? (
+                                  <div>
+                                    <span className="font-semibold">Subcategorías:</span> {pSubcategorySelections.join(", ")}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="text-sm font-semibold text-slate-900">Lugar de destino (visibilidad)</div>
+                          <p className="mt-1 text-xs text-slate-500">Seleccioná uno o más países en los que querés mostrar esta prestación en /buscar.</p>
+                          <div className="mt-3">
+                            <CountryMultiSelect
+                              label="Países donde se muestra"
+                              selected={pPrestacionDestinationCountries}
+                              onChange={setPPrestacionDestinationCountries}
+                              placeholder="Seleccioná países destino"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="text-sm font-semibold text-slate-900">Hero de la prestación</div>
+                          <p className="mt-1 text-xs text-slate-500">Podés usar una imagen personalizada para el hero del detalle, con título y subtítulo traducibles.</p>
+                          <div className="mt-3 grid gap-2">
+                            <input value={getLangEditValue(pPrestacionHeroTitleI18n, pLang)} onChange={(e) => {
+                              const next = e.target.value;
+                              setPPrestacionHeroTitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next));
+                              setPTitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next));
+                              if (pLang === "es") setPTitle(next);
+                            }} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del hero" />
+                            <RichTextEditor value={getLangEditValue(pPrestacionHeroSubtitleI18n, pLang)} onChange={(next) => setPPrestacionHeroSubtitleI18n((prev) => setLangText(prev.es ?? "", prev, pLang, next))} placeholder="Subtítulo del hero" minHeightClassName="min-h-[80px]" />
+                            <input value={getLangMediaValue(pPrestacionHeroImageI18n, pLang, pPrestacionHeroImage)} onChange={(e) => setPPrestacionHeroImageI18n((prev) => setLangText(prev.es ?? "", prev, pLang, e.target.value))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="URL de imagen del hero (opcional)" />
+                            <input type="file" accept={IMAGE_FILE_ACCEPT} onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              void fileToUploadAsset(file).then((asset) => setPPrestacionHeroImageI18n((prev) => setLangText(prev.es ?? "", prev, pLang, asset.url))).catch(() => null);
+                            }} className="w-full min-w-0 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:font-semibold file:text-[#007D92]" />
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="text-sm font-semibold text-slate-900">Bloques informativos bajo hero</div>
+                          <p className="mt-1 text-xs text-slate-500">Estos bloques se muestran justo debajo del hero en el detalle y son traducibles.</p>
+                          <div className="mt-3 space-y-3">
+                            {pPrestacionHeroInfoBlocks.map((block, idx) => (
+                              <div key={`hero-info-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
+                                <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Bloque #{idx + 1}</span><button type="button" aria-label="Eliminar bloque" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionHeroInfoBlocks((prev) => prev.length <= 1 ? [createEmptyPrestacionHeroInfoBlock()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
+                                <input value={getLangEditValue(block.titleI18n, pLang)} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del bloque" />
+                                <RichTextEditor value={getLangEditValue(block.textI18n, pLang)} onChange={(next) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, text: pLang === "es" ? next : it.text, textI18n: setLangText(it.text, it.textI18n, pLang, next) } : it))} placeholder="Texto del bloque" minHeightClassName="min-h-[70px]" />
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                  <input type="color" value={block.bgColor} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, bgColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
+                                  <input type="color" value={block.textColor} onChange={(e) => setPPrestacionHeroInfoBlocks((prev) => prev.map((it, i) => i === idx ? { ...it, textColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <button type="button" onClick={() => setPPrestacionHeroInfoBlocks((prev) => [...prev, createEmptyPrestacionHeroInfoBlock()])} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">+ Agregar bloque informativo</button>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                            <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">1</span>
+                            <div>
+                              <div className="text-lg font-semibold text-slate-900">Tarjetas de recursos</div>
+                              <p className="text-xs text-slate-500">Tarjetas flexibles con título, subtítulo, imagen, ítems con check y botones. Cada tarjeta puede tener además un bloque de texto con color.</p>
+                              <p className="mt-1 text-[11px] text-slate-400">Estás editando contenidos en idioma: <span className="font-semibold uppercase">{pLang}</span>. En imágenes, podés cargar una por idioma; si no cargás una, se usa la de ES.</p>
+                            </div>
+                          </div>
+                          <div className="mt-4 space-y-3">
+                            {pPrestacionResources.map((card, idx) => (
+                              <div key={`resource-${idx}`} className="rounded-xl border border-slate-200 p-3">
+                                <div className="mb-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                  Tarjeta #{idx + 1}
+                                  <button type="button" aria-label="Eliminar tarjeta" onClick={() => setPPrestacionResources((prev) => prev.length <= 1 ? [createEmptyPrestacionResource()] : prev.filter((_, i) => i !== idx))} className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"><X className="h-3.5 w-3.5" /></button>
+                                </div>
+                                <div className="grid gap-2 md:grid-cols-2">
+                                  <div className="grid gap-1"><label className="text-xs font-medium text-slate-500">Título</label><input value={getLangEditValue(card.titleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Lima Immigration" /></div>
+                                  {card.title || card.subtitle || card.image || (card.checkItemsI18n ?? []).length || (card.buttons ?? []).length || card.colorNoteTitle || card.colorNoteText ? (
+                                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                                      {card.image ? <img src={card.image} alt="preview" className="h-28 w-full rounded-lg object-cover" /> : null}
+                                      {getLangEditValue(card.titleI18n, pLang) ? <div className="mt-2 text-sm font-semibold text-slate-900">{getLangEditValue(card.titleI18n, pLang)}</div> : null}
+                                      {getLangEditValue(card.subtitleI18n, pLang) ? <div className="mt-1 text-xs text-slate-600">{getLangEditValue(card.subtitleI18n, pLang)}</div> : null}
+                                      {(card.checkItemsI18n ?? []).length ? (
+                                        <ul className="mt-2 space-y-1 text-xs text-slate-700">
+                                          {(card.checkItemsI18n ?? []).slice(0, 3).map((itemI18n, i) => <li key={`prev-check-${idx}-${i}`} className="text-emerald-600">✓ {getLangEditValue(itemI18n, pLang)}</li>)}
+                                        </ul>
+                                      ) : null}
+                                      {(card.colorNoteTitle || card.colorNoteText) ? (
+                                        <div className="mt-2 rounded-lg p-2 text-xs" style={{ backgroundColor: card.colorNoteBgColor || "#EEF2FF", color: card.colorNoteTextColor || "#1E3A8A" }}>
+                                          {getLangEditValue(card.colorNoteTitleI18n, pLang) ? <div className="font-semibold">{getLangEditValue(card.colorNoteTitleI18n, pLang)}</div> : null}
+                                          {getLangEditValue(card.colorNoteTextI18n, pLang) ? <div>{getLangEditValue(card.colorNoteTextI18n, pLang)}</div> : null}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  ) : (
+                                    <div className="rounded-xl border-2 border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-400">Completá los campos para ver la previa</div>
+                                  )}
+                                </div>
+                                <div className="mt-2 grid gap-2">
+                                  <label className="text-xs font-medium text-slate-500">Subtítulo</label><input value={getLangEditValue(card.subtitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? e.target.value : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Tu guía de visa personalizada" />
+                                  <label className="text-xs font-medium text-slate-500">Imagen (URL)</label><input value={getLangMediaValue(card.imageI18n, pLang, card.image)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? e.target.value : it.image, imageI18n: setLangText(it.image, it.imageI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="https://..." />
+                                  <input
+                                    type="file"
+                                    accept={IMAGE_FILE_ACCEPT}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      void fileToUploadAsset(file).then((asset) => {
+                                        setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? asset.url : it.image, imageI18n: setLangText(it.image, it.imageI18n, pLang, asset.url) } : it));
+                                      }).catch(() => null);
+                                    }}
+                                    className="w-full min-w-0 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:font-semibold file:text-[#007D92]"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPPrestacionResources((prev) =>
+                                        prev.map((it, i) =>
+                                          i === idx
+                                            ? { ...it, image: "", imageI18n: setLangText("", it.imageI18n, pLang, "") }
+                                            : it
+                                        )
+                                      )
+                                    }
+                                    className="h-9 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600"
+                                  >
+                                    Quitar imagen
+                                  </button>
+                                </div>
+                                <div className="mt-3">
+                                  <label className="text-xs font-medium text-slate-500">Ítems con check</label>
+                                  <div className="mt-1 flex gap-2">
+                                    <input value={resourceItemDrafts[idx] ?? ""} onChange={(e) => setResourceItemDrafts((prev) => ({ ...prev, [idx]: e.target.value }))} className="h-9 flex-1 rounded-xl border border-slate-200 px-3 text-sm" placeholder="Agregar ítem..." />
+                                    <button type="button" onClick={() => {
+                                      const value = (resourceItemDrafts[idx] ?? "").trim();
+                                      if (!value) return;
+                                      setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, checkItems: [...(it.checkItems ?? []), pLang === "es" ? value : ""], checkItemsI18n: [...(it.checkItemsI18n ?? []), setLangText("", { es: "" }, pLang, value)] } : it));
+                                      setResourceItemDrafts((prev) => ({ ...prev, [idx]: "" }));
+                                    }} className="h-9 w-9 rounded-lg border border-slate-200">+</button>
+                                  </div>
+                                  <div className="mt-2 grid gap-2">
+                                    {(card.checkItemsI18n ?? []).map((itemI18n, itemIdx) => (
+                                      <div key={`item-${itemIdx}`} className="grid grid-cols-[1fr_auto] gap-2">
+                                        <input
+                                          value={getLangEditValue(itemI18n, pLang)}
+                                          onChange={(e) =>
+                                            setPPrestacionResources((prev) =>
+                                              prev.map((it, i) => {
+                                                if (i !== idx) return it;
+                                                const nextI18n = [...(it.checkItemsI18n ?? [])];
+                                                const current = nextI18n[itemIdx] ?? { es: it.checkItems?.[itemIdx] ?? "" };
+                                                nextI18n[itemIdx] = setLangText(it.checkItems?.[itemIdx] ?? "", current, pLang, e.target.value);
+                                                const nextChecks = [...(it.checkItems ?? [])];
+                                                if (pLang === "es") nextChecks[itemIdx] = e.target.value;
+                                                return { ...it, checkItems: nextChecks, checkItemsI18n: nextI18n };
+                                              })
+                                            )
+                                          }
+                                          className="h-9 rounded-xl border border-slate-200 px-3 text-sm"
+                                          placeholder={`Ítem con check (${pLang.toUpperCase()})`}
+                                        />
+                                        <button type="button" aria-label="Eliminar ítem" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-red-500" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, checkItems: (it.checkItems ?? []).filter((_, j) => j !== itemIdx), checkItemsI18n: (it.checkItemsI18n ?? []).filter((_, j) => j !== itemIdx) } : it))}><X className="h-3.5 w-3.5" /></button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="mt-3 text-xs font-medium text-slate-500">Botones ({(card.buttons ?? []).length}/2)</div><div className="mt-2 grid gap-2 md:grid-cols-[1fr_140px]">
+                                  <input value={getLangEditValue(resourceButtonDrafts[idx]?.labelI18n, pLang)} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: pLang === "es" ? e.target.value : prev[idx]?.label ?? "", labelI18n: setLangText(prev[idx]?.label ?? "", prev[idx]?.labelI18n, pLang, e.target.value), url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder={`Texto del botón (${pLang.toUpperCase()})`} />
+                                  <select value={(resourceButtonDrafts[idx]?.style ?? "primary")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: e.target.value === "secondary" ? "secondary" : "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm">
+                                    <option value="primary">Primario</option>
+                                    <option value="secondary">Secundario</option>
+                                  </select>
+                                  <input value={(resourceButtonDrafts[idx]?.url ?? "")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: e.target.value, style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm md:col-span-1" placeholder="URL destino (afiliado u otro)" />
+                                  <button type="button" onClick={() => {
+                                    const draft = resourceButtonDrafts[idx] ?? { label: "", labelI18n: { es: "" }, url: "", style: "primary" as const, bgColor: "#2563EB", textColor: "#FFFFFF" };
+                                    const translatedLabel = firstNonEmptyI18n(draft.labelI18n, draft.label);
+                                    if (!translatedLabel.trim() || !draft.url.trim()) return;
+                                    if ((card.buttons ?? []).length >= 2) return;
+                                    setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, buttons: [...(it.buttons ?? []), { label: translatedLabel.trim(), labelI18n: setLangText(draft.label, draft.labelI18n, pLang, translatedLabel.trim()), url: draft.url.trim(), style: draft.style, bgColor: draft.bgColor, textColor: draft.textColor }] } : it));
+                                    setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: "", labelI18n: { es: "" }, url: "", style: "primary", bgColor: "#2563EB", textColor: "#FFFFFF" } }));
+                                  }} className="h-9 rounded-lg border border-slate-200 text-sm">+</button>
+                                </div>
+                                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                                  <div className="grid gap-1"><label className="text-[11px] text-slate-500">Color botón</label><input type="color" value={(resourceButtonDrafts[idx]?.bgColor ?? "#2563EB")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: e.target.value, textColor: prev[idx]?.textColor ?? "#FFFFFF" } }))} className="h-9 w-12 rounded border border-slate-200" /></div>
+                                  <div className="grid gap-1"><label className="text-[11px] text-slate-500">Color texto</label><input type="color" value={(resourceButtonDrafts[idx]?.textColor ?? "#FFFFFF")} onChange={(e) => setResourceButtonDrafts((prev) => ({ ...prev, [idx]: { label: prev[idx]?.label ?? "", labelI18n: prev[idx]?.labelI18n ?? { es: prev[idx]?.label ?? "" }, url: prev[idx]?.url ?? "", style: prev[idx]?.style ?? "primary", bgColor: prev[idx]?.bgColor ?? "#2563EB", textColor: e.target.value } }))} className="h-9 w-12 rounded border border-slate-200" /></div>
+                                </div>
+                                {(card.buttons ?? []).length ? (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {card.buttons.map((btn, btnIdx) => (
+                                      <span key={`${getLangEditValue(btn.labelI18n, pLang)}-${btnIdx}`} className="rounded-lg px-2 py-1 text-xs shadow-sm" style={{ backgroundColor: btn.bgColor || (btn.style === "secondary" ? "#FFFFFF" : "#2563EB"), color: btn.textColor || (btn.style === "secondary" ? "#1D4ED8" : "#FFFFFF"), border: btn.style === "secondary" ? "1px solid #C7D2FE" : "1px solid transparent" }}>{getLangEditValue(btn.labelI18n, pLang)}<button type="button" aria-label="Quitar botón" className="ml-2 inline-flex align-middle" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, buttons: (it.buttons ?? []).filter((_, j) => j !== btnIdx) } : it))}><X className="h-3 w-3" /></button></span>
+                                    ))}
+                                  </div>
+                                ) : null}
+                                {(card.buttons ?? []).length ? (
+                                  <div className="mt-2 grid gap-2">
+                                    {card.buttons.map((btn, btnIdx) => (
+                                      <input
+                                        key={`btn-label-${idx}-${btnIdx}`}
+                                        value={getLangEditValue(btn.labelI18n, pLang)}
+                                        onChange={(e) =>
+                                          setPPrestacionResources((prev) =>
+                                            prev.map((it, i) => {
+                                              if (i !== idx) return it;
+                                              return {
+                                                ...it,
+                                                buttons: (it.buttons ?? []).map((b, j) =>
+                                                  j === btnIdx
+                                                    ? {
+                                                      ...b,
+                                                      label: pLang === "es" ? e.target.value : b.label,
+                                                      labelI18n: setLangText(b.label, b.labelI18n, pLang, e.target.value),
+                                                    }
+                                                    : b
+                                                ),
+                                              };
+                                            })
+                                          )
+                                        }
+                                        className="h-9 rounded-xl border border-slate-200 px-3 text-sm"
+                                        placeholder={`Texto del botón #${btnIdx + 1} (${pLang.toUpperCase()})`}
+                                      />
+                                    ))}
+                                  </div>
+                                ) : null}
+                                {(card.colorNoteTitle || card.colorNoteText) ? (
+                                  <div className="mt-3 grid gap-2">
+                                    <input value={getLangEditValue(card.colorNoteTitleI18n, pLang)} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: pLang === "es" ? e.target.value : it.colorNoteTitle, colorNoteTitleI18n: setLangText(it.colorNoteTitle ?? "", it.colorNoteTitleI18n, pLang, e.target.value) } : it))} className="h-9 rounded-xl border border-slate-200 px-3 text-sm" placeholder="Título del bloque de color" />
+                                    <RichTextEditor value={getLangEditValue(card.colorNoteTextI18n, pLang)} onChange={(next) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteText: pLang === "es" ? next : it.colorNoteText, colorNoteTextI18n: setLangText(it.colorNoteText ?? "", it.colorNoteTextI18n, pLang, next) } : it))} placeholder="Texto del bloque de color" minHeightClassName="min-h-[70px]" />
+                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                      <input type="color" value={card.colorNoteBgColor ?? "#EEF2FF"} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteBgColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
+                                      <input type="color" value={card.colorNoteTextColor ?? "#1E3A8A"} onChange={(e) => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTextColor: e.target.value } : it))} className="h-9 w-12 rounded border border-slate-200" />
+                                    </div>
+                                  </div>
+                                ) : null}
+                                <button type="button" onClick={() => setPPrestacionResources((prev) => prev.map((it, i) => i === idx ? { ...it, colorNoteTitle: it.colorNoteTitle || "Título", colorNoteText: it.colorNoteText || "Texto destacado", colorNoteBgColor: it.colorNoteBgColor || "#EEF2FF", colorNoteTextColor: it.colorNoteTextColor || "#1E3A8A" } : it))} className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700">Agregar bloque de texto con color a esta tarjeta</button>
+                              </div>
+                            ))}
+                          </div>
+                          <button type="button" onClick={() => setPPrestacionResources((prev) => [...prev, createEmptyPrestacionResource()])} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">+ Agregar tarjeta de recurso</button>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                            <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">2</span>
+                            <div>
+                              <div className="text-lg font-semibold text-slate-900">Pasos de uso / Cómo funciona</div>
+                              <p className="text-xs text-slate-500">Guía paso a paso para mostrar en la pantalla de detalle.</p>
+                            </div>
+                          </div>
+                          <div className="mt-3 rounded-xl bg-slate-50 p-4">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vista previa de pasos</div>
+                            <div className="mt-3 space-y-3">
+                              {pPrestacionSteps.map((step, idx) => (
+                                <div key={`step-preview-${idx}`} className="flex gap-3">
+                                  <div className="grid h-7 w-7 place-items-center rounded-full bg-indigo-600 text-xs font-semibold text-white">{idx + 1}</div>
+                                  <div>
+                                    <div className="text-sm font-semibold text-slate-900">{getLangEditValue(step.titleI18n, pLang) || `Paso ${idx + 1}`}</div>
+                                    <div className="text-xs text-slate-600">{getLangEditValue(step.subtitleI18n, pLang) || "Descripción del paso..."}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="mt-3 space-y-3">
+                            {pPrestacionSteps.map((step, idx) => (
+                              <div key={`step-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
+                                <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Paso {idx + 1}</span><button type="button" aria-label="Eliminar paso" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionSteps((prev) => prev.length <= 1 ? [createEmptyPrestacionStep()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
+                                <input value={getLangEditValue(step.titleI18n, pLang)} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, title: pLang === "es" ? e.target.value : it.title, titleI18n: setLangText(it.title, it.titleI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Título del paso" />
+                                <RichTextEditor value={getLangEditValue(step.subtitleI18n, pLang)} onChange={(next) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, subtitle: pLang === "es" ? next : it.subtitle, subtitleI18n: setLangText(it.subtitle, it.subtitleI18n, pLang, next) } : it))} placeholder="Descripción del paso..." minHeightClassName="min-h-[70px]" />
+                                <input value={getLangMediaValue(step.imageI18n, pLang, step.image ?? "")} onChange={(e) => setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? e.target.value : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Imagen URL (opcional)" />
+                                <input
+                                  type="file"
+                                  accept={IMAGE_FILE_ACCEPT}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    void fileToUploadAsset(file).then((asset) => {
+                                      setPPrestacionSteps((prev) => prev.map((it, i) => i === idx ? { ...it, image: pLang === "es" ? asset.url : it.image, imageI18n: setLangText(it.image ?? "", it.imageI18n, pLang, asset.url) } : it));
+                                    }).catch(() => null);
+                                  }}
+                                  className="w-full min-w-0 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#00A9C6]/10 file:px-3 file:py-1.5 file:font-semibold file:text-[#007D92]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPPrestacionSteps((prev) =>
+                                      prev.map((it, i) =>
+                                        i === idx
+                                          ? { ...it, image: "", imageI18n: setLangText("", it.imageI18n, pLang, "") }
+                                          : it
+                                      )
+                                    )
+                                  }
+                                  className="h-9 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600"
+                                >
+                                  Quitar imagen
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <button type="button" onClick={() => setPPrestacionSteps((prev) => [...prev, createEmptyPrestacionStep()])} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">+ Agregar paso</button>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                            <span className="grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">3</span>
+                            <div>
+                              <div className="text-lg font-semibold text-slate-900">Preguntas frecuentes (FAQs)</div>
+                              <p className="text-xs text-slate-500">Se muestran como acordeón en la pantalla de detalle.</p>
+                            </div>
+                          </div>
+                          <div className="mt-3 rounded-xl bg-slate-50 p-4">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vista previa de FAQs</div>
+                            <div className="mt-2 space-y-2">
+                              {pPrestacionFaqs.map((faq, idx) => (
+                                <details key={`faq-preview-${idx}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                                  <summary className="cursor-pointer font-semibold text-slate-900">{getLangEditValue(faq.questionI18n, pLang) || `Q${idx + 1}`}</summary>
+                                  {getLangEditValue(faq.answerI18n, pLang) ? <div className="mt-2 text-slate-600">{getLangEditValue(faq.answerI18n, pLang)}</div> : null}
+                                </details>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="mt-3 space-y-3">
+                            {pPrestacionFaqs.map((faq, idx) => (
+                              <div key={`faq-${idx}`} className="grid gap-2 rounded-xl border border-slate-200 p-3">
+                                <div className="flex items-center justify-between text-xs font-semibold text-slate-500"><span>Q{idx + 1}</span><button type="button" aria-label="Eliminar pregunta" className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50" onClick={() => setPPrestacionFaqs((prev) => prev.length <= 1 ? [createEmptyPrestacionFaq()] : prev.filter((_, i) => i !== idx))}><X className="h-3.5 w-3.5" /></button></div>
+                                <input value={getLangEditValue(faq.questionI18n, pLang)} onChange={(e) => setPPrestacionFaqs((prev) => prev.map((it, i) => i === idx ? { ...it, question: pLang === "es" ? e.target.value : it.question, questionI18n: setLangText(it.question, it.questionI18n, pLang, e.target.value) } : it))} className="h-10 rounded-xl border border-slate-200 px-3" placeholder="Pregunta frecuente..." />
+                                <RichTextEditor value={getLangEditValue(faq.answerI18n, pLang)} onChange={(next) => setPPrestacionFaqs((prev) => prev.map((it, i) => i === idx ? { ...it, answer: pLang === "es" ? next : it.answer, answerI18n: setLangText(it.answer, it.answerI18n, pLang, next) } : it))} placeholder="Respuesta..." minHeightClassName="min-h-[80px]" />
+                              </div>
+                            ))}
+                          </div>
+                          <button type="button" onClick={() => setPPrestacionFaqs((prev) => [...prev, createEmptyPrestacionFaq()])} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">+ Agregar pregunta frecuente</button>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="text-lg font-semibold text-slate-900">También te puede interesar</div>
+                          <p className="mt-1 text-xs text-slate-500">Seleccioná publicaciones para mostrar en carrusel al final del detalle.</p>
+                          <div className="mt-3 grid gap-2">
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <input
+                                value={pPrestacionRelatedSearch}
+                                onChange={(e) => setPPrestacionRelatedSearch(e.target.value)}
+                                placeholder="Buscar publicación..."
+                                className="h-10 rounded-xl border border-slate-200 px-3"
+                              />
+                              <select
+                                value={pPrestacionRelatedCategory}
+                                onChange={(e) => setPPrestacionRelatedCategory(e.target.value)}
+                                className="h-10 rounded-xl border border-slate-200 px-3"
+                              >
+                                <option value="todas">Todas las categorías</option>
+                                {Array.from(new Set(publications.map((pub) => String(pub.category ?? "").trim()).filter(Boolean))).map((category) => (
+                                  <option key={`related-cat-${category}`} value={category}>{category}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <select
+                              value=""
+                              onChange={(e) => {
+                                const id = e.target.value;
+                                if (!id) return;
+                                setPPrestacionRelatedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+                              }}
+                              className="h-10 rounded-xl border border-slate-200 px-3"
+                            >
+                              <option value="">Agregar publicación relacionada</option>
+                              {publications
+                                .filter((pub) => pub.id !== editingId)
+                                .filter((pub) => pPrestacionRelatedCategory === "todas" || String(pub.category ?? "").trim() === pPrestacionRelatedCategory)
+                                .filter((pub) =>
+                                  String(pub.title ?? "")
+                                    .toLowerCase()
+                                    .includes(pPrestacionRelatedSearch.toLowerCase().trim())
+                                )
+                                .slice(0, 80)
+                                .map((pub) => (
+                                  <option key={`related-${pub.id}`} value={pub.id}>{pub.title}</option>
+                                ))}
+                            </select>
+                            <div className="flex flex-wrap gap-2">
+                              {pPrestacionRelatedIds.map((id) => {
+                                const pub = publications.find((item) => item.id === id);
+                                return (
+                                  <span key={id} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
+                                    {pub?.title || id}
+                                    <button type="button" aria-label="Quitar publicación relacionada" className="ml-2 inline-flex align-middle text-red-500" onClick={() => setPPrestacionRelatedIds((prev) => prev.filter((entry) => entry !== id))}><X className="h-3 w-3" /></button>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    ) : null}
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={createPublication}
+                        className="h-11 rounded-xl bg-[#00A9C6] px-6 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:cursor-not-allowed disabled:opacity-70"
+                        disabled={savingPublication}
+                      >
+                        {savingPublication
+                          ? "Guardando..."
+                          : editingId
+                            ? "Guardar cambios"
+                            : "Crear publicación"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={translatingField === "all"}
+                        onClick={async () => {
+                          setTranslatingField("all");
+                          try {
+                            const promises: Promise<any>[] = [];
+
+                            // Title
+                            const titleEs = pTitleI18n.es || pTitle;
+                            if (titleEs) {
+                              promises.push(
+                                fetch("/api/admin/translate-i18n", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ text: titleEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                                }).then((res) => res.json().then((d) => ({ key: "title", translations: d.translations })))
+                              );
+                            }
+
+                            // Description
+                            const descEs = pDescriptionI18n.es || pDescription;
+                            if (descEs) {
+                              promises.push(
+                                fetch("/api/admin/translate-i18n", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ text: descEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                                }).then((res) => res.json().then((d) => ({ key: "description", translations: d.translations })))
+                              );
+                            }
+
+                            // Provider info
+                            const providerEs = pProviderInfoI18n.es;
+                            if (providerEs) {
+                              promises.push(
+                                fetch("/api/admin/translate-i18n", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ text: providerEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                                }).then((res) => res.json().then((d) => ({ key: "providerInfo", translations: d.translations })))
+                              );
+                            }
+
+                            const results = await Promise.all(promises);
+                            results.forEach((item) => {
+                              if (!item || !item.translations) return;
+                              if (item.key === "title") {
+                                setPTitleI18n((prev) => ({
+                                  ...prev,
+                                  en: item.translations.en || prev.en || titleEs,
+                                  pt: item.translations.pt || prev.pt || titleEs,
+                                  it: item.translations.it || prev.it || titleEs,
+                                }));
+                              } else if (item.key === "description") {
+                                setPDescriptionI18n((prev) => ({
+                                  ...prev,
+                                  en: item.translations.en || prev.en || descEs,
+                                  pt: item.translations.pt || prev.pt || descEs,
+                                  it: item.translations.it || prev.it || descEs,
+                                }));
+                              } else if (item.key === "providerInfo") {
+                                setPProviderInfoI18n((prev) => ({
+                                  ...prev,
+                                  en: item.translations.en || prev.en || providerEs,
+                                  pt: item.translations.pt || prev.pt || providerEs,
+                                  it: item.translations.it || prev.it || providerEs,
+                                }));
+                              }
+                            });
+
+                            // Translate extra descriptions
+                            if (pExtraDescriptions.length) {
+                              const extraPromises = pExtraDescriptions.map(async (d) => {
+                                const tEs = d.titleI18n?.es || d.title;
+                                const bEs = d.bodyI18n?.es || d.body;
+                                let tTrans = null;
+                                let bTrans = null;
+                                if (tEs) {
+                                  const r = await fetch("/api/admin/translate-i18n", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ text: tEs, targetLangs: ["en", "pt", "it"], sourceLang: "es" }),
+                                  });
+                                  tTrans = (await r.json())?.translations;
+                                }
+                                if (bEs) {
+                                  const r = await fetch("/api/admin/translate-i18n", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ text: bEs, targetLangs: ["en", "pt", "it"], sourceLang: "es", isHtml: true }),
+                                  });
+                                  bTrans = (await r.json())?.translations;
+                                }
+                                const nextTitleI18n = { ...d.titleI18n, es: tEs };
+                                if (tTrans) ["en", "pt", "it"].forEach((l) => { if (tTrans[l]) (nextTitleI18n as any)[l] = tTrans[l]; });
+                                const nextBodyI18n = { ...d.bodyI18n, es: bEs };
+                                if (bTrans) ["en", "pt", "it"].forEach((l) => { if (bTrans[l]) (nextBodyI18n as any)[l] = bTrans[l]; });
+                                return { ...d, titleI18n: nextTitleI18n, bodyI18n: nextBodyI18n };
+                              });
+                              const updatedExtras = await Promise.all(extraPromises);
+                              setPExtraDescriptions(updatedExtras);
+                            }
+
+                            setSaveMessage("Traducción completada a todos los idiomas.");
+                            window.setTimeout(() => setSaveMessage(""), 4000);
+                          } catch (err) {
+                            console.error("Auto-translate error:", err);
+                          } finally {
+                            setTranslatingField(null);
+                          }
+                        }}
+                        className="h-11 inline-flex items-center gap-2 rounded-xl border border-cyan-300 bg-cyan-50 px-5 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-50"
+                      >
+                        <Languages className="h-4 w-4 text-cyan-600" />
+                        {translatingField === "all" ? "Traduciendo todo..." : "🌐 Traducir todo a multilenguaje (EN, PT, IT)"}
+                      </button>
+                      {editingId ? (
+                        <button
+                          onClick={cancelEdit}
+                          className="h-11 rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Cancelar edición
+                        </button>
+                      ) : null}
+                      {saveMessage ? (
+                        <span className="text-sm font-medium text-emerald-600">{saveMessage}</span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
-            )})}
-            </div>
 
-            {publicationTab === "publicaciones" && totalPublicationPages > 1 ? (
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                <div className="text-xs text-slate-500 font-medium">
-                  Página <span className="font-bold text-slate-800">{safePublicationPage}</span> de{" "}
-                  <span className="font-bold text-slate-800">{totalPublicationPages}</span> · Mostrando{" "}
-                  {(safePublicationPage - 1) * PUBLICATIONS_PER_PAGE + 1} -{" "}
-                  {Math.min(safePublicationPage * PUBLICATIONS_PER_PAGE, filteredPublications.length)} de{" "}
-                  {filteredPublications.length} publicaciones
+            ) : null}
+
+            {!isNewPublicationPage ? (
+              <>
+                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Total</p><p className="mt-2 text-3xl font-bold text-slate-800">{publications.length}</p><p className="text-xs text-slate-400">-3 en el mes · +87 · -8</p></div>
+                  <div className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-violet-500">Pagas</p><p className="mt-2 text-3xl font-bold text-violet-700">{paidPublications.length}</p></div>
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-widest text-emerald-500">Gratis</p><p className="mt-2 text-3xl font-bold text-emerald-700">{freePublications}</p></div>
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={safePublicationPage <= 1}
-                    onClick={() => {
-                      setPublicationCurrentPage((p) => Math.max(1, p - 1));
-                      publicationsListContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }}
-                    className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                  >
-                    ← Anterior
-                  </button>
+                <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <StatsChartCard title="Publicaciones: pagas vs gratis" labelA="Pagas" labelB="Gratis" colorA="#10b981" colorB="#a7f3d0" getData={publicationsData} />
+                  <StatsChartCard title="Denuncias por período" labelA="Denuncias" colorA="#f43f5e" getData={reportsData} single />
+                </div>
 
-                  {Array.from({ length: totalPublicationPages }, (_, i) => i + 1)
-                    .filter((pageNum) => {
-                      if (pageNum === 1 || pageNum === totalPublicationPages) return true;
-                      return Math.abs(pageNum - safePublicationPage) <= 2;
-                    })
-                    .reduce<Array<number | string>>((acc, pageNum, idx, arr) => {
-                      if (idx > 0 && pageNum - (arr[idx - 1] as number) > 1) {
-                        acc.push(`ellipsis-${pageNum}`);
-                      }
-                      acc.push(pageNum);
-                      return acc;
-                    }, [])
-                    .map((item) => {
-                      if (typeof item === "string") {
-                        return (
-                          <span key={item} className="px-1.5 text-xs text-slate-400">
-                            …
-                          </span>
-                        );
-                      }
-                      const isCurrent = item === safePublicationPage;
+                <div ref={publicationsListContainerRef} className="mt-8 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <div className="mb-6 flex flex-col lg:flex-row items-stretch lg:items-start justify-between gap-4">
+                    {/* Columna izquierda: Tabs, Filtros de características, Filtro de tipo y Buscador */}
+                    <div className="flex-1 space-y-3 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
+                          <button
+                            type="button"
+                            onClick={() => { setPublicationTab("publicaciones"); setPublicationCurrentPage(1); }}
+                            className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "publicaciones" ? "bg-white shadow" : "text-slate-500"}`}
+                          >
+                            Publicaciones
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPublicationTab("denuncias")}
+                            className={`rounded-md px-3 py-1.5 font-medium ${publicationTab === "denuncias" ? "bg-white shadow" : "text-slate-500"}`}
+                          >
+                            Denuncias
+                          </button>
+                        </div>
+
+                        {publicationTab === "publicaciones" && (
+                          <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPublicationFeatureFilter("todas");
+                                setPublicationCurrentPage(1);
+                              }}
+                              className={`rounded-md px-2.5 py-1.5 font-semibold transition ${publicationFeatureFilter === "todas"
+                                  ? "bg-white text-slate-800 shadow-xs"
+                                  : "text-slate-500 hover:text-slate-700"
+                                }`}
+                            >
+                              Todas ({publications.filter((p) => !isHomeHowPublication(p)).length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPublicationFeatureFilter("partner");
+                                setPublicationCurrentPage(1);
+                              }}
+                              className={`rounded-md px-2.5 py-1.5 font-semibold transition inline-flex items-center gap-1 ${publicationFeatureFilter === "partner"
+                                  ? "bg-cyan-600 text-white shadow-xs"
+                                  : "text-slate-500 hover:text-slate-700"
+                                }`}
+                            >
+                              <span>🤝 Solo Partner ({publications.filter((p) => !isHomeHowPublication(p) && isPartnerPublication(p)).length})</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPublicationFeatureFilter("destacadas");
+                                setPublicationCurrentPage(1);
+                              }}
+                              className={`rounded-md px-2.5 py-1.5 font-semibold transition inline-flex items-center gap-1 ${publicationFeatureFilter === "destacadas"
+                                  ? "bg-amber-500 text-white shadow-xs"
+                                  : "text-slate-500 hover:text-slate-700"
+                                }`}
+                            >
+                              <span>⭐ Solo Destacadas ({publications.filter((p) => !isHomeHowPublication(p) && isFeaturedPublication(p)).length})</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          value={publicationTypeFilter}
+                          onChange={(event) => {
+                            setPublicationTypeFilter(event.target.value as "todas" | "publicacion" | "prestacion");
+                            setPublicationCurrentPage(1);
+                          }}
+                          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
+                        >
+                          <option value="todas">Todos los tipos</option>
+                          <option value="publicacion">Publicaciones</option>
+                          <option value="prestacion">Prestaciones</option>
+                        </select>
+
+                        <div className="relative flex-1 min-w-[200px]">
+                          <input
+                            value={publicationSearch}
+                            onChange={(event) => {
+                              setPublicationSearch(event.target.value);
+                              setPublicationCurrentPage(1);
+                            }}
+                            placeholder="Buscar..."
+                            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
+                          />
+                          {publicationSearch && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPublicationSearch("");
+                                setPublicationCurrentPage(1);
+                              }}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Columna derecha (al costado): Nueva arriba, Generar con IA abajo, Actualizar Bloques abajo de IA */}
+                    <div className="flex flex-col gap-2 shrink-0 w-full sm:w-auto lg:w-64">
+                      <button
+                        type="button"
+                        onClick={openNewPublicationEditor}
+                        className="inline-flex h-10 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 shadow-xs transition"
+                      >
+                        + Nueva
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAiModalOpen(true)}
+                        className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#00A9C6] px-4 text-sm font-semibold text-white hover:bg-[#0095AE] shadow-xs transition"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Generar con IA / Web Scraper
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBulkDocInitialBlock("");
+                          setBulkDocInitialPubId(undefined);
+                          setBulkDocModalOpen(true);
+                        }}
+                        className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-xs transition"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-slate-600" />
+                        Actualizar Bloques (Excel / Prompt)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-lg font-semibold text-slate-900">{publicationTab === "denuncias" ? "Denuncias recibidas" : "Últimas publicaciones"}</div>
+                    {publicationTab === "publicaciones" && filteredPublications.length > 0 && (
+                      <div className="text-xs text-slate-500 font-medium">
+                        Mostrando {(safePublicationPage - 1) * PUBLICATIONS_PER_PAGE + 1} - {Math.min(safePublicationPage * PUBLICATIONS_PER_PAGE, filteredPublications.length)} de {filteredPublications.length} publicaciones
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {publicationTab === "denuncias" ? filteredReports.map((report) => {
+                      const isOpen = Boolean(expandedReports[report.id]);
+                      const isFeedback = String(report.reason ?? "").toLowerCase() === "feedback" || String(report.publicationId ?? "") === "feedback-general";
+                      const reportedPublication = publicationsById.get(String(report.publicationId ?? ""));
+                      const reportedPath = reportedPublication?.primaryGroupKey === "prestacion"
+                        ? `/prestaciones/${encodeURIComponent(report.publicationId)}`
+                        : `/publicacion/${encodeURIComponent(report.publicationId)}`;
                       return (
+                        <div key={report.id} className="rounded-2xl border border-rose-100 bg-white p-4">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedReports((prev) => ({ ...prev, [report.id]: !prev[report.id] }))}
+                            className="w-full text-left"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-semibold text-slate-900">
+                                  {normalizeVisibleText(isFeedback ? "Feedback general" : (report.publicationTitle || "Publicación sin título"))}
+                                </div>
+                                <div className="mt-1 text-xs text-slate-500">Publicación ID: {normalizeVisibleText(report.publicationId || "-")}</div>
+                                <div className="mt-1 text-xs text-slate-500">Denunciante: {normalizeVisibleText(report.fullName || "-")} · {normalizeVisibleText(report.email || "-")} · {normalizeVisibleText(report.contact || "-")}</div>
+                              </div>
+                              <span className="text-xs font-semibold text-rose-600">{isOpen ? "Ocultar" : "Ver detalle"}</span>
+                            </div>
+                          </button>
+
+                          {isOpen ? (
+                            <>
+                              <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">{report.details || "-"}</div>
+                              {report.publicationId && !isFeedback ? (
+                                <a
+                                  href={reportedPath}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-2 inline-flex rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                                >
+                                  Abrir publicación denunciada
+                                </a>
+                              ) : null}
+                              <div className="mt-2 text-xs text-rose-600">{normalizeVisibleText(report.reason || "Denuncia")} · {report.createdAt ? new Date(report.createdAt).toLocaleString("es-AR") : ""}</div>
+                            </>
+                          ) : null}
+                        </div>
+                      );
+                    }) : paginatedPublications.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+                        No se encontraron publicaciones con los filtros seleccionados.
+                      </div>
+                    ) : paginatedPublications.map((p) => {
+                      const publicationEditRequest = reviewableEditRequestByPublicationId.get(p.id);
+                      const publicationNeedsAdminReview = Boolean((p.fields as any)?.needsAdminReview) || Boolean(String((p.fields as any)?.adminReviewReason ?? "").trim());
+                      return (
+                        <div key={p.id} className={`rounded-2xl border bg-white p-4 ${publicationEditRequest || publicationNeedsAdminReview ? "border-amber-300 bg-amber-50/40 shadow-[0_0_0_1px_rgba(245,158,11,0.18)]" : p.primaryGroupKey === "prestacion" ? "border-teal-200" : "border-indigo-200"}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="inline-flex items-center gap-2">
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                                  {statusLabel(p.status)}
+                                </span>
+                                <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${publicationTypeColors(p)}`}>
+                                  {publicationTypeLabel(p)}
+                                </span>
+                                {isFeaturedPublication(p) ? (
+                                  <span className="rounded-full bg-[#00A9C6]/10 px-2 py-0.5 text-xs font-semibold text-[#007D92]">destacado</span>
+                                ) : null}
+                                {isPartnerPublication(p) ? (
+                                  <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold text-cyan-700">partner</span>
+                                ) : null}
+                              </div>
+                              <div className="mt-2 text-base font-semibold text-slate-900">{normalizeVisibleText(p.title)}</div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                Oferente: {normalizeVisibleText(p.publisherName || "Sin nombre")} · Email: {normalizeVisibleText(String((p.fields as any)?.providerEmail ?? "-"))}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                Creada: {p.createdAt ? new Date(p.createdAt).toLocaleString("es-AR") : "-"}
+                              </div>
+                              {publicationEditRequest || publicationNeedsAdminReview ? (
+                                <div className="mt-2 rounded-xl border border-amber-200 bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900">
+                                  {publicationEditRequest
+                                    ? `Revision pendiente: ${providerRequestKindDisplayLabel(parseTravelServiceExtra(publicationEditRequest).requestKind)}. Revisar solicitud antes de publicar.`
+                                    : "Revision pendiente: upgrade aprobado. Revisar, ajustar y guardar como Activo para publicarla."}
+                                </div>
+                              ) : null}
+                              <div className="mt-1 text-sm text-slate-600">
+                                {(() => {
+                                  return "Bloque: Categorías";
+                                })()}
+                                {p.category
+                                  ? ` · ${normalizeVisibleText(pickI18nText(p.categoryI18n ?? null, locale, p.category))}${p.subcategory
+                                    ? ` · ${normalizeVisibleText(pickI18nText(p.subcategoryI18n ?? null, locale, p.subcategory))}`
+                                    : ""
+                                  }`
+                                  : " · Sin categoría"}
+                                {p.city ? ` · ${normalizeVisibleText(p.city)}` : ""}
+                                {p.country ? `, ${normalizeVisibleText(p.country)}` : ""}
+                                {p.headquarterCountry ? ` · Sede: ${normalizeVisibleText(p.headquarterCountry)}` : ""}
+                              </div>
+                              {(() => {
+                                const warnings: string[] = [];
+                                if (p.status !== "active") {
+                                  warnings.push(`No visible porque: ${statusLabel(p.status)}`);
+                                }
+                                if (p.expiration) {
+                                  const exp = new Date(p.expiration);
+                                  if (!Number.isNaN(exp.getTime()) && exp.getTime() < Date.now()) {
+                                    warnings.push("No visible porque: Expirada");
+                                  }
+                                }
+                                if (p.primaryGroupKey && p.primaryGroupKey !== "category") {
+                                  warnings.push("Advertencia: categoría definida en un bloque distinto a categorías.");
+                                }
+                                const catType = p.category ? categoryTaxonomyTypeByLabel.get(p.category) : null;
+                                const subType = p.subcategory ? categoryTaxonomyTypeByLabel.get(p.subcategory) : null;
+                                if (catType && subType && catType !== subType) {
+                                  warnings.push("Advertencia: tipo de filtro y categoría no coinciden.");
+                                }
+                                return warnings.length ? (
+                                  <div className="mt-2 space-y-1 text-xs text-amber-600">
+                                    {warnings.map((warning) => (
+                                      <div key={warning}>{warning}</div>
+                                    ))}
+                                  </div>
+                                ) : null;
+                              })()}
+                              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5">Visitas: {readPublicationAnalytics(p).views}</span>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5">Leads: {readPublicationAnalytics(p).leads}</span>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5">Favoritos: {readPublicationAnalytics(p).favorites}</span>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5">Compartidos: {readPublicationAnalytics(p).shares}</span>
+                                {publicationLanguages(p).length ? (
+                                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">Idiomas: {publicationLanguages(p).join(", ")}</span>
+                                ) : null}
+                              </div>
+
+                              {/* show dynamic tags */}
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {(p.filterOptions ?? []).slice(0, 12).map((entry) => (
+                                  <span
+                                    key={entry.filterOptionId}
+                                    className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700"
+                                  >
+                                    {pickI18nText(entry.filterOption.labelI18n ?? null, locale, entry.filterOption.label)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <a
+                                href={p.primaryGroupKey === "prestacion" ? `/prestaciones/${encodeURIComponent(p.id)}` : `/publicacion/${encodeURIComponent(p.id)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-lg border border-cyan-200 px-3 py-1.5 text-xs text-cyan-700 hover:bg-cyan-50"
+                              >
+                                Ver detalle
+                              </a>
+                              {publicationEditRequest ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTravelServiceStatus(publicationEditRequest.id, "aprobado")}
+                                    className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50"
+                                  >
+                                    Aceptar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTravelServiceStatus(publicationEditRequest.id, "rechazado")}
+                                    className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50"
+                                  >
+                                    Rechazar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTravelServiceStatus(publicationEditRequest.id, "falta info")}
+                                    className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50"
+                                  >
+                                    Falta info
+                                  </button>
+                                </>
+                              ) : null}
+                              <button
+                                onClick={() => editPublication(p)}
+                                className="rounded-lg border border-[#00A9C6]/40 px-3 py-1.5 text-xs text-[#007D92] hover:bg-[#00A9C6]/10"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => copyPublication(p)}
+                                className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs text-indigo-700 hover:bg-indigo-50"
+                              >
+                                Copiar del seleccionado
+                              </button>
+                              <button
+                                onClick={() => deletePublication(p.id)}
+                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {publicationTab === "publicaciones" && totalPublicationPages > 1 ? (
+                    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                      <div className="text-xs text-slate-500 font-medium">
+                        Página <span className="font-bold text-slate-800">{safePublicationPage}</span> de{" "}
+                        <span className="font-bold text-slate-800">{totalPublicationPages}</span> · Mostrando{" "}
+                        {(safePublicationPage - 1) * PUBLICATIONS_PER_PAGE + 1} -{" "}
+                        {Math.min(safePublicationPage * PUBLICATIONS_PER_PAGE, filteredPublications.length)} de{" "}
+                        {filteredPublications.length} publicaciones
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
                         <button
-                          key={`page-${item}`}
                           type="button"
+                          disabled={safePublicationPage <= 1}
                           onClick={() => {
-                            setPublicationCurrentPage(item);
+                            setPublicationCurrentPage((p) => Math.max(1, p - 1));
                             publicationsListContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                           }}
-                          className={`h-9 min-w-[36px] rounded-xl px-2 text-xs font-bold transition ${
-                            isCurrent
-                              ? "bg-[#00A9C6] text-white shadow-xs"
-                              : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                          }`}
+                          className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                         >
-                          {item}
+                          ← Anterior
                         </button>
-                      );
-                    })}
 
-                  <button
-                    type="button"
-                    disabled={safePublicationPage >= totalPublicationPages}
-                    onClick={() => {
-                      setPublicationCurrentPage((p) => Math.min(totalPublicationPages, p + 1));
-                      publicationsListContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }}
-                    className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                  >
-                    Siguiente →
-                  </button>
+                        {Array.from({ length: totalPublicationPages }, (_, i) => i + 1)
+                          .filter((pageNum) => {
+                            if (pageNum === 1 || pageNum === totalPublicationPages) return true;
+                            return Math.abs(pageNum - safePublicationPage) <= 2;
+                          })
+                          .reduce<Array<number | string>>((acc, pageNum, idx, arr) => {
+                            if (idx > 0 && pageNum - (arr[idx - 1] as number) > 1) {
+                              acc.push(`ellipsis-${pageNum}`);
+                            }
+                            acc.push(pageNum);
+                            return acc;
+                          }, [])
+                          .map((item) => {
+                            if (typeof item === "string") {
+                              return (
+                                <span key={item} className="px-1.5 text-xs text-slate-400">
+                                  …
+                                </span>
+                              );
+                            }
+                            const isCurrent = item === safePublicationPage;
+                            return (
+                              <button
+                                key={`page-${item}`}
+                                type="button"
+                                onClick={() => {
+                                  setPublicationCurrentPage(item);
+                                  publicationsListContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                                }}
+                                className={`h-9 min-w-[36px] rounded-xl px-2 text-xs font-bold transition ${isCurrent
+                                    ? "bg-[#00A9C6] text-white shadow-xs"
+                                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                  }`}
+                              >
+                                {item}
+                              </button>
+                            );
+                          })}
+
+                        <button
+                          type="button"
+                          disabled={safePublicationPage >= totalPublicationPages}
+                          onClick={() => {
+                            setPublicationCurrentPage((p) => Math.min(totalPublicationPages, p + 1));
+                            publicationsListContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }}
+                          className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        >
+                          Siguiente →
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              </div>
+              </>
             ) : null}
-          </div>
-          </>
-          ) : null}
 
-        </details>
-      </section>
+          </details>
+        </section>
       ) : null}
       {confirmDeleteModalElement}
       <AiScraperModal

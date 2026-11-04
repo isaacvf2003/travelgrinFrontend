@@ -531,12 +531,3 @@ function filterDocumentByGeneralContext(
   return doc.fullText.slice(0, 10000);
 }
 
-/**
- * Backwards-compatible wrapper used by document-block-update route.
- */
-export function filterDocumentForContext(
-  doc: ParsedDocumentResult,
-  context: { title?: string; country?: string; city?: string; publisherName?: string; blockTitle?: string }
-): string {
-  return extractPublicationSpecificContext(doc, context).contextText;
-}

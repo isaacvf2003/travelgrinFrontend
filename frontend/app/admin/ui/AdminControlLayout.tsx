@@ -33,13 +33,13 @@ const navItems: Array<{
   icon: ComponentType<{ className?: string }>;
   section: AdminSection;
 }> = [
-  { label: "Panel", icon: LayoutDashboard, section: "panel" },
-  { label: "Usuarios", icon: Users, section: "usuarios" },
-  { label: "Categor\u00edas", icon: Tag, section: "categorias" },
-  { label: "Publicaciones", icon: FileText, section: "publicaciones" },
-  { label: "C\u00f3mo funciona", icon: FileText, section: "como-funciona" },
-  { label: "Feedback", icon: MessageSquareMore, section: "feedback" },
-];
+    { label: "Panel", icon: LayoutDashboard, section: "panel" },
+    { label: "Usuarios", icon: Users, section: "usuarios" },
+    { label: "Categor\u00edas", icon: Tag, section: "categorias" },
+    { label: "Publicaciones", icon: FileText, section: "publicaciones" },
+    { label: "C\u00f3mo funciona", icon: FileText, section: "como-funciona" },
+    { label: "Feedback", icon: MessageSquareMore, section: "feedback" },
+  ];
 
 export default function AdminControlLayout({
   children,
@@ -112,18 +112,16 @@ export default function AdminControlLayout({
                     : `${basePath}?section=${item.section}`
                 }
                 onClick={() => setSidebarOpen(false)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
-                  isActive
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${isActive
                     ? "bg-indigo-50 text-indigo-700"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 <Icon
-                  className={`w-4 h-4 flex-shrink-0 ${
-                    isActive
+                  className={`w-4 h-4 flex-shrink-0 ${isActive
                       ? "text-indigo-600"
                       : "text-slate-400 group-hover:text-slate-600"
-                  }`}
+                    }`}
                 />
                 <span className="flex-1 text-left">{item.label}</span>
                 {isActive ? (

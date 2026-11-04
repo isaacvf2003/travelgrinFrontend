@@ -4076,6 +4076,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         window.dispatchEvent(new CustomEvent("tgn_drafts_queue_updated", { detail: queue }));
       }
       setSaveMessage("✓ Borrador actualizado en la lista de webs escrapeadas.");
+      setShowPublicationEditor(false);
+      setActiveDraftQueueIndex(null);
+      setEditingId(null);
       setAiModalOpen(true);
     } catch (err) {
       console.error("Error saving draft back to queue:", err);
@@ -9259,7 +9262,21 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
               <h3 className="text-xl font-semibold text-slate-900">{editingId ? "Editar publicación" : "Nueva publicación"}</h3>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={() => setAiModalOpen(true)} className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-[#007D92] hover:bg-cyan-100">Generar con IA</button>
-                <button type="button" onClick={() => (isNewPublicationPage ? router.push(`${basePath}?section=publicaciones`) : setShowPublicationEditor(false))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Cerrar</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPublicationEditor(false);
+                    setActiveDraftQueueIndex(null);
+                    setEditingId(null);
+                    if (isNewPublicationPage) {
+                      router.push(`${basePath}?section=publicaciones`);
+                    }
+                    window.setTimeout(() => publicationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                  }}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cerrar
+                </button>
               </div>
             </div>
           <div className="grid gap-5 rounded-[28px] bg-gradient-to-b from-slate-50 to-[#F8FBFD] p-3 sm:p-5">
@@ -9277,7 +9294,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setAiModalOpen(true)}
+                    onClick={() => {
+                      setShowPublicationEditor(false);
+                      setActiveDraftQueueIndex(null);
+                      setEditingId(null);
+                      setAiModalOpen(true);
+                    }}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition cursor-pointer"
                   >
                     <span>← Volver a la lista</span>
@@ -11146,7 +11168,12 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAiModalOpen(true)}
+                  onClick={() => {
+                    setShowPublicationEditor(false);
+                    setActiveDraftQueueIndex(null);
+                    setEditingId(null);
+                    setAiModalOpen(true);
+                  }}
                   className="h-11 inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-xs"
                 >
                   <span>← Volver a la lista</span>
