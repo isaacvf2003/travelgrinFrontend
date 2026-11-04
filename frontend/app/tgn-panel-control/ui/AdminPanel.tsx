@@ -3697,9 +3697,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
       filterGroups.forEach((group) => {
         (group.options || []).forEach((opt: any) => {
           const optLabel = String(opt.label || opt.value || "").trim().toLowerCase();
-          const matchAct = draftActivities.some((a) => a.toLowerCase().trim() === optLabel);
-          const matchType = draftTypes.some((t) => t.toLowerCase().trim() === optLabel);
-          const matchMod = draftModalities.some((m) => m.toLowerCase().trim() === optLabel);
+          const matchAct = draftActivities.some((a: string) => a.toLowerCase().trim() === optLabel);
+          const matchType = draftTypes.some((t: string) => t.toLowerCase().trim() === optLabel);
+          const matchMod = draftModalities.some((m: string) => m.toLowerCase().trim() === optLabel);
           const matchPres = draftPrestaciones.some((p: string) => p.toLowerCase().trim() === optLabel);
           if (matchAct || matchType || matchMod || matchPres) {
             matchedFilterOptionIds.push(opt.id);
@@ -3723,7 +3723,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         currency: targetDraft.currency || "USD",
         price: targetDraft.price || null,
         pricePeriod: targetDraft.pricePeriod || null,
-        languages: targetDraft.languages ? targetDraft.languages.split(",").map((s) => s.trim()).filter(Boolean) : null,
+        languages: targetDraft.languages ? targetDraft.languages.split(",").map((s: string) => s.trim()).filter(Boolean) : null,
         images: targetDraft.images && targetDraft.images.length ? targetDraft.images : null,
         website: targetDraft.website || null,
         filterOptionIds: matchedFilterOptionIds,
@@ -3963,18 +3963,72 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
     }
   };
 
-  const handleSaveCurrentDraftBackToQueue = () => {
+  const handleSaveCurrentDraftBackToQueue = async () => {
     try {
       const stored = typeof window !== "undefined" ? window.sessionStorage.getItem("tgn_ai_drafts_queue") : null;
       let queue: ScrapedPublicationDraft[] = stored ? JSON.parse(stored) : [];
       if (!Array.isArray(queue)) queue = [];
 
+      // Si faltaban traducciones al guardar en la lista, asegurar traducción multilenguaje automática (EN, PT, IT)
+      let currentTitleI18n = { ...pTitleI18n, es: pTitleI18n.es || pTitle };
+      let currentDescI18n = { ...pDescriptionI18n, es: pDescriptionI18n.es || pDescription };
+      let currentExtraDescriptions = pExtraDescriptions.map((d) => ({
+        title: d.titleI18n?.es || d.title,
+        body: d.bodyI18n?.es || d.body,
+        titleI18n: d.titleI18n,
+        bodyI18n: d.bodyI18n,
+        lang: d.lang,
+        visibleInCard: d.visibleInCard,
+        prompt: d.prompt,
+      }));
+
+      const needsTranslation =
+        !currentTitleI18n.en || !currentTitleI18n.pt || !currentTitleI18n.it ||
+        !currentDescI18n.en || !currentDescI18n.pt || !currentDescI18n.it;
+
+      if (needsTranslation) {
+        try {
+          const customKey = (typeof window !== "undefined" ? window.localStorage.getItem("tgn_ai_custom_api_key") : null) || undefined;
+          const translated = await ensurePublicationTranslations(
+            {
+              title: currentTitleI18n.es,
+              titleI18n: currentTitleI18n,
+              description: currentDescI18n.es,
+              descriptionI18n: currentDescI18n,
+              providerInfoI18n: pProviderInfoI18n,
+              extraDescriptions: currentExtraDescriptions,
+              socialLinksDetailed: pSocialLinksDetailed,
+            },
+            { apiKey: customKey }
+          );
+          if (translated.titleI18n) {
+            currentTitleI18n = translated.titleI18n;
+            setPTitleI18n(translated.titleI18n);
+          }
+          if (translated.descriptionI18n) {
+            currentDescI18n = translated.descriptionI18n;
+            setPDescriptionI18n(translated.descriptionI18n);
+          }
+          if (translated.extraDescriptions) {
+            currentExtraDescriptions = translated.extraDescriptions as any;
+            setPExtraDescriptions(translated.extraDescriptions as any);
+          }
+        } catch (transErr) {
+          console.warn("Auto translation on save draft warning:", transErr);
+        }
+      }
+
+      // Las imágenes deben ser exactamente las de imageList (respetando fotos eliminadas y orden actual)
+      const currentImages = Array.isArray(imageList) && imageList.length > 0
+        ? imageList
+        : pImageUrls.split("\n").map((s) => s.trim()).filter(Boolean);
+
       const updatedDraft: ScrapedPublicationDraft = {
         url: pWebsite || (activeDraftQueueIndex !== null && queue[activeDraftQueueIndex]?.url) || "",
-        title: pTitleI18n.es || pTitle,
-        titleI18n: pTitleI18n,
-        description: pDescriptionI18n.es || pDescription,
-        descriptionI18n: pDescriptionI18n,
+        title: currentTitleI18n.es || pTitle,
+        titleI18n: currentTitleI18n,
+        description: currentDescI18n.es || pDescription,
+        descriptionI18n: currentDescI18n,
         publisherName: pPublisherName,
         category: pCategory,
         subcategory: pSubcategory,
@@ -3997,19 +4051,9 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         providerLogo: pProviderLogo,
         providerInfoI18n: pProviderInfoI18n,
         destinationCountries: pReceivingCountries,
-        images: (pImageUploadAssets && pImageUploadAssets.length)
-          ? pImageUploadAssets.map(imageAssetToUrl).filter(Boolean)
-          : pImageUrls.split("\n").map((s) => s.trim()).filter(Boolean),
+        images: currentImages,
         socialLinksDetailed: pSocialLinksDetailed,
-        extraDescriptions: pExtraDescriptions.map((d) => ({
-          title: d.titleI18n?.es || d.title,
-          body: d.bodyI18n?.es || d.body,
-          titleI18n: d.titleI18n,
-          bodyI18n: d.bodyI18n,
-          lang: d.lang,
-          visibleInCard: d.visibleInCard,
-          prompt: d.prompt,
-        })),
+        extraDescriptions: currentExtraDescriptions,
         status: (pStatus as any) || "active",
       };
 
@@ -4028,6 +4072,7 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
 
       if (typeof window !== "undefined") {
         window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(queue));
+        window.dispatchEvent(new CustomEvent("tgn_drafts_queue_updated", { detail: queue }));
       }
       setSaveMessage("✓ Borrador actualizado en la lista de webs escrapeadas.");
       setAiModalOpen(true);
