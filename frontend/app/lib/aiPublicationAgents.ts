@@ -128,6 +128,7 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
     púrpura: "#9333ea",
     purpura: "#9333ea",
     naranja: "#ea580c",
+    "naranja claro": "#fb923c",
     naranjas: "#ea580c",
     amarillo: "#ca8a04",
     amarillos: "#ca8a04",
@@ -147,26 +148,28 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
     blancos: "#ffffff",
   };
 
-  const COLOR_NAMES_PATTERN = "rojo|rojos|roja|rojas|azul|azules|celeste|celestes|verde|verdes|violeta|violetas|morado|morados|p[uú]rpura|purpura|naranja|naranjas|amarillo|amarillos|amarilla|amarillas|dorado|dorados|dorada|doradas|negro|negros|negra|negras|gris|grises|blanco|blancos";
+  const COLOR_NAMES_PATTERN = "rojo|rojos|roja|rojas|azul|azules|celeste|celestes|verde|verdes|violeta|violetas|morado|morados|p[uú]rpura|purpura|naranja(?:\\s+claro)?|naranjas|amarillo|amarillos|amarilla|amarillas|dorado|dorados|dorada|doradas|negro|negros|negra|negras|gris|grises|blanco|blancos";
 
-  // Specific question/title target match (including "los títulos de esos párrafos deben ser en..."):
+  // Specific question/title target match (including "los títulos de esos párrafos deben ser en..." o "de color negras bold las preguntas"):
   const titleColorMatch =
-    p.match(new RegExp(`(?:preguntas?|t[ií]tulos?|subt[ií]tulos?|encabezados?)(?:\\s+(?:de\\s+(?:esos?|cada|los|ambos)\\s+p[aá]rrafos?|del\\s+p[aá]rrafo|principales?))?(?:\\s+(?:deben\\s+(?:ser|estar|ir)|tienen\\s+que\\s+(?:ser|estar|ir)|van|sean|en|de|con|color|letras?|texto))*\\s+(${COLOR_NAMES_PATTERN})`, "i")) ||
-    p.match(new RegExp(`(?:letras?|texto|color)?\\s*(${COLOR_NAMES_PATTERN})\\s+(?:para|en)\\s+(?:las?\\s+preguntas?|el\\s+t[ií]tulo|los\\s+t[ií]tulos?|subt[ií]tulos?)`, "i")) ||
+    p.match(new RegExp(`(?:preguntas?|t[ií]tulos?|subt[ií]tulos?|encabezados?)(?:\\s+(?:de\\s+(?:esos?|cada|los|ambos)\\s+p[aá]rrafos?|del\\s+p[aá]rrafo|principales?))?(?:\\s+(?:deben\\s+(?:ser|estar|ir)|tienen\\s+que\\s+(?:ser|estar|ir)|van|sean|en|de|con|color|letras?|texto|bold|negritas?))*\\s+(${COLOR_NAMES_PATTERN})`, "i")) ||
+    p.match(new RegExp(`(?:de\\s+)?(?:color\\s+)?(${COLOR_NAMES_PATTERN})(?:\\s+bold|\\s+negritas?)?\\s+(?:para|en)?\\s*(?:las?\\s+preguntas?|el\\s+t[ií]tulo|los\\s+t[ií]tulos?|subt[ií]tulos?)`, "i")) ||
     p.match(new RegExp(`(?:en|de|con)\\s+(?:color\\s+)?(${COLOR_NAMES_PATTERN})\\s+(?:para\\s+)?(?:el\\s+t[ií]tulo|los\\s+t[ií]tulos?|las?\\s+preguntas?|subt[ií]tulos?)`, "i"));
 
   if (titleColorMatch && titleColorMatch[1]) {
-    titleColor = colorMap[titleColorMatch[1].toLowerCase()];
+    const rawMatched = titleColorMatch[1].trim().toLowerCase();
+    titleColor = colorMap[rawMatched] || colorMap[rawMatched.split(/\s+/)[0]];
   }
 
-  // Specific answer/body target match:
+  // Specific answer/body target match (including "sus respuestas de color naranja claro"):
   const bodyColorMatch =
-    p.match(new RegExp(`(?:respuestas?|su\\s+respuesta|cuerpo|texto|explicaci[oó]n)\\s+(?:en|de|con)?\\s*(?:color|letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})`, "i")) ||
-    p.match(new RegExp(`(?:letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})\\s+(?:para|en)\\s+(?:las?\\s+respuestas?|el\\s+cuerpo|el\\s+texto|la\\s+explicaci[oó]n)`, "i")) ||
-    p.match(new RegExp(`(?:en|de|con)\\s+(?:color\\s+)?(${COLOR_NAMES_PATTERN})\\s+(?:para\\s+)?(?:la\\s+respuesta|las?\\s+respuestas?|el\\s+texto|el\\s+cuerpo|la\\s+explicaci[oó]n)`, "i"));
+    p.match(new RegExp(`(?:respuestas?|su\\s+respuesta|sus\\s+respuestas|cuerpo|texto|explicaci[oó]n)\\s+(?:deben\\s+(?:ser|estar|ir)|tienen\\s+que\\s+(?:ser|estar|ir)|van|sean|en|de|con)?\\s*(?:color|letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})`, "i")) ||
+    p.match(new RegExp(`(?:letras?|texto)?\\s*(${COLOR_NAMES_PATTERN})\\s+(?:para|en)\\s+(?:las?\\s+respuestas?|sus?\\s+respuestas?|el\\s+cuerpo|el\\s+texto|la\\s+explicaci[oó]n)`, "i")) ||
+    p.match(new RegExp(`(?:en|de|con)\\s+(?:color\\s+)?(${COLOR_NAMES_PATTERN})\\s+(?:para\\s+)?(?:la\\s+respuesta|las?\\s+respuestas?|sus?\\s+respuestas?|el\\s+texto|el\\s+cuerpo|la\\s+explicaci[oó]n)`, "i"));
 
   if (bodyColorMatch && bodyColorMatch[1]) {
-    bodyColor = colorMap[bodyColorMatch[1].toLowerCase()];
+    const rawMatched = bodyColorMatch[1].trim().toLowerCase();
+    bodyColor = colorMap[rawMatched] || colorMap[rawMatched.split(/\s+/)[0]];
   }
 
   // Fallback broad matching if not targeted:
@@ -1135,10 +1138,11 @@ export async function executeModelCall(
       }
     }
 
-    // 2. Probar candidatos estables (gemini-2.0-flash y gemini-1.5-flash primero)
+    // 2. Probar candidatos estables (gemini-1.5-flash y gemini-2.0-flash primero)
     const candidateModels = [
+      "gemini-1.5-flash",
       "gemini-2.0-flash",
-      "gemini-2.5-flash",
+      "gemini-1.5-flash-8b",
       "gemini-2.0-flash-lite",
     ];
 
