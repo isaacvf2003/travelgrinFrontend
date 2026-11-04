@@ -65,11 +65,9 @@ let cachedRefineModel: string | null = null;
 
 async function callGemini(prompt: string, apiKey: string, temperature = 0.92): Promise<string> {
   const candidateModels = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
     "gemini-1.5-flash",
+    "gemini-2.0-flash",
     "gemini-1.5-flash-8b",
-    "gemini-1.5-pro",
   ];
   let lastError: any = null;
 
@@ -88,7 +86,7 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.92): P
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(6500),
           body: JSON.stringify(payload),
         }
       );
@@ -100,7 +98,7 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.92): P
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(15000),
+            signal: AbortSignal.timeout(6500),
             body: JSON.stringify(payload),
           }
         );
@@ -113,7 +111,7 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.92): P
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(15000),
+            signal: AbortSignal.timeout(6500),
             body: JSON.stringify({
               contents: payload.contents,
               generationConfig: { temperature },
@@ -202,7 +200,7 @@ async function callOpenAI(prompt: string, apiKey: string, temperature = 0.92): P
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        signal: AbortSignal.timeout(18000),
+        signal: AbortSignal.timeout(7000),
         body: JSON.stringify({
           model,
           temperature,

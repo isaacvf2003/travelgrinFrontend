@@ -5420,11 +5420,15 @@ async function buildGroundedDescriptions(
   const prompt = (customAdminPrompt || "").trim();
   const omitIcons = checkPromptOmitIcons(prompt);
 
-  const rawCleanTitle = title || cleanTitleString(extractedData.title) || "";
-  let baseEntityName = rawCleanTitle
-    .split(/\s*[:|–—\-]\s*/)[0]
-    .replace(/(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|especialista|experto|marketing|conversi[oó]n|llamativ|impactante|vendedor)[\s\S]*/i, "")
-    .trim() || rawCleanTitle;
+  const rawCleanTitle = title || cleanTitleString(extractedData?.title) || "";
+  const resolvedPub = extractedData?.publisherName || cleanPublisherName(rawCleanTitle, extractedData?.url, rawCleanTitle, extractedData?.detectedSiteName || extractedData?.siteName);
+  let baseEntityName = resolvedPub || "La entidad";
+  if (!baseEntityName || baseEntityName === "La entidad" || /espacios de trabajo flexibles|bienvenidos? a\b/i.test(baseEntityName)) {
+    baseEntityName = cleanPublisherName("", extractedData?.url, rawCleanTitle) || "La entidad";
+  }
+  if (extractedData?.url && /regus/i.test(extractedData.url)) {
+    baseEntityName = "Regus";
+  }
 
   const locationText = [city, country].filter(Boolean).join(", ");
   const siteUrl = escapeHtml(extractedData.url);
@@ -5649,10 +5653,14 @@ async function buildGroundedCustomBlock(
     const titleLower = title.toLowerCase();
     const promptLower = blockPrompt.toLowerCase();
     const rawTitleStr = extractedData?.title || "";
-    let cleanEntityName = cleanTitleString(rawTitleStr)
-      .split(/\s*[:|–—\-]\s*/)[0]
-      .replace(/(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|especialista|experto|marketing|conversi[oó]n|llamativ|impactante|vendedor)[\s\S]*/i, "")
-      .trim() || "La entidad";
+    const resolvedPub = extractedData?.publisherName || cleanPublisherName(rawTitleStr, extractedData?.url, rawTitleStr, extractedData?.detectedSiteName || extractedData?.siteName);
+    let cleanEntityName = resolvedPub || "La entidad";
+    if (!cleanEntityName || cleanEntityName === "La entidad" || /espacios de trabajo flexibles|bienvenidos? a\b/i.test(cleanEntityName)) {
+      cleanEntityName = cleanPublisherName("", extractedData?.url, rawTitleStr) || "La entidad";
+    }
+    if (extractedData?.url && /regus/i.test(extractedData.url)) {
+      cleanEntityName = "Regus";
+    }
 
     const locStr = primaryHq?.city ? ` en ${primaryHq.city}` : "";
 
@@ -6530,6 +6538,7 @@ async function callGeminiApi(prompt: string, apiKey: string) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(6000),
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             tools: [{ googleSearch: {} }],
@@ -6560,6 +6569,7 @@ async function callGeminiApi(prompt: string, apiKey: string) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(6000),
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
