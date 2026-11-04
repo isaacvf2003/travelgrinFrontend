@@ -1,0 +1,1674 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { Sparkles, Trash2, ArrowUp, ArrowDown, Pencil, Bot, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
+
+export type I18nRecord = Record<string, string> | Partial<Record<"es" | "en" | "pt" | "it", string>>;
+
+export interface ExtraDescriptionBlock {
+  title: string;
+  titleI18n?: any;
+  body: string;
+  bodyI18n?: any;
+  visibleInCard?: boolean;
+  lang?: string;
+  prompt?: string;
+}
+
+export interface SocialLinkDetail {
+  kind: string;
+  label: string;
+  url: string;
+}
+
+export interface ScrapedPublicationDraft {
+  url: string;
+  title: string;
+  titleI18n: I18nRecord;
+  description: string;
+  descriptionI18n: I18nRecord;
+  extraDescriptions: ExtraDescriptionBlock[];
+  publisherName: string;
+  providerInfoI18n: I18nRecord;
+  providerStartYear: string;
+  providerRating: string;
+  providerReviewCount: string;
+  providerCommentsUrl: string;
+  providerLogo: string;
+  country: string;
+  city: string;
+  locationAddress: string;
+  currency: string;
+  price: string;
+  pricePeriod: string;
+  languages: string;
+  website: string;
+  socialLinksDetailed: SocialLinkDetail[];
+  images: string[];
+  category: string;
+  subcategory: string;
+  headquarterCountry?: string;
+  headquarterCity?: string;
+  headquarterLocations?: Array<{ country: string; city: string; address?: string; mapUrl: string }>;
+  categorySelections?: string[];
+  subcategorySelections?: string[];
+  destinationCountries?: string[];
+  providerActivities?: string[];
+  providerActivity?: string;
+  providerTypes?: string[];
+  providerType?: string;
+  providerModalities?: string[];
+  status?: "active" | "draft" | "paused";
+}
+
+interface AiScraperModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelectDraftToEdit: (draft: ScrapedPublicationDraft, index?: number) => void;
+  onApproveDirectly?: (draft: ScrapedPublicationDraft) => Promise<boolean>;
+  categories?: any[];
+  filterGroups?: any[];
+}
+
+export default function AiScraperModal({
+  isOpen,
+  onClose,
+  onSelectDraftToEdit,
+  onApproveDirectly,
+  categories,
+  filterGroups,
+}: AiScraperModalProps) {
+  const [tab, setTab] = useState<"single" | "bulk">("single");
+  const [aiProvider, setAiProvider] = useState<"auto" | "gemini" | "openai">("auto");
+  const [customApiKey, setCustomApiKey] = useState("");
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [singleUrl, setSingleUrl] = useState("");
+  const [bulkUrlsText, setBulkUrlsText] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [draftsQueue, setDraftsQueue] = useState<ScrapedPublicationDraft[]>([]);
+  const [savingIndex, setSavingIndex] = useState<number | null>(null);
+  const [savingAll, setSavingAll] = useState(false);
+  const [successNotice, setSuccessNotice] = useState("");
+
+  // Custom Prompts & Blocks Configuration State
+  const [isPromptsSectionOpen, setIsPromptsSectionOpen] = useState(false);
+  const [customTitlePrompt, setCustomTitlePrompt] = useState("");
+  const [customDescPrompt, setCustomDescPrompt] = useState("");
+  const includeScoreScout = false;
+  const [isTitlePromptOpen, setIsTitlePromptOpen] = useState(false);
+  const [isDescPromptOpen, setIsDescPromptOpen] = useState(false);
+  const [isOptionalBlocksOpen, setIsOptionalBlocksOpen] = useState(false);
+  const [isAddBlockOpen, setIsAddBlockOpen] = useState(false);
+  const [expandedBlockIndices, setExpandedBlockIndices] = useState<Set<number>>(new Set());
+  const [editingBlocks, setEditingBlocks] = useState<Record<number, { title: string; prompt: string }>>({});
+  const [customScraperBlocks, setCustomScraperBlocks] = useState<Array<{ title: string; prompt?: string }>>([]);
+  const [newBlockTitleInput, setNewBlockTitleInput] = useState("");
+  const [newBlockPromptInput, setNewBlockPromptInput] = useState("");
+
+  // Accordion Inline Form State for active draft inspection directly in the queue card
+  const [expandedDraftIndex, setExpandedDraftIndex] = useState<number | null>(null);
+  const [draftForm, setDraftForm] = useState<ScrapedPublicationDraft | null>(null);
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [customLogoInput, setCustomLogoInput] = useState("");
+
+  // Reset collapsible prompts & optional blocks state whenever the modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setIsPromptsSectionOpen(false);
+      setIsTitlePromptOpen(false);
+      setIsDescPromptOpen(false);
+      setIsOptionalBlocksOpen(false);
+      setIsAddBlockOpen(false);
+      setExpandedBlockIndices(new Set());
+      setEditingBlocks({});
+    }
+  }, [isOpen]);
+
+  // Restore queue from sessionStorage and customApiKey/prompts/blocks from localStorage on load if available (Client-side only)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const savedKey = window.localStorage.getItem("tgn_ai_custom_api_key");
+      if (savedKey) setCustomApiKey(savedKey);
+
+      const savedTitlePrompt = window.localStorage.getItem("tgn_custom_title_prompt");
+      if (savedTitlePrompt) setCustomTitlePrompt(savedTitlePrompt);
+
+      const savedDescPrompt = window.localStorage.getItem("tgn_custom_desc_prompt");
+      if (savedDescPrompt) setCustomDescPrompt(savedDescPrompt);
+
+      window.localStorage.removeItem("tgn_include_score_scout");
+
+      const savedBlocks = window.localStorage.getItem("tgn_custom_scraper_blocks");
+      if (savedBlocks) {
+        try {
+          const parsed = JSON.parse(savedBlocks);
+          if (Array.isArray(parsed)) {
+            const sanitized = parsed
+              .map((b: any) => ({
+                title: cleanGenericBlockTitle(b?.title || "", b?.prompt),
+                prompt: b?.prompt ? String(b.prompt).trim() : undefined,
+              }))
+              .filter((b) => b.title);
+            setCustomScraperBlocks(sanitized);
+          }
+        } catch {}
+      }
+
+      const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setDraftsQueue(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handleSaveApiKey = (keyVal: string) => {
+    setCustomApiKey(keyVal);
+    try {
+      if (typeof window !== "undefined") {
+        if (keyVal.trim()) {
+          window.localStorage.setItem("tgn_ai_custom_api_key", keyVal.trim());
+        } else {
+          window.localStorage.removeItem("tgn_ai_custom_api_key");
+        }
+      }
+    } catch {}
+  };
+
+  const handleSaveTitlePrompt = (val: string) => {
+    setCustomTitlePrompt(val);
+    try {
+      if (typeof window !== "undefined") {
+        if (val.trim()) {
+          window.localStorage.setItem("tgn_custom_title_prompt", val.trim());
+        } else {
+          window.localStorage.removeItem("tgn_custom_title_prompt");
+        }
+      }
+    } catch {}
+  };
+
+  const handleSaveDescPrompt = (val: string) => {
+    setCustomDescPrompt(val);
+    try {
+      if (typeof window !== "undefined") {
+        if (val.trim()) {
+          window.localStorage.setItem("tgn_custom_desc_prompt", val.trim());
+        } else {
+          window.localStorage.removeItem("tgn_custom_desc_prompt");
+        }
+      }
+    } catch {}
+  };
+
+  const toggleExpandCustomBlock = (index: number) => {
+    setExpandedBlockIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+        setEditingBlocks((prevEdits) => {
+          if (!(index in prevEdits)) return prevEdits;
+          const copy = { ...prevEdits };
+          delete copy[index];
+          return copy;
+        });
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  const handleAddCustomScraperBlock = (title: string, promptText?: string) => {
+    const trimmedTitle = cleanGenericBlockTitle(title.trim(), promptText?.trim());
+    if (!trimmedTitle) return;
+    setCustomScraperBlocks((prev) => {
+      const filtered = prev.filter((b) => b.title.toLowerCase() !== trimmedTitle.toLowerCase());
+      const updated = [...filtered, { title: trimmedTitle, prompt: promptText?.trim() || undefined }];
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(updated));
+        }
+      } catch {}
+      return updated;
+    });
+    setNewBlockTitleInput("");
+    setNewBlockPromptInput("");
+  };
+
+  const handleRemoveCustomScraperBlock = (titleToRemove: string, removedIndex?: number) => {
+    setCustomScraperBlocks((prev) => {
+      const updated = prev.filter((b) => b.title.toLowerCase() !== titleToRemove.toLowerCase());
+      try {
+        if (typeof window !== "undefined") {
+          if (updated.length > 0) {
+            window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(updated));
+          } else {
+            window.localStorage.removeItem("tgn_custom_scraper_blocks");
+          }
+        }
+      } catch {}
+      return updated;
+    });
+
+    if (typeof removedIndex === "number") {
+      setExpandedBlockIndices((prev) => {
+        const next = new Set<number>();
+        prev.forEach((idx) => {
+          if (idx < removedIndex) next.add(idx);
+          else if (idx > removedIndex) next.add(idx - 1);
+        });
+        return next;
+      });
+      setEditingBlocks((prev) => {
+        const next: Record<number, { title: string; prompt: string }> = {};
+        Object.entries(prev).forEach(([k, val]) => {
+          const idx = Number(k);
+          if (idx < removedIndex) next[idx] = val;
+          else if (idx > removedIndex) next[idx - 1] = val;
+        });
+        return next;
+      });
+    }
+  };
+
+  const handleMoveCustomBlock = (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    setCustomScraperBlocks((prev) => {
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[targetIndex];
+      copy[targetIndex] = temp;
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(copy));
+        }
+      } catch {}
+      return copy;
+    });
+
+    setExpandedBlockIndices((prev) => {
+      if (targetIndex < 0 || targetIndex >= customScraperBlocks.length) return prev;
+      const next = new Set(prev);
+      const hasCurrent = prev.has(index);
+      const hasTarget = prev.has(targetIndex);
+      if (hasCurrent) next.add(targetIndex);
+      else next.delete(targetIndex);
+      if (hasTarget) next.add(index);
+      else next.delete(index);
+      return next;
+    });
+
+    setEditingBlocks((prev) => {
+      if (targetIndex < 0 || targetIndex >= customScraperBlocks.length) return prev;
+      const next = { ...prev };
+      const curEdit = prev[index];
+      const tgtEdit = prev[targetIndex];
+      if (curEdit) next[targetIndex] = curEdit;
+      else delete next[targetIndex];
+      if (tgtEdit) next[index] = tgtEdit;
+      else delete next[index];
+      return next;
+    });
+  };
+
+  const handleStartEditBlock = (index: number) => {
+    const block = customScraperBlocks[index];
+    if (!block) return;
+    setExpandedBlockIndices((prev) => {
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+    setEditingBlocks((prev) => ({
+      ...prev,
+      [index]: {
+        title: block.title,
+        prompt: block.prompt || "",
+      },
+    }));
+  };
+
+  const handleUpdateEditBlockField = (index: number, field: "title" | "prompt", value: string) => {
+    setEditingBlocks((prev) => {
+      const current = prev[index] || {
+        title: customScraperBlocks[index]?.title || "",
+        prompt: customScraperBlocks[index]?.prompt || "",
+      };
+      return {
+        ...prev,
+        [index]: {
+          ...current,
+          [field]: value,
+        },
+      };
+    });
+  };
+
+  const handleSaveEditBlock = (index: number) => {
+    const draftEdit = editingBlocks[index];
+    if (!draftEdit) return;
+    const cleanTitle = cleanGenericBlockTitle(draftEdit.title.trim(), draftEdit.prompt.trim());
+    if (!cleanTitle) return;
+    setCustomScraperBlocks((prev) => {
+      const copy = [...prev];
+      copy[index] = {
+        title: cleanTitle,
+        prompt: draftEdit.prompt.trim() || undefined,
+      };
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tgn_custom_scraper_blocks", JSON.stringify(copy));
+        }
+      } catch {}
+      return copy;
+    });
+    setEditingBlocks((prev) => {
+      const copy = { ...prev };
+      delete copy[index];
+      return copy;
+    });
+  };
+
+  const handleCancelEditBlock = (index: number) => {
+    setEditingBlocks((prev) => {
+      const copy = { ...prev };
+      delete copy[index];
+      return copy;
+    });
+  };
+
+  const hasLoadedQueueRef = useRef(false);
+
+  // Sync draftsQueue with sessionStorage on any change, but only after initial load
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!hasLoadedQueueRef.current) {
+      hasLoadedQueueRef.current = true;
+      return;
+    }
+    try {
+      if (draftsQueue.length > 0) {
+        window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(draftsQueue));
+      } else {
+        window.sessionStorage.removeItem("tgn_ai_drafts_queue");
+      }
+    } catch {}
+  }, [draftsQueue]);
+
+  // Re-read sessionStorage whenever the modal opens to pick up edits made in AdminPanel
+  useEffect(() => {
+    if (!isOpen || typeof window === "undefined") return;
+    try {
+      const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setDraftsQueue(parsed);
+        }
+      }
+    } catch {}
+  }, [isOpen]);
+
+  // Listen to live queue updates from AdminPanel
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleQueueUpdated = (e: any) => {
+      if (Array.isArray(e?.detail)) {
+        setDraftsQueue(e.detail);
+      } else {
+        const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) setDraftsQueue(parsed);
+          } catch {}
+        }
+      }
+    };
+    window.addEventListener("tgn_drafts_queue_updated", handleQueueUpdated);
+    return () => window.removeEventListener("tgn_drafts_queue_updated", handleQueueUpdated);
+  }, []);
+
+  if (!isOpen) return null;
+
+  const handleGenerate = async () => {
+    setErrorMessage("");
+    setSuccessNotice("");
+    let urlsToProcess: string[] = [];
+
+    if (tab === "single") {
+      const trimmed = singleUrl.trim();
+      if (!trimmed) {
+        setErrorMessage("Por favor ingrese una URL válida.");
+        return;
+      }
+      urlsToProcess = [trimmed];
+    } else {
+      urlsToProcess = Array.from(
+        new Set(
+          bulkUrlsText
+            .split(/[\r\n,;]+/)
+            .map((line) => line.trim())
+            .filter((line) => line.length > 3)
+            .map((line) => (/^https?:\/\//i.test(line) ? line : "https://" + line))
+        )
+      );
+
+      if (!urlsToProcess.length) {
+        setErrorMessage("Por favor ingrese al menos una URL válida (una por línea).");
+        return;
+      }
+    }
+
+    setIsProcessing(true);
+
+    const BAD_GFX = /(?:^|\/|[._-])(?:megafono|widget|button|avatar|bullet|star|check|arrow|spinner|loader|receipt|placeholder|flaticon|fontawesome|1x1|spacer|pixel)\b/i;
+
+    const sanitizeDrafts = (publications: any[]): ScrapedPublicationDraft[] => {
+      return (publications || []).map((pub: ScrapedPublicationDraft) => ({
+        ...pub,
+        providerLogo: pub.providerLogo && !BAD_GFX.test(pub.providerLogo) ? pub.providerLogo : "",
+        images: (pub.images || []).filter((img) => img && !BAD_GFX.test(img)),
+        status: pub.status || "active",
+        customTitlePrompt: (pub as any).customTitlePrompt || customTitlePrompt.trim() || undefined,
+        customDescPrompt: (pub as any).customDescPrompt || (pub as any).customDescriptionPrompt || customDescPrompt.trim() || undefined,
+        customDescriptionPrompt: (pub as any).customDescriptionPrompt || (pub as any).customDescPrompt || customDescPrompt.trim() || undefined,
+      }));
+    };
+
+    const processSingleUrlBatch = async (batch: string[], attempt: number = 1): Promise<ScrapedPublicationDraft[]> => {
+      const res = await fetch("/api/admin/ai-scrape-publications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          urls: batch,
+          provider: aiProvider,
+          apiKey: customApiKey.trim() || undefined,
+          customTitlePrompt: customTitlePrompt.trim() || undefined,
+          customDescriptionPrompt: customDescPrompt.trim() || undefined,
+          includeScoreScout,
+          customBlocks: customScraperBlocks,
+          categoriesPayload: categories && categories.length ? categories.map((c: any) => ({
+            id: c.id,
+            description: c.description,
+            taxonomyType: c.taxonomyType,
+            parentId: c.parentId,
+            blockId: c.blockId,
+          })) : undefined,
+          filterGroupsPayload: filterGroups && filterGroups.length ? filterGroups.map((g: any) => ({
+            id: g.id,
+            label: g.label,
+            taxonomyType: g.taxonomyType,
+            options: g.options,
+          })) : undefined,
+        }),
+      });
+
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = null;
+      if (contentType.includes("application/json")) {
+        try {
+          data = await res.json();
+        } catch {
+          data = null;
+        }
+      }
+
+      if (!res.ok || !data || !data.success) {
+        if ((res.status === 504 || res.status === 502) && attempt < 2) {
+          return processSingleUrlBatch(batch, attempt + 1);
+        }
+        if (res.status === 504 || res.status === 502) {
+          throw new Error("El servidor tardó demasiado en responder (Timeout). Por favor intenta nuevamente.");
+        }
+        if (!data) {
+          const rawText = await res.text().catch(() => "");
+          if (rawText.toLowerCase().includes("timeout") || rawText.toLowerCase().includes("an error occurred") || rawText.includes("FUNCTION_INVOCATION_TIMEOUT")) {
+            throw new Error("El servidor excedió el tiempo límite de ejecución (Timeout). Por favor intenta nuevamente.");
+          }
+          throw new Error(`Error ${res.status}: Respuesta no válida del servidor.`);
+        }
+        throw new Error(data.error || "Error al procesar el scraping web con IA.");
+      }
+
+      return sanitizeDrafts(data.publications || []);
+    };
+
+    try {
+      if (tab === "single") {
+        const generatedDrafts = await processSingleUrlBatch(urlsToProcess);
+        if (!generatedDrafts.length) {
+          throw new Error("No se pudo generar el borrador para la URL indicada.");
+        }
+        setDraftsQueue((prev) => {
+          const updated = [...prev, ...generatedDrafts];
+          try {
+            if (typeof window !== "undefined") {
+              window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+            }
+          } catch {}
+          return updated;
+        });
+        setSuccessNotice("Publicación generada exitosamente.");
+      } else {
+        const allDrafts: ScrapedPublicationDraft[] = [];
+        const failedUrls: string[] = [];
+
+        for (let i = 0; i < urlsToProcess.length; i++) {
+          const currentUrl = urlsToProcess[i];
+          setSuccessNotice(`Procesando URL ${i + 1} de ${urlsToProcess.length}: ${currentUrl}`);
+          try {
+            const drafts = await processSingleUrlBatch([currentUrl]);
+            if (drafts && drafts.length) {
+              allDrafts.push(...drafts);
+              setDraftsQueue((prev) => {
+                const updated = [...prev, ...drafts];
+                try {
+                  if (typeof window !== "undefined") {
+                    window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+                  }
+                } catch {}
+                return updated;
+              });
+            } else {
+              failedUrls.push(currentUrl);
+            }
+          } catch (itemErr: any) {
+            console.warn(`[Bulk Scrape] Error procesando ${currentUrl}:`, itemErr?.message);
+            failedUrls.push(currentUrl);
+          }
+        }
+
+        if (allDrafts.length > 0) {
+          setSuccessNotice(
+            `Se generaron ${allDrafts.length} borrador(es) en la cola de revisión.${failedUrls.length ? ` (${failedUrls.length} URL(s) no pudieron procesarse)` : ""}`
+          );
+        } else {
+          setErrorMessage("No se pudo generar ningún borrador con las URLs proporcionadas.");
+        }
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "No se pudo completar la extracción web.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRemoveDraft = (index: number) => {
+    setDraftsQueue((prev) => prev.filter((_, i) => i !== index));
+    if (expandedDraftIndex === index) {
+      setExpandedDraftIndex(null);
+      setDraftForm(null);
+    }
+  };
+
+  const handleApproveDraft = async (draft: ScrapedPublicationDraft, index: number) => {
+    if (!onApproveDirectly) {
+      onSelectDraftToEdit(draft, index);
+      handleRemoveDraft(index);
+      onClose();
+      return;
+    }
+
+    setSavingIndex(index);
+    try {
+      const success = await onApproveDirectly(draft);
+      if (success) {
+        handleRemoveDraft(index);
+      } else {
+        setErrorMessage("Error al guardar la publicación aprobada.");
+      }
+    } catch {
+      setErrorMessage("Excepción al guardar la publicación.");
+    } finally {
+      setSavingIndex(null);
+    }
+  };
+
+  const handleApproveAll = async () => {
+    if (!onApproveDirectly || !draftsQueue.length) return;
+    setSavingAll(true);
+    setErrorMessage("");
+
+    try {
+      const remaining: ScrapedPublicationDraft[] = [];
+      for (const draft of draftsQueue) {
+        try {
+          const ok = await onApproveDirectly(draft);
+          if (!ok) {
+            remaining.push(draft);
+          }
+        } catch {
+          remaining.push(draft);
+        }
+      }
+      setDraftsQueue(remaining);
+      if (remaining.length === 0) {
+        setSuccessNotice("Todas las publicaciones fueron aprobadas y guardadas exitosamente.");
+      } else {
+        setErrorMessage(`Se procesó el guardado: ${draftsQueue.length - remaining.length} guardadas, pero ${remaining.length} requirieron revisión.`);
+      }
+    } catch {
+      setErrorMessage("Error al procesar el guardado masivo.");
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
+  const toggleDraftAccordion = (index: number) => {
+    if (expandedDraftIndex === index) {
+      setExpandedDraftIndex(null);
+      setDraftForm(null);
+    } else {
+      const target = draftsQueue[index];
+      if (!target) return;
+      setExpandedDraftIndex(index);
+      setDraftForm(JSON.parse(JSON.stringify(target)));
+      setCustomLogoInput(target.providerLogo || "");
+      setNewImageUrl("");
+    }
+  };
+
+  const closeInspector = () => {
+    setExpandedDraftIndex(null);
+    setDraftForm(null);
+  };
+
+  const saveInspectorChangesToQueue = () => {
+    if (expandedDraftIndex === null || !draftForm) return;
+    setDraftsQueue((prev) => {
+      const updated = prev.map((d, i) => (i === expandedDraftIndex ? { ...draftForm } : d));
+      try {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+        }
+      } catch {}
+      return updated;
+    });
+    setSuccessNotice("Cambios guardados en el borrador de la cola.");
+    window.setTimeout(() => setSuccessNotice(""), 3000);
+  };
+
+  const approveFromInspector = async () => {
+    if (expandedDraftIndex === null || !draftForm) return;
+    const currentIdx = expandedDraftIndex;
+    const updatedDraft = { ...draftForm };
+    setDraftsQueue((prev) => {
+      const updated = prev.map((d, i) => (i === currentIdx ? updatedDraft : d));
+      try {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(updated));
+        }
+      } catch {}
+      return updated;
+    });
+    await handleApproveDraft(updatedDraft, currentIdx);
+  };
+
+  const handleFileUploadAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !draftForm) return;
+    try {
+      const base64 = await handleFileUploadAsBase64(file);
+      setDraftForm({ ...draftForm, providerLogo: base64 });
+      setCustomLogoInput(base64);
+    } catch (err) {
+      console.error("Logo upload error:", err);
+    }
+  };
+
+  const handleAddImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !files.length || !draftForm) return;
+    try {
+      const uploadedUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const b64 = await handleFileUploadAsBase64(files[i]);
+        uploadedUrls.push(b64);
+      }
+      setDraftForm({
+        ...draftForm,
+        images: [...(draftForm.images || []), ...uploadedUrls],
+      });
+    } catch (err) {
+      console.error("Images upload error:", err);
+    }
+  };
+
+  const handleAddImageUrl = () => {
+    if (!newImageUrl.trim() || !draftForm) return;
+    setDraftForm({
+      ...draftForm,
+      images: [...(draftForm.images || []), newImageUrl.trim()],
+    });
+    setNewImageUrl("");
+  };
+
+  const handleRemoveImageIndex = (imgIdx: number) => {
+    if (!draftForm) return;
+    setDraftForm({
+      ...draftForm,
+      images: (draftForm.images || []).filter((_, i) => i !== imgIdx),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-5 md:p-6 overflow-y-auto">
+      <div className="w-full max-w-4xl rounded-2xl bg-white p-4 sm:p-6 shadow-2xl border border-slate-200 my-4 sm:my-8">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Extracción y Generación Masiva con IA</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Genera automáticamente publicaciones en 4 idiomas (ES, EN, PT, IT) e inspecciona o edita los borradores antes de guardar.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        {/* Tab Selection */}
+        <div className="mt-4 flex gap-2 border-b border-slate-200">
+          <button
+            type="button"
+            onClick={() => setTab("single")}
+            className={`pb-2 px-4 text-sm font-semibold transition border-b-2 ${
+              tab === "single"
+                ? "border-[#00A9C6] text-[#00A9C6]"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Generación Individual
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("bulk")}
+            className={`pb-2 px-4 text-sm font-semibold transition border-b-2 ${
+              tab === "bulk"
+                ? "border-[#00A9C6] text-[#00A9C6]"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Generación Masiva (Lote de URLs)
+          </button>
+        </div>
+
+        {/* Input Controls */}
+        <div className="mt-4 space-y-4">
+          {tab === "single" ? (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                URL del sitio web a escrapear
+              </label>
+              <input
+                type="url"
+                value={singleUrl}
+                onChange={(e) => setSingleUrl(e.target.value)}
+                placeholder="Ej: https://www.uba.ar o https://www.hospitalitaliano.org.ar"
+                className="w-full h-11 rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                disabled={isProcessing}
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                URLs a escrapear (una por línea, máx. 10)
+              </label>
+              <textarea
+                value={bulkUrlsText}
+                onChange={(e) => setBulkUrlsText(e.target.value)}
+                rows={5}
+                placeholder={"https://osepmendoza.com.ar/web/\nhttps://hospitalitaliano.org.ar\nhttps://estudiojuridico.com"}
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+                disabled={isProcessing}
+              />
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-700">
+              {errorMessage}
+            </div>
+          )}
+
+          {successNotice && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-700">
+              {successNotice}
+            </div>
+          )}
+
+          {/* Custom AI Options & Fixed Prompts Section (Desplegable) */}
+          <div className="rounded-2xl border border-cyan-200 bg-gradient-to-b from-cyan-50/70 to-slate-50/70 text-xs shadow-xs overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setIsPromptsSectionOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between flex-wrap gap-2 p-3.5 text-left hover:bg-cyan-50/90 transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-[#007D92] flex items-center gap-1.5 text-sm">
+                  <Sparkles className="h-4 w-4 text-[#00A9C6]" />
+                  Configuración de Prompts e Instrucciones Fijas de IA
+                </span>
+                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#006070]">
+                  Personalización Permanente
+                </span>
+                {(customTitlePrompt.trim() || customDescPrompt.trim() || customScraperBlocks.length > 0) ? (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+                    ✓ Configurado
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-2 text-[11px] font-semibold text-[#007D92]">
+                <span className="hidden sm:inline text-slate-500 font-normal">
+                  {isPromptsSectionOpen ? "Ocultar ajustes" : "Desplegar para personalizar"}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-white px-2 py-1 shadow-2xs">
+                  <span>{isPromptsSectionOpen ? "Ocultar" : "Ver / Configurar"}</span>
+                  {isPromptsSectionOpen ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-[#007D92]" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-[#007D92]" />
+                  )}
+                </span>
+              </div>
+            </button>
+
+            {isPromptsSectionOpen && (
+              <div className="p-4 pt-1 space-y-4 border-t border-cyan-100/80">
+                <div className="text-[11px] text-slate-500">
+                  Se guarda en tu navegador y se aplica automáticamente en cada scraping futuro
+                </div>
+
+                <div className="space-y-3">
+              {/* 1. Custom Title Prompt (Botón desplegable, uno debajo del otro) */}
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsTitlePromptOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between flex-wrap gap-2 p-3.5 text-left hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                      <span>📌 Prompt para Título</span>
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      (Estilo y enfoque del título principal)
+                    </span>
+                    {customTitlePrompt.trim() ? (
+                      <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#007D92] border border-cyan-200">
+                        Configurado
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#007D92]">
+                    <span>{isTitlePromptOpen ? "Ocultar prompt" : "Ver / Editar prompt"}</span>
+                    {isTitlePromptOpen ? (
+                      <ChevronDown className="h-4 w-4 text-[#007D92]" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-[#007D92]" />
+                    )}
+                  </div>
+                </button>
+
+                {isTitlePromptOpen && (
+                  <div className="border-t border-slate-100 p-3.5 space-y-2 bg-slate-50/40">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-slate-500 leading-tight">
+                        Indicaciones para el estilo del título (ej: especialista de marketing, clientes extranjeros, tono empático).
+                      </p>
+                      {customTitlePrompt ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSaveTitlePrompt("")}
+                          className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer shrink-0"
+                        >
+                          Restablecer
+                        </button>
+                      ) : null}
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={customTitlePrompt}
+                      onChange={(e) => handleSaveTitlePrompt(e.target.value)}
+                      placeholder="Ej: Actúa como especialista en marketing digital, orientado a clientes extranjeros, títulos llamativos y humanos..."
+                      className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                      disabled={isProcessing}
+                    />
+                    <div className="flex flex-wrap gap-1 pt-0.5 text-[10px]">
+                      {[
+                        "Especialista en marketing y conversión",
+                        "Enfoque clientes extranjeros",
+                        "Tono humano y cercano",
+                        "Nombre oficial con subtítulo destacado",
+                        "Corto, limpio y directo",
+                      ].map((sug) => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => handleSaveTitlePrompt(customTitlePrompt ? `${customTitlePrompt}. ${sug}` : sug)}
+                          className="rounded border border-cyan-100 bg-cyan-50/50 px-1.5 py-0.5 text-cyan-800 hover:bg-cyan-100 transition cursor-pointer"
+                        >
+                          + {sug}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Custom Description Prompt (Botón desplegable, debajo del Prompt para Título) */}
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsDescPromptOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between flex-wrap gap-2 p-3.5 text-left hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                      <span>📝 Prompt para Descripción Principal</span>
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      (Estructura y redacción de la descripción principal)
+                    </span>
+                    {customDescPrompt.trim() ? (
+                      <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#007D92] border border-cyan-200">
+                        Configurado
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#007D92]">
+                    <span>{isDescPromptOpen ? "Ocultar prompt" : "Ver / Editar prompt"}</span>
+                    {isDescPromptOpen ? (
+                      <ChevronDown className="h-4 w-4 text-[#007D92]" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-[#007D92]" />
+                    )}
+                  </div>
+                </button>
+
+                {isDescPromptOpen && (
+                  <div className="border-t border-slate-100 p-3.5 space-y-2 bg-slate-50/40">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-slate-500 leading-tight">
+                        Indicaciones de redacción (ej: estructura de servicios, tono empático, sin precios, sin emojis ni frases genéricas).
+                      </p>
+                      {customDescPrompt ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSaveDescPrompt("")}
+                          className="text-[10px] font-semibold text-rose-500 hover:underline cursor-pointer shrink-0"
+                        >
+                          Restablecer
+                        </button>
+                      ) : null}
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={customDescPrompt}
+                      onChange={(e) => handleSaveDescPrompt(e.target.value)}
+                      placeholder="Ej: Explicar servicio por servicio con detalle, redacción clara y profesional, sin precios ni aranceles..."
+                      className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                      disabled={isProcessing}
+                    />
+                    <div className="flex flex-wrap gap-1 pt-0.5 text-[10px]">
+                      {[
+                        "Sin precios ni aranceles",
+                        "Sin emojis ni viñetas genéricas",
+                        "Explicar cada servicio en detalle",
+                        "Resumen ejecutivo formal",
+                        "Enfocado en historia y trayectoria",
+                      ].map((sug) => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => handleSaveDescPrompt(customDescPrompt ? `${customDescPrompt}. ${sug}` : sug)}
+                          className="rounded border border-cyan-100 bg-cyan-50/50 px-1.5 py-0.5 text-cyan-800 hover:bg-cyan-100 transition cursor-pointer"
+                        >
+                          + {sug}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Bloques Opcionales de Descripción (Botón desplegable, debajo de Descripción Principal) */}
+              <div className="rounded-xl border border-purple-200 bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsOptionalBlocksOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between flex-wrap gap-2 p-3.5 text-left hover:bg-purple-50/60 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
+                      <Bot className="h-4 w-4 text-purple-600" />
+                      Bloques Opcionales de Descripción
+                    </span>
+                    <span className="text-[11px] text-purple-700">
+                      (Se generan automáticamente debajo de la descripción principal)
+                    </span>
+                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800 border border-purple-200">
+                      {customScraperBlocks.length} {customScraperBlocks.length === 1 ? "bloque" : "bloques"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-700">
+                    <span>{isOptionalBlocksOpen ? "Ocultar bloques" : "Ver / Añadir bloques"}</span>
+                    {isOptionalBlocksOpen ? (
+                      <ChevronDown className="h-4 w-4 text-purple-700" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-purple-700" />
+                    )}
+                  </div>
+                </button>
+
+                {isOptionalBlocksOpen && (
+                  <div className="border-t border-purple-100 p-3.5 space-y-3 bg-purple-50/20">
+                    {/* PRIMERA POSICIÓN: Añadir nuevo bloque opcional (TAMBIÉN DESPLEGABLE) */}
+                    <div className="rounded-xl border border-purple-200 bg-white overflow-hidden shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddBlockOpen((prev) => !prev)}
+                        className="w-full flex items-center justify-between flex-wrap gap-2 px-3 py-2.5 text-left hover:bg-purple-50/50 transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {isAddBlockOpen ? (
+                            <ChevronDown className="h-4 w-4 text-[#00A9C6]" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-[#00A9C6]" />
+                          )}
+                          <Plus className="h-3.5 w-3.5 text-[#00A9C6]" />
+                          <span className="font-bold text-purple-900 text-xs">
+                            Añadir nuevo bloque opcional
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-medium text-purple-700">
+                          {isAddBlockOpen ? "Cerrar formulario" : "Desplegar para crear bloque"}
+                        </span>
+                      </button>
+
+                      {isAddBlockOpen && (
+                        <div className="border-t border-purple-100 p-3 space-y-2.5 bg-white">
+                          <p className="text-[10px] text-slate-500">
+                            Definí el título y el prompt para que la IA extraiga o genere ese contenido en los próximos scrapings.
+                          </p>
+                          <div className="space-y-2">
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-600 block mb-1">
+                                Título del bloque:
+                              </label>
+                              <input
+                                type="text"
+                                value={newBlockTitleInput}
+                                onChange={(e) => setNewBlockTitleInput(e.target.value)}
+                                placeholder="Ej: Preguntas Frecuentes, Requisitos, Score Scout..."
+                                className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                                disabled={isProcessing}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-semibold text-slate-600 block mb-1">
+                                Prompt o instrucción para la IA:
+                              </label>
+                              <textarea
+                                rows={3}
+                                value={newBlockPromptInput}
+                                onChange={(e) => setNewBlockPromptInput(e.target.value)}
+                                placeholder="Ej: Extraer 10 preguntas y respuestas frecuentes detalladas en formato claro..."
+                                className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-800 outline-none focus:border-[#00A9C6] focus:ring-1 focus:ring-[#00A9C6]"
+                                disabled={isProcessing}
+                              />
+                            </div>
+
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => handleAddCustomScraperBlock(newBlockTitleInput, newBlockPromptInput)}
+                                disabled={isProcessing || !newBlockTitleInput.trim()}
+                                className="h-8 px-3.5 rounded-lg bg-[#00A9C6] text-xs font-bold text-white hover:bg-[#0095AE] disabled:opacity-50 transition cursor-pointer inline-flex items-center gap-1 shadow-xs"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                Añadir bloque
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                  {/* ABAJO: Bloques opcionales creados (desplegables individualmente, apertura múltiple) */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700">
+                        Bloques opcionales creados ({customScraperBlocks.length}):
+                      </span>
+                      {customScraperBlocks.length > 0 && (
+                        <span className="text-[10px] text-slate-400">
+                          Hacé clic en cada bloque para desplegar, ver o editar su prompt
+                        </span>
+                      )}
+                    </div>
+
+                    {customScraperBlocks.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-purple-200 bg-white/80 p-3 text-center text-[11px] text-slate-400">
+                        No hay bloques opcionales configurados todavía. Creá uno arriba para sumarlo al scraping.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {customScraperBlocks.map((b, bIdx) => {
+                          const isExpanded = expandedBlockIndices.has(bIdx);
+                          const editDraft = editingBlocks[bIdx];
+                          const isEditing = Boolean(editDraft);
+
+                          return (
+                            <div
+                              key={`${bIdx}-${b.title}`}
+                              className="rounded-xl border border-purple-200 bg-white overflow-hidden transition shadow-2xs"
+                            >
+                              {/* Cabecera clickeable del bloque */}
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => toggleExpandCustomBlock(bIdx)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    toggleExpandCustomBlock(bIdx);
+                                  }
+                                }}
+                                className={`flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer transition select-none ${
+                                  isExpanded ? "bg-purple-50/80 border-b border-purple-100" : "hover:bg-purple-50/40"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4 text-purple-700 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-purple-700 shrink-0" />
+                                  )}
+                                  <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-800 shrink-0">
+                                    #{bIdx + 1}
+                                  </span>
+                                  <span className="font-bold text-purple-950 text-xs break-words">
+                                    {b.title}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="flex items-center gap-1.5 shrink-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {/* Flechas de orden */}
+                                  <div className="flex items-center border border-purple-200 rounded-lg bg-white overflow-hidden shadow-2xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleMoveCustomBlock(bIdx, "up")}
+                                      disabled={bIdx === 0}
+                                      title="Subir posición de este bloque"
+                                      className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition border-r border-purple-100"
+                                    >
+                                      <ArrowUp className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleMoveCustomBlock(bIdx, "down")}
+                                      disabled={bIdx === customScraperBlocks.length - 1}
+                                      title="Bajar posición de este bloque"
+                                      className="px-1.5 py-1 text-purple-700 hover:bg-purple-50 disabled:opacity-30 disabled:hover:bg-white cursor-pointer transition"
+                                    >
+                                      <ArrowDown className="h-3 w-3" />
+                                    </button>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveCustomScraperBlock(b.title, bIdx)}
+                                    title="Eliminar este bloque"
+                                    className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    <span className="hidden sm:inline">Eliminar</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Cuerpo desplegado del bloque */}
+                              {isExpanded && (
+                                <div className="p-3 bg-white space-y-2.5">
+                                  {isEditing && editDraft ? (
+                                    <div className="space-y-2.5 rounded-lg border border-purple-200 bg-purple-50/30 p-3">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-purple-900">
+                                          Editando bloque #{bIdx + 1}
+                                        </span>
+                                      </div>
+
+                                      <div>
+                                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">
+                                          Título del bloque:
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={editDraft.title}
+                                          onChange={(e) => handleUpdateEditBlockField(bIdx, "title", e.target.value)}
+                                          className="w-full h-8 rounded-lg border border-purple-300 bg-white px-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                          placeholder="Título del bloque"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">
+                                          Prompt o instrucción para la IA:
+                                        </label>
+                                        <textarea
+                                          rows={3}
+                                          value={editDraft.prompt}
+                                          onChange={(e) => handleUpdateEditBlockField(bIdx, "prompt", e.target.value)}
+                                          className="w-full rounded-lg border border-purple-300 bg-white p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                          placeholder="Escribí acá la instrucción completa para la IA..."
+                                        />
+                                      </div>
+
+                                      <div className="flex items-center justify-end gap-2 pt-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCancelEditBlock(bIdx)}
+                                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                                        >
+                                          Cancelar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSaveEditBlock(bIdx)}
+                                          className="rounded-lg bg-purple-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-purple-700 cursor-pointer shadow-xs"
+                                        >
+                                          Guardar Cambios
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-purple-800 mb-1">
+                                          Prompt configurado:
+                                        </div>
+                                        {b.prompt ? (
+                                          <p className="text-xs text-slate-800 whitespace-pre-wrap break-words leading-relaxed">
+                                            {b.prompt}
+                                          </p>
+                                        ) : (
+                                          <p className="text-xs italic text-slate-400">
+                                            Sin prompt específico (extracción automática según el título del bloque).
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      <div className="flex items-center justify-end">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartEditBlock(bIdx)}
+                                          className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-[11px] font-semibold text-purple-800 hover:bg-purple-100 hover:border-purple-300 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                        >
+                                          <Pencil className="h-3 w-3" />
+                                          Editar título / prompt
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs font-semibold text-slate-700">Motor de IA:</label>
+              <select
+                value={aiProvider}
+                onChange={(e) => setAiProvider(e.target.value as any)}
+                disabled={isProcessing}
+                className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-[#00A9C6]/30 cursor-pointer"
+              >
+                <option value="auto">Automático (Recomendado)</option>
+                <option value="gemini">Google Gemini (Pruebas)</option>
+                <option value="openai">OpenAI GPT-4o (Producción)</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+                className="text-xs text-[#00A9C6] hover:underline font-medium ml-1"
+              >
+                {showApiKeyInput ? "Ocultar clave de API" : "Configurar API Key (Opcional)"}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={isProcessing}
+              className="h-10 rounded-xl bg-[#00A9C6] px-5 text-sm font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50 transition shadow-sm"
+            >
+              {isProcessing ? "Extrayendo y generando..." : "Generar con IA"}
+            </button>
+          </div>
+
+          {showApiKeyInput && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-3 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sky-900">Clave de API propia (Google Gemini o OpenAI):</span>
+                {customApiKey && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveApiKey("")}
+                    className="text-rose-600 hover:underline text-[11px]"
+                  >
+                    Borrar clave guardada
+                  </button>
+                )}
+              </div>
+              <input
+                type="password"
+                value={customApiKey}
+                onChange={(e) => handleSaveApiKey(e.target.value)}
+                placeholder="Pega aquí tu clave AIza... o sk-..."
+                className="w-full rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-[#00A9C6]/30"
+              />
+              <p className="text-[11px] text-sky-700">
+                Opcional: Si tu servidor Vercel no tiene <code className="font-mono bg-white px-1 rounded">GEMINI_API_KEY</code> o <code className="font-mono bg-white px-1 rounded">OPENAI_API_KEY</code> configurada, puedes ingresarla aquí directamente. Se guardará de manera privada en tu navegador.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Review Queue (Cola de Revisión) */}
+        {draftsQueue.length > 0 && (
+          <div className="mt-8 border-t border-slate-200 pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Cola de Revisión ({draftsQueue.length} borrador{draftsQueue.length > 1 ? "es" : ""})
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Inspecciona, edita imágenes/logos o cambia el estado antes de publicar.
+                </p>
+              </div>
+
+              {onApproveDirectly && draftsQueue.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleApproveAll}
+                  disabled={savingAll}
+                  className="h-9 rounded-xl border border-emerald-600 bg-emerald-50 px-4 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                >
+                  {savingAll ? "Traduciendo y guardando..." : "Aprobar y guardar todas"}
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+              {draftsQueue.map((draft, index) => (
+                <div
+                  key={`draft-${index}-${draft.url}`}
+                  className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-200/60 pb-3">
+                    <div className="flex items-start gap-3">
+                      {draft.providerLogo ? (
+                        <div
+                          className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl border border-slate-300 bg-slate-100 p-1 flex items-center justify-center shadow-xs"
+                          style={{
+                            backgroundImage:
+                              "linear-gradient(45deg, #cbd5e1 25%, transparent 25%), linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cbd5e1 75%), linear-gradient(-45deg, transparent 75%, #cbd5e1 75%)",
+                            backgroundSize: "8px 8px",
+                            backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
+                          }}
+                        >
+                          <img
+                            src={draft.providerLogo}
+                            alt="Logo"
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-contain drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.7)]"
+                            onError={(e) => {
+                              try {
+                                const host = new URL(draft.website || draft.url || draft.providerLogo).hostname;
+                                if (host && !e.currentTarget.src.includes("google.com/s2/favicons")) {
+                                  e.currentTarget.src = `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+                                }
+                              } catch {}
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-bold text-[#00A9C6] uppercase tracking-wider">
+                            {(draft.categorySelections?.length ? draft.categorySelections.join(", ") : draft.category) || "(Sin categoría)"}
+                            {(draft.subcategorySelections?.length ? draft.subcategorySelections.join(", ") : draft.subcategory)
+                              ? ` · ${draft.subcategorySelections?.length ? draft.subcategorySelections.join(", ") : draft.subcategory}`
+                              : ""}
+                          </span>
+                          {(() => {
+                            const scoreBlock = (draft.extraDescriptions || []).find((d) => /score scout/i.test(d.title || d.titleI18n?.es || ""));
+                            if (scoreBlock) {
+                              return (
+                                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-[#007D92] border border-cyan-200">
+                                  {scoreBlock.title || scoreBlock.titleI18n?.es}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                              draft.status === "draft"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-emerald-100 text-emerald-800"
+                            }`}
+                          >
+                            {draft.status === "draft" ? "Borrador" : "Activo"}
+                          </span>
+                        </div>
+                        <h4 className="text-base font-semibold text-slate-900 mt-0.5">{draft.title}</h4>
+                        <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span>Oferente: <strong className="text-slate-700">{draft.publisherName}</strong></span>
+                          <span>·</span>
+                          <span>Ubicación: <strong className="text-slate-700">{draft.city}, {draft.country}</strong></span>
+                          {draft.providerRating ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
+                              ⭐ {draft.providerRating} ({draft.providerReviewCount || "0"} reseñas)
+                            </span>
+                          ) : null}
+                          {draft.headquarterLocations && draft.headquarterLocations.length > 1 && (
+                            <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">
+                              📍 {draft.headquarterLocations.length} sedes
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectDraftToEdit(draft, index);
+                          onClose();
+                        }}
+                        className="rounded-lg border border-[#00A9C6] bg-cyan-50 px-3.5 py-1.5 text-xs font-bold text-[#007D92] hover:bg-cyan-100 shadow-sm"
+                      >
+                        📝 Pasar a Formulario Principal
+                      </button>
+
+                      {onApproveDirectly && (
+                        <button
+                          type="button"
+                          onClick={() => handleApproveDraft(draft, index)}
+                          disabled={savingIndex === index}
+                          className="rounded-lg bg-[#00A9C6] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0095AE] disabled:opacity-50"
+                        >
+                          {savingIndex === index ? "Traduciendo y guardando..." : "Aprobar y Guardar"}
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDraft(index)}
+                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Multi-Sedes summary pills if more than 1 sede */}
+                  {draft.headquarterLocations && draft.headquarterLocations.length > 1 && (
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-2.5 text-xs">
+                      <span className="font-semibold text-indigo-900 block mb-1">
+                        Sedes / Facultades / Centros Detectados ({draft.headquarterLocations.length}):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {draft.headquarterLocations.map((hq, hqIdx) => (
+                          <a
+                            key={`sede-${hqIdx}-${hq.city}`}
+                            href={hq.mapUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[11px] text-indigo-800 hover:bg-indigo-50 transition"
+                            title={hq.address || hq.city}
+                          >
+                            <span>📍 {hq.city}</span>
+                            {hq.address && <span className="text-slate-500 max-w-[200px] truncate">({hq.address})</span>}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Summary Badges */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600">
+                    <div className="rounded-xl border border-slate-200 bg-white p-2">
+                      <span className="font-semibold block text-slate-800">Categoría</span>
+                      <div className="line-clamp-2" title={Array.isArray(draft.categorySelections) && draft.categorySelections.length > 0 ? draft.categorySelections.join(", ") : draft.category || "(Sin categoría)"}>
+                        {Array.isArray(draft.categorySelections) && draft.categorySelections.length > 0
+                          ? draft.categorySelections.join(", ")
+                          : draft.category || "(Sin categoría)"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-2">
+                      <span className="font-semibold block text-slate-800">Subcategoría</span>
+                      <div className="line-clamp-2" title={Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0 ? draft.subcategorySelections.join(", ") : draft.subcategory || "(Sin subcategoría)"}>
+                        {Array.isArray(draft.subcategorySelections) && draft.subcategorySelections.length > 0
+                          ? draft.subcategorySelections.join(", ")
+                          : draft.subcategory || "(Sin subcategoría)"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-2">
+                      <span className="font-semibold block text-slate-800">Actividad / Perfil</span>
+                      <div className="line-clamp-2" title={Array.from(new Set([...(draft.providerActivities || []), ...(draft.providerTypes || [])])).filter(Boolean).join(", ") || "Institución"}>
+                        {Array.from(new Set([...(draft.providerActivities || []), ...(draft.providerTypes || [])])).filter(Boolean).join(", ") || "Institución"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-2">
+                      <span className="font-semibold block text-slate-800">Modalidad / Fotos</span>
+                      <div className="truncate font-medium text-slate-700" title={draft.providerModalities?.length ? draft.providerModalities.join(", ") : "Presencial"}>
+                        {draft.providerModalities?.length ? draft.providerModalities.join(", ") : "Presencial"}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {draft.images?.length || 0} imagen(es)
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bloques de Descripción Adicionales / Creados con IA */}
+                  <div className="rounded-xl border border-purple-100 bg-purple-50/40 p-3 text-xs space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="font-bold text-purple-900 flex items-center gap-1.5 text-xs">
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                        Bloques creados / opcionales ({draft.extraDescriptions?.length || 0}):
+                      </span>
+                      {(!draft.extraDescriptions || draft.extraDescriptions.length === 0) && (
+                        <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                          ⚠️ Sin bloques adicionales cargados
+                        </span>
+                      )}
+                    </div>
+
+                    {draft.extraDescriptions && draft.extraDescriptions.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {draft.extraDescriptions.map((blk, blkIdx) => {
+                          const blkTitle = blk.titleI18n?.es || blk.title || `Bloque ${blkIdx + 1}`;
+                          const blkBody = blk.bodyI18n?.es || blk.body || "";
+                          const isLoaded = Boolean(blkBody && blkBody.trim().length > 10);
+                          const wordCount = blkBody.replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length;
+
+                          return (
+                            <div
+                              key={`draft-blk-${blkIdx}-${blkTitle}`}
+                              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium shadow-2xs ${
+                                isLoaded
+                                  ? "border-emerald-200 bg-white text-emerald-800"
+                                  : "border-amber-200 bg-amber-50 text-amber-800"
+                              }`}
+                              title={isLoaded ? `Vista previa: ${blkBody.slice(0, 150)}...` : "Bloque sin contenido generado"}
+                            >
+                              <span className="font-semibold text-slate-800">{blkTitle}:</span>
+                              {isLoaded ? (
+                                <span className="inline-flex items-center gap-1 font-bold text-emerald-600">
+                                  <span>✓ OK</span>
+                                  <span className="text-[10px] text-emerald-600/70 font-normal">({wordCount} palabras)</span>
+                                </span>
+                              ) : (
+                                <span className="font-bold text-amber-600">⚠️ Error / Vacío</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500">
+                        Esta publicación no tiene bloques adicionales cargados. Podés agregar bloques antes del scraping o desde el formulario principal con IA.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
