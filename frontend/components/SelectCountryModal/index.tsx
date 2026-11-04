@@ -375,7 +375,9 @@ const CountrySelectionModal = ({
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) closeAndSave(); }}
-      className={`fixed inset-0 bg-black/60 flex items-start justify-center pt-4 pb-4 px-4 z-[9999] transition-opacity duration-300 ${
+      className={`fixed inset-0 bg-black/60 flex ${
+        isKeyboardOpen ? "items-start pt-4" : "items-center"
+      } justify-center p-4 z-[9999] transition-opacity duration-300 ${
         showModal ? "opacity-100" : "opacity-0"
       }`}
       style={{
@@ -387,12 +389,9 @@ const CountrySelectionModal = ({
         height: "100vh",
         width: "100vw",
         display: "flex",
-        alignItems: "flex-start",
+        alignItems: isKeyboardOpen ? "flex-start" : "center",
         justifyContent: "center",
-        paddingTop: "16px",
-        paddingBottom: "16px",
-        paddingLeft: "16px",
-        paddingRight: "16px",
+        padding: "16px",
       }}
     >
       {/* Modal Content */}
