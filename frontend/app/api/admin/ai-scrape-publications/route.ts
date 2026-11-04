@@ -5365,22 +5365,21 @@ function generateImpactfulTitle(
   const isInstructionPrompt = /(?:haz|crea|gener[aá]|pon|redacta|escribe|se\s+un|act[uú]a|especialista|experto|copywriter|llamativ|impactante|conversi[oó]n|marketing|que\s+(?:llame|sea|tenga)|atenci[oó]n|vendedor|buen\s+seo|optimizado|persuasiv|venda)/i.test(pTrim);
 
   if (isInstructionPrompt) {
-    // Sector-aware value proposition
-    let valueProp = "Servicios Integrales y Atención Profesional de Excelencia";
-    if (isHealth) {
-      valueProp = "Atención Médica de Excelencia, Especialidades y Cuidado Integral de la Salud";
-    } else if (isExplicitEdu) {
-      valueProp = "Formación Académica de Excelencia e Innovación Educativa";
-    } else if (/deporte|fitness|gimnasio/i.test(allCorpus)) {
-      valueProp = "Entrenamiento Integral, Salud y Acondicionamiento Físico";
-    } else if (/abogad|jur[ií]dico|legal/i.test(allCorpus)) {
-      valueProp = "Asesoramiento Legal Integral y Soluciones Profesionales";
-    } else if (/hotel|turismo|hospedaje/i.test(allCorpus)) {
-      valueProp = "Hospitalidad, Confort y Experiencias de Primer Nivel";
-    } else if (candidateSlogan && !/\b(?:202[0-9]|\d+\s+d[ií]as|novedades|noticias|agenda)\b/i.test(candidateSlogan)) {
-      valueProp = candidateSlogan;
+    // Dynamic value proposition extracted directly from scraped website facts without static templates
+    let dynamicHeadline = "";
+    if (candidateSlogan && !/\b(?:202[0-9]|\d+\s+d[ií]as|novedades|noticias|agenda|buscar|inicio|contacto|cookies|login)\b/i.test(candidateSlogan)) {
+      dynamicHeadline = candidateSlogan;
+    } else if (headings.length > 0) {
+      const bestH = headings.find((h) => !h.toLowerCase().includes(baseEntityName.toLowerCase()) && h.length > 8 && h.length < 80);
+      if (bestH) dynamicHeadline = bestH;
     }
-    return enforceTitleConstraints(formatTitle(valueProp), pTrim);
+    if (!dynamicHeadline && cleanName && cleanName.length > 8 && !cleanName.toLowerCase().includes(baseEntityName.toLowerCase())) {
+      dynamicHeadline = cleanName;
+    }
+    if (!dynamicHeadline) {
+      dynamicHeadline = baseEntityName;
+    }
+    return enforceTitleConstraints(formatTitle(dynamicHeadline), pTrim);
   }
 
   // 3. Extract the substantive request from the prompt itself (remove meta-instructions)
@@ -5611,13 +5610,15 @@ async function buildGroundedDescriptions(
         `<p><strong>Admisiones y Consultas:</strong> Información sobre inscripciones y programas disponible en su sitio web ${siteUrl}.</p>`
       );
     } else {
-      paragraphs.push(`<p><strong>Presentación Institucional:</strong> ${baseEntityName} ofrece servicios de excelencia${locationText ? ` en ${locationText}` : ""}, orientados a la calidad y la atención profesional.</p>`);
-      if (headingsList.length > 0) {
-        paragraphs.push(`<p><strong>Prestaciones Principales:</strong> Cobertura y especialidades en ${escapeHtml(headingsList.slice(0, 4).join(", "))}.</p>`);
-      } else if (cleanSummary && cleanSummary !== baseEntityName) {
-        paragraphs.push(`<p><strong>Propuesta y Alcance:</strong> ${cleanSummary}</p>`);
+      const p1Title = headingsList[0] || "Propuesta y Servicios";
+      const p1Body = cleanSummary || `${baseEntityName} ofrece soluciones profesionales${locationText ? ` en ${locationText}` : ""} con atención personalizada.`;
+      paragraphs.push(`<p><strong${titleStyleAttr}>${escapeHtml(p1Title)}:</strong> ${p1Body}</p>`);
+
+      if (headingsList.length > 1 || cleanParas.length > 1) {
+        const p2Title = headingsList[1] || "Prestaciones y Especialidades";
+        const p2Body = cleanParas[1] ? escapeHtml(cleanParas[1].slice(0, 300)) : (headingsList.length > 2 ? `Cobertura en ${escapeHtml(headingsList.slice(1, 6).join(", "))}.` : `Gestión y consultas oficiales a través de ${siteUrl}.`);
+        paragraphs.push(`<p><strong${titleStyleAttr}>${escapeHtml(p2Title)}:</strong> ${p2Body}</p>`);
       }
-      paragraphs.push(`<p><strong>Canales Oficiales y Contacto:</strong> Información y gestión directa a través de su sitio oficial ${siteUrl}.</p>`);
     }
   } else {
     paragraphs.push(
@@ -5635,10 +5636,14 @@ async function buildGroundedDescriptions(
   }
 
   let es = paragraphs.join("\n");
+  if (prompt && es) {
+    es = enforceDescriptionParagraphCount(es, prompt);
+    es = enforceParagraphWordLimit(es, prompt);
+    es = applyPromptColorStyles(es, prompt);
+  }
   if (omitIcons) {
     es = stripEmojisAndIcons(es);
   }
-
   return { es, en: "", pt: "", it: "" };
 }
 
@@ -8016,7 +8021,7 @@ async function processUrlWithAI(
     });
 
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("AI generation timeout")), 15000)
+      setTimeout(() => reject(new Error("AI generation timeout")), 28000)
     );
 
     const [, aiRes] = await Promise.all([
@@ -8308,7 +8313,7 @@ async function processUrlWithAI(
       fallbackTasks.push(
         Promise.race([
           runTitleAgent(cleanContext, effectiveTitlePrompt),
-          new Promise<null>((r) => setTimeout(() => r(null), 5000)),
+          new Promise<null>((r) => setTimeout(() => r(null), 8000)),
         ])
           .then((titleFallback: any) => {
             if (titleFallback?.success && titleFallback.data?.title) {
@@ -8327,7 +8332,7 @@ async function processUrlWithAI(
       fallbackTasks.push(
         Promise.race([
           runDescriptionAgent(cleanContext, effectiveDescPrompt),
-          new Promise<null>((r) => setTimeout(() => r(null), 5500)),
+          new Promise<null>((r) => setTimeout(() => r(null), 8500)),
         ])
           .then((descFallback: any) => {
             if (descFallback?.success && descFallback.data?.description) {

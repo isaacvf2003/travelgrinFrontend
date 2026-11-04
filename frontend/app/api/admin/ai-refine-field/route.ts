@@ -65,13 +65,20 @@ let cachedRefineModel: string | null = null;
 
 async function callGemini(prompt: string, apiKey: string, temperature = 0.92): Promise<string> {
   const candidateModels = [
-    "gemini-1.5-flash",
     "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-flash",
     "gemini-1.5-flash-8b",
   ];
   let lastError: any = null;
+  const startTime = Date.now();
+  const MAX_TOTAL_GEMINI_MS = 7500; // Stay strictly below Vercel's 10s serverless timeout
 
   const tryModel = async (model: string): Promise<string | null> => {
+    if (Date.now() - startTime > MAX_TOTAL_GEMINI_MS) {
+      return null;
+    }
+
     const payload = {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
@@ -81,24 +88,25 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.92): P
     };
 
     try {
+      const remainingMs = Math.max(2000, Math.min(3800, MAX_TOTAL_GEMINI_MS - (Date.now() - startTime)));
       let res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(6500),
+          signal: AbortSignal.timeout(remainingMs),
           body: JSON.stringify(payload),
         }
       );
 
-      if (res.status === 429) {
-        await new Promise((r) => setTimeout(r, 1000));
+      if (res.status === 429 && Date.now() - startTime < MAX_TOTAL_GEMINI_MS - 2500) {
+        await new Promise((r) => setTimeout(r, 400));
         res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(6500),
+            signal: AbortSignal.timeout(2800),
             body: JSON.stringify(payload),
           }
         );
@@ -111,7 +119,7 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.92): P
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(6500),
+            signal: AbortSignal.timeout(3000),
             body: JSON.stringify({
               contents: payload.contents,
               generationConfig: { temperature },
@@ -145,6 +153,7 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.92): P
   }
 
   for (const model of candidateModels) {
+    if (Date.now() - startTime > MAX_TOTAL_GEMINI_MS) break;
     try {
       const result = await tryModel(model);
       if (result) {
@@ -156,36 +165,39 @@ async function callGemini(prompt: string, apiKey: string, temperature = 0.92): P
     }
   }
 
-  // Dynamic discovery via ListModels if all fixed models fail
-  try {
-    const listRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-      { signal: AbortSignal.timeout(6000) }
-    );
-    if (listRes.ok) {
-      const listData = await listRes.json();
-      const available = (listData.models || [])
-        .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
-        .map((m: any) => m.name.replace(/^models\//, ""))
-        .filter((m: string) => !candidateModels.includes(m));
+  // Fast dynamic discovery via ListModels only if within time budget
+  if (Date.now() - startTime < 4500) {
+    try {
+      const listRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+        { signal: AbortSignal.timeout(2500) }
+      );
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const available = (listData.models || [])
+          .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
+          .map((m: any) => m.name.replace(/^models\//, ""))
+          .filter((m: string) => !candidateModels.includes(m) && m.includes("gemini"));
 
-      for (const model of available) {
-        try {
-          const result = await tryModel(model);
-          if (result) {
-            cachedRefineModel = model;
-            return result;
+        for (const model of available) {
+          if (Date.now() - startTime > MAX_TOTAL_GEMINI_MS) break;
+          try {
+            const result = await tryModel(model);
+            if (result) {
+              cachedRefineModel = model;
+              return result;
+            }
+          } catch (e: any) {
+            lastError = e;
           }
-        } catch (e: any) {
-          lastError = e;
         }
       }
+    } catch (e) {
+      console.error("ListModels discovery fallback error:", e);
     }
-  } catch (e) {
-    console.error("ListModels discovery fallback error:", e);
   }
 
-  throw lastError || new Error("No se pudo obtener respuesta de Gemini con tu API Key.");
+  throw lastError || new Error("No se pudo obtener respuesta rápida de Gemini con tu API Key. Revisa que tu clave sea válida.");
 }
 
 async function callOpenAI(prompt: string, apiKey: string, temperature = 0.92): Promise<string> {
@@ -200,7 +212,7 @@ async function callOpenAI(prompt: string, apiKey: string, temperature = 0.92): P
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        signal: AbortSignal.timeout(7000),
+        signal: AbortSignal.timeout(4000),
         body: JSON.stringify({
           model,
           temperature,
