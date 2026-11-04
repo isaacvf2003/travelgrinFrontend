@@ -3860,7 +3860,8 @@ export default function AdminPanel({ section, publicationsView = "overview" }: A
         data = await res.json().catch(() => null);
       } else {
         const rawText = await res.text().catch(() => "");
-        throw new Error(rawText && rawText.length < 160 ? rawText : `El servicio de IA tardó demasiado en responder (${res.status}). Intenta nuevamente.`);
+        const isVercelTimeout = /FUNCTION_INVOCATION_TIMEOUT|timed\s*out|504\s+Gateway/i.test(rawText);
+        throw new Error(isVercelTimeout ? "El servicio de IA tardó en responder. Por favor intenta nuevamente en unos segundos." : (rawText && rawText.length < 160 && !rawText.includes("<") ? rawText : `El servicio de IA tardó en responder (${res.status}). Intenta nuevamente.`));
       }
 
       if (!res.ok || !data?.success || !data?.result) {
