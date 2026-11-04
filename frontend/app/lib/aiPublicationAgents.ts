@@ -90,11 +90,11 @@ export function extractRequestedCount(prompt?: string): number | null {
     nueve: 9,
     diez: 10,
   };
-  const wordMatch = p.match(/\b(un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*(?:preguntas?|faq|items?|puntos?|consultas?|p[aá]rrafos?)\b/i);
+  const wordMatch = p.match(/\b(un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*(?:preguntas?|faq|items?|puntos?|consultas?|p[aá]r?r?af?o?s?)\b/i);
   if (wordMatch && wordMatch[1] && wordMap[wordMatch[1]]) {
     return wordMap[wordMatch[1]];
   }
-  const digitMatch = p.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?|p[aá]rrafos?)\b/i);
+  const digitMatch = p.match(/\b(\d+)\s*(?:preguntas?|faq|items?|puntos?|consultas?|p[aá]r?r?af?o?s?)\b/i);
   if (digitMatch && digitMatch[1]) {
     return parseInt(digitMatch[1], 10);
   }
@@ -152,7 +152,7 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
 
   // Specific question/title target match (including "los títulos de esos párrafos deben ser en..." o "de color negras bold las preguntas"):
   const titleColorMatch =
-    p.match(new RegExp(`(?:preguntas?|t[ií]tulos?|subt[ií]tulos?|encabezados?)(?:\\s+(?:de\\s+(?:esos?|cada|los|ambos)\\s+p[aá]rrafos?|del\\s+p[aá]rrafo|principales?))?(?:\\s+(?:deben\\s+(?:ser|estar|ir)|tienen\\s+que\\s+(?:ser|estar|ir)|van|sean|en|de|con|color|letras?|texto|bold|negritas?))*\\s+(${COLOR_NAMES_PATTERN})`, "i")) ||
+    p.match(new RegExp(`(?:preguntas?|t[ií]tulos?|subt[ií]tulos?|encabezados?)(?:\\s+(?:de\\s+(?:esos?|cada|los|ambos)\\s+p[aá]r?r?af?o?s?|del\\s+p[aá]rrafo|principales?))?(?:\\s+(?:deben\\s+(?:ser|estar|ir)|tienen\\s+que\\s+(?:ser|estar|ir)|van|sean|en|de|con|color|letras?|texto|bold|negritas?))*\\s+(${COLOR_NAMES_PATTERN})`, "i")) ||
     p.match(new RegExp(`(?:de\\s+)?(?:color\\s+)?(${COLOR_NAMES_PATTERN})(?:\\s+bold|\\s+negritas?)?\\s+(?:para|en)?\\s*(?:las?\\s+preguntas?|el\\s+t[ií]tulo|los\\s+t[ií]tulos?|subt[ií]tulos?)`, "i")) ||
     p.match(new RegExp(`(?:en|de|con)\\s+(?:color\\s+)?(${COLOR_NAMES_PATTERN})\\s+(?:para\\s+)?(?:el\\s+t[ií]tulo|los\\s+t[ií]tulos?|las?\\s+preguntas?|subt[ií]tulos?)`, "i"));
 
@@ -174,7 +174,8 @@ export function detectPromptColors(prompt: string): { titleColor?: string; bodyC
 
   // Fallback broad matching if not targeted:
   if (!titleColor) {
-    if (/\b(?:de\s+)?azul(?:es)?\b|color\s+azul|en\s+azul|celeste/i.test(p)) titleColor = "#0066cc";
+    if (/\bceleste[s]?\b|color\s+celeste|en\s+celeste/i.test(p)) titleColor = "#0284c7";
+    else if (/\b(?:de\s+)?azul(?:es)?\b|color\s+azul|en\s+azul/i.test(p)) titleColor = "#0066cc";
     else if (/\brojo[as]?\b|color\s+rojo|en\s+rojo/i.test(p)) titleColor = "#dc2626";
     else if (/\bamarill[oas]?\b|color\s+amarillo|en\s+amarillo|dorad[oas]?/i.test(p)) titleColor = "#ca8a04";
     else if (/\bverde[s]?\b|color\s+verde|en\s+verde/i.test(p)) titleColor = "#16a34a";
@@ -281,7 +282,7 @@ export function enforceFaqCountAndFilter(html: string, prompt?: string): string 
 
 export function extractParagraphCount(prompt?: string): number | null {
   if (!prompt) return null;
-  const p = prompt.toLowerCase();
+  const p = prompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const wordMap: Record<string, number> = {
     un: 1, una: 1, uno: 1,
     dos: 2,
@@ -294,11 +295,12 @@ export function extractParagraphCount(prompt?: string): number | null {
     nueve: 9,
     diez: 10,
   };
-  const wordMatch = p.match(/\b(un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*p[aá]rrafos?\b/i);
+  // Matches "dos parafos", "en dos parafos", "2 parafos", "dos parrafos", "2 párrafos", "parrafor", etc.
+  const wordMatch = p.match(/\b(?:en\s+|con\s+|de\s+)?(un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*(?:de\s+)?p[aá]r?r?af?o?s?\b/i);
   if (wordMatch && wordMatch[1] && wordMap[wordMatch[1]]) {
     return wordMap[wordMatch[1]];
   }
-  const digitMatch = p.match(/\b(\d+)\s*p[aá]rrafos?\b/i);
+  const digitMatch = p.match(/\b(?:en\s+|con\s+|de\s+)?(\d+)\s*(?:de\s+)?p[aá]r?r?af?o?s?\b/i);
   if (digitMatch && digitMatch[1]) {
     return parseInt(digitMatch[1], 10);
   }
@@ -419,7 +421,7 @@ export function extractParagraphWordLimit(prompt?: string): number | null {
   // 1. Explicit paragraph context pattern: "(con un / un)? (maximo / limite / hasta / tope / menos de / no mas de) X palabras (en / por / cada) parrafo"
   const pContextMatch =
     p.match(/\b(?:(?:con\s+)?(?:un\s+)?|de\s+)?(?:maximo(?:\s+de)?|limite(?:\s+de)?|hasta|tope(?:\s+de)?|menos(?:\s+de)?|no\s+mas\s+de)\s*(\d{1,3})\s*palabras?\s*(?:en\s+|por\s+)?(?:cada\s+)?p[aá]rrafo/i) ||
-    p.match(/p[aá]rrafos?\s*(?:con\s+|de\s+)?(?:(?:un\s+)?(?:maximo(?:\s+de)?|limite(?:\s+de)?|hasta|tope(?:\s+de)?|menos(?:\s+de)?|no\s+mas\s+de))?\s*(\d{1,3})\s*palabras/i) ||
+    p.match(/p[aá]r?r?af?o?s?\s*(?:con\s+|de\s+)?(?:(?:un\s+)?(?:maximo(?:\s+de)?|limite(?:\s+de)?|hasta|tope(?:\s+de)?|menos(?:\s+de)?|no\s+mas\s+de))?\s*(\d{1,3})\s*palabras/i) ||
     p.match(/\b(\d{1,3})\s*palabras?\s*(?:como\s+|de\s+)?(?:maximo|limite|tope)?\s*(?:en\s+|por\s+)?(?:cada\s+)?p[aá]rrafo/i);
 
   if (pContextMatch && pContextMatch[1]) {
@@ -669,13 +671,13 @@ export function synthesizeMarketingTitle(
     } else if (isTourism) {
       baseTitle = "Hospitalidad, Confort y Experiencias de Primer Nivel";
     } else {
-      baseTitle = "Propuestas de Valor, Servicios Integrales y Atención de Calidad";
+      baseTitle = (allHeadings[0] || allServices[0] || entityName);
     }
   }
 
   let finalRes = "";
   if (omitName) {
-    finalRes = baseTitle ? cleanTitleOmitEntity(baseTitle, entityName, context.publisherName) : "Servicios y Prestaciones";
+    finalRes = baseTitle ? cleanTitleOmitEntity(baseTitle, entityName, context.publisherName) : (allHeadings[0] ? cleanTitleOmitEntity(allHeadings[0], entityName, context.publisherName) : entityName);
   } else if (!baseTitle) {
     finalRes = entityName;
   } else if (baseTitle.toLowerCase().includes(entityName.toLowerCase())) {
@@ -1079,7 +1081,7 @@ export async function executeModelCall(
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(8500),
+            signal: AbortSignal.timeout(6500),
             body: JSON.stringify(payload),
           }
         );
@@ -1140,10 +1142,10 @@ export async function executeModelCall(
 
     // 2. Probar candidatos estables (gemini-1.5-flash y gemini-2.0-flash primero)
     const candidateModels = [
-      "gemini-1.5-flash",
       "gemini-2.0-flash",
-      "gemini-1.5-flash-8b",
       "gemini-2.0-flash-lite",
+      "gemini-1.5-flash",
+      "gemini-1.5-flash-8b",
     ];
 
     let lastErr: any = null;
