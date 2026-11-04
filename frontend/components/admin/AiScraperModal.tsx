@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sparkles, Trash2, ArrowUp, ArrowDown, Pencil, Bot, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { cleanGenericBlockTitle } from "@/app/lib/aiPublicationAgents";
 
@@ -382,9 +382,15 @@ export default function AiScraperModal({
     });
   };
 
-  // Sync draftsQueue with sessionStorage on any change
+  const hasLoadedQueueRef = useRef(false);
+
+  // Sync draftsQueue with sessionStorage on any change, but only after initial load
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!hasLoadedQueueRef.current) {
+      hasLoadedQueueRef.current = true;
+      return;
+    }
     try {
       if (draftsQueue.length > 0) {
         window.sessionStorage.setItem("tgn_ai_drafts_queue", JSON.stringify(draftsQueue));
@@ -393,6 +399,40 @@ export default function AiScraperModal({
       }
     } catch {}
   }, [draftsQueue]);
+
+  // Re-read sessionStorage whenever the modal opens to pick up edits made in AdminPanel
+  useEffect(() => {
+    if (!isOpen || typeof window === "undefined") return;
+    try {
+      const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setDraftsQueue(parsed);
+        }
+      }
+    } catch {}
+  }, [isOpen]);
+
+  // Listen to live queue updates from AdminPanel
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleQueueUpdated = (e: any) => {
+      if (Array.isArray(e?.detail)) {
+        setDraftsQueue(e.detail);
+      } else {
+        const saved = window.sessionStorage.getItem("tgn_ai_drafts_queue");
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) setDraftsQueue(parsed);
+          } catch {}
+        }
+      }
+    };
+    window.addEventListener("tgn_drafts_queue_updated", handleQueueUpdated);
+    return () => window.removeEventListener("tgn_drafts_queue_updated", handleQueueUpdated);
+  }, []);
 
   if (!isOpen) return null;
 
